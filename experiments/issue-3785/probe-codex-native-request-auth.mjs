@@ -19,6 +19,10 @@ const providerOverrides = process.argv.includes('--provider-overrides');
 const expectProviderOverrides = process.argv.includes('--expect-provider-overrides');
 const providerConstructors = process.argv.includes('--provider-constructors');
 const expectProviderConstructors = process.argv.includes('--expect-provider-constructors');
+const diagnosticsIndex = process.argv.indexOf('--diagnostics-dir');
+const diagnosticsDirectory = diagnosticsIndex < 0 ? null : process.argv[diagnosticsIndex + 1];
+assert.ok(diagnosticsIndex < 0 || (diagnosticsDirectory && path.isAbsolute(diagnosticsDirectory)), 'Supply an absolute diagnostics directory.');
+if (diagnosticsDirectory) await fs.mkdir(diagnosticsDirectory, { recursive: true, mode: 0o700 });
 assert.ok(!expectProviderOverrides || providerOverrides, 'Provider override controls require --provider-overrides.');
 assert.ok(!expectProviderConstructors || providerConstructors, 'Provider constructor controls require --provider-constructors.');
 assert.ok(!providerConstructors || !providerOverrides, 'Select only one provider control.');
@@ -27,6 +31,8 @@ assert.ok(binary && path.isAbsolute(binary), 'Supply an absolute native Codex bi
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-native-requests-'));
 const clients = [];
 const observed = [];
+const blockedOrigins = new Set();
+const backgroundPaths = new Set(['/backend-api/plugins/featured', '/backend-api/ps/plugins/installed', '/backend-api/wham/accounts/check', '/backend-api/wham/settings/user', '/backend-api/codex/analytics-events/events']);
 let invalidRequest = false;
 const server = http.createServer(async (request, response) => {
   try {
@@ -40,24 +46,39 @@ const server = http.createServer(async (request, response) => {
       observed.push(request.headers['openai-organization'] === 'synthetic-organization' ? 'G2-organization' : request.headers['openai-project'] === 'synthetic-project' ? 'G2-project' : request.headers['x-api-key'] === 'sk-SYNTHETIC-G2' ? 'G2-extra' : ['G0', 'G1', 'G2'].find(generation => header === `Bearer sk-SYNTHETIC-${generation}` || header === `Bearer SYNTHETIC-ACCESS-${generation}`) || (header ? 'unexpected' : 'absent'));
       response.writeHead(503, { 'content-type': 'application/json', connection: 'close' });
       response.end('{"error":{"message":"Synthetic model deliberately unavailable","code":"offline"}}');
-    } else if (request.method === 'GET' && request.url === '/v1/models') {
+    } else if (request.method === 'GET' && new URL(request.url, 'http://fixture.invalid').pathname === '/v1/models') {
       response.writeHead(200, { 'content-type': 'application/json' });
-      response.end('{"data":[]}');
+      response.end('{"models":[]}');
+    } else if (backgroundPaths.has(new URL(request.url, 'http://fixture.invalid').pathname)) {
+      // Native background discovery/telemetry is outside this request probe.
+      response.writeHead(404, { 'content-type': 'application/json' });
+      response.end('{}');
     } else throw new Error('Unexpected synthetic endpoint.');
   } catch {
     invalidRequest = true;
+    console.error(`REFUSED synthetic endpoint: ${request.method} ${new URL(request.url, 'http://fixture.invalid').pathname}`);
     response.writeHead(400);
     response.end();
   }
 });
 server.requestTimeout = 3000;
 server.headersTimeout = 3000;
+server.on('connect', (request, socket) => {
+  // Background catalog/update tasks may still attempt these native origins.
+  // Refuse every tunnel before TLS or credentials; never forward a byte.
+  if (!['github.com:443', 'api.github.com:443', 'chatgpt.com:443', 'raw.githubusercontent.com:443'].includes(request.url)) invalidRequest = true;
+  blockedOrigins.add(request.url);
+  socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+});
 
 async function startClient({ home, config, canonical, selectCanonical = true, provider = {}, providerEnv = {} }) {
   await fs.mkdir(home, { mode: 0o700 });
   await fs.mkdir(config, { mode: 0o700, recursive: true });
-  await fs.writeFile(path.join(config, 'config.toml'), '[features]\nremote_plugin=false\n', { mode: 0o600 });
-  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off', ...providerEnv };
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  // Initialization starts catalog discovery before thread/start overrides are
+  // applied. Select the loopback provider in the startup configuration too.
+  await fs.writeFile(path.join(config, 'config.toml'), `model_provider="offline"\nchatgpt_base_url="${endpoint}/backend-api"\n[model_providers.offline]\nname="Offline"\nbase_url="${endpoint}/v1"\nmodel_catalog_url="${endpoint}/v1/models"\nwire_api="responses"\nrequires_openai_auth=true\n[features]\nremote_plugin=false\napps=false\n`, { mode: 0o600 });
+  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: diagnosticsDirectory ? 'codex_login=debug,codex_model_provider=debug' : 'off', HTTP_PROXY: endpoint, HTTPS_PROXY: endpoint, ALL_PROXY: endpoint, NO_PROXY: '127.0.0.1,localhost', CODEX_REFRESH_TOKEN_URL_OVERRIDE: `${endpoint}/forbidden-refresh`, CODEX_AUTHAPI_BASE_URL: `${endpoint}/forbidden-auth`, CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL: `${endpoint}/forbidden-identity`, CODEX_AGENT_IDENTITY_JWKS_BASE_URL: `${endpoint}/forbidden-jwks`, ...providerEnv };
   if (!selectCanonical) delete env.CODEX_AUTH_HOME;
   const child = spawn('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const killGroup = () => {
@@ -82,9 +103,17 @@ async function startClient({ home, config, canonical, selectCanonical = true, pr
   child.once('error', () => fail('Native process could not start.'));
   child.once('close', () => fail('Native process closed before completion.'));
   child.stdin.on('error', () => fail('Native protocol input closed.'));
-  child.stderr.resume();
+  // Opt-in traces contain disposable synthetic fixture data only. Bound each
+  // client's output and keep tracing off in ordinary runs.
+  const diagnosticName = `client-${clients.length}`;
+  let diagnostic = '';
+  const trace = value => {
+    if (diagnosticsDirectory && diagnostic.length < 256 * 1024) diagnostic += value.slice(0, 256 * 1024 - diagnostic.length);
+  };
+  child.stderr.on('data', chunk => trace(chunk.toString()));
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
+    trace(`${line}\n`);
     try {
       const message = JSON.parse(line);
       if (message.method === 'turn/completed') {
@@ -119,6 +148,7 @@ async function startClient({ home, config, canonical, selectCanonical = true, pr
         child.stdin.end();
         killGroup();
         await closed;
+        if (diagnosticsDirectory) await fs.writeFile(path.join(diagnosticsDirectory, `${diagnosticName}.log`), diagnostic, { mode: 0o600 });
       })());
     },
     async modelRequest() {
@@ -134,7 +164,7 @@ async function startClient({ home, config, canonical, selectCanonical = true, pr
   const initialized = await request('initialize', { clientInfo: { name: 'hive-3785-native-request-probe', version: '0.0.0' }, capabilities: { experimentalApi: true } });
   assert.match(initialized.userAgent, /0\.164\.0/u);
   child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n`);
-  const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false }, model_providers: { offline: { name: 'Offline', base_url: `http://127.0.0.1:${server.address().port}/v1`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0, ...provider } } } });
+  const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false, apps: false }, model_providers: { offline: { name: 'Offline', base_url: `${endpoint}/v1`, model_catalog_url: `${endpoint}/v1/models`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0, ...provider } } } });
   client.threadId = result.thread.id;
   return client;
 }
@@ -226,6 +256,7 @@ try {
     console.log(`PASS: ${mode} actual model requests ${uncoordinated ? 'reproduce stale native authorization after logout' : unauthenticatedLogout ? 'reproduce unauthenticated execution after logout' : 'observe replacement, refuse logout and observe recreation'} in two live CLI processes.`);
   }
   assert.equal(invalidRequest, false, 'Only declared local synthetic endpoints may be used.');
+  console.log(`PASS: fixture forwarded zero external tunnels; blocked ${blockedOrigins.size} declared background origins.`);
 } finally {
   await Promise.allSettled(clients.map(client => client.stop()));
   server.closeAllConnections();

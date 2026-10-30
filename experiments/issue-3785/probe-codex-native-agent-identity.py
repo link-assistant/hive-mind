@@ -17,6 +17,7 @@ import threading
 import time
 
 from native_process_group import stop_process_group
+from native_network_fixture import background, environment, refuse_connect
 
 
 def token(account, generation, owner=False):
@@ -42,7 +43,7 @@ def publish(file, value):
     pending.replace(file)
 
 
-def run(binary, scenario, negative):
+def run(binary, scenario, negative, diagnostic_file=None):
     entered = threading.Event()
     release = threading.Event()
     observed = []
@@ -65,6 +66,9 @@ def run(binary, scenario, negative):
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(data)
+
+        def do_CONNECT(self):
+            refuse_connect(self, invalid)
 
         def do_POST(self):
             try:
@@ -92,7 +96,7 @@ def run(binary, scenario, negative):
                                      self.headers.get("Authorization", "").startswith("AgentAssertion ")))
                     assert len(observed) <= 2
                     self.reply(503, {"error": {"message": "Synthetic model unavailable", "code": "offline"}})
-                else:
+                elif not background(self):
                     raise AssertionError("Unexpected synthetic endpoint.")
             except (AssertionError, ValueError):
                 invalid.append(("POST", self.path[:200]))
@@ -100,8 +104,8 @@ def run(binary, scenario, negative):
 
         def do_GET(self):
             if self.path in ("/v1/models", "/v1/models?client_version=0.164.0"):
-                self.reply(200, {"data": []})
-            else:
+                self.reply(200, {"models": []})
+            elif not background(self):
                 invalid.append(("GET", self.path[:200]))
                 self.reply(400, {})
 
@@ -122,14 +126,17 @@ def run(binary, scenario, negative):
             publish(auth, initial)
             config = f'''model = "synthetic-model"
 model_provider = "offline"
+chatgpt_base_url = "http://127.0.0.1:{server.server_port}/backend-api"
 approval_policy = "never"
 sandbox_mode = "read-only"
 [features]
 remote_plugin = false
+apps = false
 use_agent_identity = true
 [model_providers.offline]
 name = "Offline"
 base_url = "http://127.0.0.1:{server.server_port}/v1"
+model_catalog_url = "http://127.0.0.1:{server.server_port}/v1/models"
 wire_api = "responses"
 requires_openai_auth = true
 request_max_retries = 0
@@ -137,7 +144,7 @@ stream_max_retries = 0
 '''
             (private / "config.toml").write_text(config)
             (private / "config.toml").chmod(0o600)
-            env = {"PATH": os.environ["PATH"], "HOME": str(private), "CODEX_HOME": str(private),
+            env = {**environment(server.server_port), "PATH": os.environ["PATH"], "HOME": str(private), "CODEX_HOME": str(private),
                    "CODEX_AUTH_HOME": str(canonical), "TOKIO_WORKER_THREADS": "2", "RUST_LOG": "off",
                    "CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL": f"http://127.0.0.1:{server.server_port}",
                    "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
@@ -178,6 +185,9 @@ stream_max_retries = 0
                     release.set()
                     stop_process_group(child)
                     child = None
+                    if diagnostic_file is not None:
+                        diagnostics.seek(0)
+                        diagnostic_file.write_bytes(diagnostics.read(256 * 1024))
                 assert os.fstat(diagnostics.fileno()).st_size <= 256 * 1024
             assert invalid == [], f"Unexpected synthetic loopback endpoints: {invalid!r}."
             allowed = scenario in ("healthy", "rotation")
@@ -217,10 +227,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
     parser.add_argument("--expect-stale-publication", action="store_true")
+    parser.add_argument("--diagnostics", type=Path)
     parser.add_argument("--scenario", choices=["healthy", "rotation", "account-switch", "api-key-login",
                                               "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"])
     args = parser.parse_args()
     assert args.binary.is_absolute() and args.binary.is_file()
     for case in ([args.scenario] if args.scenario else ["healthy", "rotation", "account-switch",
                                                       "api-key-login", "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"]):
-        run(args.binary, case, args.expect_stale_publication)
+        run(args.binary, case, args.expect_stale_publication, args.diagnostics)

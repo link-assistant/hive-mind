@@ -17,6 +17,7 @@ import threading
 import time
 
 from native_process_group import stop_process_group
+from native_network_fixture import background, environment, refuse_connect
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary", type=Path)
@@ -38,7 +39,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def do_CONNECT(self):
+        refuse_connect(self, invalid)
+
     def do_POST(self):
+        if background(self):
+            return
         length = int(self.headers.get("Content-Length", "0"))
         if self.path != "/v1/responses" or not 0 < length <= 256 * 1024:
             invalid.append(True)
@@ -55,11 +61,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path != "/v1/models":
+        if background(self):
+            return
+        if self.path not in ("/v1/models", "/v1/models?client_version=0.164.0"):
             invalid.append(True)
             self.send_error(400)
             return
-        data = b'{"data":[]}'
+        data = b'{"models":[]}'
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
@@ -84,13 +92,16 @@ def run(root, unsafe):
         history.chmod(0o644)
     config = f'''model = "synthetic-model"
 model_provider = "offline"
+chatgpt_base_url = "http://127.0.0.1:{server.server_port}/backend-api"
 approval_policy = "never"
 sandbox_mode = "read-only"
 [features]
 remote_plugin = false
+apps = false
 [model_providers.offline]
 name = "Offline"
 base_url = "http://127.0.0.1:{server.server_port}/v1"
+model_catalog_url = "http://127.0.0.1:{server.server_port}/v1/models"
 wire_api = "responses"
 requires_openai_auth = true
 request_max_retries = 0
@@ -100,7 +111,7 @@ trust_level = "trusted"
 '''
     (private / "config.toml").write_text(config)
     (private / "config.toml").chmod(0o600)
-    env = {"PATH": os.environ["PATH"], "HOME": str(private), "CODEX_HOME": str(private),
+    env = {**environment(server.server_port), "PATH": os.environ["PATH"], "HOME": str(private), "CODEX_HOME": str(private),
            "CODEX_AUTH_HOME": str(root / "auth"), "CODEX_MESSAGE_HISTORY_HOME": str(canonical),
            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1", "TERM": "xterm-256color",
            "COLORTERM": "truecolor", "TOKIO_WORKER_THREADS": "2", "RUST_LOG": "off"}
@@ -190,7 +201,7 @@ try:
         auth.chmod(0o600)
         run(root, False)
         run(root, True)
-        assert not invalid, "Only declared local synthetic endpoints may be used."
+        assert not invalid, f"Only declared local synthetic endpoints may be used: {invalid!r}."
 finally:
     server.shutdown()
     server.server_close()

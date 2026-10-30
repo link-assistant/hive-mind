@@ -22,6 +22,7 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-refresh-crash-')
 const children = [];
 const exchanges = [];
 const trace = [];
+const backgroundPaths = new Set(['/backend-api/plugins/featured', '/backend-api/ps/plugins/installed', '/backend-api/wham/accounts/check', '/backend-api/wham/settings/user', '/backend-api/codex/analytics-events/events']);
 let modelRequests = 0;
 let invalidRequest = false;
 let timer;
@@ -60,9 +61,12 @@ const server = http.createServer(async (request, response) => {
       assert.ok(modelRequests <= 4);
       response.writeHead(401, { 'content-type': 'application/json', connection: 'close' });
       response.end('{"error":{"message":"Synthetic unauthorized","code":"invalid_api_key"}}');
-    } else if (request.method === 'GET' && request.url === '/v1/models') {
+    } else if (request.method === 'GET' && new URL(request.url, 'http://fixture.invalid').pathname === '/v1/models') {
       response.writeHead(200, { 'content-type': 'application/json' });
-      response.end('{"data":[]}');
+      response.end('{"models":[]}');
+    } else if (backgroundPaths.has(new URL(request.url, 'http://fixture.invalid').pathname)) {
+      response.writeHead(404, { 'content-type': 'application/json' });
+      response.end('{}');
     } else throw new Error('Unexpected synthetic endpoint.');
   } catch {
     invalidRequest = true;
@@ -71,14 +75,19 @@ const server = http.createServer(async (request, response) => {
 });
 server.requestTimeout = 3000;
 server.headersTimeout = 3000;
+server.on('connect', (request, socket) => {
+  if (!['github.com:443', 'api.github.com:443', 'chatgpt.com:443', 'raw.githubusercontent.com:443'].includes(request.url)) invalidRequest = true;
+  socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+});
 
 async function start(index, canonical) {
   const home = path.join(root, `home-${index}`);
   const config = path.join(root, `config-${index}`);
   await fs.mkdir(home, { mode: 0o700 });
   await fs.mkdir(config, { mode: 0o700 });
-  await fs.writeFile(path.join(config, 'config.toml'), '[features]\nremote_plugin=false\n', { mode: 0o600 });
-  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, CODEX_REFRESH_TOKEN_URL_OVERRIDE: `http://127.0.0.1:${server.address().port}/oauth/token`, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off' };
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  await fs.writeFile(path.join(config, 'config.toml'), `model_provider="offline"\nchatgpt_base_url="${endpoint}/backend-api"\n[model_providers.offline]\nname="Offline"\nbase_url="${endpoint}/v1"\nmodel_catalog_url="${endpoint}/v1/models"\nwire_api="responses"\nrequires_openai_auth=true\n[features]\nremote_plugin=false\napps=false\n`, { mode: 0o600 });
+  const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, CODEX_REFRESH_TOKEN_URL_OVERRIDE: `http://127.0.0.1:${server.address().port}/oauth/token`, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off', HTTP_PROXY: endpoint, HTTPS_PROXY: endpoint, ALL_PROXY: endpoint, NO_PROXY: '127.0.0.1,localhost', CODEX_AUTHAPI_BASE_URL: `${endpoint}/forbidden-auth`, CODEX_AGENT_IDENTITY_AUTHAPI_BASE_URL: `${endpoint}/forbidden-identity`, CODEX_AGENT_IDENTITY_JWKS_BASE_URL: `${endpoint}/forbidden-jwks` };
   const child = spawn('/usr/bin/prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'app-server'], { cwd: root, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
   let sequence = 0;
   const state = { initialized: false, refused: false, completed: false };
@@ -154,7 +163,7 @@ async function start(index, canonical) {
       assert.match(initialized.userAgent, /0\.164\.0/u);
       state.initialized = true;
       child.stdin.write('{"method":"initialized"}\n');
-      const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false }, model_providers: { offline: { name: 'Offline', base_url: `http://127.0.0.1:${server.address().port}/v1`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0 } } } });
+      const result = await request('thread/start', { cwd: root, model: 'synthetic-model', modelProvider: 'offline', approvalPolicy: 'never', sandbox: 'read-only', config: { features: { remote_plugin: false, apps: false }, model_providers: { offline: { name: 'Offline', model_catalog_url: `${endpoint}/v1/models`, base_url: `http://127.0.0.1:${server.address().port}/v1`, wire_api: 'responses', requires_openai_auth: true, request_max_retries: 0, stream_max_retries: 0 } } } });
       await request('turn/start', { threadId: result.thread.id, input: [{ type: 'text', text: 'Synthetic request. Do not invoke tools.' }] });
       await completion;
     },

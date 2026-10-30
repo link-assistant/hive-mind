@@ -137,8 +137,7 @@ verify both live clients observe repaired G1 afterward.
 provider can fall through to unauthenticated execution. Run 40376400046 compiles
 the full native CLI and passes the actual-request positive control in both
 auth modes with both live clients, including malformed/unsafe/logout refusal
-and replacement/repair/recreation. The subsequent override extension below
-still needs its own rebuilt positive control.
+and replacement/repair/recreation. Run 40384255301 also verifies the subsequent override extension below.
 The downloaded intermediate CLI also reproduces eight independent provider
 authority routes: environment key, inline bearer, unauthenticated provider,
 explicit Authorization, extra key header, environment-derived key header,
@@ -151,8 +150,7 @@ in canonical mode, retaining only those stock metadata declarations (identity
 environment variables must be absent). Both ordinary and scoped auth resolution
 perform admission before resolving bearer credentials. The positive
 `--provider-overrides` run must observe zero model requests for all eight routes
-and successful G0 requests for both stock metadata controls. Full native CI
-verification remains pending.
+and successful G0 requests for both stock metadata controls. Native run 40384255301 passes all ten override/metadata controls.
 
 The alternate native Bedrock constructors bypass that ordinary resolver.
 `--provider-constructors --expect-provider-constructors` reproduces actual local
@@ -333,3 +331,28 @@ omits the full CLI dependency graph, which still compiles in the native job.
 CARGO_BUILD_JOBS=1 cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir /tmp/hive-native-transaction-deps
 python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py /absolute/native/source --dependencies-dir /tmp/hive-native-transaction-deps/debug/deps
 ```
+
+### Confined native request fixtures
+
+Native run 41051640537 builds the full CLI and passes actual TUI, refresh
+owner-death and explicit malformed-login repair. Its ChatGPT request fixture
+then fails: startup catalog discovery runs before thread-level provider overrides,
+contacts the default service with synthetic G0, and receives a 401. The native
+uncertainty guard correctly prevents the resulting unknown refresh from being
+retried. This was a fixture routing defect, not evidence to relax admission.
+
+The request, identity, crash and TUI fixtures now select the local model/catalog
+at startup, disable optional remote plugins/apps, and proxy background HTTPS
+tunnels to a local deny handler. Every CONNECT is refused before TLS; nothing is
+forwarded. Declared background discovery/telemetry receives a local refusal,
+while unexpected endpoints still fail the test. Identity's custom ChatGPT and
+JWKS origins match, as required by the native production/staging guard.
+
+The downloaded actual CLI passes both two-client auth modes, all eight provider
+refusals and two metadata controls, all eight constructor/compatibility controls,
+crash/login repair and both TUI controls. It still reproduces all three identity
+publication defects because it predates that repair. Structural evidence is
+retained in `docs/case-studies/issue-3785/evidence/native-network-controls.log`.
+Optional `--diagnostics-dir` on the request fixture and `--diagnostics` on the
+identity fixture retain bounded synthetic native output; ordinary tracing stays
+off. Fresh CI must build and verify the identity writer repair separately.

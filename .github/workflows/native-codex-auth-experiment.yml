@@ -13,6 +13,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
       - 'experiments/issue-3785/probe-codex-native-tui-history.py'
       - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/native_network_fixture.py'
       - 'experiments/issue-3785/test_native_process_group.py'
       - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
       - 'src/codex-sessions.lib.mjs'
@@ -285,7 +286,7 @@ jobs:
           cd "$NATIVE_SOURCE/codex-rs"
           cargo +1.99.1 test --locked --profile dev-small -p codex-message-history -- --test-threads=1 > "$RUNNER_TEMP/native-prompt-history-tests.log" 2>&1
       - name: Verify actual model requests across canonical authority changes
-        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-request-after.log" 2>&1
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --diagnostics-dir "$RUNNER_TEMP/native-request-diagnostics" > "$RUNNER_TEMP/native-request-after.log" 2>&1
       - name: Verify provider authority overrides refuse before model execution
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-overrides > "$RUNNER_TEMP/native-request-overrides-after.log" 2>&1
       - name: Verify native provider constructors refuse alternate authority
@@ -321,6 +322,7 @@ jobs:
             ${{ runner.temp }}/native-manager-intent-*.log
             ${{ runner.temp }}/native-refresh-*.log
             ${{ runner.temp }}/native-request-*.log
+            ${{ runner.temp }}/native-request-diagnostics/*.log
             ${{ runner.temp }}/native-identity-*.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-prompt-history-*.log

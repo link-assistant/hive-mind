@@ -7,8 +7,9 @@
  * active rollouts under `sessions/` and moves archived transcripts into
  * `archived_sessions/`. Fresh scopes also need one shared `thread-writer-locks/`
  * directory so separate native processes cannot both own the same transcript.
- * Docker tasks mount these three directories from operator storage; each scoped
- * home projects them through relative symlinks.
+ * Migration recovery journals also stay in operator storage: deleting a task
+ * configuration must not lose an interrupted native publication's handoff.
+ * Docker tasks mount these four directories; scoped homes use relative symlinks.
  *
  * Config, plugins and state databases stay task-owned. Full native history,
  * maintenance coordination, index and SQLite projection remains open, so
@@ -22,11 +23,13 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { publishCodexRollout } from './codex-rollout-publication.lib.mjs';
+import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 
 /** Directory under `CODEX_HOME` that holds the rollouts. */
 export const CODEX_SESSIONS_DIRNAME = 'sessions';
 export const CODEX_ARCHIVED_SESSIONS_DIRNAME = 'archived_sessions';
 export const CODEX_WRITER_LOCKS_DIRNAME = 'thread-writer-locks';
+export const CODEX_MIGRATION_JOURNALS_DIRNAME = 'rollout-migrations';
 
 /** Native discovery checks both active and archived rollouts. */
 export async function findCodexThreadRollout({ codexHome, threadId, fsImpl = fs } = {}) {
@@ -114,7 +117,7 @@ export function createCodexResumeRolloutCheck({ homeDir = os.homedir(), fsImpl =
 async function mergeDirectoryInto({ sourceDir, targetDir, fsImpl }) {
   let moved = 0;
   let kept = 0;
-  await fsImpl.mkdir(targetDir, { recursive: true, mode: 0o700 });
+  await prepareStorageDirectory(targetDir, { io: fsImpl });
   for (const entry of await fsImpl.readdir(sourceDir, { withFileTypes: true })) {
     const source = path.join(sourceDir, entry.name);
     const target = path.join(targetDir, entry.name);
@@ -138,7 +141,7 @@ const linksTo = async (fsImpl, link, target) => {
 };
 
 /**
- * Share active/archived rollout directories and the native writer-lock namespace.
+ * Share active/archived rollouts, writer locks and migration recovery journals.
  * A real directory left by an older run is merged into the shared one first;
  * publication never replaces an existing name, and the original directory is
  * set aside even after successful copying. Never throws; callers must refuse
@@ -154,9 +157,11 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
   Object.assign(result, { sessionsDir, target });
   if (path.resolve(sessionsDir) === path.resolve(target)) return { ...result, status: 'same-home' };
   try {
+    await prepareStorageDirectory(codexHome, { io: fsImpl });
     // Never copy/rename a native lock inode: an existing private namespace may
     // have a live owner. Fresh task homes start with no namespace at all.
     await shareDirectory({ name: CODEX_WRITER_LOCKS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
+    await shareDirectory({ name: CODEX_MIGRATION_JOURNALS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     await shareDirectory({ name: CODEX_ARCHIVED_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     const status = await shareDirectory({ name: CODEX_SESSIONS_DIRNAME, baseCodexHome, codexHome, fsImpl, now, result });
     return { ...result, status };
@@ -168,7 +173,7 @@ export async function shareScopedCodexSessions({ baseCodexHome, codexHome, fsImp
 async function shareDirectory({ name, baseCodexHome, codexHome, fsImpl, now, result }) {
   const sessionsDir = path.join(codexHome, name);
   const target = path.join(baseCodexHome, name);
-  await fsImpl.mkdir(target, { recursive: true, mode: 0o700 });
+  await prepareStorageDirectory(target, { io: fsImpl });
   const canonical = await fsImpl.lstat(target);
   if (!canonical.isDirectory() || canonical.isSymbolicLink()) throw new Error('Canonical Codex history destination must be a real directory.');
   const stat = await fsImpl.lstat(sessionsDir).catch(error => {
@@ -179,8 +184,11 @@ async function shareDirectory({ name, baseCodexHome, codexHome, fsImpl, now, res
     if (await linksTo(fsImpl, sessionsDir, target)) return 'already-shared';
     throw new Error('Scoped Codex history points to an unexpected authority.');
   } else if (stat?.isDirectory()) {
-    if (name === CODEX_WRITER_LOCKS_DIRNAME) {
-      if ((await fsImpl.readdir(sessionsDir)).length) throw new Error('Existing private Codex writer locks require offline migration; refusing to move potentially live lock inodes.');
+    if (name === CODEX_WRITER_LOCKS_DIRNAME || name === CODEX_MIGRATION_JOURNALS_DIRNAME) {
+      if ((await fsImpl.readdir(sessionsDir)).length) {
+        if (name === CODEX_WRITER_LOCKS_DIRNAME) throw new Error('Existing private Codex writer locks require offline migration; refusing to move potentially live lock inodes.');
+        throw new Error('Existing private Codex migration journals require offline migration; refusing to move a potentially live recovery handoff.');
+      }
       await fsImpl.rmdir(sessionsDir);
     } else {
       const merged = await mergeDirectoryInto({ sourceDir: sessionsDir, targetDir: target, fsImpl });
@@ -192,7 +200,7 @@ async function shareDirectory({ name, baseCodexHome, codexHome, fsImpl, now, res
   } else if (stat) {
     throw new Error('Scoped Codex history is not a directory; existing evidence is preserved.');
   }
-  await fsImpl.mkdir(path.dirname(sessionsDir), { recursive: true, mode: 0o700 });
+  await prepareStorageDirectory(path.dirname(sessionsDir), { io: fsImpl });
   try {
     await fsImpl.symlink(path.relative(path.dirname(sessionsDir), target), sessionsDir, 'dir');
   } catch (error) {

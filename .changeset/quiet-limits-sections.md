@@ -79,3 +79,5 @@ Require persistent Claude projects and sessions directories before Docker launch
 Stop packaged-runtime catalog probe process groups even after their native leader exits. Wait for the leader and live Linux group members before deleting disposable configuration, and retain the private fixture if cleanup cannot establish that they stopped.
 
 Reject linked history/data ancestors during Docker host preparation. On Linux, create directories through held parent descriptors so concurrent parent replacement cannot redirect creation; refuse changed public paths and preserve existing state and permissions.
+
+Persist native Codex migration recovery journals alongside shared rollouts and writer locks. Refuse online movement of existing private pending journals, retain their inode across task configuration disposal, and require the journal mount before Docker launch. Apply descriptor-based directory preparation to scoped history parents as well. Keep the combined interrupted-migration and fresh-resume native controls separate from the unfinished production history contract.

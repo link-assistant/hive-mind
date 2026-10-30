@@ -376,6 +376,23 @@ CARGO_BUILD_JOBS=1 cargo +1.99.1 build --locked --manifest-path experiments/issu
 python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py /absolute/native/source --dependencies-dir /tmp/hive-native-transaction-deps/debug/deps
 ```
 
+### Interrupted native migration journals
+
+`probe-codex-native-migration.py` uses the actual native migration command and
+its throughput limiter to interrupt a finite synthetic rollout after journal
+creation. Production scoped homes and Docker mounts now project the separate
+`rollout-migrations` directory. The journal survives owner death and private-root
+disposal with the same inode; a peer completes publication and clears it. An
+omitted-projection control reproduces the original journal loss. Existing
+nonempty private journal directories require offline migration and are preserved.
+
+The previously compiled CLI still reproduces a later fresh-resume failure because
+SQLite retains the deleted owner's path. The combined positive also requires the
+canonical rollout-path adapter and must pass with a rebuilt native CLI in CI.
+An intermediate expected-failure control cannot establish successful resume.
+See the case study's `evidence/native-migration-journals.md` for boundaries and
+the remaining production/legacy-migration requirements.
+
 ### Confined native request fixtures
 
 Native run 41051640537 builds the full CLI and passes actual TUI, refresh

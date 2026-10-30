@@ -187,7 +187,7 @@ test('two solves of one repository linking sessions at once both report it share
   const base = path.join(root, '.codex');
   const scoped = path.join(base, 'hive-mind', 'repositories', 'link-assistant', 'router');
   // Both runs see no link yet; the second one's symlink() then finds the first one's.
-  const fsImpl = { ...fs, lstat: async file => (file === path.join(scoped, 'sessions') ? null : fs.lstat(file)) };
+  const fsImpl = { ...fs, lstat: async (file, options) => (file === path.join(scoped, 'sessions') ? null : fs.lstat(file, options)) };
   const outcomes = await Promise.all([shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl }), shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl })]);
   assert.deepEqual(outcomes.map(outcome => outcome.status).sort(), ['already-shared', 'shared'], JSON.stringify(outcomes));
   // A different file in its place is still a failure.

@@ -192,10 +192,10 @@ const preflight = async ({ fixture, codex }) =>
   // Docker execution shares auth and canonical history/locks with the
   // task; the operator home (and with it the repaired repository scope) stays
   // per container, so the scope is rebuilt from the image defaults every task.
-  const dockerMounts = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks'].some(entry => candidate === path.join(fixture.baseCodexHome, entry)) });
+  const dockerMounts = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'].some(entry => candidate === path.join(fixture.baseCodexHome, entry)) });
   assert.deepEqual(
     dockerMounts,
-    ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks'].map(entry => ({ source: path.join(fixture.baseCodexHome, entry), target: `/home/box/.codex/${entry}` })),
+    ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'].map(entry => ({ source: path.join(fixture.baseCodexHome, entry), target: `/home/box/.codex/${entry}` })),
     'Docker execution mounts the credential file, not the whole operator home (issue #2190)'
   );
   assert.equal(path.dirname(first.codexHome), path.join(path.dirname(fixture.baseCodexHome), '.hive-mind', 'codex-tasks', 'CEHR2005', 'GCS-TS'), 'task discovery lives outside the mounted operator tool home');

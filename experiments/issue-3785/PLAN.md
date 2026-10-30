@@ -550,3 +550,15 @@ Latest CI continuation:
       pre-repair reproduction and rebuilt positive/compatibility controls to CI.
 - [ ] Verify full compiled compression/path projection, fresh newest-SHA CI,
       remaining full native migration/writers, and production integration.
+- [x] Interrupt an actual finite native migration at its pending-journal stage,
+      kill and reap the owner, then dispose its private configuration. Reproduce
+      the lost recovery journal and all five directory/mount regressions before
+      repair. Project one shared journal directory and refuse online movement
+      of existing private journals. A peer now completes migration; fresh resume
+      still reproduces the separately pending canonical SQLite path defect.
+- [x] Reproduce three scoped history parent-link/replacement failures before
+      applying descriptor-based preparation. All 83 affected mount, recovery,
+      preflight and directory controls pass; full ESLint, formatting, workflow,
+      file-limit and secret checks pass.
+- [ ] Verify native interrupted-migration positive with the rebuilt path adapter
+      and finish the complete default suite.

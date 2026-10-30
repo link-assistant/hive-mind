@@ -1,0 +1,89 @@
+✖ native migration handoff keeps its inode across private owner disposal (42.388024ms)
+✖ private pending migration journals refuse online copying or renaming (36.40518ms)
+✖ empty private journal namespaces can join canonical migration recovery (23.356229ms)
+✖ linked canonical migration journals refuse projection without changing their target (21.547847ms)
+✖ Docker persists migration recovery separately from private configuration (67.449744ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 483.637793
+
+✖ failing tests:
+
+test at tests/issue-3785-codex-migration-journals.test.mjs:19:1
+✖ native migration handoff keeps its inode across private owner disposal (42.388024ms)
+  [Error: ENOENT: no such file or directory, open '/tmp/hive-3785-journal-VeMnME/owner/rollout-migrations/019f2a1b-0000-7000-8000-000000003785.pending'] { errno: -2, code: 'ENOENT', syscall: 'open', path: '/tmp/hive-3785-journal-VeMnME/owner/rollout-migrations/019f2a1b-0000-7000-8000-000000003785.pending' }
+
+test at tests/issue-3785-codex-migration-journals.test.mjs:32:1
+✖ private pending migration journals refuse online copying or renaming (36.40518ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'shared' !== 'failed'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-codex-migration-journals.test.mjs:40:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'shared',
+    expected: 'failed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-codex-migration-journals.test.mjs:47:1
+✖ empty private journal namespaces can join canonical migration recovery (23.356229ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '/tmp/hive-3785-journal-BuZz18/owner/rollout-migrations'
+  - '/tmp/hive-3785-journal-BuZz18/.codex/rollout-migrations'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-codex-migration-journals.test.mjs:51:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/tmp/hive-3785-journal-BuZz18/owner/rollout-migrations',
+    expected: '/tmp/hive-3785-journal-BuZz18/.codex/rollout-migrations',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-codex-migration-journals.test.mjs:54:1
+✖ linked canonical migration journals refuse projection without changing their target (21.547847ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'shared' !== 'failed'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-codex-migration-journals.test.mjs:63:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'shared',
+    expected: 'failed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-codex-migration-journals.test.mjs:68:1
+✖ Docker persists migration recovery separately from private configuration (67.449744ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(prepared.created.includes(source))
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-codex-migration-journals.test.mjs:72:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

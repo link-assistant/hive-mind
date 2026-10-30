@@ -47,7 +47,7 @@ async function maybeAddMount(mounts, source, target, exists) {
  */
 export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
   claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'archived_sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'thread-writer-locks'), kind: 'dir', role: 'coordination' })]),
+  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'archived_sessions'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.codex', 'thread-writer-locks'), kind: 'dir', role: 'coordination' }), Object.freeze({ relativePath: path.join('.codex', 'rollout-migrations'), kind: 'dir', role: 'coordination' })]),
 });
 /**
  * Is `relativePath` covered by one of the router-suppressed credential paths?

@@ -63,7 +63,7 @@ function mountPairs(mounts) {
 }
 
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
+const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const existsSync = path => existingPaths.has(path);
 
 console.log('\n--- Docker isolation image selection ---');
@@ -86,7 +86,7 @@ const codexMounts = await getDockerIsolationAuthMounts({
   env: {},
   existsSync,
 });
-assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks'], 'codex tasks receive gh and Codex credentials only');
+assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations:/home/box/.codex/rollout-migrations'], 'codex tasks receive gh and Codex credentials only');
 
 const claudeMounts = await getDockerIsolationAuthMounts({
   tool: 'claude',

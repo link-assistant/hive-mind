@@ -71,3 +71,9 @@ Publish migrated and recovered Codex rollouts only after copying and syncing a p
 Share Codex native archived transcripts and thread-writer locks alongside active rollouts across fresh task configurations and Docker tasks. Preserve archived location during recovery, refuse unavailable or linked canonical Docker history, and retain nonempty private lock directories for offline migration. Verify real pinned native writer exclusion and archive/read/unarchive/resume in CI. Full history indexes, SQLite and maintenance coordination remain unfinished.
 
 Refuse Codex resume/recovery when canonical history inspection fails with permission or I/O errors. A failed inspection cannot authorize a retry or trigger private recovery fallback.
+
+Reject global Claude output-style payloads and selected output-style instructions in user and managed configuration. Preserve managed security settings and task-local styles; refuse unsafe or concurrently changed payloads before repair.
+
+Require persistent Claude projects and sessions directories before Docker launch. Refuse missing, linked or unusable storage and directory-creation errors; create fresh history with private permissions. Preserve explicit Router suppression.
+
+Stop packaged-runtime catalog probe process groups even after their native leader exits. Wait for the leader and live Linux group members before deleting disposable configuration, and retain the private fixture if cleanup cannot establish that they stopped.

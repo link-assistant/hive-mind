@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /** Required packaged-image stock gate. No auth, inference, repair or downloads. */
 import assert from 'node:assert/strict';
-import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
-import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -12,8 +12,88 @@ import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from './codex-stock-skil
 import { assertCodexStockSkillDiscovery } from './codex-stock-catalog.lib.mjs';
 import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
 
-const execute = promisify(execFile);
 const DEADLINE_MS = 30_000;
+class RuntimeProbeCleanupError extends Error {}
+
+async function hasLiveProbeMembers(group) {
+  for (const entry of await readdir('/proc', { withFileTypes: true })) {
+    if (!/^\d+$/u.test(entry.name)) continue;
+    const value = await readFile(`/proc/${entry.name}/stat`, 'utf8').catch(error => {
+      if (error.code === 'ENOENT' || error.code === 'ESRCH') return null;
+      throw error;
+    });
+    if (!value) continue;
+    // comm may itself contain whitespace or parentheses. The remaining fields
+    // start with state, parent PID and process group ID.
+    const fields = value
+      .slice(value.lastIndexOf(')') + 1)
+      .trim()
+      .split(/\s+/u);
+    if (Number(fields[2]) === group && fields[0] !== 'Z') return true;
+  }
+  return false;
+}
+
+async function stopRuntimeProbe(child, closed, grouped) {
+  try {
+    if (grouped && child.pid) {
+      try {
+        // Native catalog helpers can survive their leader. Always signal the
+        // dedicated group, including when the leader has already exited.
+        process.kill(-child.pid, 'SIGKILL');
+      } catch (error) {
+        if (error.code !== 'ESRCH') throw error;
+      }
+    }
+    child.kill('SIGKILL');
+    let reaped = false;
+    closed.then(() => {
+      reaped = true;
+    });
+    const deadline = Date.now() + 5000;
+    while (!reaped || (process.platform === 'linux' && child.pid && (await hasLiveProbeMembers(child.pid)))) {
+      if (Date.now() >= deadline) {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        throw new Error('Stock CLI probe descendants did not stop before cleanup.');
+      }
+      await delay(10);
+    }
+  } catch (error) {
+    throw new RuntimeProbeCleanupError('Stock CLI probe descendants did not stop before cleanup.', { cause: error });
+  }
+}
+
+async function executeVersionProbe(command, { env, cwd, maxBuffer }) {
+  const grouped = process.platform !== 'win32';
+  const child = spawn(command, ['--version'], { env, cwd, detached: grouped, stdio: ['ignore', 'pipe', 'pipe'] });
+  const closed = new Promise(resolve => child.once('close', resolve));
+  const chunks = [];
+  let bytes = 0;
+  let timer;
+  try {
+    await new Promise((resolve, reject) => {
+      const failed = () => reject(new Error('Installed runtime version probe failed.'));
+      timer = setTimeout(failed, DEADLINE_MS);
+      child.once('error', failed);
+      // Resolve on leader exit so cleanup can terminate helpers that retain
+      // stdout/stderr. Wait for drained pipes before returning collected bytes.
+      child.once('exit', code => (code === 0 ? resolve() : failed()));
+      const consume = (chunk, stdout) => {
+        bytes += chunk.length;
+        if (bytes > maxBuffer) failed();
+        else if (stdout) chunks.push(chunk);
+      };
+      child.stdout.on('data', chunk => consume(chunk, true));
+      child.stderr.on('data', chunk => consume(chunk, false));
+    });
+  } finally {
+    clearTimeout(timer);
+    await stopRuntimeProbe(child, closed, grouped);
+  }
+  if (bytes > maxBuffer) throw new Error('Installed runtime version probe exceeded its fixed bound.');
+  return { stdout: Buffer.concat(chunks).toString('utf8') };
+}
 
 // A stock probe must not inherit provider credentials, config overrides or
 // preload hooks from the image verifier's caller. Keep even version commands
@@ -37,9 +117,11 @@ const probeEnvironment = home => ({
 });
 
 async function materializeStock(command, home, cwd, env) {
+  const grouped = process.platform !== 'win32';
   const child = spawn(command, ['-c', 'features.remote_plugin=false', '-c', 'cli_auth_credentials_store="file"', 'app-server'], {
     cwd,
     env,
+    detached: grouped,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   // Native diagnostics may contain paths or input excerpts. Never print them.
@@ -81,7 +163,7 @@ async function materializeStock(command, home, cwd, env) {
     }
   });
   child.once('error', () => rejectFatal(new Error('Stock CLI could not start.')));
-  child.once('close', () => rejectFatal(new Error('Stock CLI exited before verification completed.')));
+  child.once('exit', () => rejectFatal(new Error('Stock CLI exited before verification completed.')));
   child.stdin.on('error', () => rejectFatal(new Error('Stock CLI input closed.')));
   try {
     await Promise.race([
@@ -105,10 +187,9 @@ async function materializeStock(command, home, cwd, env) {
     clearTimeout(timer);
     lines.close();
     child.stdin.end();
-    // No inference or tools are requested. Terminate the idle native server and
-    // await reaping before removing its private test home.
-    if (child.exitCode === null) child.kill('SIGKILL');
-    await closed;
+    // No inference or tools are requested. Stop the native server and catalog
+    // helpers before the caller removes their private configuration.
+    await stopRuntimeProbe(child, closed, grouped);
   }
 }
 
@@ -119,16 +200,17 @@ export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand
     [geminiCommand, '0.65.0'],
     [qwenCommand, '0.26.1'],
   ]) {
-    const { stdout } = await execute(command, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+    const { stdout } = await executeVersionProbe(command, { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024 });
     assert.equal(stdout.trim(), expected, 'Installed data-storage CLI version differs from the pinned runtime.');
   }
-  const { stdout } = await execute(rgCommand, ['--version'], { env: probeEnvironment(homeDir), cwd, maxBuffer: 16 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+  const { stdout } = await executeVersionProbe(rgCommand, { env: probeEnvironment(homeDir), cwd, maxBuffer: 16 * 1024 });
   assert.match(stdout, /^ripgrep \d+\.\d+\.\d+\b/u, 'Installed Agent search runtime is missing or unusable.');
 }
 
 export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen' } = {}) {
   await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
+  let cleanupSafe = true;
   try {
     const home = path.join(fixture, 'home');
     const cwd = path.join(fixture, 'project');
@@ -140,14 +222,19 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
       [claudeCommand, '2.1.310 (Claude Code)'],
       [codexCommand, CODEX_STOCK_SKILLS.cliVersion],
     ]) {
-      const { stdout } = await execute(command, ['--version'], { env: probeEnv, cwd, maxBuffer: 64 * 1024, signal: AbortSignal.timeout(DEADLINE_MS) });
+      const { stdout } = await executeVersionProbe(command, { env: probeEnv, cwd, maxBuffer: 64 * 1024 });
       assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
     }
     await materializeStock(codexCommand, home, cwd, probeEnv);
     await verifyToolDataRuntimeVersions({ homeDir: home, cwd, agentCommand, opencodeCommand, geminiCommand, qwenCommand });
     await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
+  } catch (error) {
+    if (error instanceof RuntimeProbeCleanupError) cleanupSafe = false;
+    throw error;
   } finally {
-    await rm(fixture, { recursive: true, force: true });
+    // Preserve the private diagnostic fixture if cleanup could not establish
+    // quiescence. Never delete storage still in use by a native helper.
+    if (cleanupSafe) await rm(fixture, { recursive: true, force: true });
   }
 }
 

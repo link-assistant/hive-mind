@@ -205,9 +205,11 @@ filesystem coordination. A further actual CLI regression replaces the login with
 explicit API-key mode while retaining stale OAuth tokens. Matching token fields
 alone permit publication: that case fails even against the earlier focused repair.
 The guard now also requires the resolved canonical mode to remain ChatGPT.
-The full native CI job must separately build the actual
-repaired CLI and pass all nine native registration scenarios. That full-CLI
-positive result remains pending; production does not install this experiment.
+The full native CLI job in run
+[41064060039](https://github.com/link-assistant/hive-mind/actions/runs/41064060039)
+builds the repair and passes all nine native registration scenarios. Production
+does not install this experiment. The separate stock-history job fails its
+cached-generation negative fixture, corrected in commit `5f1019136`.
 
 ```sh
 python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/intermediate/codex --expect-stale-publication
@@ -217,7 +219,7 @@ python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/pa
 python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
 python3 experiments/issue-3785/native-codex/apply_identity_publication.py /absolute/path/to/source
 python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
-# Run the strict eight-scenario CLI probe after rebuilding the native executable.
+# Run the strict nine-scenario CLI probe after rebuilding the native executable.
 python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/rebuilt/codex
 ```
 
@@ -273,7 +275,8 @@ eight concurrent appends, a waiting append after forced lock-owner death,
 All 12 upstream history tests pass in that focused harness. This is distinct
 from full native integration: CI builds the real crate before/after the patch,
 runs the same controls and upstream tests, and includes the patch in the full
-CLI. Those new CI results remain pending.
+CLI. Both crate controls and all twelve upstream tests pass in the full native
+job of run 41064060039.
 
 ```sh
 python3 experiments/issue-3785/native-codex/build_message_history_focused.py /absolute/native/source /tmp/new-empty-history-harness --test
@@ -301,8 +304,9 @@ An image-only prompt validates selected storage without adding an empty row.
 Selected direct/missing-thread paths refuse; absent selection preserves native
 asynchronous persistence. The actual full CLI before/after/legacy controls are
 required in CI. Local applicability, rustfmt, 14 history controls and 12 upstream
-tests pass in the focused harness; full patched TUI compilation and execution
-remain pending. Other operation paths, read-error propagation, complete writer
+tests pass in the focused harness. Run 41064060039 also compiles the full patched
+TUI and passes healthy/refusal plus no-selector compatibility controls. Other
+operation paths, read-error propagation, complete writer
 semantics and production integration remain open.
 
 The refresh crash probe kills a real native CLI after the synthetic provider
@@ -314,7 +318,7 @@ exchange or model request. A durable new generation can reconcile the marker;
 changing only JSON formatting or refresh metadata cannot do so. Successful
 responses that retain their refresh token clear the marker after durable commit.
 Storage owner-death controls pass locally. Full CLI before/after validation is
-required by the native workflow and remains pending for this recovered stage.
+required by the native workflow; run 41064060039 passes both actual CLI controls.
 
 An added seven-test transaction harness found a recovery dead end: safe malformed
 credential JSON after an uncertain refresh blocked even explicit native login's
@@ -323,8 +327,8 @@ lock owner to replace the malformed JSON. Reads and refresh still refuse it;
 unsafe files and malformed markers still fail admission. The failing regression
 and passing exact-module results are retained as `native-refresh-repair-before.log`
 and `native-refresh-repair-after.log` in the case-study evidence. The real CLI
-`--repair-malformed` control must also pass in CI; module checks are not a
-substitute for that integration result.
+`--repair-malformed` control also passes in run 41064060039, alongside the
+owner-death refusal. Module checks alone would not establish that result.
 
 For bounded local checks, build only the small locked dependency crate below,
 then run the same harness against the actual patched source. Its direct JSON,
@@ -359,4 +363,5 @@ publication defects because it predates that repair. Structural evidence is
 retained in `docs/case-studies/issue-3785/evidence/native-network-controls.log`.
 Optional `--diagnostics-dir` on the request fixture and `--diagnostics` on the
 identity fixture retain bounded synthetic native output; ordinary tracing stays
-off. Fresh CI must build and verify the identity writer repair separately.
+off. Run 41064060039 subsequently builds and verifies all nine identity cases
+separately; selected structural output is retained in the case-study evidence.

@@ -518,3 +518,8 @@ Latest CI continuation:
       both configured history mounts, refuse links/files/creation failures and
       create private directories. All nine controls and nineteen dependent
       default files pass; full native history/canonical auth remain open.
+
+- [x] Complete the 729-file local default suite: all pass. Re-run all 19 mount-builder dependents after the Claude history change; all pass, plus nine new reproductions.
+- [x] Review completed remote head 69b1e8a46: Checks/release (including packaged Docker), Security, Workflows, links, Claude and Qwen pass. Native Codex full source-built CLI job passes all nine identity cases and TUI/request/crash/history controls; only its separate stock cached-generation fixture fails, repaired locally in 5f1019136.
+- [x] Reproduce production stock-verifier orphan helpers on leader exit, malformed IPC and catalog refusal: three failures before group cleanup. After repair, all six (including version success/error/overflow) and 48 existing runtime/catalog/stock/effective-root controls pass; protected authentication is unchanged.
+- [ ] Verify the next exact-head CI run after pushing output-style, stock-fixture, Claude-history and stock-verifier cleanup changes. These checks do not establish the unfinished six-tool canonical production contract.

@@ -73,11 +73,21 @@ jobs:
           fi
           grep -F 'expired native credentials must exchange' "$RUNNER_TEMP/gemini-writers-before.log"
           grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-writers-before.log"
+      - name: Require native login and revocation regressions to fail before coordination
+        run: |
+          for scenario in auth-code initial-login revoke; do
+            if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario="$scenario" > "$RUNNER_TEMP/gemini-$scenario-before.log" 2>&1; then
+              echo "The read-stage $scenario regression unexpectedly passed before repair."
+              exit 1
+            fi
+            grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-$scenario-before.log"
+            grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-$scenario-before.log"
+          done
       - name: Apply exact pinned native writer coordination
         run: |
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
-      - name: Verify native refresh, publication, logout, crash and factory recovery
+      - name: Verify native refresh, login, browser callback, revocation and crash recovery
         run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
       - name: Preserve coordinated native canonical reads and private-scope isolation
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1

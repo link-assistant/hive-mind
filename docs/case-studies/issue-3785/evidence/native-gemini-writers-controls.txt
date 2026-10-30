@@ -27,7 +27,7 @@ actual: selected G2, exchanges 0
 expected: selected rejected, exchanges 0
 Binding the directory identity across retries repairs this further regression.
 
-Final coordinated controls:
+First coordinated stage (13 controls; CI 41099170547 on 427f336085):
 PASS: actual native Gemini inference-overlap (SDK request, synthetic transport)
 PASS: actual native Gemini two-refreshes
 PASS: actual native Gemini login (inspected cache publication, not full browser login)
@@ -55,8 +55,62 @@ read sets (14 each) and the complete 14 native writer controls still pass.
 All 738 local default test files pass; this does not certify native experiment code.
 An actual OAuth SDK model request stays pending while a peer reads G1, verifying
 that the credential lock is released during that request. Full CLI inference is open.
-Gemini read-stage CI 41094570644 passes on 823fb80335; the writer CI is newly wired.
+Gemini read-stage CI 41094570644 passes on 823fb80335. The first writer stage
+passes CI 41099170547 on 427f336085. Expanded login/revocation CI is pending.
 
-Unfinished: browser/auth-code/initial login, revocation, account metadata, all other
+Unfinished: account metadata, all other
 provider factories/backends, full CLI model requests, history and production wiring.
 These selected experiments do not complete the issue's six-tool acceptance matrix.
+
+Expanded native login/revocation stage, verified locally after the regressions:
+Coordinated manager SHA-256: 0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c
+Shared engine SHA-256: d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174
+Before repair, auth-code, initial-login and revoke each fail with selected rejected
+instead of entering the real native operation after healthy fixture admission.
+
+PASS: actual native Gemini inference-overlap; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini two-refreshes; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini login; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini logout; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini owner-death; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini network-refusal; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini metadata-rewrite; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini factory-root-replacement; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini invalid-grant; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini non-rotating; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini direct-refresh; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini direct-no-cache; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini publication-race; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-publication-race; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-network-refusal; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-incomplete; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-uncertain-repair; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-unsafe-intent; preserve uncertainty and credentials without an exchange.
+PASS: actual native Gemini revoke; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-direct; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-old; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-network-refusal; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini initial-login; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-browser; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-malformed; interactive login refuses unsafe existing authority before browser or exchange.
+
+Code exchange requires a complete new refresh generation and compare-and-publish.
+A concurrent external G2 is preserved; unsafe legacy intent refuses before exchange.
+A distinct login generation repairs a valid uncertain predecessor intent. Failed or
+incomplete code responses preserve existing storage without merging account tokens.
+Revocation uses current canonical authority, refuses stale explicit tokens, and
+removes local authority durably before its external request, including on failure.
+The real native SDK request options disable refresh, code and revocation retries.
+
+Initial manual login feeds the actual native terminal code prompt. Initial browser
+login runs the native local HTTP callback and generated state. Only external browser
+launch and provider transports/verification are stubbed; no live Google session runs.
+A fresh native peer reads G1 after each successful initial flow. Malformed existing
+credentials refuse before browser launch or code exchange.
+
+All 11 latest canonical reader/private-scope controls pass; all nine no-selector
+native stale-header reproductions remain unchanged. All 14 Qwen manager controls,
+14 retained-client controls and 14 native writer controls pass with this engine.
+Production installation, account metadata, other native constructors, full CLI
+inference and the complete history/lifecycle/six-tool matrix remain unfinished.

@@ -644,8 +644,8 @@ Latest CI continuation:
       migration survives interruption, private-scope disposal and peer completion;
       fresh resume honors the retained inherited-prefix boundary.
 - [x] Complete all 737 local default test files, with no failures.
-- [ ] Build the extended native CLI in CI; require all eight actual staging link
-      refusals and plain/compressed/child interrupted-migration recovery controls.
+- [x] Build the extended native CLI in CI run 41094570272 at 823fb80335; all eight actual staging link
+      refusals and plain/compressed/child interrupted-migration recovery controls pass.
       Keep remaining child lifecycle and readers/writers, post-publication crashes,
       power-loss durability and production installation explicitly unfinished.
 
@@ -656,8 +656,11 @@ Latest CI continuation:
       constructor cases are followed by an unhandled ECONNRESET in the local
       CONNECT refusal socket, not an alternate-authority assertion. Reproduce
       three error-handler failures before repair; all four controls pass after.
-- [ ] Verify the next compiled native run after the proxy and migration staging
-      repairs. Current native CI remains failed at the fixture reset.
+- [x] Verify compiled native run 41094570272 after the proxy and migration
+      staging repairs: all three jobs pass, including all eight constructor
+      controls and zero forwarded external tunnels. Checks/release 41094570863
+      also passes every job, 738 default files, two integration files and actual
+      packaged host/nested Docker backing/data checks.
 
 - [x] Trace Gemini 0.65.0's exact installed native OAuth factory/client. Reproduce
       nine stale request-header cases, including logout/recreation, in the real
@@ -679,7 +682,35 @@ Latest CI continuation:
 - [x] Extract the existing Qwen transaction engine with provider-specific intent
       names/hash domains. Preserve all fourteen native Qwen manager reads, fourteen
       retained-client reads and fourteen native writer controls after extraction.
-- [ ] Verify the new Gemini writer and shared-engine CI checks; implement full
-      browser/auth-code/initial login, revocation, account metadata, other provider
+- [x] Verify Gemini writer CI 41099170547 and shared-engine Qwen CI 41099170515
+      at 427f336085; both pass their then-current controls.
+- [ ] Verify the expanded login/revocation CI checks; implement account metadata, other provider
       factories/retained-legacy handles, actual requests, history, lifecycle,
       production integration and every remaining criterion.
+
+- [x] Download exact-head 427f336085 Checks run 41099170779 after the early
+      dependency freshness failure. Lines 3819–3827 identify eight stale Formal
+      AI declarations after release 0.355.25. Verify the upstream release tag,
+      update all four Docker ARGs and preserve CLI authority pins. The five
+      existing freshness/image test files pass (21 reported tests).
+- [x] Verify authenticated freshness after the pin update: zero stale or
+      unresolved dependencies. The 21 existing freshness/image tests pass.
+- [ ] Require the packaged image CI gates again; an early dependency failure verifies none
+      of those downstream gates. Native Gemini writer CI 41099170547 passes
+      all thirteen process scenarios; Qwen CI 41099170515 also passes.
+- [x] Reproduce authorization-code refusal after healthy native G0 admission.
+      Add compare-and-publish for complete new-login generations; preserve a
+      concurrent external G2 and existing credentials after network refusal.
+      All three actual native authorization-code controls pass locally.
+- [x] Reproduce selected native revocation refusal after replacing G0 with G2.
+- [x] Coordinate native revocation against the current generation, durably remove
+      local authority before sending the request, disable revocation retries,
+      reject an explicit stale token and verify success/network failure.
+- [x] Complete initial interactive login through native manual-code and browser
+      callback flows; fresh peers read the durably published generation. Refuse
+      malformed existing authority before browser launch or exchange. All 26
+      native writer/login/revocation controls pass, together with 11 canonical
+      reader/private-scope controls and nine unchanged legacy reproductions.
+      All 42 Qwen regressions still pass after the shared-engine extension.
+- [ ] Continue account metadata and every remaining matrix criterion; these
+      experiments are not installed by production launchers or images.

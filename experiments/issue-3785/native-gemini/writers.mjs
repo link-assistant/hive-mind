@@ -1,5 +1,5 @@
 // Selected native experiment: coordinate refreshed headers and the inspected
-// cache/logout entrypoints. Auth-code login and revocation remain unavailable.
+// cache/logout, authorization-code and revoke entrypoints.
 import { createNativeOAuthTransaction } from '../native-oauth-transaction.mjs';
 import { readNativeQwenCredentials as readCredentials } from '../native-qwen/read_credentials.mjs';
 
@@ -37,6 +37,53 @@ export function bindNativeGeminiWriters(client, { file, rootIdentity, assertAdmi
   // Capture the actual native HTTP exchange before replacing every inspected
   // refresh entrypoint. Its unawaited token listener was removed by read admission.
   const exchange = client.refreshTokenNoCache.bind(client);
+  const authorize = client.getTokenAsync.bind(client);
+  const revoke = client.revokeToken.bind(client);
+  async function revokeCurrent(explicit) {
+    try {
+      await assertAdmission();
+      return await withTransaction(file, async transaction => {
+        await assertAdmission();
+        const current = await transaction.snapshot();
+        if (explicit !== undefined && explicit !== current.credentials.access_token && explicit !== current.credentials.refresh_token) throw refused();
+        // Durable local logout precedes a possibly lost revocation response. A
+        // later client must not retain or refresh credentials being revoked.
+        await transaction.remove();
+        client.setCredentials({});
+        const response = await revoke(explicit ?? current.credentials.access_token);
+        await assertAdmission();
+        return response;
+      });
+    } catch {
+      client.setCredentials({});
+      throw refused();
+    }
+  }
+  client.revokeCredentialsAsync = () => revokeCurrent();
+  client.revokeToken = (token, callback) => {
+    const operation = revokeCurrent(token);
+    if (typeof callback !== 'function') return operation;
+    operation.then(response => callback(null, response), callback);
+  };
+  client.getTokenAsync = async options => {
+    try {
+      await assertAdmission();
+      return await withTransaction(file, async transaction => {
+        await assertAdmission();
+        const previous = await transaction.prepareLogin();
+        const response = await authorize(options);
+        await assertAdmission();
+        // A new login must supply its own complete generation. Never inherit a
+        // refresh token belonging to the account which preceded this login.
+        const published = await transaction.publishLogin(response.tokens, previous);
+        client.setCredentials(published);
+        return { ...response, tokens: published };
+      });
+    } catch {
+      client.setCredentials({});
+      throw refused();
+    }
+  };
   async function refresh(force = false, predecessor) {
     try {
       await assertAdmission();
@@ -69,5 +116,12 @@ export function bindNativeGeminiWriters(client, { file, rootIdentity, assertAdmi
   }
   client.refreshToken = client.refreshTokenNoCache = async predecessor => ({ tokens: await refresh(true, predecessor) });
   client.refreshAccessTokenAsync = async () => ({ credentials: await refresh(true) });
-  return { current: () => refresh() };
+  return {
+    current: () => refresh(),
+    canLogin: () =>
+      withTransaction(file, async transaction => {
+        await assertAdmission();
+        return (await transaction.prepareLogin()) === null;
+      }),
+  };
 }

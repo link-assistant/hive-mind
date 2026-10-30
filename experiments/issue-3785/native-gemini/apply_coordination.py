@@ -37,6 +37,13 @@ source = replace(source, '  const client = await oauthClientPromises.get(authTyp
     if (nativeGeminiSelected() && oauthClientPromises.get(authType) === pending) oauthClientPromises.delete(authType);
     throw error;
   }''')
+source = replace(source,
+    'return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType);',
+    'return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType, { interactive: config2.isInteractive(), login: client => completeNativeGeminiLogin(client, authType, config2) });')
+login_start = source.index('  const client = createBaseOAuth2Client();\n  if (authType === AuthType2.COMPUTE_ADC) {')
+login_end = source.index('\nasync function getOauthClient(', login_start)
+login_body = source[login_start + len('  const client = createBaseOAuth2Client();\n'):login_end]
+source = source[:login_end] + '\nasync function completeNativeGeminiLogin(client, authType, config2) {\n' + login_body + source[login_end:]
 first_oauth = source.index('var require_oauth2client2 = __commonJS({')
 next_module = source.index('\nvar require_', first_oauth + 1)
 oauth = source[first_oauth:next_module]
@@ -45,6 +52,16 @@ oauth = replace(oauth, '          authclient_1.AuthClient.setMethodName(opts, "r
             opts.retryConfig = { retry: 0, noResponseRetries: 0 };
           }
           authclient_1.AuthClient.setMethodName(opts, "refreshTokenNoCache");''')
+oauth = replace(oauth, '        authclient_1.AuthClient.setMethodName(opts, "getTokenAsync");', '''        if (nativeGeminiSelected()) {
+          opts.retry = false;
+          opts.retryConfig = { retry: 0, noResponseRetries: 0 };
+        }
+        authclient_1.AuthClient.setMethodName(opts, "getTokenAsync");''')
+oauth = replace(oauth, '        authclient_1.AuthClient.setMethodName(opts, "revokeToken");', '''        if (nativeGeminiSelected()) {
+          opts.retry = false;
+          opts.retryConfig = { retry: 0, noResponseRetries: 0 };
+        }
+        authclient_1.AuthClient.setMethodName(opts, "revokeToken");''')
 source = source[:first_oauth] + oauth + source[next_module:]
 source = 'import { publishNativeGeminiCredentials, clearNativeGeminiCredentials } from "./hive-gemini-writers.mjs";\n' + source
 first = reader.index('    async function current() {')
@@ -59,10 +76,18 @@ reader = reader[:first] + '''    const coordinator = bindNativeGeminiWriters(cli
     });
     async function current() { await coordinator.current(); }
 ''' + reader[last:]
-reader = replace(reader, "['refreshToken', 'refreshTokenNoCache', 'refreshAccessTokenAsync', 'getTokenAsync', 'revokeCredentialsAsync']", "['getTokenAsync', 'revokeCredentialsAsync', 'revokeToken']")
+reader = replace(reader, "['refreshToken', 'refreshTokenNoCache', 'refreshAccessTokenAsync', 'getTokenAsync', 'revokeCredentialsAsync']", "[]")
+reader = replace(reader, 'configurationDirectory, authType) {', 'configurationDirectory, authType, { interactive, login } = {}) {')
+reader = replace(reader, '    await current();\n    await client.getTokenInfo', '''    try { await current(); }
+    catch {
+      if (!interactive || typeof login !== 'function' || !(await coordinator.canLogin())) throw refused();
+      await login(client);
+      await current();
+    }
+    await client.getTokenInfo''')
 reader = 'import { bindNativeGeminiWriters } from "./hive-gemini-writers.mjs";\n' + reader
 engine = (here.parent / "native-oauth-transaction.mjs").read_text()
-if hashlib.sha256(engine.encode()).hexdigest() != "bc3b3820a64324a7a388a729728f98217d28454a6e1263d6a2e384b0e3bb8959":
+if hashlib.sha256(engine.encode()).hexdigest() != "d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174":
     raise SystemExit("Refusing changed inspected native OAuth transactions.")
 if hashlib.sha256((target.parent / "hive-read-credentials.mjs").read_bytes()).hexdigest() != "c3556a57278413d39e0b2cf0b8a3de1fefc2e1b0cd6f4f489fb0a722bfc43672":
     raise SystemExit("Refusing changed inspected canonical credential reads.")

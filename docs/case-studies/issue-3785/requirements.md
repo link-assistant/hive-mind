@@ -54,9 +54,12 @@ until the open and partial rows have implementation and verification evidence.
 The new Gemini experiment establishes nine native factory/retained-client stale
 header defects and an opt-in read repair, including independent roots and private
 scope disposal. A second stage coordinates the inspected refresh, cache-publication
-and logout entrypoints; twelve native controls cover concurrency, uncertainty,
-recovery and directory identity. Browser/auth-code/initial login, revocation and
-remaining provider/storage paths are unfinished. Neither stage is production
+and logout entrypoints. The expanded 26 native controls cover concurrency,
+uncertainty, recovery, directory identity, authorization-code publication, initial
+manual/browser login and current-generation revocation. External browser launch
+and provider transports are synthetic; the real native callback and SDK execute.
+Account metadata, other provider/storage paths and full CLI requests remain
+unfinished. Neither stage is production
 integration or completion of A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and
 `evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.

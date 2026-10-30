@@ -135,7 +135,7 @@ export function createNativeOAuthTransaction({ provider, readCredentials }) {
             await handle?.close();
           }
         }
-        async function write(credentials, expected) {
+        async function write(credentials, expected, login = false) {
           await assertCurrent();
           const previous = await snapshot(true);
           if (expected !== undefined && previous?.version !== expected?.version) throw refused();
@@ -144,8 +144,8 @@ export function createNativeOAuthTransaction({ provider, readCredentials }) {
           const serialized = JSON.stringify(credentials);
           if (Buffer.byteLength(serialized) > LIMIT) throw refused();
           const pending = await intent();
-          const completingRefresh = expected !== undefined && exchangingVersion === expected.version;
-          if (expected !== undefined && !completingRefresh) throw refused();
+          const completingRefresh = exchangingVersion !== undefined && expected !== undefined && exchangingVersion === expected?.version;
+          if (expected !== undefined && !completingRefresh && !login) throw refused();
           if (completingRefresh && (!pending || pending.generation !== refreshGeneration(expected.credentials))) throw refused();
           if (pending && pending.generation === refreshGeneration(credentials) && !completingRefresh) throw refused();
           const temporary = `.hive-qwen-auth-${process.pid}-${randomUUID()}`;
@@ -186,7 +186,23 @@ export function createNativeOAuthTransaction({ provider, readCredentials }) {
           await clearIntent();
           await assertCurrent();
         }
-        const transaction = { assertCurrent, snapshot, reconcile, beginRefresh, write, remove };
+        const transaction = {
+          assertCurrent,
+          snapshot,
+          reconcile,
+          beginRefresh,
+          write,
+          remove,
+          prepareLogin: async () => {
+            await assertCurrent();
+            await intent();
+            return snapshot(true);
+          },
+          publishLogin: (credentials, previous) => {
+            if (previous === undefined) throw refused();
+            return write(credentials, previous, true);
+          },
+        };
         await assertCurrent();
         const state = { active: true, file, transaction };
         try {

@@ -82,7 +82,7 @@ before returning to native wrappers. Missing provider refresh tokens retain the
 current one. Native refresh HTTP retries are disabled for selected authority,
 because a lost response cannot justify exchanging that predecessor again.
 
-Thirteen process controls exercise simultaneous refresh, pending cache publication
+Twenty-six process controls exercise simultaneous refresh, pending cache publication
 and logout, owner death, network refusal, metadata-only rewrites, root replacement
 after failed initialization, invalid grant, non-rotating refresh, direct refresh,
 direct no-cache refresh and a competing external publication. Cold readers make
@@ -100,13 +100,31 @@ node experiments/issue-3785/probe-gemini-native-writers.mjs
 node experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs
 ```
 
-`getTokenAsync`, revocation and direct revocation remain explicitly refused in
-this stage. The cache-publication control exercises the inspected native writer,
-not browser/auth-code login end to end. Initial login with missing credentials,
-account metadata, other provider constructors/retained handles, full CLI model
-requests, full conversation storage and production installation remain open.
-One control keeps an actual native OAuth client model request pending while a
-second process reads G1, proving the credential lock is released during that
-request. Its model transport is synthetic; full CLI inference remains unverified.
-Synthetic transports verify the native exchange options and publication logic;
-they do not establish live provider replay/grace behavior.
+Authorization-code exchanges use the native SDK and its real HTTP option
+construction, with retries disabled. A checked pre-exchange snapshot prevents
+publishing into a competing generation. A new login must provide its own complete
+refresh generation, including when repairing a previous uncertain exchange; it
+cannot inherit another account's refresh token. Unsafe legacy intent refuses
+before a code exchange.
+
+An explicit interactive factory call with missing credentials reuses the native
+manual-code or browser login flow. Only missing credentials qualify: malformed
+or otherwise unsafe existing storage refuses before browser launch or exchange.
+Noninteractive readers still refuse missing credentials. The manual control
+feeds the real terminal prompt. The browser control exercises the native local
+HTTP callback and generated state, replacing only the external browser-launch
+operation and provider transports. Neither control opens a live Google session.
+A fresh native peer requires the durably published generation in both cases.
+
+Native revocation rereads current storage, rejects an explicitly stale token,
+and durably removes local credentials before sending the no-retry revocation
+request. Success and network-refusal controls both require subsequent readers
+to refuse; a failed provider response cannot resurrect local credentials.
+
+The inspected native cache-publication control is still distinguished from the
+interactive flows. Account metadata, other provider constructors/retained handles,
+full CLI inference, full conversation storage and production installation remain
+open. One control keeps an actual native OAuth client model request pending while
+a second process reads G1, proving the credential lock is released during that
+request. Its model transport is synthetic. These tests do not establish live
+provider replay/grace behavior or the complete six-tool contract.

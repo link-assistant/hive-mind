@@ -59,7 +59,7 @@ if (process.argv[2] === '--worker') {
   const source = await fs.readFile(moduleFile, 'utf8');
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
   assert.equal(metadata.version, '0.65.0');
-  assert.ok([PIN, READ_PIN, 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610'].includes(createHash('sha256').update(source).digest('hex')), 'Only an exact inspected Gemini manager stage may run.');
+  assert.ok([PIN, READ_PIN, 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610', '5f1012b7c71f3ce17b53f923ca244d1ed44b5253fa0a93633c593cee52f38a77', '61f9f7fcc120c811254c8001cc745f2e84c284884d59f2a0e3ac55a6c95f9a5a', '0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c'].includes(createHash('sha256').update(source).digest('hex')), 'Only an exact inspected Gemini manager stage may run.');
   const expectGaps = process.argv.includes('--expect-native-gaps');
   const privateConfigs = process.argv.includes('--private-configs');
   const withoutSelector = process.argv.includes('--without-selector');

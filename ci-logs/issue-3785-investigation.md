@@ -1049,3 +1049,38 @@ private-path refusal. Lines 3117 and 3335 confirm installed stock/runtime gates
 in both image variants. The validator dependency fix is verified in actual Docker.
 The overall workflow remains failed at the earlier default-suite line guard;
 that outcome is not reported as a successful run.
+
+## Completed 823fb80335 and subsequent dependency freshness failure
+
+[Checks/release 41094570863](https://github.com/link-assistant/hive-mind/actions/runs/41094570863)
+passes every job at 823fb80335. Downloaded full log
+`ci-logs/checks-41094570863.log` records all 738 default files passing at line
+63183 and both integration files passing at line 63245. Its Docker job
+124198397248 passes the actual packaged host/nested backing and data checks.
+[Native Codex 41094570272](https://github.com/link-assistant/hive-mind/actions/runs/41094570272)
+also passes all three jobs. Its downloaded artifact verifies all eight staging
+link refusals, both journal link refusals, plain/compressed/child interrupted
+migration and fresh resume, and all eight constructor controls without forwarding
+external tunnels. Structural evidence is retained in
+`docs/case-studies/issue-3785/evidence/native-codex-staging-ci-41094570272.txt`.
+All eight workflows at that commit pass. This does not complete the open issue
+requirements or install the experimental native adapters in production.
+
+The newer [Checks/release 41099170779](https://github.com/link-assistant/hive-mind/actions/runs/41099170779),
+created 2026-10-30 17:28:47 UTC at 427f336085, fails before the downstream
+test/image jobs. Downloaded `ci-logs/checks-41099170779.log`, lines 3819–3827,
+reports eight stale Formal AI declarations: four Docker ARG values and four
+corresponding cargo extraction results still select 0.355.24 after 0.355.25 was
+released. Verify the authenticated upstream tag `v0.355.25` at
+`f51bbf0a2862b3e8975aa0ae82691981b8a9e6a8`, then update the ARG in Dockerfile,
+Dockerfile.dind, Dockerfile.formal-ai and coolify/Dockerfile. The existing five
+freshness/image test files pass (21 tests). The authenticated full freshness
+check reports zero stale and zero unresolved dependencies. A new packaged build
+and downstream test run are still required; the early failure verified none of
+them.
+
+[Gemini 41099170547](https://github.com/link-assistant/hive-mind/actions/runs/41099170547)
+and [Qwen 41099170515](https://github.com/link-assistant/hive-mind/actions/runs/41099170515)
+pass on 427f336085. The downloaded Gemini log/artifact confirms all 13 native
+writer controls at that commit. The additional local login/revocation controls
+were added afterward and need their own CI verification.

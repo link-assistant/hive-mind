@@ -153,7 +153,7 @@ replace('return path2.join(Storage.getGlobalQwenDir(),QWEN_CREDENTIAL_FILENAME2)
 source = 'import { nativeQwenCredentialPath, nativeQwenTransactionActive, withNativeQwenTransaction } from "./hive-qwen-transaction.mjs";\n' + source
 transaction = (here / "transaction.mjs").read_text().replace("../native-oauth-transaction.mjs", "./hive-native-oauth-transaction.mjs").replace("./read_credentials.mjs", "./hive-read-credentials.mjs")
 engine = (here.parent / "native-oauth-transaction.mjs").read_text()
-if hashlib.sha256(engine.encode()).hexdigest() != "bc3b3820a64324a7a388a729728f98217d28454a6e1263d6a2e384b0e3bb8959":
+if hashlib.sha256(engine.encode()).hexdigest() != "d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174":
     raise SystemExit("Refusing changed inspected native OAuth transactions.")
 if hashlib.sha256((target.parent / "hive-read-credentials.mjs").read_bytes()).hexdigest() != "c3556a57278413d39e0b2cf0b8a3de1fefc2e1b0cd6f4f489fb0a722bfc43672":
     raise SystemExit("Refusing changed inspected canonical credential reads.")

@@ -1,0 +1,33 @@
+Native Claude 2.1.310, disposable synthetic provider, host controls.
+
+healthy
+PASS: native Claude healthy control; refresh_exchanges=0, model_requests=1, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["POST", "/v1/messages"]]
+
+expired
+PASS: native Claude expired control; refresh_exchanges=1, model_requests=1, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["POST", "/v1/messages"]]
+
+concurrent
+PASS: native Claude concurrent control; refresh_exchanges=1, model_requests=2, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["POST", "/v1/messages"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["POST", "/v1/messages"]]
+
+replace-login
+PASS: native Claude replacement-login control; refresh_exchanges=1, model_requests=1, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"], ["POST", "/v1/messages"]]
+
+logout
+PASS: native Claude logout control; refresh_exchanges=1, model_requests=0, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "api.anthropic.com:443"], ["GET", "/api/oauth/profile"]]
+
+owner-death
+PASS: native Claude owner-death predecessor-reuse reproduction control; refresh_exchanges=2, model_requests=0, private_auth_absent=true
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"]]
+
+strict
+Synthetic endpoint trace: [["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"], ["CONNECT", "platform.claude.com:443"], ["POST", "/v1/oauth/token"]]
+Traceback (most recent call last):
+  File "experiments/issue-3785/probe-claude-native-refresh.py", line 223, in <module>
+    assert observed == ['SYNTHETIC-REFRESH-G0'], 'A peer must refuse the consumed predecessor after owner death.'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: A peer must refuse the consumed predecessor after owner death.

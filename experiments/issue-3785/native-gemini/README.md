@@ -197,3 +197,40 @@ These module/SDK controls do not establish full CLI inference, arbitrary
 pre-existing clients, canonical API-key/ADC backends, conversation storage or
 production installation. Unsupported selected backends refuse; implementing
 their own canonical authority remains open.
+
+## Actual CLI request control
+
+`probe-gemini-native-cli.py` runs the complete pinned CLI after all three
+adapter stages, with no native export or SDK instrumentation. A loopback proxy
+terminates TLS using a fixture CA trusted by Node; it never forwards traffic.
+The actual native OAuth token verification, account lookup, Code Assist setup
+and streaming model request must complete successfully. The model response,
+credentials and account are synthetic. Canonical credentials remain unchanged,
+canonical account metadata is published, and neither credential nor account
+files appear in private configuration.
+
+```sh
+python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics /tmp/gemini-cli-healthy.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --expect-history-gap --diagnostics /tmp/gemini-cli-history-before.log
+# This strict full CLI history regression fails before canonical storage.
+python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics /tmp/gemini-cli-history-regression.log
+```
+
+The control passes locally on Node 26.12.1. CI runs Node 24 and must verify that
+runtime separately. Children have a 256 MiB V8 heap, 2 GiB data-address bound,
+16 MiB stack, 45-second deadline and 256 KiB diagnostics limit. Provider request
+count/body size and socket waits are bounded. The fixture reaps process groups
+before successful cleanup and retains failed fixtures. The accompanying network
+trace records operations without credential headers or request content.
+
+The history control first requires successful native completion and a real
+persisted transcript. After reaping the whole native process group, it deletes
+the fixture-owned private home and starts a fresh peer. The existing adapter
+then lists no sessions and refuses resume with the native missing-session
+diagnostic, making no second model request. The strict regression fails at
+canonical conversation discovery. It cannot pass from an arbitrary startup or
+provider failure.
+
+This verifies one healthy full CLI OAuth inference. Full CLI concurrent refresh,
+owner-death recovery, alternate backends, conversation disposal/resume and
+production installation remain open.

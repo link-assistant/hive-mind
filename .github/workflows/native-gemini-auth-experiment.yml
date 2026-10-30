@@ -10,6 +10,8 @@ on:
       - 'experiments/issue-3785/probe-gemini-native-writers.mjs'
       - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
       - 'experiments/issue-3785/probe-gemini-native-request-auth.mjs'
+      - 'experiments/issue-3785/probe-gemini-native-cli.py'
+      - 'experiments/issue-3785/native_process_group.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -123,6 +125,17 @@ jobs:
         run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --without-selector > "$RUNNER_TEMP/gemini-requests-legacy.log" 2>&1
       - name: Verify native refresh, login, accounts, callbacks, revocation and crash recovery
         run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
+      - name: Complete actual CLI OAuth inference through a TLS-verifying local provider
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-cli-healthy.log" > "$RUNNER_TEMP/gemini-cli-healthy-control.log" 2>&1
+      - name: Reproduce actual native history loss after private configuration disposal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --expect-history-gap --diagnostics "$RUNNER_TEMP/gemini-cli-history-before.log" > "$RUNNER_TEMP/gemini-cli-history-before-control.log" 2>&1
+      - name: Require the strict full CLI history regression to fail at discovery
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics "$RUNNER_TEMP/gemini-cli-history-regression.log" > "$RUNNER_TEMP/gemini-cli-history-regression-control.log" 2>&1; then
+            echo 'The native CLI history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: A fresh native CLI must discover canonical conversation history.' "$RUNNER_TEMP/gemini-cli-history-regression-control.log"
       - name: Preserve coordinated native canonical reads and private-scope isolation
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1
       - name: Preserve no-selector native behavior
@@ -132,6 +145,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: native-gemini-auth-experiment
-          path: ${{ runner.temp }}/gemini-*.log
+          path: |
+            ${{ runner.temp }}/gemini-*.log
+            ${{ runner.temp }}/gemini-*.network.json
           if-no-files-found: ignore
           retention-days: 7

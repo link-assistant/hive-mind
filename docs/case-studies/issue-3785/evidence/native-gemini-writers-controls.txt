@@ -188,3 +188,22 @@ The original-package rotation control again fails for the exact G0/G1 refresh
 mismatch after restricting the new callback assertion to the coordinated stage.
 All five CI pre-coordination login/revocation/account regressions retain their
 specific original failures. Local ESLint, actionlint and Python syntax pass.
+
+Actual full CLI healthy control (local Node 26.12.1, 2026-10-30):
+Probe: experiments/issue-3785/probe-gemini-native-cli.py
+Exact admitted manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+No native export, OAuth SDK or Code Assist methods are instrumented.
+The complete CLI executes OAuth token verification, user-info, Code Assist
+initialization and an actual streaming model request through a TLS-verifying
+loopback provider fixture. The proxy forwards no external traffic.
+Native JSON output contains SYNTHETIC-GEMINI-COMPLETE and exits successfully.
+Canonical credentials stay unchanged; canonical account metadata is present;
+private credentials and private account metadata remain absent.
+Node 24 CI, full-CLI refresh/crash controls, conversation disposal/resume,
+alternate backends and production installation remain unfinished.
+Actual full CLI history negative control requires successful native inference
+and transcript publication first. After full process-group reaping and private
+home disposal, a fresh peer lists no sessions and resume reports:
+  Error resuming session: No previous sessions found for this project.
+Exactly one model request occurs. The strict regression fails with:
+  AssertionError: A fresh native CLI must discover canonical conversation history.

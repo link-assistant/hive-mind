@@ -741,6 +741,12 @@ Latest CI continuation:
       all five pre-coordination login/account/revocation regressions locally.
 - [ ] Exercise the actual Gemini CLI with a loopback-only TLS provider fixture,
       then implement/verify canonical full conversation discovery and resume.
+- [x] Complete a real native Gemini CLI OAuth inference through a TLS-verifying,
+      non-forwarding local provider. Require canonical credentials/account data
+      and absence of private credential/account files.
+- [x] Reproduce full CLI history loss after private-home disposal. Require a
+      successful native request and transcript first; the strict regression
+      then fails at fresh-peer conversation discovery with no second request.
 - [x] Download exact-head Checks 41104225711 test-job diagnostics and reproduce
       the bootstrap/image version mismatch with the existing matrix test.
       Align the bootstrap constant with all four 0.355.25 image pins; all

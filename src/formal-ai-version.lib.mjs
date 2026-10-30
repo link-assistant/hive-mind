@@ -41,7 +41,7 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
  * CLI/health contract is unchanged.
  * Verified against the published crates; see docs/case-studies/issue-2186.
  */
-export const FORMAL_AI_BOOTSTRAP_VERSION = '0.355.24';
+export const FORMAL_AI_BOOTSTRAP_VERSION = '0.355.25';
 
 export const parseFormalAiVersion = stdout => {
   const line = String(stdout || '')

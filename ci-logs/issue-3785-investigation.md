@@ -1109,3 +1109,23 @@ completed successfully on `427f3360852c0216526e2b37e67bfd3122fb76ad` at
 2026-10-30T18:05:09Z. Its three jobs pass, including rebuilt native request,
 constructor, journal/staging and recovery controls. Its full log is preserved in
 `ci-logs/native-codex-41099170608.log`.
+
+## Checks 41104225711: bootstrap pin differs from the shipped image
+
+[Run 41104225711](https://github.com/link-assistant/hive-mind/actions/runs/41104225711)
+checks exact head `0b81c2ebd2d33c47a3c23df8f4b9c00f728c303e`, created
+2026-10-30T18:08:01Z. Downloaded test-job log
+`ci-logs/test-suites-41104225711.log`, lines 1242–1279, reports the existing
+matrix test failing: `src/formal-ai-version.lib.mjs` still pins 0.355.24 while
+Dockerfile and Dockerfile.formal-ai install 0.355.25. The prior Docker ARG update
+missed the separate bootstrap constant. Minimum compatibility versions are
+unrelated and remain unchanged.
+
+The existing `tests/e2e-matrix-harness-3332.test.mjs` reproduces this exact
+ambiguity locally before repair (eight passes, one failure). Aligning
+`FORMAL_AI_BOOTSTRAP_VERSION` with the four image pins makes all nine matrix
+tests pass. Together with the five existing freshness/image test files, all
+30 reported tests pass. Authenticated upstream release metadata still reports
+`v0.355.25`, published 2026-10-30T17:40:20Z. The complete default suite and
+fresh exact-head CI are required separately; this focused pass does not
+establish packaged image success.

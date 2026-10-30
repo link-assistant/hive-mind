@@ -741,3 +741,10 @@ Latest CI continuation:
       all five pre-coordination login/account/revocation regressions locally.
 - [ ] Exercise the actual Gemini CLI with a loopback-only TLS provider fixture,
       then implement/verify canonical full conversation discovery and resume.
+- [x] Download exact-head Checks 41104225711 test-job diagnostics and reproduce
+      the bootstrap/image version mismatch with the existing matrix test.
+      Align the bootstrap constant with all four 0.355.25 image pins; all
+      30 matrix/freshness/image checks pass. Preserve compatibility minimums.
+- [ ] Complete the full default suite after the bootstrap repair, then require
+      fresh exact-head test and packaged image CI. Preserve the running native
+      Codex build before pushing the next atomic commits.

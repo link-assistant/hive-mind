@@ -6,6 +6,8 @@ Give Claude and Codex authentication errors separate limits sections, prefer aut
 
 Reject explicitly selected Router launches with missing task tokens, invalid endpoints or unavailable tool routes, and use the selected image's route dialect consistently.
 
+Restrict extra Router Docker options to documented resource limits. Before issuing a task token, inspect the actual new or reused sidecar's data/audit environment and writable canonical named volume; refuse redirected, ambiguous or overlapping storage without logging its environment.
+
 Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
 
 Reject malformed JSON/TOML, unsafe links and concurrent edits before the existing global configuration audit repairs state. Bound configuration reads even during concurrent growth. Require a clean re-audit of known surfaces before native connection checks in solve, hive and the root Telegram bot, including when auto-repair is disabled. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.

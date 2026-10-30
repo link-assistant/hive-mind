@@ -29,6 +29,7 @@ import { watchRouterTaskContainer } from '../src/router-task-isolation.lib.mjs';
 import { ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT } from '../src/router-isolation.lib.mjs';
 import { CLAUDE_SETTINGS_AUTH_ENV_KEYS, DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS, describeRouterAuthSurface, EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation, inspectRouterAuthSurface, isRouterAuthGuardRequired, readCodexProviderPin, resolveRouterAuthGuardIntervalMs, ROUTER_CODEX_PROVIDER_ID, startRouterAuthGuard } from '../src/router-auth-guard.lib.mjs';
 import { EXIT_CODE_INSUFFICIENT_DISK_SPACE } from '../src/disk-guard.lib.mjs';
+import { ROUTER_STORAGE_INSPECT_FORMAT } from '../src/router-storage-contract.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -86,6 +87,7 @@ const makeDocker = ({ networkMode = ROUTER_SIDECAR_NETWORK_NAME, running = false
     if (verb === 'inspect') {
       if (!containerRunning) throw new Error('No such object');
       if (args.includes('{{.HostConfig.NetworkMode}}')) return { stdout: `${networkMode}\n` };
+      if (args.includes(ROUTER_STORAGE_INSPECT_FORMAT)) return { stdout: JSON.stringify({ env: ['DATA_DIR=/data/router', 'AUDIT_LOG=/data/router/audit.jsonl'], mounts: [{ Type: 'volume', Name: 'hive-mind-router-data', Destination: '/data/router', RW: true }] }) };
       return { stdout: 'true|ghcr.io/link-assistant/router:latest|sha256:abc\n' };
     }
     if (verb === 'image') return { stdout: 'sha256:abc\n' };

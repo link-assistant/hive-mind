@@ -68,3 +68,15 @@ all participating clients explicitly use it. Documentation should distinguish
 one-time transfer from ongoing parallel use. Existing issue #15410 already
 tracks the separation request; this comment adds reproducible filesystem and
 launcher evidence rather than opening another duplicate.
+
+## Native Claude interrupted refresh
+
+Reported [anthropics/claude-code 106218](https://github.com/anthropics/claude-code/issues/106218)
+with the immutable `da0aae52a` fixture, exact 2.1.310 binary digest, ordinary
+concurrency/fresh-login/logout controls and strict failing owner-death assertion.
+The loopback-only synthetic provider consumes G0, the native owner dies before
+publishing its response, and a peer exchanges G0 again. No real provider or
+account participates; live grace-window/replay semantics remain unverified.
+The report requests durable intent or a documented safe-replay contract. It does
+not complete the local all-writer/crash requirement or authorize production
+integration.

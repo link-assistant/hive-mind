@@ -49,9 +49,12 @@ try:
         recover = '    recoverNativeGeminiPublications(parent, current, refuse);\n'
         publish = '      publishNativeGeminiExclusive(parent, name, temporary, content, current, refuse);'
         cleanup = '  } finally {\n    if (fd !== undefined) fs.closeSync(fd);\n  }\n}\n\nexport function nativeGeminiChatsDirectory'
-        for context in (imports, recover, publish, cleanup):
+        append = 'export function appendNativeGeminiPromptHistory(temporary, entry, validateAdditional = () => {}) {'
+        validate = '    validateAdditional(records);\n'
+        for context in (imports, recover, publish, cleanup, append, validate):
             assert original.count(context) == 1
         previous = original.replace(imports, '').replace(recover, '').replace(publish, '      fs.linkSync(temporary, `${parent.anchor}/${name}`);\n      fs.unlinkSync(temporary);')
+        previous = previous.replace(append, 'export function appendNativeGeminiPromptHistory(temporary, entry) {').replace(validate, '')
         previous = previous.replace(cleanup, '  } finally {\n    if (fd !== undefined) fs.closeSync(fd);\n    try {\n      fs.unlinkSync(temporary);\n    } catch (error) {\n      if (error.code !== \'ENOENT\') failed = true;\n    }\n  }\n}\n\nexport function nativeGeminiChatsDirectory')
         assert hashlib.sha256(previous.encode()).hexdigest() == 'b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab'
         helper.write_text(previous)

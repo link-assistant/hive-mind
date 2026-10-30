@@ -6,15 +6,20 @@ forwards traffic, and every credential, account and conversation is synthetic.
 """
 import argparse
 import base64
+import fcntl
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import pty
+import select
 import shutil
 import ssl
+import struct
 import subprocess
 import tempfile
+import termios
 import threading
 import time
 from urllib.parse import urlsplit
@@ -26,6 +31,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
+parser.add_argument('--shell-history', action='store_true')
+parser.add_argument('--shell-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'command-schema'))
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
 parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
@@ -46,6 +53,8 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
+assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
+assert not args.shell_history_attack or args.shell_history
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
 assert not args.history_retention or args.history and not (args.history_attack or args.private_history or args.expect_history_gap)
@@ -412,6 +421,145 @@ try:
                     'same_inode': record.exists() and (record.stat().st_dev, record.stat().st_ino) == identity}
         diagnostic.with_suffix('.control.json').write_text(json.dumps(evidence))
         return all(evidence.values())
+
+    if args.shell_history:
+        witness = workspace / 'native-shell-witness.txt'
+        shell_command = "printf 'SYNTHETIC-SHELL-OUTPUT\\n'; printf 'SYNTHETIC-SHELL-WITNESS' > native-shell-witness.txt"
+
+        def interactive(child_env, prompt, diagnostic, recalled=False, refused=False):
+            master, slave = pty.openpty()
+            fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
+            deadline = time.monotonic() + 45
+            output = bytearray()
+            try:
+                with diagnostic.open('wb') as diagnostics:
+                    diagnostic.chmod(0o600)
+                    requests_before = len(models)
+                    child = subprocess.Popen(['prlimit', '--data=2147483648', '--stack=16777216', '--core=0', '--',
+                                              shutil.which('node'), '--max-old-space-size=256', str(native / 'bundle/gemini.js'),
+                                              '--model', 'gemini-2.5-flash', '--skip-trust', '--approval-mode', 'yolo',
+                                              '--prompt-interactive', prompt],
+                                             env={**child_env, 'TERM': 'xterm-256color', 'COLUMNS': '120', 'LINES': '40'},
+                                             cwd=workspace, stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+                    children.append(child)
+                    os.close(slave)
+                    slave = None
+
+                    def pump(seconds=0.1, allow_exit=False):
+                        assert time.monotonic() < deadline, 'Finite native Gemini TUI deadline exceeded.'
+                        if select.select([master], [], [], seconds)[0]:
+                            try:
+                                data = os.read(master, 65536)
+                            except OSError:
+                                data = b''
+                            diagnostics.write(data)
+                            diagnostics.flush()
+                            output.extend(data)
+                            assert len(output) <= 1024 * 1024, 'Native TUI diagnostics exceeded their bound.'
+                            if b'\x1b[6n' in data:
+                                os.write(master, b'\x1b[1;1R')
+                        assert allow_exit or child.poll() is None, 'Native TUI exited before its finite command control; inspect diagnostics.'
+
+                    def settle(seconds=0.4, allow_exit=False):
+                        until = time.monotonic() + seconds
+                        while time.monotonic() < until:
+                            pump(max(0, min(0.1, until - time.monotonic())), allow_exit=allow_exit)
+
+                    try:
+                        before = len(completions())
+                        if refused:
+                            refusal = b'Gemini canonical conversation history is unavailable or unsafe.'
+                            while refusal not in output and child.poll() is None:
+                                pump(allow_exit=True)
+                            assert refusal in output, 'Native TUI must report its canonical shell audit refusal.'
+                            settle(allow_exit=True)
+                            assert len(models) == requests_before, 'Native TUI must refuse unsafe shell history before another inference.'
+                            assert not witness.exists(), 'Native TUI must refuse unsafe shell history before shell execution.'
+                            return
+                        while len(completions()) == before or b'SYNTHETIC-GEMINI-COMPLETE' not in output:
+                            pump()
+                        settle()
+                        os.write(master, b'!')
+                        settle()
+                        os.write(master, b'\x1b[A' if recalled else shell_command.encode())
+                        settle()
+                        os.write(master, b'\r')
+                        command_deadline = time.monotonic() + 8
+                        while (not witness.exists() or witness.read_text() != 'SYNTHETIC-SHELL-WITNESS') and time.monotonic() < command_deadline:
+                            pump()
+                        assert witness.exists(), ('Fresh native TUI shell navigation must recover the prior command after private-home disposal.' if recalled else 'Healthy native TUI must execute its entered shell command before disposal.')
+                        assert witness.read_text() == 'SYNTHETIC-SHELL-WITNESS'
+                        settle()
+                    finally:
+                        stop_process_group(child)
+            finally:
+                os.close(master)
+                if slave is not None:
+                    os.close(slave)
+
+        interactive(env, first_prompt, args.diagnostics)
+        assert len(completions()) == 1 and completions()[0]['first_prompt']
+        protected = None
+        if args.shell_history_attack:
+            audits = list(history.rglob('prompt-history.json'))
+            assert len(audits) == 1
+            audit = audits[0]
+            protected = audit
+            if args.shell_history_attack in ('symlink', 'hardlink'):
+                protected = root / 'protected-shell-audit'
+                audit.rename(protected)
+                if args.shell_history_attack == 'symlink':
+                    audit.symlink_to(protected)
+                else:
+                    os.link(protected, audit)
+            elif args.shell_history_attack == 'unsafe-mode':
+                audit.chmod(0o644)
+            elif args.shell_history_attack == 'malformed':
+                audit.write_bytes(b'{')
+            elif args.shell_history_attack == 'invalid-utf8':
+                audit.write_bytes(b'\xff')
+            elif args.shell_history_attack == 'command-schema':
+                records = json.loads(audit.read_text())
+                next(entry for entry in records if entry['type'] == 'shell-command')['message'] = 'SYNTHETIC\0INVALID'
+                audit.write_text(json.dumps(records))
+            else:
+                with audit.open('r+b') as output:
+                    output.truncate(32 * 1024 * 1024 + 1)
+
+            def fingerprint(file):
+                info = file.stat()
+                digest = hashlib.sha256()
+                with file.open('rb') as data:
+                    while chunk := data.read(65536):
+                        digest.update(chunk)
+                return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, digest.hexdigest())
+
+            original = fingerprint(protected)
+        shutil.rmtree(home)
+        witness.unlink()
+        peer = root / 'shell-peer'
+        private_peer = peer / '.gemini'
+        private_peer.mkdir(mode=0o700, parents=True)
+        (private_peer / 'settings.json').write_text(json.dumps(settings))
+        (private_peer / 'settings.json').chmod(0o600)
+        peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
+                    'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
+                    'XDG_CACHE_HOME': str(peer / '.cache')}
+        interactive(peer_env, second_prompt, args.diagnostics.with_name(args.diagnostics.stem + '-shell-peer.log'), recalled=True, refused=bool(args.shell_history_attack))
+        if args.shell_history_attack:
+            assert fingerprint(protected) == original
+            assert len(completions()) == 1 and not errors, errors
+            print('PASS: actual native TUI refuses unsafe shell history before inference or command execution without changing protected audit data: ' + args.shell_history_attack)
+            safe_cleanup = True
+            raise SystemExit(0)
+        assert len(completions()) == 2 and completions()[1]['second_prompt']
+        assert not list(private_peer.rglob('shell_history'))
+        assert json.loads(auth.read_text()) == credentials
+        assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+        assert not errors, errors
+        print('PASS: actual native TUI executes a shell command, disposes its private home, recalls and executes the same command in a fresh native TUI.')
+        safe_cleanup = True
+        raise SystemExit(0)
 
     flags = ['--prompt', first_prompt if args.history else 'Synthetic native request control. Do not invoke tools.']
     if args.history:

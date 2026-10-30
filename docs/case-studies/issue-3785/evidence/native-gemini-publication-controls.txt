@@ -53,4 +53,5 @@ These are not complete CLI crash controls or physical power-loss proof.
 Malformed/incomplete intent creation, unjournaled staging, append interruption,
 interactive admission, prior-private-state migration, other history surfaces,
 child/subagent lifecycle, all backends and production integration remain open.
-Fresh exact-head Node 24 CI remains required. A1-A12 remain unfinished.
+PASS: Node 24 CI run 41137763744 at 8f2ec5c8e5118f4a135681810108048519cea19c.
+The full log and all 586 diagnostic files are preserved. A1-A12 remain unfinished.

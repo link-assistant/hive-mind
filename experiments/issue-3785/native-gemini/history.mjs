@@ -379,9 +379,10 @@ export function readNativeGeminiPromptHistory(temporary) {
   return loggerTransaction(temporary, 'prompt', validatePromptHistory, records => ({ value: records }));
 }
 
-export function appendNativeGeminiPromptHistory(temporary, entry) {
+export function appendNativeGeminiPromptHistory(temporary, entry, validateAdditional = () => {}) {
   if (!nativeGeminiHistorySelected()) return undefined;
   return loggerTransaction(temporary, 'prompt', validatePromptHistory, records => {
+    validateAdditional(records);
     let next = 0;
     for (const previous of records) {
       if (previous.sessionId === entry.sessionId) next = previous.messageId + 1;

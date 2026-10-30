@@ -124,7 +124,8 @@ and 24 unsafe-storage/publication refusals. These native API controls do not
 establish interactive startup/error admission, prior-private-state migration,
 shell command/Git checkpoint/plan/tracker/task storage, child/subagent lifecycle,
 interrupted first publication, all backends or production installation. Fresh
-Node 24 CI and the remaining A1–A12 criteria stay open.
+Node 24 CI run 41137763744 passes these controls at
+`8f2ec5c8e5118f4a135681810108048519cea19c`; the remaining A1–A12 criteria stay open.
 
 A further native recovery stage reproduces interrupted first publication in
 five data families before repair. Fifteen forced-death controls now recover
@@ -137,5 +138,29 @@ tested manager/CLI/helper bytes and passes its native crash/read control. See
 `evidence/native-gemini-publication-controls.txt` for pins and boundaries.
 Malformed/incomplete intent creation, unjournaled staging, append interruption,
 full CLI/UI crash admission, physical power loss and the remaining full-history/
-lifecycle/backend/production requirements stay open. Exact-head Node 24 CI is
-still required; these controls do not complete A1–A12.
+lifecycle/backend/production requirements stay open. Exact-head Node 24 CI
+41137763744 passes this recovery stage; all 586 diagnostic files and the complete
+log are preserved. These controls do not complete A1–A12.
+
+The next interactive shell-history stage reproduces private-home loss, cached
+peer navigation and swallowed writes in the actual native hook. Synchronous
+checked appends retain a complete command audit, while fresh reads derive native
+100-command deduplicated navigation. All 22 scenarios / 28 bounded native process
+results pass locally, including four concurrent writers, 122 retained audit
+events, multiline UTF-8 data, prompt separation and eleven unsafe-storage/schema
+cases. Two draft failures show invalid command data being accepted on navigation
+and submission; validation now precedes publication inside the same locked append.
+A separate complete TUI control uses a real PTY and TLS-verifying synthetic
+provider without native export or SDK instrumentation. It first executes a shell
+command, then reproduces failed recall in a fresh healthy TUI after private-home
+disposal. After repair, up-arrow and enter recall and execute that command.
+The complete TUI also reproduces invalid command data reaching provider dispatch
+before its asynchronous loading effect reports failure. A checked startup read
+now precedes rendering and inference. Seven unsafe-audit TUI controls refuse before any additional provider inference
+or shell execution and preserve protected evidence. Fresh source application
+verifies the same eight manager/CLI/helper files and passes its native hook
+lifetime control. Complete interactive failure/crash admission, migration,
+Git/plan/tracker/task storage, child/subagent lifecycle, alternate backends,
+rollover and production installation remain unfinished. Fresh exact-head Node 24
+CI remains required for this shell stage. See
+`evidence/native-gemini-shell-controls.txt` for exact boundaries.

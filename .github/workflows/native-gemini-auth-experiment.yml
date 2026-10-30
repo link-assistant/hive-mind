@@ -228,6 +228,40 @@ jobs:
           for attack in journal-symlink journal-hardlink journal-mode journal-malformed journal-schema journal-invalid-utf8 journal-oversized journal-traversal journal-inode journal-digest stage-symlink stage-hardlink stage-mode stage-content stage-missing target-symlink target-hardlink target-mode target-content target-collision; do
             python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-publication-$attack.log" > "$RUNNER_TEMP/gemini-publication-$attack-control.log" 2>&1
           done
+      - name: Reproduce native shell command loss, cached navigation and swallowed writes
+        run: |
+          for state in lifetime peer write-failure; do
+            if python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-shell-before-$state.log" > "$RUNNER_TEMP/gemini-shell-before-$state-control.log" 2>&1; then
+              echo 'The native shell history regression unexpectedly passed.'
+              exit 1
+            fi
+            case "$state" in
+              lifetime) phase=peer; expected='Native interactive shell history must survive private-home disposal.' ;;
+              peer) phase=owner; expected='Native shell navigation must observe the latest peer command.' ;;
+              write-failure) phase=owner; expected='Native shell submit must refuse a failed history write synchronously.' ;;
+            esac
+            grep -F "$expected" "$RUNNER_TEMP/gemini-shell-before-$state-$state-$phase.log"
+          done
+      - name: Reproduce command recall loss using the complete native terminal
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-shell-tui-before.log" > "$RUNNER_TEMP/gemini-shell-tui-before-control.log" 2>&1; then
+            echo 'The complete terminal history regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Fresh native TUI shell navigation must recover the prior command after private-home disposal.' "$RUNNER_TEMP/gemini-shell-tui-before-control.log"
+      - name: Apply exact pinned native interactive shell history
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Retain command audit and observe independent native shell writers
+        run: python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-shell-after.log" > "$RUNNER_TEMP/gemini-shell-after-control.log" 2>&1
+      - name: Recall and execute the saved command in a fresh complete native terminal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-shell-tui-after.log" > "$RUNNER_TEMP/gemini-shell-tui-after-control.log" 2>&1
+      - name: Refuse unsafe command history before native terminal inference or execution
+        run: |
+          for state in symlink hardlink unsafe-mode malformed invalid-utf8 oversized command-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --shell-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-shell-tui-$state.log" > "$RUNNER_TEMP/gemini-shell-tui-$state-control.log" 2>&1
+          done
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal

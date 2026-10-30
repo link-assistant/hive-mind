@@ -975,7 +975,8 @@ Latest CI continuation:
       CLI artifact/blob disposal/resume positives and 41/30/11 auth controls.
       Full formatting, ESLint, focused secret scanning, actionlint and syntax
       checks pass. Repeat all full CLI refusals in fresh Node 24 CI.
-- [ ] Require fresh Node 24 native Logger CI after all local checks pass.
+- [x] Require fresh Node 24 native Logger CI after all local checks pass.
+      Run 41137763744 passes at 8f2ec5c8e; preserve its log and 586 artifacts.
 - [x] Reproduce interrupted first publication in all five selected families;
       fresh readers reject complete two-link data after the owner is killed and
       reaped. Preserve the exact preceding helper as a checked disposable control.
@@ -994,5 +995,53 @@ Latest CI continuation:
       36 Logger, 65 storage, nine tool-output and 31 blob controls, both full
       CLI disposal/resume positives, all eight artifact and seven blob CLI
       refusals, and 41 writer/account, 30 request and 11 canonical-read controls.
-- [ ] Require fresh exact-head Node 24 CI. Retain incomplete/invalid intent and remaining
+- [x] Require fresh exact-head Node 24 CI. Run 41137763744 passes at 8f2ec5c8e.
+      Retain incomplete/invalid intent and remaining
       append/UI/power-loss/full-history/production criteria as unfinished.
+
+- [x] Reproduce actual interactive shell-history loss after a healthy native
+      hook write/read and private-home disposal, using export-only access and
+      a finite React state/effect dispatcher. Preserve the failed fresh-peer
+      assertion; this does not claim full TUI admission.
+- [x] Reproduce cached navigation and swallowed persistence failures before
+      repairing the inspected native hook. Retain native navigation limits,
+      preserve a complete command audit and coordinate fresh cross-process writes.
+- [ ] Verify shell-history disposal, peer navigation, four writers, write refusal,
+      audit retention and legacy behavior; require the complete surrounding
+      native regressions and fresh Node 24 CI before claiming this stage verified.
+- [x] Pass all 22 hook scenarios / 28 bounded native process results on the
+      final fresh-applied package, including four writers preserving 40 commands,
+      all 122 audit events behind a 100-command view and eleven unsafe-storage/
+      schema refusals. The unselected native file behavior remains available.
+- [x] Use the complete uninstrumented native TUI through a bounded PTY and
+      TLS-verifying synthetic provider. Reproduce command recall loss only after
+      a healthy command creates its witness, private-home disposal and a healthy
+      fresh TUI inference. The repaired fresh TUI recalls and executes it.
+- [x] Locally verify full TUI admission for seven unsafe command-audit cases and
+      preserve protected evidence. Add strict before and after controls to CI;
+      fresh-head Node 24 execution remains required above.
+- [x] Reproduce invalid command data being accepted during navigation and direct
+      submission, then validate inside the locked append before publication.
+      Reproduce the actual TUI dispatching before its asynchronous loading error;
+      perform checked command admission before rendering and inference.
+- [x] Rebuild all five history stages from the pinned constructor package;
+      applicability checks change no bytes, all eight resulting files match,
+      and the fresh native hook lifetime control passes.
+- [x] Pass surrounding native controls on the final shell-history helper:
+      36 Logger, 65 storage, nine tool-output, 31 blob and 36 publication results;
+      complete artifact/blob CLI disposal/resume, all eight artifact/seven blob
+      CLI refusals, and 41 writer/account, 30 request and 11 canonical-read checks.
+- [x] Pass complete repository formatting and ESLint, focused secret scanning,
+      actionlint and syntax checks before committing the shell-history stage.
+- [x] Download the fresh default-suite failure from job 124345404794, run
+      41137763864 at 8f2ec5c8e. Reproduce its Formal AI runtime/image mismatch
+      and the dependency-pin fixture mismatch locally. Align both with .26;
+      all twelve focused checks, formatting and ESLint pass before committing.
+- [x] Preserve complete Checks 41137763864 logs. Packaged host/nested mount and
+      directory projections pass at full-log lines 44933-44940. The only failed
+      job is the reproduced runtime/image mismatch at line 46238; Pipeline Status
+      propagates that failure. Native Codex 41137763884 passes all three compiled
+      jobs at the same head; preserve its complete logs and native artifacts.
+- [x] Run all 739 default test files after the Formal AI pin consistency fix;
+      one complete invocation passes without a global heap override. No OOM kill
+      occurs. Preserve new CI logs and verify fresh timestamps and head SHA.

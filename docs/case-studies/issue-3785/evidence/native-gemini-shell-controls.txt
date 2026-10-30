@@ -1,0 +1,70 @@
+Gemini CLI 0.65.0; locally verified 2026-10-30, Node 26.12.1.
+Disposable packages, synthetic credentials/provider/conversations/commands only.
+Manager 439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b
+History 586d39370a4344a1aaa46c81894f2c6239253a91cb84e3871288c2093c328e99
+Publication 2e55f93d5075a6c9cc9d5b3c7e71f243accc8f72e955e038d0341cb8fed0bc00
+Preceding UI 286a6aa958fe8a99dcb87a3ffe094c8ef889449fb298fc18f54065c7cab3a749
+Selected UI a1f578e876bbdfd04e4140a8a2dfeb6750ab569db2d4d24aadd72e3dd4304422
+Shell helper c1b5b1abca32643ae0674779fe21bcf5713795906b9f6aac0d57a0ce3774e2f0
+
+REPRODUCED: actual native hook writes/reads a command, but a fresh hook cannot
+            recover it after the complete private configuration is disposed.
+REPRODUCED: initialized native navigation returns stale data after a peer write.
+REPRODUCED: native submission returns normally after injected persistence failure.
+All strict before controls require their specific native assertion failure.
+REPRODUCED: the draft accepts valid JSON with invalid command data during
+            navigation and direct submission. The latter can rewrite the audit
+            before reporting failure. Validate command data inside the locked
+            append transaction before publication; preserve protected data.
+
+PASS: 22 hook scenarios / 28 bounded native process results preserve commands
+      across private-home disposal, observe peer writes on next navigation,
+      preserve all 40 commands from four simultaneous writers, and retain all
+      122 audit events behind the native 100-command deduplicated view.
+PASS: multiline UTF-8 commands round-trip exactly; native Logger user-prompt
+      navigation remains separate from shell-command records.
+PASS: early submission, asynchronous load failure, synchronous write failure
+      and invalid command data propagate checked refusal.
+PASS: eleven symlink/hardlink/mode/JSON/command-schema/UTF-8/size/missing/parent/root controls
+      refuse both navigation and submission while preserving protected data.
+PASS: unselected native private-file behavior remains available.
+The actual native hook body executes through export-only access and a finite
+React state/effect dispatcher with callback dependency checks. This does not
+establish TUI rendering behavior.
+
+REPRODUCED: the complete uninstrumented native TUI executes a finite command
+            that creates a witness. After full process-group exit and private
+            home/witness disposal, a fresh TUI completes real synthetic-provider
+            inference but cannot recall and execute that command.
+PASS: after repair, the same complete TUI lifecycle recalls the old command using
+      actual shell-mode/up-arrow/enter keys and recreates the exact witness.
+REPRODUCED: the draft's complete TUI dispatches a provider request before its
+            asynchronous history effect reports invalid command data. Move
+            checked admission before terminal rendering and inference.
+PASS: seven complete TUI startup controls refuse symlink, hardlink, unsafe mode,
+      malformed, invalid UTF-8, oversized and invalid-command-schema audits before any additional
+      provider inference or shell execution, retaining protected bytes/device/
+      inode/mode/link count/size. The proxy never forwards external traffic.
+
+PASS: checked source application rebuilds all five history stages from the
+      pinned constructor package, changes no bytes in applicability checks and
+      produces the same eight native manager/CLI/helper files. A fresh hook
+      write/read/disposal/fresh-peer lifetime control passes on that package.
+PASS: final-helper regressions: 36 Logger, 65 storage, nine tool-output, 31 blob,
+      36 publication results, complete artifact/blob disposal/resume, all eight
+      artifact/seven blob CLI refusals and 41/30/11 authentication controls.
+PASS: full repository formatting and ESLint, focused secret scanning, actionlint
+      and syntax checks. All 739 default test files pass in one invocation after
+      the separate Formal AI version-consistency correction.
+
+Hook workers: 256-MiB heap, 16-MiB stack, 25-second finite deadline, 64-KiB logs.
+Complete TUI: 256-MiB heap, 16-MiB stack, 45-second finite deadline, 1-MiB logs.
+All process groups are stopped/reaped before cleanup; failed fixtures remain.
+The command audit uses the checked 32-MiB/100,000-record prompt transaction,
+not a second executable/configuration home. No private shell file is created.
+
+Remaining: complete interactive failure/crash admission, prior-private-state
+migration, Git checkpoints, plans/tracker/task memory, child/subagent lifecycle,
+all backends, journal rollover and production installation. This is an opt-in
+experiment; production still does not implement the complete six-tool contract.
+Fresh exact-head Node 24 CI remains required. A1-A12 remain unfinished.

@@ -47,3 +47,33 @@ These results cover the listed paths. Production still copies scoped Codex
 authentication, and the complete six-tool canonical auth/history, alternative
 backend audit, global baseline, migration and release/deployment lifecycle
 requirements remain unfinished. The PR must remain draft and unmerged.
+
+## Later validation at 8f2ec5c8e
+
+All runs below were created at 2026-10-30T22:23:06Z for
+`8f2ec5c8e5118f4a135681810108048519cea19c`.
+
+- [Native Codex 41137763884](https://github.com/link-assistant/hive-mind/actions/runs/41137763884)
+  passes all three compiled jobs. The complete 1,791-line log and 110 artifact
+  files, including the experimental executable, are preserved locally. Native
+  TUI admission, two live model clients, replacement/logout/recreation and
+  named-history metadata disposal controls pass.
+- [Native Gemini 41137763744](https://github.com/link-assistant/hive-mind/actions/runs/41137763744)
+  passes the Logger and first-publication recovery stages with all surrounding
+  native controls on Node 24. All 586 diagnostic files and the complete log are
+  preserved locally. This precedes the interactive shell-history stage.
+- [Checks/release 41137763864](https://github.com/link-assistant/hive-mind/actions/runs/41137763864)
+  fails only `test-suites`; Pipeline Status propagates that failure. Full-log
+  line 46238 and job-log line 1263 identify runtime Formal AI 0.355.25 versus
+  image 0.355.26. Both existing reproductions fail locally before correction.
+  Commit `9d006e7e3` aligns the runtime and dependency-pin fixture with the images;
+  all twelve focused checks and one complete 739-file default invocation pass.
+  The failed run's packaged-image job passes; full-log lines 44933-44940 confirm
+  actual host/nested backing and Agent/OpenCode replacement, recreation and
+  two-task filesystem writes.
+
+The new shell stage locally passes 22 scenarios / 28 native process results,
+complete command execution/disposal/recall and seven pre-inference TUI refusal
+controls. See `native-gemini-shell-controls.txt` for reproductions, pins and limits.
+Fresh exact-head CI is still required for the version correction and shell stage.
+The production and full six-tool acceptance criteria above remain unfinished.

@@ -527,7 +527,10 @@ Logger-stage manager SHA-256:
 History helper SHA-256:
 `b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab`.
 
-Fresh Node 24 CI, interactive startup/error admission, prior-private-state
+Node 24 CI run 41137763744 passes at
+`8f2ec5c8e5118f4a135681810108048519cea19c`, including these Logger controls and
+the publication controls below; its log and all 586 diagnostic files are retained.
+Interactive startup/error admission, prior-private-state
 migration, shell command history, Git checkpoints, plans/tracker/task state,
 child/subagent lifecycle, interrupted first publication, all backends and
 production installation remain open. This experiment does not complete A1–A12.
@@ -589,3 +592,80 @@ complete CLI/UI admission, migration, all other history surfaces, child/subagent
 lifecycle, alternate backends, power loss and production installation remain
 open. Invalid or conflicting evidence is retained and refused; this stage does
 not provide an automatic repair for every interruption or complete A1–A12.
+
+## Interactive shell command history
+
+The inspected native `useShellHistory` hook caches a private `shell_history`
+file, rewrites it asynchronously and swallows write errors. Three strict
+controls reproduce command loss after private-home disposal, cached navigation
+after a peer write, and submission returning despite failed persistence. Each
+starts with a healthy command write/read. The lifetime control requires the
+specific fresh-reader failure; an unrelated startup error cannot satisfy it.
+
+`apply_shell_history.py` patches only the exact interactive bundle and adds a
+separate data helper. Selected paths register a project selector without opening
+the private file. Shell commands append synchronously through the existing
+checked prompt-history transaction under its stable kernel lock. A distinct
+record type and audit identity separate them from native user-prompt navigation.
+The native 100-command, deduplicated navigation limit is derived from the complete
+audit; old commands and repeated submissions remain recorded. Each navigation
+operation reads the latest checked snapshot. Persistence and initialization
+failures propagate into native submission/render admission without a private
+fallback. The unselected native file behavior remains available.
+
+Two further draft controls reproduce acceptance of syntactically valid JSON
+containing invalid command data, both on navigation and on direct submission.
+Command validation now runs inside the same locked append transaction before
+publication. The complete TUI also reproduces the asynchronous loading effect
+reporting that error after provider dispatch. A checked read at the start of
+`startInteractiveUI` now precedes terminal rendering and inference.
+
+All 22 hook scenarios produce 28 passing bounded native process results. These
+include private-home disposal, next-read peer visibility, four simultaneous
+writers preserving 40 commands, all 122 audit events behind a 100-command view,
+multiline UTF-8 commands, prompt separation, early submission, load/write failure,
+invalid commands and eleven unsafe-storage/schema cases. The actual hook body runs through
+export-only instrumentation and a finite React dispatcher with dependency-aware
+callbacks. That dispatcher supplies hook state and effects; it does not render
+the terminal or execute shell commands.
+
+A separate complete CLI control uses a PTY and the TLS-verifying synthetic
+provider without adding exports or replacing SDK/native methods. The first TUI
+completes inference and executes a finite shell command that creates a witness.
+After its whole process group exits, the control removes the private home and
+witness. A fresh TUI completes its own inference, then receives shell-mode,
+up-arrow and enter keys. Before repair it fails the exact recall assertion;
+after repair the recalled command recreates the witness. Seven further complete
+TUI controls refuse linked, permissive, malformed, invalid UTF-8 or oversized
+command history, including valid JSON with invalid command data, before any
+additional provider inference or shell execution,
+preserving protected bytes/device/inode/mode/link count/size.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_shell_history.py /path/to/disposable/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_shell_history.py /path/to/disposable/gemini-cli
+python3 experiments/issue-3785/native-gemini/probe_shell_history.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-shell.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py /path/to/disposable/gemini-cli --history --shell-history --diagnostics /tmp/gemini-shell-tui.log
+```
+
+The new UI SHA-256 is
+`a1f578e876bbdfd04e4140a8a2dfeb6750ab569db2d4d24aadd72e3dd4304422`;
+shell helper SHA-256 is
+`c1b5b1abca32643ae0674779fe21bcf5713795906b9f6aac0d57a0ce3774e2f0`.
+The optional command-validation callback changes the history helper SHA-256 to
+`586d39370a4344a1aaa46c81894f2c6239253a91cb84e3871288c2093c328e99`.
+The manager and publication pins above remain unchanged.
+`verify_shell_application.py` rebuilds all history stages from the pinned
+constructor package, verifies applicability checks change no bytes, and compares
+the eight resulting manager/CLI/helper files with the tested package. Its fresh
+native hook lifetime control also passes. Every native hook worker has a 256 MiB
+heap, 16 MiB stack, 25-second deadline and 64 KiB diagnostic cap. Each complete
+TUI has a 256 MiB heap, 16 MiB stack, 45-second deadline and 1 MiB output cap;
+failed fixtures are retained and every process group is reaped.
+
+Prior-private-state migration, complete interactive failure and crash admission,
+Git checkpoints, plans/tracker/task memory, child/subagent lifecycle, alternate
+backends and production installation remain open. The checked command journal
+retains the existing 32 MiB/100,000-record bound; it does not implement rollover
+or unlimited audit retention. Fresh exact-head Node 24 CI remains required.
+This experiment does not complete the six-tool A1–A12 contract.

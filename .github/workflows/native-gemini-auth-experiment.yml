@@ -11,6 +11,7 @@ on:
       - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
       - 'experiments/issue-3785/probe-gemini-native-request-auth.mjs'
       - 'experiments/issue-3785/probe-gemini-native-cli.py'
+      - 'experiments/issue-3785/probe-gemini-native-history-storage.py'
       - 'experiments/issue-3785/native_process_group.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
@@ -140,6 +141,26 @@ jobs:
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1
       - name: Preserve no-selector native behavior
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --without-selector --expect-native-gaps > "$RUNNER_TEMP/gemini-legacy-reads.log" 2>&1
+      - name: Apply exact pinned native conversation storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify bounded history storage and independent concurrent writers
+        run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
+      - name: Discover and resume actual CLI conversation after private home disposal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics "$RUNNER_TEMP/gemini-cli-history-after.log" > "$RUNNER_TEMP/gemini-cli-history-after-control.log" 2>&1
+      - name: Refuse unsafe native history without modifying protected files
+        run: |
+          for link in symlink hardlink; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-attack "$link" --diagnostics "$RUNNER_TEMP/gemini-cli-history-$link.log" > "$RUNNER_TEMP/gemini-cli-history-$link-control.log" 2>&1
+          done
+      - name: Preserve unselected native private history behavior
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --private-history --expect-history-gap --diagnostics "$RUNNER_TEMP/gemini-cli-history-legacy.log" > "$RUNNER_TEMP/gemini-cli-history-legacy-control.log" 2>&1
+      - name: Preserve native authentication after conversation storage admission
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-history-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-history-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-history-auth-reads.log" 2>&1
       - name: Preserve native diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

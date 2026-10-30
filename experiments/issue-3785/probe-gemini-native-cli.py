@@ -26,12 +26,19 @@ parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--expect-history-gap', action='store_true')
+parser.add_argument('--private-history', action='store_true')
+parser.add_argument('--history-attack', choices=('symlink', 'hardlink'))
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
+assert not args.private_history or args.history
+assert not args.history_attack or (args.history and not args.private_history and not args.expect_history_gap)
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
-assert hashlib.sha256(manager.read_bytes()).hexdigest() == 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
+manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
+assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
+                        '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3')
+history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
 children = []
@@ -45,6 +52,10 @@ first_prompt = 'SYNTHETIC-GEMINI-HISTORY-FIRST-PROMPT'
 second_prompt = 'SYNTHETIC-GEMINI-HISTORY-SECOND-PROMPT'
 session = str(uuid.uuid4())
 
+
+def completions():
+    return [record for record in models if record['operation'] == 'streamGenerateContent']
+
 try:
     # Copy entrypoints and chunks: symlinked JS would resolve imports against
     # the original package and silently bypass the inspected adapter.
@@ -55,6 +66,8 @@ try:
     home, canonical, workspace = [root / name for name in ('home', 'canonical', 'workspace')]
     for directory in (home, canonical, workspace):
         directory.mkdir(mode=0o700)
+    history = root / 'history'
+    history.mkdir(mode=0o700)
     private = home / '.gemini'
     private.mkdir(mode=0o700)
     settings = {'security': {'auth': {'selectedType': 'oauth-personal'}},
@@ -181,6 +194,8 @@ try:
            'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1',
            'XDG_CONFIG_HOME': str(home / '.config'), 'XDG_DATA_HOME': str(home / '.local/share'),
            'XDG_CACHE_HOME': str(home / '.cache')}
+    if args.history and not args.private_history:
+        env['GEMINI_HISTORY_HOME'] = str(history)
     args.diagnostics.parent.mkdir(parents=True, exist_ok=True)
 
     def invoke(diagnostic, child_env, flags):
@@ -215,12 +230,27 @@ try:
     assert not (private / 'google_accounts.json').exists()
     assert json.loads((canonical / 'google_accounts.json').read_text())['active'] == 'synthetic@example.invalid'
     if args.history:
-        assert len(models) == 1 and models[0]['first_prompt']
+        assert len(completions()) == 1 and completions()[0]['first_prompt']
         assert session in output
-        transcripts = [p for p in private.rglob('*.jsonl') if first_prompt in p.read_text()]
+        transcripts = [p for base in (private, history) for p in base.rglob('*.jsonl') if first_prompt in p.read_text()]
         assert transcripts, 'The healthy native CLI must first persist its real conversation.'
+        if history_adapter and not args.private_history:
+            assert all(history in p.parents for p in transcripts)
+            assert not list(private.rglob('*.jsonl'))
+            assert set(p.name for p in history.iterdir()) == {'projects', 'projects.json', '.history.lock'}
         # The whole native process group has exited before private state disposal.
         shutil.rmtree(home)
+        protected = None
+        if args.history_attack:
+            assert history_adapter and len(transcripts) == 1
+            protected = root / 'protected-history'
+            transcripts[0].rename(protected)
+            protected_bytes = protected.read_bytes()
+            protected_identity = (protected.stat().st_dev, protected.stat().st_ino)
+            if args.history_attack == 'symlink':
+                transcripts[0].symlink_to(protected)
+            else:
+                os.link(protected, transcripts[0])
         peer = root / 'peer-home'
         peer.mkdir(mode=0o700)
         private = peer / '.gemini'
@@ -232,23 +262,38 @@ try:
                     'XDG_CACHE_HOME': str(peer / '.cache')}
         listing = args.diagnostics.with_name(args.diagnostics.stem + '-list.log')
         code, listed = invoke(listing, peer_env, ['--list-sessions'])
-        assert code == 0 and len(models) == 1
+        if args.history_attack:
+            assert code != 0 and len(models) == 1
+            assert 'Gemini canonical conversation history is unavailable or unsafe.' in listed
+            assert protected.read_bytes() == protected_bytes
+            assert (protected.stat().st_dev, protected.stat().st_ino) == protected_identity
+            assert json.loads(auth.read_text()) == credentials
+            assert not (private / 'oauth_creds.json').exists()
+            assert not (private / 'google_accounts.json').exists()
+            assert not errors, errors
+            print('PASS: actual Gemini CLI refuses linked canonical history before additional inference; protected bytes and inode remain unchanged: ' + args.history_attack)
+            safe_cleanup = True
+            raise SystemExit(0)
+        assert code == 0 and len(completions()) == 1
         resumed = args.diagnostics.with_name(args.diagnostics.stem + '-resume.log')
         code, output = invoke(resumed, peer_env, ['--resume', session, '--prompt', second_prompt])
         if args.expect_history_gap:
             assert session not in listed
-            assert code != 0 and len(models) == 1
+            assert code != 0 and len(completions()) == 1
             assert 'Error resuming session: No previous sessions found for this project.' in output, 'Require native missing-session discovery, not an arbitrary startup failure.'
             print('REPRODUCED: actual Gemini CLI loses conversation discovery/resume after private configuration disposal; model_requests=1.')
         else:
             assert session in listed, 'A fresh native CLI must discover canonical conversation history.'
-            assert code == 0 and len(models) == 2, 'A fresh native CLI must resume the saved conversation.'
-            assert models[1]['first_prompt'] and models[1]['second_prompt'] and models[1]['prior_response']
-            print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; model_requests=2.')
+            assert code == 0 and len(completions()) == 2, 'A fresh native CLI must resume the saved conversation.'
+            assert completions()[1]['first_prompt'] and completions()[1]['second_prompt'] and completions()[1]['prior_response']
+            assert any(first_prompt in p.read_text() and second_prompt in p.read_text() for p in history.rglob('*.jsonl'))
+            assert not list(private.rglob('*.jsonl'))
+            print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.')
         assert not (private / 'oauth_creds.json').exists()
         assert not (private / 'google_accounts.json').exists()
     else:
         print('PASS: actual Gemini CLI completes a TLS-verified native OAuth model request with separate canonical auth and private configuration.')
+    assert not errors, errors
     safe_cleanup = True
 finally:
     try:

@@ -754,3 +754,17 @@ Latest CI continuation:
 - [ ] Complete the full default suite after the bootstrap repair, then require
       fresh exact-head test and packaged image CI. Preserve the running native
       Codex build before pushing the next atomic commits.
+- [x] Reproduce the remaining stale dependency-pin assertion in the full local
+      suite (file 553/738). Align its expected Formal AI release with the already
+      verified image/bootstrap pins; the focused assertion passes. Restart the
+      full suite with continue-on-failure to collect all remaining failures.
+- [x] Implement an exact-pinned Gemini conversation selector, canonical project
+      mapping and coordinated bounded transcript/summary readers and writers.
+      The full native CLI discovers and resumes prior user/model content after
+      private-home disposal; symlink and hardlink attacks preserve outside bytes.
+- [x] Verify eleven isolated storage refusals/healthy controls, four independent
+      writers preserving all 40 records and a stale rewrite preserving all 50
+      records after a peer append, with an unchanged lock inode.
+- [ ] Verify the new native history stage on Node 24 in CI. Complete other
+      history surfaces, cleanup/import writers, child lifecycle/crash recovery,
+      alternate backends and production integration; these are still open.

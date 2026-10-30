@@ -232,5 +232,51 @@ canonical conversation discovery. It cannot pass from an arbitrary startup or
 provider failure.
 
 This verifies one healthy full CLI OAuth inference. Full CLI concurrent refresh,
-owner-death recovery, alternate backends, conversation disposal/resume and
-production installation remain open.
+owner-death recovery, alternate backends and production installation remain open.
+
+## Canonical conversation stage
+
+`apply_history.py` requires the exact constructor-stage manager plus four pinned
+native CLI/helper inputs before writing any file. It adds `GEMINI_HISTORY_HOME`
+independently of private configuration and auth. The resulting manager hash is
+`6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3`.
+The original installed package remains unchanged; only disposable copies run.
+
+The selected root is a private, owned, existing directory. Canonical
+`projects.json` maps each real project path to its SHA-256 directory, with native
+conversations under `projects/<hash>/chats`. Native transcript and summary
+readers/writers use bounded descriptor-anchored reads, single-link regular files,
+stable kernel locks, synchronized append and atomic publication. Rewrites retain
+the preceding generation and refuse a stale observed digest after another
+process publishes. Root/child replacement, changed selectors, links, unsafe
+permissions and files above 32 MiB refuse. Configuration, tools and executable
+material stay in private homes.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics /tmp/gemini-history-storage.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics /tmp/gemini-cli-history-after.log
+```
+
+The full CLI control now lists the saved session from a fresh private home and
+resumes with the prior user prompt and model response in its next real native
+request. Native listing also generates a summary through the synthetic provider;
+the assertion distinguishes that operation from the two conversation requests.
+Symlink/hardlink variants first persist a healthy native conversation, then
+require fresh-peer refusal before another inference and preserve the protected
+file's bytes and inode. Unselected history retains the original private behavior.
+These full CLI controls use the real native parser and SDK without export or
+transport instrumentation; only external provider responses are synthetic.
+
+Thirteen separate storage controls cover a healthy rewrite, ten unsafe/changed
+states, four independent writers preserving all 40 records, and a stale rewrite
+preserving all 50 records after a peer append. Each worker has a 128 MiB V8 heap,
+2 GiB data bound, 16 MiB stack, 64 KiB output bound and a 20-second deadline.
+The probes reap process groups before cleanup and retain failing fixtures.
+
+This stage is locally verified on Node 26.12.1; Node 24 CI remains required.
+Native imports, retention/deletion and every other writer, Git/checkpoint/prompt/
+shell history, subagent lifecycle, interrupted writes and production installation
+remain unfinished. Sharing only conversations does not complete the full-history
+requirement or the six-tool authority contract.

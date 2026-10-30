@@ -63,8 +63,12 @@ repair, including stale user-info refusal and same-process login after logout.
 The combined local stage passes 41 writer/account controls, 11 canonical reads,
 nine legacy reproductions and 30 selected plus 30 unselected config/constructor/
 request controls. Native API-key SDK dispatch reproduces a bypass before the
-new request admission. The expanded stages still require CI. Canonical alternate
-backends, full CLI requests and full history remain unfinished. Neither stage is production
-integration or completion of A1–A12. See
+new request admission. A full CLI TLS control now completes native OAuth
+inference, and a further pinned stage preserves native conversation discovery
+and resume after private-home disposal. Native linked-transcript attacks refuse,
+and thirteen bounded storage controls include four concurrent writers and stale
+rewrite preservation. These expanded stages still require CI. Canonical alternate
+backends, complete history, all writers/lifecycle and production installation
+remain unfinished. These experiments do not complete A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and
 `evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.

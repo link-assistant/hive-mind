@@ -1,0 +1,36 @@
+Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
+Constructor-stage manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+Conversation-stage manager: 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
+Locally verified 2026-10-30, Node 26.12.1. Node 24 CI remains required.
+Only synthetic credentials/provider responses; loopback TLS never forwards traffic.
+The complete native CLI and SDK execute without export or transport instrumentation.
+
+Before canonical conversations:
+PASS: actual CLI completes a TLS-verified OAuth model request, separate auth/config.
+REPRODUCED: private-home disposal loses native conversation discovery and resume.
+The strict regression fails: A fresh native CLI must discover canonical conversation history.
+Successful first inference and a real persisted native transcript are prerequisites.
+
+After canonical conversations:
+PASS: fresh CLI discovers the session after the entire prior process group exits
+      and its private home is removed.
+PASS: resumed model request includes prior user content, prior model response
+      and the new user prompt; both turns remain in canonical native JSONL.
+PASS: native summary generation during listing uses the same transcript authority.
+PASS: symlink and hardlink transcript attacks refuse before another inference;
+      protected outside bytes/inode and canonical credential bytes stay unchanged.
+PASS: no private credential/account/transcript files appear with selected history.
+PASS: unselected history retains original private discovery/disposal behavior.
+
+Bounded independent-process storage controls:
+PASS: healthy append/read/rewrite retains a preceding generation.
+PASS: changed/unset selector; root/child directory replacement.
+PASS: symlink/hardlink; unsafe mode; oversized file; traversal; lock symlink.
+PASS: four independent writers retain all 40 distinct records and one project map.
+PASS: stale rewrite refuses after peer append, preserving all 50 records and
+      the stable kernel-lock inode.
+
+Open: other history surfaces, import/retention/deletion writers, subagent lifecycle,
+interrupted-write/power-loss recovery, full CLI refresh/owner death, alternate
+backends, production installation and the remaining six-tool requirements.
+This is an experimental native conversation adapter, not full-history completion.

@@ -87,6 +87,18 @@ the next transaction synchronizes it and completes intent cleanup. Unsafe or
 malformed intent evidence is preserved and refused; automated recovery of
 corrupt markers remains unimplemented.
 
+Intent format 2 identifies the actual refresh token, independently of access
+tokens, expiry timestamps and JSON metadata. A bounded native regression first
+reproduced a second G0 exchange after an unknown outcome followed by an atomic
+metadata-only rewrite. That rewrite now preserves uncertainty and makes zero
+exchanges; publishing G0 through the login/cache writer also refuses. A fresh G2
+login still repairs it. A successful refresh may retain its predecessor token
+only inside the same live transaction that durably recorded the intent; its
+response is durably published before cleanup. Legacy format-1 markers cannot
+establish which refresh token was consumed after a rewrite, so they remain
+preserved and refused, including during login. They require explicit operator
+resolution rather than silent conversion or removal.
+
 The inspected installed package references OAuth credential storage in its
 central manager/cache/clear module. The server device-flow adapter delegates to
 that cache function. Other filename matches are storage declarations or
@@ -108,17 +120,19 @@ All 14 manager and 14 actual-client read controls pass locally after coordinatio
 The ownership probe observes the real peer waiting in the kernel before release
 and verifies no second exchange or lock replacement after a non-owner exits.
 It also passes with three separate configuration roots and no private credential
-copies. Eleven actual native OAuth writer controls pass: two refreshers,
+copies. Fourteen actual native OAuth writer controls pass: two refreshers,
 refresh/login, refresh/logout, invalid grant, forced owner death, unknown network
-outcome, direct native refresh, a competing raw publication, unsafe lock, live
-legacy lock and conflicting private authority. Every worker is bounded and
+outcome, metadata-only replacement, a successful non-rotating response, direct
+native refresh, a competing raw publication, unsafe lock, live legacy lock,
+legacy intent preservation and conflicting private authority. Every worker is bounded and
 reaped, uses synthetic state and captures no native diagnostic bytes. The writer
 probe replaces `fetch` with a local response stub and counts exchanges, so it
 does not establish model-request admission through the real CLI.
 
 Native read and coordination CI passes in run [40396374276](https://github.com/link-assistant/hive-mind/actions/runs/40396374276)
 at c1bfa9c6c; downloaded diagnostics confirm all 11 native writer cases.
-The newer actual CLI/factory controls below still require a fresh CI run.
+All 14 revised writer controls and the actual CLI/factory controls below pass
+locally on the patched disposable package. They still require a fresh CI run.
 Full CLI lifecycle and cross-container evidence,
 alternative credential backends, shared conversation history, production
 integration, migration of existing homes and CLI-upgrade/release/deployment

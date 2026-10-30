@@ -1,0 +1,28 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   exchanges: 1,
+-   exchanges: 0,
+    selected: 'rejected',
+    type: 'result'
+  }
+
+    at result (file:///tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-qwen-native-writers.mjs:103:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-qwen-native-writers.mjs:168:17
+    at async scenario (file:///tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-qwen-native-writers.mjs:115:7)
+    at async file:///tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-qwen-native-writers.mjs:197:57 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: { type: 'result', selected: 'rejected', exchanges: 1 },
+  expected: { type: 'result', selected: 'rejected', exchanges: 0 },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.12.1

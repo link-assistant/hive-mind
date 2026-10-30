@@ -17,6 +17,7 @@ const refused = () => new Error('Qwen canonical authentication is unavailable or
 const identity = info => `${info.dev}:${info.ino}`;
 const version = info => `${identity(info)}:${info.size}:${info.mtimeNs}:${info.ctimeNs}:${info.mode}:${info.nlink}`;
 const digest = credentials => createHash('sha256').update(JSON.stringify(credentials)).digest('hex');
+const refreshGeneration = credentials => createHash('sha256').update('qwen-refresh-token\0').update(credentials.refresh_token).digest('hex');
 const safe = (info, limit = LIMIT) => info.isFile() && info.nlink === 1n && info.uid === BigInt(process.getuid()) && (info.mode & 0o077n) === 0n && info.size <= BigInt(limit);
 
 export function nativeQwenCredentialPath(configurationDirectory) {
@@ -57,6 +58,7 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
     const openedDirectory = await directory.stat({ bigint: true });
     const entry = name => `/proc/self/fd/${directory.fd}/${name}`;
     return await withSharedAuthRefreshLock({ directory: parent, signal }, async ({ assertCurrent: assertLock }) => {
+      let exchangingVersion;
       async function assertCurrent() {
         await assertLock();
         const current = await fs.lstat(parent, { bigint: true });
@@ -99,7 +101,10 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
           const after = await inspect(INTENT, 1024);
           if (!after || version(before) !== version(after) || version(await handle.stat({ bigint: true })) !== version(before) || BigInt(bytesRead) !== before.size) throw refused();
           const parsed = JSON.parse(bytes.subarray(0, bytesRead).toString('utf8'));
-          if (parsed.version !== 1 || !/^[a-f0-9]{64}$/u.test(parsed.generation)) throw refused();
+          // Version 1 hashed the entire JSON payload and cannot establish which
+          // predecessor was consumed after a metadata-only rewrite. Preserve
+          // that uncertainty rather than interpreting it as this new format.
+          if (parsed.version !== 2 || !/^[a-f0-9]{64}$/u.test(parsed.generation)) throw refused();
           return parsed;
         } finally {
           await handle?.close();
@@ -118,7 +123,7 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
         // Owner death after exchange but before publication cannot justify
         // consuming the predecessor again. A different durable generation can
         // complete recovery after a crash between publication and marker clear.
-        if (!current || current.digest === pending.generation) throw refused();
+        if (!current || refreshGeneration(current.credentials) === pending.generation) throw refused();
         let handle;
         try {
           handle = await fs.open(entry(path.basename(file)), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -138,10 +143,11 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
         let handle;
         try {
           handle = await fs.open(entry(INTENT), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-          await handle.writeFile(JSON.stringify({ version: 1, generation: current.digest }));
+          await handle.writeFile(JSON.stringify({ version: 2, generation: refreshGeneration(current.credentials) }));
           await handle.sync();
           await directory.sync();
           await assertCurrent();
+          exchangingVersion = current.version;
         } finally {
           await handle?.close();
         }
@@ -155,7 +161,10 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
         const serialized = JSON.stringify(credentials);
         if (Buffer.byteLength(serialized) > LIMIT) throw refused();
         const pending = await intent();
-        if (pending && pending.generation === digest(credentials)) throw refused();
+        const completingRefresh = expected !== undefined && exchangingVersion === expected.version;
+        if (expected !== undefined && !completingRefresh) throw refused();
+        if (completingRefresh && (!pending || pending.generation !== refreshGeneration(expected.credentials))) throw refused();
+        if (pending && pending.generation === refreshGeneration(credentials) && !completingRefresh) throw refused();
         const temporary = `.hive-qwen-auth-${process.pid}-${randomUUID()}`;
         let handle;
         let created;
@@ -175,6 +184,7 @@ export async function withNativeQwenTransaction(file, operation, { signal } = {}
           const published = await snapshot();
           if (published.digest !== digest(credentials)) throw refused();
           await clearIntent();
+          exchangingVersion = undefined;
           return published.credentials;
         } finally {
           await handle?.close();

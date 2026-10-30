@@ -7,6 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import console from 'node:console';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL, URLSearchParams } from 'node:url';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -25,14 +26,14 @@ if (process.argv[2] === '--worker') {
     process.send({ type: 'exchange', predecessor: 'G0' });
     const reply = await new Promise(resolve => process.once('message', resolve));
     if (reply.networkError) throw new Error('Synthetic network refusal.');
-    const body = reply.invalidGrant ? { error: 'invalid_grant', error_description: 'synthetic-refusal' } : { access_token: 'synthetic-access-G1', refresh_token: 'synthetic-refresh-G1', token_type: 'Bearer', expires_in: 3600 };
+    const body = reply.invalidGrant ? { error: 'invalid_grant', error_description: 'synthetic-refusal' } : { access_token: 'synthetic-access-G1', refresh_token: reply.nonRotating ? 'synthetic-refresh-G0' : 'synthetic-refresh-G1', token_type: 'Bearer', expires_in: 3600 };
     return new globalThis.Response(JSON.stringify(body), { status: reply.invalidGrant ? 400 : 200, headers: { 'Content-Type': 'application/json' } });
   };
   process.send({ type: 'ready' });
   try {
     let selected;
-    if (role === 'login') {
-      await cacheQwenCredentials(credential('G2'));
+    if (role === 'login' || role === 'same-refresh-login') {
+      await cacheQwenCredentials({ ...credential('G2'), ...(role === 'same-refresh-login' ? { refresh_token: 'synthetic-refresh-G0' } : {}) });
       selected = 'G2';
     } else if (role === 'logout') {
       await clearQwenCredentials();
@@ -118,9 +119,21 @@ if (process.argv[2] === '--worker') {
           timer = setTimeout(() => reject(new Error('Finite native writer deadline exceeded.')), 20000);
         }),
         (async () => {
-          if (name === 'unsafe-lock' || name === 'legacy-lock' || name === 'conflicting-authority') {
+          if (['unsafe-lock', 'legacy-lock', 'legacy-intent', 'conflicting-authority'].includes(name)) {
             if (name === 'unsafe-lock') await fs.chmod(lock, 0o644);
             if (name === 'legacy-lock') await fs.writeFile(path.join(authority, 'oauth_creds.lock'), 'synthetic-live-legacy-owner', { mode: 0o600 });
+            let legacyIntent;
+            if (name === 'legacy-intent') {
+              legacyIntent = JSON.stringify({
+                version: 1,
+                generation: createHash('sha256')
+                  .update(await fs.readFile(file))
+                  .digest('hex'),
+              });
+              await fs.writeFile(intent, legacyIntent, { mode: 0o600 });
+              const changed = { ...JSON.parse(await fs.readFile(file, 'utf8')), metadata: 'synthetic-legacy-metadata-change' };
+              await fs.writeFile(file, JSON.stringify(changed), { mode: 0o600 });
+            }
             if (name === 'conflicting-authority') {
               await fs.mkdir(path.join(root, 'config-0'), { mode: 0o700 });
               await fs.writeFile(path.join(root, 'config-0/oauth_creds.json'), JSON.stringify(credential('G2')), { mode: 0o600 });
@@ -129,6 +142,10 @@ if (process.argv[2] === '--worker') {
             assert.equal(generation(JSON.parse(await fs.readFile(file, 'utf8')).access_token), 'G0');
             if (name === 'unsafe-lock') assert.equal((await fs.stat(lock)).mode & 0o777, 0o644);
             if (name === 'legacy-lock') assert.equal(await fs.readFile(path.join(authority, 'oauth_creds.lock'), 'utf8'), 'synthetic-live-legacy-owner');
+            if (name === 'legacy-intent') {
+              await result(start('login'), 'rejected', 0);
+              assert.equal(await fs.readFile(intent, 'utf8'), legacyIntent);
+            }
             if (name === 'conflicting-authority') assert.equal(generation(JSON.parse(await fs.readFile(path.join(root, 'config-0/oauth_creds.json'), 'utf8')).access_token), 'G2');
           } else {
             const owner = start(name === 'direct-refresh' ? 'direct' : 'owner');
@@ -148,13 +165,29 @@ if (process.argv[2] === '--worker') {
               assert.equal((await owner.closed).signal, 'SIGKILL');
               await result(peer, 'rejected', 0);
             } else {
-              owner.child.send({ invalidGrant: name === 'invalid-grant', networkError: name === 'network-refusal' });
-              await result(owner, ['invalid-grant', 'network-refusal', 'publication-race'].includes(name) ? 'rejected' : 'G1', 1);
+              owner.child.send({ invalidGrant: name === 'invalid-grant', networkError: ['network-refusal', 'metadata-rewrite'].includes(name), nonRotating: name === 'non-rotating' });
+              await result(owner, ['invalid-grant', 'network-refusal', 'metadata-rewrite', 'publication-race'].includes(name) ? 'rejected' : 'G1', 1);
               if (peer) await result(peer, name === 'logout' ? 'cleared' : name === 'login' ? 'G2' : 'G1', 0);
             }
-            if (name === 'owner-death' || name === 'network-refusal') {
+            if (['owner-death', 'network-refusal', 'metadata-rewrite'].includes(name)) {
               assert.equal(generation(JSON.parse(await fs.readFile(file, 'utf8')).access_token), 'G0');
               assert.equal((await fs.stat(intent)).mode & 0o777, 0o600);
+              if (name === 'metadata-rewrite') {
+                const changed = { ...JSON.parse(await fs.readFile(file, 'utf8')), expiry_date: Date.now() - 120000, metadata: 'synthetic-metadata-change' };
+                await fs.writeFile(`${file}.replacement`, JSON.stringify(changed), { mode: 0o600 });
+                await fs.rename(`${file}.replacement`, file);
+                const peer = start('reader');
+                // Drain an erroneous extra exchange so the assertion reports
+                // consumed-predecessor reuse without waiting for the deadline.
+                peer.child.on('message', message => {
+                  if (message.type === 'exchange') peer.child.send({ networkError: true });
+                });
+                await result(peer, 'rejected', 0);
+                assert.equal(JSON.parse(await fs.readFile(file, 'utf8')).refresh_token, 'synthetic-refresh-G0');
+                assert.equal((await fs.stat(intent)).mode & 0o777, 0o600);
+                await result(start('same-refresh-login'), 'rejected', 0);
+                assert.equal(JSON.parse(await fs.readFile(file, 'utf8')).refresh_token, 'synthetic-refresh-G0');
+              }
               await reader('rejected');
               await result(start('login'), 'G2', 0);
               await reader('G2');
@@ -177,6 +210,9 @@ if (process.argv[2] === '--worker') {
       await fs.rm(root, { recursive: true, force: true });
     }
   }
-  for (const name of ['two-refreshes', 'login', 'logout', 'invalid-grant', 'owner-death', 'network-refusal', 'direct-refresh', 'publication-race', 'unsafe-lock', 'legacy-lock', 'conflicting-authority']) await scenario(name);
+  const scenarios = ['two-refreshes', 'login', 'logout', 'invalid-grant', 'owner-death', 'network-refusal', 'metadata-rewrite', 'non-rotating', 'direct-refresh', 'publication-race', 'unsafe-lock', 'legacy-lock', 'legacy-intent', 'conflicting-authority'];
+  const selected = process.argv.find(value => value.startsWith('--scenario='))?.slice('--scenario='.length);
+  if (selected) assert.ok(scenarios.includes(selected), 'Unknown native writer scenario.');
+  for (const name of selected ? [selected] : scenarios) await scenario(name);
   console.log('LIMIT: actual native OAuth methods with a synthetic fetch stub; full CLI, history, release/deployment and remaining credential backends are not established.');
 }

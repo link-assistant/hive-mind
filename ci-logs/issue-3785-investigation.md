@@ -708,3 +708,15 @@ This is a local runner limitation, not a passing lifecycle test. The official
 workflow's actionlint and ShellCheck binaries were extracted from its pinned
 image without starting a container; the changed native workflow passes both.
 No cgroup/resource limit was relaxed to make a probe run.
+
+The actual pinned Qwen OAuth writer has a related consumed-predecessor defect:
+`qwen-metadata-before.log:6–14` records an unexpected second exchange after an
+unknown first outcome and an atomic rewrite changing only expiry/metadata.
+The old intent hashes JSON content, so a metadata change clears uncertainty.
+Intent format 2 hashes the refresh token, retains uncertain/legacy evidence,
+and permits a non-rotating success only in the transaction that began its
+exchange. All 14 native writer controls pass in `qwen-writers-after.log`.
+The 14 manager reads, 14 actual-client reads, private-config kernel-lock probe,
+actual CLI provider refusal, all factory/retained-handle refusals and both
+legacy/sunset controls also pass locally after this repair. These are disposable
+native experiments; production integration remains open.

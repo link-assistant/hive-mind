@@ -712,5 +712,15 @@ Latest CI continuation:
       native writer/login/revocation controls pass, together with 11 canonical
       reader/private-scope controls and nine unchanged legacy reproductions.
       All 42 Qwen regressions still pass after the shared-engine extension.
-- [ ] Continue account metadata and every remaining matrix criterion; these
+- [x] Reproduce private native account-cache publication and omitted cached-login
+      callbacks. Add canonical account storage, native synchronous/asynchronous
+      readers, path reporting, generation-bound user-info publication, account
+      counts, refresh metadata and logout. The first 39 expanded writer controls
+      pass, with 11 canonical readers and nine preserved legacy reproductions.
+- [x] Reproduce same-process login refusal after native logout; clear the cached
+      factory on selected logout/revocation and exercise native code login again.
+- [x] Verify all 41 account/path/scope-disposal controls locally, plus 11 canonical
+      reads and nine preserved legacy reproductions.
+- [ ] Verify the expanded account/login/revocation stage in CI.
+      Continue every remaining matrix criterion; these
       experiments are not installed by production launchers or images.

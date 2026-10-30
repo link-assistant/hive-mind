@@ -83,11 +83,25 @@ jobs:
             grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-$scenario-before.log"
             grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-$scenario-before.log"
           done
+      - name: Require account cache and callback regressions before coordination
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=account-cache > "$RUNNER_TEMP/gemini-accounts-before.log" 2>&1; then
+            echo 'The read-stage account cache regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'ENOENT' "$RUNNER_TEMP/gemini-accounts-before.log"
+          grep -F 'google_accounts.json' "$RUNNER_TEMP/gemini-accounts-before.log"
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=account-callback > "$RUNNER_TEMP/gemini-callback-before.log" 2>&1; then
+            echo 'The read-stage callback regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-callback-before.log"
+          grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-callback-before.log"
       - name: Apply exact pinned native writer coordination
         run: |
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
-      - name: Verify native refresh, login, browser callback, revocation and crash recovery
+      - name: Verify native refresh, login, accounts, callbacks, revocation and crash recovery
         run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
       - name: Preserve coordinated native canonical reads and private-scope isolation
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1

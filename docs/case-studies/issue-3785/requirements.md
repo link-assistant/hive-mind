@@ -58,7 +58,9 @@ and logout entrypoints. The expanded 26 native controls cover concurrency,
 uncertainty, recovery, directory identity, authorization-code publication, initial
 manual/browser login and current-generation revocation. External browser launch
 and provider transports are synthetic; the real native callback and SDK execute.
-Account metadata, other provider/storage paths and full CLI requests remain
+Canonical account metadata and native callbacks have a further experimental
+repair, including stale user-info refusal and same-process login after logout.
+The final expanded control set still requires CI. Other provider/storage paths and full CLI requests remain
 unfinished. Neither stage is production
 integration or completion of A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and

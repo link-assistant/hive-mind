@@ -29,7 +29,7 @@ def replace(value, before, after):
 
 source = replace(source, 'if (nativeGeminiSelected()) refuseNativeGeminiWriter();\n  const filePath', 'if (nativeGeminiSelected()) return publishNativeGeminiCredentials(credentials3);\n  const filePath')
 # Cache and logout use distinct following statements in the pinned manager.
-source = replace(source, 'if (nativeGeminiSelected()) refuseNativeGeminiWriter();\n  try {', 'if (nativeGeminiSelected()) return clearNativeGeminiCredentials();\n  try {')
+source = replace(source, 'if (nativeGeminiSelected()) refuseNativeGeminiWriter();\n  try {', 'if (nativeGeminiSelected()) { await clearNativeGeminiCredentials(); clearOauthClientCache(); return; }\n  try {')
 source = replace(source, '  const client = await oauthClientPromises.get(authType);', '''  const pending = oauthClientPromises.get(authType);
   let client;
   try { client = await pending; }
@@ -39,7 +39,16 @@ source = replace(source, '  const client = await oauthClientPromises.get(authTyp
   }''')
 source = replace(source,
     'return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType);',
-    'return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType, { interactive: config2.isInteractive(), login: client => completeNativeGeminiLogin(client, authType, config2) });')
+    '''return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType, {
+      interactive: config2.isInteractive(),
+      accountFile: Storage.getGoogleAccountsPath(),
+      onLogout: clearOauthClientCache,
+      login: client => completeNativeGeminiLogin(client, authType, config2),
+      onReady: async client => {
+        if (!userAccountManager2.getCachedGoogleAccount()) await fetchAndCacheUserInfo(client);
+        await triggerPostAuthCallbacks(client.credentials);
+      },
+    });''')
 login_start = source.index('  const client = createBaseOAuth2Client();\n  if (authType === AuthType2.COMPUTE_ADC) {')
 login_end = source.index('\nasync function getOauthClient(', login_start)
 login_body = source[login_start + len('  const client = createBaseOAuth2Client();\n'):login_end]
@@ -63,11 +72,42 @@ oauth = replace(oauth, '        authclient_1.AuthClient.setMethodName(opts, "rev
         }
         authclient_1.AuthClient.setMethodName(opts, "revokeToken");''')
 source = source[:first_oauth] + oauth + source[next_module:]
-source = 'import { publishNativeGeminiCredentials, clearNativeGeminiCredentials } from "./hive-gemini-writers.mjs";\n' + source
+source = replace(source, '  async cacheGoogleAccount(email3) {', '''  async cacheGoogleAccount(email3, credentials3) {
+    if (nativeGeminiSelected()) return cacheNativeGeminiAccount(email3, credentials3);''')
+source = replace(source, '  getGoogleAccountsCachePath() {', '''  getGoogleAccountsCachePath() {
+    if (nativeGeminiSelected()) return getNativeGeminiAccountsPath(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());''')
+for signature in ['readAccountsSync(filePath)', 'async readAccounts(filePath)']:
+    source = replace(source, '  ' + signature + ' {', '  ' + signature + ''' {
+    if (nativeGeminiSelected()) {
+      if (filePath !== this.getGoogleAccountsCachePath()) throw new Error("Gemini canonical account storage is unavailable or unsafe.");
+      return readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());
+    }''')
+source = replace(source, '  getCachedGoogleAccount() {', '''  getCachedGoogleAccount() {
+    if (nativeGeminiSelected()) return readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath()).active;''')
+source = replace(source, '  getLifetimeGoogleAccounts() {', '''  getLifetimeGoogleAccounts() {
+    if (nativeGeminiSelected()) {
+      const accounts = readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());
+      return new Set([...accounts.old, ...(accounts.active ? [accounts.active] : [])]).size;
+    }''')
+source = replace(source, '  async clearCachedGoogleAccount() {', '''  async clearCachedGoogleAccount() {
+    if (nativeGeminiSelected()) return clearNativeGeminiAccount();''')
+source = replace(source, 'async function triggerPostAuthCallbacks(tokens) {', '''async function triggerPostAuthCallbacks(tokens) {
+  if (nativeGeminiSelected()) return withNativeGeminiPostAuth(emitPostAuthCallbacks);
+  return emitPostAuthCallbacks(tokens);
+}
+async function emitPostAuthCallbacks(tokens) {''')
+source = replace(source, '    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {', '''    const accountCredentials = nativeGeminiSelected() ? { ...client.credentials } : undefined;
+    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {''')
+source = replace(source, 'await userAccountManager2.cacheGoogleAccount(userInfo2.email);', 'await userAccountManager2.cacheGoogleAccount(userInfo2.email, accountCredentials);')
+source = 'import { publishNativeGeminiCredentials, clearNativeGeminiCredentials, withNativeGeminiPostAuth } from "./hive-gemini-writers.mjs";\nimport { getNativeGeminiAccountsPath, readNativeGeminiAccounts, cacheNativeGeminiAccount, clearNativeGeminiAccount } from "./hive-gemini-accounts.mjs";\n' + source
 first = reader.index('    async function current() {')
 last = reader.index("    for (const method of ['getAccessTokenAsync'", first)
 reader = reader[:first] + '''    const coordinator = bindNativeGeminiWriters(client, {
       file: path.join(selected, 'oauth_creds.json'),
+      accountFile,
+      configurationDirectory,
+      onReady,
+      onLogout,
       rootIdentity: identity(initial),
       assertAdmission: async () => {
         admission();
@@ -77,14 +117,16 @@ reader = reader[:first] + '''    const coordinator = bindNativeGeminiWriters(cli
     async function current() { await coordinator.current(); }
 ''' + reader[last:]
 reader = replace(reader, "['refreshToken', 'refreshTokenNoCache', 'refreshAccessTokenAsync', 'getTokenAsync', 'revokeCredentialsAsync']", "[]")
-reader = replace(reader, 'configurationDirectory, authType) {', 'configurationDirectory, authType, { interactive, login } = {}) {')
+reader = replace(reader, 'configurationDirectory, authType) {', 'configurationDirectory, authType, { interactive, login, onReady, onLogout, accountFile } = {}) {')
 reader = replace(reader, '    await current();\n    await client.getTokenInfo', '''    try { await current(); }
     catch {
       if (!interactive || typeof login !== 'function' || !(await coordinator.canLogin())) throw refused();
       await login(client);
       await current();
+      onReady = undefined;
     }
     await client.getTokenInfo''')
+reader = replace(reader, '    admitted.add(client);', '    if (onReady) await onReady(client);\n    admitted.add(client);')
 reader = 'import { bindNativeGeminiWriters } from "./hive-gemini-writers.mjs";\n' + reader
 engine = (here.parent / "native-oauth-transaction.mjs").read_text()
 if hashlib.sha256(engine.encode()).hexdigest() != "d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174":
@@ -95,11 +137,12 @@ transaction = engine.replace('../../src/shared-auth-refresh-lock.lib.mjs', './hi
 lock = (here.parents[2] / "src/shared-auth-refresh-lock.lib.mjs").read_text()
 if hashlib.sha256(lock.encode()).hexdigest() != '6271784aa3773fc3a54056bf1ce8fd7b1f2da3a813e01537c47bcbc6d674c568':
     raise SystemExit("Refusing changed inspected refresh locking.")
-writers = (here / "writers.mjs").read_text().replace('../native-oauth-transaction.mjs', './hive-native-oauth-transaction.mjs').replace('../native-qwen/read_credentials.mjs', './hive-read-credentials.mjs')
+writers = (here / "writers.mjs").read_text().replace('../native-oauth-transaction.mjs', './hive-native-oauth-transaction.mjs').replace('../native-qwen/read_credentials.mjs', './hive-read-credentials.mjs').replace('./accounts.mjs', './hive-gemini-accounts.mjs')
 outputs = {
     target: source,
     reader_target: reader,
     target.parent / "hive-gemini-writers.mjs": writers,
+    target.parent / "hive-gemini-accounts.mjs": (here / "accounts.mjs").read_text(),
     target.parent / "hive-native-oauth-transaction.mjs": transaction,
     target.parent / "hive-shared-refresh-lock.mjs": lock,
 }

@@ -114,3 +114,52 @@ native stale-header reproductions remain unchanged. All 14 Qwen manager controls
 14 retained-client controls and 14 native writer controls pass with this engine.
 Production installation, account metadata, other native constructors, full CLI
 inference and the complete history/lifecycle/six-tool matrix remain unfinished.
+
+Expanded canonical account/callback stage, verified locally:
+Coordinated manager SHA-256: d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d
+The shared engine remains d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174.
+Account helper SHA-256: a34d60e457b3459680ed65b7b08e5e9288efdf554d32e93787ef5e760af80c9d
+
+Before repair, native account publication completes into private configuration;
+the strict test fails with ENOENT for canonical google_accounts.json. The separate
+cached-login callback test fails with selected rejected instead of healthy G0.
+After healthy G0 then logout, a same-process login fails with zero exchanges and
+selected rejected instead of entering the native authorization-code flow. These
+regressions are preserved in the bounded native process probe.
+
+Final stage: all 41 controls pass. In addition to the prior refresh/login/revoke
+cases, these pass:
+PASS: actual native Gemini initial-relogin; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-revoke-relogin; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini account-cache; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-callback; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-switch; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-scope-disposal; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-stale-response; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-logout; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-private-conflict; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-malformed; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-permissions; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-hardlink; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-symlink; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-directory; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-oversized; canonical account metadata, native callbacks and generation boundaries.
+
+Native account path reporting, synchronous/asynchronous getters, cache publication,
+account counts, user-info publication and logout now use canonical metadata. Reads
+refuse unsafe links, modes, directories, oversized or malformed state and competing
+private copies. Atomic metadata publication uses the credential transaction lock
+and file/directory synchronization. Only a matching current access/refresh pair
+can publish user info; a delayed G0 response cannot label G2. Metadata carries a
+refresh-generation digest. Account switches retain the old account count; logout
+clears active state while preserving lifetime history. All fixtures are synthetic.
+
+Actual native post-auth events retain the account email and authorized_user type.
+Each cached-login process requires one event; successful refresh/code publication
+requires the next event after durable publication. Initial native manual/browser
+flows preserve their callbacks. Same-process login after logout and after native
+revocation enters the real terminal code flow and publishes G1 for a fresh peer.
+The final canonical read/private-scope set passes all 11 cases, and all nine
+no-selector native stale-header reproductions remain unchanged. Expanded CI is
+pending; full CLI requests, other provider constructors, full history and production
+installation remain unfinished.

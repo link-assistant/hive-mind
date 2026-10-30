@@ -20,6 +20,13 @@ if (process.argv[2] === '--worker') {
   const native = await import(pathToFileURL(process.argv[3]).href);
   const role = process.argv[4];
   let exchanges = 0;
+  let callbacks = 0;
+  let initializationComplete = false;
+  native.__probeAuthEvents.on('post_auth', event => {
+    assert.equal(event.type, 'authorized_user');
+    assert.equal(event.client_email, role === 'account-second' ? 'synthetic-second@example.invalid' : 'synthetic@example.invalid');
+    callbacks++;
+  });
   native.__probeGoogleAuth.OAuth2Client.prototype.getTokenInfo = async () => ({ expiry_date: Date.now() + 3600000, scopes: [] });
   const nativeFetch = globalThis.fetch;
   globalThis.__probeBrowserOpen = async value => {
@@ -36,12 +43,34 @@ if (process.argv[2] === '--worker') {
     assert.equal(new globalThis.URL(response.headers.get('location')).pathname, '/gemini-code-assist/auth_success_gemini');
     return { on() {} };
   };
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url, options) => {
     assert.equal(String(url), 'https://www.googleapis.com/oauth2/v2/userinfo');
-    return new globalThis.Response(JSON.stringify({ email: 'synthetic@example.invalid' }), { headers: { 'Content-Type': 'application/json' } });
+    if (role === 'account-fetch' && initializationComplete) {
+      assert.equal(options.headers.Authorization, 'Bearer synthetic-access-G0');
+      process.send({ type: 'userinfo', selected: 'G0' });
+      await new Promise(resolve => process.once('message', resolve));
+    }
+    return new globalThis.Response(JSON.stringify({ email: role === 'account-second' ? 'synthetic-second@example.invalid' : 'synthetic@example.invalid' }), { headers: { 'Content-Type': 'application/json' } });
   };
   const config = { getProxy: () => undefined, isBrowserLaunchSuppressed: () => role !== 'initial-browser', isInteractive: () => role.startsWith('initial-'), getAcpMode: () => true };
   if (role.startsWith('initial-')) {
+    if (role === 'initial-relogin' || role === 'initial-revoke-relogin') {
+      const previous = await native.getOauthClient(native.AuthType.LOGIN_WITH_GOOGLE, { ...config, isInteractive: () => false });
+      const headers = await previous.getRequestHeaders('https://synthetic.example.invalid/model');
+      assert.equal(generation(typeof headers.get === 'function' ? headers.get('authorization') : headers.Authorization), 'G0');
+      if (role === 'initial-relogin') await native.clearCachedCredentialFile();
+      else {
+        previous.transporter.request = async options => {
+          const target = new globalThis.URL(String(options.url));
+          assert.equal(target.origin, 'https://oauth2.googleapis.com');
+          assert.equal(target.pathname, '/revoke');
+          assert.equal(target.searchParams.get('token'), 'synthetic-access-G0');
+          assert.equal(options.retry, false);
+          return { status: 200, data: {} };
+        };
+        await previous.revokeCredentials();
+      }
+    }
     const actual = native.__probeGoogleAuth.OAuth2Client.prototype.getTokenAsync;
     native.__probeGoogleAuth.OAuth2Client.prototype.getTokenAsync = async function (options) {
       this.transporter.request = async request => {
@@ -61,13 +90,15 @@ if (process.argv[2] === '--worker') {
     };
     process.send({ type: 'ready', selected: 'empty', exchanges });
     assert.equal((await new Promise(resolve => process.once('message', resolve))).type, 'start');
-    let selected = 'rejected';
+    let selected;
     try {
       const client = await native.getOauthClient(native.AuthType.LOGIN_WITH_GOOGLE, config);
       const headers = await client.getRequestHeaders('https://synthetic.example.invalid/model');
       selected = generation(typeof headers.get === 'function' ? headers.get('authorization') : headers.Authorization);
+      assert.ok(callbacks > 0, 'Native initial login retains its post-auth callback.');
     } catch {
       // Report only structural refusal; native diagnostics stay bounded.
+      selected = 'rejected';
     }
     process.send({ type: 'result', selected, exchanges });
     process.disconnect();
@@ -113,6 +144,7 @@ if (process.argv[2] === '--worker') {
     process.disconnect();
   } else {
     const client = await native.getOauthClient(native.AuthType.LOGIN_WITH_GOOGLE, config);
+    initializationComplete = true;
     client.transporter.request = async options => {
       if (String(options.url) === 'https://synthetic.example.invalid/model') {
         assert.equal(role, 'inference');
@@ -162,7 +194,20 @@ if (process.argv[2] === '--worker') {
     assert.equal(command.type, 'start');
     try {
       let selected;
-      if (role === 'login' || role === 'same-refresh-login') {
+      if (role.startsWith('account-')) {
+        if (role === 'account-store') await native.__probeAccounts.cacheGoogleAccount('synthetic@example.invalid', client.credentials);
+        else if (role === 'account-fetch') await native.__probeFetchUserInfo(client);
+        else if (role === 'account-clear') await native.clearCachedCredentialFile();
+        else if (role === 'account-callback') assert.equal(callbacks, 1, 'Cached native login retains its post-auth callback.');
+        else if (role === 'account-read' || role === 'account-second') {
+          const file = native.__probeAccounts.getGoogleAccountsCachePath();
+          assert.equal(file, path.join(process.env.GEMINI_AUTH_HOME, 'google_accounts.json'));
+          assert.deepEqual(await native.__probeAccounts.readAccounts(file), native.__probeAccounts.readAccountsSync(file));
+          const account = native.__probeAccounts.getCachedGoogleAccount();
+          process.send({ type: 'account', selected: account === (role === 'account-second' ? 'synthetic-second@example.invalid' : 'synthetic@example.invalid') ? 'expected' : account === null ? 'empty' : 'unexpected', count: native.__probeAccounts.getLifetimeGoogleAccounts() });
+        }
+        selected = 'G0';
+      } else if (role === 'login' || role === 'same-refresh-login') {
         await native.__probeCacheCredentials({ ...credential('G2'), ...(role === 'same-refresh-login' ? { refresh_token: 'synthetic-refresh-G0' } : {}) });
         selected = 'G2';
       } else if (role === 'logout') {
@@ -186,6 +231,7 @@ if (process.argv[2] === '--worker') {
         const headers = await client.getRequestHeaders('https://synthetic.example.invalid/model');
         selected = generation(typeof headers.get === 'function' ? headers.get('authorization') : headers.Authorization);
       }
+      if (selected === 'G1' && exchanges === 1) assert.equal(callbacks, 2, 'Refresh/code publication retains the native post-auth callback after cached login.');
       process.send({ type: 'result', selected, exchanges });
     } catch {
       process.send({ type: 'result', selected: 'rejected', exchanges });
@@ -200,7 +246,7 @@ if (process.argv[2] === '--worker') {
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
   assert.equal(metadata.version, '0.65.0');
   const source = await fs.readFile(moduleFile, 'utf8');
-  assert.ok(['4d9cf6435503e5280ecb0f55078793531c8041fe435f60fa8dfce92317c8a28e', 'e7df0d9801b8ec39c3ed283a614c9ffc6399c00410418d2ed0e6ff86d79b57cd', '41849bd0ccf316e164a7aeafbf7171cf20e36cc1c77cd456dc33e2441eb780e6', 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610', '5f1012b7c71f3ce17b53f923ca244d1ed44b5253fa0a93633c593cee52f38a77', '61f9f7fcc120c811254c8001cc745f2e84c284884d59f2a0e3ac55a6c95f9a5a', '0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c'].includes(createHash('sha256').update(source).digest('hex')), 'Only an exact inspected native manager stage may run.');
+  assert.ok(['4d9cf6435503e5280ecb0f55078793531c8041fe435f60fa8dfce92317c8a28e', 'e7df0d9801b8ec39c3ed283a614c9ffc6399c00410418d2ed0e6ff86d79b57cd', '41849bd0ccf316e164a7aeafbf7171cf20e36cc1c77cd456dc33e2441eb780e6', 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610', '5f1012b7c71f3ce17b53f923ca244d1ed44b5253fa0a93633c593cee52f38a77', '61f9f7fcc120c811254c8001cc745f2e84c284884d59f2a0e3ac55a6c95f9a5a', '0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c', '1880e98a06fafd5102d35593b5612c54a0a189dfe60675c9be1546546a4ef120', '4f97e8a434e43e9b9251e5e2a6775922922ed5ead6ed2fbb496451e5604ee764', 'd7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d'].includes(createHash('sha256').update(source).digest('hex')), 'Only an exact inspected native manager stage may run.');
   const legacyConfigs = process.argv.includes('--legacy-configs');
   const trace = process.argv.includes('--trace');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-gemini-writers-'));
@@ -211,7 +257,7 @@ if (process.argv[2] === '--worker') {
   const browserLaunch = 'await open_default(webLogin.authUrl)';
   assert.ok([1, 2].includes(source.split(browserLaunch).length - 1));
   const browserSource = source.replaceAll(browserLaunch, 'await globalThis.__probeBrowserOpen(webLogin.authUrl)');
-  await fs.writeFile(instrumented, browserSource + '\nexport { import_google_auth_library3 as __probeGoogleAuth, cacheCredentials as __probeCacheCredentials };\n', { mode: 0o600 });
+  await fs.writeFile(instrumented, browserSource + '\nexport { import_google_auth_library3 as __probeGoogleAuth, cacheCredentials as __probeCacheCredentials, userAccountManager2 as __probeAccounts, authEvents as __probeAuthEvents, fetchAndCacheUserInfo as __probeFetchUserInfo };\n', { mode: 0o600 });
   let safeCleanup = true;
 
   async function scenario(name) {
@@ -237,7 +283,7 @@ if (process.argv[2] === '--worker') {
       const child = spawn('/usr/bin/prlimit', ['--data=2147483648', '--stack=16777216', '--core=0', '--', process.execPath, '--max-old-space-size=256', fileURLToPath(import.meta.url), '--worker', instrumented, role], {
         cwd: home,
         env: { PATH: process.env.PATH, HOME: home, GEMINI_CLI_HOME: legacyConfigs ? path.dirname(authority) : home, GEMINI_AUTH_HOME: authority, GEMINI_CLI_NO_RELAUNCH: '1', GEMINI_WRITER_TRACE: trace ? '1' : '0', GEMINI_PROBE_COORDINATED: source.includes('opts.retry = false;\n            opts.retryConfig = { retry: 0, noResponseRetries: 0 };') ? '1' : '0', XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'), XDG_CACHE_HOME: path.join(home, '.cache') },
-        stdio: [role === 'initial-login' ? 'pipe' : 'ignore', 'pipe', 'pipe', 'ipc'],
+        stdio: [['initial-login', 'initial-relogin', 'initial-revoke-relogin'].includes(role) ? 'pipe' : 'ignore', 'pipe', 'pipe', 'ipc'],
         detached: true,
       });
       const events = [];
@@ -251,7 +297,7 @@ if (process.argv[2] === '--worker') {
         stream.on('data', chunk => {
           bytes += chunk.length;
           if (bytes <= 65536) diagnostics.push(chunk);
-          if (role === 'initial-login' && !codeEntered && Buffer.concat(diagnostics).toString('utf8').includes('Enter the authorization code:')) {
+          if (['initial-login', 'initial-relogin', 'initial-revoke-relogin'].includes(role) && !codeEntered && Buffer.concat(diagnostics).toString('utf8').includes('Enter the authorization code:')) {
             codeEntered = true;
             child.stdin.end('synthetic-code-G1\n');
           }
@@ -316,10 +362,70 @@ if (process.argv[2] === '--worker') {
           timer = setTimeout(() => reject(new Error('Finite native Gemini writer deadline exceeded.')), 25000);
         }),
         (async () => {
-          if (['initial-login', 'initial-browser', 'initial-malformed'].includes(name)) {
+          if (name.startsWith('account-')) {
+            const store = path.join(authority, 'google_accounts.json');
+            const owner = await start(name === 'account-callback' ? 'account-callback' : name === 'account-stale-response' ? 'account-fetch' : name.startsWith('account-unsafe-') || name === 'account-private-conflict' ? 'account-read' : 'account-store');
+            if (name === 'account-private-conflict') await fs.writeFile(path.join(owner.home, '.gemini/google_accounts.json'), '{synthetic-private', { mode: 0o600 });
+            if (name.startsWith('account-unsafe-')) {
+              await fs.rm(store, { force: true });
+              if (name === 'account-unsafe-malformed') await fs.writeFile(store, '{synthetic-malformed', { mode: 0o600 });
+              else if (name === 'account-unsafe-permissions') await fs.writeFile(store, '{}', { mode: 0o644 });
+              else if (name === 'account-unsafe-hardlink' || name === 'account-unsafe-symlink') {
+                const unrelated = path.join(directory, 'unrelated-evidence');
+                await fs.writeFile(unrelated, 'synthetic-unrelated', { mode: 0o600 });
+                if (name.endsWith('hardlink')) await fs.link(unrelated, store);
+                else await fs.symlink(unrelated, store);
+              } else if (name === 'account-unsafe-directory') await fs.mkdir(store, { mode: 0o700 });
+              else if (name === 'account-unsafe-oversized') await fs.writeFile(store, Buffer.alloc(1024 * 1024 + 1), { mode: 0o600 });
+            }
+            owner.child.send({ type: 'start' });
+            if (name === 'account-stale-response') {
+              assert.deepEqual(await owner.wait('userinfo'), { type: 'userinfo', selected: 'G0' });
+              await fs.writeFile(`${file}.replacement`, JSON.stringify(credential('G2')), { mode: 0o600 });
+              await fs.rename(`${file}.replacement`, file);
+              owner.child.send({ type: 'complete' });
+            }
+            const unsafe = name.startsWith('account-unsafe-') || name === 'account-private-conflict';
+            await result(owner, unsafe ? 'rejected' : 'G0', 0);
+            if (unsafe) {
+              assert.equal(generation(JSON.parse(await fs.readFile(file, 'utf8')).access_token), 'G0');
+              if (name.endsWith('hardlink') || name.endsWith('symlink')) assert.equal(await fs.readFile(path.join(directory, 'unrelated-evidence'), 'utf8'), 'synthetic-unrelated');
+            } else if (name === 'account-stale-response') {
+              const account = JSON.parse(await fs.readFile(store, 'utf8'));
+              assert.notEqual(account.generation, createHash('sha256').update('gemini-account-generation\0').update('synthetic-refresh-G2').digest('hex'), 'A stale user-info response cannot label a different current generation.');
+              await result(await start('account-read', true, 'G2'), 'G0', 0);
+            } else {
+              assert.equal(JSON.parse(await fs.readFile(store, 'utf8')).active, 'synthetic@example.invalid', 'Account metadata must persist in canonical storage.');
+              if (name === 'account-scope-disposal') await fs.rm(owner.home, { recursive: true });
+              const peer = await start('account-read', true);
+              assert.deepEqual(await peer.wait('account'), { type: 'account', selected: 'expected', count: 1 });
+              await result(peer, 'G0', 0);
+              if (name === 'account-switch') {
+                await fs.writeFile(`${file}.replacement`, JSON.stringify(credential('G2')), { mode: 0o600 });
+                await fs.rename(`${file}.replacement`, file);
+                const second = await start('account-second', true, 'G2');
+                assert.deepEqual(await second.wait('account'), { type: 'account', selected: 'expected', count: 2 });
+                await result(second, 'G0', 0);
+                const accounts = JSON.parse(await fs.readFile(store, 'utf8'));
+                assert.equal(accounts.active, 'synthetic-second@example.invalid');
+                assert.deepEqual(accounts.old, ['synthetic@example.invalid']);
+              }
+              if (name === 'account-logout') {
+                await result(await start('account-clear', true), 'G0', 0);
+                await assert.rejects(fs.lstat(file), { code: 'ENOENT' });
+                const account = JSON.parse(await fs.readFile(store, 'utf8'));
+                assert.equal(account.active, null);
+                assert.deepEqual(account.old, ['synthetic@example.invalid']);
+              }
+            }
+            if (!unsafe) for (const worker of workers) await assert.rejects(fs.lstat(path.join(worker.home, '.gemini/google_accounts.json')), { code: 'ENOENT' });
+            console.log(`PASS: actual native Gemini ${name}; canonical account metadata, native callbacks and generation boundaries.`);
+            return;
+          }
+          if (['initial-login', 'initial-browser', 'initial-malformed', 'initial-relogin', 'initial-revoke-relogin'].includes(name)) {
             if (name === 'initial-malformed') await fs.writeFile(file, '{synthetic-malformed', { mode: 0o600 });
-            else await fs.unlink(file);
-            const client = await start(name === 'initial-login' ? 'initial-login' : 'initial-browser', true, 'empty');
+            else if (!name.endsWith('relogin')) await fs.unlink(file);
+            const client = await start(name.endsWith('relogin') ? name : name === 'initial-login' ? 'initial-login' : 'initial-browser', true, 'empty');
             if (name === 'initial-malformed') {
               await result(client, 'rejected', 0);
               assert.equal(await fs.readFile(file, 'utf8'), '{synthetic-malformed');
@@ -334,6 +440,7 @@ if (process.argv[2] === '--worker') {
             await result(await start('reader', true, 'G1'), 'G1', 0);
             const final = JSON.parse(await fs.readFile(file, 'utf8'));
             assert.equal(final.refresh_token, 'synthetic-refresh-G1');
+            assert.equal(JSON.parse(await fs.readFile(path.join(authority, 'google_accounts.json'), 'utf8')).active, 'synthetic@example.invalid');
             await assert.rejects(fs.lstat(intent), { code: 'ENOENT' });
             const finalLock = await fs.stat(lock, { bigint: true });
             assert.equal(`${finalLock.dev}:${finalLock.ino}`, `${initial.dev}:${initial.ino}`);
@@ -438,6 +545,11 @@ if (process.argv[2] === '--worker') {
               const final = JSON.parse(await fs.readFile(file, 'utf8'));
               assert.equal(generation(final.access_token), ['login', 'publication-race', 'auth-code-publication-race'].includes(name) ? 'G2' : 'G1');
               assert.equal(final.refresh_token, `synthetic-refresh-${name === 'non-rotating' ? 'G0' : ['login', 'publication-race', 'auth-code-publication-race'].includes(name) ? 'G2' : 'G1'}`);
+              if (generation(final.access_token) === 'G1') {
+                const accounts = JSON.parse(await fs.readFile(path.join(authority, 'google_accounts.json'), 'utf8'));
+                assert.equal(accounts.active, 'synthetic@example.invalid');
+                assert.equal(accounts.generation, createHash('sha256').update('gemini-account-generation\0').update(final.refresh_token).digest('hex'));
+              }
             }
           }
           const after = await fs.stat(lock, { bigint: true });
@@ -462,7 +574,7 @@ if (process.argv[2] === '--worker') {
     }
   }
   try {
-    const scenarios = ['inference-overlap', 'two-refreshes', 'login', 'logout', 'owner-death', 'network-refusal', 'metadata-rewrite', 'factory-root-replacement', 'invalid-grant', 'non-rotating', 'direct-refresh', 'direct-no-cache', 'publication-race', 'auth-code', 'auth-code-publication-race', 'auth-code-network-refusal', 'auth-code-incomplete', 'auth-code-uncertain-repair', 'auth-code-unsafe-intent', 'revoke', 'revoke-direct', 'revoke-old', 'revoke-network-refusal', 'initial-login', 'initial-browser', 'initial-malformed'];
+    const scenarios = ['inference-overlap', 'two-refreshes', 'login', 'logout', 'owner-death', 'network-refusal', 'metadata-rewrite', 'factory-root-replacement', 'invalid-grant', 'non-rotating', 'direct-refresh', 'direct-no-cache', 'publication-race', 'auth-code', 'auth-code-publication-race', 'auth-code-network-refusal', 'auth-code-incomplete', 'auth-code-uncertain-repair', 'auth-code-unsafe-intent', 'revoke', 'revoke-direct', 'revoke-old', 'revoke-network-refusal', 'initial-login', 'initial-browser', 'initial-malformed', 'initial-relogin', 'initial-revoke-relogin', 'account-cache', 'account-callback', 'account-switch', 'account-scope-disposal', 'account-stale-response', 'account-logout', 'account-private-conflict', 'account-unsafe-malformed', 'account-unsafe-permissions', 'account-unsafe-hardlink', 'account-unsafe-symlink', 'account-unsafe-directory', 'account-unsafe-oversized'];
     const selected = process.argv.find(value => value.startsWith('--scenario='))?.slice('--scenario='.length);
     if (selected) assert.ok(scenarios.includes(selected));
     for (const name of selected ? [selected] : scenarios) await scenario(name);

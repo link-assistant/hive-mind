@@ -121,8 +121,34 @@ and durably removes local credentials before sending the no-retry revocation
 request. Success and network-refusal controls both require subsequent readers
 to refuse; a failed provider response cannot resurrect local credentials.
 
+## Canonical account metadata and callbacks
+
+The next stage moves native `UserAccountManager` reads, writes, path reporting,
+account counts and logout into canonical `google_accounts.json`. The native
+manager previously wrote that file into each private configuration directory.
+The strict regression fails with the canonical file missing. Cached-login
+callbacks also failed after the first read-only adapter; a separate actual
+native control reproduces that omission.
+
+The synchronous native getters use bounded descriptor-anchored, no-follow reads
+with file/directory identity, ownership, mode and link checks. Writes use the
+credential transaction lock and awaited atomic publication with file/directory
+synchronization. Metadata carries a refresh-generation hash; delayed user-info
+responses require matching current access and refresh credentials before
+publication. A different account retains the prior account in the lifetime count.
+Logout clears the active account while retaining that count. Unsafe canonical
+metadata and competing private account files refuse without copying either.
+
+Cached login, refresh and authorization-code publication preserve native
+post-auth callbacks after durable publication. Callback credentials and account
+metadata are read under the same credential lock. Initial manual/browser flows
+retain their native callbacks. A further regression demonstrated that selected
+logout left the factory promise cached and prevented login in the same process.
+Logout and revocation now clear that cache; both initial-login-after-logout
+controls exercise the real manual-code flow again.
+
 The inspected native cache-publication control is still distinguished from the
-interactive flows. Account metadata, other provider constructors/retained handles,
+interactive flows. Other provider constructors/retained handles,
 full CLI inference, full conversation storage and production installation remain
 open. One control keeps an actual native OAuth client model request pending while
 a second process reads G1, proving the credential lock is released during that

@@ -22,7 +22,7 @@ const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', impor
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
-  const historyDirectories = ['sessions', 'archived_sessions', 'thread-writer-locks'];
+  const historyDirectories = ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'];
   for (const directory of historyDirectories) await fs.mkdir(path.join(fixture, 'home/.codex', directory), { recursive: true });
   for (const relative of ['', 'home', 'home/.codex', ...historyDirectories.map(directory => `home/.codex/${directory}`)]) await fs.chmod(path.join(fixture, relative), 0o777);
   await fs.writeFile(path.join(fixture, 'home/.codex/auth.json'), '{"synthetic":"canonical"}', { mode: 0o644 });

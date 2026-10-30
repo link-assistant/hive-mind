@@ -28,7 +28,7 @@ if(args[0]==='run'){
   fs.writeFileSync(args[2],'synthetic image search executable',{mode:0o755});
 }else if(args[0]==='exec'&&args.at(-1).includes('/verify-mounted-task-backing.mjs')){
   const fixture=fs.readFileSync(${JSON.stringify(state)},'utf8');
-  for(const directory of ['sessions','archived_sessions','thread-writer-locks'])for(const index of [0,1])fs.writeFileSync(path.join(fixture,'home/.codex',directory,'task-'+index),'persisted');
+  for(const directory of ['sessions','archived_sessions','thread-writer-locks','rollout-migrations'])for(const index of [0,1])fs.writeFileSync(path.join(fixture,'home/.codex',directory,'task-'+index),'persisted');
 }else if(args[0]==='image'&&args[1]==='save'){
   fs.writeFileSync(args[args.indexOf('-o')+1],'synthetic image archive');
 }
@@ -59,7 +59,7 @@ for (const failed of [false, true]) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mount-gate-unit-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     const home = path.join(root, 'home');
-    for (const directory of ['sessions', 'archived_sessions', 'thread-writer-locks']) await fs.mkdir(path.join(home, '.codex', directory), { recursive: true });
+    for (const directory of ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations']) await fs.mkdir(path.join(home, '.codex', directory), { recursive: true });
     await fs.mkdir(path.join(root, 'bin'));
     await fs.writeFile(path.join(home, '.codex/auth.json'), '{"synthetic":"canonical"}');
     const calls = path.join(root, 'calls.jsonl');
@@ -86,6 +86,7 @@ if(args[0]==='run'){
     if (failed) await assert.rejects(pending);
     else assert.match((await pending).stdout, /Installed-package mount backing verified/u);
     assert.equal(await fs.readFile(path.join(home, '.codex/sessions/task-1'), 'utf8'), 'persisted', 'the peer completes before the script returns, including on failure');
+    assert.equal(await fs.readFile(path.join(home, '.codex/rollout-migrations/task-1'), 'utf8'), 'persisted', 'the peer journal must reach canonical storage before cleanup');
     const commands = (await fs.readFile(calls, 'utf8'))
       .trim()
       .split('\n')

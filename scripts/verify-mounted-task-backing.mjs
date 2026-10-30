@@ -19,7 +19,7 @@ const args = await buildDockerIsolationStartArgs('solve', [], { homeDir: path.jo
 const mounts = args.flatMap((arg, index) => (arg === '--volume' ? [{ source: args[index + 1].split(':')[0], target: args[index + 1].split(':')[1] }] : []));
 const auth = mounts.find(mount => mount.target === '/home/box/.codex/auth.json');
 const history = mounts.find(mount => mount.target === '/home/box/.codex/sessions');
-const directories = ['sessions', 'archived_sessions', 'thread-writer-locks'];
+const directories = ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'];
 const historyMounts = directories.map(directory => {
   const mount = mounts.find(mount => mount.target === `/home/box/.codex/${directory}`);
   assert.equal(mount?.source, path.join(expectedHome, '.codex', directory));
@@ -30,7 +30,7 @@ assert.equal(history?.source, path.join(expectedHome, '.codex/sessions'));
 const names = [0, 1].map(() => `hive-mount-contract-${randomUUID()}`);
 const docker = args => execute('docker', args, { env, maxBuffer: 128 * 1024, signal: AbortSignal.timeout(60_000) });
 try {
-  const results = await Promise.allSettled(names.map((name, index) => docker(['run', '--rm', '--name', name, '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--ulimit', 'data=1073741824:1073741824', '--env', 'NODE_OPTIONS=', '--entrypoint', 'node', '--mount', `type=bind,source=${auth.source},target=/probe/auth.json,readonly`, ...historyMounts.flatMap(mount => ['--mount', mount]), image, '--max-old-space-size=64', '-e', 'const fs=require("node:fs");if(JSON.parse(fs.readFileSync("/probe/auth.json")).synthetic!=="canonical")process.exit(1);for(const directory of ["sessions","archived_sessions","thread-writer-locks"])fs.writeFileSync("/probe/"+directory+"/task-"+process.argv[1],"persisted");', String(index)])));
+  const results = await Promise.allSettled(names.map((name, index) => docker(['run', '--rm', '--name', name, '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--ulimit', 'data=1073741824:1073741824', '--env', 'NODE_OPTIONS=', '--entrypoint', 'node', '--mount', `type=bind,source=${auth.source},target=/probe/auth.json,readonly`, ...historyMounts.flatMap(mount => ['--mount', mount]), image, '--max-old-space-size=64', '-e', 'const fs=require("node:fs");if(JSON.parse(fs.readFileSync("/probe/auth.json")).synthetic!=="canonical")process.exit(1);for(const directory of ["sessions","archived_sessions","thread-writer-locks","rollout-migrations"])fs.writeFileSync("/probe/"+directory+"/task-"+process.argv[1],"persisted");', String(index)])));
   for (const result of results) if (result.status === 'rejected') throw result.reason;
   for (const directory of directories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
   assert.equal(await fs.readFile(path.join(fixture, 'home/.codex/auth.json'), 'utf8'), '{"synthetic":"canonical"}');

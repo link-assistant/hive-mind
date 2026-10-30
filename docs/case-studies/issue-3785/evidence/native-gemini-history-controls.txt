@@ -130,3 +130,15 @@ PASS: final 41 writer/account, 30 request and 11 canonical read controls.
 PASS: strict import/archive refusals and live archive peer observe no additional
       model request; second-cycle archive resume retains all earlier content.
 Fresh Node 24 CI and complete remaining history/lifecycle/production work are open.
+
+Strict UTF-8 storage validation:
+REPRODUCED: active reads, explicit imports and read-before-archive accept an
+            invalid 0xff byte inside a JSON string. Each strict before control
+            fails with Missing expected exception, after a healthy initial read.
+PASS: snapshot validates UTF-8 before decoding; all three paths refuse without
+      changing source bytes or inode. The archive test rereads the changed
+      generation first, so stale-generation refusal cannot satisfy the control.
+PASS: Japanese text, accents, emoji and a literal U+FFFD survive rewrite, read,
+      archive and explicit import. All 49 bounded storage controls pass locally.
+UTF-8-stage helper 0ffcd97e104cd9bf4bcbf2df69c43ab8a8cf95d68734e3cd96e78a7953413aed
+Native CI verification and complete remaining history/lifecycle work remain open.

@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { Buffer } from 'node:buffer';
+import { Buffer, isUtf8 } from 'node:buffer';
 
 const LIMIT = 32 * 1024 * 1024;
 const identity = info => `${info.dev}:${info.ino}`;
@@ -133,7 +133,9 @@ function snapshot(location, missing = false) {
     }
     if (BigInt(length) !== opened.size || version(fs.fstatSync(fd, { bigint: true })) !== version(opened) || version(checkedFile(location)) !== version(opened)) throw refuse();
     assertNativeGeminiHistoryCurrent();
-    return bytes.subarray(0, length).toString('utf8');
+    const content = bytes.subarray(0, length);
+    if (!isUtf8(content)) throw refuse();
+    return content.toString('utf8');
   } finally {
     fs.closeSync(fd);
   }

@@ -381,3 +381,13 @@ including changed/replaced import sources and parent replacement during parsing.
 This stage and the archive stage require fresh Node 24 CI; other history writers,
 artifact/subagent lifecycle, interrupted publication and production installation
 remain open.
+
+## Strict history text decoding
+
+Bounded active-read, import and read-before-archive controls reproduce invalid
+UTF-8 being silently converted to replacement characters before JSON parsing.
+The selected snapshot reader validates the complete byte sequence before
+decoding. Refusal preserves the source bytes and inode. A positive control
+retains Japanese text, accented text, emoji and a literal replacement character
+through rewrite, read, archive and explicit import. All 49 bounded storage
+controls pass locally; the existing native CI job runs the complete set.

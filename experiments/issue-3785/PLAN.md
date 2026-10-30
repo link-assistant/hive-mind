@@ -866,3 +866,9 @@ Latest CI continuation:
       policy. Keep the 30-minute deadline and require real export verification.
 - [ ] Verify the proposed Docker export memory policy in fresh packaged-image
       CI. Do not equate mocked setup controls with reduced real export memory.
+- [x] Reproduce invalid UTF-8 being accepted through active history reads,
+      explicit imports and read-before-archive. Validate bytes before decoding;
+      all 49 bounded storage controls pass, including valid multilingual text
+      and a literal replacement character. Refusals preserve bytes and inodes.
+- [ ] Verify strict decoding in native CI and preserve complete offloaded tool
+      output through private-home disposal and fresh native resume/read.

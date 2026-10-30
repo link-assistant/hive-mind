@@ -15,7 +15,7 @@ from native_process_group import stop_process_group
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
-parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race'))
+parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race', 'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8', 'unicode-healthy'))
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
@@ -82,7 +82,29 @@ if (name === 'lease-owner') {
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name.startsWith('import-')) {
+  if (name.endsWith('-invalid-utf8')) {
+    const source = name.startsWith('import-') ? path.join(root, 'export.jsonl') : file;
+    const bytes = Buffer.concat([Buffer.from('{"message":"'), Buffer.from([0xff]), Buffer.from('"}\n')]);
+    fs.writeFileSync(source, bytes, { mode: 0o600 });
+    const original = fs.statSync(source);
+    assert.throws(() => {
+      h.readNativeGeminiConversation(source, name.startsWith('import-'));
+      if (name.startsWith('archive-')) h.archiveNativeGeminiConversation(source);
+    }, refused);
+    assert.deepEqual(fs.readFileSync(source), bytes);
+    assert.equal(fs.statSync(source).ino, original.ino);
+  } else if (name === 'unicode-healthy') {
+    const record = JSON.stringify({ message: '日本語 — café 🐝 \uFFFD' }) + '\n';
+    h.rewriteNativeGeminiConversation(file, record);
+    assert.equal(h.readNativeGeminiConversation(file), record);
+    assert.equal(h.archiveNativeGeminiConversation(file), true);
+    const archive = h.listNativeGeminiArchivedConversations(chats);
+    assert.equal(archive.length, 1);
+    assert.equal(h.readNativeGeminiConversation(archive[0]), record);
+    const source = path.join(root, 'unicode-export.jsonl');
+    fs.writeFileSync(source, record, { mode: 0o600 });
+    assert.equal(h.readNativeGeminiConversation(source, true), record);
+  } else if (name.startsWith('import-')) {
     const imports = path.join(root, 'imports');
     fs.mkdirSync(imports, { mode: 0o700 });
     const source = path.join(imports, 'export.jsonl');
@@ -356,7 +378,9 @@ try:
                      'restore-symlink', 'restore-hardlink', 'restore-directory-replacement',
                      'restore-foreign-project', 'restore-subagent', 'restore-list-overflow',
                      'create-append-race', 'restore-publish-race', 'import-healthy',
-                     'import-changed', 'import-replaced', 'import-parent-replaced'):
+                     'import-changed', 'import-replaced', 'import-parent-replaced',
+                     'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8',
+                     'unicode-healthy'):
         if args.scenario and scenario != args.scenario:
             continue
         finish([launch(fixture(scenario), scenario)])

@@ -69,15 +69,18 @@ and resume after private-home disposal. Native linked-transcript attacks refuse,
 and bounded storage controls include malformed/truncated refusal, four concurrent
 writers and stale rewrite preservation. The preceding conversation stage passes Node 24 CI
 41111156696 on `37bcddb6ebed4bf9331ba425ea62739fec397691`, including actual
-native discovery/resume and malformed/truncated refusal. Additional parsed-record
-admission passes locally and still requires fresh CI. A further local stage
+native discovery/resume and malformed/truncated refusal. Parsed-record admission and the retirement stage also pass Node 24 CI
+41116035148 at `4a6be5dfb`. That stage
 preserves startup-only, expired and explicitly deleted native conversations in a
 canonical archive while keeping their native active-listing behavior. Native
 writer initialization holds a per-conversation kernel lease, so peer retention
 skips a live conversation and peer deletion reports it busy. Five real CLI
 retirement controls and 29 bounded storage controls pass, including owner-death
-lease recovery, stale archive refusal and unsafe archive/lease paths. Archive
-discovery/resume and complete child/artifact lifecycles remain open. Canonical alternate
+lease recovery, stale archive refusal and unsafe archive/lease paths. The retirement stage passes Node 24 CI 41116035148 at `4a6be5dfb`. A further
+local stage adds native archive discovery and exact-UUID resume without mutating
+the audit generation, plus concurrent resume exclusion. Its 41 storage controls
+and seven actual CLI archive refusals pass locally and need fresh CI. Complete
+archive indexes and child/artifact lifecycles remain open. Canonical alternate
 backends, complete history, all writers/lifecycle and production installation
 remain unfinished. These experiments do not complete A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and

@@ -167,6 +167,13 @@ jobs:
         run: |
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --diagnostics "$RUNNER_TEMP/gemini-cli-delete.log" > "$RUNNER_TEMP/gemini-cli-delete-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-live-delete --diagnostics "$RUNNER_TEMP/gemini-cli-live-delete.log" > "$RUNNER_TEMP/gemini-cli-live-delete-control.log" 2>&1
+      - name: Discover archived native generations and resume with one writer
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-discovery --history-archive-live-resume --history-archive-second-cycle --diagnostics "$RUNNER_TEMP/gemini-cli-archive.log" > "$RUNNER_TEMP/gemini-cli-archive-control.log" 2>&1
+      - name: Refuse unsafe archived native records before another inference
+        run: |
+          for state in symlink hardlink malformed truncated schema foreign-project invalid-session; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-archive-$state.log" > "$RUNNER_TEMP/gemini-cli-archive-$state-control.log" 2>&1
+          done
       - name: Preserve native authentication after conversation storage admission
         run: |
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-history-auth-writers.log" 2>&1

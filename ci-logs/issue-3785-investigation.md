@@ -1178,3 +1178,25 @@ reproduction, canonical discovery/resume, four unsafe-history refusals and all
 19 storage controls. The post-history 41 writer/account, 30 request and 11
 canonical-read controls also pass. The three additional semantic controls and
 parsed-record admission were added locally afterward and need fresh CI.
+
+
+## Codex 41111156672 and Gemini 41116035148: compiled and retirement controls pass
+
+[Codex run 41111156672](https://github.com/link-assistant/hive-mind/actions/runs/41111156672)
+passes all three jobs on `37bcddb6ebed4bf9331ba425ea62739fec397691`. Its complete
+log is preserved as `ci-logs/native-codex-41111156672.log`. Downloaded diagnostics
+confirm canonical compression and fresh resume, unsafe migration-stage refusals,
+two live model clients observing replacement/logout/recreation, alternate native
+constructor refusal and all 12 upstream prompt-history tests. These are source
+experiments; production integration and complete lifecycle remain unfinished.
+
+[Gemini run 41116035148](https://github.com/link-assistant/hive-mind/actions/runs/41116035148)
+passes on `4a6be5dfb30e1ae122a183ef744400f6af41cab2`, created
+2026-10-30T19:32:09Z. Its complete log is preserved as
+`ci-logs/native-gemini-41116035148.log`. Downloaded diagnostics verify all seven
+unsafe active-record controls, five actual native retirement controls, 29
+storage controls and the authentication regressions. Live-peer control JSON
+confirms successful retention, explicit busy-deletion refusal and preserved
+record prefixes/inodes. This verifies the semantic admission and retirement
+commits after the previous formatting-only CI failure. The subsequent local
+archive discovery/resume and publication-race controls need fresh Node 24 CI.

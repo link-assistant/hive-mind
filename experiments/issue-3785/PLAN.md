@@ -813,3 +813,23 @@ Latest CI continuation:
 - [ ] Verify the expanded retention stage and native auth regressions in CI;
       complete archive discovery/resume, imports, subagent/artifact lifecycles,
       all other history surfaces and production installation.
+- [x] Verify native retirement and all authentication regressions on Node 24
+      in CI 41116035148 at `4a6be5dfb`. All seven unsafe-history controls,
+      five retirement controls and 29 storage controls pass.
+- [x] Reproduce native archive discovery/resume failures after successful
+      inference, explicit deletion and private-home disposal. Add bounded native
+      archive enumeration, `--list-archived-sessions` and exact-UUID resume.
+      Preserve archive bytes/inodes while publishing a separate active record.
+- [x] Reproduce a concurrent new file being appended to and a restore publication
+      overwriting a newly created active file. Use exclusive creation and
+      non-replacing publication; both bounded race regressions pass after repair.
+- [x] Pass 41 bounded storage controls, seven actual archived-record refusals,
+      actual archive discovery/resume and concurrent native resume exclusion.
+      Discovery performs no inference and does not reactivate a retired record.
+- [ ] Verify archive discovery/resume and its expanded controls in CI; complete
+      import, artifact/subagent lifecycle, all remaining history surfaces, crash
+      recovery and production integration.
+- [x] Verify a second native deletion/private-home disposal and archive resume:
+      all generations remain discoverable, including startup-only records; the
+      third inference contains both preceding prompts and the prior response.
+      Every archived generation retains its bytes and inode.

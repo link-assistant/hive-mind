@@ -15,6 +15,7 @@ from native_process_group import stop_process_group
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
+parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race'))
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
@@ -81,7 +82,101 @@ if (name === 'lease-owner') {
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name === 'archive-healthy') {
+  if (name === 'create-append-race') {
+    const target = path.join(chats, 'session-new.jsonl');
+    const open = fs.openSync;
+    let injected = false;
+    fs.openSync = (filename, flags, ...options) => {
+      if (!injected && filename === target && (flags & fs.constants.O_WRONLY) !== 0) {
+        injected = true;
+        fs.writeFileSync(target, '{"peerCreated":true}\n', { mode: 0o600 });
+      }
+      return open(filename, flags, ...options);
+    };
+    assert.throws(() => h.appendNativeGeminiConversation(target, '{"unexpectedAppend":true}\n'), refused);
+    assert.equal(injected, true);
+    assert.equal(fs.readFileSync(target, 'utf8'), '{"peerCreated":true}\n');
+  } else if (name.startsWith('restore-')) {
+    const record = { sessionId: '00000000-0000-4000-8000-000000000000', projectHash: path.basename(path.dirname(path.dirname(named))), messages: [] };
+    h.rewriteNativeGeminiConversation(file, JSON.stringify(record) + '\n');
+    const bytes = fs.readFileSync(file);
+    h.archiveNativeGeminiConversation(file);
+    const candidates = h.listNativeGeminiArchivedConversations(chats);
+    assert.equal(candidates.length, 1);
+    const archived = candidates[0];
+    assert.equal(h.readNativeGeminiConversation(archived), bytes.toString());
+    const original = fs.statSync(archived);
+    if (name === 'restore-healthy') {
+      assert.equal(h.restoreNativeGeminiConversation(chats, archived, record), file);
+      assert.deepEqual(fs.readFileSync(file), bytes);
+      assert.notEqual(fs.statSync(file).ino, original.ino);
+      h.claimNativeGeminiConversation(file);
+      h.appendNativeGeminiConversation(file, '{"$set":{"summary":"restored"}}\n');
+      assert.deepEqual(fs.readFileSync(archived), bytes);
+      assert.equal(fs.statSync(archived).ino, original.ino);
+    } else if (name === 'restore-publish-race') {
+      let injected = false;
+      let protectedInode;
+      const collision = destination => {
+        if (!injected && destination === file) {
+          injected = true;
+          fs.writeFileSync(file, '{"peerCreated":true}\n', { mode: 0o600 });
+          protectedInode = fs.statSync(file).ino;
+        }
+      };
+      const rename = fs.renameSync;
+      const link = fs.linkSync;
+      fs.renameSync = (source, destination) => { collision(destination); return rename(source, destination); };
+      fs.linkSync = (source, destination) => { collision(destination); return link(source, destination); };
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, record), refused);
+      assert.equal(injected, true);
+      assert.equal(fs.readFileSync(file, 'utf8'), '{"peerCreated":true}\n');
+      assert.equal(fs.statSync(file).ino, protectedInode);
+      assert.deepEqual(fs.readFileSync(archived), bytes);
+    } else if (name === 'restore-existing') {
+      fs.writeFileSync(file, '{"protectedActive":true}\n', { mode: 0o600 });
+      const active = fs.statSync(file);
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, record), refused);
+      assert.equal(fs.readFileSync(file, 'utf8'), '{"protectedActive":true}\n');
+      assert.equal(fs.statSync(file).ino, active.ino);
+      assert.deepEqual(fs.readFileSync(archived), bytes);
+    } else if (name === 'restore-stale' || name === 'restore-malformed') {
+      const changed = name === 'restore-stale' ? bytes.toString() + '{"$set":{"summary":"peer"}}\n' : '{malformed-archive\n';
+      fs.writeFileSync(archived, changed);
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, record), refused);
+      assert.equal(fs.readFileSync(archived, 'utf8'), changed);
+      assert.equal(fs.existsSync(file), false);
+    } else if (name === 'restore-symlink' || name === 'restore-hardlink') {
+      const outside = path.join(root, 'protected-archive');
+      fs.renameSync(archived, outside);
+      if (name === 'restore-symlink') fs.symlinkSync(outside, archived);
+      else fs.linkSync(outside, archived);
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, record), refused);
+      assert.deepEqual(fs.readFileSync(outside), bytes);
+      assert.equal(fs.statSync(outside).ino, original.ino);
+      assert.equal(fs.existsSync(file), false);
+    } else if (name === 'restore-directory-replacement') {
+      const archiveDirectory = path.join(chats, '.archive');
+      fs.renameSync(archiveDirectory, archiveDirectory + '-retired');
+      fs.mkdirSync(archiveDirectory, { mode: 0o700 });
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, record), refused);
+      assert.equal(fs.existsSync(file), false);
+      assert.deepEqual(fs.readFileSync(path.join(archiveDirectory + '-retired', path.basename(archived))), bytes);
+    } else if (name === 'restore-foreign-project' || name === 'restore-subagent') {
+      const invalid = name === 'restore-foreign-project' ? { ...record, projectHash: '0'.repeat(64) } : { ...record, kind: 'subagent' };
+      assert.throws(() => h.restoreNativeGeminiConversation(chats, archived, invalid), refused);
+      assert.deepEqual(fs.readFileSync(archived), bytes);
+      assert.equal(fs.existsSync(file), false);
+    } else if (name === 'restore-list-overflow') {
+      for (let index = 0; index < 1024; index++) {
+        const suffix = index.toString(16).padStart(12, '0');
+        fs.writeFileSync(path.join(chats, '.archive', `session-archive-00000000-0000-0000-0000-${suffix}-session-extra.jsonl`), '{}\n', { mode: 0o600 });
+      }
+      assert.throws(() => h.listNativeGeminiArchivedConversations(chats), refused);
+      assert.deepEqual(fs.readFileSync(archived), bytes);
+      assert.equal(fs.existsSync(file), false);
+    } else throw new Error('Unknown bounded archive-restore scenario.');
+  } else if (name === 'archive-healthy') {
     const original = fs.statSync(file);
     assert.equal(h.archiveNativeGeminiConversation(file), true);
     assert.equal(fs.existsSync(file), false);
@@ -223,9 +318,18 @@ try:
                      'truncated', 'scalar', 'empty', 'invalid-append', 'invalid-rewrite',
                      'archive-healthy', 'archive-malformed', 'archive-directory-symlink',
                      'archive-symlink', 'archive-hardlink', 'lease-symlink',
-                     'lease-hardlink', 'lease-replacement'):
+                     'lease-hardlink', 'lease-replacement', 'restore-healthy',
+                     'restore-existing', 'restore-stale', 'restore-malformed',
+                     'restore-symlink', 'restore-hardlink', 'restore-directory-replacement',
+                     'restore-foreign-project', 'restore-subagent', 'restore-list-overflow',
+                     'create-append-race', 'restore-publish-race'):
+        if args.scenario and scenario != args.scenario:
+            continue
         finish([launch(fixture(scenario), scenario)])
         print('PASS: native history storage ' + scenario)
+    if args.scenario:
+        safe_cleanup = True
+        raise SystemExit(0)
     concurrent = fixture('concurrent')
     finish([launch(concurrent, 'append-' + str(index)) for index in range(4)])
     records = list((concurrent / 'canonical').rglob('session-storage.jsonl'))

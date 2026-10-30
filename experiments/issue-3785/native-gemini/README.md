@@ -312,13 +312,39 @@ appends. Twenty-nine bounded storage controls now also cover archive preservatio
 stale archive refusal after a peer append, unsafe archive/lease paths, independent
 writers and recovery after owner death. All surviving generations remain intact.
 
-The preceding `6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3`
-stage passes Node 24 [CI 41111156696](https://github.com/link-assistant/hive-mind/actions/runs/41111156696)
-on `37bcddb6ebed4bf9331ba425ea62739fec397691`, including native CLI discovery/
-resume, four unsafe-history controls, all 19 storage controls and the native auth
-regressions. The additional parsed-record admission, semantic controls and retirement stage
-pass locally on Node 26.12.1 and still require fresh Node 24 CI.
-Native imports, complete archive/artifact lifecycle and every other writer, Git/checkpoint/prompt/
-shell history, subagent lifecycle, interrupted writes and production installation
-remain unfinished. Sharing only conversations does not complete the full-history
-requirement or the six-tool authority contract.
+A further local archive stage first reproduces exact-UUID resume and native
+archive discovery failing after successful inference, explicit deletion and
+private-home disposal. The selected CLI now exposes `--list-archived-sessions`
+for the current canonical project. It enumerates at most 1024 directory entries,
+validates private regular single-link files and uses the actual native parser.
+Discovery leaves every retired record archived and makes no model request.
+Exact-UUID resume selects the latest native generation and publishes a separate
+active record while preserving archive bytes/inodes. The retained conversation
+lease excludes a second native writer before another inference.
+
+Two bounded publication barriers also reproduce an append into a concurrently
+created file and restoration replacing a new active file. Missing-file appends
+now use exclusive creation; new publications use an atomic non-replacing link
+before removing their temporary name. Forty-one storage controls pass locally,
+including protected active records, stale/malformed/linked archives, replaced
+archive directories, wrong projects, subagents and bounded enumeration. Seven
+full CLI archive attacks refuse before another inference while preserving both
+canonical and protected-file bytes/inodes. The healthy full CLI discovers and
+resumes archived user/model content after private-home disposal, and a concurrent
+peer refuses the live resumed writer. A second archive/delete cycle discovers
+all retained generations, including startup-only records, and resumes the latest
+conversation with both earlier prompts and the prior model response. Every
+archived generation retains its bytes and inode. Optional `GEMINI_HISTORY_DEBUG=1` prints
+only helper source locations on the first refusal; it is disabled by default.
+
+The retirement stage passes Node 24
+[CI 41116035148](https://github.com/link-assistant/hive-mind/actions/runs/41116035148)
+on `4a6be5dfb30e1ae122a183ef744400f6af41cab2`: native CLI discovery/resume,
+seven unsafe active-record controls, five retirement controls, 29 storage controls
+and all authentication regressions. Archive discovery/resume and the expanded
+41-control storage stage pass locally on Node 26.12.1 and need fresh Node 24 CI.
+Native imports, complete artifact/subagent lifecycle, other history writers,
+Git/checkpoint/prompt/shell history, interrupted writes and production installation
+remain unfinished. Complete archive indexing, child archives and power-loss
+recovery also remain open. Sharing only conversations does not complete the
+full-history requirement or the six-tool authority contract.

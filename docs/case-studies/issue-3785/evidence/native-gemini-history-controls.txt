@@ -4,7 +4,8 @@ Conversation-stage manager: 463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e5134
 Locally verified 2026-10-30, Node 26.12.1.
 Preceding 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
 stage passes Node 24 CI 41111156696 on 37bcddb6ebed4bf9331ba425ea62739fec397691.
-New parsed-record admission, semantic and retirement controls still need fresh CI.
+Parsed-record admission and retirement pass Node 24 CI 41116035148 on
+4a6be5dfb30e1ae122a183ef744400f6af41cab2. Archive controls still need fresh CI.
 Only synthetic credentials/provider responses; loopback TLS never forwards traffic.
 The complete native CLI and SDK execute without export or transport instrumentation.
 
@@ -69,4 +70,27 @@ PASS: native peer retention skips a live writer; explicit deletion refuses busy.
 PASS: 29 bounded storage controls, including stale archive refusal after a peer
       append, archive/lease path attacks and kernel lease release on owner death.
       Independent conversations can write while another conversation is owned.
-Archive discovery/resume and complete child/artifact handling remain open.
+Additional canonical archive reproductions and repair:
+REPRODUCED: a fresh CLI cannot resume a preserved archived conversation by UUID.
+REPRODUCED: the CLI cannot discover preserved archive generations.
+REPRODUCED: a file created between admission and publication receives an unwanted
+            append or is overwritten by archive restoration.
+PASS: the CLI lists archive generations without reactivation or model inference.
+PASS: fresh exact-UUID resume includes prior user content, prior model response
+      and the next prompt; archive bytes and inode remain unchanged.
+PASS: a concurrent native resume refuses while the restored writer is live,
+      without extra inference or loss of the existing transcript prefix/inode.
+PASS: after another delete/private-home disposal, discovery lists all archive
+      generations (including startup-only records), and the third inference
+      includes both preceding prompts and the prior response. All archived
+      bytes and inodes remain unchanged.
+PASS: seven native archived-record attacks preserve canonical/protected bytes
+      and inodes, with no additional inference.
+PASS: 41 bounded storage controls, including non-replacing publication, exclusive
+      creation, existing/stale/linked/malformed archives and bounded enumeration.
+Complete archive indexing, child/artifact handling and crash recovery remain open.
+
+Archive-stage output hashes (manager alone is shared with retirement):
+chunk-XHQ6TTKH.js a79093dce4affd444a4d97b3134b09fb72530b3639a9c5b792c95f8ced638d15
+gemini-GLQ4MVLB.js a574516fde30cdd5a41dfaa403bce8e27a0e9a1be40db93e6a23702f0f096423
+hive-gemini-history.mjs f50eb70195a1bf4954eb2e1b6abe7ebf424aa6e77addb0cf589ef61f064a753f

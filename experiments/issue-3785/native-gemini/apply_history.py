@@ -121,6 +121,65 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
     if matches != count:
         raise SystemExit('Ambiguous native CLI history context; no files changed: ' + name)
     if name == 'chunk-XHQ6TTKH.js':
+        source = replace(source, '  async findSession(identifier) {', '''  async listArchivedSessions() {
+    const files = listNativeGeminiArchivedConversations(this.storage.getProjectChatsDir());
+    if (!files) throw new Error("Canonical Gemini history must be selected to list archived sessions.");
+    const sessions = [];
+    for (const filePath of files) {
+      const record = await loadConversationRecord(filePath, { metadataOnly: true });
+      sessions.push({
+        id: record.sessionId,
+        fileName: path.basename(filePath),
+        startTime: record.startTime,
+        lastUpdated: record.lastUpdated || record.startTime,
+        displayName: cleanMessage(record.summary || record.firstUserMessage || "Empty conversation"),
+        messageCount: record.messageCount ?? record.messages.length,
+        isCurrentSession: false,
+        index: sessions.length + 1
+      });
+    }
+    return sessions;
+  }
+  async findArchivedSession(identifier) {
+    if (!nativeGeminiHistorySelected() || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(identifier)) return null;
+    const chatsDir = this.storage.getProjectChatsDir();
+    const matches = [];
+    for (const filePath of listNativeGeminiArchivedConversations(chatsDir)) {
+      const sessionData = await loadConversationRecord(filePath);
+      if (sessionData?.sessionId === identifier && sessionData.kind !== "subagent") matches.push({ filePath, sessionData });
+    }
+    if (!matches.length) return null;
+    const updated = (record) => Date.parse(record.lastUpdated || record.startTime) || 0;
+    matches.sort((a, b) => updated(b.sessionData) - updated(a.sessionData));
+    const { filePath, sessionData } = matches[0];
+    const restored = restoreNativeGeminiConversation(chatsDir, filePath, sessionData);
+    return {
+      id: sessionData.sessionId,
+      fileName: path.basename(restored),
+      startTime: sessionData.startTime,
+      lastUpdated: sessionData.lastUpdated || sessionData.startTime,
+      firstUserMessage: extractFirstUserMessage(sessionData.messages),
+      messageCount: sessionData.messages.length,
+      index: 0
+    };
+  }
+  async findSession(identifier) {''')
+        source = replace(source, '''    const trimmedIdentifier = identifier.trim();
+    const sessions = await this.listSessions();
+    if (sessions.length === 0) {''', '''    const trimmedIdentifier = identifier.trim();
+    const sessions = await this.listSessions();
+    if (!sessions.some(session => session.id === trimmedIdentifier)) {
+      const archived = await this.findArchivedSession(trimmedIdentifier);
+      if (archived) return archived;
+    }
+    if (sessions.length === 0) {''')
+        source = replace(source, '''    if (matches.length === 0) {
+      throw SessionError.invalidSessionIdentifier(trimmedId, chatsDir);
+    }''', '''    if (matches.length === 0) {
+      const archived = await this.findArchivedSession(trimmedId);
+      if (archived) return this.selectSession(archived);
+      throw SessionError.invalidSessionIdentifier(trimmedId, chatsDir);
+    }''')
         source = replace(source, 'const chatsDir = path2.join(tempDir, "chats");', 'const chatsDir = config.storage.getProjectChatsDir();')
         source = replace(source, '''        } catch {
           return { fileName: file, sessionInfo: null };
@@ -152,7 +211,31 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
           }
           if (!archived) await fs2.unlink(sessionPath);
           const sessionId = archived ? undefined : sessionToDelete.sessionInfo?.id;''')
-        source = 'import { assertNativeGeminiHistoryCurrent, archiveNativeGeminiConversation, nativeGeminiHistorySelected } from "./hive-gemini-history.mjs";\n' + source
+        source = 'import { assertNativeGeminiHistoryCurrent, archiveNativeGeminiConversation, nativeGeminiHistorySelected, listNativeGeminiArchivedConversations, restoreNativeGeminiConversation } from "./hive-gemini-history.mjs";\n' + source
+    if name == 'gemini-GLQ4MVLB.js':
+        source = replace(source, '''    }).option("delete-session", {
+      type: "string",''', '''    }).option("list-archived-sessions", {
+      type: "boolean",
+      description: "List canonical archived sessions for the current project and exit."
+    }).option("delete-session", {
+      type: "string",''')
+        source = replace(source, '''async function listSessions(config) {
+  await generateSummary(config);
+  const sessionSelector = new SessionSelector(config.storage);
+  const sessions = await sessionSelector.listSessions();''', '''async function listSessions(config, archived = false) {
+  if (!archived) await generateSummary(config);
+  const sessionSelector = new SessionSelector(config.storage);
+  const sessions = archived ? await sessionSelector.listArchivedSessions() : await sessionSelector.listSessions();''')
+        source = replace(source, 'writeToStdout("No previous sessions found for this project.");', 'writeToStdout(archived ? "No archived sessions found for this project." : "No previous sessions found for this project.");')
+        source = replace(source, 'Available sessions for this project (${sessions.length}):', 'Available ${archived ? "archived sessions" : "sessions"} for this project (${sessions.length}):')
+        source = replace(source, '''    if (config.getListSessions()) {
+      const authType2''', '''    if (argv.listArchivedSessions) {
+      await listSessions(config, true);
+      await runExitCleanup();
+      process.exit(ExitCodes.SUCCESS);
+    }
+    if (config.getListSessions()) {
+      const authType2''')
     sources[name] = source
 admission = sources['hive-gemini-admission.mjs']
 admission = replace(admission, 'export function assertNativeGeminiAuthority(content, configuration) {', '''export function assertNativeGeminiAuthority(content, configuration) {
@@ -171,3 +254,5 @@ else:
         target.write_text(source)
     print('Applied native Gemini conversation experiment; production is unchanged.')
 print('Native manager SHA-256:', hashlib.sha256(manager.encode()).hexdigest())
+for name, source in sources.items():
+    print('Native history output SHA-256:', name, hashlib.sha256(source.encode()).hexdigest())

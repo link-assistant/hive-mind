@@ -253,6 +253,42 @@ and selects it during named-history disposal tests. These controls verify lock
 admission, not real concurrent compression/migration output or complete runtime
 backing attestation; those lifecycle requirements remain open.
 
+The bounded actual-CLI compression probe now exercises that missing output
+boundary with two app servers, active and archived cold rollouts, a held
+canonical maintenance lock and concurrent compression requests. Stock 0.164.0
+compresses while that canonical lock is held. The maintenance adapter respects
+the lock and publishes compressed history readable by its peer, but a subsequent
+fresh resume still fails after both private configurations are deleted: SQLite
+has persisted the second task's disposable `sessions` alias. Both canonical
+compressed files remain intact. Sharing SQLite alone does not fix this defect.
+
+`apply_rollout_paths.py` pins both native SQLite rollout-path writers and adds
+experimental `CODEX_ROLLOUT_HOME` projection. Selected mode records the exact
+selected filename under canonical `sessions` or `archived_sessions`, preserving
+immutable revert identity and compressed/plain representation. It verifies
+private directory projections, holds canonical directory descriptors during
+inspection, rejects linked ancestors/files, public permissions, hard links and
+unrelated paths, and never falls back to recording a private path on refusal.
+Absent selection retains upstream behavior. Nine standalone Rust controls pass.
+This selector currently projects SQLite paths only; it is not a complete native
+rollout-root selector, legacy-row migration or continuous backing attestation.
+
+The native CI job requires the actual pre-repair failure, then compiles this
+patch with the other adapters and requires persisted canonical rows, actual
+active/archive compression, peer reads and fresh resume after private-root
+disposal. It also repeats the original defect without the new selector. The
+full rebuilt positive remains pending; production does not install this patch.
+
+```sh
+python3 experiments/issue-3785/probe-codex-native-compression.py /absolute/stock/codex --without-selector --expect-independent-locks
+python3 experiments/issue-3785/probe-codex-native-compression.py /absolute/intermediate/codex --expect-private-metadata
+rustc --edition 2024 --test experiments/issue-3785/native-codex/canonical_rollout_paths.rs -o /tmp/canonical-rollout-paths-tests
+prlimit --data=134217728 --stack=8388608 --core=0 -- /tmp/canonical-rollout-paths-tests --test-threads=1
+python3 experiments/issue-3785/native-codex/apply_rollout_paths.py /absolute/pinned/source
+# Rebuild the full CLI before running the strict positive.
+python3 experiments/issue-3785/probe-codex-native-compression.py /absolute/rebuilt/codex
+```
+
 Native TUI prompt recall has a separate `history.jsonl` store. The pinned
 `apply_message_history.py` experiment selects `CODEX_MESSAGE_HISTORY_HOME`
 independently of private configuration. One stable OS lock protects native

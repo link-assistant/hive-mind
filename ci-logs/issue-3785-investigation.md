@@ -940,3 +940,29 @@ and G2 after recreation, with two live clients per mode. Both exact-stock and
 downloaded repaired-CLI controls pass locally, with zero external forwarding.
 Structural results are retained in `evidence/native-stock-request-controls.log`.
 Fresh native CI remains required for this fixture correction.
+
+## Head 1c183b347 and compression follow-up (2026-10-30)
+
+Native Codex run [41070646110](https://github.com/link-assistant/hive-mind/actions/runs/41070646110),
+created at 14:18:01 UTC for `1c183b3475cf94dc99073820d46a1747cbf68947`,
+passes all three jobs, including the corrected stock-history control and full
+compiled CLI integration. Claude, Qwen, Workflows, Security and links also pass.
+
+Checks/release run [41070646208](https://github.com/link-assistant/hive-mind/actions/runs/41070646208)
+fails at dependency freshness. Downloaded `checks-release-41070646208.log`
+lines 4116–4126 identify newly published Formal AI 0.355.24 and ESLint 10.14.0.
+Commit `f649e1469` updates all four image pins, the bootstrap version, package
+and lockfile, and the existing contract assertion. Local freshness and full
+ESLint pass. Skipped downstream jobs are not counted as tested at this head.
+
+The complete 732-file local default suite passes. Eight directory-preparation
+regressions and 44 related tests pass again after the later helper; the six
+pre-repair failures preserve their synthetic evidence.
+
+A new actual-native compression lifecycle test reproduces a separate remaining
+history defect. Canonical maintenance exclusion and active/archive compression
+work with the intermediate adapter, but native SQLite stores a private config
+alias; deleting both configs makes fresh resume fail while canonical compressed
+history remains intact. The new exact-source SQLite path projection passes nine
+standalone Rust controls; full compiled before/after verification is required
+in the next run. Production canonical storage remains unfinished.

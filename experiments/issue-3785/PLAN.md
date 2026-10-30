@@ -523,3 +523,30 @@ Latest CI continuation:
 - [x] Review completed remote head 69b1e8a46: Checks/release (including packaged Docker), Security, Workflows, links, Claude and Qwen pass. Native Codex full source-built CLI job passes all nine identity cases and TUI/request/crash/history controls; only its separate stock cached-generation fixture fails, repaired locally in 5f1019136.
 - [x] Reproduce production stock-verifier orphan helpers on leader exit, malformed IPC and catalog refusal: three failures before group cleanup. After repair, all six (including version success/error/overflow) and 48 existing runtime/catalog/stock/effective-root controls pass; protected authentication is unchanged.
 - [ ] Verify the next exact-head CI run after pushing output-style, stock-fixture, Claude-history and stock-verifier cleanup changes. These checks do not establish the unfinished six-tool canonical production contract.
+
+- [x] Preserve fresh 1c183b347 Checks failure 41070646208. Lines 4116–4126
+      identify newly published Formal AI 0.355.24 and ESLint 10.14.0 as stale
+      dependencies. Refresh image/bootstrap/package/lockfile pins and the
+      existing version contract together; keep native version attestations pinned.
+- [x] Reproduce six history/data path failures before repair: linked Claude/Codex
+      ancestors and parent replacement during all four backends' mkdir. Anchor
+      Linux creation to open descriptors and verify public identities afterward.
+      All eight controls and 44 related tests pass without changing foreign
+      credential/history sentinels. Other-platform and later-mount boundaries
+      remain explicit in the evidence.
+- [x] Finish the full 732-file local default suite: all selected files pass.
+      Re-run all 52 history/path controls after the later directory helper;
+      all pass. Full ESLint 10.14 and dependency freshness also pass.
+- [x] Verify exact-head native Codex run 41070646110 at 1c183b347: all three
+      jobs pass, including stock history and all compiled native controls.
+      Checks/release remains failed only at dependency freshness; the updated
+      Formal AI/ESLint pins require fresh-head CI.
+- [x] Exercise actual cold active/archive compression with two native app
+      servers. Reproduce stock ignoring canonical maintenance ownership;
+      verify repaired exclusion and peer reads, then reproduce fresh resume
+      failing on a deleted private alias retained in shared SQLite.
+- [x] Prepare exact-source projection at both native SQLite path writers.
+      All nine standalone Rust safety/disposal controls pass. Add strict
+      pre-repair reproduction and rebuilt positive/compatibility controls to CI.
+- [ ] Verify full compiled compression/path projection, fresh newest-SHA CI,
+      remaining full native migration/writers, and production integration.

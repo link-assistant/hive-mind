@@ -116,6 +116,10 @@ await test('a resource-limited start gate cannot time out into an unlimited task
     backend: 'docker',
     sessionId: 'session-449-fail-closed',
     containerResourceLimits: { cpu: '1' },
+    tool: 'claude',
+    homeDir: '/synthetic/host',
+    env: {},
+    existsSync: target => ['/synthetic/host/.claude/projects', '/synthetic/host/.claude/sessions'].includes(target),
   });
   const gatedCommand = startArgs.at(-1);
   assert.match(gatedCommand, /while \[ ! -e "\$gate" \]; do/, 'the limited task waits until the parent explicitly releases it');

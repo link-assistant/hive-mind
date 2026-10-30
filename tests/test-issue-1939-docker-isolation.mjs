@@ -80,7 +80,7 @@ assertDeepEqual(mountPairs(overrideMounts), ['/home/box/.config/gh:/home/box/.co
 console.log('\n--- Missing host git identity is skipped, not invented ---');
 
 // Reproduces the failure environment: gh is present but no host git identity.
-const noGitPaths = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json']);
+const noGitPaths = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const noGitMounts = await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: '/home/box', env: {}, existsSync: path => noGitPaths.has(path) });
 assertEqual(
   mountPairs(noGitMounts).some(pair => pair.includes('.gitconfig') || pair.includes('.config/git')),

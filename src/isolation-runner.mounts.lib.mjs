@@ -11,6 +11,7 @@ function normalizeTool(tool) {
     .trim()
     .toLowerCase();
 }
+const historyUnavailable = tool => new Error(`Canonical ${tool === 'codex' ? 'Codex' : 'Claude'} history storage is unavailable; private fallback is prohibited.`);
 
 /** Whether a host path exists, without blocking the bot's event loop on a stat (issue #3278). */
 export const pathExists = target =>
@@ -92,8 +93,8 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
     if (isSuppressedPath(entry.relativePath, suppressed)) continue;
     const source = path.join(homeDir, entry.relativePath);
     const target = path.join(DOCKER_CONTAINER_HOME, entry.relativePath);
-    if (normalizedTool === 'codex' && entry.kind === 'dir') {
-      if (!(await exists(source))) throw new Error('Canonical Codex history storage is unavailable; private fallback is prohibited.');
+    if (entry.kind === 'dir') {
+      if (!(await exists(source))) throw historyUnavailable(normalizedTool);
       mounts.push({ source, target });
     } else {
       await maybeAddMount(mounts, source, target, exists);
@@ -130,25 +131,15 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
       () => false
     );
     if (entry.kind === 'dir') {
-      if (normalizedTool === 'codex') {
-        try {
-          if (!exists) {
-            await fsImpl.promises.mkdir(hostPath, { recursive: true, mode: 0o700 });
-            created.push(hostPath);
-          }
-          const stat = await fsImpl.promises.lstat(hostPath);
-          if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Expected a real history directory.');
-        } catch {
-          throw new Error('Canonical Codex history storage is unavailable; private fallback is prohibited.');
-        }
-        continue;
-      }
-      if (exists) continue;
       try {
-        await fsImpl.promises.mkdir(hostPath, { recursive: true });
-        created.push(hostPath);
+        if (!exists) {
+          await fsImpl.promises.mkdir(hostPath, { recursive: true, mode: 0o700 });
+          created.push(hostPath);
+        }
+        const stat = await fsImpl.promises.lstat(hostPath);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Expected a real history directory.');
       } catch {
-        // A read-only or foreign home is not fatal: the mount is simply skipped.
+        throw historyUnavailable(normalizedTool);
       }
     } else if (entry.role === 'auth' && !exists) {
       missingAuth.push(hostPath);

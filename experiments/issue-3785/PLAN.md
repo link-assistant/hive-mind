@@ -511,3 +511,10 @@ Latest CI continuation:
       directory safety snapshots and preserve auth/history/security policy.
 - [ ] Finish the new full default suite and inspect fresh native Codex CI;
       investigate the stock ChatGPT negative control at exact failed assertion.
+- [x] Reproduce the stock request fixture's G0 result with exact Codex 0.164.0.
+      Require cached G0 in both stock modes; keep repaired-client G1/refusal/G2
+      requirements unchanged. Both actual stock and repaired controls pass locally.
+- [x] Reproduce eight Claude history admission failures before repair. Require
+      both configured history mounts, refuse links/files/creation failures and
+      create private directories. All nine controls and nineteen dependent
+      default files pass; full native history/canonical auth remain open.

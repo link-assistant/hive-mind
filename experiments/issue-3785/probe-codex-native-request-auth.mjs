@@ -11,6 +11,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline';
 import { setTimeout, clearTimeout } from 'node:timers';
+import { URL } from 'node:url';
+import { refuseNativeProxyTunnel } from './native-request-proxy.mjs';
 
 const binary = process.argv[2];
 const uncoordinated = process.argv.includes('--expect-uncoordinated');
@@ -66,9 +68,9 @@ server.headersTimeout = 3000;
 server.on('connect', (request, socket) => {
   // Background catalog/update tasks may still attempt these native origins.
   // Refuse every tunnel before TLS or credentials; never forward a byte.
-  if (!['github.com:443', 'api.github.com:443', 'chatgpt.com:443', 'raw.githubusercontent.com:443'].includes(request.url)) invalidRequest = true;
-  blockedOrigins.add(request.url);
-  socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+  refuseNativeProxyTunnel(request, socket, blockedOrigins, () => {
+    invalidRequest = true;
+  });
 });
 
 async function startClient({ home, config, canonical, selectCanonical = true, provider = {}, providerEnv = {} }) {

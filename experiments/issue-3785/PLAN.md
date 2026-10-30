@@ -648,3 +648,13 @@ Latest CI continuation:
       refusals and plain/compressed/child interrupted-migration recovery controls.
       Keep remaining child lifecycle and readers/writers, post-publication crashes,
       power-loss durability and production installation explicitly unfinished.
+
+- [x] Verify exact-head 2ec3b3a7c Checks and release run 41087509851: 737
+      default files, both integration files and packaged host/nested Docker checks
+      pass. Preserve logs and line-numbered evidence.
+- [x] Download failed native run 41087509499 and all artifacts. Its seven passing
+      constructor cases are followed by an unhandled ECONNRESET in the local
+      CONNECT refusal socket, not an alternate-authority assertion. Reproduce
+      three error-handler failures before repair; all four controls pass after.
+- [ ] Verify the next compiled native run after the proxy and migration staging
+      repairs. Current native CI remains failed at the fixture reset.

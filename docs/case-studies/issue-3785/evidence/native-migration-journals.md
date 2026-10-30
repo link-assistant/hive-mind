@@ -80,7 +80,9 @@ The actual CLI from run 41082125240, which already includes the journal guard,
 still overwrites unrelated synthetic evidence through linked temporary rollout
 files. Both symbolic and hard links reproduce the plain paginated-stage defect.
 The same CLI also reproduces both link types in the decompression and
-compressed-publication stages. The strict refusal assertion fails before the
+compressed-publication stages. Both link types also overwrite unrelated evidence
+through the fourth temporary form used to rewrite child-history boundaries.
+The strict refusal assertion fails before the
 staging repair. These controls exercise actual conversion and compression;
 they do not infer safety from a pathname inspection.
 
@@ -97,10 +99,14 @@ All 13 standalone staging controls and 12 journal controls pass locally. The
 earlier compiled CLI also passes the new healthy compressed interrupted-migration
 control: after private-root disposal, a peer finishes and a fresh process resumes
 the prior conversation. CI now requires real before/after link controls for
-plain, decompressed and compressed stages, plus both healthy recovery paths.
+plain, decompressed, compressed and child-history rewrite stages, plus healthy
+plain/compressed and plain child-history recovery paths. The latter passes
+against the earlier compiled CLI: the inherited prefix remains in the transcript,
+its boundary equals the published record count, and fresh resume preserves the
+native empty child-turn view.
 The extended full CLI has not yet compiled or passed those positive controls;
 standalone tests do not establish that result. Continuous checks throughout every
-native reader/writer, subagent-specific lifecycle tests, post-publication crash
+native reader/writer, additional child-history lifecycle tests, post-publication crash
 recovery and complete power-loss durability remain open.
 
 Complete canonical history, safe legacy-state migration and production native

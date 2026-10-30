@@ -267,6 +267,7 @@ jobs:
           for link in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" --expect-unsafe-journal > "$RUNNER_TEMP/native-migration-$link-before.log" 2>&1
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$link-before.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind head --subagent --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-head-$link-before.log" 2>&1
             for kind in decompressed compressed; do
               python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$kind-$link-before.log" 2>&1
             done
@@ -329,9 +330,11 @@ jobs:
         run: |
           python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-migration-after.log" 2>&1
           python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --compressed > "$RUNNER_TEMP/native-migration-compressed-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --subagent > "$RUNNER_TEMP/native-migration-subagent-after.log" 2>&1
           for link in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" > "$RUNNER_TEMP/native-migration-$link-after.log" 2>&1
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" > "$RUNNER_TEMP/native-migration-stage-$link-after.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind head --subagent > "$RUNNER_TEMP/native-migration-stage-head-$link-after.log" 2>&1
             for kind in decompressed compressed; do
               python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed > "$RUNNER_TEMP/native-migration-stage-$kind-$link-after.log" 2>&1
             done

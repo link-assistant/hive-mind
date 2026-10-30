@@ -63,7 +63,8 @@ def check_target_safety(args, root, canonical, owner, identifier, rollout, proce
     stage = bool(args.stage_attack)
     attack = args.stage_attack or args.journal_attack
     label = 'staged rollout' if stage else 'pending journal'
-    suffix = {'paginated': 'paginated.tmp', 'decompressed': 'decompressed.tmp', 'compressed': 'paginated.zst.tmp'}[args.stage_kind]
+    suffix = {'paginated': 'paginated.tmp', 'decompressed': 'decompressed.tmp',
+              'compressed': 'paginated.zst.tmp', 'head': 'paginated.tmp.head.tmp'}[args.stage_kind]
     journal = rollout.with_name(f'.{rollout.name}.{suffix}') if stage else canonical / 'rollout-migrations' / f'{identifier}.pending'
     if attack == 'symlink':
         journal.symlink_to(foreign)
@@ -82,8 +83,10 @@ def check_target_safety(args, root, canonical, owner, identifier, rollout, proce
                 assert foreign.read_bytes() != b'synthetic unrelated conversation evidence', 'Require actual native mutation through the unsafe staging target.'
                 if args.stage_kind == 'compressed':
                     assert foreign.read_bytes().startswith(b'\x28\xb5\x2f\xfd')
-                elif args.stage_kind == 'paginated':
+                elif args.stage_kind in ('paginated', 'head'):
                     assert b'"history_mode":"paginated"' in foreign.read_bytes()
+                    if args.stage_kind == 'head':
+                        assert b'"subagent_history_start_ordinal":' in foreign.read_bytes()
                 else:
                     assert b'Synthetic active prior conversation.' in foreign.read_bytes()
             else:
@@ -124,6 +127,10 @@ def run(args):
         project(canonical, owner.config, args.without_journal_projection)
         owner.initialize()
         identifier, marker, rollout, _ = compression.rollout(canonical, False)
+        if args.subagent:
+            records = [json.loads(line) for line in rollout.read_text().splitlines()]
+            records[0]['payload']['thread_source'] = 'subagent'
+            rollout.write_text(''.join(json.dumps(record) + '\n' for record in records))
         # Ignored JSON fields keep the actual input finite (~4 MiB) while the
         # published conversation and protocol replies remain small. Native
         # throughput limiting exposes a stable pre-publication kill boundary.
@@ -196,6 +203,11 @@ def run(args):
             with rollout.open() as published:
                 first = json.loads(published.readline(256 * 1024))
             assert first['payload']['history_mode'] == 'paginated'
+            if args.subagent:
+                # Native migration retains this inherited replay as a prefix;
+                # it must not become the child's own visible conversation.
+                boundary = first['payload']['subagent_history_start_ordinal']
+                assert boundary == len(rollout.read_text().splitlines())
         fresh = compression.Native(args.binary, root, canonical, 'fresh', True)
         servers.append(fresh)
         project(canonical, fresh.config)
@@ -219,10 +231,14 @@ def run(args):
             print('REPRODUCED: canonical native journal survives owner disposal and a peer completes migration, but fresh resume still fails because pre-repair SQLite metadata retains the deleted owner alias.')
             return
         assert not args.expect_private_metadata, 'Require the declared private-metadata negative control.'
-        assert marker in json.dumps(resumed['thread']['turns'])
+        if args.subagent:
+            assert resumed['thread']['turns'] == [], 'Inherited prefix must retain the native child-history boundary.'
+        else:
+            assert marker in json.dumps(resumed['thread']['turns'])
         assert not list(root.glob('*/auth.json')), 'Migration must not manufacture private credentials.'
-        label = 'compressed' if args.compressed else 'plain'
-        print(f'PASS: an actual killed {label} native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.')
+        label = ('subagent ' if args.subagent else '') + ('compressed' if args.compressed else 'plain')
+        history = 'preserves the inherited-prefix boundary' if args.subagent else 'retains the prior conversation'
+        print(f'PASS: an actual killed {label} native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume {history}.')
     finally:
         failures = []
         for child in processes:
@@ -250,8 +266,9 @@ if __name__ == '__main__':
     parser.add_argument('--expect-unsafe-journal', action='store_true')
     parser.add_argument('--stage-attack', choices=['symlink', 'hardlink'])
     parser.add_argument('--expect-unsafe-stage', action='store_true')
-    parser.add_argument('--stage-kind', choices=['paginated', 'decompressed', 'compressed'], default='paginated')
+    parser.add_argument('--stage-kind', choices=['paginated', 'decompressed', 'compressed', 'head'], default='paginated')
     parser.add_argument('--compressed', action='store_true')
+    parser.add_argument('--subagent', action='store_true')
     arguments = parser.parse_args()
     assert not arguments.expect_private_journal or arguments.without_journal_projection
     assert not arguments.expect_private_metadata or not arguments.without_journal_projection
@@ -259,5 +276,6 @@ if __name__ == '__main__':
     assert not arguments.journal_attack or not (arguments.without_journal_projection or arguments.expect_private_metadata)
     assert not arguments.expect_unsafe_stage or arguments.stage_attack
     assert not arguments.stage_attack or not (arguments.journal_attack or arguments.without_journal_projection or arguments.expect_private_metadata)
-    assert arguments.stage_kind == 'paginated' or (arguments.stage_attack and arguments.compressed)
+    assert arguments.stage_kind == 'paginated' or (arguments.stage_attack and
+        (arguments.subagent if arguments.stage_kind == 'head' else arguments.compressed))
     run(arguments)

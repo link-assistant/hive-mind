@@ -639,7 +639,12 @@ Latest CI continuation:
       publication and cleanup with descriptor-anchored selected paths. Preserve
       safe orphan recovery without truncating prior inodes. All 13 standalone
       staging and 12 journal controls pass; pinned source applicability passes.
-- [ ] Build the extended native CLI in CI; require all six actual staging link
-      refusals and both plain/compressed interrupted-migration recovery controls.
-      Keep subagent lifecycle, remaining readers/writers, post-publication crashes,
+- [x] Reproduce both links overwriting unrelated evidence through the fourth
+      temporary form, the child-history boundary rewrite. Healthy plain child
+      migration survives interruption, private-scope disposal and peer completion;
+      fresh resume honors the retained inherited-prefix boundary.
+- [x] Complete all 737 local default test files, with no failures.
+- [ ] Build the extended native CLI in CI; require all eight actual staging link
+      refusals and plain/compressed/child interrupted-migration recovery controls.
+      Keep remaining child lifecycle and readers/writers, post-publication crashes,
       power-loss durability and production installation explicitly unfinished.

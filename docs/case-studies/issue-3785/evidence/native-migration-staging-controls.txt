@@ -20,6 +20,15 @@ REPRODUCED: actual native migration overwrites unrelated synthetic evidence thro
 native-stage-compressed-hardlink-before.log
 REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
 
+native-stage-head-symlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a symlink staged rollout.
+
+native-stage-head-hardlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
+
+native-stage-subagent-healthy.log
+PASS: an actual killed subagent plain native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume preserves the inherited-prefix boundary.
+
 native-stage-compressed-healthy-control.log
 PASS: an actual killed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
 

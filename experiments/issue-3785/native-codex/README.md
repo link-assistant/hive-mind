@@ -402,14 +402,18 @@ See the case study's `evidence/native-migration-journals.md` for boundaries and
 the remaining production/legacy-migration requirements.
 
 The subsequent staging investigation reproduces real overwrites through symbolic
-and hard links at the paginated temporary file, and through both link types in
-decompression/compressed output. The extended adapter anchors selected temporary
+and hard links at the paginated temporary file, decompression/compressed output,
+and child-history boundary rewrite. The extended adapter anchors selected temporary
 creation, readers, rename publication and cleanup. Safe orphans receive a new
 inode on retry. All 13 staging and 12 receipt controls pass locally; the extended
-compiled CLI and its six before/after staging link controls still require CI.
+compiled CLI and its eight before/after staging link controls still require CI.
 `probe-codex-native-migration.py --compressed` also exercises actual compression,
 interrupted migration, scope disposal, peer completion and fresh native resume.
 This healthy fixture passes against the earlier compiled CLI.
+The plain `--subagent` fixture also passes interrupted recovery and fresh resume;
+it checks the retained inherited prefix and native child-history boundary rather
+than expecting inherited turns in the child's visible conversation. This does
+not cover every child-history writer or post-publication crash boundary.
 
 ### Confined native request fixtures
 

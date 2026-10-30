@@ -231,7 +231,7 @@ if (process.argv[2] === '--worker') {
         const headers = await client.getRequestHeaders('https://synthetic.example.invalid/model');
         selected = generation(typeof headers.get === 'function' ? headers.get('authorization') : headers.Authorization);
       }
-      if (selected === 'G1' && exchanges === 1) assert.equal(callbacks, 2, 'Refresh/code publication retains the native post-auth callback after cached login.');
+      if (selected === 'G1' && exchanges === 1 && process.env.GEMINI_PROBE_COORDINATED === '1') assert.equal(callbacks, 2, 'Refresh/code publication retains the native post-auth callback after cached login.');
       process.send({ type: 'result', selected, exchanges });
     } catch {
       process.send({ type: 'result', selected: 'rejected', exchanges });

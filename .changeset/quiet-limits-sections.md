@@ -77,3 +77,5 @@ Reject global Claude output-style payloads and selected output-style instruction
 Require persistent Claude projects and sessions directories before Docker launch. Refuse missing, linked or unusable storage and directory-creation errors; create fresh history with private permissions. Preserve explicit Router suppression.
 
 Stop packaged-runtime catalog probe process groups even after their native leader exits. Wait for the leader and live Linux group members before deleting disposable configuration, and retain the private fixture if cleanup cannot establish that they stopped.
+
+Reject linked history/data ancestors during Docker host preparation. On Linux, create directories through held parent descriptors so concurrent parent replacement cannot redirect creation; refuse changed public paths and preserve existing state and permissions.

@@ -11,6 +11,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 
 export const SHARED_TOOL_DATA_ENV = 'HIVE_MIND_SHARED_TOOL_DATA';
 const containerData = '/home/box/.local/share';
@@ -43,15 +44,8 @@ export async function prepareToolDataMount({ tool, homeDir, env, io } = {}) {
   const mount = toolDataMount({ tool, homeDir, env });
   if (!mount) return null;
   try {
-    await verifyAncestors(mount.source, io, { allowMissing: true });
-    const present = await io.lstat(mount.source).catch(error => {
-      if (error.code === 'ENOENT') return null;
-      throw error;
-    });
-    if (!present) await io.mkdir(mount.source, { recursive: true, mode: 0o700 });
-    await verifyAncestors(mount.source, io);
-    const info = await io.stat(mount.source, { bigint: true });
-    return { created: present ? [] : [mount.source], identity: `${info.dev}:${info.ino}` };
+    const directory = await prepareStorageDirectory(mount.source, { io });
+    return { created: directory.created ? [mount.source] : [], identity: directory.identity };
   } catch {
     throw refused();
   }

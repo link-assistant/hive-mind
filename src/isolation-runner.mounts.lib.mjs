@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { getRouterSuppressedCredentialPaths } from './router-isolation.lib.mjs';
 import { prepareToolDataMount, toolDataMount } from './tool-data-mounts.lib.mjs';
+import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
 function normalizeTool(tool) {
@@ -132,12 +133,8 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
     );
     if (entry.kind === 'dir') {
       try {
-        if (!exists) {
-          await fsImpl.promises.mkdir(hostPath, { recursive: true, mode: 0o700 });
-          created.push(hostPath);
-        }
-        const stat = await fsImpl.promises.lstat(hostPath);
-        if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Expected a real history directory.');
+        const directory = await prepareStorageDirectory(hostPath, { io: fsImpl.promises });
+        if (directory.created) created.push(hostPath);
       } catch {
         throw historyUnavailable(normalizedTool);
       }

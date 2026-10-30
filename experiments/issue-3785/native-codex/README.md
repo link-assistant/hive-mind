@@ -394,10 +394,10 @@ An intermediate expected-failure control cannot establish successful resume.
 Two real native controls additionally reproduce symlink/hard-link pending
 journals truncating unrelated synthetic evidence. `apply_migration_journals.py`
 adds selected-root admission before migration mutation and descriptor-anchored
-empty-receipt creation without truncation. Ten standalone safety controls pass;
-the full native refusal and migration controls must pass in rebuilt CI before
-claiming the native safety repair verified. Production installation and other
-staging/cleanup writers remain open.
+empty-receipt creation without truncation. Ten standalone safety controls pass.
+Run 41082125240 at c7a6e20aa verifies both actual rebuilt native link refusals,
+interrupted-migration recovery and fresh resume after private-root disposal.
+Production installation and other staging/cleanup writers remain open.
 See the case study's `evidence/native-migration-journals.md` for boundaries and
 the remaining production/legacy-migration requirements.
 

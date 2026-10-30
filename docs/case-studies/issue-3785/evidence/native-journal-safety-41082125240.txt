@@ -1,0 +1,43 @@
+Synthetic native journal verification, 2026-10-30 UTC.
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41082125240
+Created: 2026-10-30 15:35:31 UTC.
+Head: c7a6e20aa7217f6a114e14eab674128f6cc334aa.
+Pinned upstream: 6aaac694803004a63c6f393d153c96d22521a6b9 (Codex 0.164.0).
+All three native jobs succeeded. Output below comes from the downloaded
+native-codex-auth-build artifact; before/after controls use actual native CLIs.
+Production installation, remaining writers and full lifecycle are unfinished.
+
+native-migration-safety-tests.log
+
+running 10 tests
+test tests::a_link_inserted_after_open_is_refused_without_truncation ... ok
+test tests::canonical_receipt_survives_private_scope_disposal ... ok
+test tests::changed_canonical_parent_cannot_redirect_a_receipt_write ... ok
+test tests::changed_projection_refuses_instead_of_using_private_fallback ... ok
+test tests::create_private_receipt_and_retry_without_replacing_its_inode ... ok
+test tests::empty_hardlinked_receipts_refuse_even_when_their_contents_look_valid ... ok
+test tests::linked_public_and_overlapping_authorities_refuse ... ok
+test tests::nonempty_public_and_nonregular_journals_refuse ... ok
+test tests::symlink_and_hardlink_journals_preserve_unrelated_evidence ... ok
+test tests::unrelated_paths_and_names_refuse ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+native-migration-symlink-before.log
+REPRODUCED: actual native migration truncates unrelated synthetic evidence through a symlink pending journal.
+
+native-migration-hardlink-before.log
+REPRODUCED: actual native migration truncates unrelated synthetic evidence through a hardlink pending journal.
+
+native-migration-symlink-after.log
+PASS: actual native migration refuses a symlink pending journal before changing unrelated evidence or publishing history.
+
+native-migration-hardlink-after.log
+PASS: actual native migration refuses a hardlink pending journal before changing unrelated evidence or publishing history.
+
+native-migration-after.log
+PASS: an actual killed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
+
+native-compression-after.log
+PASS: actual native compression respects canonical exclusion, publishes active/archived history, permits peer reads and fresh resume after private-root disposal; lock identity is preserved.

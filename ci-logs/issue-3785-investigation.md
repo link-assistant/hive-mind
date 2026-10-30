@@ -1032,3 +1032,20 @@ The actual build script still derives both base pins from the Dockerfiles;
 update the migration regression to check that script and the workflow's call
 together. The corrected migration test and extraction guard pass locally.
 A new complete run is required; the stopped run is not reported as passing.
+
+## Completed c7a6e20aa native and packaged jobs
+
+[Native Codex 41082125240](https://github.com/link-assistant/hive-mind/actions/runs/41082125240)
+passes all three jobs. The downloaded native-codex-auth-build artifact confirms
+all ten journal safety tests, actual before/after symlink/hard-link controls,
+interrupted migration and fresh resume after private-root disposal. Structural
+output is retained in the case study's native-journal-safety-41082125240.txt.
+
+The Docker job of [Checks/release 41082125451](https://github.com/link-assistant/hive-mind/actions/runs/41082125451)
+also passes. Its downloaded job log `ci-logs/docker-pr-41082125451.log`
+lines 3457–3464 confirm host and nested installed-package mount backing plus
+Agent/OpenCode atomic replacement, deletion/recreation, two-task writes and
+private-path refusal. Lines 3117 and 3335 confirm installed stock/runtime gates
+in both image variants. The validator dependency fix is verified in actual Docker.
+The overall workflow remains failed at the earlier default-suite line guard;
+that outcome is not reported as a successful run.

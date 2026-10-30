@@ -621,3 +621,11 @@ Latest CI continuation:
       credentials, and require explicit quarantine. All 96 focused audit cases
       pass; a real native before/after model request verifies discovery removal
       while preserving authentication identity. Add the pinned stock control to CI.
+
+- [x] Verify completed exact-head c7a6e20aa CI: native run 41082125240 passes
+      all jobs, including both actual unsafe-journal refusals and interrupted
+      migration/fresh resume. Packaged Docker job 124154896652 passes host and
+      nested mount/data checks after the payload dependency repair. Preserve
+      job logs and structural native evidence; overall Checks remains failed
+      at the separate warning guard. Restart local default suite with all 737
+      files and continue-on-failure so remaining failures are captured together.

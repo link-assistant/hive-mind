@@ -63,10 +63,16 @@ valid existing receipts retain their inode without truncation. Ten standalone
 Rust controls cover safe creation/retry/disposal, unsafe targets and changed
 parents/projections. The selector-absent native behavior is preserved.
 
-Actual compiled symlink/hard-link refusal and another interrupted-migration
-positive are required by the next CI run. Standalone safety checks do not
-establish those results. Other migration staging/cleanup writers, post-publish
-crashes and complete power-loss durability remain unverified.
+[Native run 41082125240](https://github.com/link-assistant/hive-mind/actions/runs/41082125240),
+created 2026-10-30 15:35:31 UTC at `c7a6e20aa7217f6a114e14eab674128f6cc334aa`,
+passes all three jobs. Its rebuilt CLI refuses both linked journal attacks
+before unrelated evidence or history changes. The interrupted-migration positive
+also passes: a peer completes publication after private-root disposal and a
+fresh native process resumes the prior conversation. The ten standalone controls
+and active/archive compression disposal/resume pass in the same run. Downloaded
+structural output is retained in [native journal CI evidence](native-journal-safety-41082125240.txt).
+Other migration staging/cleanup writers, post-publish crashes and complete
+power-loss durability remain unverified.
 
 Complete canonical history, safe legacy-state migration and production native
 adapter installation remain unfinished. Successful execution homes are retained.

@@ -1023,3 +1023,12 @@ release-order contract pass; all six release/image-selection controls pass.
 The complete local 734-file default run has now finished successfully. The
 new payload test (added after that run selected files) and updated packaged
 gates pass separately. No local native CLI rebuild was attempted.
+
+The next local run selects 736 files and stops at file 345:
+`tests/test-docker-box-migration.mjs:67` still requires the removed duplicate
+inline `sed` commands in release.yml. Preserved log
+`/tmp/issue-3785-recovery/all-tests-global-prompts-current.log`, lines 8230–8249.
+The actual build script still derives both base pins from the Dockerfiles;
+update the migration regression to check that script and the workflow's call
+together. The corrected migration test and extraction guard pass locally.
+A new complete run is required; the stopped run is not reported as passing.

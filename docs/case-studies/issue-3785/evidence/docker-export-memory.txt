@@ -36,3 +36,21 @@ the current branch. Existing release-order, DinD and Box migration controls pass
 Fresh real packaged-image CI must verify the proposed resource repair. The
 focused mock does not reproduce the export's memory usage or prove that the
 soft limit resolves it. All wider issue acceptance criteria remain open.
+
+Fresh real packaged-image verification:
+Checks run 41121912167 on 946ed6e82e07426dbe6ebd224c7675796dcbe339
+https://github.com/link-assistant/hive-mind/actions/runs/41121912167
+Created 2026-10-30T20:16:58Z; Docker job started at 20:23:50Z.
+Full log preserved as ci-logs/checks-41121912167.log.
+43940-43947: main export finishes in 195.1 seconds; sampled dockerd RSS peaks
+             at 10,218 MiB, sampled swap at 909 MiB during this export.
+44354-44363: DinD export finishes in 231.5 seconds; sampled dockerd RSS peaks
+             at 12,201 MiB, sampled swap at 2,891 MiB during this export.
+44601,44819: both running images pass installed hive-mind verification.
+44921-44927: actual nested daemon kill/restart and committed snapshot checks run.
+44935: system/development/nested Docker verification passes.
+72493,72555: all 739 default and two GitHub integration test files pass.
+The complete workflow passes. The 30-minute job deadline is unchanged.
+This successful sample validates the repair on this runner; it is not a hard
+RSS guarantee or proof that all export workloads remain below the soft limit.
+The full six-tool acceptance inventory remains open.

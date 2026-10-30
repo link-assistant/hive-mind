@@ -156,6 +156,17 @@ jobs:
           done
       - name: Preserve unselected native private history behavior
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --private-history --expect-history-gap --diagnostics "$RUNNER_TEMP/gemini-cli-history-legacy.log" > "$RUNNER_TEMP/gemini-cli-history-legacy-control.log" 2>&1
+      - name: Retain native audit evidence after automatic session retirement
+        run: |
+          for state in empty expired; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-retention "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-retention-$state.log" > "$RUNNER_TEMP/gemini-cli-retention-$state-control.log" 2>&1
+          done
+      - name: Keep live native conversation writers out of peer retention
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-live-retention --diagnostics "$RUNNER_TEMP/gemini-cli-live-retention.log" > "$RUNNER_TEMP/gemini-cli-live-retention-control.log" 2>&1
+      - name: Preserve audit evidence and writer ownership during native deletion
+        run: |
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --diagnostics "$RUNNER_TEMP/gemini-cli-delete.log" > "$RUNNER_TEMP/gemini-cli-delete-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-live-delete --diagnostics "$RUNNER_TEMP/gemini-cli-live-delete.log" > "$RUNNER_TEMP/gemini-cli-live-delete-control.log" 2>&1
       - name: Preserve native authentication after conversation storage admission
         run: |
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-history-auth-writers.log" 2>&1
@@ -169,5 +180,6 @@ jobs:
           path: |
             ${{ runner.temp }}/gemini-*.log
             ${{ runner.temp }}/gemini-*.network.json
+            ${{ runner.temp }}/gemini-*.control.json
           if-no-files-found: ignore
           retention-days: 7

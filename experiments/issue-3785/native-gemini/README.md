@@ -239,7 +239,7 @@ owner-death recovery, alternate backends and production installation remain open
 `apply_history.py` requires the exact constructor-stage manager plus four pinned
 native CLI/helper inputs before writing any file. It adds `GEMINI_HISTORY_HOME`
 independently of private configuration and auth. The resulting manager hash is
-`3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970`.
+`463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61`.
 The original installed package remains unchanged; only disposable copies run.
 
 The selected root is a private, owned, existing directory. Canonical
@@ -285,16 +285,40 @@ preceding bytes. The seven full CLI unsafe-history controls require the canonica
 entry and protected outside file to retain their bytes and inodes, with no
 additional inference. The native loader also validates the parsed session UUID, project hash and
 message list. Missing metadata, a foreign project hash and an invalid session ID
-refuse before cleanup or another inference. Complete retention/deletion
-transactions still need implementation.
+refuse before cleanup or another inference.
+
+The next local stage reproduces valid startup-only and expired records being
+unlinked by automatic retention. Explicit `--delete-session` also reports success
+while its core writer still targets private storage. Selected retention and
+deletion now use the canonical chats directory and atomically rename records into
+its `.archive` directory, synchronizing both directory descriptors. Native active
+listing behavior remains intact; the audit record retains its bytes and inode.
+Cleanup does not remove associated canonical subagent records. Archive discovery/
+resume and complete artifact lifecycle support remain unfinished.
+
+A second full CLI regression holds the owner's model response while a peer runs
+retention. Archiving that live file leaves the next owner append without its
+preceding metadata. The actual native writer now holds a per-conversation kernel
+lease through its lifetime. Retention skips a busy record and explicit deletion
+reports that it is being written. Other conversations use independent leases;
+the global storage transaction lock is not held during model inference. Lease
+replacement or links reject further writes, and kernel ownership releases when
+the process dies.
+
+All five full CLI retirement controls pass locally: empty and expired records,
+explicit deletion, live-peer retention and live-peer deletion. The live controls
+preserve the existing record prefix and inode while permitting legitimate owner
+appends. Twenty-nine bounded storage controls now also cover archive preservation,
+stale archive refusal after a peer append, unsafe archive/lease paths, independent
+writers and recovery after owner death. All surviving generations remain intact.
 
 The preceding `6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3`
 stage passes Node 24 [CI 41111156696](https://github.com/link-assistant/hive-mind/actions/runs/41111156696)
 on `37bcddb6ebed4bf9331ba425ea62739fec397691`, including native CLI discovery/
 resume, four unsafe-history controls, all 19 storage controls and the native auth
-regressions. The additional parsed-record admission and three semantic controls
+regressions. The additional parsed-record admission, semantic controls and retirement stage
 pass locally on Node 26.12.1 and still require fresh Node 24 CI.
-Native imports, retention/deletion and every other writer, Git/checkpoint/prompt/
+Native imports, complete archive/artifact lifecycle and every other writer, Git/checkpoint/prompt/
 shell history, subagent lifecycle, interrupted writes and production installation
 remain unfinished. Sharing only conversations does not complete the full-history
 requirement or the six-tool authority contract.

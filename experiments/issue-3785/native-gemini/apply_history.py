@@ -47,6 +47,31 @@ manager = replace(manager, '  async listProjectChatFiles() {', '''  getProjectCh
     return nativeGeminiChatsDirectory(_Storage.getGlobalGeminiDir(), this.getProjectRoot()) ?? path4.join(this.getProjectTempDir(), "chats");
   }
   async listProjectChatFiles() {''')
+manager = replace(manager, 'const chatsDir = path28.join(tempDir, "chats");', 'const chatsDir = config2.storage.getProjectChatsDir();')
+manager = replace(manager, '''async function deleteSessionFileAndArtifacts(chatsDir, file2, tempDir) {
+  const filePath = path28.join(chatsDir, file2);''', '''async function deleteSessionFileAndArtifacts(chatsDir, file2, tempDir) {
+  const filePath = path28.join(chatsDir, file2);
+  if (nativeGeminiHistorySelected()) {
+    await loadConversationRecord(filePath);
+    if (archiveNativeGeminiConversation(filePath) === "busy") throw new Error("Gemini conversation is currently being written.");
+    return;
+  }''')
+manager = replace(manager, '''    try {
+      const tempDir = this.context.config.storage.getProjectTempDir();
+      await fs32.promises.unlink(this.conversationFile).catch(() => {''', '''    try {
+      if (nativeGeminiHistorySelected()) {
+        await loadConversationRecord(this.conversationFile);
+        if (archiveNativeGeminiConversation(this.conversationFile) === "busy") throw new Error("Gemini conversation is currently being written.");
+        return;
+      }
+      const tempDir = this.context.config.storage.getProjectTempDir();
+      await fs32.promises.unlink(this.conversationFile).catch(() => {''')
+for assignment, count in [
+    ('this.conversationFile = resumedSessionData.filePath;', 1),
+    ('this.conversationFile = path29.join(chatsDir, filename);', 1),
+    ('this.conversationFile = this.conversationFile + "l";', 2),
+]:
+    manager = replace(manager, assignment, assignment + '\n        claimNativeGeminiConversation(this.conversationFile);', count=count)
 manager = replace(manager, '''  async loadProjectTempFile(filePath) {
     const absolutePath = path4.join(this.getProjectTempDir(), filePath);''', '''  async loadProjectTempFile(filePath) {
     const absolutePath = filePath.startsWith("chats/") ? path4.join(this.getProjectChatsDir(), filePath.slice(6)) : path4.join(this.getProjectTempDir(), filePath);''')
@@ -87,7 +112,7 @@ manager = replace(manager, '''    await fs89.writeFile(sessionPath, JSON.stringi
     }, null, 2));''', '''    const record = JSON.stringify({ ...freshConversation, ...metadataUpdate, lastUpdated }, null, 2);
     if (!rewriteNativeGeminiConversation(sessionPath, record)) await fs89.writeFile(sessionPath, record);''')
 manager = '''import { Readable as HiveHistoryReadable } from "node:stream";
-import { nativeGeminiChatsDirectory, readNativeGeminiConversation, appendNativeGeminiConversation, rewriteNativeGeminiConversation, admitNativeGeminiConversation } from "./hive-gemini-history.mjs";
+import { nativeGeminiChatsDirectory, readNativeGeminiConversation, appendNativeGeminiConversation, rewriteNativeGeminiConversation, admitNativeGeminiConversation, archiveNativeGeminiConversation, claimNativeGeminiConversation, nativeGeminiHistorySelected } from "./hive-gemini-history.mjs";
 ''' + manager
 sources['chunk-DKZARV6U.js'] = manager
 for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('interactiveCli-AVD3AKNJ.js', 1)]:
@@ -103,7 +128,31 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
           assertNativeGeminiHistoryCurrent();
           return { fileName: file, sessionInfo: null };
         }''')
-        source = 'import { assertNativeGeminiHistoryCurrent } from "./hive-gemini-history.mjs";\n' + source
+        source = replace(source, '''            const filePath = path2.join(chatsDir, file);
+            let fullSessionId;''', '''            const filePath = path2.join(chatsDir, file);
+            if (nativeGeminiHistorySelected()) {
+              const conversation = await loadConversationRecord(filePath, { metadataOnly: true });
+              if (conversation?.sessionId === config.getSessionId()) {
+                result.skipped++;
+                continue;
+              }
+              if (archiveNativeGeminiConversation(filePath) === "busy") {
+                result.skipped++;
+                continue;
+              }
+              result.deleted++;
+              continue;
+            }
+            let fullSessionId;''')
+        source = replace(source, '''          await fs2.unlink(sessionPath);
+          const sessionId = sessionToDelete.sessionInfo?.id;''', '''          const archived = archiveNativeGeminiConversation(sessionPath);
+          if (archived === "busy") {
+            result.skipped++;
+            continue;
+          }
+          if (!archived) await fs2.unlink(sessionPath);
+          const sessionId = archived ? undefined : sessionToDelete.sessionInfo?.id;''')
+        source = 'import { assertNativeGeminiHistoryCurrent, archiveNativeGeminiConversation, nativeGeminiHistorySelected } from "./hive-gemini-history.mjs";\n' + source
     sources[name] = source
 admission = sources['hive-gemini-admission.mjs']
 admission = replace(admission, 'export function assertNativeGeminiAuthority(content, configuration) {', '''export function assertNativeGeminiAuthority(content, configuration) {

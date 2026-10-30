@@ -793,8 +793,23 @@ Latest CI continuation:
       manager-hash assertion in the writer probe. Reproduce that formatting
       failure locally and format the assertion; preserve the complete CI log.
 - [x] Pass full formatting and lint after repairing the expanded assertion.
-- [ ] Commit parsed-record admission and the formatting repair. Require fresh
-      exact-head CI without interrupting the in-progress compiled Codex build.
+- [x] Commit parsed-record admission and the formatting repair as `e4413192c`.
+- [ ] Require fresh exact-head CI without interrupting the in-progress compiled
+      Codex build.
 - [ ] Reproduce valid but non-resumable/subagent canonical records being treated
       as disposable by native retention; coordinate retention/deletion writers
       without losing canonical data or bypassing the native retention feature.
+- [x] Reproduce actual native retention deleting valid startup-only and expired
+      canonical records; also reproduce explicit deletion operating on the old
+      private chats directory. Preserve records with coordinated archive rename
+      and directory synchronization, keeping the native active listing behavior.
+- [x] Reproduce peer retention archiving a live model writer. Add per-conversation
+      kernel leases to actual native writer initialization; skip a busy record
+      during retention and refuse explicit deletion while it is owned.
+- [x] Pass actual CLI empty/expired retention, explicit deletion and two live-peer
+      controls locally. Pass 29 bounded storage controls, including stale archive,
+      linked/archive-directory attacks, changed lease files, independent writers
+      and recovery after owner death. Preserve bytes and stable lock identities.
+- [ ] Verify the expanded retention stage and native auth regressions in CI;
+      complete archive discovery/resume, imports, subagent/artifact lifecycles,
+      all other history surfaces and production installation.

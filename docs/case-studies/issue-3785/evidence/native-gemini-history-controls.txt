@@ -1,10 +1,10 @@
 Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
 Constructor-stage manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
-Conversation-stage manager: 3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970
+Conversation-stage manager: 463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61
 Locally verified 2026-10-30, Node 26.12.1.
 Preceding 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
 stage passes Node 24 CI 41111156696 on 37bcddb6ebed4bf9331ba425ea62739fec397691.
-New parsed-record admission and three semantic controls still need fresh CI.
+New parsed-record admission, semantic and retirement controls still need fresh CI.
 Only synthetic credentials/provider responses; loopback TLS never forwards traffic.
 The complete native CLI and SDK execute without export or transport instrumentation.
 
@@ -45,7 +45,7 @@ and all 19 storage plus seven full native unsafe-history controls pass locally.
 All 41 native writer/account, 30 request and 11 canonical-reader controls also
 pass after the conversation stage.
 
-Open: other history surfaces, import/retention/deletion writers, subagent lifecycle,
+Open: other history surfaces, imports, complete archive/artifact and subagent lifecycle,
 interrupted-write/power-loss recovery, full CLI refresh/owner death, alternate
 backends, production installation and the remaining six-tool requirements.
 This is an experimental native conversation adapter, not full-history completion.
@@ -55,3 +55,18 @@ Syntactically valid JSONL with missing project metadata or a foreign project has
 is silently discarded or accepted by the prior native loader. The fixed loader
 requires a session UUID, the selected project hash and a message array. The
 strict full CLI schema control and healthy disposal/resume control pass locally.
+
+Additional native retirement reproductions and repair:
+REPRODUCED: automatic retention unlinks valid startup-only and expired records.
+REPRODUCED: explicit deletion reports success against the old private directory,
+            leaving the canonical active session untouched.
+REPRODUCED: a peer archives the owner's canonical file while its model response
+            is pending, before per-conversation writer ownership is added.
+PASS: selected native retention and explicit deletion preserve the original bytes
+      and inode in canonical .archive while removing the active listing entry.
+PASS: native peer retention skips a live writer; explicit deletion refuses busy.
+      The existing transcript prefix/inode survive legitimate concurrent appends.
+PASS: 29 bounded storage controls, including stale archive refusal after a peer
+      append, archive/lease path attacks and kernel lease release on owner death.
+      Independent conversations can write while another conversation is owned.
+Archive discovery/resume and complete child/artifact handling remain open.

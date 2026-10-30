@@ -17,6 +17,8 @@ const within = (parent, child) => child === parent || child.startsWith(parent + 
 const directories = new Map();
 const conversations = new Map();
 const observed = new Map();
+const writerLeases = new Map();
+const retiredConversations = new Set();
 let authority;
 let failed = false;
 
@@ -52,6 +54,11 @@ export function assertNativeGeminiHistoryCurrent() {
       const named = fs.lstatSync(`/proc/self/fd/${item.parent}/${item.name}`, { bigint: true });
       const opened = fs.fstatSync(item.fd, { bigint: true });
       if (!safeDirectory(named) || !safeDirectory(opened) || identity(named) !== item.identity || identity(opened) !== item.identity) throw refuse();
+    }
+    for (const lease of writerLeases.values()) {
+      const named = fs.lstatSync(lease.target, { bigint: true });
+      const opened = fs.fstatSync(lease.fd, { bigint: true });
+      if (!safeFile(named) || !safeFile(opened) || named.size !== 0n || opened.size !== 0n || identity(named) !== lease.identity || identity(opened) !== lease.identity) throw refuse();
     }
   } catch {
     throw refuse();
@@ -228,6 +235,42 @@ function validateRecords(content, name) {
   }
 }
 
+function acquireWriterLease(location) {
+  assertNativeGeminiHistoryCurrent();
+  const target = `${location.parent.anchor}/.writer-${digest(location.name)}.lock`;
+  const fd = fs.openSync(target, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600);
+  let retained = false;
+  try {
+    const opened = fs.fstatSync(fd, { bigint: true });
+    const named = fs.lstatSync(target, { bigint: true });
+    if (!safeFile(opened) || !safeFile(named) || opened.size !== 0n || named.size !== 0n || identity(opened) !== identity(named)) throw refuse();
+    const result = spawnSync('flock', ['-n', '-x', '3'], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'ignore', 'ignore', fd] });
+    if (result.status === 1 && !result.error) return null;
+    if (result.error || result.status !== 0 || identity(fs.lstatSync(target, { bigint: true })) !== identity(opened)) throw refuse();
+    retained = true;
+    return { fd, target, identity: identity(opened) };
+  } finally {
+    if (!retained) fs.closeSync(fd);
+  }
+}
+
+export function claimNativeGeminiConversation(file) {
+  if (!nativeGeminiHistorySelected()) return false;
+  try {
+    const location = conversationLocation(file);
+    if (retiredConversations.has(location.key)) throw refuse();
+    if (writerLeases.has(location.key)) return true;
+    if (writerLeases.size >= 1024) throw refuse();
+    const lease = acquireWriterLease(location);
+    if (!lease) throw refuse();
+    writerLeases.set(location.key, lease);
+    assertNativeGeminiHistoryCurrent();
+    return true;
+  } catch {
+    throw refuse();
+  }
+}
+
 export function admitNativeGeminiConversation(file, record) {
   if (!nativeGeminiHistorySelected()) return record;
   try {
@@ -258,11 +301,14 @@ export function appendNativeGeminiConversation(file, line) {
   if (!nativeGeminiHistorySelected()) return false;
   try {
     const location = conversationLocation(file);
+    if (retiredConversations.has(location.key)) throw refuse();
     const bytes = Buffer.from(line);
     if (bytes.length > LIMIT) throw refuse();
     validateRecords(line, location.name);
     locked(location.parent, current => {
-      validateRecords(snapshot(location, true), location.name);
+      const previous = snapshot(location, true);
+      validateRecords(previous, location.name);
+      if (previous === null && observed.get(location.key)) throw refuse();
       const before = checkedFile(location, true);
       const fd = fs.openSync(location.target, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600);
       try {
@@ -290,6 +336,7 @@ export function rewriteNativeGeminiConversation(file, content) {
   try {
     if (Buffer.byteLength(content) > LIMIT) throw refuse();
     const location = conversationLocation(file);
+    if (retiredConversations.has(location.key)) throw refuse();
     validateRecords(content, location.name);
     locked(location.parent, current => {
       const previous = snapshot(location, true);
@@ -301,6 +348,47 @@ export function rewriteNativeGeminiConversation(file, content) {
       observed.set(location.key, digest(content));
     });
     return true;
+  } catch {
+    throw refuse();
+  }
+}
+
+export function archiveNativeGeminiConversation(file) {
+  if (!nativeGeminiHistorySelected()) return false;
+  try {
+    const location = conversationLocation(file);
+    const owned = writerLeases.has(location.key);
+    const lease = writerLeases.get(location.key) ?? acquireWriterLease(location);
+    if (!lease) return 'busy';
+    if (!owned) writerLeases.set(location.key, lease);
+    let archived = false;
+    try {
+      locked(location.parent, current => {
+        const previous = snapshot(location, true);
+        if (previous === null) return;
+        validateRecords(previous, location.name);
+        if (!observed.has(location.key) || observed.get(location.key) !== digest(previous)) throw refuse();
+        const before = checkedFile(location);
+        const archive = directory([...location.parent.components, '.archive']);
+        const destination = `${archive.anchor}/session-archive-${randomUUID()}-${location.name}`;
+        current();
+        fs.renameSync(location.target, destination);
+        fs.fsyncSync(archive.fd);
+        fs.fsyncSync(location.parent.fd);
+        const retired = checkedFile({ target: destination });
+        if (identity(retired) !== identity(before)) throw refuse();
+        observed.set(location.key, null);
+        current();
+      });
+      archived = true;
+      retiredConversations.add(location.key);
+      return true;
+    } finally {
+      if (!owned || archived) {
+        writerLeases.delete(location.key);
+        fs.closeSync(lease.fd);
+      }
+    }
   } catch {
     throw refuse();
   }

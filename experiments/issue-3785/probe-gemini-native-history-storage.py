@@ -39,9 +39,33 @@ const canonical = process.env.GEMINI_HISTORY_HOME;
 const chats = h.nativeGeminiChatsDirectory(path.join(root, 'private'), path.join(root, 'workspace'));
 const file = path.join(chats, 'session-storage.jsonl');
 const refused = /Gemini canonical conversation history is unavailable or unsafe[.]/;
-if (name.startsWith('append-')) {
+if (name === 'lease-owner') {
+  h.claimNativeGeminiConversation(file);
+  h.appendNativeGeminiConversation(file, '{"lease":true}\n');
+  fs.writeFileSync(path.join(root, 'ready'), 'ready');
+  const deadline = Date.now() + 10000;
+  while (true) {
+    assert.ok(Date.now() < deadline);
+    await setTimeout(10);
+  }
+} else if (name === 'lease-peer') {
+  const before = h.readNativeGeminiConversation(file);
+  assert.equal(h.archiveNativeGeminiConversation(file), 'busy');
+  h.assertNativeGeminiHistoryCurrent();
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  const independent = path.join(chats, 'session-independent.jsonl');
+  h.claimNativeGeminiConversation(independent);
+  h.appendNativeGeminiConversation(independent, '{"independent":true}\n');
+  assert.throws(() => h.claimNativeGeminiConversation(file), refused);
+} else if (name === 'lease-recover') {
+  h.claimNativeGeminiConversation(file);
+  const before = h.readNativeGeminiConversation(file);
+  assert.equal(before, '{"lease":true}\n');
+  assert.equal(h.archiveNativeGeminiConversation(file), true);
+  assert.equal(fs.existsSync(file), false);
+} else if (name.startsWith('append-')) {
   for (let index = 0; index < 10; index++) h.appendNativeGeminiConversation(file, JSON.stringify({ name, index }) + '\n');
-} else if (name === 'stale-rewrite') {
+} else if (name === 'stale-rewrite' || name === 'stale-archive') {
   const before = h.readNativeGeminiConversation(file);
   assert.ok(before);
   fs.writeFileSync(path.join(root, 'ready'), 'ready');
@@ -50,14 +74,55 @@ if (name.startsWith('append-')) {
     assert.ok(Date.now() < deadline);
     await setTimeout(10);
   }
-  assert.throws(() => h.rewriteNativeGeminiConversation(file, before), refused);
+  assert.throws(() => name === 'stale-rewrite' ? h.rewriteNativeGeminiConversation(file, before) : h.archiveNativeGeminiConversation(file), refused);
 } else {
   assert.equal(h.readNativeGeminiConversation(file), null);
   h.appendNativeGeminiConversation(file, '{"initial":true}\n');
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name === 'healthy') {
+  if (name === 'archive-healthy') {
+    const original = fs.statSync(file);
+    assert.equal(h.archiveNativeGeminiConversation(file), true);
+    assert.equal(fs.existsSync(file), false);
+    const archive = path.join(chats, '.archive');
+    const files = fs.readdirSync(archive);
+    assert.equal(files.length, 1);
+    const retired = path.join(archive, files[0]);
+    assert.deepEqual(fs.readFileSync(retired), saved);
+    assert.equal(fs.statSync(retired).ino, original.ino);
+    assert.equal(h.readNativeGeminiConversation(retired), saved.toString());
+    assert.equal(h.archiveNativeGeminiConversation(file), true);
+    assert.equal(fs.readdirSync(archive).length, 2); // The read adds a stable lock.
+    assert.throws(() => h.appendNativeGeminiConversation(file, '{}\n'), refused);
+    assert.equal(fs.existsSync(file), false);
+  } else if (name.startsWith('lease-')) {
+    h.claimNativeGeminiConversation(file);
+    const lease = fs.readdirSync(path.dirname(named)).find(value => value.startsWith('.writer-'));
+    assert.ok(lease);
+    const target = path.join(chats, lease);
+    fs.unlinkSync(target);
+    if (name === 'lease-symlink') fs.symlinkSync(file, target);
+    else if (name === 'lease-hardlink') {
+      const protectedFile = path.join(root, 'protected-lease');
+      fs.writeFileSync(protectedFile, '', { mode: 0o600 });
+      fs.linkSync(protectedFile, target);
+    } else if (name === 'lease-replacement') fs.writeFileSync(target, '', { mode: 0o600 });
+    else throw new Error('Unknown bounded lease scenario.');
+    assert.throws(() => h.appendNativeGeminiConversation(file, '{}\n'), refused);
+    assert.deepEqual(fs.readFileSync(file), saved);
+  } else if (name === 'archive-malformed') {
+    fs.writeFileSync(file, '{malformed-conversation\n');
+    assert.throws(() => h.archiveNativeGeminiConversation(file), refused);
+    assert.equal(fs.readFileSync(file, 'utf8'), '{malformed-conversation\n');
+  } else if (name === 'archive-directory-symlink') {
+    const outside = path.join(root, 'outside');
+    fs.mkdirSync(outside, { mode: 0o700 });
+    fs.symlinkSync(outside, path.join(chats, '.archive'));
+    assert.throws(() => h.archiveNativeGeminiConversation(file), refused);
+    assert.deepEqual(fs.readFileSync(file), saved);
+    assert.deepEqual(fs.readdirSync(outside), []);
+  } else if (name === 'healthy') {
     h.rewriteNativeGeminiConversation(file, '{"rewritten":true}\n');
     assert.equal(h.readNativeGeminiConversation(file), '{"rewritten":true}\n');
     assert.ok(fs.readdirSync(path.dirname(named)).some(value => value.startsWith('session-storage.jsonl.preserved-')));
@@ -75,13 +140,13 @@ if (name.startsWith('append-')) {
     fs.renameSync(path.dirname(named), path.dirname(named) + '-retired');
     fs.mkdirSync(path.dirname(named), { mode: 0o700 });
     assert.throws(h.assertNativeGeminiHistoryCurrent, refused);
-  } else if (name === 'symlink' || name === 'hardlink') {
+  } else if (['symlink', 'hardlink', 'archive-symlink', 'archive-hardlink'].includes(name)) {
     const protectedFile = path.join(root, 'protected');
     fs.renameSync(file, protectedFile);
     const original = fs.statSync(protectedFile);
-    if (name === 'symlink') fs.symlinkSync(protectedFile, file);
+    if (name.endsWith('symlink')) fs.symlinkSync(protectedFile, file);
     else fs.linkSync(protectedFile, file);
-    assert.throws(() => h.readNativeGeminiConversation(file), refused);
+    assert.throws(() => name.startsWith('archive-') ? h.archiveNativeGeminiConversation(file) : h.readNativeGeminiConversation(file), refused);
     assert.deepEqual(fs.readFileSync(protectedFile), saved);
     assert.equal(fs.statSync(protectedFile).ino, original.ino);
   } else if (name === 'unsafe-mode') {
@@ -155,7 +220,10 @@ try:
     for scenario in ('healthy', 'selector-change', 'selector-unset', 'root-replacement',
                      'directory-replacement', 'symlink', 'hardlink', 'unsafe-mode',
                      'oversized', 'traversal', 'lock-symlink', 'malformed',
-                     'truncated', 'scalar', 'empty', 'invalid-append', 'invalid-rewrite'):
+                     'truncated', 'scalar', 'empty', 'invalid-append', 'invalid-rewrite',
+                     'archive-healthy', 'archive-malformed', 'archive-directory-symlink',
+                     'archive-symlink', 'archive-hardlink', 'lease-symlink',
+                     'lease-hardlink', 'lease-replacement'):
         finish([launch(fixture(scenario), scenario)])
         print('PASS: native history storage ' + scenario)
     concurrent = fixture('concurrent')
@@ -180,6 +248,31 @@ try:
     assert len(records[0].read_text().splitlines()) == 50
     assert (lock.stat().st_dev, lock.stat().st_ino) == lock_identity
     print('PASS: stale rewrite refuses without losing a concurrent generation; lock inode remains stable')
+    (concurrent / 'ready').unlink()
+    (concurrent / 'go').unlink()
+    stale = launch(concurrent, 'stale-archive')
+    deadline = time.monotonic() + 5
+    while not (concurrent / 'ready').exists():
+        assert time.monotonic() < deadline and stale[0].poll() is None
+        time.sleep(0.01)
+    finish([launch(concurrent, 'append-archive-peer')])
+    (concurrent / 'go').write_text('go')
+    finish([stale])
+    assert len(records[0].read_text().splitlines()) == 60
+    assert not (records[0].parent / '.archive').exists()
+    assert (lock.stat().st_dev, lock.stat().st_ino) == lock_identity
+    print('PASS: stale archive refuses without losing all 60 records; lock inode remains stable')
+    leases = fixture('leases')
+    owner = launch(leases, 'lease-owner')
+    deadline = time.monotonic() + 5
+    while not (leases / 'ready').exists():
+        assert time.monotonic() < deadline and owner[0].poll() is None
+        time.sleep(0.01)
+    finish([launch(leases, 'lease-peer')])
+    stop_process_group(owner[0])
+    owner[1].close()
+    finish([launch(leases, 'lease-recover')])
+    print('PASS: writer lease excludes a peer, permits independent history and releases after owner death')
     safe_cleanup = True
 finally:
     try:

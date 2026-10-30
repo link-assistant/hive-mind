@@ -28,23 +28,34 @@ parser.add_argument('--history', action='store_true')
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
 parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
+parser.add_argument('--history-retention', choices=('empty', 'expired'))
+parser.add_argument('--history-live-retention', action='store_true')
+parser.add_argument('--history-delete', action='store_true')
+parser.add_argument('--history-live-delete', action='store_true')
+parser.add_argument('--history-archive-resume', action='store_true')
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
+assert not args.history_retention or args.history and not (args.history_attack or args.private_history or args.expect_history_gap)
+assert not args.history_live_retention or args.history and not (args.history_retention or args.history_attack or args.private_history or args.expect_history_gap)
+assert not args.history_delete or args.history and not (args.history_retention or args.history_attack or args.private_history or args.expect_history_gap or args.history_live_retention or args.history_live_delete)
+assert not args.history_live_delete or args.history and not (args.history_retention or args.history_attack or args.private_history or args.expect_history_gap or args.history_live_retention)
 assert not args.history_attack or (args.history and not args.private_history and not args.expect_history_gap)
+assert not args.history_archive_resume or args.history_delete
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
 children = []
 requests = []
 models = []
+live_controls = []
 errors = []
 safe_cleanup = False
 server = None
@@ -77,6 +88,8 @@ try:
                 'telemetry': {'enabled': False},
                 'advanced': {'autoConfigureMemory': False},
                 'general': {'disableAutoUpdate': True}}
+    if args.history_retention or args.history_live_retention or args.history_live_delete:
+        settings['general']['sessionRetention'] = {'enabled': True, 'maxAge': '1d'}
     (private / 'settings.json').write_text(json.dumps(settings))
     (private / 'settings.json').chmod(0o600)
     managed = root / 'managed.json'
@@ -161,6 +174,9 @@ try:
                         models.append({'operation': operation, 'first_prompt': first_prompt in content,
                                        'second_prompt': second_prompt in content,
                                        'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content})
+                        if (args.history_live_retention or args.history_live_delete) and operation == 'streamGenerateContent' and not live_controls:
+                            live_controls.append(False)
+                            live_controls[0] = check_live_retention()
                         self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'text': 'SYNTHETIC-GEMINI-COMPLETE'}]}, 'finishReason': 'STOP'}], 'usageMetadata': {'promptTokenCount': 1, 'candidatesTokenCount': 1, 'totalTokenCount': 2}, 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-response'}, stream=operation == 'streamGenerateContent')
                     elif operation == 'retrieveUserQuota':
                         self.send(200, {'buckets': []})
@@ -219,6 +235,39 @@ try:
                 stop_process_group(child)
             return child.returncode, diagnostic.read_text()
 
+    def check_live_retention():
+        transcripts = [p for p in history.rglob('*.jsonl') if first_prompt in p.read_text()]
+        assert len(transcripts) == 1
+        record = transcripts[0]
+        lines = [json.loads(line) for line in record.read_text().splitlines()]
+        lines[0]['summary'] = 'SYNTHETIC-LIVE-WRITER-RETENTION'
+        for row in lines:
+            for value in (row, row.get('$set', {})):
+                for field in ('startTime', 'lastUpdated'):
+                    if field in value:
+                        value[field] = '2020-01-01T00:00:00.000Z'
+        record.write_text(''.join(json.dumps(row) + '\n' for row in lines))
+        before = record.read_bytes()
+        identity = (record.stat().st_dev, record.stat().st_ino)
+        peer = root / 'live-peer'
+        peer.mkdir(mode=0o700)
+        private_peer = peer / '.gemini'
+        private_peer.mkdir(mode=0o700)
+        (private_peer / 'settings.json').write_text(json.dumps(settings))
+        (private_peer / 'settings.json').chmod(0o600)
+        peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
+                    'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
+                    'XDG_CACHE_HOME': str(peer / '.cache')}
+        diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-live-peer.log')
+        code, output = invoke(diagnostic, peer_env, ['--delete-session', session] if args.history_live_delete else ['--list-sessions'])
+        evidence = {'peer_completed': code == 0, 'source_present': record.exists(),
+                    'prior_bytes_preserved': record.exists() and record.read_bytes().startswith(before),
+                    'same_inode': record.exists() and (record.stat().st_dev, record.stat().st_ino) == identity}
+        if args.history_live_delete:
+            evidence['busy_refusal'] = 'Gemini conversation is currently being written.' in output
+        diagnostic.with_suffix('.control.json').write_text(json.dumps(evidence))
+        return all(evidence.values())
+
     flags = ['--prompt', first_prompt if args.history else 'Synthetic native request control. Do not invoke tools.']
     if args.history:
         flags.extend(['--session-id', session])
@@ -227,6 +276,9 @@ try:
     assert not errors, errors
     assert models, 'Require a real native CLI model request.'
     assert 'SYNTHETIC-GEMINI-COMPLETE' in args.diagnostics.read_text()
+    if args.history_live_retention or args.history_live_delete:
+        assert live_controls == [True], "Native retention must leave a live writer's canonical conversation in place."
+        print('PASS: actual native peer preserves a live canonical writer during ' + ('explicit deletion.' if args.history_live_delete else 'automatic retention.'))
     assert json.loads(auth.read_text()) == credentials
     assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
     assert not (private / 'oauth_creds.json').exists()
@@ -243,6 +295,22 @@ try:
             assert set(p.name for p in history.iterdir()) == {'projects', 'projects.json', '.history.lock'}
         # The whole native process group has exited before private state disposal.
         shutil.rmtree(home)
+        retained_bytes = None
+        if args.history_retention:
+            assert history_adapter and len(transcripts) == 1
+            lines = [json.loads(line) for line in transcripts[0].read_text().splitlines()]
+            lines[0]['summary'] = 'SYNTHETIC-NATIVE-RETENTION-AUDIT'
+            if args.history_retention == 'empty':
+                lines = [lines[0]]
+            else:
+                for record in lines:
+                    for value in (record, record.get('$set', {})):
+                        for field in ('startTime', 'lastUpdated'):
+                            if field in value:
+                                value[field] = '2020-01-01T00:00:00.000Z'
+            transcripts[0].write_text(''.join(json.dumps(record) + '\n' for record in lines))
+            retained_bytes = transcripts[0].read_bytes()
+            retained_identity = (transcripts[0].stat().st_dev, transcripts[0].stat().st_ino)
         protected = None
         if args.history_attack:
             assert history_adapter and len(transcripts) == 1
@@ -285,6 +353,18 @@ try:
                     'XDG_CACHE_HOME': str(peer / '.cache')}
         listing = args.diagnostics.with_name(args.diagnostics.stem + '-list.log')
         code, listed = invoke(listing, peer_env, ['--list-sessions'])
+        if args.history_retention:
+            assert code == 0 and len(models) == 1
+            retained = [p for p in history.rglob('*.jsonl') if p.read_bytes() == retained_bytes]
+            assert len(retained) == 1, 'Native retention must preserve canonical conversation audit evidence.'
+            assert (retained[0].stat().st_dev, retained[0].stat().st_ino) == retained_identity
+            assert session not in listed, 'Native retention must still remove the session from the active listing.'
+            assert json.loads(auth.read_text()) == credentials
+            assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+            assert not errors, errors
+            print('PASS: actual Gemini retention removes inactive history from active listing while preserving canonical audit bytes/inode: ' + args.history_retention)
+            safe_cleanup = True
+            raise SystemExit(0)
         if args.history_attack:
             assert code != 0 and len(models) == 1
             assert 'Gemini canonical conversation history is unavailable or unsafe.' in listed
@@ -301,6 +381,48 @@ try:
             safe_cleanup = True
             raise SystemExit(0)
         assert code == 0 and len(completions()) == 1
+        if args.history_delete:
+            assert session in listed
+            before = transcripts[0].read_bytes()
+            identity = (transcripts[0].stat().st_dev, transcripts[0].stat().st_ino)
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-delete.log')
+            code, output = invoke(diagnostic, peer_env, ['--delete-session', session])
+            assert code == 0 and 'Deleted session' in output
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-deleted-list.log')
+            code, output = invoke(diagnostic, peer_env, ['--list-sessions'])
+            assert code == 0 and session not in output, 'Native deletion must remove the canonical active conversation.'
+            retained = [p for p in history.rglob('*.jsonl') if p.read_bytes() == before]
+            assert len(retained) == 1, 'Native deletion must preserve canonical conversation audit evidence.'
+            assert (retained[0].stat().st_dev, retained[0].stat().st_ino) == identity
+            assert len(completions()) == 1 and not errors
+            assert json.loads(auth.read_text()) == credentials
+            assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+            print('PASS: actual native session deletion removes the active conversation and preserves canonical audit bytes/inode.')
+            if args.history_archive_resume:
+                archived = retained[0]
+                shutil.rmtree(peer)
+                third = root / 'archive-reader'
+                third.mkdir(mode=0o700)
+                private_third = third / '.gemini'
+                private_third.mkdir(mode=0o700)
+                (private_third / 'settings.json').write_text(json.dumps(settings))
+                (private_third / 'settings.json').chmod(0o600)
+                third_env = {**env, 'HOME': str(third), 'GEMINI_CLI_HOME': str(third),
+                             'XDG_CONFIG_HOME': str(third / '.config'), 'XDG_DATA_HOME': str(third / '.local/share'),
+                             'XDG_CACHE_HOME': str(third / '.cache')}
+                diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-archive-resume.log')
+                code, output = invoke(diagnostic, third_env, ['--resume', session, '--prompt', second_prompt])
+                assert code == 0 and len(completions()) == 2, 'A fresh native CLI must resume a canonical archived conversation by UUID.'
+                assert completions()[1]['first_prompt'] and completions()[1]['second_prompt'] and completions()[1]['prior_response']
+                assert archived.read_bytes() == before
+                assert (archived.stat().st_dev, archived.stat().st_ino) == identity
+                assert not list(private_third.rglob('*.jsonl'))
+                assert not (private_third / 'oauth_creds.json').exists()
+                assert not (private_third / 'google_accounts.json').exists()
+                assert not errors, errors
+                print('PASS: actual native CLI resumes archived user/model content after private home disposal while preserving the audit generation.')
+            safe_cleanup = True
+            raise SystemExit(0)
         resumed = args.diagnostics.with_name(args.diagnostics.stem + '-resume.log')
         code, output = invoke(resumed, peer_env, ['--resume', session, '--prompt', second_prompt])
         if args.expect_history_gap:

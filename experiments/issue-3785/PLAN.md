@@ -613,3 +613,11 @@ Latest CI continuation:
       or changing the referenced catalog or model/security settings. Require
       repair mode to refuse too; explicit fixture reconciliation restores native
       instructions on a real request and retains provider/auth identity.
+
+- [x] Reproduce native pre-configuration `.env` overriding HOME and discovering
+      an unaudited global skill despite a fixed CODEX_HOME. All 17 focused
+      refusal/preservation/link/concurrent-addition cases fail before repair.
+      Treat this startup input as opaque and report-only, preserve possible
+      credentials, and require explicit quarantine. All 96 focused audit cases
+      pass; a real native before/after model request verifies discovery removal
+      while preserving authentication identity. Add the pinned stock control to CI.

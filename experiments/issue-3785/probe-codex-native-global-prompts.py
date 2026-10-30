@@ -16,9 +16,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary", type=Path)
 parser.add_argument("--expect-missed-prompts", action="store_true")
 parser.add_argument("--model-catalog", action="store_true")
+parser.add_argument("--dotenv-home", action="store_true")
 parser.add_argument("--diagnostics", type=Path)
 args = parser.parse_args()
 assert args.binary.is_absolute() and args.binary.is_file()
+assert not (args.model_catalog and args.dotenv_home)
 marker = "SYNTHETIC_GLOBAL_SYSTEM_INSTRUCTION_3785"
 observed = []
 invalid = []
@@ -54,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
                 log.write(json.dumps(body).encode()[:256 * 1024] + b"\n")
         # The pinned Responses serializer places base instructions in an input
         # developer message, rather than the API's optional instructions field.
-        observed.append(any(item.get("role") in ("developer", "system") and
+        observed.append(any(item.get("role") in (("developer", "system", "user") if args.dotenv_home else ("developer", "system")) and
                             any(marker in part.get("text", "") for part in item.get("content", []))
                             for item in body.get("input", [])))
         data = b'{"error":{"message":"Synthetic model deliberately unavailable","code":"offline"}}'
@@ -147,6 +149,17 @@ try:
         config = config_dir / "config.toml"
         prompt_config = f'instructions = "{marker}"'
         catalog = config_dir / "synthetic-models.json"
+        dotenv = config_dir / ".env"
+        if args.dotenv_home:
+            # arg0 loads .env before native discovery. HOME redirects user
+            # skills even while the explicit CODEX_HOME remains unchanged.
+            alternate_home = root / "alternate-home"
+            skill = alternate_home / ".agents/skills/synthetic-redirect/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text(f"---\nname: synthetic-redirect\ndescription: {marker}\n---\nSynthetic fixture only.\n")
+            dotenv.write_text(f"HOME={alternate_home}\n")
+            dotenv.chmod(0o600)
+            prompt_config = ""
         if args.model_catalog:
             # A minimal native ModelsResponse: model-owned messages are another
             # global instruction authority even without instructions/file keys.
@@ -182,19 +195,27 @@ stream_max_retries = 0
         auth.chmod(0o600)
         original = auth.stat()
         catalog_bytes = catalog.read_bytes() if args.model_catalog else None
+        dotenv_bytes = dotenv.read_bytes() if args.dotenv_home else None
+        dotenv_identity = (dotenv.stat().st_dev, dotenv.stat().st_ino) if args.dotenv_home else None
         assert native(root, home), "The unapproved global instruction must reach an actual model request."
         before = config.read_bytes()
         assert audit(root, home) == ("ACCEPTED" if args.expect_missed_prompts else "REFUSED")
         assert config.read_bytes() == before, "Read-only admission must preserve configuration."
         if args.expect_missed_prompts:
-            print("REPRODUCED: an accepted global system instruction reached a real native model request.")
+            print("REPRODUCED: " + ("startup dotenv redirected global skill discovery in an accepted home."
+                                    if args.dotenv_home else "an accepted global system instruction reached a real native model request."))
         else:
-            if args.model_catalog:
+            if args.model_catalog or args.dotenv_home:
                 assert audit(root, home, repair=True) == "REFUSED"
-                assert config.read_bytes() == before, "Catalog refusal must preserve model/security configuration."
+                assert config.read_bytes() == before, "Refusal must preserve model/security configuration."
                 # Explicit fixture reconciliation, not an automatic product
-                # repair: a custom catalog may also contain security metadata.
-                config.write_text(config.read_text().replace(prompt_config + "\n", "", 1))
+                # repair: a catalog can contain policy and .env can contain auth.
+                if args.dotenv_home:
+                    assert dotenv.read_bytes() == dotenv_bytes
+                    assert (dotenv.stat().st_dev, dotenv.stat().st_ino) == dotenv_identity
+                    dotenv.rename(root / "quarantined.env")
+                else:
+                    config.write_text(config.read_text().replace(prompt_config + "\n", "", 1))
             assert audit(root, home, repair=True) == "ACCEPTED"
             assert not native(root, home), "Repair must restore native instructions without changing the provider."
             assert audit(root, home) == "ACCEPTED"
@@ -204,7 +225,8 @@ stream_max_retries = 0
                 assert catalog.read_bytes() == catalog_bytes, "Repair must not mutate external prompt data."
             print("PASS: actual native request contained the override; admission refused it and preserved auth identity; " +
                   ("catalog refusal preserved model/security settings, explicit fixture reconciliation restored native instructions."
-                   if args.model_catalog else "automatic registration repair restored native instructions."))
+                   if args.model_catalog else "dotenv refusal preserved environment data, explicit quarantine removed redirected skill discovery."
+                   if args.dotenv_home else "automatic registration repair restored native instructions."))
         assert not invalid, "No undeclared or external endpoint may be used."
 finally:
     server.shutdown()

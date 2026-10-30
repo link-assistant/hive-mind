@@ -18,7 +18,7 @@ const TOOL_INPUTS = {
     dirs: ['.codex', '.codex/plugins', '.codex/plugins/cache', '.codex/plugins/marketplaces', '.codex/skills', '.codex/prompts', '.agents', '.agents/skills'],
     json: ['.codex/hooks.json'],
     text: ['.codex/config.toml'],
-    opaque: ['.codex/AGENTS.md', '.codex/AGENTS.override.md'],
+    opaque: ['.codex/AGENTS.md', '.codex/AGENTS.override.md', '.codex/.env'],
   },
 };
 

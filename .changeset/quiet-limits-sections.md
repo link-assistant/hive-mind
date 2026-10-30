@@ -85,3 +85,5 @@ Persist native Codex migration recovery journals alongside shared rollouts and w
 Audit Codex global system, compaction and realtime prompt overrides in conventional homes, selected homes and profiles. Repair user registrations without reading prompt targets; refuse managed overrides while preserving administrator policy and native authentication identities.
 
 Refuse custom global model-catalog selectors, which can supply model-owned instruction templates. Preserve their model/security configuration and referenced catalogs for explicit reconciliation into task scope.
+
+Refuse Codex startup `.env` files in conventional and selected global homes. The native loader can redirect skill discovery through HOME before configuration parsing. Preserve opaque environment data for explicit reconciliation, reject unsafe links/types, and recheck concurrent additions before admission.

@@ -350,6 +350,22 @@ All 113 focused audit cases pass after including this selector in the shared
 policy. Custom model catalogs require explicit reconciliation into task-scoped
 configuration rather than root-global instruction inheritance.
 
+The native startup `.env` loader introduces another effective-home override:
+its `arg0` code sets non-`CODEX_*` variables before configuration parsing,
+including `HOME`. A real native request with a fixed explicit `CODEX_HOME`
+reproduces discovery of a skill under the redirected home's `.agents/skills`,
+although the launcher audit accepts the original home. All 17 focused refusal,
+preservation, unsafe-file and concurrent-addition controls fail before repair.
+Admission now treats `.env` in either conventional or selected Codex homes as
+an opaque, report-only finding. It neither reads nor deletes potentially
+credential-bearing contents. Linked, hardlinked and nonregular inputs are
+unsafe; an empty file also requires explicit reconciliation. The native
+`--dotenv-home` control verifies refusal in both audit and repair modes,
+preserves auth/configuration identity, then explicitly quarantines the fixture
+file and confirms that the next model request no longer discovers the skill.
+CI repeats this test with the pinned stock CLI. This prevents this specific
+startup redirection; it does not establish the full production storage contract.
+
 The pinned Codex profile-v2 loader also reads separate `<name>.config.toml`
 files beside `config.toml`. Fourteen reproducing cases bypassed the clean base
 file before this audit included those native profiles. Admission now enumerates

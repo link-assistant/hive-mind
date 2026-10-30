@@ -151,9 +151,9 @@ const configTable = (config, key) => {
 
 // Global instruction/command files need explicit removal or quarantine. Never
 // read their contents or run installed code to decide whether a home is clean.
-const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories = [] }) => {
+const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories = [], kind = 'global-instructions', detail = 'global instructions or commands require explicit removal or quarantine' }) => {
   const findings = [];
-  const report = (name, location) => findings.push(makeFinding({ tool, kind: 'global-instructions', name, location, detail: 'global instructions or commands require explicit removal or quarantine', repair: null }));
+  const report = (name, location) => findings.push(makeFinding({ tool, kind, name, location, detail, repair: null }));
   for (const entry of safeReadDir(fsImpl, root, { includeHidden: true })) {
     if (files.includes(entry.name)) report(entry.name, path.join(root, entry.name));
   }
@@ -254,6 +254,10 @@ const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers 
 const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
   findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['AGENTS.md', 'AGENTS.override.md'], directories: ['prompts'] }));
+  // Native arg0 loads this before configuration, overriding HOME and provider
+  // variables. Never parse, execute or delete potentially credential-bearing
+  // environment data while admitting a supposedly audited discovery root.
+  findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['.env'], kind: 'global-environment', detail: 'native startup environment requires explicit reconciliation outside global discovery' }));
   const hooksPath = path.join(codexDir, 'hooks.json');
   const hooks = safeReadJson(fsImpl, hooksPath);
   if (hooks && Object.keys(configTable(hooks, 'hooks')).length) findings.push(makeFinding({ tool: 'codex', kind: 'global-hooks', name: 'hooks.json', location: hooksPath, detail: 'global hook manifest requires explicit removal or quarantine', repair: null }));

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 
 /**
  * Issue #2247 (H3): stop restarting a session that produces the same outcome.
@@ -182,11 +183,11 @@ export const resetSessionProgress = () => {
  * @returns {string[]}
  */
 export const buildRepeatedSessionFeedback = verdict => {
-  const lines = ['', '🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:', 'They received the same instructions and ended with the same working tree and the same commit. Repeating the same steps will not change the result.'];
-  if (verdict?.current?.finalMessage) lines.push(`The last final message was: ${verdict.current.finalMessage.slice(0, 500)}`);
+  const lines = ['', promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text1'), promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text2')];
+  if (verdict?.current?.finalMessage) lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text3', { value1: String(verdict.current.finalMessage.slice(0, 500)) }));
   const status = String(verdict?.current?.gitStatus || '').trim();
-  if (status) lines.push('Both left this `git status --porcelain` output:', '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
-  lines.push('Find out why the previous approach did not work and resolve the blocker with a different approach before you finish.');
+  if (status) lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text4'), '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
+  lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text5'));
   return lines;
 };
 

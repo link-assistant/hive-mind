@@ -1,5 +1,19 @@
 # @link-assistant/hive-mind
 
+## 2.39.9
+
+### Patch Changes
+
+- 4238993: Prefer focused local validation and existing CI coverage across all solver prompts, account for build costs and local resources, and suggest owner-controlled CI/CD adoption. Remove repeated guidance and align translated prompt catalogs.
+
+  Prefer drafting all requirements before verification. Load all solver and auxiliary prompt templates from separate root UI, user-prompt and system-prompt Lino catalogs, preserving English output and work-locale fallback with a strict recursive locale merger.
+
+## 2.39.8
+
+### Patch Changes
+
+- 2af6b96: Reset transient retry budgets after genuine provider progress across all six AI tools, so later capacity failures resume the existing session after long-running work. Preserve Gemini and OpenCode sessions during retries, retry transport exceptions in every adapter, and recognize additional temporary provider errors.
+
 ## 2.39.7
 
 ### Patch Changes

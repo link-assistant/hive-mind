@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.12
+ARG FORMAL_AI_VERSION=0.355.15
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -169,7 +169,7 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.12.1
+ARG HIVE_MIND_NODE_VERSION=26.13.0
 ARG HIVE_MIND_BUN_VERSION=1.4.4
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \

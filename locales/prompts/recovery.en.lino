@@ -1,0 +1,64 @@
+en
+  prompt
+    templates
+      solve-restart-shared
+        buildAutoRestartInstructions
+          text1 "🎯 AUTO-RESTART MODE INSTRUCTIONS:"
+          text2 "Ensure to get latest version of default branch to make all conflicts resolved if present."
+          text3 "Ensure you comply with all CI/CD check requirements, and they pass - including checks that already fail on the default branch."
+          text4 "Ensure all changes are correct, consistent and fully meet all discussed requirements"
+          text5 "(check issue description and all comments in issue and in pull request)."
+      solve-auto-merge-guards
+        buildDeliberateDraftFeedback
+          text1 "The previous working session produced no changes"
+          text2 "📭 The previous working session produced no changes: the pull request diff against the base branch is empty."
+          text3 "The previous working session made no change"
+          text4 "📭 The previous working session made no change: no new commit, no file change and no comment."
+          text5 "no reason was recorded"
+          text6 "no reason was recorded"
+          text7 "Do the requested work and commit it to the pull request branch. Do not end the session without a change."
+          text8 "The previous working session's effect could not be verified"
+          text9 "🔍 The previous working session's effect could not be verified:"
+          text10 "no reason was recorded"
+          text11 "no reason was recorded"
+          text12 "Check that the requested change is committed to the pull request branch and finish it if it is not. Do not end the session without a change."
+          text13 "the solution session failed or verification did not succeed"
+          text14 "The previous working session failed: {{reason}}"
+          text15 "🛑 The previous working session failed:"
+          text16 "Find the cause of this failure, fix it, and commit the fix to the pull request branch. Do not repeat the same steps unchanged."
+      solve-tool-kill-resume
+        TOOL_KILL_RESUME_FEEDBACK
+          text1 "Continue. Your previous run was killed with SIGKILL (exit code 137). Its cause is not established by that exit code; an out-of-memory kill is one possibility. Continue from where you stopped, and prefer lower-memory commands: run builds and tests one at a time, and use `cargo build -j 1` / `CARGO_BUILD_JOBS=1` or one test target at a time."
+      codex-process-exit
+        buildCodexMemoryBudgetPrompt
+          text1 " Current use is {{value1}}; available headroom is {{value2}}."
+          text2 "Execution resource budget: the container memory limit is {{value1}} ({{value2}} bytes), shared by the agent and all build/test subprocesses.{{current}} Host free memory does not override this limit. Run memory-heavy commands sequentially, use CARGO_BUILD_JOBS=1 / cargo -j 1 for Rust builds, and prefer focused test targets. A single compiler can still exceed the budget: measure memory, reduce compiler/debug settings where appropriate, and stop repeating a build that is killed; use an adequately provisioned CI runner for remaining validation."
+      claude-print-turn
+        buildIncompleteTurnContinuationPrompt
+          text1 " (partial output: {{value1}})"
+          text2 " (partial output: {{value1}})"
+          text3 "- …and {{value1}} more"
+          text4 "Claude Code cancelled them after its {{ceilingSeconds}}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)"
+          text5 "Continue the unfinished work. The previous turn ended while background tasks were still running, and {{reason}}. This was an automatic timeout, not a user decision. Any \"[Request interrupted by user]\" or \"The user doesn't want to proceed with this tool use\" messages from those tasks came from the timeout."
+          text6 """
+            Cancelled tasks:
+            {{value1}}
+          """
+          text7 "Check what they already changed (git status, git log, their partial output), then redo only what is missing and finish every remaining issue and pull-request requirement. Background tools and agents are still allowed and wake you with their results, but only within the wait ceiling after your turn ends. Run work that may take longer than that in the foreground (run_in_background: false)."
+      issue-requirements
+        createRequirementsReportTemplate
+          text1 "Inventory every requirement in the issue description and feedback, including prose."
+        buildRequirementsBlocker
+          text2 "Issue requirements have not been verified for this pull request."
+          text3 "Complete every requested requirement in this pull request and refresh its requirements report with evidence for the current commit and issue feedback."
+        evaluateRequirementsReport
+          text4 "Missing or malformed requirements report."
+          text5 "The requirements report does not describe the current pull request commit."
+          text6 "The report must inventory exactly every required issue, without duplicates or unrelated issues."
+          text7 "{{key}}: missing or duplicated issue evidence."
+          text8 "{{key}}: issue description or review feedback changed after verification."
+          text9 "{{key}}: no requirement inventory."
+          text10 "{{key}}: blocked requirement: {{value2}} ({{value3}})."
+          text11 "(missing text)"
+          text12 "{{key}}: unfinished or unverified requirement: {{value2}}."
+          text13 "{{key}}: acceptance criterion omitted: {{text}}"

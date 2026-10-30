@@ -171,7 +171,7 @@ test('claude.lib.mjs only records non-benign tool result errors', () => {
 
 console.log('\nPrompt guidance (contributing factor):\n');
 
-const enLocale = readFileSync(join(__dirname, '..', 'src', 'locales', 'en.lino'), 'utf8');
+const enLocale = readFileSync(join(__dirname, '..', 'locales', 'prompts', 'system', 'en.lino'), 'utf8');
 
 test('the prompt tells the AI not to wait with long foreground sleeps', () => {
   assert(/until-loop|do not use long foreground sleep|avoid long foreground `sleep`/i.test(enLocale), 'en.lino should carry guidance about waiting without long foreground sleeps');

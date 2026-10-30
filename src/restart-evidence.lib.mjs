@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Issue #2293: evidence for every auto-restart reason.
  *
@@ -160,7 +161,7 @@ export const createCiFailureRepeatTracker = ({ stopAfter = DEFAULT_CI_FAILURE_RE
 export const collectRestartEvidence = ({ comments = [], issueNumber = null, issueChanges = [], ciBlocker = null, tracker = null } = {}) => {
   const lines = [...buildCommentEvidence(comments), ...buildIssueEditEvidence(issueNumber, issueChanges), ...buildCiEvidence(ciBlocker)];
   const repeatedCiFailures = tracker ? tracker.record(ciBlocker) : ciBlocker ? 1 : 0;
-  const feedback = repeatedCiFailures > 1 ? [`⚠️ The same checks have failed ${repeatedCiFailures} restarts in a row - previous attempts did not fix them, so re-read the failing job logs and change approach.`] : [];
+  const feedback = repeatedCiFailures > 1 ? [promptText('prompt.templates.restart-evidence.collectRestartEvidence.text1', { repeatedCiFailures: String(repeatedCiFailures) })] : [];
   const identicalCiFailures = tracker?.identical?.() ?? 0;
   return { lines, repeatedCiFailures, identicalCiFailures, stop: Boolean(tracker?.shouldStop?.()), feedback };
 };

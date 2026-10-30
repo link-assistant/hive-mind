@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Completion evidence for issue-scoped merges (issue #2406): a requirements
  * report in the pull request description, tied to the head commit and to a
@@ -89,45 +90,45 @@ export function preserveRequirementsReport(oldBody, newBody) {
 
 /** Start with pending entries; generating a snapshot never certifies completion. */
 export function createRequirementsReportTemplate({ headSha, issues }) {
-  return { version: 1, headSha, issues: issues.map(({ owner, repo, number, sourceDigest, explicitRequirements = [] }) => ({ owner, repo, number, sourceDigest, requirements: (explicitRequirements.length ? explicitRequirements : ['Inventory every requirement in the issue description and feedback, including prose.']).map(text => ({ text, status: 'pending', evidence: '' })) })) };
+  return { version: 1, headSha, issues: issues.map(({ owner, repo, number, sourceDigest, explicitRequirements = [] }) => ({ owner, repo, number, sourceDigest, requirements: (explicitRequirements.length ? explicitRequirements : [promptText('prompt.templates.issue-requirements.createRequirementsReportTemplate.text1')]).map(text => ({ text, status: 'pending', evidence: '' })) })) };
 }
 
 /** `retryable: false` means only honestly blocked work remains: another identical restart cannot help. */
 export function buildRequirementsBlocker(details, reason = 'incomplete_issue_requirements', { retryable = true } = {}) {
-  return { reason, message: 'Issue requirements have not been verified for this pull request.', details, resolution: 'Complete every requested requirement in this pull request and refresh its requirements report with evidence for the current commit and issue feedback.', retryable };
+  return { reason, message: promptText('prompt.templates.issue-requirements.buildRequirementsBlocker.text2'), details, resolution: promptText('prompt.templates.issue-requirements.buildRequirementsBlocker.text3'), retryable };
 }
 
 /** A report is evidence to review, not proof of arbitrary natural-language correctness. */
 export function evaluateRequirementsReport({ prBody, headSha, issues }) {
   const report = parseRequirementsReport(prBody);
-  if (!report) return buildRequirementsBlocker(['Missing or malformed requirements report.']);
-  if (!/^[a-f0-9]{40}$/i.test(headSha || '') || report.headSha !== headSha) return buildRequirementsBlocker(['The requirements report does not describe the current pull request commit.']);
+  if (!report) return buildRequirementsBlocker([promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text4')]);
+  if (!/^[a-f0-9]{40}$/i.test(headSha || '') || report.headSha !== headSha) return buildRequirementsBlocker([promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text5')]);
   const details = [];
   let blocked = 0;
   const expected = new Set(issues.map(issueKey));
-  if (report.issues.length !== expected.size || report.issues.some(issue => !expected.has(issueKey(issue)))) details.push('The report must inventory exactly every required issue, without duplicates or unrelated issues.');
+  if (report.issues.length !== expected.size || report.issues.some(issue => !expected.has(issueKey(issue)))) details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text6'));
   for (const issue of issues) {
     const key = issueKey(issue);
     const entries = report.issues.filter(entry => issueKey(entry) === key);
     if (entries.length !== 1) {
-      details.push(`${key}: missing or duplicated issue evidence.`);
+      details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text7', { key: String(key) }));
       continue;
     }
     const entry = entries[0];
-    if (entry.sourceDigest !== issue.sourceDigest) details.push(`${key}: issue description or review feedback changed after verification.`);
+    if (entry.sourceDigest !== issue.sourceDigest) details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text8', { key: String(key) }));
     const requirements = entry.requirements;
     if (!Array.isArray(requirements) || requirements.length === 0) {
-      details.push(`${key}: no requirement inventory.`);
+      details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text9', { key: String(key) }));
       continue;
     }
     for (const requirement of requirements) {
       if (nonempty(requirement?.text) && requirement.status === 'blocked' && nonempty(requirement.evidence)) {
         blocked++;
-        details.push(`${key}: blocked requirement: ${normalize(requirement.text)} (${normalize(requirement.evidence)}).`);
-      } else if (!nonempty(requirement?.text) || requirement.status !== 'done' || !nonempty(requirement.evidence)) details.push(`${key}: unfinished or unverified requirement: ${requirement?.text || '(missing text)'}.`);
+        details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text10', { key: String(key), value2: String(normalize(requirement.text)), value3: String(normalize(requirement.evidence)) }));
+      } else if (!nonempty(requirement?.text) || requirement.status !== 'done' || !nonempty(requirement.evidence)) details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text12', { key: String(key), value2: String(requirement?.text || promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text11')) }));
     }
     for (const text of issue.explicitRequirements || []) {
-      if (!requirements.some(requirement => normalize(requirement?.text) === normalize(text))) details.push(`${key}: acceptance criterion omitted: ${text}`);
+      if (!requirements.some(requirement => normalize(requirement?.text) === normalize(text))) details.push(promptText('prompt.templates.issue-requirements.evaluateRequirementsReport.text13', { key: String(key), text: String(text) }));
     }
   }
   if (!details.length) return null;

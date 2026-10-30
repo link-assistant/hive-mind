@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Feedback detection module for solve.mjs
  * Handles comment counting and feedback detection for continue mode
@@ -219,13 +220,13 @@ export const detectAndCountFeedback = async params => {
 
         // Add comment info if counts are > 0 to avoid wasting tokens
         if (newPrComments > 0) {
-          feedbackLines.push(`New comments on the pull request: ${newPrComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text1', { newPrComments: String(newPrComments) }));
         }
         if (newPrReviewComments > 0) {
-          feedbackLines.push(`New review comments on the pull request: ${newPrReviewComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text2', { newPrReviewComments: String(newPrReviewComments) }));
         }
         if (newIssueComments > 0) {
-          feedbackLines.push(`New comments on the issue: ${newIssueComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text3', { newIssueComments: String(newIssueComments) }));
         }
 
         // Enhanced feedback detection for all continue modes
@@ -270,7 +271,7 @@ export const detectAndCountFeedback = async params => {
               }
               if (detection.external.length === 0) continue;
               const fields = [...new Set(detection.external.map(edit => (edit.field === 'title' ? 'title' : 'description')))].join(' and ');
-              feedbackLines.push(`${target.label} ${fields} was edited after last commit:`);
+              feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text4', { value1: String(target.label), fields: String(fields) }));
               for (const edit of detection.external) {
                 const evidence = formatEditEvidence(edit);
                 feedbackLines.push(`  - ${evidence}`);
@@ -303,7 +304,7 @@ export const detectAndCountFeedback = async params => {
               if (commitsResult.code === 0) {
                 const commits = JSON.parse(commitsResult.stdout.toString());
                 if (commits.length > 0) {
-                  feedbackLines.push(`New commits on ${defaultBranch} branch: ${commits.length}`);
+                  feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text5', { defaultBranch: String(defaultBranch), value2: String(commits.length) }));
                   feedbackDetected = true;
                   feedbackSources.push(`New commits on ${defaultBranch} (${commits.length})`);
                 }
@@ -324,7 +325,7 @@ export const detectAndCountFeedback = async params => {
 
           // 4. Check pull request state (non-open indicates closed or merged)
           if (prState && prState !== 'OPEN') {
-            feedbackLines.push(`Pull request state: ${prState}`);
+            feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text6', { prState: String(prState) }));
             feedbackDetected = true;
             feedbackSources.push(`PR state ${prState}`);
           }
@@ -355,7 +356,7 @@ export const detectAndCountFeedback = async params => {
               const failedChecks = checkRuns.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime);
 
               if (failedChecks.length > 0) {
-                feedbackLines.push(`Failed pull request checks: ${failedChecks.length}`);
+                feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text7', { value1: String(failedChecks.length) }));
                 feedbackDetected = true;
                 feedbackSources.push(`Failed PR checks (${failedChecks.length})`);
               }
@@ -379,7 +380,7 @@ export const detectAndCountFeedback = async params => {
               const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);
 
               if (changesRequestedReviews.length > 0) {
-                feedbackLines.push(`Changes requested in reviews: ${changesRequestedReviews.length}`);
+                feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text8', { value1: String(changesRequestedReviews.length) }));
                 feedbackDetected = true;
                 feedbackSources.push(`Changes requested (${changesRequestedReviews.length})`);
               }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 
 import crypto from 'crypto';
 import path from 'path';
@@ -238,21 +239,13 @@ async function runClarifyOrDecomposeMode() {
   };
 
   if (argv.clarify) {
-    const prompt = `Task: "${taskInput}"
-
-Please help clarify this task by:
-1. Identifying ambiguous aspects of the task
-2. Asking 3-5 specific clarifying questions
-3. Suggesting assumptions that could be made if these questions are not answered
-4. Identifying missing context or requirements`;
-    results.clarification = await runAgentPrompt(prompt, 'Return a concise clarification analysis. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text1', { taskInput: String(taskInput) });
+    results.clarification = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text2'));
   }
 
   if (argv.decompose) {
-    const prompt = `Task: "${taskInput}"
-
-${results.clarification ? `Clarification analysis:\n${results.clarification}\n\n` : ''}Please decompose this task into actionable subtasks with dependencies, complexity, risks, and success criteria.`;
-    results.decomposition = await runAgentPrompt(prompt, 'Return a concise decomposition. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text4', { taskInput: String(taskInput), value2: String(results.clarification ? promptText('prompt.templates.task.runClarifyOrDecomposeMode.text3', { value1: String(results.clarification) }) : '') });
+    results.decomposition = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text5'));
   }
 
   return results;

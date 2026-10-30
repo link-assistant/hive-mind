@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Qwen Code CLI-related utility functions
 
@@ -26,7 +27,8 @@ import { qwenModels, defaultModels } from './models/index.mjs';
 import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
@@ -337,7 +339,7 @@ const addQwenEventToState = (state, rawEvent) => {
 // telemetry: they are counted for diagnostics and otherwise ignored. Plain-text
 // stderr signals are unaffected — auth/usage-limit/retry classification still
 // reads the raw combined output.
-export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout' } = {}) => {
+export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout', onEvent = null } = {}) => {
   const nextState = createQwenParserState(state);
   const text = output?.toString?.() ?? String(output || '');
   nextState.plainText += text;
@@ -362,6 +364,7 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
     for (const item of items) {
       if (isProtocolStream) {
         addQwenEventToState(nextState, item);
+        onEvent?.(item);
         continue;
       }
       const eventType = item?.type || item?.event || 'unknown';
@@ -389,7 +392,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
       await log(`⚠️  Qwen Code version check failed (${versionError.code}), proceeding with connection test...`, { level: 'warning' });
     }
 
-    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${'Respond with exactly: hi'} --model ${mappedModel} --output-format json --yolo`;
+    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
     const output = getCommandResultOutput(testResult);
 
     if (testResult.code !== 0) {
@@ -502,6 +505,15 @@ export const executeQwenCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'qwen',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
   const promptFile = path.join(os.tmpdir(), `qwen_prompt_${Date.now()}_${process.pid}.txt`);
   const systemPromptFile = path.join(os.tmpdir(), `qwen_system_prompt_${Date.now()}_${process.pid}.txt`);
 
@@ -553,6 +565,7 @@ export const executeQwenCommand = async params => {
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
+    let sessionId = argv.resume || null;
 
     try {
       const execCommand = dollar({
@@ -581,7 +594,9 @@ export const executeQwenCommand = async params => {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
-          qwenState = parseQwenStreamJsonOutput(output, qwenState);
+          qwenState = parseQwenStreamJsonOutput(output, qwenState, { onEvent: retryProgress.observe });
+          await retryProgress.flushLog();
+          sessionId = qwenState.sessionId || sessionId;
           await toolCallLoopGuard.observeOutput(output);
         }
 
@@ -599,7 +614,8 @@ export const executeQwenCommand = async params => {
       }
 
       if (qwenState.buffer.trim()) {
-        qwenState = parseQwenStreamJsonOutput(`${qwenState.buffer}\n`, { ...qwenState, buffer: '' });
+        qwenState = parseQwenStreamJsonOutput(`${qwenState.buffer}\n`, { ...qwenState, buffer: '' }, { onEvent: retryProgress.observe });
+        await retryProgress.flushLog();
       }
 
       // Issue #2136: make the ignored non-protocol JSON visible, so a future
@@ -610,7 +626,7 @@ export const executeQwenCommand = async params => {
         await log(`🪞 JSON records on qwen stderr (ignored, not protocol events): ${qwenTelemetryTypes.map(([type, count]) => `${type}=${count}`).join(', ')}`, { verbose: true });
       }
 
-      const sessionId = qwenState.sessionId || null;
+      sessionId = qwenState.sessionId || sessionId;
       const resultSummary = qwenState.lastTextContent || null;
       const errorMessage = qwenState.errors
         .map(error => error.message)
@@ -771,10 +787,14 @@ export const executeQwenCommand = async params => {
         operation: 'run_qwen_command',
       });
 
+      if (await retryTransientFailure({ tool: 'qwen', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await log(`\n\n❌ Error executing Qwen Code command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         pricingInfo: null,

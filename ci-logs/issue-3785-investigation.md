@@ -720,3 +720,32 @@ The 14 manager reads, 14 actual-client reads, private-config kernel-lock probe,
 actual CLI provider refusal, all factory/retained-handle refusals and both
 legacy/sunset controls also pass locally after this repair. These are disposable
 native experiments; production integration remains open.
+
+Router sidecar admission now has a reproducing production regression:
+`router-storage-before.log` fails all 15 authority-override cases; unrestricted
+extra Docker arguments can replace the declared audit environment or volume.
+Resource-only arguments are now bounded and validated before any Docker action.
+The actual new/reused sidecar is inspected before task-token issue: canonical
+DATA_DIR/AUDIT_LOG declarations and exactly one writable canonical named volume
+are required, with no overlapping mount. Missing, duplicated, redirected,
+read-only, bind and tmpfs storage all refuse without printing inspection values.
+`router-storage-after.log` passes all 51 new controls and the existing issue
+2164/2190 lifecycle suites (53 Node test entries, zero failures). This validates
+the declared storage, not audit contents, full conversations, or the external
+Router contract; A8 remains partial.
+
+The refreshed local default suite contains 727 files before the Router file was
+added. Files 1–549 pass in `all-tests.log`; file 550's bounded worker containment
+checks fail under a global NODE_OPTIONS old-space setting, which overrides the
+worker's explicit resourceLimits. Retrying from that same file without the
+process-wide setting passes all remaining 178 files in `all-tests-resumed.log`.
+No failed test is skipped. The retained resume utility supports an explicit
+saved-list retry for this environment correction. The new Router file and both
+affected older Router files pass separately after the production change.
+
+The executable from native run 40396373397 also passes all eight actual
+Bedrock/Mantle and Bedrock Runtime constructor cases locally: canonical selection
+refuses both alternate and missing credentials before model execution; each
+no-selector control preserves native behavior. Evidence is retained in
+`native-constructors-current.log`. The repaired refresh-intent CLI still needs
+a fresh native build; this older executable does not contain that work.

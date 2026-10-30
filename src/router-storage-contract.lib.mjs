@@ -1,4 +1,4 @@
-/** Router sidecar storage admission. Backend audit completeness is checked separately. */
+/** Router sidecar storage admission. Complete backend audit verification remains open. */
 import { dockerText } from './docker-sidecar.lib.mjs';
 import { ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME } from './router-isolation.lib.mjs';
 

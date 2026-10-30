@@ -1,6 +1,6 @@
 # Issue 3785: limits, rotating credentials, and task state
 
-Investigation date: 2026-10-26. Issue: [3785](https://github.com/link-assistant/hive-mind/issues/3785).
+Investigation dates: 2026-10-26 and 2026-10-30. Issue: [3785](https://github.com/link-assistant/hive-mind/issues/3785).
 Implementation: [PR 3786](https://github.com/link-assistant/hive-mind/pull/3786).
 Baseline: `43ea0960bec147c1a723d3265af9e9e65852cab6`, Hive Mind 2.39.7.
 Observed failed CLI: Codex 0.164.0. Local Claude CLI: 2.1.310.
@@ -10,6 +10,50 @@ Router usage selection, and task-owned Codex catalog discovery are implemented.
 The default canonical authentication/history contract, complete global baseline enforcement,
 migration, and packaged-image release/deployment gates are not implemented or
 verified by these changes. Passing the tests below does not satisfy those criteria.
+
+## Recovery on 2026-10-30
+
+The interrupted session's complete trace is retained as
+[compressed sanitized evidence](evidence/interrupted-session.log.gz), with its
+content digest and sanitization procedure in the adjacent manifest. The historical
+2026-10-26 possible-cybersecurity-risk error occurred during synthetic native
+refresh crash-recovery maintenance. The requested suspected false-positive report
+is [openai/codex 58320](https://github.com/openai/codex/issues/58320); a deterministic
+classifier trigger has not been established. Current main was merged while
+preserving the interrupted changes and both branches' behavior.
+
+The two reported CI failures have concrete causes. Dependency Review rejects
+the experimental Qwen dependency sharp 0.35.4, now pinned to 0.35.5. The native
+Codex CLI compiles and its actual healthy/refusal TUI controls pass in run
+40396373397, but fixture removal fails because an exited leader leaves catalog
+helpers alive. A failing process-group regression now passes after terminating
+and waiting for descendants even when the leader has exited. The downloaded
+actual CLI passes healthy/refusal, no-selector history/execution, and all eight
+Bedrock/Bedrock Runtime constructor/compatibility cases after this cleanup repair.
+
+New regressions also cover uncertain refresh outcomes. Seven exact native Codex
+transaction tests now preserve explicit login repair of malformed JSON without
+allowing another consumed-predecessor exchange. Qwen's actual OAuth writer no
+longer mistakes a metadata-only rewrite for a fresh refresh token: all 14 native
+writer controls pass locally, including non-rotating responses and preserved
+legacy uncertainty. These are experiments; full repaired Codex CLI verification
+and all production integrations remain open.
+
+Router's unrestricted extra Docker arguments could override its audit path or
+volume; all 15 reproducing rejection assertions failed before repair. Extra
+arguments now allow only documented resource limits, and token issuance checks
+the actual new or reused sidecar's environment and canonical writable volume.
+All 51 new controls and both affected older lifecycle suites pass. This checks
+declared storage, while audit contents, full conversation retention and the
+external backend contract remain open.
+
+All 727 existing default test files pass in documented batches; the added Router
+file and both affected existing suites pass after the production repair. Fresh
+GitHub jobs remain queued with runner ID 0. Local Docker execution fails before
+container startup because runc cannot enter the available cgroup. These are
+validation blockers, not passing lifecycle evidence. See the
+[CI investigation](../../../ci-logs/issue-3785-investigation.md) and
+[acceptance inventory](requirements.md) for the exact remaining scope.
 
 ## Evidence and incident sequence
 

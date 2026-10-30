@@ -292,9 +292,11 @@ Current continuation:
       pass against the downloaded actual CLI. The strict refusal assertion
       fails before repair. Pin factory admission ahead of alternate credential
       owners and use an inert rejected provider without remote model discovery.
-- [ ] Compile the factory repair in the real native CLI and verify zero model
+- [x] Compile the factory repair in the real native CLI and verify zero model
       requests for all four canonical constructor cases while preserving all
-      four no-selector controls; continue gateway/agent-identity endpoint audit.
+      four no-selector controls. The executable from run 40396373397 passes
+      all eight locally after cleanup repair. Remaining gateway/agent-identity
+      endpoint audit is part of the unfinished all-writer production contract.
 - [x] Reproduce named-thread metadata loss after private configuration disposal,
       including with shared native SQLite. Prepare a pinned canonical index
       module; five standalone locking/storage tests pass.
@@ -327,12 +329,12 @@ Current continuation:
       Prepare a five-file pinned compound-event publication patch. Fresh-source
       applicability, rustfmt, 14 focused history controls and 12 upstream tests
       pass; keep full native compilation/execution evidence distinct.
-- [ ] Verify the current canonical-history CLI reproduces TUI execution after
+- [x] Verify the current canonical-history CLI reproduces TUI execution after
       refusal, then compile the TUI ordering repair and require actual healthy,
-      unsafe and no-selector controls. Continue other operation/read paths.
-      The actual executable downloaded from 40384255301 passes the healthy
-      canonical control, reproduces unsafe execution and fails strict refusal;
-      fixed native TUI compilation/positive execution remains pending.
+      unsafe and no-selector controls. The actual executable from 40384255301
+      reproduces unsafe execution; the executable from 40396373397 compiles the
+      repair and passes every actual TUI control after descendant cleanup.
+      Other operation/read paths remain part of the unfinished contract.
 - [ ] Complete production integration and all previously open six-tool criteria.
 - [x] Reproduce actual native Qwen same-timestamp replacement retaining G0 and
       logout retaining G1, including the failing strict assertion. Prepare an
@@ -374,7 +376,40 @@ before heavy commands and do not retry an OOM build unchanged.
       refusals do not establish a usable canonical CLI auth flow. Verify the
       new actual-request and factory controls in fresh native CI.
 
-- [ ] Reproduce native Codex consuming a refresh predecessor again after forced
+- [x] Reproduce native Codex consuming a refresh predecessor again after forced
       owner death during an unknown exchange outcome. Add durable intent and
       recovery evidence before enabling its canonical auth adapter. Keep native
       full-CLI verification separate from standalone storage tests.
+
+## Recovery continuation, 2026-10-30
+
+- [x] Read all current issue/PR comment types; inventory complete requirements.
+- [x] Recover the interrupted 46 MB trace, sanitize to a fixed point, retain it
+      with a content manifest, and report the suspected classifier false positive
+      at https://github.com/openai/codex/issues/58320.
+- [x] Merge current main (279ac0560), preserve original history and resolve all
+      ten conflicts without dropping either branch's behavior.
+- [x] Download and inspect both failing CI runs: patch sharp to 0.35.5; reproduce
+      orphaned TUI helper cleanup and verify actual native healthy/refusal and
+      no-selector controls after process-group cleanup.
+- [x] Reproduce native Codex refresh-owner death consuming G0 again. Preserve
+      durable intent. Reproduce malformed-JSON blocking explicit login after
+      uncertainty; all seven exact-module transaction tests pass after repair.
+- [ ] Verify refreshed Codex full native CLI intent/crash/login controls in CI;
+      the fresh jobs are queued without an assigned runner.
+- [x] Reproduce Qwen retrying consumed G0 after metadata-only rewrite. Use the
+      refresh-token generation in durable intent, preserve legacy uncertainty,
+      and pass all 14 native writer cases plus reads/factory/CLI controls locally.
+- [ ] Verify the refreshed Qwen controls in native CI and complete its current
+      API-key/Coding Plan authority, history and production integration.
+- [x] Reproduce Router sidecar arguments overriding durable audit declarations;
+      restrict extra arguments to resources and inspect actual sidecar storage
+      before task-token issuance. All 51 new controls and older lifecycle suites
+      pass. Audit contents, conversations and external backend remain open.
+- [x] Run all 727 existing default test files in two documented batches, retrying
+      the environment-invalidated worker test itself; pass the new Router file
+      and both affected lifecycle files after the Router change.
+- [ ] Complete every still-open acceptance inventory row; experiments alone do
+      not establish packaged six-tool production behavior or lifecycle gates.
+- [ ] Wait for required fresh CI, inspect all non-passing logs, update the PR
+      with exact evidence and preserve draft status while criteria are unmet.

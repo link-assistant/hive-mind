@@ -142,3 +142,35 @@ PASS: Japanese text, accents, emoji and a literal U+FFFD survive rewrite, read,
       archive and explicit import. All 49 bounded storage controls pass locally.
 UTF-8-stage helper 0ffcd97e104cd9bf4bcbf2df69c43ab8a8cf95d68734e3cd96e78a7953413aed
 Native CI verification and complete remaining history/lifecycle work remain open.
+
+Import/archive/native-ID stage verified in Node 24 CI 41121912110 on
+946ed6e82e07426dbe6ebd224c7675796dcbe339. Full log preserved in
+ci-logs/native-gemini-41121912110.log; synthetic native artifacts downloaded.
+
+Native offloaded tool-output preservation:
+REPRODUCED: real shell execution offloads about 25 KiB, completes inference and
+            records the private artifact path. Private-home disposal loses the
+            referenced full output; the strict lifetime assertion fails.
+PASS: selected native truncation and both masking writers publish separate
+      immutable private canonical files, synchronizing file and directory.
+PASS: fresh full CLI resume reads the old artifact with native read_file and
+      sends its middle marker to the local synthetic provider. Original bytes
+      and inode survive private-home disposal. No native export instrumentation
+      is used in the full CLI transport control.
+PASS: eight actual CLI unsafe-artifact controls (symlink, hardlink, unsafe mode,
+      invalid UTF-8, changed content, oversized, missing and replaced parent)
+      refuse before any further model request, preserving post-attack evidence.
+PASS: all 65 bounded storage controls, including descriptor replacement during
+      reads, exclusive publication collisions, foreign projects, traversal,
+      absent parents and unregistered private temporary directories.
+PASS: nine export-only actual native writer controls cover truncation and both
+      masking implementations, unsafe-storage refusal and unselected behavior.
+      Native 2000-character per-line formatting, selected line ranges and
+      ordinary multilingual text reads retain their original behavior.
+PASS: all 41 writer/account, 30 request and 11 canonical read controls on the
+      artifact manager. All 739 default test files pass locally.
+Artifact-stage manager ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa
+Artifact-stage helper 851475c859fdb9fb545dbd8f1b9cdf5eedc670ea11e935efa488b93dc8c6838d
+Strict-decoding and artifact stages still require fresh Node 24 CI. Degraded
+blobs, complete artifact/subagent lifecycle, other history writers, interrupted
+publication, alternate backends and production installation remain open.

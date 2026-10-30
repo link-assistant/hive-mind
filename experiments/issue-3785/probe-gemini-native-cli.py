@@ -37,6 +37,8 @@ parser.add_argument('--history-archive-discovery', action='store_true')
 parser.add_argument('--history-archive-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
 parser.add_argument('--history-archive-live-resume', action='store_true')
 parser.add_argument('--history-archive-second-cycle', action='store_true')
+parser.add_argument('--history-tool-output', action='store_true')
+parser.add_argument('--history-tool-output-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'invalid-utf8', 'content-change', 'oversized', 'missing', 'parent-replacement'))
 parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
@@ -56,13 +58,15 @@ assert not args.history_archive_second_cycle or args.history_archive_resume and 
 assert not args.session_identifier or args.history
 assert not args.history_import or args.history and not (args.history_attack or args.history_delete or args.history_retention or args.expect_history_gap or args.private_history)
 assert not args.history_import_attack or args.history_import == 'export'
+assert not args.history_tool_output or args.history and not (args.history_attack or args.history_delete or args.history_import or args.history_retention or args.expect_history_gap or args.private_history)
+assert not args.history_tool_output_attack or args.history_tool_output
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -78,10 +82,49 @@ first_prompt = 'SYNTHETIC-GEMINI-HISTORY-FIRST-PROMPT'
 second_prompt = 'SYNTHETIC-GEMINI-HISTORY-SECOND-PROMPT'
 third_prompt = 'SYNTHETIC-GEMINI-HISTORY-THIRD-PROMPT'
 session = args.session_identifier or str(uuid.uuid4())
+tool_phases = set()
+artifact_file = None
+artifact_bytes = None
+artifact_identity = None
+artifact_attack_evidence = []
+tool_middle = 'SYNTHETIC-GEMINI-TOOL-MIDDLE'
+tool_content = 'SYNTHETIC-GEMINI-TOOL-START\n' + ('x' * 96 + '\n') * 128 + tool_middle + '\n' + ('z' * 96 + '\n') * 128 + 'SYNTHETIC-GEMINI-TOOL-END\n'
 
 
 def completions():
-    return [record for record in models if record['operation'] == 'streamGenerateContent']
+    return [record for record in models if record['operation'] == 'streamGenerateContent' and not record.get('tool_call')]
+
+
+def attack_artifact():
+    protected = artifact_file
+    if args.history_tool_output_attack in ('symlink', 'hardlink', 'missing'):
+        protected = root / 'protected-tool-output'
+        artifact_file.rename(protected)
+        if args.history_tool_output_attack == 'symlink':
+            artifact_file.symlink_to(protected)
+        elif args.history_tool_output_attack == 'hardlink':
+            os.link(protected, artifact_file)
+    elif args.history_tool_output_attack == 'unsafe-mode':
+        artifact_file.chmod(0o644)
+    elif args.history_tool_output_attack == 'invalid-utf8':
+        artifact_file.write_bytes(b'\xff')
+    elif args.history_tool_output_attack == 'content-change':
+        artifact_file.write_text('SYNTHETIC-REPLACEMENT-OUTPUT')
+    elif args.history_tool_output_attack == 'oversized':
+        with artifact_file.open('r+b') as output:
+            output.truncate(32 * 1024 * 1024 + 1)
+    elif args.history_tool_output_attack == 'parent-replacement':
+        previous = artifact_file.parent
+        retired = previous.with_name(previous.name + '-protected')
+        previous.rename(retired)
+        previous.mkdir(mode=0o700)
+        artifact_file.write_text('SYNTHETIC-REPLACEMENT-OUTPUT')
+        artifact_file.chmod(0o600)
+        protected = retired / artifact_file.name
+    else:
+        raise AssertionError('Unknown synthetic artifact attack.')
+    original = protected.stat()
+    artifact_attack_evidence.append((protected, None if args.history_tool_output_attack == 'oversized' else protected.read_bytes(), (original.st_dev, original.st_ino, original.st_size)))
 
 try:
     # Copy entrypoints and chunks: symlinked JS would resolve imports against
@@ -103,6 +146,10 @@ try:
                 'telemetry': {'enabled': False},
                 'advanced': {'autoConfigureMemory': False},
                 'general': {'disableAutoUpdate': True}}
+    if args.history_tool_output:
+        settings['model']['maxSessionTurns'] = 4
+        settings['tools'] = {'truncateToolOutputThreshold': 1024}
+        (workspace / 'bounded-output.txt').write_text(tool_content)
     if args.history_retention or args.history_live_retention or args.history_live_delete:
         settings['general']['sessionRetention'] = {'enabled': True, 'maxAge': '1d'}
     (private / 'settings.json').write_text(json.dumps(settings))
@@ -189,7 +236,18 @@ try:
                         models.append({'operation': operation, 'first_prompt': first_prompt in content,
                                        'second_prompt': second_prompt in content,
                                        'third_prompt': third_prompt in content,
-                                       'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content})
+                                       'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content,
+                                       'artifact_reference': '/tool-outputs/' in content,
+                                       'full_artifact': tool_middle in content})
+                        phase = 'resume' if second_prompt in content else 'initial'
+                        if args.history_tool_output and operation == 'streamGenerateContent' and phase not in tool_phases:
+                            tool_phases.add(phase)
+                            models[-1]['tool_call'] = True
+                            if phase == 'resume' and args.history_tool_output_attack:
+                                attack_artifact()
+                            tool = {'name': 'run_shell_command', 'args': {'command': 'cat bounded-output.txt', 'description': 'Read the finite synthetic artifact fixture.'}} if phase == 'initial' else {'name': 'read_file', 'args': {'file_path': str(artifact_file)}}
+                            self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': {'id': 'synthetic-artifact-' + phase, **tool}}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-tool-response'}, stream=True)
+                            return
                         if (args.history_live_retention or args.history_live_delete) and operation == 'streamGenerateContent' and not live_controls:
                             live_controls.append(False)
                             live_controls[0] = check_live_retention()
@@ -236,6 +294,8 @@ try:
     args.diagnostics.parent.mkdir(parents=True, exist_ok=True)
 
     def invoke(diagnostic, child_env, flags):
+        if args.history_tool_output:
+            flags = ['--approval-mode', 'yolo', *flags]
         with diagnostic.open('wb') as diagnostics:
             diagnostic.chmod(0o600)
             child = subprocess.Popen(['prlimit', '--data=2147483648', '--stack=16777216', '--core=0', '--',
@@ -338,8 +398,21 @@ try:
             assert all(history in p.parents for p in transcripts)
             assert not list(private.rglob('*.jsonl'))
             assert set(p.name for p in history.iterdir()) == {'projects', 'projects.json', '.history.lock'}
+        if args.history_tool_output:
+            assert len(models) == 2 and completions()[0]['artifact_reference']
+            artifacts = [p for base in (private, history) for p in base.rglob('*.txt') if 'tool-outputs' in p.parts and tool_middle in p.read_text()]
+            assert len(artifacts) == 1, 'The actual native tool must first offload its full output.'
+            artifact_file = artifacts[0]
+            artifact_bytes = artifact_file.read_bytes()
+            artifact_identity = (artifact_file.stat().st_dev, artifact_file.stat().st_ino)
+            assert tool_content in artifact_bytes.decode()
         # The whole native process group has exited before private state disposal.
         shutil.rmtree(home)
+        if args.history_tool_output:
+            assert artifact_file.exists(), 'Native tool-output history must survive private-home disposal.'
+            assert history in artifact_file.parents
+            assert artifact_file.read_bytes() == artifact_bytes
+            assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
         retained_bytes = None
         if args.history_retention:
             assert history_adapter and len(transcripts) == 1
@@ -669,6 +742,19 @@ try:
             raise SystemExit(0)
         resumed = args.diagnostics.with_name(args.diagnostics.stem + '-resume.log')
         code, output = invoke(resumed, peer_env, ['--resume', session, '--prompt', second_prompt])
+        if args.history_tool_output_attack:
+            assert code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output
+            assert len(completions()) == 1 and sum(record['operation'] == 'streamGenerateContent' for record in models) == 3
+            assert len(artifact_attack_evidence) == 1 and not errors
+            protected, content, identity = artifact_attack_evidence[0]
+            current = protected.stat()
+            assert (current.st_dev, current.st_ino, current.st_size) == identity
+            if content is not None:
+                assert protected.read_bytes() == content
+            assert not list(private.rglob('tool-outputs'))
+            print('PASS: actual native read_file refuses ' + args.history_tool_output_attack + ' without another model request or artifact mutation.')
+            safe_cleanup = True
+            raise SystemExit(0)
         if args.expect_history_gap:
             assert session not in listed
             assert code != 0 and len(completions()) == 1
@@ -680,6 +766,12 @@ try:
             assert completions()[1]['first_prompt'] and completions()[1]['second_prompt'] and completions()[1]['prior_response']
             assert any(first_prompt in p.read_text() and second_prompt in p.read_text() for p in history.rglob('*.jsonl'))
             assert not list(private.rglob('*.jsonl'))
+            if args.history_tool_output:
+                assert sum(record['operation'] == 'streamGenerateContent' for record in models) == 4 and completions()[1]['artifact_reference'] and completions()[1]['full_artifact'], 'A fresh native peer must read the complete prior tool artifact during resume.'
+                assert artifact_file.read_bytes() == artifact_bytes
+                assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
+                assert not list(private.rglob('tool-outputs'))
+                print('PASS: actual native shell offload survives private-home disposal and a fresh native read_file restores its complete content during resume.')
             print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.')
         assert not (private / 'oauth_creds.json').exists()
         assert not (private / 'google_accounts.json').exists()

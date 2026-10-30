@@ -26,7 +26,7 @@ concurrency:
 jobs:
   native-credential-reads:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -145,6 +145,26 @@ jobs:
         run: |
           python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce full tool-output loss after successful native shell execution
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-artifact-before.log" > "$RUNNER_TEMP/gemini-artifact-before-control.log" 2>&1; then
+            echo 'The native tool-output lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native tool-output history must survive private-home disposal.' "$RUNNER_TEMP/gemini-artifact-before-control.log"
+      - name: Apply exact pinned native artifact storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Read complete native tool output after private home disposal and resume
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-artifact-after.log" > "$RUNNER_TEMP/gemini-artifact-after-control.log" 2>&1
+      - name: Verify the native truncation and both masking writers
+        run: python3 experiments/issue-3785/native-gemini/probe_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-artifact-writers.log" > "$RUNNER_TEMP/gemini-artifact-writers-controls.log" 2>&1
+      - name: Refuse unsafe native tool artifacts without another model request
+        run: |
+          for state in symlink hardlink unsafe-mode invalid-utf8 content-change oversized missing parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --history-tool-output-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-artifact-$state.log" > "$RUNNER_TEMP/gemini-artifact-$state-control.log" 2>&1
+          done
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal

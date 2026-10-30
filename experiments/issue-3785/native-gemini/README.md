@@ -378,9 +378,52 @@ legacy JSON exports all pass full CLI import/disposal/discovery/resume controls.
 The third model request contains both preceding prompts and the prior response.
 Nine unsafe-source CLI controls and 45 bounded storage controls pass locally,
 including changed/replaced import sources and parent replacement during parsing.
-This stage and the archive stage require fresh Node 24 CI; other history writers,
+The import/archive/native-ID stage passes Node 24
+[CI 41121912110](https://github.com/link-assistant/hive-mind/actions/runs/41121912110)
+on `946ed6e82e07426dbe6ebd224c7675796dcbe339`, including all 41 writer/account,
+30 request and 11 read controls. Other history writers,
 artifact/subagent lifecycle, interrupted publication and production installation
 remain open.
+
+## Canonical tool-output artifacts
+
+`apply_artifacts.py` builds on the exact conversation stage. A strict full CLI
+control first runs the real shell tool, offloads about 25 KiB of finite output,
+and completes inference. Removing the private home then reproduces loss of the
+full output referenced by the retained transcript.
+
+The selected artifact stage registers each private project temporary directory
+against its canonical project. Native truncation and both masking writers
+publish separate immutable 0600 files in owned 0700 project/session directories.
+Names contain a content digest and a unique identifier; publication cannot
+replace an existing file. The file and containing directory are synchronized.
+References use the stable canonical path, so another process can read them after
+private-home disposal. Native `read_file` grants only registered-project artifact
+reads and uses checked descriptor snapshots with strict UTF-8 and digest
+validation. Its existing text formatting and line selection are preserved.
+
+The full CLI control resumes in a fresh private home, reads the old output with
+the real `read_file`, and sends its middle content to the local synthetic
+provider. Original bytes and inode remain unchanged. Eight native unsafe-output
+controls refuse linked, missing, oversized, permissive, corrupt, changed-content
+and replaced-parent inputs before any further model request. There are 65 bounded
+storage controls. `probe_artifacts.py` exercises the actual native truncation and
+both masking implementations with finite input and export-only instrumentation;
+its nine controls check disposal, unsafe storage, ordinary text/line formatting and unselected
+private behavior. Model transports remain covered separately by the full CLI
+control, which does not instrument native exports.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_artifacts.py /path/to/disposable/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_artifacts.py /path/to/disposable/gemini-cli
+python3 experiments/issue-3785/native-gemini/probe_artifacts.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-artifact-writers.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py /path/to/disposable/gemini-cli --history --history-tool-output --diagnostics /tmp/gemini-artifact-cli.log
+```
+
+This stage still requires native CI. Degraded blobs, other history surfaces,
+artifact garbage collection, subagent lifecycles, interrupted publication,
+backends and production installation remain open. Nothing projects the private
+runtime directory or executable/configuration material.
 
 ## Strict history text decoding
 
@@ -389,5 +432,6 @@ UTF-8 being silently converted to replacement characters before JSON parsing.
 The selected snapshot reader validates the complete byte sequence before
 decoding. Refusal preserves the source bytes and inode. A positive control
 retains Japanese text, accented text, emoji and a literal replacement character
-through rewrite, read, archive and explicit import. All 49 bounded storage
-controls pass locally; the existing native CI job runs the complete set.
+through rewrite, read, archive and explicit import. The 49 strict-decoding and
+conversation controls pass locally and remain in the expanded 65-control
+artifact stage; the existing native CI job runs the complete set.

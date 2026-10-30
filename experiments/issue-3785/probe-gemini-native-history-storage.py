@@ -15,7 +15,7 @@ from native_process_group import stop_process_group
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
-parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race', 'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8', 'unicode-healthy'))
+parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race', 'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8', 'unicode-healthy', 'artifact-healthy', 'artifact-symlink', 'artifact-hardlink', 'artifact-unsafe-mode', 'artifact-invalid-utf8', 'artifact-content-change', 'artifact-missing', 'artifact-directory-replacement', 'artifact-root-replacement', 'artifact-file-replacement', 'artifact-collision', 'artifact-foreign-project', 'artifact-missing-parent', 'artifact-oversized', 'artifact-traversal', 'artifact-unregistered-temp'))
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
@@ -82,7 +82,99 @@ if (name === 'lease-owner') {
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name.endsWith('-invalid-utf8')) {
+  if (name.startsWith('artifact-')) {
+    const temporary = path.join(root, 'private', 'tmp');
+    h.registerNativeGeminiProjectTemp(path.join(root, 'private'), path.join(root, 'workspace'), temporary);
+    const content = 'SYNTHETIC TOOL OUTPUT 日本語 café 🐝\n';
+    const artifact = h.writeNativeGeminiToolOutput(temporary, content, 'synthetic-session');
+    const original = fs.statSync(artifact);
+    assert.equal(original.mode & 0o777, 0o600);
+    assert.equal(original.nlink, 1);
+    assert.equal(fs.statSync(path.dirname(artifact)).mode & 0o777, 0o700);
+    assert.equal(h.readNativeGeminiToolOutput(artifact), content);
+    let input = artifact;
+    let protectedFile = artifact;
+    if (name === 'artifact-healthy') {
+      const next = h.writeNativeGeminiToolOutput(temporary, content, 'synthetic-session');
+      assert.notEqual(next, artifact);
+      fs.rmSync(path.join(root, 'private'), { recursive: true });
+      assert.equal(h.readNativeGeminiToolOutput(artifact), content);
+      assert.equal(h.readNativeGeminiToolOutput(next), content);
+      assert.equal(h.readNativeGeminiToolOutput(path.join(root, 'workspace', 'outside.txt')), undefined);
+    } else {
+      let operation = () => h.readNativeGeminiToolOutput(input);
+      if (name === 'artifact-symlink' || name === 'artifact-hardlink') {
+        protectedFile = path.join(root, 'protected-artifact');
+        fs.renameSync(artifact, protectedFile);
+        if (name === 'artifact-symlink') fs.symlinkSync(protectedFile, artifact);
+        else fs.linkSync(protectedFile, artifact);
+      } else if (name === 'artifact-unsafe-mode') fs.chmodSync(artifact, 0o644);
+      else if (name === 'artifact-invalid-utf8') fs.writeFileSync(artifact, Buffer.from([0xff]));
+      else if (name === 'artifact-content-change') fs.writeFileSync(artifact, 'SYNTHETIC-REPLACEMENT');
+      else if (name === 'artifact-oversized') fs.truncateSync(artifact, 32 * 1024 * 1024 + 1);
+      else if (name === 'artifact-missing') {
+        protectedFile = path.join(root, 'protected-artifact');
+        fs.renameSync(artifact, protectedFile);
+      } else if (name === 'artifact-directory-replacement' || name === 'artifact-root-replacement') {
+        const parent = name === 'artifact-root-replacement' ? canonical : path.dirname(artifact);
+        fs.renameSync(parent, parent + '-protected');
+        fs.mkdirSync(parent, { mode: 0o700 });
+        protectedFile = path.join(parent + '-protected', path.relative(parent, artifact));
+      } else if (name === 'artifact-file-replacement') {
+        const read = fs.readSync;
+        let injected = false;
+        protectedFile = path.join(root, 'protected-artifact');
+        fs.readSync = (...args) => {
+          const count = read(...args);
+          if (!injected) {
+            injected = true;
+            fs.renameSync(artifact, protectedFile);
+            fs.writeFileSync(artifact, 'PEER', { mode: 0o600 });
+          }
+          return count;
+        };
+      } else if (name === 'artifact-collision') {
+        const link = fs.linkSync;
+        let collision;
+        fs.linkSync = (source, destination) => {
+          if (path.basename(destination).startsWith('artifact-')) {
+            collision = destination;
+            fs.writeFileSync(destination, 'PEER', { mode: 0o600 });
+          }
+          return link(source, destination);
+        };
+        operation = () => {
+          try { h.writeNativeGeminiToolOutput(temporary, 'UNEXPECTED', 'synthetic-session'); }
+          finally {
+            assert.ok(collision);
+            assert.equal(fs.readFileSync(collision, 'utf8'), 'PEER');
+          }
+        };
+      } else if (name === 'artifact-foreign-project') {
+        input = artifact.replace(path.basename(path.dirname(path.dirname(path.dirname(artifact)))), '0'.repeat(64));
+      } else if (name === 'artifact-missing-parent') {
+        input = path.join(path.dirname(path.dirname(artifact)), 'session-' + '0'.repeat(64), path.basename(artifact));
+      } else if (name === 'artifact-traversal') {
+        input = path.dirname(artifact) + '/../' + path.basename(path.dirname(artifact)) + '/' + path.basename(artifact);
+      } else if (name === 'artifact-unregistered-temp') {
+        operation = () => h.writeNativeGeminiToolOutput(temporary + '-different', 'UNEXPECTED', 'synthetic-session');
+      } else throw new Error('Unknown bounded artifact scenario.');
+      const before = fs.existsSync(protectedFile) ? fs.statSync(protectedFile) : null;
+      const bytes = name !== 'artifact-oversized' && before ? fs.readFileSync(protectedFile) : null;
+      assert.throws(operation, refused);
+      if (before) {
+        assert.equal(fs.statSync(protectedFile).ino, before.ino);
+        assert.equal(fs.statSync(protectedFile).size, before.size);
+        if (bytes) assert.deepEqual(fs.readFileSync(protectedFile), bytes);
+      }
+      if (name === 'artifact-file-replacement') {
+        assert.equal(fs.readFileSync(artifact, 'utf8'), 'PEER');
+        assert.equal(fs.readFileSync(protectedFile, 'utf8'), content);
+        assert.equal(fs.statSync(protectedFile).ino, original.ino);
+      }
+      if (name === 'artifact-missing-parent') assert.equal(fs.existsSync(path.dirname(input)), false);
+    }
+  } else if (name.endsWith('-invalid-utf8')) {
     const source = name.startsWith('import-') ? path.join(root, 'export.jsonl') : file;
     const bytes = Buffer.concat([Buffer.from('{"message":"'), Buffer.from([0xff]), Buffer.from('"}\n')]);
     fs.writeFileSync(source, bytes, { mode: 0o600 });
@@ -380,7 +472,13 @@ try:
                      'create-append-race', 'restore-publish-race', 'import-healthy',
                      'import-changed', 'import-replaced', 'import-parent-replaced',
                      'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8',
-                     'unicode-healthy'):
+                     'unicode-healthy', 'artifact-healthy', 'artifact-symlink',
+                     'artifact-hardlink', 'artifact-unsafe-mode', 'artifact-invalid-utf8', 'artifact-content-change',
+                     'artifact-missing', 'artifact-directory-replacement',
+                     'artifact-root-replacement', 'artifact-file-replacement',
+                     'artifact-collision', 'artifact-foreign-project',
+                     'artifact-missing-parent', 'artifact-oversized',
+                     'artifact-traversal', 'artifact-unregistered-temp'):
         if args.scenario and scenario != args.scenario:
             continue
         finish([launch(fixture(scenario), scenario)])

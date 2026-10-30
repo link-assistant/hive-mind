@@ -83,9 +83,19 @@ Explicit `--session-file` imports from canonical records and private JSONL/legac
 JSON exports preserve their source and publish a new private canonical session;
 fresh discovery/resume retains the prior user/model content. Their 45 storage
 controls, seven actual CLI archive refusals, three native import/disposal controls
-and nine unsafe-import refusals pass locally and need fresh CI. Complete
+and nine unsafe-import refusals pass Node 24 CI 41121912110 at `946ed6e82e07426dbe6ebd224c7675796dcbe339`. Complete
 archive indexes and child/artifact lifecycles remain open. Canonical alternate
 backends, complete history, all writers/lifecycle and production installation
 remain unfinished. These experiments do not complete A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and
 `evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.
+
+The next local Gemini stage rejects invalid UTF-8 before JSON decoding and
+preserves offloaded native tool-output files after private-home disposal.
+A strict full CLI control first completes real shell execution and inference,
+then reproduces the lost artifact. With the artifact stage, fresh resume and
+native read_file recover its complete content; eight unsafe-artifact CLI
+controls refuse before further inference. All 65 bounded storage controls,
+nine native truncation/masking/legacy controls and 41/30/11 authentication
+regressions pass locally. This newer stage still needs Node 24 CI; degraded
+blobs and the remaining full-history/lifecycle/production criteria stay open.

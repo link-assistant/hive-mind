@@ -872,3 +872,22 @@ Latest CI continuation:
       and a literal replacement character. Refusals preserve bytes and inodes.
 - [ ] Verify strict decoding in native CI and preserve complete offloaded tool
       output through private-home disposal and fresh native resume/read.
+
+- [x] Verify the complete import/archive/native-ID stage on Node 24 in Gemini
+      CI 41121912110 at `946ed6e82e07426dbe6ebd224c7675796dcbe339`.
+      Preserve its full log and downloaded native diagnostics. All 41 writer,
+      30 request and 11 read controls pass there.
+- [x] Reproduce full native offloaded-tool-output loss only after successful
+      shell execution and inference. Publish immutable canonical artifacts
+      through the native truncation and both masking implementations; admit
+      registered-project reads through checked snapshots and content digests.
+- [x] Verify actual fresh-home resume/read_file sends the complete old output
+      to the provider without changing its bytes/inode. Eight unsafe-artifact
+      CLI controls refuse before any further inference; 65 bounded storage
+      controls and nine actual native writer/legacy controls pass locally.
+      Preserve native long-line formatting and ordinary text reads.
+- [x] Rerun all 41 writer/account, 30 request and 11 read controls on the final
+      artifact manager; all pass. The complete 739-file default suite passes.
+- [ ] Require fresh Node 24 strict-decoding/artifact CI. Complete degraded blobs,
+      other history writers, subagent lifecycle, interrupted publication, all
+      backends and production integration; full six-tool acceptance stays open.

@@ -20,6 +20,7 @@ const observed = new Map();
 const writerLeases = new Map();
 const retiredConversations = new Set();
 const importSources = new Map();
+const projectTemps = new Map();
 const archiveName = /^session-archive-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}-(session-[a-zA-Z0-9_.-]+\.jsonl?)$/u;
 let authority;
 let failed = false;
@@ -71,7 +72,7 @@ export function assertNativeGeminiHistoryCurrent() {
   }
 }
 
-function directory(components) {
+function directory(components, create = true) {
   assertNativeGeminiHistoryCurrent();
   let parent = authority.fd;
   let prefix = '';
@@ -82,11 +83,13 @@ function directory(components) {
     if (!item) {
       if (directories.size >= 1024) throw refuse();
       const anchored = `/proc/self/fd/${parent}/${name}`;
-      try {
-        fs.mkdirSync(anchored, { mode: 0o700 });
-        fs.fsyncSync(parent);
-      } catch (error) {
-        if (error.code !== 'EEXIST') throw refuse();
+      if (create) {
+        try {
+          fs.mkdirSync(anchored, { mode: 0o700 });
+          fs.fsyncSync(parent);
+        } catch (error) {
+          if (error.code !== 'EEXIST') throw refuse();
+        }
       }
       const before = fs.lstatSync(anchored, { bigint: true });
       if (!safeDirectory(before)) throw refuse();
@@ -216,6 +219,62 @@ export function nativeGeminiChatsDirectory(configuration, projectRoot) {
     const chats = directory(['projects', identifier, 'chats']);
     conversations.set(chats.anchor, chats);
     return chats.anchor;
+  } catch {
+    throw refuse();
+  }
+}
+
+export function registerNativeGeminiProjectTemp(configuration, projectRoot, temporary) {
+  if (!nativeGeminiHistorySelected()) return;
+  try {
+    assertNativeGeminiHistoryCurrent();
+    const project = path.resolve(projectRoot);
+    if (typeof temporary !== 'string' || !path.isAbsolute(temporary) || path.normalize(temporary) !== temporary || /[\0\r\n]/u.test(temporary)) throw refuse();
+    const previous = projectTemps.get(temporary);
+    if (previous) {
+      if (previous.project !== project || previous.configuration !== configuration) throw refuse();
+      return;
+    }
+    if (projectTemps.size >= 64) throw refuse();
+    nativeGeminiChatsDirectory(configuration, project);
+    projectTemps.set(temporary, { project, configuration, identifier: digest(project) });
+  } catch {
+    throw refuse();
+  }
+}
+
+export function writeNativeGeminiToolOutput(temporary, content, sessionId) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  try {
+    assertNativeGeminiHistoryCurrent();
+    const project = projectTemps.get(temporary);
+    if (!project || typeof content !== 'string' || Buffer.byteLength(content) > LIMIT || (sessionId !== undefined && typeof sessionId !== 'string')) throw refuse();
+    const components = ['projects', project.identifier, 'tool-outputs', `session-${digest(sessionId ?? '')}`];
+    const parent = directory(components);
+    const name = `artifact-${digest(content)}-${randomUUID()}.txt`;
+    locked(parent, current => publish(parent, name, content, current, false));
+    return path.join(authority.selected, ...components, name);
+  } catch {
+    throw refuse();
+  }
+}
+
+export function readNativeGeminiToolOutput(file) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  try {
+    assertNativeGeminiHistoryCurrent();
+    if (typeof file !== 'string' || !path.isAbsolute(file) || !within(authority.selected, path.resolve(file))) return undefined;
+    const components = path.relative(authority.selected, file).split(path.sep);
+    if (components[0] !== 'projects' || components[2] !== 'tool-outputs') return undefined;
+    const filename = /^artifact-([a-f0-9]{64})-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.txt$/u.exec(components[4] ?? '');
+    if (path.normalize(file) !== file || /[\0\r\n]/u.test(file) || components.length !== 5 || ![...projectTemps.values()].some(item => item.identifier === components[1]) || !/^session-[a-f0-9]{64}$/u.test(components[3]) || !filename) throw refuse();
+    const name = components.pop();
+    const parent = directory(components, false);
+    return locked(parent, () => {
+      const content = snapshot({ target: `${parent.anchor}/${name}` });
+      if (digest(content) !== filename[1]) throw refuse();
+      return content;
+    });
   } catch {
     throw refuse();
   }

@@ -28,6 +28,45 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  refresh-intent-modules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the source-pinned compiler
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Apply the exact native auth and refresh transaction modules
+        run: |
+          native_source="$RUNNER_TEMP/codex-native-transactions"
+          echo "NATIVE_TRANSACTION_SOURCE=$native_source" >> "$GITHUB_ENV"
+          git init "$native_source"
+          git -C "$native_source" remote add origin https://github.com/openai/codex.git
+          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$native_source" checkout --detach FETCH_HEAD
+          python3 experiments/issue-3785/native-codex/apply_adapter.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_coordination.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_cached_reads.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_refresh_intent.py "$native_source"
+      - name: Build the pinned dependency subset and test the exact native modules
+        run: |
+          cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir "$RUNNER_TEMP/transaction-dependencies" > "$RUNNER_TEMP/native-transaction-dependencies.log" 2>&1
+          python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py "$NATIVE_TRANSACTION_SOURCE" --dependencies-dir "$RUNNER_TEMP/transaction-dependencies/debug/deps" > "$RUNNER_TEMP/native-transaction-tests.log" 2>&1
+      - name: Preserve focused transaction diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-transactions
+          path: ${{ runner.temp }}/native-transaction-*.log
+          if-no-files-found: error
+          retention-days: 7
   native-history:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -210,7 +249,9 @@ jobs:
       - name: Verify actual native TUI refuses before executing without safe history
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1
       - name: Verify actual native peer refuses uncertain predecessor after owner death
-        run: node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-after.log" 2>&1
+        run: |
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-after.log" 2>&1
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --repair-malformed > "$RUNNER_TEMP/native-refresh-repair-after.log" 2>&1
       - name: Verify native TUI history behavior without the canonical selector
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-selector --expect-private-history --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-legacy.log" 2>&1
       - name: Verify native prompt-history upstream behavior remains intact

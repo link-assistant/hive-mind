@@ -138,6 +138,33 @@ fn malformed_credentials_and_wrong_predecessors_cannot_clear_intent() {
         .write(b"malformed synthetic JSON")
         .unwrap();
     assert!(Transaction::assert_refresh_readable().is_err());
-    assert!(Transaction::acquire().is_err());
+    let repair = Transaction::acquire().unwrap();
+    assert!(repair.begin_refresh_exchange("synthetic G0").is_err());
     assert!(fixture.storage().refresh_intent().unwrap().is_some());
+}
+
+#[test]
+fn explicit_reauthentication_can_repair_malformed_auth_without_clearing_uncertainty() {
+    let fixture = Fixture::new();
+    let transaction = Transaction::acquire().unwrap();
+    transaction.begin_refresh_exchange("synthetic G0").unwrap();
+    drop(transaction);
+    fixture
+        .storage()
+        .write(b"malformed synthetic JSON")
+        .unwrap();
+    assert!(Transaction::assert_refresh_readable().is_err());
+
+    // An explicit native login needs the same transaction lock before it can
+    // replace broken JSON. Acquiring it must preserve the consumed G0 marker.
+    let login =
+        Transaction::acquire().expect("explicit login must be able to repair safe malformed auth");
+    assert!(fixture.storage().refresh_intent().unwrap().is_some());
+    assert!(login.begin_refresh_exchange("synthetic G0").is_err());
+    fixture.oauth("synthetic fresh login", "metadata2");
+    drop(login);
+
+    assert!(Transaction::assert_refresh_readable().is_ok());
+    let _peer = Transaction::acquire().unwrap();
+    assert_eq!(fixture.storage().refresh_intent().unwrap(), None);
 }

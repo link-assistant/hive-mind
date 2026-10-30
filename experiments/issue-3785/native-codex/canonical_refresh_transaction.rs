@@ -70,7 +70,13 @@ impl Transaction {
         if let Some(guard) = &self.guard {
             if let Some(predecessor) = guard.refresh_intent()? {
                 if let Some(bytes) = guard.auth_bytes()? {
-                    let current = generation(&bytes)?;
+                    // Native login/logout acquire this lock before repairing
+                    // malformed credentials. Leave uncertainty intact when no
+                    // valid generation can be read; request admission and
+                    // begin_refresh_exchange still refuse these bytes.
+                    let Ok(current) = generation(&bytes) else {
+                        return Ok(());
+                    };
                     if current != predecessor {
                         guard.sync_current_auth()?;
                         if generation(&guard.auth_bytes()?.ok_or_else(refused)?)? != current {

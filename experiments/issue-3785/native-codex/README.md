@@ -254,3 +254,34 @@ required in CI. Local applicability, rustfmt, 14 history controls and 12 upstrea
 tests pass in the focused harness; full patched TUI compilation and execution
 remain pending. Other operation paths, read-error propagation, complete writer
 semantics and production integration remain open.
+
+The refresh crash probe kills a real native CLI after the synthetic provider
+consumes G0 and before any response or credential publication. The intermediate
+CLI reproduces a peer reusing that consumed predecessor despite correct OS lock
+release. `apply_refresh_intent.py` records and syncs a bounded predecessor digest
+before the exchange. Unknown outcomes retain the marker and refuse another G0
+exchange or model request. A durable new generation can reconcile the marker;
+changing only JSON formatting or refresh metadata cannot do so. Successful
+responses that retain their refresh token clear the marker after durable commit.
+Storage owner-death controls pass locally. Full CLI before/after validation is
+required by the native workflow and remains pending for this recovered stage.
+
+An added seven-test transaction harness found a recovery dead end: safe malformed
+credential JSON after an uncertain refresh blocked even explicit native login's
+lock acquisition. Reconciliation now preserves the marker while allowing the
+lock owner to replace the malformed JSON. Reads and refresh still refuse it;
+unsafe files and malformed markers still fail admission. The failing regression
+and passing exact-module results are retained as `native-refresh-repair-before.log`
+and `native-refresh-repair-after.log` in the case-study evidence. The real CLI
+`--repair-malformed` control must also pass in CI; module checks are not a
+substitute for that integration result.
+
+For bounded local checks, build only the small locked dependency crate below,
+then run the same harness against the actual patched source. Its direct JSON,
+hashing and Tokio versions match the immutable native lockfile. It intentionally
+omits the full CLI dependency graph, which still compiles in the native job.
+
+```sh
+CARGO_BUILD_JOBS=1 cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir /tmp/hive-native-transaction-deps
+python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py /absolute/native/source --dependencies-dir /tmp/hive-native-transaction-deps/debug/deps
+```

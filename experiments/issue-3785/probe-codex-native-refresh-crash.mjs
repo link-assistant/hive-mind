@@ -15,6 +15,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const binary = process.argv[2];
 const negative = process.argv.includes('--expect-reused-predecessor');
+const repairMalformed = process.argv.includes('--repair-malformed');
+assert.ok(!negative || !repairMalformed, 'The repair check requires the repaired native CLI.');
 assert.ok(binary && path.isAbsolute(binary), 'Supply the actual native Codex binary.');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-refresh-crash-'));
 const children = [];
@@ -161,6 +163,60 @@ async function start(index, canonical) {
   return client;
 }
 
+async function repairWithNativeLogin(canonical) {
+  const home = path.join(root, 'repair-home');
+  const config = path.join(root, 'repair-config');
+  await fs.mkdir(home, { mode: 0o700 });
+  await fs.mkdir(config, { mode: 0o700 });
+  const child = spawn('/usr/bin/prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', binary, 'login', '--with-api-key'], {
+    cwd: root,
+    env: { PATH: process.env.PATH, HOME: home, CODEX_HOME: config, CODEX_AUTH_HOME: canonical, TOKIO_WORKER_THREADS: '2', RUST_LOG: 'off' },
+    detached: true,
+    stdio: ['pipe', 'ignore', 'ignore'],
+  });
+  let expired = false;
+  let failure;
+  const closed = new Promise(resolve => {
+    child.once('error', error => {
+      failure = error;
+      resolve(null);
+    });
+    child.once('close', resolve);
+  });
+  const stop = () => {
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  };
+  const deadline = setTimeout(() => {
+    expired = true;
+    stop();
+  }, 8000);
+  child.stdin.on('error', () => {});
+  child.stdin.end('SYNTHETIC-EXPLICIT-REPAIR-KEY\n');
+  try {
+    const code = await closed;
+    assert.equal(expired, false, 'Explicit native login must finish within the finite probe budget.');
+    assert.equal(failure, undefined, 'The actual native login must start.');
+    assert.equal(code, 0, 'Explicit native login must repair safe malformed JSON after an uncertain refresh.');
+  } finally {
+    clearTimeout(deadline);
+    stop();
+    await closed;
+  }
+  assert.equal(JSON.parse(await fs.readFile(path.join(canonical, 'auth.json'), 'utf8')).OPENAI_API_KEY, 'SYNTHETIC-EXPLICIT-REPAIR-KEY');
+  assert.equal(
+    await fs.access(path.join(config, 'auth.json')).then(
+      () => true,
+      () => false
+    ),
+    false,
+    'Native repair must not create a private credential copy.'
+  );
+}
+
 try {
   const canonical = path.join(root, 'canonical');
   await fs.mkdir(canonical, { mode: 0o700 });
@@ -202,6 +258,14 @@ try {
     const intent = await fs.readFile(path.join(canonical, '.hive-mind-refresh-intent'));
     assert.equal(intent.length, 40, 'Uncertain outcome evidence must remain durable.');
     assert.equal(await fs.readFile(path.join(canonical, 'auth.json'), 'utf8'), original);
+    if (repairMalformed) {
+      await fs.writeFile(path.join(canonical, 'auth.json'), 'malformed synthetic JSON', { mode: 0o600 });
+      await repairWithNativeLogin(canonical);
+      assert.deepEqual(exchanges, ['G0'], 'Explicit native repair must never exchange the consumed predecessor.');
+      assert.equal(modelRequests, initialModelRequests, 'Explicit native login must not execute a model request.');
+      assert.deepEqual(await fs.readFile(path.join(canonical, '.hive-mind-refresh-intent')), intent, 'Only a subsequent generation reconciliation may clear uncertainty.');
+      console.log('PASS: actual native explicit login repairs safe malformed credentials after owner death without reusing G0 or creating a private copy.');
+    }
   }
   console.log(negative ? 'REPRODUCED: an actual native CLI peer exchanges consumed G0 again after owner death; the same lock inode survives.' : 'PASS: actual native CLI peer preserves unresolved intent and refuses a second G0 exchange or model request after owner death.');
 } finally {

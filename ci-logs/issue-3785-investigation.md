@@ -688,3 +688,23 @@ second scan with no residual credential block. The publication sanitizer must
 reach a fixed point in at most four passes per block; non-convergence refuses
 publication. The scripts retain structural diagnostics without printing matched
 credential values.
+
+The recovered refresh-intent module has an additional local regression. After
+recording an uncertain G0 exchange, safe malformed auth JSON made transaction
+acquisition return `Canonical refresh outcome is unresolved or unsafe`, blocking
+explicit native login before it could repair the JSON. The before test fails at
+`explicit_reauthentication_can_repair_malformed_auth_without_clearing_uncertainty`;
+all other six transaction tests pass. Reconciliation now leaves uncertainty
+intact when generation parsing fails while allowing the lock owner to publish
+fresh credentials. Requests and another refresh still refuse the broken store.
+All seven exact-module tests pass with real pinned JSON/hash/Tokio dependencies.
+The native workflow adds both a small dependency-subset job and an actual CLI
+login-after-owner-death control. Full native CLI repair remains unverified until
+that job runs; it is not inferred from the module result.
+
+Local Docker execution currently fails before any probe starts: runc reports
+`cannot enter cgroupv2 "/sys/fs/cgroup/docker" with domain controllers -- it is in an invalid state`.
+This is a local runner limitation, not a passing lifecycle test. The official
+workflow's actionlint and ShellCheck binaries were extracted from its pinned
+image without starting a container; the changed native workflow passes both.
+No cgroup/resource limit was relaxed to make a probe run.

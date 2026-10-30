@@ -1129,3 +1129,21 @@ tests pass. Together with the five existing freshness/image test files, all
 `v0.355.25`, published 2026-10-30T17:40:20Z. The complete default suite and
 fresh exact-head CI are required separately; this focused pass does not
 establish packaged image success.
+
+The subsequent local full suite stops at file 553/738,
+`tests/test-issue-2187-current-dependency-pins.mjs`: its separate expected Formal
+AI version still says 0.355.24. The preserved local log
+`default-bootstrap-aligned.log` reports that exact assertion. Updating the
+expected release to 0.355.25 makes that existing test pass; a full
+continue-on-failure run is in progress. This is a second missed declaration,
+not evidence that the bootstrap repair failed.
+
+The completed Checks run also passes its actual packaged Docker job. Full log
+`ci-logs/checks-41104225711.log`, lines 17530–17535, confirms host and nested
+daemon backing/data checks, Agent/OpenCode atomic replacement and
+deletion/recreation, two task writes, and refusal of private redirection.
+The workflow overall still fails on the test suite and requires a fresh run.
+
+[Native Codex run 41104225493](https://github.com/link-assistant/hive-mind/actions/runs/41104225493)
+passes all three jobs on the same `0b81c2ebd2d33c47a3c23df8f4b9c00f728c303e`
+head. The full log is preserved as `ci-logs/native-codex-41104225493.log`.

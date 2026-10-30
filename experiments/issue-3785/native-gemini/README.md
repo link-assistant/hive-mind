@@ -148,9 +148,52 @@ Logout and revocation now clear that cache; both initial-login-after-logout
 controls exercise the real manual-code flow again.
 
 The inspected native cache-publication control is still distinguished from the
-interactive flows. Other provider constructors/retained handles,
-full CLI inference, full conversation storage and production installation remain
-open. One control keeps an actual native OAuth client model request pending while
+interactive flows. The expanded account stage has 41 native writer/login/account
+controls. Full CLI inference, full conversation storage and production installation
+remain open; the constructor/request stage below is a separate experiment. One control keeps an actual native OAuth client model request pending while
 a second process reads G1, proving the credential lock is released during that
 request. Its model transport is synthetic. These tests do not establish live
 provider replay/grace behavior or the complete six-tool contract.
+
+## Native config, constructor and request admission
+
+`apply_request_auth.py` requires the exact coordinated manager hash
+`d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d`
+and checked reader/writer helpers. It adds admission to the public native config
+factory, content-generator constructors, OAuth factory and Code Assist request
+dispatch. The resulting manager hash is
+`c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792`.
+
+The strict original constructor control fails after an actual Google SDK model
+request using a competing API key despite selected OAuth. Thirty bounded native
+controls reproduce that route and other config/header/endpoint/client bypasses,
+while preserving existing environment-key, selector-change and logout refusals.
+After admission, selected config/constructors refuse API-key, Vertex, ADC and
+gateway authority before private credential discovery. OAuth config also refuses
+explicit keys, competing shadow environment, alternate URLs and credential
+headers. Code Assist POST, GET and streaming dispatch validate the admitted
+native client, current canonical credentials, default endpoint and headers.
+Non-authentication trace headers remain usable. The process binds the selected
+root; unsetting it cannot enable a subsequent competing constructor.
+
+All 30 selected request controls and 30 unselected compatibility controls pass
+locally. Each retained-handle control first completes a healthy actual native
+G0 dispatch. Canonical replacement then dispatches G1; unsafe changes make zero
+additional provider requests. The native API-key SDK control executes its real
+public `countTokens` implementation with only the external fetch replaced.
+The combined writer/account/read controls are rerun after this stage.
+
+```sh
+node experiments/issue-3785/probe-gemini-native-request-auth.mjs --expect-native-gaps
+# This strict constructor regression must fail before admission.
+node experiments/issue-3785/probe-gemini-native-request-auth.mjs --scenario=constructor-api-key
+python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+node experiments/issue-3785/probe-gemini-native-request-auth.mjs
+node experiments/issue-3785/probe-gemini-native-request-auth.mjs --without-selector
+```
+
+These module/SDK controls do not establish full CLI inference, arbitrary
+pre-existing clients, canonical API-key/ADC backends, conversation storage or
+production installation. Unsupported selected backends refuse; implementing
+their own canonical authority remains open.

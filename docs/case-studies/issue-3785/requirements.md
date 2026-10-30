@@ -60,8 +60,11 @@ manual/browser login and current-generation revocation. External browser launch
 and provider transports are synthetic; the real native callback and SDK execute.
 Canonical account metadata and native callbacks have a further experimental
 repair, including stale user-info refusal and same-process login after logout.
-The final expanded control set still requires CI. Other provider/storage paths and full CLI requests remain
-unfinished. Neither stage is production
+The combined local stage passes 41 writer/account controls, 11 canonical reads,
+nine legacy reproductions and 30 selected plus 30 unselected config/constructor/
+request controls. Native API-key SDK dispatch reproduces a bypass before the
+new request admission. The expanded stages still require CI. Canonical alternate
+backends, full CLI requests and full history remain unfinished. Neither stage is production
 integration or completion of A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and
 `evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.

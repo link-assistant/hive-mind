@@ -163,3 +163,28 @@ The final canonical read/private-scope set passes all 11 cases, and all nine
 no-selector native stale-header reproductions remain unchanged. Expanded CI is
 pending; full CLI requests, other provider constructors, full history and production
 installation remain unfinished.
+
+Native constructor/request stage (local, 2026-10-30):
+Input manager SHA-256: d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d
+Admitted manager SHA-256: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+Probe: experiments/issue-3785/probe-gemini-native-request-auth.mjs
+30 before controls preserve existing refusals and reproduce alternate authority.
+Strict constructor-api-key regression before admission:
+  actual: { selected: 'accepted', requests: 1 }
+  expected: { selected: 'rejected', requests: 0 }
+The real native Google SDK countTokens implementation sends that one request;
+only its provider fetch boundary is synthetic.
+30 selected controls pass after admission; API-key/Vertex/gateway constructors
+refuse before transport, and retained native Code Assist handles refuse changed
+endpoint, version, auth headers, client, selector and missing credentials.
+Each retained-handle case completes one healthy native G0 dispatch first.
+Canonical replacement completes its next native dispatch with G1.
+30 no-selector controls preserve native constructor/request behavior.
+Complete CLI inference/history, arbitrary pre-existing clients, API-key/ADC
+canonical backends, production installation and fresh CI remain unfinished.
+Combined native request stage preserves all 41 writer/login/account controls,
+11 canonical-read/private-scope controls and nine legacy read reproductions.
+The original-package rotation control again fails for the exact G0/G1 refresh
+mismatch after restricting the new callback assertion to the coordinated stage.
+All five CI pre-coordination login/revocation/account regressions retain their
+specific original failures. Local ESLint, actionlint and Python syntax pass.

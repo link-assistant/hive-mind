@@ -724,3 +724,20 @@ Latest CI continuation:
 - [ ] Verify the expanded account/login/revocation stage in CI.
       Continue every remaining matrix criterion; these
       experiments are not installed by production launchers or images.
+- [x] Reproduce alternate native Gemini config/client constructors bypassing the
+      selected OAuth authority, including retained Code Assist handles after
+      endpoint/header edits. Add exact-source admission before private key/ADC
+      fallback and native request dispatch, preserving unselected behavior.
+- [x] Verify the new constructor/request controls and retain all 41 native writer,
+      11 canonical-read and nine legacy-read controls; keep full CLI/history and
+      production integration explicitly unfinished until implemented and verified.
+
+- [x] Verify 30 selected native config/constructor/request controls and 30
+      unselected compatibility controls locally. Preserve the existing logout
+      and source-change refusals and observe G1 after canonical replacement.
+- [x] Investigate exact-head Gemini CI 41104225569. Its new callback assertion
+      masked the original-package rotation mismatch; scope that assertion to
+      the coordinated stage, reproduce the intended mismatch again and check
+      all five pre-coordination login/account/revocation regressions locally.
+- [ ] Exercise the actual Gemini CLI with a loopback-only TLS provider fixture,
+      then implement/verify canonical full conversation discovery and resume.

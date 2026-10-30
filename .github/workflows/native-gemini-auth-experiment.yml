@@ -9,6 +9,7 @@ on:
       - 'src/shared-auth-refresh-lock.lib.mjs'
       - 'experiments/issue-3785/probe-gemini-native-writers.mjs'
       - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
+      - 'experiments/issue-3785/probe-gemini-native-request-auth.mjs'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -101,6 +102,25 @@ jobs:
         run: |
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce actual alternate constructors and retained request authority
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --expect-native-gaps > "$RUNNER_TEMP/gemini-requests-before.log" 2>&1
+      - name: Require the selected constructor regression to fail before admission
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --scenario=constructor-api-key > "$RUNNER_TEMP/gemini-constructor-regression.log" 2>&1; then
+            echo 'The selected native API-key constructor unexpectedly refused before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: constructor-api-key: actual native authority admission' "$RUNNER_TEMP/gemini-constructor-regression.log"
+          grep -F "selected: 'accepted'" "$RUNNER_TEMP/gemini-constructor-regression.log"
+          grep -F 'requests: 1' "$RUNNER_TEMP/gemini-constructor-regression.log"
+      - name: Apply exact pinned native constructor and request admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Refuse competing native request authority and observe canonical replacement
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-requests-after.log" 2>&1
+      - name: Preserve unselected native constructors and request dispatch
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --without-selector > "$RUNNER_TEMP/gemini-requests-legacy.log" 2>&1
       - name: Verify native refresh, login, accounts, callbacks, revocation and crash recovery
         run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
       - name: Preserve coordinated native canonical reads and private-scope isolation

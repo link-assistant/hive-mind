@@ -446,6 +446,14 @@ jobs:
         run: bash scripts/docker-pr-build.sh
       - name: Verify system & development tools in running containers
         run: bash scripts/docker-pr-verify-containers.sh
+      - name: Preserve synthetic tool-data gate diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: synthetic-tool-data-gate
+          path: ${{ runner.temp }}/hive-tool-data-*.log
+          if-no-files-found: ignore
+          retention-days: 7
   helm-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

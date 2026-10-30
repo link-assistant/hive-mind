@@ -15,7 +15,13 @@ const { buildDockerIsolationStartArgs, prepareDockerIsolationHostPaths, resolveD
 const { SHARED_TOOL_DATA_ENV } = await import(pathToFileURL(path.join(installed, 'tool-data-mounts.lib.mjs')));
 // Execute the installed validator itself inside the disposable child. The
 // package directory need not be available in the outer daemon's namespace.
-const validator = await fs.readFile(path.join(installed, 'tool-data-mounts.lib.mjs'), 'utf8');
+const validatorSource = await fs.readFile(path.join(installed, 'tool-data-mounts.lib.mjs'), 'utf8');
+const storageSource = await fs.readFile(path.join(installed, 'storage-directory.lib.mjs'), 'utf8');
+const storageImport = "'./storage-directory.lib.mjs'";
+assert.equal(validatorSource.split(storageImport).length, 2, 'the installed validator dependency must match the packaged probe contract');
+// The disposable Node image has no package checkout. Carry the installed
+// dependency as an ES module as well, retaining its built-in Node imports.
+const validator = validatorSource.replace(storageImport, JSON.stringify(`data:text/javascript;base64,${Buffer.from(storageSource).toString('base64')}`));
 const image = process.env.HIVE_MOUNT_TEST_IMAGE;
 const expectedHome = process.env.HIVE_MOUNT_TEST_EXPECTED_HOME;
 const searchSource = process.env.HIVE_MOUNT_TEST_SEARCH_SOURCE;

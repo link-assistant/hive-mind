@@ -562,3 +562,12 @@ Latest CI continuation:
       file-limit and secret checks pass.
 - [ ] Verify native interrupted-migration positive with the rebuilt path adapter
       and finish the complete default suite.
+- [x] Download exact-head 67da7a592 CI: native Codex passes all three jobs,
+      including compiled compression/canonical metadata/fresh resume. Preserve
+      the separate packaged Docker failure at log lines 67230–67243. Reproduce
+      the installed-validator missing dependency in an empty task filesystem,
+      carry its actual installed helper and preserve failed synthetic diagnostics
+      before cleanup. All six focused gate/payload/selection controls pass.
+- [x] Repair the missing Formal AI journal fixture after the full 733-file run
+      stops there; all 36 affected cases pass. Restart the complete default suite
+      (734 selected files); test the later payload regression independently.

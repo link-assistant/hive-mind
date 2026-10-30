@@ -56,7 +56,15 @@ try {
       await fs.rm(path.join(fixture, 'rg'), { force: true });
       await docker(['cp', `${name}:/home/box/.local/bin/rg`, path.join(fixture, 'rg')]);
       const searchSource = path.join(path.dirname(expectedHome), 'rg');
-      const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, '--env', `HIVE_MOUNT_TEST_SEARCH_SOURCE=${searchSource}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000);
+      const dataResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, '--env', `HIVE_MOUNT_TEST_SEARCH_SOURCE=${searchSource}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-tool-data.mjs "$(command -v hive)"'], 120_000).catch(async error => {
+        // These fixtures contain synthetic values only. Preserve their bounded
+        // private diagnostics before finally removes the disposable container.
+        const diagnostic = path.join(process.env.RUNNER_TEMP || os.tmpdir(), `hive-tool-data-${variant}-${randomUUID()}.log`);
+        await docker(['cp', `${name}:/tmp/hive-tool-data-gate-private.log`, diagnostic])
+          .then(() => fs.chmod(diagnostic, 0o600))
+          .catch(() => {});
+        throw error;
+      });
       process.stdout.write(`${variant}: ${dataResult.stdout}`);
       for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
     } finally {

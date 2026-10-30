@@ -966,3 +966,33 @@ alias; deleting both configs makes fresh resume fail while canonical compressed
 history remains intact. The new exact-source SQLite path projection passes nine
 standalone Rust controls; full compiled before/after verification is required
 in the next run. Production canonical storage remains unfinished.
+
+## Head 67da7a592: native success and packaged payload failure (2026-10-30)
+
+Native Codex run [41076013002](https://github.com/link-assistant/hive-mind/actions/runs/41076013002),
+created at 14:55:52 UTC for `67da7a5927f4ac2272a85557d845860a445be5d9`,
+passes all three jobs. The compiled SQLite path adapter passes actual active
+and archived compression, private-configuration disposal and fresh resume.
+The selector-absent negative control still reproduces private metadata.
+
+Checks/release run [41076013051](https://github.com/link-assistant/hive-mind/actions/runs/41076013051)
+passes dependency freshness, lint, compilation and all test jobs. Packaged
+Docker fails after its host-backed Codex mount check succeeds. Downloaded
+`checks-release-41076013051.log` lines 67230–67243 locate the failure at the
+first Agent/OpenCode installed-validator invocation. Its private child log
+was removed with the disposable container, so CI does not expose the inner
+exception at this head.
+
+The exact generated validator payload reproduces `ERR_MODULE_NOT_FOUND` in
+an empty working directory: the newly imported `storage-directory.lib.mjs`
+is absent in the small Node task image. Carry that installed dependency as
+a data-URL module with the validator, without requiring a package checkout
+inside the task. The before test fails at the missing import; the after test
+and five related gate/selection cases pass. Failed synthetic gate diagnostics
+are now copied out before container removal and retained as a CI artifact.
+Actual packaged host/nested confirmation remains required in the next run.
+
+The local 733-file attempt stopped at file 506 because the Formal AI mount
+fixture omitted the newly required migration-journal directory. Its 36 tests
+pass after supplying that directory. A fresh 734-file default suite is running;
+the subsequently added validator-payload regression is verified separately.

@@ -44,7 +44,7 @@ jobs:
         with:
           node-version: 24.x
       - name: Install the source-pinned compiler
-        run: rustup toolchain install 1.99.1 --profile minimal
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt
       - name: Apply the exact native auth and refresh transaction modules
         run: |
           native_source="$RUNNER_TEMP/codex-native-transactions"
@@ -64,9 +64,10 @@ jobs:
             exit 1
           fi
           grep -F 'test api_key_login_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F 'test api_key_with_stale_tokens_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
           grep -F 'test legacy_account_switch_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
           grep -F 'test legacy_fresh_owned_login_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
-          grep -F '8 passed; 3 failed' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F '8 passed; 4 failed' "$RUNNER_TEMP/native-identity-unit-before.log"
           python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_TRANSACTION_SOURCE"
           python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py "$NATIVE_TRANSACTION_SOURCE" > "$RUNNER_TEMP/native-identity-unit-after.log" 2>&1
       - name: Build the pinned dependency subset and test the exact native modules
@@ -147,7 +148,7 @@ jobs:
           python3 experiments/issue-3785/native-codex/apply_adapter.py "$native_source"
           python3 experiments/issue-3785/native-codex/apply_message_history_probe.py "$native_source"
       - name: Install the source-pinned compiler
-        run: rustup toolchain install 1.99.1 --profile minimal
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt
       - name: Test the exact canonical storage module
         run: |
           rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_auth_tests.rs -o "$RUNNER_TEMP/canonical-auth-tests"

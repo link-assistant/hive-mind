@@ -165,6 +165,9 @@ stream_max_retries = 0
                     elif scenario in ("legacy-fresh-owned-login", "owned-fresh-login"):
                         replacement = token("synthetic-account-A", "G1", "synthetic-new-login")
                         publish(auth, replacement)
+                    elif scenario == "api-key-with-stale-tokens":
+                        replacement = {**initial, "auth_mode": "apikey", "OPENAI_API_KEY": "SYNTHETIC-NEW-LOGIN"}
+                        publish(auth, replacement)
                     elif scenario == "api-key-login":
                         replacement = {"OPENAI_API_KEY": "SYNTHETIC-NEW-LOGIN"}
                         publish(auth, replacement)
@@ -191,7 +194,7 @@ stream_max_retries = 0
                 assert os.fstat(diagnostics.fileno()).st_size <= 256 * 1024
             assert invalid == [], f"Unexpected synthetic loopback endpoints: {invalid!r}."
             allowed = scenario in ("healthy", "rotation")
-            bypass = negative and scenario in ("account-switch", "api-key-login", "legacy-fresh-owned-login")
+            bypass = negative and scenario in ("account-switch", "api-key-login", "api-key-with-stale-tokens", "legacy-fresh-owned-login")
             if allowed:
                 assert observed == [("synthetic-account-A", True)], "The healthy native identity control must reach the model."
             if replacement is None:
@@ -200,7 +203,8 @@ stream_max_retries = 0
                 final = json.loads(auth.read_text())
                 identity = final.pop("agent_identity", None)
                 if "tokens" in replacement:
-                    assert final.pop("OPENAI_API_KEY", None) is None
+                    if replacement.get("auth_mode") == "chatgpt":
+                        assert final.pop("OPENAI_API_KEY", None) is None
                     final["last_refresh"] = datetime.fromisoformat(final["last_refresh"])
                     replacement["last_refresh"] = datetime.fromisoformat(replacement["last_refresh"])
                 assert final == replacement, "Identity metadata must preserve the current credential generation."
@@ -228,10 +232,10 @@ if __name__ == "__main__":
     parser.add_argument("binary", type=Path)
     parser.add_argument("--expect-stale-publication", action="store_true")
     parser.add_argument("--diagnostics", type=Path)
-    parser.add_argument("--scenario", choices=["healthy", "rotation", "account-switch", "api-key-login",
+    parser.add_argument("--scenario", choices=["healthy", "rotation", "account-switch", "api-key-login", "api-key-with-stale-tokens",
                                               "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"])
     args = parser.parse_args()
     assert args.binary.is_absolute() and args.binary.is_file()
     for case in ([args.scenario] if args.scenario else ["healthy", "rotation", "account-switch",
-                                                      "api-key-login", "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"]):
+                                                      "api-key-login", "api-key-with-stale-tokens", "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"]):
         run(args.binary, case, args.expect_stale_publication, args.diagnostics)

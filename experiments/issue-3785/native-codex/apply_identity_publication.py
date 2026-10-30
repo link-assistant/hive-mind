@@ -29,7 +29,10 @@ after = '''    if canonical_transaction::selected() {
         // match the account/user and remain an OAuth login before a pending
         // bootstrap can publish its private identity key into canonical state.
         let expected = guard.as_ref().and_then(|auth| auth.tokens.as_ref());
-        let current = stored.as_ref().and_then(|auth| auth.tokens.as_ref());
+        let current = stored
+            .as_ref()
+            .filter(|auth| auth.resolved_mode() == AuthMode::Chatgpt)
+            .and_then(|auth| auth.tokens.as_ref());
         if !matches!((expected, current), (Some(expected), Some(current))
             if same_login_for_persistence(expected, current))
         {

@@ -35,9 +35,11 @@ use std::sync::{Arc, Mutex};
 }
 #[derive(Clone, Debug, PartialEq)] struct AgentIdentityAuthRecord { account_id: String }
 #[derive(Clone, Debug, PartialEq)] enum AgentIdentityStorage { Record(AgentIdentityAuthRecord) }
+#[derive(Clone, Debug, PartialEq)] enum AuthMode { Chatgpt, ApiKey }
 #[derive(Clone, Debug, PartialEq)] struct AuthDotJson {
-    tokens: Option<TokenData>, agent_identity: Option<AgentIdentityStorage>,
+    mode: AuthMode, tokens: Option<TokenData>, agent_identity: Option<AgentIdentityStorage>,
 }
+impl AuthDotJson { fn resolved_mode(&self) -> AuthMode { self.mode.clone() } }
 trait AuthStorageBackend {
     fn load(&self) -> std::io::Result<Option<AuthDotJson>>;
     fn save(&self, auth: &AuthDotJson) -> std::io::Result<()>;
@@ -58,7 +60,7 @@ mod canonical_transaction {
     impl Transaction { pub fn acquire() -> std::io::Result<Self> { Ok(Self) } }
 }
 fn auth(account: &str, generation: &str, owner: Option<&str>) -> AuthDotJson {
-    AuthDotJson { tokens: Some(TokenData { login_owner_id: owner.map(String::from),
+    AuthDotJson { mode: AuthMode::Chatgpt, tokens: Some(TokenData { login_owner_id: owner.map(String::from),
         account_id: Some(account.into()), id_token: IdTokenInfo { chatgpt_user_id: Some("user".into()) },
         refresh_token: generation.into() }), agent_identity: None }
 }
@@ -85,7 +87,11 @@ fn check(current: Option<AuthDotJson>, owner: Option<&str>, accepted: bool, sele
     }
 }
 #[test] fn legacy_account_switch_refuses() { check(Some(auth("B", "G1", None)), None, false, true); }
-#[test] fn api_key_login_refuses() { check(Some(AuthDotJson { tokens: None, agent_identity: None }), None, false, true); }
+#[test] fn api_key_login_refuses() { check(Some(AuthDotJson { mode: AuthMode::ApiKey, tokens: None, agent_identity: None }), None, false, true); }
+#[test] fn api_key_with_stale_tokens_refuses() {
+    let mut value = auth("A", "G0", None); value.mode = AuthMode::ApiKey;
+    check(Some(value), None, false, true);
+}
 #[test] fn legacy_fresh_owned_login_refuses() { check(Some(auth("A", "G1", Some("new"))), None, false, true); }
 #[test] fn legacy_logout_refuses() { check(None, None, false, true); }
 #[test] fn healthy_legacy_login_publishes() { check(Some(auth("A", "G0", None)), None, true, true); }

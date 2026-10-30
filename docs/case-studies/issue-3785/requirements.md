@@ -125,3 +125,17 @@ establish interactive startup/error admission, prior-private-state migration,
 shell command/Git checkpoint/plan/tracker/task storage, child/subagent lifecycle,
 interrupted first publication, all backends or production installation. Fresh
 Node 24 CI and the remaining A1–A12 criteria stay open.
+
+A further native recovery stage reproduces interrupted first publication in
+five data families before repair. Fifteen forced-death controls now recover
+the original bytes/device/inode across private-home disposal; twenty unsafe
+evidence controls refuse without changing publication or protected files.
+A live journal replacement first fails on the draft, then passes with generation
+revalidation before publication and evidence removal. All 36 results / 71 bounded
+native processes pass locally. Fresh source application produces the exact
+tested manager/CLI/helper bytes and passes its native crash/read control. See
+`evidence/native-gemini-publication-controls.txt` for pins and boundaries.
+Malformed/incomplete intent creation, unjournaled staging, append interruption,
+full CLI/UI crash admission, physical power loss and the remaining full-history/
+lifecycle/backend/production requirements stay open. Exact-head Node 24 CI is
+still required; these controls do not complete A1–A12.

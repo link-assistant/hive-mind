@@ -531,3 +531,61 @@ Fresh Node 24 CI, interactive startup/error admission, prior-private-state
 migration, shell command history, Git checkpoints, plans/tracker/task state,
 child/subagent lifecycle, interrupted first publication, all backends and
 production installation remain open. This experiment does not complete A1–A12.
+
+## Interrupted first publication
+
+The preceding helper can die after linking synchronized staging bytes into the
+canonical name and before removing the staging link. A fresh checked reader then
+refuses the resulting two-link file. `probe_publication.py --before-control`
+reconstructs that exact preceding helper only in its disposable native package;
+its SHA-256 must equal
+`b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab`.
+Strict controls reproduce this refusal for the project registry, native Logger
+prompts and named checkpoints, tool outputs, and degraded blobs. They first
+confirm complete synchronized data, kill and reap the owner, dispose its private
+home, and require a fresh process to retain the original bytes/device/inode.
+
+The new `publication.mjs` records an exclusive, synchronized 0600 journal before
+first publication. The journal identifies the allowlisted destination, staging
+inode/device, size and SHA-256. The same stable history lock protects publication
+and recovery. Before ordinary reads/writes, recovery verifies the bounded UTF-8
+journal, data identities and content, then completes or finalizes that specific
+publication. It never overwrites a competing destination. The canonical data inode
+is retained while the staging link and completed journal are removed and their
+parent synchronized. Unrelated hardlinks continue to fail ordinary admission.
+
+The controls cover three forced-death points for all five families: after durable
+intent but before linking, after linking, and after staging-link removal. Twenty
+unsafe-evidence cases cover linked, permissive, malformed, oversized, invalid
+UTF-8, traversal and mismatched journals; linked, permissive, changed or missing
+staging; and linked, permissive, changed or competing destinations. Refusal keeps
+all publication and protected files unchanged. A further live replacement
+regression first fails on the draft, then verifies refusal before canonical
+publication while retaining the original stage, protected intent and peer
+journal. Failed operations retain their unpublished staging/evidence.
+
+The journal is limited to 4096 bytes, data to 32 MiB, and each locked directory
+scan to 16,384 entries and 128 pending journals. Data hashing uses a 64 KiB buffer.
+Each native process has a 192 MiB JavaScript heap, finite 20-second deadline,
+16 MiB stack and 64 KiB diagnostic cap; all descendants are reaped. Storage and
+Logger initialize through the actual native exports; artifact/blob crash reads
+use the installed adapter's public helpers. These controls do not establish full
+CLI crash admission or physical power-loss recovery.
+
+```sh
+python3 experiments/issue-3785/native-gemini/probe_publication.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-publication.log
+python3 experiments/issue-3785/native-gemini/probe_publication.py /path/to/disposable/gemini-cli --attack journal-symlink --diagnostics /tmp/gemini-publication-unsafe.log
+python3 experiments/issue-3785/native-gemini/probe_publication.py /path/to/disposable/gemini-cli --live-journal-replacement --diagnostics /tmp/gemini-publication-live.log
+```
+
+Manager SHA-256 remains the Logger-stage `439a87bb...` above. Recovery-stage
+history helper SHA-256:
+`8102dc907fd4c61e91cef33daa6debd291a5620a24cd3f53bd355350706fca41`.
+Publication module SHA-256:
+`2e55f93d5075a6c9cc9d5b3c7e71f243accc8f72e955e038d0341cb8fed0bc00`.
+
+Malformed/incomplete intent creation, unjournaled staging, append interruption,
+complete CLI/UI admission, migration, all other history surfaces, child/subagent
+lifecycle, alternate backends, power loss and production installation remain
+open. Invalid or conflicting evidence is retained and refused; this stage does
+not provide an automatic repair for every interruption or complete A1–A12.

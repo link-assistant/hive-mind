@@ -976,6 +976,23 @@ Latest CI continuation:
       Full formatting, ESLint, focused secret scanning, actionlint and syntax
       checks pass. Repeat all full CLI refusals in fresh Node 24 CI.
 - [ ] Require fresh Node 24 native Logger CI after all local checks pass.
-- [ ] Reproduce interrupted first publication before choosing a recovery design;
-      retain canonical data and publication evidence, reject unrelated hardlinks
-      and verify fresh-process recovery after the owner is reaped.
+- [x] Reproduce interrupted first publication in all five selected families;
+      fresh readers reject complete two-link data after the owner is killed and
+      reaped. Preserve the exact preceding helper as a checked disposable control.
+- [x] Add synchronized, bounded publication journals and checked recovery under
+      the stable lock. All fifteen before-link/after-link/after-unlink recovery
+      controls pass, retaining original bytes/device/inode after private disposal.
+- [x] Reproduce live journal replacement being deleted by the draft, then
+      require publication refusal while retaining staged, protected and peer data.
+- [x] Pass all twenty unsafe-evidence refusals and verify fresh source application
+      yields the exact tested manager/CLI/helper files. A fresh native registry
+      crash/read control passes on that newly applied package too.
+- [x] Run full formatting, ESLint, focused secret scanning, actionlint and syntax
+      checks on the recovery stage. Preserve the preceding negative controls,
+      failed draft and final protected-data evidence.
+- [x] Pass all surrounding native regressions on the final recovery helper:
+      36 Logger, 65 storage, nine tool-output and 31 blob controls, both full
+      CLI disposal/resume positives, all eight artifact and seven blob CLI
+      refusals, and 41 writer/account, 30 request and 11 canonical-read controls.
+- [ ] Require fresh exact-head Node 24 CI. Retain incomplete/invalid intent and remaining
+      append/UI/power-loss/full-history/production criteria as unfinished.

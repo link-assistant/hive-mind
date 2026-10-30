@@ -6,6 +6,7 @@ import process from 'node:process';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { Buffer, isUtf8 } from 'node:buffer';
+import { recoverNativeGeminiPublications, publishNativeGeminiExclusive } from './hive-gemini-publication.mjs';
 
 const LIMIT = 32 * 1024 * 1024;
 const identity = info => `${info.dev}:${info.ino}`;
@@ -162,6 +163,7 @@ function locked(parent, operation) {
     const result = spawnSync('flock', ['-x', '-w', '5', '3'], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'ignore', 'ignore', fd] });
     if (result.error || result.status !== 0) throw refuse();
     current();
+    recoverNativeGeminiPublications(parent, current, refuse);
     const value = operation(current);
     current();
     return value;
@@ -181,18 +183,12 @@ function publish(parent, name, content, current, replace = true, admit = () => {
     admit();
     if (replace) fs.renameSync(temporary, `${parent.anchor}/${name}`);
     else {
-      fs.linkSync(temporary, `${parent.anchor}/${name}`);
-      fs.unlinkSync(temporary);
+      publishNativeGeminiExclusive(parent, name, temporary, content, current, refuse);
     }
     fs.fsyncSync(parent.fd);
     current();
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
-    try {
-      fs.unlinkSync(temporary);
-    } catch (error) {
-      if (error.code !== 'ENOENT') failed = true;
-    }
   }
 }
 

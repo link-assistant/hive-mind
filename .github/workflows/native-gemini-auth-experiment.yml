@@ -210,6 +210,24 @@ jobs:
           python3 experiments/issue-3785/native-gemini/apply_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
       - name: Preserve native prompts and checkpoint audit with independent writers
         run: python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-logger-after.log" > "$RUNNER_TEMP/gemini-logger-after-control.log" 2>&1
+      - name: Reproduce interrupted first publication using the exact preceding helper
+        run: |
+          for family in registry prompt checkpoint artifact blob; do
+            if python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --before-control --scenario "$family" --point after-link --diagnostics "$RUNNER_TEMP/gemini-publication-before-$family.log" > "$RUNNER_TEMP/gemini-publication-before-$family-control.log" 2>&1; then
+              echo 'The preceding first-publication control unexpectedly passed.'
+              exit 1
+            fi
+            grep -F 'Error: Gemini canonical conversation history is unavailable or unsafe.' "$RUNNER_TEMP/gemini-publication-before-$family-$family-after-link-peer.log"
+          done
+      - name: Recover native first publication after forced owner death
+        run: |
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-publication-after.log" > "$RUNNER_TEMP/gemini-publication-after-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --live-journal-replacement --diagnostics "$RUNNER_TEMP/gemini-publication-live-journal.log" > "$RUNNER_TEMP/gemini-publication-live-journal-control.log" 2>&1
+      - name: Refuse unsafe native publication evidence without changing protected data
+        run: |
+          for attack in journal-symlink journal-hardlink journal-mode journal-malformed journal-schema journal-invalid-utf8 journal-oversized journal-traversal journal-inode journal-digest stage-symlink stage-hardlink stage-mode stage-content stage-missing target-symlink target-hardlink target-mode target-content target-collision; do
+            python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-publication-$attack.log" > "$RUNNER_TEMP/gemini-publication-$attack-control.log" 2>&1
+          done
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal

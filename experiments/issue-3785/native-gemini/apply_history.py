@@ -25,7 +25,7 @@ for name, expected in pins.items():
     if hashlib.sha256(data).hexdigest() != expected:
         raise SystemExit('Refusing changed native Gemini history input: ' + name)
     sources[name] = data.decode()
-if (bundle / 'hive-gemini-history.mjs').exists():
+if any((bundle / name).exists() or (bundle / name).is_symlink() for name in ('hive-gemini-history.mjs', 'hive-gemini-publication.mjs')):
     raise SystemExit('Refusing an existing native Gemini history helper.')
 
 
@@ -254,6 +254,7 @@ admission = replace(admission, 'export function assertNativeGeminiAuthority(cont
   assertNativeGeminiHistoryCurrent();''')
 sources['hive-gemini-admission.mjs'] = 'import { assertNativeGeminiHistoryCurrent } from "./hive-gemini-history.mjs";\n' + admission
 sources['hive-gemini-history.mjs'] = (here / 'history.mjs').read_text()
+sources['hive-gemini-publication.mjs'] = (here / 'publication.mjs').read_text()
 if '--check' in sys.argv[2:]:
     print('Pinned native Gemini conversation selector applies; no files changed.')
 else:

@@ -199,10 +199,14 @@ intermediate manager hash. Its canonical-only guard requires matching OAuth
 login/account/user state even when the old login has no owner ID. It preserves
 same-login token rotation and the native no-selector behavior. The focused
 `build_identity_publication_tests.py` compiles the exact native writer and login
-comparison functions against in-memory storage/lock fixtures: three of eleven tests
-fail before repair and all eleven pass afterward. This fixture does not verify
-filesystem coordination. The full native CI job must separately build the actual
-repaired CLI and pass all eight native registration scenarios. That full-CLI
+comparison functions against in-memory storage/lock fixtures: four of twelve tests
+fail before repair and all twelve pass afterward. This fixture does not verify
+filesystem coordination. A further actual CLI regression replaces the login with
+explicit API-key mode while retaining stale OAuth tokens. Matching token fields
+alone permit publication: that case fails even against the earlier focused repair.
+The guard now also requires the resolved canonical mode to remain ChatGPT.
+The full native CI job must separately build the actual
+repaired CLI and pass all nine native registration scenarios. That full-CLI
 positive result remains pending; production does not install this experiment.
 
 ```sh

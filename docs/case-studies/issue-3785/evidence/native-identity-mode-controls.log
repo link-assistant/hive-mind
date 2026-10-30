@@ -1,0 +1,38 @@
+Actual Codex CLI from native run 41051640537; this binary predates the identity repair.
+The API-key-mode replacement retains the previous OAuth token object.
+
+PASS: healthy: preserves canonical rotation; model_requests=1
+PASS: rotation: preserves canonical rotation; model_requests=1
+PASS: account-switch: reproduces stale native identity publication; model_requests=0
+PASS: api-key-login: reproduces stale native identity publication; model_requests=0
+PASS: api-key-with-stale-tokens: reproduces stale native identity publication; model_requests=0
+PASS: logout: refuses stale identity publication; model_requests=0
+PASS: owned-account-switch: refuses stale identity publication; model_requests=0
+PASS: legacy-fresh-owned-login: reproduces stale native identity publication; model_requests=0
+PASS: owned-fresh-login: refuses stale identity publication; model_requests=0
+
+Strict actual API-key-mode assertion fails before repair:
+AssertionError: A stale identity must not be published into a replacement login.
+
+Focused exact-writer regression against the earlier identity repair:
+test api_key_with_stale_tokens_refuses ... FAILED
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out.
+
+After requiring resolved canonical mode Chatgpt:
+running 12 tests
+test api_key_login_refuses ... ok
+test api_key_with_stale_tokens_refuses ... ok
+test healthy_legacy_login_publishes ... ok
+test legacy_account_switch_refuses ... ok
+test legacy_fresh_owned_login_refuses ... ok
+test legacy_logout_refuses ... ok
+test legacy_rotation_preserves_new_tokens ... ok
+test missing_owner_changed_generation_refuses ... ok
+test missing_owner_recovery_retains_native_semantics ... ok
+test owned_new_login_refuses ... ok
+test owned_rotation_preserves_new_tokens ... ok
+test unselected_legacy_behavior_is_preserved ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+The focused harness substitutes storage/lock fixtures. Actual repaired CLI execution remains pending.

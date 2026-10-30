@@ -32,9 +32,10 @@ provider at startup and refuses every external proxy tunnel before TLS. The
 actual downloaded executable passes both live-client auth modes, eight provider
 overrides, eight constructor/compatibility controls, crash/login repair and TUI
 controls locally. [Structural results](evidence/native-network-controls.log)
-retain the scope of those passes. Three stale identity publications still
-reproduce in that executable; eleven focused writer tests pass after a new
-source repair, whose full native CLI result remains pending.
+retain the scope of those passes. Four stale identity publications reproduce across nine actual scenarios,
+including API-key mode with retained OAuth tokens. All twelve focused writer
+tests pass after the login/mode repair; [structural evidence](evidence/native-identity-mode-controls.log)
+keeps that result separate from the pending full native CLI verification.
 
 Seven exact native Codex transaction tests preserve explicit login repair of
 malformed JSON without allowing another consumed-predecessor exchange. Qwen's

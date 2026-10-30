@@ -872,3 +872,45 @@ changed files. The complete local `git diff origin/main...HEAD` is retained
 locally for review; the branch contains current main without rewriting history.
 Fresh runs at 254e5901e were created at 2026-10-30T13:12:45Z; queued native
 jobs have no logs yet. No queued state is counted as a pass.
+
+## Fresh native failures at 2347ebdf5 (2026-10-30)
+
+Runs were created at 13:19:14 UTC for exact head
+`2347ebdf5cb2148d27b89a51f69fb2bda4ce30a4`.
+Native Qwen run 41062245341 passes, including all existing auth controls and
+actual completed-history/private-disposal/resume positive and negative controls.
+Downloaded workflow log: `ci-logs/native-qwen-41062245341.log` (439 lines).
+Its history artifacts retain prior messages on shared runtime and specifically
+reach native missing-session discovery after private runtime disposal. This
+still does not implement a canonical current-provider auth adapter.
+
+Codex job 124084688284 in run 41062245561 fails after reproducing the three
+expected original identity cases. The job log was downloaded through the jobs
+API while the other jobs were still running. In
+`ci-logs/native-codex-intent-41062245561.log`, lines 272–283 install only the
+minimal Rust profile; lines 339–350 show expected regressions followed by the
+pinned rustfmt subprocess failing. Both compiler setup steps now explicitly
+install the rustfmt component required by the identity applier. The full CLI
+job was still running at inspection; no pending result is counted as success.
+
+A separate actual CLI regression replaces ChatGPT credentials with explicit
+API-key mode while retaining the previous OAuth token object. Token comparison
+alone still permits stale identity publication. The strict actual CLI assertion
+fails; the previous focused repair also fails this new case (11 pass, one fail).
+Require the canonical resolved mode to remain ChatGPT as well as matching the
+originating login. All twelve focused cases pass afterward. Nine actual
+pre-repair controls reproduce four stale publications; rebuilt CLI positives
+remain pending. Structural evidence is in
+`evidence/native-identity-mode-controls.log`.
+
+Claude run 41062245476 verifies the exact pinned binary digest, native storage
+selection and all five healthy/writer controls, then fails in the owner-death
+fixture. Workflow log `ci-logs/native-claude-41062245476.log`, lines 291–306,
+locates the failed step; artifact `claude-owner-death.log`, lines 1–7, reports
+`Synthetic request validation failed: ['SSLEOFError']` after two refresh requests.
+The first response was intentionally held until its native owner was killed.
+Handle TLS EOF/broken-pipe/reset only while sending that specific response after
+the owner has been reaped; retain failures for peer/other requests and all other
+TLS errors. Repeated actual owner-death controls pass after the fixture repair,
+while the strict consumed-predecessor assertion still fails. This fixes fixture
+accounting, not the unresolved native crash guarantee.

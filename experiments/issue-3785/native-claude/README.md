@@ -48,7 +48,12 @@ establish native request authorization and writer behavior, not successful model
 completion or conversation lifecycle. Local structural logs are retained in
 `docs/case-studies/issue-3785/evidence/claude-native-refresh-controls.log`.
 The new native Claude workflow repeats the controls with an independently
-installed exact version and preserves its digest/diagnostics; fresh CI is pending.
+installed exact version and preserves its digest/diagnostics. Run 41062245476
+verifies that digest and all five healthy/writer controls. Its killed-owner
+response raises SSLEOFError in the fixture; a narrow response guard now accepts
+that disconnect only after the original owner has been reaped. Peer requests,
+other endpoints and TLS failures still fail the fixture. Fresh full CI remains
+pending; the underlying native predecessor-reuse defect remains unresolved.
 
 ## Unresolved native owner death
 

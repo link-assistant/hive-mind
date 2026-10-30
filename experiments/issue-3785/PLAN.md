@@ -489,3 +489,15 @@ Latest CI continuation:
 - [ ] Verify fresh Qwen history CI and separate runtime workflow executables,
       pinned-context overrides, plans/audit fallback and full lifecycle before
       production projection.
+
+- [x] Verify Qwen completed-history controls in native run 41062245341 at
+      2347ebdf5; downloaded positive/private-disposal/strict artifacts all match
+      their assertions. Current-provider canonical auth and full lifecycle stay open.
+- [x] Download fresh native Codex/Claude failures. Install pinned rustfmt in both
+      Codex jobs; limit expected TLS disconnect accounting to Claude's already
+      killed first refresh owner. Preserve all predecessor/model assertions.
+- [x] Reproduce actual Codex stale identity publication after switching to
+      API-key mode with retained OAuth fields. The earlier focused guard fails
+      this new case. Require resolved ChatGPT mode; all twelve focused cases pass.
+- [ ] Verify all nine repaired actual CLI identity controls in rebuilt native CI,
+      and rerun complete Claude CI after its response-disconnect fixture repair.

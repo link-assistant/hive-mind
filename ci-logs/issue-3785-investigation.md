@@ -1084,3 +1084,28 @@ and [Qwen 41099170515](https://github.com/link-assistant/hive-mind/actions/runs/
 pass on 427f336085. The downloaded Gemini log/artifact confirms all 13 native
 writer controls at that commit. The additional local login/revocation controls
 were added afterward and need their own CI verification.
+
+## Expanded Gemini CI 41104225569: rotation control masked by callback assertion
+
+[Run 41104225569](https://github.com/link-assistant/hive-mind/actions/runs/41104225569)
+checks exact head `0b81c2ebd2d33c47a3c23df8f4b9c00f728c303e`, created
+2026-10-30T18:08:01Z. Downloaded `ci-logs/native-gemini-41104225569.log`
+lines 303–315 show the original-package rotated-refresh-token control failing
+before the expected token-mismatch diagnostic. Its downloaded artifact
+`gemini-rotation-before.log` instead reports `selected: rejected`, with one
+completed exchange. The newly added callback assertion ran against the original
+uncoordinated package and rejected its omitted callback before the parent could
+check the older refresh-token loss. This did not reach the account stage.
+
+The callback assertion now applies only to the inspected coordinated stage.
+Repeating the exact original-package control again fails for the intended
+`synthetic-refresh-G0` versus `synthetic-refresh-G1` mismatch, with one exchange.
+The workflow still requires that failure and both generations; it has not been
+weakened to accept arbitrary nonzero exits. The expanded positive stage and new
+constructor/request stage still require fresh CI.
+
+The preceding [Native Codex run 41099170608](https://github.com/link-assistant/hive-mind/actions/runs/41099170608)
+completed successfully on `427f3360852c0216526e2b37e67bfd3122fb76ad` at
+2026-10-30T18:05:09Z. Its three jobs pass, including rebuilt native request,
+constructor, journal/staging and recovery controls. Its full log is preserved in
+`ci-logs/native-codex-41099170608.log`.

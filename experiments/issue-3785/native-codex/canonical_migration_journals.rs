@@ -178,6 +178,27 @@ impl Journal {
         }
         Ok(())
     }
+
+    fn remove(&self, required: bool) -> io::Result<()> {
+        self.assert_current()?;
+        if let Some(before) = self.inspect()? {
+            if self
+                .inspect()?
+                .is_none_or(|visible| identity(&visible) != identity(&before))
+            {
+                return Err(refused());
+            }
+            fs::remove_file(&self.anchored)?;
+            self.parent_handle.sync_all()?;
+        } else if required {
+            return Err(refused());
+        }
+        self.assert_current()?;
+        if self.inspect()?.is_some() {
+            return Err(refused());
+        }
+        Ok(())
+    }
 }
 
 fn configured(source: &Path) -> io::Result<Option<Journal>> {
@@ -194,6 +215,10 @@ pub(crate) fn validate(source: &Path) -> io::Result<()> {
 
 pub(crate) fn write(source: &Path) -> io::Result<()> {
     configured(source)?.ok_or_else(refused)?.write()
+}
+
+pub(crate) fn remove(source: &Path, required: bool) -> io::Result<()> {
+    configured(source)?.ok_or_else(refused)?.remove(required)
 }
 
 #[cfg(test)]

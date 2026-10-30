@@ -178,6 +178,8 @@ jobs:
         run: |
           rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_migration_journals.rs -o "$RUNNER_TEMP/canonical-migration-journal-tests"
           prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-journal-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-safety-tests.log" 2>&1
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_migration_stages.rs -o "$RUNNER_TEMP/canonical-migration-stage-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-stage-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-stage-tests.log" 2>&1
       - name: Test durable refresh intent storage and owner death
         run: python3 experiments/issue-3785/native-codex/build_refresh_intent_tests.py > "$RUNNER_TEMP/native-refresh-intent-storage.log" 2>&1
       - name: Install native Linux build prerequisites
@@ -264,7 +266,16 @@ jobs:
           python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-private-metadata > "$RUNNER_TEMP/native-migration-metadata-before.log" 2>&1
           for link in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" --expect-unsafe-journal > "$RUNNER_TEMP/native-migration-$link-before.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$link-before.log" 2>&1
+            for kind in decompressed compressed; do
+              python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$kind-$link-before.log" 2>&1
+            done
           done
+          if python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack symlink > "$RUNNER_TEMP/native-migration-stage-regression.log" 2>&1; then
+            echo "The unsafe staging regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Unsafe native migration target must not overwrite unrelated evidence.' "$RUNNER_TEMP/native-migration-stage-regression.log"
       - name: Reproduce actual native TUI executing after canonical history refusal
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-before.log" 2>&1
       - name: Exercise native status, replacement and logout across private homes
@@ -317,8 +328,13 @@ jobs:
       - name: Verify killed native migration recovery across private scope disposal
         run: |
           python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-migration-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --compressed > "$RUNNER_TEMP/native-migration-compressed-after.log" 2>&1
           for link in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" > "$RUNNER_TEMP/native-migration-$link-after.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" > "$RUNNER_TEMP/native-migration-stage-$link-after.log" 2>&1
+            for kind in decompressed compressed; do
+              python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed > "$RUNNER_TEMP/native-migration-stage-$kind-$link-after.log" 2>&1
+            done
           done
       - name: Verify actual native TUI refuses before executing without safe history
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1

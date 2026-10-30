@@ -74,5 +74,34 @@ structural output is retained in [native journal CI evidence](native-journal-saf
 Other migration staging/cleanup writers, post-publish crashes and complete
 power-loss durability remain unverified.
 
+## Linked native staging files
+
+The actual CLI from run 41082125240, which already includes the journal guard,
+still overwrites unrelated synthetic evidence through linked temporary rollout
+files. Both symbolic and hard links reproduce the plain paginated-stage defect.
+The same CLI also reproduces both link types in the decompression and
+compressed-publication stages. The strict refusal assertion fails before the
+staging repair. These controls exercise actual conversion and compression;
+they do not infer safety from a pathname inspection.
+
+The extended pinned-source adapter validates the primary rollout and all four
+native temporary-name families before migration mutation. Selected native
+readers, temporary writers, publication and cleanup use held directory
+descriptors. Temporary creation replaces a safe orphan's directory entry with a
+new private inode instead of truncating its old inode. Symbolic links, hard links,
+unsafe permissions, changed parents/projections and unrelated paths refuse.
+Receipt removal also retains the empty-receipt checks and syncs its parent.
+Without the selector, the pinned native branches retain their original behavior.
+
+All 13 standalone staging controls and 12 journal controls pass locally. The
+earlier compiled CLI also passes the new healthy compressed interrupted-migration
+control: after private-root disposal, a peer finishes and a fresh process resumes
+the prior conversation. CI now requires real before/after link controls for
+plain, decompressed and compressed stages, plus both healthy recovery paths.
+The extended full CLI has not yet compiled or passed those positive controls;
+standalone tests do not establish that result. Continuous checks throughout every
+native reader/writer, subagent-specific lifecycle tests, post-publication crash
+recovery and complete power-loss durability remain open.
+
 Complete canonical history, safe legacy-state migration and production native
 adapter installation remain unfinished. Successful execution homes are retained.

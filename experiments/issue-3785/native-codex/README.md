@@ -401,6 +401,16 @@ Production installation and other staging/cleanup writers remain open.
 See the case study's `evidence/native-migration-journals.md` for boundaries and
 the remaining production/legacy-migration requirements.
 
+The subsequent staging investigation reproduces real overwrites through symbolic
+and hard links at the paginated temporary file, and through both link types in
+decompression/compressed output. The extended adapter anchors selected temporary
+creation, readers, rename publication and cleanup. Safe orphans receive a new
+inode on retry. All 13 staging and 12 receipt controls pass locally; the extended
+compiled CLI and its six before/after staging link controls still require CI.
+`probe-codex-native-migration.py --compressed` also exercises actual compression,
+interrupted migration, scope disposal, peer completion and fresh native resume.
+This healthy fixture passes against the earlier compiled CLI.
+
 ### Confined native request fixtures
 
 Native run 41051640537 builds the full CLI and passes actual TUI, refresh

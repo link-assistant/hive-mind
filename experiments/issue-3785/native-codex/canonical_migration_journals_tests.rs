@@ -201,3 +201,40 @@ fn unrelated_paths_and_names_refuse() {
         assert!(Journal::open(&fixture.root, Some(&fixture.private), &source).is_err());
     }
 }
+
+#[test]
+fn required_removal_and_idempotent_cleanup_preserve_receipt_semantics() {
+    let fixture = Fixture::new();
+    let journal = fixture.journal().unwrap();
+    assert!(journal.remove(true).is_err());
+    journal.remove(false).unwrap();
+    journal.write().unwrap();
+    journal.remove(true).unwrap();
+    assert!(!fixture.path().exists());
+    assert!(journal.remove(true).is_err());
+    journal.remove(false).unwrap();
+}
+
+#[test]
+fn journal_cleanup_refuses_new_links_and_replaced_parents() {
+    for hard in [false, true] {
+        let fixture = Fixture::new();
+        let journal = fixture.journal().unwrap();
+        let foreign = fixture.foreign();
+        if hard {
+            fs::hard_link(&foreign, fixture.path()).unwrap();
+        } else {
+            symlink(&foreign, fixture.path()).unwrap();
+        }
+        assert!(journal.remove(false).is_err());
+        assert_eq!(fs::read(foreign).unwrap(), b"synthetic prior history");
+    }
+    let fixture = Fixture::new();
+    let journal = fixture.journal().unwrap();
+    journal.write().unwrap();
+    let retained = fixture.root.join("retained");
+    fs::rename(fixture.root.join("rollout-migrations"), &retained).unwrap();
+    fs::create_dir(fixture.root.join("rollout-migrations")).unwrap();
+    assert!(journal.remove(true).is_err());
+    assert!(retained.join(NAME).exists());
+}

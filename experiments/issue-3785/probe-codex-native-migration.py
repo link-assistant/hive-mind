@@ -39,7 +39,7 @@ def migrate(binary, root, canonical, private, identifier, output, diagnostics, l
            'CODEX_SESSION_INDEX_HOME': str(canonical), 'CODEX_ROLLOUT_HOME': str(canonical),
            'CODEX_ROLLOUT_MAINTENANCE_HOME': str(canonical), 'TOKIO_WORKER_THREADS': '2',
            'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'}
-    arguments = ['prlimit', '--data=536870912', '--stack=16777216', '--core=0', '--',
+    arguments = ['prlimit', '--data=536870912', '--stack=16777216', '--fsize=16777216', '--core=0', '--',
                  str(binary), 'migrate-rollouts', '--apply', '--thread', identifier, '--json']
     if limited:
         arguments.extend(['--max-mib-per-second', '1'])
@@ -55,13 +55,17 @@ def wait_for(predicate, child):
         time.sleep(0.01)
 
 
-def check_journal_safety(args, root, canonical, owner, identifier, rollout, processes):
+def check_target_safety(args, root, canonical, owner, identifier, rollout, processes):
     foreign = root / 'foreign-history'
     foreign.write_bytes(b'synthetic unrelated conversation evidence')
     foreign.chmod(0o600)
     before = foreign.stat()
-    journal = canonical / 'rollout-migrations' / f'{identifier}.pending'
-    if args.journal_attack == 'symlink':
+    stage = bool(args.stage_attack)
+    attack = args.stage_attack or args.journal_attack
+    label = 'staged rollout' if stage else 'pending journal'
+    suffix = {'paginated': 'paginated.tmp', 'decompressed': 'decompressed.tmp', 'compressed': 'paginated.zst.tmp'}[args.stage_kind]
+    journal = rollout.with_name(f'.{rollout.name}.{suffix}') if stage else canonical / 'rollout-migrations' / f'{identifier}.pending'
+    if attack == 'symlink':
         journal.symlink_to(foreign)
     else:
         os.link(foreign, journal)
@@ -73,27 +77,37 @@ def check_journal_safety(args, root, canonical, owner, identifier, rollout, proc
         child.wait(timeout=20)
         stop_process_group(child)
         processes.remove(child)
-        if args.expect_unsafe_journal:
-            assert foreign.read_bytes() == b'', 'Require actual native truncation through the unsafe journal.'
+        if args.expect_unsafe_journal or args.expect_unsafe_stage:
+            if stage:
+                assert foreign.read_bytes() != b'synthetic unrelated conversation evidence', 'Require actual native mutation through the unsafe staging target.'
+                if args.stage_kind == 'compressed':
+                    assert foreign.read_bytes().startswith(b'\x28\xb5\x2f\xfd')
+                elif args.stage_kind == 'paginated':
+                    assert b'"history_mode":"paginated"' in foreign.read_bytes()
+                else:
+                    assert b'Synthetic active prior conversation.' in foreign.read_bytes()
+            else:
+                assert foreign.read_bytes() == b'', 'Require actual native truncation through the unsafe journal.'
             assert foreign.stat().st_ino == before.st_ino
-            print(f'REPRODUCED: actual native migration truncates unrelated synthetic evidence through a {args.journal_attack} pending journal.')
+            print(f'REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a {attack} {label}.')
             return
-        assert foreign.read_bytes() == b'synthetic unrelated conversation evidence', 'Unsafe native journal must not truncate unrelated evidence.'
+        assert foreign.read_bytes() == b'synthetic unrelated conversation evidence', 'Unsafe native migration target must not overwrite unrelated evidence.'
         assert (foreign.stat().st_dev, foreign.stat().st_ino) == (before.st_dev, before.st_ino)
-        assert rollout.read_bytes() == original, 'Unsafe journal must refuse before transcript publication.'
-        if args.journal_attack == 'symlink':
-            assert journal.is_symlink(), 'Admission refusal must preserve the unsafe journal for diagnosis.'
+        assert rollout.read_bytes() == original, 'Unsafe migration storage must refuse before transcript publication.'
+        if attack == 'symlink':
+            assert journal.is_symlink(), 'Admission refusal must preserve the unsafe entry for diagnosis.'
         else:
             assert journal.stat().st_nlink == 2
         assert os.fstat(output.fileno()).st_size < 64 * 1024
         assert os.fstat(diagnostics.fileno()).st_size < 64 * 1024
         if child.returncode:
-            assert b'Canonical migration journal storage is unavailable or unsafe.' in os.pread(diagnostics.fileno(), 64 * 1024, 0)
+            diagnostic = os.pread(diagnostics.fileno(), 64 * 1024, 0)
+            assert any(message in diagnostic for message in [b'Canonical migration journal storage is unavailable or unsafe.', b'Canonical migration staging storage is unavailable or unsafe.'])
         else:
             report = json.loads(os.pread(output.fileno(), 64 * 1024, 0))
             assert len(report['outcomes']) == 1
             assert report['outcomes'][0]['status'] == 'failed'
-        print(f'PASS: actual native migration refuses a {args.journal_attack} pending journal before changing unrelated evidence or publishing history.')
+        print(f'PASS: actual native migration refuses a {attack} {label} ({args.stage_kind if stage else "receipt"}) before changing unrelated evidence or publishing history.')
 
 
 def run(args):
@@ -122,9 +136,17 @@ def run(args):
         original = rollout.read_bytes()
         assert len(original) < 5 * 1024 * 1024
         owner.request('thread/read', {'threadId': identifier, 'includeTurns': False})
+        if args.compressed:
+            old = time.time() - 8 * 24 * 60 * 60
+            os.utime(rollout, (old, old))
+            owner.request('rollout/compress', {})
+            compressed = Path(str(rollout) + '.zst')
+            compression.wait_for(lambda: compressed.is_file() and not rollout.exists(), [owner])
+            rollout = compressed
+            original = rollout.read_bytes()
         owner.stop()
-        if args.journal_attack:
-            check_journal_safety(args, root, canonical, owner, identifier, rollout, processes)
+        if args.journal_attack or args.stage_attack:
+            check_target_safety(args, root, canonical, owner, identifier, rollout, processes)
             return
         journal = owner.config / 'rollout-migrations' / f'{identifier}.pending'
         with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as diagnostics:
@@ -167,10 +189,13 @@ def run(args):
             assert len(report['outcomes']) == 1
             assert report['outcomes'][0]['status'] == 'migrated'
         assert not retained.exists(), 'Only successful native publication may clear the journal.'
-        assert marker.encode() in rollout.read_bytes()
-        with rollout.open() as published:
-            first = json.loads(published.readline(256 * 1024))
-        assert first['payload']['history_mode'] == 'paginated'
+        if args.compressed:
+            assert rollout.read_bytes().startswith(b'\x28\xb5\x2f\xfd')
+        else:
+            assert marker.encode() in rollout.read_bytes()
+            with rollout.open() as published:
+                first = json.loads(published.readline(256 * 1024))
+            assert first['payload']['history_mode'] == 'paginated'
         fresh = compression.Native(args.binary, root, canonical, 'fresh', True)
         servers.append(fresh)
         project(canonical, fresh.config)
@@ -196,7 +221,8 @@ def run(args):
         assert not args.expect_private_metadata, 'Require the declared private-metadata negative control.'
         assert marker in json.dumps(resumed['thread']['turns'])
         assert not list(root.glob('*/auth.json')), 'Migration must not manufacture private credentials.'
-        print('PASS: an actual killed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.')
+        label = 'compressed' if args.compressed else 'plain'
+        print(f'PASS: an actual killed {label} native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.')
     finally:
         failures = []
         for child in processes:
@@ -222,9 +248,16 @@ if __name__ == '__main__':
     parser.add_argument('--expect-private-metadata', action='store_true')
     parser.add_argument('--journal-attack', choices=['symlink', 'hardlink'])
     parser.add_argument('--expect-unsafe-journal', action='store_true')
+    parser.add_argument('--stage-attack', choices=['symlink', 'hardlink'])
+    parser.add_argument('--expect-unsafe-stage', action='store_true')
+    parser.add_argument('--stage-kind', choices=['paginated', 'decompressed', 'compressed'], default='paginated')
+    parser.add_argument('--compressed', action='store_true')
     arguments = parser.parse_args()
     assert not arguments.expect_private_journal or arguments.without_journal_projection
     assert not arguments.expect_private_metadata or not arguments.without_journal_projection
     assert not arguments.expect_unsafe_journal or arguments.journal_attack
     assert not arguments.journal_attack or not (arguments.without_journal_projection or arguments.expect_private_metadata)
+    assert not arguments.expect_unsafe_stage or arguments.stage_attack
+    assert not arguments.stage_attack or not (arguments.journal_attack or arguments.without_journal_projection or arguments.expect_private_metadata)
+    assert arguments.stage_kind == 'paginated' or (arguments.stage_attack and arguments.compressed)
     run(arguments)

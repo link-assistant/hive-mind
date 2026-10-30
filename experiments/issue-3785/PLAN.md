@@ -629,3 +629,17 @@ Latest CI continuation:
       job logs and structural native evidence; overall Checks remains failed
       at the separate warning guard. Restart local default suite with all 737
       files and continue-on-failure so remaining failures are captured together.
+
+- [x] Reproduce native staging overwrites against the actual journal-guarded
+      CLI: plain symlink/hard-link temporary files and compressed migration's
+      decompression/output symlinks change unrelated synthetic evidence. The
+      strict refusal control fails before repair; healthy compressed interrupted
+      migration/disposal/fresh resume passes against the same CLI.
+- [x] Extend exact-source migration admission, temporary creation/readers,
+      publication and cleanup with descriptor-anchored selected paths. Preserve
+      safe orphan recovery without truncating prior inodes. All 13 standalone
+      staging and 12 journal controls pass; pinned source applicability passes.
+- [ ] Build the extended native CLI in CI; require all six actual staging link
+      refusals and both plain/compressed interrupted-migration recovery controls.
+      Keep subagent lifecycle, remaining readers/writers, post-publication crashes,
+      power-loss durability and production installation explicitly unfinished.

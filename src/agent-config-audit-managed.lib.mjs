@@ -6,6 +6,7 @@ import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
+import { CODEX_GLOBAL_INSTRUCTION_KEYS } from './agent-config-audit-codex.lib.mjs';
 
 const MAX_BYTES = 1024 * 1024;
 const unsafe = () => new Error('Unsafe or changed managed agent configuration; no repair or admission is permitted. Inspect managed paths, permissions and syntax without removing security policy.');
@@ -101,7 +102,7 @@ export async function auditManagedAgentConfig({ tool = 'all', systemRoots = mana
     const scopes = requirements ? [data] : [data, ...Object.values(table(data, 'profiles'))];
     for (const scope of scopes) {
       if (!record(scope)) throw unsafe();
-      nonempty('codex', scope, location, requirements ? ['hooks', 'additional_developer_instructions', 'config_server'] : ['hooks', 'plugins', 'marketplaces', 'skills', 'notify', 'developer_instructions', 'model_instructions_file']);
+      nonempty('codex', scope, location, requirements ? ['hooks', 'additional_developer_instructions', 'config_server'] : ['hooks', 'plugins', 'marketplaces', 'skills', 'notify', ...CODEX_GLOBAL_INSTRUCTION_KEYS]);
       if (!requirements) {
         servers('codex', scope, location, 'mcp_servers');
         for (const value of Object.values(table(scope, 'agents'))) if (record(value)) report('codex', location, 'agents');

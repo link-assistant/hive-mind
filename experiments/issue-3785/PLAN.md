@@ -595,3 +595,15 @@ Latest CI continuation:
       file passes. Verify the newly added 735th payload regression and updated
       packaged-gate cases separately. Existing extraction guard, release-order
       and all six release/image-selection controls pass after the line repair.
+
+- [x] Trace the exact native global instruction/compaction/realtime fields;
+      reproduce 48 missing user/profile/managed audit rejections before repair.
+      Share one instruction-key policy between user repair and managed refusal.
+      All 105 focused audit cases pass, preserving security/runtime settings
+      and protected authentication/history identities.
+- [x] Verify a real bounded native model request carries an admitted unapproved
+      system instruction before repair. The strict control now refuses read-only
+      admission, repairs only its registration, restores native instructions on
+      the next actual request and preserves credential bytes/inode. Add this
+      stock-native control and its diagnostics to CI. Complete surface discovery
+      and six-tool production storage remain open.

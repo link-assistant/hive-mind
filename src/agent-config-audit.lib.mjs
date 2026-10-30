@@ -36,6 +36,7 @@ import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-co
 import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
 import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
 import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
+import { CODEX_GLOBAL_INSTRUCTION_KEYS } from './agent-config-audit-codex.lib.mjs';
 import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
@@ -305,7 +306,7 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
             remove(kind, name, [table, name]);
           }
         }
-        for (const key of ['notify', 'developer_instructions', 'model_instructions_file']) {
+        for (const key of ['notify', ...CODEX_GLOBAL_INSTRUCTION_KEYS]) {
           if (scope[key] !== undefined) remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
         }
         if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);

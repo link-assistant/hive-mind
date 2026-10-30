@@ -321,6 +321,22 @@ All nine cases and four existing capability/catalog suites pass. This fixes
 declaration inheritance; canonical auth copies and the wider task lifecycle
 remain unfinished.
 
+Six more global instruction settings in the pinned Codex `ConfigToml` bypassed
+the audit: `instructions`, `compact_prompt`, `experimental_compact_prompt_file`
+and the three `experimental_realtime_*` prompt/context fields. All 48 user,
+selected-home, native-profile, inline-profile and managed-policy regressions
+failed before repair. The shared instruction-registration policy now removes
+those user overrides and refuses managed overrides without changing admin
+policy, runtime settings, prompt source files, authentication or history.
+The focused audit set passes all 105 cases. The bounded real CLI probe
+`probe-codex-native-global-prompts.py` verifies that `instructions` reaches an
+actual loopback model request before repair and native instructions are restored
+after repair with the credential inode intact. CI repeats this control using
+the stock pinned CLI. The [official configuration reference](https://developers.openai.com/codex/config-reference)
+documents compaction overrides; the pinned native source establishes the
+additional system and experimental realtime fields. This closes those specific
+discovery gaps; complete native surface attestation remains unfinished.
+
 The pinned Codex profile-v2 loader also reads separate `<name>.config.toml`
 files beside `config.toml`. Fourteen reproducing cases bypassed the clean base
 file before this audit included those native profiles. Admission now enumerates

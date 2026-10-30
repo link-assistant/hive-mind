@@ -165,6 +165,31 @@ jobs:
           for state in symlink hardlink unsafe-mode invalid-utf8 content-change oversized missing parent-replacement; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --history-tool-output-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-artifact-$state.log" > "$RUNNER_TEMP/gemini-artifact-$state-control.log" 2>&1
           done
+      - name: Reproduce native degraded blob loss after successful image read
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario healthy --diagnostics "$RUNNER_TEMP/gemini-blob-before.log" > "$RUNNER_TEMP/gemini-blob-before-control.log" 2>&1; then
+            echo 'The native degraded blob lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: Native degraded blob history must survive private-home disposal.' "$RUNNER_TEMP/gemini-blob-before-healthy.log"
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-blob-cli-before.log" > "$RUNNER_TEMP/gemini-blob-cli-before-control.log" 2>&1; then
+            echo 'The complete native degraded blob lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native degraded blob history must survive private-home disposal.' "$RUNNER_TEMP/gemini-blob-cli-before-control.log"
+      - name: Apply exact pinned native multimodal blob storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve native degraded images and refuse unsafe blob paths
+        run: python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-blob-after.log" > "$RUNNER_TEMP/gemini-blob-after-control.log" 2>&1
+      - name: Resume complete native CLI and read the retained degraded PNG
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-blob-cli-after.log" > "$RUNNER_TEMP/gemini-blob-cli-after-control.log" 2>&1
+      - name: Refuse unsafe native degraded blobs before further inference
+        run: |
+          for attack in symlink hardlink unsafe-mode content-change oversized missing parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --history-blob-attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-blob-cli-$attack.log" > "$RUNNER_TEMP/gemini-blob-cli-$attack-control.log" 2>&1
+          done
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal

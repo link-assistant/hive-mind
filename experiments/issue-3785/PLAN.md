@@ -891,3 +891,64 @@ Latest CI continuation:
 - [ ] Require fresh Node 24 strict-decoding/artifact CI. Complete degraded blobs,
       other history writers, subagent lifecycle, interrupted publication, all
       backends and production integration; full six-tool acceptance stays open.
+
+- [x] Verify the Docker resource repair in actual packaged-image CI 41121912167
+      at `946ed6e82`: both exports finish (195.1/231.5 seconds), both installed
+      images and nested daemon restart/snapshot checks pass within the unchanged
+      deadline. Preserve full-log line numbers and sampled RSS/swap caveats.
+- [x] Preserve successful compiled Codex CI 41121912107 and its native build,
+      process and experimental CLI artifacts before advancing the branch.
+- [x] Reproduce a successfully written/read native PNG disappearing on private
+      home disposal. Add checked immutable binary publication, bounded base64
+      decoding, MIME retention and native image read admission.
+- [x] Verify every new blob refusal/compatibility control and preceding native
+      storage/authentication/full-CLI regressions locally. Require fresh Node 24 CI.
+- [x] Pass all 22 actual native blob controls, including fresh-process reads
+      after disposal for ordinary/uppercase MIME and unpadded base64. Preserve
+      competing publication and protected data in every refusal control.
+- [x] Pass 65 storage controls, all nine truncation/masking/legacy controls,
+      complete CLI tool-output resume and all eight unsafe-artifact CLI controls
+      on the final blob manager. All 41 writer/account, 30 request and 11
+      canonical-read authentication regressions pass on this manager too.
+- [ ] Require fresh Node 24 strict-decoding/artifact/blob CI. Blob export-only
+      controls do not establish complete CLI degraded-blob transport; retain
+      all remaining six-tool history, lifecycle and production requirements.
+- [x] Exercise degraded blobs through complete CLI context management and fresh
+      resume/read_file against the synthetic loopback provider. First require
+      healthy native image execution and inference, then the specific lifetime
+      failure before repair. Check the new read_file response contains the PNG;
+      an image retained in earlier transcript content cannot satisfy it.
+- [ ] Coordinate remaining native Gemini Logger logs.json and named-checkpoint
+      reads/writes/deletion, interactive shell_history, Git checkpoint backing,
+      plans/tracker/task state and child/subagent lifecycles. Native Logger
+      currently caches reads, rewrites the full log without a cross-process
+      transaction and swallows write errors; sharing its raw directory is not
+      sufficient. Keep executable/configuration material private.
+
+- [x] Reproduce JSON/text blob compatibility loss and padding-only base64
+      acceptance before repair. Preserve native checked-buffer classification,
+      BOM decoding and formatting; all 31 bounded native controls pass, including
+      seven fresh-process JSON/SVG/UTF-16/audio-text/image reads.
+- [x] Verify complete CLI degradation/disposal/resume/read_file against the
+      TLS-verifying loopback provider. The workspace image is removed, and the
+      new tool response must contain the original PNG rather than relying on
+      old transcript image data. Bytes, device and inode remain unchanged.
+- [x] Pass all seven full CLI unsafe-blob controls before any further model
+      request, preserving protected bytes/device/inode/size.
+- [x] Rerun preceding native auth / storage / tool-output regressions on the
+      exact final manager/helper: all 65 storage, nine native writer/legacy,
+      complete tool-output CLI positive and eight refusal controls, plus
+      41 writer/account, 30 request and 11 canonical-read controls pass.
+- [x] Tighten the complete CLI PNG assertion to require the exact new function
+      response and its embedded or immediately following image. Reject earlier
+      and unrelated later images in finite assertion controls; rerun the full
+      native PNG disposal/resume/read_file control successfully.
+- [ ] Require fresh exact-head Node 24 CI for strict decoding, artifacts and blobs.
+- [x] Preserve a local suite invocation failure at the existing capped-worker
+      test: the global NODE_OPTIONS heap override defeats its intended worker
+      resource limit. The focused rerun without the override passes all 40
+      assertions. Keep the original failure log.
+- [x] Run default files 562 through 739 without the global override; all 178
+      pass. Together with the initial 561 passing files, all 739 default files
+      pass across the two invocations. Preserve the original failure and resumed
+      run separately. Full formatting, ESLint and focused secret scanning pass.

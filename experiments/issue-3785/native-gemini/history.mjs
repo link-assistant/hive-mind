@@ -120,7 +120,7 @@ function checkedFile(location, missing = false) {
   }
 }
 
-function snapshot(location, missing = false) {
+function snapshot(location, missing = false, binary = false) {
   const before = checkedFile(location, missing);
   if (!before) return null;
   const fd = fs.openSync(location.target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
@@ -137,6 +137,7 @@ function snapshot(location, missing = false) {
     if (BigInt(length) !== opened.size || version(fs.fstatSync(fd, { bigint: true })) !== version(opened) || version(checkedFile(location)) !== version(opened)) throw refuse();
     assertNativeGeminiHistoryCurrent();
     const content = bytes.subarray(0, length);
+    if (binary) return content;
     if (!isUtf8(content)) throw refuse();
     return content.toString('utf8');
   } finally {
@@ -274,6 +275,52 @@ export function readNativeGeminiToolOutput(file) {
       const content = snapshot({ target: `${parent.anchor}/${name}` });
       if (digest(content) !== filename[1]) throw refuse();
       return content;
+    });
+  } catch {
+    throw refuse();
+  }
+}
+
+const validBlobMime = value => typeof value === 'string' && value.length <= 96 && /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/u.test(value);
+
+export function writeNativeGeminiBlob(temporary, data, mimeType, sessionId) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  try {
+    assertNativeGeminiHistoryCurrent();
+    const project = projectTemps.get(temporary);
+    if (!project || typeof data !== 'string' || data.length > Math.ceil(LIMIT / 3) * 4 || !validBlobMime(mimeType) || (sessionId !== undefined && typeof sessionId !== 'string')) throw refuse();
+    const bytes = Buffer.from(data, 'base64');
+    if (bytes.length > LIMIT || !/^[A-Za-z0-9+/]*={0,2}$/u.test(data)) throw refuse();
+    const encoded = bytes.toString('base64');
+    if (data !== encoded && data !== encoded.replace(/=+$/u, '')) throw refuse();
+    const components = ['projects', project.identifier, 'degraded-blobs', `session-${digest(sessionId ?? '')}`];
+    const parent = directory(components);
+    const encodedType = Buffer.from(mimeType).toString('base64url');
+    const name = `blob-${digest(bytes)}-${randomUUID()}.${encodedType}`;
+    locked(parent, current => publish(parent, name, bytes, current, false));
+    return path.join(authority.selected, ...components, name);
+  } catch {
+    throw refuse();
+  }
+}
+
+export function readNativeGeminiBlob(file) {
+  if (!nativeGeminiHistorySelected()) return undefined;
+  try {
+    assertNativeGeminiHistoryCurrent();
+    if (typeof file !== 'string' || !path.isAbsolute(file) || !within(authority.selected, path.resolve(file))) return undefined;
+    const components = path.relative(authority.selected, file).split(path.sep);
+    if (components[0] !== 'projects' || components[2] !== 'degraded-blobs') return undefined;
+    const filename = /^blob-([a-f0-9]{64})-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.([A-Za-z0-9_-]{3,128})$/u.exec(components[4] ?? '');
+    if (path.normalize(file) !== file || /[\0\r\n]/u.test(file) || components.length !== 5 || ![...projectTemps.values()].some(item => item.identifier === components[1]) || !/^session-[a-f0-9]{64}$/u.test(components[3]) || !filename) throw refuse();
+    const mimeType = Buffer.from(filename[2], 'base64url').toString('utf8');
+    if (!validBlobMime(mimeType) || Buffer.from(mimeType).toString('base64url') !== filename[2]) throw refuse();
+    const name = components.pop();
+    const parent = directory(components, false);
+    return locked(parent, () => {
+      const bytes = snapshot({ target: `${parent.anchor}/${name}` }, false, true);
+      if (digest(bytes) !== filename[1]) throw refuse();
+      return { bytes, mimeType };
     });
   } catch {
     throw refuse();

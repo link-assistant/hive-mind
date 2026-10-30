@@ -5,6 +5,7 @@ No native module exports or SDK methods are instrumented. The proxy never
 forwards traffic, and every credential, account and conversation is synthetic.
 """
 import argparse
+import base64
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -38,6 +39,8 @@ parser.add_argument('--history-archive-attack', choices=('symlink', 'hardlink', 
 parser.add_argument('--history-archive-live-resume', action='store_true')
 parser.add_argument('--history-archive-second-cycle', action='store_true')
 parser.add_argument('--history-tool-output', action='store_true')
+parser.add_argument('--history-blob', action='store_true')
+parser.add_argument('--history-blob-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'content-change', 'oversized', 'missing', 'parent-replacement'))
 parser.add_argument('--history-tool-output-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'invalid-utf8', 'content-change', 'oversized', 'missing', 'parent-replacement'))
 parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
@@ -60,13 +63,17 @@ assert not args.history_import or args.history and not (args.history_attack or a
 assert not args.history_import_attack or args.history_import == 'export'
 assert not args.history_tool_output or args.history and not (args.history_attack or args.history_delete or args.history_import or args.history_retention or args.expect_history_gap or args.private_history)
 assert not args.history_tool_output_attack or args.history_tool_output
+assert not args.history_blob or args.history and not (args.history_tool_output or args.history_attack or args.history_delete or args.history_import or args.history_retention or args.expect_history_gap or args.private_history)
+assert not args.history_blob_attack or args.history_blob
+tool_mode = args.history_tool_output or args.history_blob
+artifact_attack = args.history_tool_output_attack or args.history_blob_attack
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -89,31 +96,55 @@ artifact_identity = None
 artifact_attack_evidence = []
 tool_middle = 'SYNTHETIC-GEMINI-TOOL-MIDDLE'
 tool_content = 'SYNTHETIC-GEMINI-TOOL-START\n' + ('x' * 96 + '\n') * 128 + tool_middle + '\n' + ('z' * 96 + '\n') * 128 + 'SYNTHETIC-GEMINI-TOOL-END\n'
+blob_data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6HVkAAAAASUVORK5CYII='
 
 
 def completions():
     return [record for record in models if record['operation'] == 'streamGenerateContent' and not record.get('tool_call')]
 
 
+def native_blob_response(contents):
+    for turn in contents:
+        parts = turn.get('parts', [])
+        for index, part in enumerate(parts):
+            response = part.get('functionResponse', {})
+            if response.get('id') != 'synthetic-artifact-resume' or response.get('name') != 'read_file' or response.get('response', {}).get('output') != 'Binary content provided (1 item(s)).':
+                continue
+            # Native conversion embeds multimodal parts or returns them directly
+            # after this function response. Earlier image parts do not qualify.
+            images = response.get('parts', []) or parts[index + 1:index + 2]
+            if any(image.get('inlineData', {}) == {'data': blob_data, 'mimeType': 'image/png'} for image in images):
+                return True
+    return False
+
+
+synthetic_response = {'functionResponse': {'id': 'synthetic-artifact-resume', 'name': 'read_file', 'response': {'output': 'Binary content provided (1 item(s)).'}}}
+synthetic_image = {'inlineData': {'data': blob_data, 'mimeType': 'image/png'}}
+assert not native_blob_response([{'parts': [synthetic_image, synthetic_response]}])
+assert not native_blob_response([{'parts': [synthetic_response, {'text': 'unrelated'}, synthetic_image]}])
+assert native_blob_response([{'parts': [synthetic_response, synthetic_image]}])
+assert native_blob_response([{'parts': [{'functionResponse': {**synthetic_response['functionResponse'], 'parts': [synthetic_image]}}]}])
+
+
 def attack_artifact():
     protected = artifact_file
-    if args.history_tool_output_attack in ('symlink', 'hardlink', 'missing'):
+    if artifact_attack in ('symlink', 'hardlink', 'missing'):
         protected = root / 'protected-tool-output'
         artifact_file.rename(protected)
-        if args.history_tool_output_attack == 'symlink':
+        if artifact_attack == 'symlink':
             artifact_file.symlink_to(protected)
-        elif args.history_tool_output_attack == 'hardlink':
+        elif artifact_attack == 'hardlink':
             os.link(protected, artifact_file)
-    elif args.history_tool_output_attack == 'unsafe-mode':
+    elif artifact_attack == 'unsafe-mode':
         artifact_file.chmod(0o644)
-    elif args.history_tool_output_attack == 'invalid-utf8':
+    elif artifact_attack == 'invalid-utf8':
         artifact_file.write_bytes(b'\xff')
-    elif args.history_tool_output_attack == 'content-change':
+    elif artifact_attack == 'content-change':
         artifact_file.write_text('SYNTHETIC-REPLACEMENT-OUTPUT')
-    elif args.history_tool_output_attack == 'oversized':
+    elif artifact_attack == 'oversized':
         with artifact_file.open('r+b') as output:
             output.truncate(32 * 1024 * 1024 + 1)
-    elif args.history_tool_output_attack == 'parent-replacement':
+    elif artifact_attack == 'parent-replacement':
         previous = artifact_file.parent
         retired = previous.with_name(previous.name + '-protected')
         previous.rename(retired)
@@ -124,7 +155,7 @@ def attack_artifact():
     else:
         raise AssertionError('Unknown synthetic artifact attack.')
     original = protected.stat()
-    artifact_attack_evidence.append((protected, None if args.history_tool_output_attack == 'oversized' else protected.read_bytes(), (original.st_dev, original.st_ino, original.st_size)))
+    artifact_attack_evidence.append((protected, None if artifact_attack == 'oversized' else protected.read_bytes(), (original.st_dev, original.st_ino, original.st_size)))
 
 try:
     # Copy entrypoints and chunks: symlinked JS would resolve imports against
@@ -146,10 +177,14 @@ try:
                 'telemetry': {'enabled': False},
                 'advanced': {'autoConfigureMemory': False},
                 'general': {'disableAutoUpdate': True}}
-    if args.history_tool_output:
+    if tool_mode:
         settings['model']['maxSessionTurns'] = 4
+    if args.history_tool_output:
         settings['tools'] = {'truncateToolOutputThreshold': 1024}
         (workspace / 'bounded-output.txt').write_text(tool_content)
+    if args.history_blob:
+        settings['experimental'] = {'generalistProfile': True}
+        (workspace / 'bounded.png').write_bytes(base64.b64decode(blob_data))
     if args.history_retention or args.history_live_retention or args.history_live_delete:
         settings['general']['sessionRetention'] = {'enabled': True, 'maxAge': '1d'}
     (private / 'settings.json').write_text(json.dumps(settings))
@@ -238,14 +273,19 @@ try:
                                        'third_prompt': third_prompt in content,
                                        'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content,
                                        'artifact_reference': '/tool-outputs/' in content,
-                                       'full_artifact': tool_middle in content})
+                                       'full_artifact': tool_middle in content,
+                                       'blob_reference': '/degraded-blobs/' in content,
+                                       'native_blob_response': native_blob_response(payload['request']['contents'])})
                         phase = 'resume' if second_prompt in content else 'initial'
-                        if args.history_tool_output and operation == 'streamGenerateContent' and phase not in tool_phases:
+                        if tool_mode and operation == 'streamGenerateContent' and phase not in tool_phases:
                             tool_phases.add(phase)
                             models[-1]['tool_call'] = True
-                            if phase == 'resume' and args.history_tool_output_attack:
+                            if phase == 'resume' and artifact_attack:
                                 attack_artifact()
-                            tool = {'name': 'run_shell_command', 'args': {'command': 'cat bounded-output.txt', 'description': 'Read the finite synthetic artifact fixture.'}} if phase == 'initial' else {'name': 'read_file', 'args': {'file_path': str(artifact_file)}}
+                            if phase == 'initial' and args.history_tool_output:
+                                tool = {'name': 'run_shell_command', 'args': {'command': 'cat bounded-output.txt', 'description': 'Read the finite synthetic artifact fixture.'}}
+                            else:
+                                tool = {'name': 'read_file', 'args': {'file_path': 'bounded.png' if phase == 'initial' else str(artifact_file)}}
                             self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': {'id': 'synthetic-artifact-' + phase, **tool}}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-tool-response'}, stream=True)
                             return
                         if (args.history_live_retention or args.history_live_delete) and operation == 'streamGenerateContent' and not live_controls:
@@ -294,7 +334,7 @@ try:
     args.diagnostics.parent.mkdir(parents=True, exist_ok=True)
 
     def invoke(diagnostic, child_env, flags):
-        if args.history_tool_output:
+        if tool_mode:
             flags = ['--approval-mode', 'yolo', *flags]
         with diagnostic.open('wb') as diagnostics:
             diagnostic.chmod(0o600)
@@ -406,10 +446,23 @@ try:
             artifact_bytes = artifact_file.read_bytes()
             artifact_identity = (artifact_file.stat().st_dev, artifact_file.stat().st_ino)
             assert tool_content in artifact_bytes.decode()
+        if args.history_blob:
+            assert len(models) == 2 and completions()[0]['blob_reference'], 'The actual native context pipeline must first degrade the PNG.'
+            artifacts = [p for base in (private, history) for p in base.rglob('*') if p.is_file() and 'degraded-blobs' in p.parts and p.read_bytes() == base64.b64decode(blob_data)]
+            assert len(artifacts) == 1
+            artifact_file = artifacts[0]
+            artifact_bytes = artifact_file.read_bytes()
+            artifact_identity = (artifact_file.stat().st_dev, artifact_file.stat().st_ino)
+            (workspace / 'bounded.png').unlink()
         # The whole native process group has exited before private state disposal.
         shutil.rmtree(home)
         if args.history_tool_output:
             assert artifact_file.exists(), 'Native tool-output history must survive private-home disposal.'
+            assert history in artifact_file.parents
+            assert artifact_file.read_bytes() == artifact_bytes
+            assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
+        if args.history_blob:
+            assert artifact_file.exists(), 'Native degraded blob history must survive private-home disposal.'
             assert history in artifact_file.parents
             assert artifact_file.read_bytes() == artifact_bytes
             assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
@@ -464,6 +517,9 @@ try:
         peer.mkdir(mode=0o700)
         private = peer / '.gemini'
         private.mkdir(mode=0o700)
+        if args.history_blob:
+            # Keep the fresh read in the provider request instead of degrading it again.
+            settings['experimental'] = {'generalistProfile': False}
         (private / 'settings.json').write_text(json.dumps(settings))
         (private / 'settings.json').chmod(0o600)
         peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
@@ -742,7 +798,7 @@ try:
             raise SystemExit(0)
         resumed = args.diagnostics.with_name(args.diagnostics.stem + '-resume.log')
         code, output = invoke(resumed, peer_env, ['--resume', session, '--prompt', second_prompt])
-        if args.history_tool_output_attack:
+        if artifact_attack:
             assert code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output
             assert len(completions()) == 1 and sum(record['operation'] == 'streamGenerateContent' for record in models) == 3
             assert len(artifact_attack_evidence) == 1 and not errors
@@ -751,8 +807,8 @@ try:
             assert (current.st_dev, current.st_ino, current.st_size) == identity
             if content is not None:
                 assert protected.read_bytes() == content
-            assert not list(private.rglob('tool-outputs'))
-            print('PASS: actual native read_file refuses ' + args.history_tool_output_attack + ' without another model request or artifact mutation.')
+            assert not list(private.rglob('degraded-blobs' if args.history_blob else 'tool-outputs'))
+            print('PASS: actual native read_file refuses ' + artifact_attack + ' without another model request or artifact mutation.')
             safe_cleanup = True
             raise SystemExit(0)
         if args.expect_history_gap:
@@ -772,6 +828,12 @@ try:
                 assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
                 assert not list(private.rglob('tool-outputs'))
                 print('PASS: actual native shell offload survives private-home disposal and a fresh native read_file restores its complete content during resume.')
+            if args.history_blob:
+                assert sum(record['operation'] == 'streamGenerateContent' for record in models) == 4 and completions()[1]['native_blob_response'], 'A fresh native CLI must send the retained PNG in its new read_file response.'
+                assert artifact_file.read_bytes() == artifact_bytes
+                assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
+                assert not list(private.rglob('degraded-blobs'))
+                print('PASS: actual native context degradation survives private-home disposal and fresh CLI read_file sends the original PNG to the provider during resume.')
             print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.')
         assert not (private / 'oauth_creds.json').exists()
         assert not (private / 'google_accounts.json').exists()

@@ -174,3 +174,37 @@ Artifact-stage helper 851475c859fdb9fb545dbd8f1b9cdf5eedc670ea11e935efa488b93dc8
 Strict-decoding and artifact stages still require fresh Node 24 CI. Degraded
 blobs, complete artifact/subagent lifecycle, other history writers, interrupted
 publication, alternate backends and production installation remain open.
+
+Native degraded multimodal blob preservation:
+REPRODUCED: the actual native degradation processor writes a one-pixel PNG and
+            the native file-content reader returns its original data/MIME.
+            Removing the private home then fails the strict lifetime assertion.
+PASS: 24 finite native writer/reader controls, plus seven fresh native-process
+      reads after private-home disposal. Bytes, device and inode remain intact.
+PASS: valid uppercase MIME and unpadded base64 retain native image read behavior;
+      external file references retain their URI without a local copy.
+REPRODUCED: the earlier selected reader loses native JSON/text behavior;
+            padding-only base64 also fails to produce the required refusal.
+PASS: checked-buffer native classification and BOM decoding retain JSON, SVG,
+      UTF-16 and text under an audio MIME, including fresh-process reads.
+PASS: invalid base64/padding/MIME, non-ASCII MIME, unsafe directories, symlinks, hardlinks,
+      permissive files, changed content, missing/replaced parents, oversized
+      files, foreign projects, traversal and publication collisions refuse.
+      Protected data and a competing publication remain unchanged; no fallback.
+PASS: unselected native private-storage behavior remains available.
+Blob-stage manager 236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2
+Blob-stage helper 15b3033f4290446e78f84e2a412d2113e32abc4cfc0335d4a329f8cd1c2cf6a5
+The blob controls use export-only instrumentation of the actual native module.
+The separate complete CLI uses no native export instrumentation. Its strict
+before control completes native image execution, context degradation and
+inference, then fails the precise private-home-disposal lifetime assertion.
+PASS: fresh CLI resume/read_file sends the retained PNG in its new tool response,
+      with the workspace image removed and bytes/device/inode unchanged.
+      Earlier transcript image data cannot satisfy the new-response assertion.
+PASS: seven full CLI unsafe-blob controls (symlink, hardlink, permissive mode,
+      changed content, oversized, missing and replaced parent) refuse before
+      another model request and preserve protected bytes/device/inode/size.
+The full native CLI tool-output positive and eight refusal controls also run.
+All 65 storage, nine native tool-output writer/legacy and 41/30/11 native
+authentication controls also pass on the final blob manager.
+Fresh Node 24 CI and remaining full-history/lifecycle/production criteria stay open.

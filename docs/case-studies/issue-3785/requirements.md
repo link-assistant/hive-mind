@@ -99,3 +99,15 @@ controls refuse before further inference. All 65 bounded storage controls,
 nine native truncation/masking/legacy controls and 41/30/11 authentication
 regressions pass locally. This newer stage still needs Node 24 CI; degraded
 blobs and the remaining full-history/lifecycle/production criteria stay open.
+
+The following local stage preserves native degraded multimodal bytes through
+private-home disposal. The strict before control first offloads and reads a real
+PNG successfully. All 31 native controls pass after checked immutable canonical
+publication, including seven new-process reads, native JSON/SVG/UTF-16/audio-text
+behavior and valid uppercase MIME / unpadded base64. Malformed data and padding,
+unsafe storage, foreign paths and publication collisions refuse without a private
+fallback. A separate complete CLI control uses no native export instrumentation:
+after successful native context degradation and inference, it reproduces loss
+before repair. After repair, fresh resume/read_file sends the retained PNG in
+its new tool response with the original workspace image removed.
+They do not complete A1 or the remaining history/lifecycle/production criteria.

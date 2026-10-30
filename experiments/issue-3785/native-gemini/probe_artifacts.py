@@ -21,7 +21,7 @@ args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = (package / 'bundle/chunk-DKZARV6U.js').read_bytes()
-assert hashlib.sha256(manager).hexdigest() == 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa'
+assert hashlib.sha256(manager).hexdigest() in ('ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2')
 assert (package / 'bundle/hive-gemini-history.mjs').read_bytes() == (Path(__file__).parent / 'history.mjs').read_bytes()
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-artifacts-'))
 root.chmod(0o700)

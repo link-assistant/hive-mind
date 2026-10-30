@@ -435,3 +435,49 @@ retains Japanese text, accented text, emoji and a literal replacement character
 through rewrite, read, archive and explicit import. The 49 strict-decoding and
 conversation controls pass locally and remain in the expanded 65-control
 artifact stage; the existing native CI job runs the complete set.
+
+## Canonical degraded multimodal blobs
+
+`apply_blobs.py` builds on the exact artifact manager. Its strict before control
+first offloads a real one-pixel PNG through the native degradation processor and
+reads it with the native file-content implementation. Removing the private home
+then loses the referenced binary file and fails the lifetime assertion.
+
+The selected processor publishes raw bytes in separate immutable canonical
+project/session files. It bounds base64 input before decoding, retains an ASCII
+MIME type of up to 96 bytes in the filename, and uses the same checked descriptor, exclusive
+publication, file/directory synchronization and content-digest checks as tool
+outputs. A registered project is required for native reads. Unsafe paths refuse
+without a private fallback. External file references keep their URI and do not
+produce a local copy. No executable or configuration directory is projected.
+
+All 31 finite native controls pass locally: 24 writer/reader controls and seven
+fresh-process reads after private-home disposal. Valid uppercase MIME types and
+unpadded base64 retain their original bytes and read back as `image/png`.
+JSON, SVG, UTF-16 and text stored under an audio MIME retain native classification,
+BOM decoding and text formatting. A strict regression reproduces the earlier
+adapter's text loss before the checked-buffer repair. Controls reject malformed
+base64 (including padding-only input)/MIME, non-ASCII MIME, linked or permissive
+storage, changed or oversized content, missing/replaced parents, foreign projects,
+traversal and publication collisions. Protected data and competing publications
+remain unchanged. Unselected native private-storage behavior also passes.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_blobs.py /path/to/disposable/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_blobs.py /path/to/disposable/gemini-cli
+python3 experiments/issue-3785/native-gemini/probe_blobs.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-blob-controls.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py /path/to/disposable/gemini-cli --history --history-blob --diagnostics /tmp/gemini-blob-cli.log
+```
+
+These controls add exports to a disposable copy of the actual native module;
+the separate full CLI control does not instrument native exports. It first
+executes native image reading and context degradation, completes inference and
+reproduces the precise lifetime failure before repair. After repair, a fresh
+CLI resumes with the original workspace image removed and sends the retained
+PNG in a new `read_file` response. An image in earlier transcript content cannot
+satisfy this assertion. Seven unsafe-blob CLI controls pass, refusing before
+another model request and preserving protected bytes/inodes. The complete
+CLI tool-output resume and its eight refusal controls also run on this manager.
+Fresh Node 24 CI, complete artifact/subagent lifecycle, other history
+surfaces, interrupted publication, all backends and production integration remain
+open.

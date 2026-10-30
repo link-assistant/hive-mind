@@ -228,7 +228,10 @@ try {
     }
     console.log(`CHECK: ${mode} both live clients made their initial G0 model request.`);
     await commit('G1');
-    for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated && mode === 'api-key' ? 'G0' : 'G1'], 'The next actual model request must observe canonical atomic replacement.');
+    // The stock AuthManager explicitly caches both modes until reload(). With
+    // the startup catalog now local, no unrelated request reloads that cache.
+    // Keep this negative control exact; the repaired path must observe G1.
+    for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated ? 'G0' : 'G1'], uncoordinated ? 'The stock native client must reproduce its cached predecessor after replacement.' : 'The next actual model request must observe canonical atomic replacement.');
     console.log(`CHECK: ${mode} both live clients completed replacement requests.`);
     if (!uncoordinated) {
       await fs.writeFile(`${auth}.next`, '{malformed synthetic authority', { mode: 0o600 });
@@ -244,13 +247,13 @@ try {
     await fs.unlink(auth);
     for (const client of peers) {
       const events = await client.modelRequest();
-      if (uncoordinated) assert.deepEqual(events, [mode === 'api-key' ? 'G0' : 'G1'], 'The negative control must demonstrate a stale authorized model request after logout.');
+      if (uncoordinated) assert.deepEqual(events, ['G0'], 'The negative control must demonstrate a stale authorized model request after logout.');
       else if (unauthenticatedLogout) assert.deepEqual(events, ['absent'], 'The intermediate native client must reproduce an unauthenticated model request after logout.');
       else assert.deepEqual(events, [], 'Logout must stop execution before making a model request.');
     }
     console.log(`CHECK: ${mode} both live clients completed logout requests.`);
     await commit('G2');
-    for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated && mode === 'api-key' ? 'G0' : 'G2'], 'Live peers must observe authority recreation on their next request.');
+    for (const client of peers) assert.deepEqual(await client.modelRequest(), [uncoordinated ? 'G0' : 'G2'], uncoordinated ? 'The stock native client must still reproduce its cached predecessor after recreation.' : 'Live peers must observe authority recreation on their next request.');
     await Promise.all(peers.map(client => client.stop()));
     if (!uncoordinated) for (const index of [0, 1]) await assert.rejects(fs.access(path.join(root, `${mode}-config-${index}`, 'auth.json')), { code: 'ENOENT' });
     console.log(`PASS: ${mode} actual model requests ${uncoordinated ? 'reproduce stale native authorization after logout' : unauthenticatedLogout ? 'reproduce unauthenticated execution after logout' : 'observe replacement, refuse logout and observe recreation'} in two live CLI processes.`);

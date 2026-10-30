@@ -914,3 +914,29 @@ the owner has been reaped; retain failures for peer/other requests and all other
 TLS errors. Repeated actual owner-death controls pass after the fixture repair,
 while the strict consumed-predecessor assertion still fails. This fixes fixture
 accounting, not the unresolved native crash guarantee.
+
+## Fresh native results at 69b1e8a46 (2026-10-30)
+
+The runs created at 13:32:15–16 UTC use exact head
+`69b1e8a464adcfef8c00223652924870de178ce0`. Claude run 41064060494 and
+Qwen run 41064059810 pass. Claude retains the expected native owner-death
+defect and a separately failing strict assertion; a green experiment does not
+establish the crash guarantee. Codex run 41064060039's transaction job passes
+all seven native transaction controls and all twelve focused identity cases.
+Its full CLI integration job is still pending at this inspection.
+
+The same Codex run's history job fails at 13:40:13 UTC. Preserved job log
+`ci-logs/native-codex-history-41064060039.log:310–317` identifies the stock
+request negative control. Its `native-history-request-before.log` artifact
+reports ChatGPT replacement returning G0 where the fixture expected G1. The
+exact stock 0.164.0 executable reproduces this locally. Native AuthManager
+explicitly caches both auth modes until reload; selecting the local startup
+catalog removes the unrelated request that previously caused a reload.
+
+The stock negative control now requires stale G0 after replacement, logout
+and recreation in both modes. The repaired path's requirements are unchanged:
+G1 after replacement, no model request after logout or malformed/unsafe state,
+and G2 after recreation, with two live clients per mode. Both exact-stock and
+downloaded repaired-CLI controls pass locally, with zero external forwarding.
+Structural results are retained in `evidence/native-stock-request-controls.log`.
+Fresh native CI remains required for this fixture correction.

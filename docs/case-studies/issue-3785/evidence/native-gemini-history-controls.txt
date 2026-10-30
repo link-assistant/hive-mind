@@ -105,3 +105,28 @@ alphabet, while non-string session metadata remains invalid.
 Native-ID-stage output hashes:
 chunk-XHQ6TTKH.js 6bb7d4725650029c2d776aa62d36ed47ad12f02998874c0fcbce8b20105f16a7
 hive-gemini-history.mjs 153eb084116e7d575ca91f53c36d34734852e6bb9d23f7c26f436affca15c795
+
+Explicit native session import:
+REPRODUCED: after a successful native canonical inference, --session-file
+            refuses its persisted transcript before another inference.
+PASS: actual native imports from canonical JSONL, private foreign-project JSONL
+      and legacy JSON exports assign a new ID/current project hash and publish
+      one canonical 0600 single-link transcript without changing source bytes/inode.
+PASS: fresh discovery/resume after private-home disposal includes both preceding
+      prompts, the new prompt and prior model content in the third inference.
+PASS: nine unsafe import controls (symlink, hardlink, malformed, truncated,
+      missing schema, invalid session type, invalid project hash, unsafe mode
+      and unsafe parent) refuse before destination publication or inference,
+      preserving source/protected and all existing canonical transcript bytes.
+PASS: 45 bounded storage controls, including import-source mutation, same-byte
+      file replacement and parent replacement between reading and native admission.
+Private explicit sources require an owned 0700 parent, a private regular file
+with one link and a 32 MiB input bound. The actual native parser still performs
+import filtering; canonical publication uses the conversation lease/transaction.
+Import-stage manager 0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42
+Import-stage CLI 9fc3e4e924a0a9ecd8f595e009dad0b4ff53ec8ed3c6171cb0e8d7418793999e
+Import-stage helper 9e3b66e069eaf929795283c273ea37793781c33f340685791e8e4603d756a9a4
+PASS: final 41 writer/account, 30 request and 11 canonical read controls.
+PASS: strict import/archive refusals and live archive peer observe no additional
+      model request; second-cycle archive resume retains all earlier content.
+Fresh Node 24 CI and complete remaining history/lifecycle/production work are open.

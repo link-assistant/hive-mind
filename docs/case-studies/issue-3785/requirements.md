@@ -76,10 +76,14 @@ canonical archive while keeping their native active-listing behavior. Native
 writer initialization holds a per-conversation kernel lease, so peer retention
 skips a live conversation and peer deletion reports it busy. Five real CLI
 retirement controls and 29 bounded storage controls pass, including owner-death
-lease recovery, stale archive refusal and unsafe archive/lease paths. The retirement stage passes Node 24 CI 41116035148 at `4a6be5dfb`. A further
-local stage adds native archive discovery and exact-UUID resume without mutating
-the audit generation, plus concurrent resume exclusion. Its 41 storage controls
-and seven actual CLI archive refusals pass locally and need fresh CI. Complete
+lease recovery, stale archive refusal and unsafe archive/lease paths. Further
+local stages add native archive discovery and exact-identifier resume without mutating
+the audit generation, concurrent resume exclusion and native opaque-ID compatibility.
+Explicit `--session-file` imports from canonical records and private JSONL/legacy
+JSON exports preserve their source and publish a new private canonical session;
+fresh discovery/resume retains the prior user/model content. Their 45 storage
+controls, seven actual CLI archive refusals, three native import/disposal controls
+and nine unsafe-import refusals pass locally and need fresh CI. Complete
 archive indexes and child/artifact lifecycles remain open. Canonical alternate
 backends, complete history, all writers/lifecycle and production installation
 remain unfinished. These experiments do not complete A1–A12. See

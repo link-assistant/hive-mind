@@ -171,6 +171,16 @@ jobs:
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-discovery --history-archive-live-resume --history-archive-second-cycle --diagnostics "$RUNNER_TEMP/gemini-cli-archive.log" > "$RUNNER_TEMP/gemini-cli-archive-control.log" 2>&1
       - name: Preserve native opaque session identifier compatibility
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-discovery --session-identifier SYNTHETIC_NATIVE_SESSION-3785 --diagnostics "$RUNNER_TEMP/gemini-cli-native-id.log" > "$RUNNER_TEMP/gemini-cli-native-id-control.log" 2>&1
+      - name: Import native conversations and resume after private home disposal
+        run: |
+          for state in canonical export legacy-export; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-import "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-import-$state.log" > "$RUNNER_TEMP/gemini-cli-import-$state-control.log" 2>&1
+          done
+      - name: Refuse unsafe import sources before publication or inference
+        run: |
+          for state in symlink hardlink malformed truncated schema invalid-session invalid-project unsafe-mode unsafe-parent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-import export --history-import-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-import-$state.log" > "$RUNNER_TEMP/gemini-cli-import-$state-control.log" 2>&1
+          done
       - name: Refuse unsafe archived native records before another inference
         run: |
           for state in symlink hardlink malformed truncated schema foreign-project invalid-session; do

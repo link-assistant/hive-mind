@@ -38,6 +38,8 @@ parser.add_argument('--history-archive-attack', choices=('symlink', 'hardlink', 
 parser.add_argument('--history-archive-live-resume', action='store_true')
 parser.add_argument('--history-archive-second-cycle', action='store_true')
 parser.add_argument('--session-identifier')
+parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
+parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -52,13 +54,15 @@ assert not args.history_archive_attack or args.history_archive_resume and not ar
 assert not args.history_archive_live_resume or args.history_archive_resume and not args.history_archive_attack
 assert not args.history_archive_second_cycle or args.history_archive_resume and not args.history_archive_attack
 assert not args.session_identifier or args.history
+assert not args.history_import or args.history and not (args.history_attack or args.history_delete or args.history_retention or args.expect_history_gap or args.private_history)
+assert not args.history_import_attack or args.history_import == 'export'
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -299,10 +303,10 @@ try:
                     'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
                     'XDG_CACHE_HOME': str(peer / '.cache')}
         diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-archive-live-peer.log')
-        previous = len(completions())
+        previous = len(models)
         code, output = invoke(diagnostic, peer_env, ['--resume', session, '--prompt', 'SYNTHETIC-CONCURRENT-ARCHIVE-PEER'])
         evidence = {'peer_refused': code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output,
-                    'no_peer_inference': len(completions()) == previous,
+                    'no_peer_inference': len(models) == previous,
                     'source_present': record.exists(),
                     'prior_bytes_preserved': record.exists() and record.read_bytes().startswith(before),
                     'same_inode': record.exists() and (record.stat().st_dev, record.stat().st_ino) == identity}
@@ -392,6 +396,115 @@ try:
         peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
                     'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
                     'XDG_CACHE_HOME': str(peer / '.cache')}
+        if args.history_import:
+            source = transcripts[0]
+            if args.history_import != 'canonical':
+                exports = root / 'exports'
+                exports.mkdir(mode=0o700)
+                source = exports / 'native-export.jsonl'
+                shutil.copyfile(transcripts[0], source)
+                source.chmod(0o600)
+                lines = source.read_text().splitlines()
+                metadata = json.loads(lines[0])
+                metadata['projectHash'] = '0' * 64
+                lines[0] = json.dumps(metadata)
+                source.write_text('\n'.join(lines) + '\n')
+                if args.history_import == 'legacy-export':
+                    messages = {}
+                    for record in map(json.loads, lines[1:]):
+                        if '$set' in record:
+                            assert set(record['$set']) == {'lastUpdated'}
+                            metadata.update(record['$set'])
+                        else:
+                            messages[record['id']] = record
+                    source.unlink()
+                    source = exports / 'native-export.json'
+                    source.write_text(json.dumps({**metadata, 'messages': list(messages.values())}, indent=2))
+                    source.chmod(0o600)
+            original = source.read_bytes()
+            original_identity = (source.stat().st_dev, source.stat().st_ino)
+            if args.history_import_attack:
+                protected_import = root / 'protected-import'
+                source.rename(protected_import)
+                attack = args.history_import_attack
+                if attack == 'symlink':
+                    source.symlink_to(protected_import)
+                elif attack == 'hardlink':
+                    os.link(protected_import, source)
+                else:
+                    content = original.decode()
+                    if attack == 'malformed':
+                        content = '{malformed-native-import\n'
+                    elif attack == 'truncated':
+                        content += '{"$set":'
+                    elif attack in ('schema', 'invalid-session', 'invalid-project'):
+                        lines = content.splitlines()
+                        metadata = json.loads(lines[0])
+                        metadata['sessionId' if attack == 'invalid-session' else 'projectHash'] = 37 if attack == 'invalid-session' else 'invalid' if attack == 'invalid-project' else None
+                        lines[0] = json.dumps(metadata)
+                        content = '\n'.join(lines) + '\n'
+                    source.write_text(content)
+                    source.chmod(0o644 if attack == 'unsafe-mode' else 0o600)
+                    if attack == 'unsafe-parent':
+                        exports.chmod(0o755)
+                attacked = source.read_bytes()
+                attacked_identity = (source.lstat().st_dev, source.lstat().st_ino)
+                existing_records = {p: p.read_bytes() for p in history.rglob('*.jsonl')}
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-import.log')
+            code, output = invoke(diagnostic, peer_env, ['--session-file', str(source), '--prompt', second_prompt])
+            if args.history_import_attack:
+                assert code != 0 and len(models) == 1
+                assert 'Gemini canonical conversation history is unavailable or unsafe.' in output
+                assert protected_import.read_bytes() == original
+                assert (protected_import.stat().st_dev, protected_import.stat().st_ino) == original_identity
+                assert source.read_bytes() == attacked
+                assert (source.lstat().st_dev, source.lstat().st_ino) == attacked_identity
+                assert {p: p.read_bytes() for p in history.rglob('*.jsonl')} == existing_records
+                assert not list(private.rglob('*.jsonl'))
+                assert json.loads(auth.read_text()) == credentials
+                assert not errors, errors
+                print('PASS: actual native import refuses unsafe input before publication/inference and preserves canonical/protected bytes: ' + args.history_import_attack)
+                safe_cleanup = True
+                raise SystemExit(0)
+            assert code == 0 and len(completions()) == 2, 'An explicit native import must complete against canonical history.'
+            assert all(completions()[1][key] for key in ('first_prompt', 'second_prompt', 'prior_response'))
+            assert source.read_bytes() == original
+            assert (source.stat().st_dev, source.stat().st_ino) == original_identity
+            imported = [p for p in history.rglob('*.jsonl') if second_prompt in p.read_text() and '.archive' not in p.parts]
+            assert len(imported) == 1
+            imported_metadata = json.loads(imported[0].read_text().splitlines()[0])
+            imported_session = imported_metadata['sessionId']
+            assert imported_session != session
+            assert imported_metadata['projectHash'] == hashlib.sha256(str(workspace).encode()).hexdigest()
+            assert imported[0].stat().st_mode & 0o777 == 0o600
+            assert imported[0].stat().st_nlink == 1
+            assert not list(private.rglob('*.jsonl'))
+            assert not (private / 'oauth_creds.json').exists()
+            assert not (private / 'google_accounts.json').exists()
+            shutil.rmtree(peer)
+            restored = root / 'import-reader'
+            restored.mkdir(mode=0o700)
+            restored_private = restored / '.gemini'
+            restored_private.mkdir(mode=0o700)
+            (restored_private / 'settings.json').write_text(json.dumps(settings))
+            (restored_private / 'settings.json').chmod(0o600)
+            restored_env = {**env, 'HOME': str(restored), 'GEMINI_CLI_HOME': str(restored),
+                            'XDG_CONFIG_HOME': str(restored / '.config'), 'XDG_DATA_HOME': str(restored / '.local/share'),
+                            'XDG_CACHE_HOME': str(restored / '.cache')}
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-import-list.log')
+            code, output = invoke(diagnostic, restored_env, ['--list-sessions'])
+            assert code == 0 and imported_session in output
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-import-resume.log')
+            code, output = invoke(diagnostic, restored_env, ['--resume', imported_session, '--prompt', third_prompt])
+            assert code == 0 and len(completions()) == 3
+            assert all(completions()[2][key] for key in ('first_prompt', 'second_prompt', 'third_prompt', 'prior_response'))
+            assert source.read_bytes() == original
+            assert (source.stat().st_dev, source.stat().st_ino) == original_identity
+            assert not list(restored_private.rglob('*.jsonl'))
+            assert not errors, errors
+            print('PASS: actual native import preserves its source, publishes private canonical history, and resumes all prior content after configuration disposal: ' + args.history_import)
+            safe_cleanup = True
+            raise SystemExit(0)
         listing = args.diagnostics.with_name(args.diagnostics.stem + '-list.log')
         code, listed = invoke(listing, peer_env, ['--list-sessions'])
         if args.history_retention:
@@ -490,9 +603,10 @@ try:
                     assert not transcripts[0].exists(), 'Archive discovery must not reactivate retired conversations.'
                     print('PASS: actual native CLI discovers canonical archive generations without reactivation or inference.')
                 diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-archive-resume.log')
+                requests_before_resume = len(models)
                 code, output = invoke(diagnostic, third_env, ['--resume', session, '--prompt', second_prompt])
                 if args.history_archive_attack:
-                    assert code != 0 and len(completions()) == 1
+                    assert code != 0 and len(models) == requests_before_resume
                     assert 'Gemini canonical conversation history is unavailable or unsafe.' in output
                     assert protected_archive.read_bytes() == before
                     assert (protected_archive.stat().st_dev, protected_archive.stat().st_ino) == identity

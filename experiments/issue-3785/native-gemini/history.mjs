@@ -19,6 +19,7 @@ const conversations = new Map();
 const observed = new Map();
 const writerLeases = new Map();
 const retiredConversations = new Set();
+const importSources = new Map();
 const archiveName = /^session-archive-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}-(session-[a-zA-Z0-9_.-]+\.jsonl?)$/u;
 let authority;
 let failed = false;
@@ -280,20 +281,67 @@ export function claimNativeGeminiConversation(file) {
   }
 }
 
-export function admitNativeGeminiConversation(file, record) {
+function importedLocation(file) {
+  assertNativeGeminiHistoryCurrent();
+  if (typeof file !== 'string' || /[\0\r\n]/u.test(file)) throw refuse();
+  const absolute = path.resolve(file);
+  let source = importSources.get(absolute);
+  if (!source) {
+    if (importSources.size >= 16) throw refuse();
+    const parent = path.dirname(absolute);
+    if (fs.realpathSync(parent) !== parent) throw refuse();
+    const before = fs.lstatSync(parent, { bigint: true });
+    if (!safeDirectory(before)) throw refuse();
+    const fd = fs.openSync(parent, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
+    const opened = fs.fstatSync(fd, { bigint: true });
+    if (!safeDirectory(opened) || identity(opened) !== identity(before)) {
+      fs.closeSync(fd);
+      throw refuse();
+    }
+    source = { fd, parent, identity: identity(opened), name: path.basename(absolute), target: `/proc/self/fd/${fd}/${path.basename(absolute)}`, key: absolute };
+    importSources.set(absolute, source);
+  }
+  const named = fs.lstatSync(source.parent, { bigint: true });
+  const opened = fs.fstatSync(source.fd, { bigint: true });
+  if (!safeDirectory(named) || !safeDirectory(opened) || identity(named) !== source.identity || identity(opened) !== source.identity) throw refuse();
+  return source;
+}
+
+export function admitNativeGeminiConversation(file, record, importing = false) {
   if (!nativeGeminiHistorySelected()) return record;
+  let location;
   try {
-    const location = conversationLocation(file);
-    if (!record || typeof record !== 'object' || typeof record.sessionId !== 'string' || !/^[a-zA-Z0-9_-]+$/u.test(record.sessionId) || record.projectHash !== location.projectHash || !Array.isArray(record.messages)) throw refuse();
+    location = importing ? importedLocation(file) : conversationLocation(file);
+    if (!record || typeof record !== 'object' || typeof record.sessionId !== 'string' || !/^[a-zA-Z0-9_-]+$/u.test(record.sessionId) || !Array.isArray(record.messages)) throw refuse();
+    if (importing) {
+      if (typeof record.projectHash !== 'string' || !/^[a-f0-9]{64}$/u.test(record.projectHash) || location.sourceVersion !== version(checkedFile(location)) || location.generation !== digest(snapshot(location)) || location.sourceVersion !== version(checkedFile(location))) throw refuse();
+      importedLocation(file);
+    } else if (record.projectHash !== location.projectHash) throw refuse();
     return record;
   } catch {
     throw refuse();
+  } finally {
+    if (importing && location) {
+      importSources.delete(location.key);
+      fs.closeSync(location.fd);
+    }
   }
 }
 
-export function readNativeGeminiConversation(file) {
+export function readNativeGeminiConversation(file, importing = false) {
   if (!nativeGeminiHistorySelected()) return undefined;
   try {
+    if (importing) {
+      const location = importedLocation(file);
+      const before = checkedFile(location);
+      const content = snapshot(location);
+      validateRecords(content, location.name);
+      importedLocation(file);
+      if (version(before) !== version(checkedFile(location))) throw refuse();
+      location.sourceVersion = version(before);
+      location.generation = digest(content);
+      return content;
+    }
     const location = conversationLocation(file);
     return locked(location.parent, () => {
       const content = snapshot(location, true);

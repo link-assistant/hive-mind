@@ -839,3 +839,22 @@ Latest CI continuation:
       opaque-ID discovery/deletion/archive/resume after private-home disposal.
 - [ ] Verify the native-ID compatibility change, malformed-ID refusal and all
       storage controls in CI, then complete the explicit native import path.
+- [x] Reproduce native `--session-file` refusal after healthy canonical inference.
+      Add checked explicit-source reads and native parser admission, retain the
+      source generation/identity through parsing, and publish through canonical
+      writer ownership with exclusive private creation.
+- [x] Pass full native import/disposal/discovery/resume for canonical records,
+      foreign-project private JSONL exports and legacy JSON exports. Preserve
+      source bytes/inodes; each third inference includes all preceding prompts
+      and model content. Nine unsafe-import CLI controls and 45 bounded storage
+      controls pass, including changed/replaced source/parent during parsing.
+- [x] Rerun final native authentication/archive controls after import admission:
+      all 41 writer/account, 30 request and 11 read controls pass. The stricter
+      nine import refusals, seven archive refusals and live archive peer require
+      no additional model request, preserving all canonical/audit generations.
+- [ ] Verify fresh Node 24 import/archive/native-ID CI, then complete every
+      remaining history surface, lifecycle, backend and production criterion.
+- [ ] Investigate Checks 41116035200 Docker cancellation at the exact pushed
+      head. Preserve the full log, identify export-time resource pressure,
+      reproduce a focused control before any change, and require a fresh
+      successful packaged-image run without extending its timeout.

@@ -82,7 +82,40 @@ if (name === 'lease-owner') {
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name === 'create-append-race') {
+  if (name.startsWith('import-')) {
+    const imports = path.join(root, 'imports');
+    fs.mkdirSync(imports, { mode: 0o700 });
+    const source = path.join(imports, 'export.jsonl');
+    const record = { sessionId: 'SYNTHETIC_NATIVE_SESSION-3785', projectHash: '0'.repeat(64), messages: [] };
+    const bytes = JSON.stringify(record) + '\n';
+    fs.writeFileSync(source, bytes, { mode: 0o600 });
+    const original = fs.statSync(source);
+    assert.equal(h.readNativeGeminiConversation(source, true), bytes);
+    if (name === 'import-healthy') {
+      assert.deepEqual(h.admitNativeGeminiConversation(source, record, true), record);
+      assert.equal(fs.readFileSync(source, 'utf8'), bytes);
+      assert.equal(fs.statSync(source).ino, original.ino);
+    } else if (name === 'import-changed') {
+      fs.appendFileSync(source, '{"$set":{"summary":"peer"}}\n');
+      const changed = fs.readFileSync(source);
+      assert.throws(() => h.admitNativeGeminiConversation(source, record, true), refused);
+      assert.deepEqual(fs.readFileSync(source), changed);
+    } else if (name === 'import-replaced') {
+      fs.renameSync(source, source + '-protected');
+      fs.writeFileSync(source, bytes, { mode: 0o600 });
+      assert.throws(() => h.admitNativeGeminiConversation(source, record, true), refused);
+      assert.equal(fs.readFileSync(source, 'utf8'), bytes);
+      assert.equal(fs.statSync(source + '-protected').ino, original.ino);
+    } else if (name === 'import-parent-replaced') {
+      fs.renameSync(imports, imports + '-protected');
+      fs.mkdirSync(imports, { mode: 0o700 });
+      fs.writeFileSync(source, bytes, { mode: 0o600 });
+      assert.throws(() => h.admitNativeGeminiConversation(source, record, true), refused);
+      assert.equal(fs.readFileSync(path.join(imports + '-protected', 'export.jsonl'), 'utf8'), bytes);
+      assert.equal(fs.statSync(path.join(imports + '-protected', 'export.jsonl')).ino, original.ino);
+    } else throw new Error('Unknown bounded native import scenario.');
+    assert.deepEqual(fs.readFileSync(file), saved);
+  } else if (name === 'create-append-race') {
     const target = path.join(chats, 'session-new.jsonl');
     const open = fs.openSync;
     let injected = false;
@@ -322,7 +355,8 @@ try:
                      'restore-existing', 'restore-stale', 'restore-malformed',
                      'restore-symlink', 'restore-hardlink', 'restore-directory-replacement',
                      'restore-foreign-project', 'restore-subagent', 'restore-list-overflow',
-                     'create-append-race', 'restore-publish-race'):
+                     'create-append-race', 'restore-publish-race', 'import-healthy',
+                     'import-changed', 'import-replaced', 'import-parent-replaced'):
         if args.scenario and scenario != args.scenario:
             continue
         finish([launch(fixture(scenario), scenario)])

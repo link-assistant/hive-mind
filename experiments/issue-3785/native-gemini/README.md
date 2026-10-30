@@ -239,7 +239,7 @@ owner-death recovery, alternate backends and production installation remain open
 `apply_history.py` requires the exact constructor-stage manager plus four pinned
 native CLI/helper inputs before writing any file. It adds `GEMINI_HISTORY_HOME`
 independently of private configuration and auth. The resulting manager hash is
-`463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61`.
+`0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42`.
 The original installed package remains unchanged; only disposable copies run.
 
 The selected root is a private, owned, existing directory. Canonical
@@ -357,3 +357,27 @@ the native identifier alphabet. The complete CLI discovers, deletes, lists the
 archive and resumes `SYNTHETIC_NATIVE_SESSION-3785` after private-home disposal.
 Numeric JSON session metadata still refuses; this preserves valid native strings
 without admitting an invalid metadata type.
+
+## Explicit native session import
+
+The native `--session-file` route originally reads outside the selected loader's
+registered project and writes its destination through an independent filesystem
+path. The strict control first completes inference and saves a real native
+conversation, then reproduces import refusal. The selected import route now
+reads an explicit source through a checked parent descriptor, validates every
+JSON/JSONL record and runs the actual native parser. Its source must be an owned
+private regular file with one link, at most 32 MiB, in an owned private directory.
+Linked parents, changed file/directory identity, unsafe permissions and mutation
+during parsing refuse before canonical publication or inference.
+
+Native import still assigns a new session ID, rewrites the project hash for the
+current project and applies its existing message filtering. Publication uses
+the canonical writer lease and an exclusive private file; the source remains
+unchanged. Canonical records, private JSONL exports from another project and
+legacy JSON exports all pass full CLI import/disposal/discovery/resume controls.
+The third model request contains both preceding prompts and the prior response.
+Nine unsafe-source CLI controls and 45 bounded storage controls pass locally,
+including changed/replaced import sources and parent replacement during parsing.
+This stage and the archive stage require fresh Node 24 CI; other history writers,
+artifact/subagent lifecycle, interrupted publication and production installation
+remain open.

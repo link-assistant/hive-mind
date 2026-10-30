@@ -264,6 +264,7 @@ if (process.argv[2] === '--worker') {
       '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970',
       '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64',
       '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61',
+      '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42',
     ].includes(createHash('sha256').update(source).digest('hex')),
     'Only an exact inspected native manager stage may run.'
   );

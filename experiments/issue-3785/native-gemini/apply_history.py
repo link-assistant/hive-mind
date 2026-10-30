@@ -77,23 +77,23 @@ manager = replace(manager, '''  async loadProjectTempFile(filePath) {
     const absolutePath = filePath.startsWith("chats/") ? path4.join(this.getProjectChatsDir(), filePath.slice(6)) : path4.join(this.getProjectTempDir(), filePath);''')
 for signature in ['function loadConversationRecordSync(filePath, options) {', 'async function loadConversationRecord(filePath, options) {']:
     manager = replace(manager, signature + '\n  if (!fs32.existsSync(filePath)) {', signature + '''
-  const selectedContent = readNativeGeminiConversation(filePath);
+  const selectedContent = readNativeGeminiConversation(filePath, options?.importSource === true);
   if (selectedContent === null || selectedContent === undefined && !fs32.existsSync(filePath)) {''')
 manager = replace(manager, 'const content = fs32.readFileSync(filePath, "utf8");', 'const content = selectedContent ?? fs32.readFileSync(filePath, "utf8");')
 manager = replace(manager, 'const fileStream = fs32.createReadStream(filePath);', 'const fileStream = selectedContent === undefined ? fs32.createReadStream(filePath) : HiveHistoryReadable.from([selectedContent]);')
-manager = replace(manager, 'return await parseLegacyRecordFallback(filePath, options);', 'return selectedContent === undefined ? await parseLegacyRecordFallback(filePath, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(selectedContent, options));')
-manager = replace(manager, 'return parseLegacyContentFallback(content, options);', 'return selectedContent === undefined ? parseLegacyContentFallback(content, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(content, options));')
+manager = replace(manager, 'return await parseLegacyRecordFallback(filePath, options);', 'return selectedContent === undefined ? await parseLegacyRecordFallback(filePath, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(selectedContent, options), options?.importSource === true);')
+manager = replace(manager, 'return parseLegacyContentFallback(content, options);', 'return selectedContent === undefined ? parseLegacyContentFallback(content, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(content, options), options?.importSource === true);')
 manager = replace(manager, '''    const result2 = accumulator.finalize();
     if (result2) {
       return result2;
     }''', '''    const result2 = accumulator.finalize();
     if (result2) {
-      return admitNativeGeminiConversation(filePath, result2);
+      return admitNativeGeminiConversation(filePath, result2, options?.importSource === true);
     }''', count=2)
 for diagnostic in ['Error loading conversation record synchronously:', 'Error loading conversation record from JSONL:']:
     manager = replace(manager, f'''  }} catch (error40) {{
     debugLogger.error("{diagnostic}", error40);''', f'''  }} catch (error40) {{
-    if (selectedContent !== undefined) return admitNativeGeminiConversation(filePath, null);
+    if (selectedContent !== undefined) return admitNativeGeminiConversation(filePath, null, options?.importSource === true);
     debugLogger.error("{diagnostic}", error40);''')
 manager = replace(manager, '      fs32.appendFileSync(this.conversationFile, line);', '      if (!appendNativeGeminiConversation(this.conversationFile, line)) fs32.appendFileSync(this.conversationFile, line);')
 manager = replace(manager, '''    const content = lines.join("\\n") + "\\n";
@@ -213,6 +213,18 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
           const sessionId = archived ? undefined : sessionToDelete.sessionInfo?.id;''')
         source = 'import { assertNativeGeminiHistoryCurrent, archiveNativeGeminiConversation, nativeGeminiHistorySelected, listNativeGeminiArchivedConversations, restoreNativeGeminiConversation } from "./hive-gemini-history.mjs";\n' + source
     if name == 'gemini-GLQ4MVLB.js':
+        source = replace(source, 'const sessionData = await loadConversationRecord(sessionFileArg);', 'const sessionData = await loadConversationRecord(sessionFileArg, { importSource: true });')
+        source = replace(source, '''      await fsPromises.mkdir(chatsDir, { recursive: true });
+      await fsPromises.writeFile(
+        newSessionPath,
+        lines.join("\\n") + "\\n",
+        "utf-8"
+      );''', '''      claimNativeGeminiConversation(newSessionPath);
+      if (!rewriteNativeGeminiConversation(newSessionPath, lines.join("\\n") + "\\n")) {
+        await fsPromises.mkdir(chatsDir, { recursive: true });
+        await fsPromises.writeFile(newSessionPath, lines.join("\\n") + "\\n", "utf-8");
+      }''')
+        source = 'import { claimNativeGeminiConversation, rewriteNativeGeminiConversation } from "./hive-gemini-history.mjs";\n' + source
         source = replace(source, '''    }).option("delete-session", {
       type: "string",''', '''    }).option("list-archived-sessions", {
       type: "boolean",

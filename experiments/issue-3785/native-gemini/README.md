@@ -239,7 +239,7 @@ owner-death recovery, alternate backends and production installation remain open
 `apply_history.py` requires the exact constructor-stage manager plus four pinned
 native CLI/helper inputs before writing any file. It adds `GEMINI_HISTORY_HOME`
 independently of private configuration and auth. The resulting manager hash is
-`6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3`.
+`3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970`.
 The original installed package remains unchanged; only disposable copies run.
 
 The selected root is a private, owned, existing directory. Canonical
@@ -281,12 +281,19 @@ retention cleanup caught the error and unlinked the rejected transcript. The
 selected CLI listing/cleanup boundary now rechecks the failed authority before
 treating a read error as a disposable session. JSON/JSONL reads and writes
 validate every record before publication; invalid appends/rewrites preserve the
-preceding bytes. The four full CLI unsafe-history controls require the canonical
+preceding bytes. The seven full CLI unsafe-history controls require the canonical
 entry and protected outside file to retain their bytes and inodes, with no
-additional inference. Semantic schema validation and complete retention/deletion
+additional inference. The native loader also validates the parsed session UUID, project hash and
+message list. Missing metadata, a foreign project hash and an invalid session ID
+refuse before cleanup or another inference. Complete retention/deletion
 transactions still need implementation.
 
-This stage is locally verified on Node 26.12.1; Node 24 CI remains required.
+The preceding `6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3`
+stage passes Node 24 [CI 41111156696](https://github.com/link-assistant/hive-mind/actions/runs/41111156696)
+on `37bcddb6ebed4bf9331ba425ea62739fec397691`, including native CLI discovery/
+resume, four unsafe-history controls, all 19 storage controls and the native auth
+regressions. The additional parsed-record admission and three semantic controls
+pass locally on Node 26.12.1 and still require fresh Node 24 CI.
 Native imports, retention/deletion and every other writer, Git/checkpoint/prompt/
 shell history, subagent lifecycle, interrupted writes and production installation
 remain unfinished. Sharing only conversations does not complete the full-history

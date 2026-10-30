@@ -246,7 +246,12 @@ if (process.argv[2] === '--worker') {
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
   assert.equal(metadata.version, '0.65.0');
   const source = await fs.readFile(moduleFile, 'utf8');
-  assert.ok(['4d9cf6435503e5280ecb0f55078793531c8041fe435f60fa8dfce92317c8a28e', 'e7df0d9801b8ec39c3ed283a614c9ffc6399c00410418d2ed0e6ff86d79b57cd', '41849bd0ccf316e164a7aeafbf7171cf20e36cc1c77cd456dc33e2441eb780e6', 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610', '5f1012b7c71f3ce17b53f923ca244d1ed44b5253fa0a93633c593cee52f38a77', '61f9f7fcc120c811254c8001cc745f2e84c284884d59f2a0e3ac55a6c95f9a5a', '0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c', '1880e98a06fafd5102d35593b5612c54a0a189dfe60675c9be1546546a4ef120', '4f97e8a434e43e9b9251e5e2a6775922922ed5ead6ed2fbb496451e5604ee764', 'd7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d', '8152d28141b69a2cb351d46faa3fdd3b111ac6bc4d012dafd432a828436a66ae', 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792', '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3'].includes(createHash('sha256').update(source).digest('hex')), 'Only an exact inspected native manager stage may run.');
+  assert.ok(
+    ['4d9cf6435503e5280ecb0f55078793531c8041fe435f60fa8dfce92317c8a28e', 'e7df0d9801b8ec39c3ed283a614c9ffc6399c00410418d2ed0e6ff86d79b57cd', '41849bd0ccf316e164a7aeafbf7171cf20e36cc1c77cd456dc33e2441eb780e6', 'd4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610', '5f1012b7c71f3ce17b53f923ca244d1ed44b5253fa0a93633c593cee52f38a77', '61f9f7fcc120c811254c8001cc745f2e84c284884d59f2a0e3ac55a6c95f9a5a', '0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c', '1880e98a06fafd5102d35593b5612c54a0a189dfe60675c9be1546546a4ef120', '4f97e8a434e43e9b9251e5e2a6775922922ed5ead6ed2fbb496451e5604ee764', 'd7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d', '8152d28141b69a2cb351d46faa3fdd3b111ac6bc4d012dafd432a828436a66ae', 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792', '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3', '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970'].includes(
+      createHash('sha256').update(source).digest('hex')
+    ),
+    'Only an exact inspected native manager stage may run.'
+  );
   const legacyConfigs = process.argv.includes('--legacy-configs');
   const trace = process.argv.includes('--trace');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-gemini-writers-'));

@@ -127,7 +127,7 @@ if (process.argv[2] === '--worker') {
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
   assert.equal(metadata.version, '0.65.0');
   const source = await fs.readFile(moduleFile, 'utf8');
-  assert.ok(['d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d', '8152d28141b69a2cb351d46faa3fdd3b111ac6bc4d012dafd432a828436a66ae', 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792', '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3'].includes(createHash('sha256').update(source).digest('hex')), 'Only exact inspected native manager stages may run.');
+  assert.ok(['d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d', '8152d28141b69a2cb351d46faa3fdd3b111ac6bc4d012dafd432a828436a66ae', 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792', '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3', '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970'].includes(createHash('sha256').update(source).digest('hex')), 'Only exact inspected native manager stages may run.');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-gemini-request-auth-'));
   const bundle = path.join(root, 'bundle');
   await fs.mkdir(bundle, { mode: 0o700 });

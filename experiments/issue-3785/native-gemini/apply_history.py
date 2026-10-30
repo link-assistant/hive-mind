@@ -56,7 +56,20 @@ for signature in ['function loadConversationRecordSync(filePath, options) {', 'a
   if (selectedContent === null || selectedContent === undefined && !fs32.existsSync(filePath)) {''')
 manager = replace(manager, 'const content = fs32.readFileSync(filePath, "utf8");', 'const content = selectedContent ?? fs32.readFileSync(filePath, "utf8");')
 manager = replace(manager, 'const fileStream = fs32.createReadStream(filePath);', 'const fileStream = selectedContent === undefined ? fs32.createReadStream(filePath) : HiveHistoryReadable.from([selectedContent]);')
-manager = replace(manager, 'return await parseLegacyRecordFallback(filePath, options);', 'return selectedContent === undefined ? await parseLegacyRecordFallback(filePath, options) : parseLegacyContentFallback(selectedContent, options);')
+manager = replace(manager, 'return await parseLegacyRecordFallback(filePath, options);', 'return selectedContent === undefined ? await parseLegacyRecordFallback(filePath, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(selectedContent, options));')
+manager = replace(manager, 'return parseLegacyContentFallback(content, options);', 'return selectedContent === undefined ? parseLegacyContentFallback(content, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(content, options));')
+manager = replace(manager, '''    const result2 = accumulator.finalize();
+    if (result2) {
+      return result2;
+    }''', '''    const result2 = accumulator.finalize();
+    if (result2) {
+      return admitNativeGeminiConversation(filePath, result2);
+    }''', count=2)
+for diagnostic in ['Error loading conversation record synchronously:', 'Error loading conversation record from JSONL:']:
+    manager = replace(manager, f'''  }} catch (error40) {{
+    debugLogger.error("{diagnostic}", error40);''', f'''  }} catch (error40) {{
+    if (selectedContent !== undefined) return admitNativeGeminiConversation(filePath, null);
+    debugLogger.error("{diagnostic}", error40);''')
 manager = replace(manager, '      fs32.appendFileSync(this.conversationFile, line);', '      if (!appendNativeGeminiConversation(this.conversationFile, line)) fs32.appendFileSync(this.conversationFile, line);')
 manager = replace(manager, '''    const content = lines.join("\\n") + "\\n";
     try {
@@ -74,7 +87,7 @@ manager = replace(manager, '''    await fs89.writeFile(sessionPath, JSON.stringi
     }, null, 2));''', '''    const record = JSON.stringify({ ...freshConversation, ...metadataUpdate, lastUpdated }, null, 2);
     if (!rewriteNativeGeminiConversation(sessionPath, record)) await fs89.writeFile(sessionPath, record);''')
 manager = '''import { Readable as HiveHistoryReadable } from "node:stream";
-import { nativeGeminiChatsDirectory, readNativeGeminiConversation, appendNativeGeminiConversation, rewriteNativeGeminiConversation } from "./hive-gemini-history.mjs";
+import { nativeGeminiChatsDirectory, readNativeGeminiConversation, appendNativeGeminiConversation, rewriteNativeGeminiConversation, admitNativeGeminiConversation } from "./hive-gemini-history.mjs";
 ''' + manager
 sources['chunk-DKZARV6U.js'] = manager
 for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('interactiveCli-AVD3AKNJ.js', 1)]:

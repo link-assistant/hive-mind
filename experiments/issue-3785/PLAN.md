@@ -751,7 +751,8 @@ Latest CI continuation:
       the bootstrap/image version mismatch with the existing matrix test.
       Align the bootstrap constant with all four 0.355.25 image pins; all
       30 matrix/freshness/image checks pass. Preserve compatibility minimums.
-- [ ] Complete the full default suite after the bootstrap repair, then require
+- [x] Complete all 738 default test files locally after the bootstrap repair.
+- [ ] Require
       fresh exact-head test and packaged image CI. Preserve the running native
       Codex build before pushing the next atomic commits.
 - [x] Reproduce the remaining stale dependency-pin assertion in the full local
@@ -777,3 +778,23 @@ Latest CI continuation:
       history authority in native listing/cleanup. All 19 storage controls and
       four full CLI unsafe-history controls pass, preserving canonical and
       protected-file bytes/inodes with no additional inference.
+
+- [x] Reproduce syntactically valid native records losing project metadata or
+      naming another project. Admit only a complete native parsed conversation
+      with a session UUID, the selected project hash and a message array. All
+      seven full CLI unsafe-history controls and healthy discovery/resume pass.
+- [x] Preserve no-selector behavior, all 41 native writer/account controls,
+      30 request controls, 11 canonical reads and 19 storage controls after
+      parsed-record admission, locally.
+- [x] Verify the preceding conversation stage on Node 24 in Gemini CI
+      41111156696, including actual native discovery/resume, four unsafe-history
+      refusals, 19 storage controls and the authentication regressions.
+- [x] Investigate exact-head Checks 41111156810: Prettier rejects the expanded
+      manager-hash assertion in the writer probe. Reproduce that formatting
+      failure locally and format the assertion; preserve the complete CI log.
+- [x] Pass full formatting and lint after repairing the expanded assertion.
+- [ ] Commit parsed-record admission and the formatting repair. Require fresh
+      exact-head CI without interrupting the in-progress compiled Codex build.
+- [ ] Reproduce valid but non-resumable/subagent canonical records being treated
+      as disposable by native retention; coordinate retention/deletion writers
+      without losing canonical data or bypassing the native retention feature.

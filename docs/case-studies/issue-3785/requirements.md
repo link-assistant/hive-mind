@@ -68,7 +68,10 @@ inference, and a further pinned stage preserves native conversation discovery
 and resume after private-home disposal. Native linked-transcript attacks refuse,
 and nineteen bounded storage controls include malformed/truncated refusal,
 four concurrent writers and stale
-rewrite preservation. These expanded stages still require CI. Canonical alternate
+rewrite preservation. The preceding conversation stage passes Node 24 CI
+41111156696 on `37bcddb6ebed4bf9331ba425ea62739fec397691`, including actual
+native discovery/resume and malformed/truncated refusal. Additional parsed-record
+admission passes locally and still requires fresh CI. Canonical alternate
 backends, complete history, all writers/lifecycle and production installation
 remain unfinished. These experiments do not complete A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and

@@ -1147,3 +1147,34 @@ The workflow overall still fails on the test suite and requires a fresh run.
 [Native Codex run 41104225493](https://github.com/link-assistant/hive-mind/actions/runs/41104225493)
 passes all three jobs on the same `0b81c2ebd2d33c47a3c23df8f4b9c00f728c303e`
 head. The full log is preserved as `ci-logs/native-codex-41104225493.log`.
+
+## Checks 41111156810: expanded probe assertion needs formatting
+
+[Run 41111156810](https://github.com/link-assistant/hive-mind/actions/runs/41111156810)
+checks `37bcddb6ebed4bf9331ba425ea62739fec397691`, created
+2026-10-30T18:56:40Z. Preserved `ci-logs/checks-41111156810.log`, lines
+16840–16842, reports a Prettier warning for
+`experiments/issue-3785/probe-gemini-native-writers.mjs` and exit 1.
+Lines 32867–32868 identify lint as the failing job; downstream test-suite and
+packaged Docker jobs were skipped. Adding another accepted manager hash made
+the assertion exceed Prettier's single-line layout. The earlier changed-file
+format check omitted this probe. A focused local check reproduces exit 1 before
+formatting; the corrected assertion passes. Full `npm run format:check` and
+`npm run lint` now pass locally, including all 40 shell/workflow retry guards.
+A fresh Checks run is still required separately.
+
+The complete local default suite now passes all 738 selected test files after
+the bootstrap and expected-pin repairs. Its bounded command log is
+`/tmp/issue-3785-recovery/default-all-aligned.log`; this local pass does not
+establish that skipped packaged-image CI passed.
+
+## Gemini 41111156696: full native CLI conversation stage passes
+
+[Run 41111156696](https://github.com/link-assistant/hive-mind/actions/runs/41111156696)
+passes on the same head, completed 2026-10-30T19:02:52Z. The full log is
+preserved as `ci-logs/native-gemini-41111156696.log`; its downloaded diagnostics
+artifact confirms the healthy TLS request, the original private-home history-loss
+reproduction, canonical discovery/resume, four unsafe-history refusals and all
+19 storage controls. The post-history 41 writer/account, 30 request and 11
+canonical-read controls also pass. The three additional semantic controls and
+parsed-record admission were added locally afterward and need fresh CI.

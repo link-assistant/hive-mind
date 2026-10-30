@@ -1,7 +1,10 @@
 Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
 Constructor-stage manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
-Conversation-stage manager: 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
-Locally verified 2026-10-30, Node 26.12.1. Node 24 CI remains required.
+Conversation-stage manager: 3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970
+Locally verified 2026-10-30, Node 26.12.1.
+Preceding 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
+stage passes Node 24 CI 41111156696 on 37bcddb6ebed4bf9331ba425ea62739fec397691.
+New parsed-record admission and three semantic controls still need fresh CI.
 Only synthetic credentials/provider responses; loopback TLS never forwards traffic.
 The complete native CLI and SDK execute without export or transport instrumentation.
 
@@ -17,7 +20,8 @@ PASS: fresh CLI discovers the session after the entire prior process group exits
 PASS: resumed model request includes prior user content, prior model response
       and the new user prompt; both turns remain in canonical native JSONL.
 PASS: native summary generation during listing uses the same transcript authority.
-PASS: symlink, hardlink, malformed and truncated transcript attacks refuse before
+PASS: symlink, hardlink, malformed, truncated, missing-schema, foreign-project
+      and invalid-session transcript attacks refuse before
       another inference; canonical transcript and protected outside bytes/inodes,
       plus canonical credential bytes/inode stay unchanged.
 PASS: no private credential/account/transcript files appear with selected history.
@@ -37,7 +41,7 @@ Additional reproduction before validation:
 The full CLI silently ignores malformed/transcript trailing JSON and exits zero.
 A read-only refusal still permits native retention cleanup to unlink the rejected
 record before later admission fails. The fixed cleanup catch rechecks authority,
-and all 19 storage plus four full native unsafe-history controls pass locally.
+and all 19 storage plus seven full native unsafe-history controls pass locally.
 All 41 native writer/account, 30 request and 11 canonical-reader controls also
 pass after the conversation stage.
 
@@ -45,3 +49,9 @@ Open: other history surfaces, import/retention/deletion writers, subagent lifecy
 interrupted-write/power-loss recovery, full CLI refresh/owner death, alternate
 backends, production installation and the remaining six-tool requirements.
 This is an experimental native conversation adapter, not full-history completion.
+
+Additional semantic reproduction before parsed-record admission:
+Syntactically valid JSONL with missing project metadata or a foreign project hash
+is silently discarded or accepted by the prior native loader. The fixed loader
+requires a session UUID, the selected project hash and a message array. The
+strict full CLI schema control and healthy disposal/resume control pass locally.

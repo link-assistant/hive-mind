@@ -213,7 +213,7 @@ function conversationLocation(file) {
     const name = components.pop();
     if (!/\.jsonl?$/u.test(name)) throw refuse();
     const parent = directory([...item.components, ...components]);
-    return { parent, name, target: `${parent.anchor}/${name}`, key: `${named}/${components.concat(name).join('/')}` };
+    return { parent, name, target: `${parent.anchor}/${name}`, key: `${named}/${components.concat(name).join('/')}`, projectHash: item.components[1] };
   }
   throw refuse();
 }
@@ -225,6 +225,17 @@ function validateRecords(content, name) {
   for (const line of records) {
     const record = JSON.parse(line);
     if (record === null || typeof record !== 'object' || Array.isArray(record)) throw refuse();
+  }
+}
+
+export function admitNativeGeminiConversation(file, record) {
+  if (!nativeGeminiHistorySelected()) return record;
+  try {
+    const location = conversationLocation(file);
+    if (!record || typeof record !== 'object' || typeof record.sessionId !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(record.sessionId) || record.projectHash !== location.projectHash || !Array.isArray(record.messages)) throw refuse();
+    return record;
+  } catch {
+    throw refuse();
   }
 }
 

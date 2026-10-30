@@ -27,7 +27,7 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
-parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated'))
+parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -37,7 +37,8 @@ assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
-                        '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3')
+                        '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -256,8 +257,20 @@ try:
             elif args.history_attack == 'malformed':
                 transcripts[0].write_text('{malformed-native-conversation\n')
                 transcripts[0].chmod(0o600)
-            else:
+            elif args.history_attack == 'truncated':
                 transcripts[0].write_bytes(protected_bytes + b'{"$set":')
+                transcripts[0].chmod(0o600)
+            else:
+                lines = protected_bytes.decode().splitlines()
+                metadata = json.loads(lines[0])
+                if args.history_attack == 'schema':
+                    metadata['projectHash'] = None
+                elif args.history_attack == 'foreign-project':
+                    metadata['projectHash'] = '0' * 64
+                else:
+                    metadata['sessionId'] = 37
+                lines[0] = json.dumps(metadata)
+                transcripts[0].write_text('\n'.join(lines) + '\n')
                 transcripts[0].chmod(0o600)
             attacked_bytes = transcripts[0].read_bytes()
             attacked_identity = (transcripts[0].lstat().st_dev, transcripts[0].lstat().st_ino)

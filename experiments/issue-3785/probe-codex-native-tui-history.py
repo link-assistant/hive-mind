@@ -9,13 +9,14 @@ import os
 from pathlib import Path
 import pty
 import select
-import signal
 import struct
 import subprocess
 import tempfile
 import termios
 import threading
 import time
+
+from native_process_group import stop_process_group
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary", type=Path)
@@ -143,9 +144,7 @@ trust_level = "trusted"
             if sent and len(observed) > before:
                 break
     finally:
-        if child.poll() is None:
-            os.killpg(child.pid, signal.SIGKILL)
-        child.wait()
+        stop_process_group(child)
         # A fatal refusal can exit before the next loop iteration; retain its
         # bounded final diagnostic instead of mistaking a crash for admission.
         while select.select([master], [], [], 0)[0]:

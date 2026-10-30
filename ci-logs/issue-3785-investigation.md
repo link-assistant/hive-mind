@@ -641,3 +641,40 @@ passes at c1bfa9c6c. Its downloaded diagnostics confirm 14 manager reads,
 14 actual OAuth-client reads, private-root kernel-lock ownership and all 11
 native OAuth writer/failure cases. This run precedes the newer CLI provider
 admission controls; those require their own fresh run.
+
+## Recovery on 2026-10-30
+
+The five most recent runs were created at 2026-10-26T20:31:15Z for exact head
+`c1bfa9c6ceea0dc2e1b8f5ac9b5c0b856f47fb12`. They precede the recovered commits.
+The two failing runs were downloaded again without relying on cached status.
+
+`security-40396373241.log:7400–7403` confirms the vulnerable Qwen experiment
+`sharp@0.35.4` dependency. The already-tested 0.35.5 override was stranded on
+`recovery/issue-3785-4c28551ac612` and is restored to the PR branch.
+
+`native-codex-40396373397.log:940–951` shows successful native compilation,
+then failure in the actual TUI control. Its downloaded
+`native-codex-auth-build/native-tui-history-after.log:1–29` establishes that
+both healthy history and unsafe-history refusal **passed**. The failure is
+`OSError: [Errno 39] Directory not empty: 'plugins'` during fixture removal.
+The probe killed its process group only while the CLI leader was alive; a
+leader exiting on refusal left catalog helpers writing after cleanup began.
+A finite regression starts a helper, exits its leader, then checks termination.
+It fails before repair (live sleeping descendant) and passes after unconditional
+process-group termination and bounded waiting for live members to disappear.
+The actual downloaded native CLI passes healthy/refusal controls and both
+no-selector compatibility controls after this repair. The child is reaped before
+fixture removal; temporary-directory errors are not ignored or retried away.
+
+The interrupted log identifies three preserved commits beyond the PR head:
+`361e30057`, `244916565`, and `90f6cb5e`. All are cherry-picked after merging
+current `main`, preserving their original history. The last contains unverified
+Codex refresh-crash intent work. Its exact-source applicability and seven
+storage/owner-death tests pass locally; full native manager/CLI execution remains
+required in CI. The newer native Qwen CLI/factory tests also need fresh CI.
+
+The requested suspected model false-positive report is
+[openai/codex 58320](https://github.com/openai/codex/issues/58320). It records
+historical error/turn-failure timestamps, the synthetic maintenance context,
+recovery evidence and the absence of a minimal deterministic classifier trigger.
+No classifier bypass or automatic policy-error retry is proposed.

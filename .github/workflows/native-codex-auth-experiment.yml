@@ -11,6 +11,8 @@ on:
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
       - 'experiments/issue-3785/probe-codex-native-tui-history.py'
+      - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/test_native_process_group.py'
       - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
       - 'src/codex-sessions.lib.mjs'
       - 'src/codex-rollout-publication.lib.mjs'
@@ -36,6 +38,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
+      - name: Verify native probe cleanup after an exited process leader
+        run: python3 experiments/issue-3785/test_native_process_group.py
       - name: Install branch dependencies and the exact native Linux CLI
         run: |
           npm ci --ignore-scripts > "$RUNNER_TEMP/history-dependencies.log" 2>&1 &

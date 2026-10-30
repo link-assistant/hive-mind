@@ -40,6 +40,8 @@ requests = []
 errors = []
 model_entered = threading.Event()
 refresh_entered = threading.Event()
+owner_stopped = threading.Event()
+owner_response_finished = threading.Event()
 second_refresh = threading.Event()
 release_refresh = threading.Event()
 model_auth = []
@@ -74,17 +76,18 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
         def log_message(self, *_):
             pass
 
-        def send(self, status, value):
+        def send(self, status, value, *, abandoned_owner=False):
             data = json.dumps(value).encode()
-            self.send_response(status)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Content-Length', str(len(data)))
-            self.send_header('Connection', 'close')
-            self.end_headers()
             try:
+                self.send_response(status)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Connection', 'close')
+                self.end_headers()
                 self.wfile.write(data)
-            except (BrokenPipeError, ConnectionResetError):
-                if not args.owner_death:
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ssl.SSLEOFError):
+                if not abandoned_owner:
                     errors.append('UnexpectedDisconnectedClient')
 
         def do_CONNECT(self):
@@ -99,8 +102,7 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                 with context.wrap_socket(self.connection, server_side=True) as secure:
                     Handler(secure, self.client_address, self.server)
             except (ssl.SSLError, OSError) as error:
-                if not (args.owner_death and isinstance(error, (BrokenPipeError, ConnectionResetError))):
-                    errors.append(type(error).__name__)
+                errors.append(type(error).__name__)
             self.close_connection = True
 
         def do_POST(self):
@@ -115,18 +117,25 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                     generation = payload['refresh_token']
                     assert generation in ('SYNTHETIC-REFRESH-G0', 'SYNTHETIC-REFRESH-G1')
                     observed.append(generation)
+                    exchange_index = len(observed)
                     assert len(observed) <= 3
                     if args.concurrent or args.owner_death or args.replace_login or args.logout:
-                        if len(observed) == 1:
+                        if exchange_index == 1:
                             refresh_entered.set()
                             assert release_refresh.wait(8)
                         else:
                             second_refresh.set()
                             self.send(400, {'error': 'invalid_grant', 'error_description': 'Synthetic predecessor already consumed'})
                             return
-                    self.send(200, {'access_token': 'SYNTHETIC-ACCESS-G1',
-                                    'refresh_token': 'SYNTHETIC-REFRESH-G1',
-                                    'expires_in': 3600, 'scope': 'user:inference user:profile'})
+                    try:
+                        self.send(200, {'access_token': 'SYNTHETIC-ACCESS-G1',
+                                        'refresh_token': 'SYNTHETIC-REFRESH-G1',
+                                        'expires_in': 3600, 'scope': 'user:inference user:profile'},
+                                  abandoned_owner=args.owner_death and exchange_index == 1
+                                  and owner_stopped.is_set())
+                    finally:
+                        if exchange_index == 1:
+                            owner_response_finished.set()
                 elif endpoint.path == '/v1/messages':
                     assert self.headers.get('Authorization') in (
                         'Bearer SYNTHETIC-ACCESS-G0', 'Bearer SYNTHETIC-ACCESS-G1', 'Bearer SYNTHETIC-ACCESS-G2')
@@ -219,6 +228,7 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
             if args.concurrent or args.owner_death:
                 if args.owner_death:
                     stop_process_group(child)
+                    owner_stopped.set()
                 peer_home, peer_config = root / 'peer-home', root / 'peer-config'
                 for directory in (peer_home, peer_config):
                     directory.mkdir(mode=0o700)
@@ -240,6 +250,7 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                     assert time.monotonic() - started < 90, 'Finite native owner-death deadline exceeded.'
                     assert os.fstat(diagnostics.fileno()).st_size <= 256 * 1024
                     assert os.fstat(peer_diagnostics.fileno()).st_size <= 256 * 1024
+                assert owner_response_finished.wait(3), 'Abandoned response handler did not finish.'
                 if args.expect_predecessor_reuse:
                     assert observed == ['SYNTHETIC-REFRESH-G0'] * 2, 'The native peer must reproduce uncertain predecessor reuse.'
                 else:

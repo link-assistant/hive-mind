@@ -996,3 +996,30 @@ The local 733-file attempt stopped at file 506 because the Formal AI mount
 fixture omitted the newly required migration-journal directory. Its 36 tests
 pass after supplying that directory. A fresh 734-file default suite is running;
 the subsequently added validator-payload regression is verified separately.
+
+## Exact-head c7a6e20aa: workflow warning threshold
+
+The checks run [41082125451](https://github.com/link-assistant/hive-mind/actions/runs/41082125451),
+created 2026-10-30 15:35:31 UTC, fails its default suite at file 69/735.
+Downloaded the completed job through the Actions jobs/logs API while the image
+job was still running; its preserved local log is
+`ci-logs/test-suites-41082125451.log`. Lines 1287–1306 identify
+`tests/extracted-modules-2198.test.mjs:48`: `release.yml` has 1,354 lines,
+above the 1,350-line early-warning guard. The separate shell line-limit job
+passes because it fails only above 1,500; its passing exit was insufficient.
+
+The exact regression fails locally before repair. Remove the duplicate inline
+base-image reporting step: `scripts/docker-pr-build.sh` already reads both
+Dockerfiles, refuses missing pins before building and prints both selected base
+images. Keep that script invocation and the new diagnostic artifact upload.
+The workflow is reduced to 1,344 lines without removing image validation.
+Rerun the existing extraction guard, release-order and image workflow controls.
+The full local suite started before the upload step was added and must be
+reported with its actual selected 734 files; the newest payload test passes
+separately. Fresh complete CI must cover all 735 selected files after repair.
+
+Local verification after repair: the existing extraction warning guard and
+release-order contract pass; all six release/image-selection controls pass.
+The complete local 734-file default run has now finished successfully. The
+new payload test (added after that run selected files) and updated packaged
+gates pass separately. No local native CLI rebuild was attempted.

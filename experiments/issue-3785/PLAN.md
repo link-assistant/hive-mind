@@ -582,3 +582,16 @@ Latest CI continuation:
 - [ ] Compile the journal-safety adapter in native CI, require both actual link
       refusals and interrupted-migration recovery, and verify packaged Docker
       validator payloads with both daemon layouts after their dependency repair.
+
+- [x] Reproduce exact-head c7a6e20aa CI default-suite failure at file 69/735:
+      the new diagnostic upload pushes release.yml to 1,354 lines, exceeding
+      the existing 1,350-line warning guard even though the 1,500-line shell
+      check passes. Preserve/read job logs and remove duplicate inline base
+      diagnostics already validated/reported by docker-pr-build.sh. Retain
+      both real image gates and failure-log upload; rerun existing workflow
+      and extraction regressions before committing. Fresh CI remains required.
+
+- [x] Finish and reap the complete local 734-file default suite: every selected
+      file passes. Verify the newly added 735th payload regression and updated
+      packaged-gate cases separately. Existing extraction guard, release-order
+      and all six release/image-selection controls pass after the line repair.

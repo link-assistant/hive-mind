@@ -277,7 +277,7 @@ The native CI job requires the actual pre-repair failure, then compiles this
 patch with the other adapters and requires persisted canonical rows, actual
 active/archive compression, peer reads and fresh resume after private-root
 disposal. It also repeats the original defect without the new selector. The
-full rebuilt positive remains pending; production does not install this patch.
+full rebuilt positive passes in run 41076013002 at 67da7a592; production does not install this patch.
 
 ```sh
 python3 experiments/issue-3785/probe-codex-native-compression.py /absolute/stock/codex --without-selector --expect-independent-locks

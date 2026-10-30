@@ -853,3 +853,22 @@ missing-session error and the strict regression fails. Both requests use G0
 with zero refreshes. Structural positive/negative results are retained in
 `evidence/claude-native-history-controls.log`. This verifies host native resume,
 not Docker, complete history stores, deployment or the unresolved crash contract.
+
+
+The Qwen 0.26.1 history probe now completes two actual native requests with
+private-home/configuration disposal between them. Shared QWEN_RUNTIME_DIR
+retains native session identity, transcript and prior messages in the resumed
+model request. Private runtime disposal reaches native missing-session discovery;
+the strict resume assertion fails. Positive/negative structural results are in
+`evidence/qwen-native-history-controls.log`. The fixture uses explicit synthetic
+API-key auth with no canonical OAuth selector and never forwards its proxy.
+This is host history evidence, not canonical current-provider authentication
+or production projection. Native Storage also locates generated executable
+workflow scripts under runtime; pinned context overrides, plans/audit fallback
+and all lifecycle boundaries remain open.
+
+GitHub refuses `gh pr diff 3786` with HTTP 406 because the PR exceeds 300
+changed files. The complete local `git diff origin/main...HEAD` is retained
+locally for review; the branch contains current main without rewriting history.
+Fresh runs at 254e5901e were created at 2026-10-30T13:12:45Z; queued native
+jobs have no logs yet. No queued state is counted as a pass.

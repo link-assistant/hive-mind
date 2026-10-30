@@ -8,6 +8,8 @@ on:
       - 'experiments/issue-3785/probe-qwen-lock-ownership.mjs'
       - 'experiments/issue-3785/probe-qwen-native-writers.mjs'
       - 'experiments/issue-3785/probe-qwen-native-cli.mjs'
+      - 'experiments/issue-3785/probe-qwen-native-history.py'
+      - 'experiments/issue-3785/native_process_group.py'
       - 'src/shared-auth-refresh-lock.lib.mjs'
       - '.github/workflows/native-qwen-auth-experiment.yml'
   workflow_dispatch:
@@ -92,6 +94,19 @@ jobs:
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --factory-controls > "$RUNNER_TEMP/qwen-factory-after.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --without-selector > "$RUNNER_TEMP/qwen-cli-legacy.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-native-cli.mjs --oauth-sunset > "$RUNNER_TEMP/qwen-cli-sunset.log" 2>&1
+      - name: Verify actual completed history after private configuration disposal
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          native_package="$GITHUB_WORKSPACE/experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code"
+          native_node="$(command -v node)"
+          python3 experiments/issue-3785/probe-qwen-native-history.py "$native_package" --node "$native_node" --private-history --expect-history-gap --diagnostics "$RUNNER_TEMP/qwen-history-before-native.log" > "$RUNNER_TEMP/qwen-history-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-qwen-native-history.py "$native_package" --node "$native_node" --private-history --diagnostics "$RUNNER_TEMP/qwen-history-strict-native.log" > "$RUNNER_TEMP/qwen-history-strict.log" 2>&1; then
+            echo 'The private-runtime history regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'A fresh native Qwen peer must resume persisted history.' "$RUNNER_TEMP/qwen-history-strict.log"
+          python3 experiments/issue-3785/probe-qwen-native-history.py "$native_package" --node "$native_node" --diagnostics "$RUNNER_TEMP/qwen-history-after-native.log" > "$RUNNER_TEMP/qwen-history-after.log" 2>&1
       - name: Preserve native diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

@@ -185,3 +185,43 @@ node experiments/issue-3785/probe-qwen-native-cli.mjs --oauth-sunset
 This is a refusal guard for unsupported authority, not canonical storage for
 the current API-key/Coding Plan backends. That implementation and its native
 writer/lifecycle verification remain required before production admission.
+
+## Actual completion and peer history resume
+
+`probe-qwen-native-history.py` exercises the actual 0.26.1 CLI against a bounded
+loopback OpenAI-compatible SSE endpoint. It supplies an explicit disposable API
+key without selecting `QWEN_AUTH_HOME`; this does not implement canonical API-key
+or Coding Plan authentication. Native provider admission remains unchanged.
+
+```sh
+python3 experiments/issue-3785/probe-qwen-native-history.py /absolute/path/to/qwen-package \
+  --node /absolute/path/to/node --private-history --expect-history-gap \
+  --diagnostics /tmp/qwen-history-before.log
+# Without --expect-history-gap the private-history strict regression must fail.
+python3 experiments/issue-3785/probe-qwen-native-history.py /absolute/path/to/qwen-package \
+  --node /absolute/path/to/node --diagnostics /tmp/qwen-history-after.log
+```
+
+The private-runtime negative control completes a first request, reaps its whole
+process group and deletes both private configurations and runtime. A fresh peer
+reaches native `No saved session found with ID` discovery and sends no second
+request. The strict assertion fails. With shared `QWEN_RUNTIME_DIR`, both native
+completions succeed with the same session identity after the private roots are
+deleted. The second request contains the prior user message; the canonical native
+transcript remains. Structural results are retained in
+`docs/case-studies/issue-3785/evidence/qwen-native-history-controls.log`. The
+dedicated workflow repeats these controls; fresh CI is still required.
+
+Each child has a 256 MiB heap, 2 GiB data limit, 16 MiB stack, 256 KiB diagnostic
+file limit and 30-second deadline; native run budgets also prohibit tool calls.
+The proxy never forwards external traffic and rejects native models.dev catalog
+tunnels before TLS. Every native process group is reaped before disposal.
+
+This host experiment is not a production mount plan. The exact native Storage
+bundle also places `workflows/generated/inline/<run-id>.js` below the project
+runtime directory, and pinned runtime contexts precede the environment selector.
+Sharing the entire runtime tree in production would require separate admission
+of generated executable workflow artifacts. Plans and fallback audits can live
+under the global configuration root and are not covered by this transcript test.
+Complete history, all runtime contexts/backends, concurrent writers, Docker and
+root/two-task lifecycle, executable separation and migration remain open.

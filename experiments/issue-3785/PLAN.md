@@ -435,9 +435,10 @@ before heavy commands and do not retry an OOM build unchanged.
 - [x] Reproduce native Claude predecessor reuse after the owner dies between
       provider consumption and publication. Preserve a strict failing regression
       and an explicit negative-control CI step; this is not a repaired guarantee.
-- [ ] Report the native Claude unknown-outcome gap upstream with immutable
-      reproducer, healthy controls and an explicit synthetic-provider boundary.
-      Verify its new pinned-native CI and resolve all-writer crash semantics
+- [x] Report the native Claude unknown-outcome gap upstream with immutable
+      reproducer, healthy controls and an explicit synthetic-provider boundary
+      (anthropics/claude-code 106218).
+- [ ] Verify its new pinned-native CI and resolve all-writer crash semantics
       before production integration.
 
 - [x] Download fresh Checks and native Codex failures with timestamps/SHA;
@@ -476,3 +477,15 @@ Latest CI continuation:
 - [x] Preserve the refreshed-dependency suite's stale test at file 543. Update
       the existing Formal AI fixture to 0.355.23 and retry from that same file;
       do not skip the failure or the remainder.
+
+- [x] Report the synthetic native Claude owner-death gap as upstream 106218
+      with immutable reproducer and healthy controls; the crash criterion stays
+      unfinished pending a safe native implementation/provider contract.
+- [x] Verify actual Qwen completion/peer resume after private configuration
+      disposal. Private-runtime disposal reaches native missing-session discovery;
+      the strict regression fails. Shared runtime retains prior messages and
+      transcript with the same session identity. This uses explicit synthetic
+      API-key auth, not a canonical current-provider adapter.
+- [ ] Verify fresh Qwen history CI and separate runtime workflow executables,
+      pinned-context overrides, plans/audit fallback and full lifecycle before
+      production projection.

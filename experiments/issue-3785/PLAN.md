@@ -560,8 +560,11 @@ Latest CI continuation:
       applying descriptor-based preparation. All 83 affected mount, recovery,
       preflight and directory controls pass; full ESLint, formatting, workflow,
       file-limit and secret checks pass.
-- [ ] Verify native interrupted-migration positive with the rebuilt path adapter
-      and finish the complete default suite.
+- [x] Verify native interrupted-migration positive locally with the actual
+      rebuilt path-adapter CLI from successful run 41076013002. The same
+      canonical journal survives owner disposal, a peer completes migration
+      and fresh native resume retains the prior conversation.
+- [ ] Finish the complete default suite and verify current-head native CI.
 - [x] Download exact-head 67da7a592 CI: native Codex passes all three jobs,
       including compiled compression/canonical metadata/fresh resume. Preserve
       the separate packaged Docker failure at log lines 67230–67243. Reproduce
@@ -571,3 +574,11 @@ Latest CI continuation:
 - [x] Repair the missing Formal AI journal fixture after the full 733-file run
       stops there; all 36 affected cases pass. Restart the complete default suite
       (734 selected files); test the later payload regression independently.
+- [x] Reproduce real native pending-journal symlink and hard-link truncation
+      using synthetic evidence; the strict assertion fails before repair.
+      Add exact-source admission before mutation and descriptor-anchored empty
+      receipt creation without truncation. All ten standalone Rust controls pass;
+      syntax, rustfmt and pinned source applicability pass.
+- [ ] Compile the journal-safety adapter in native CI, require both actual link
+      refusals and interrupted-migration recovery, and verify packaged Docker
+      validator payloads with both daemon layouts after their dependency repair.

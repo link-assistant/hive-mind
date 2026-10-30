@@ -55,6 +55,47 @@ def wait_for(predicate, child):
         time.sleep(0.01)
 
 
+def check_journal_safety(args, root, canonical, owner, identifier, rollout, processes):
+    foreign = root / 'foreign-history'
+    foreign.write_bytes(b'synthetic unrelated conversation evidence')
+    foreign.chmod(0o600)
+    before = foreign.stat()
+    journal = canonical / 'rollout-migrations' / f'{identifier}.pending'
+    if args.journal_attack == 'symlink':
+        journal.symlink_to(foreign)
+    else:
+        os.link(foreign, journal)
+    original = rollout.read_bytes()
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as diagnostics:
+        child = migrate(args.binary, root, canonical, owner.config, identifier,
+                        output, diagnostics, False)
+        processes.append(child)
+        child.wait(timeout=20)
+        stop_process_group(child)
+        processes.remove(child)
+        if args.expect_unsafe_journal:
+            assert foreign.read_bytes() == b'', 'Require actual native truncation through the unsafe journal.'
+            assert foreign.stat().st_ino == before.st_ino
+            print(f'REPRODUCED: actual native migration truncates unrelated synthetic evidence through a {args.journal_attack} pending journal.')
+            return
+        assert foreign.read_bytes() == b'synthetic unrelated conversation evidence', 'Unsafe native journal must not truncate unrelated evidence.'
+        assert (foreign.stat().st_dev, foreign.stat().st_ino) == (before.st_dev, before.st_ino)
+        assert rollout.read_bytes() == original, 'Unsafe journal must refuse before transcript publication.'
+        if args.journal_attack == 'symlink':
+            assert journal.is_symlink(), 'Admission refusal must preserve the unsafe journal for diagnosis.'
+        else:
+            assert journal.stat().st_nlink == 2
+        assert os.fstat(output.fileno()).st_size < 64 * 1024
+        assert os.fstat(diagnostics.fileno()).st_size < 64 * 1024
+        if child.returncode:
+            assert b'Canonical migration journal storage is unavailable or unsafe.' in os.pread(diagnostics.fileno(), 64 * 1024, 0)
+        else:
+            report = json.loads(os.pread(output.fileno(), 64 * 1024, 0))
+            assert len(report['outcomes']) == 1
+            assert report['outcomes'][0]['status'] == 'failed'
+        print(f'PASS: actual native migration refuses a {args.journal_attack} pending journal before changing unrelated evidence or publishing history.')
+
+
 def run(args):
     root = Path(tempfile.mkdtemp(prefix='hive-3785-native-migration-'))
     canonical = root / 'canonical'
@@ -82,6 +123,9 @@ def run(args):
         assert len(original) < 5 * 1024 * 1024
         owner.request('thread/read', {'threadId': identifier, 'includeTurns': False})
         owner.stop()
+        if args.journal_attack:
+            check_journal_safety(args, root, canonical, owner, identifier, rollout, processes)
+            return
         journal = owner.config / 'rollout-migrations' / f'{identifier}.pending'
         with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as diagnostics:
             child = migrate(args.binary, root, canonical, owner.config, identifier,
@@ -176,7 +220,11 @@ if __name__ == '__main__':
     parser.add_argument('--expect-private-journal', action='store_true')
     parser.add_argument('--without-journal-projection', action='store_true')
     parser.add_argument('--expect-private-metadata', action='store_true')
+    parser.add_argument('--journal-attack', choices=['symlink', 'hardlink'])
+    parser.add_argument('--expect-unsafe-journal', action='store_true')
     arguments = parser.parse_args()
     assert not arguments.expect_private_journal or arguments.without_journal_projection
     assert not arguments.expect_private_metadata or not arguments.without_journal_projection
+    assert not arguments.expect_unsafe_journal or arguments.journal_attack
+    assert not arguments.journal_attack or not (arguments.without_journal_projection or arguments.expect_private_metadata)
     run(arguments)

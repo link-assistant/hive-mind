@@ -36,13 +36,37 @@ paginated history and clears the journal. Fresh resume then reproduces the
 separate pre-repair SQLite alias defect. `--expect-private-metadata` checks that
 exact failure; it is not a positive resume result. The strict positive requires
 canonical persisted paths and the prior conversation on fresh native resume.
-It must pass with the rebuilt path adapter before the combined result is claimed.
+The rebuilt CLI from [run 41076013002](https://github.com/link-assistant/hive-mind/actions/runs/41076013002)
+at `67da7a5927f4ac2272a85557d845860a445be5d9` passes that strict combined
+control locally: the real peer finishes migration and the fresh process resumes
+the prior conversation after owner configuration disposal.
 
 The native workflow includes the omitted-journal negative control, the
 intermediate private-metadata negative control and the strict rebuilt positive.
 Each native process has a 512 MiB data limit and 16 MiB stack limit; IPC, stage
 waits, input size and diagnostics are bounded. No provider traffic is forwarded
 and no real credentials are used. Cleanup failure retains the fixture.
+
+## Unsafe native journal targets
+
+The actual native writer also opens a pending journal with create/truncate,
+following symlinks and accepting hard links. Two additional controls place a
+linked synthetic sentinel at the native journal pathname. Both reproduce the
+CLI truncating unrelated evidence. The strict refusal assertion fails before
+repair; no real credentials or conversations are involved.
+
+`apply_migration_journals.py` pins both native source files. With the canonical
+rollout selector present, it validates the journal before migration changes
+SQLite/history and creates empty receipts through held canonical directories.
+It refuses linked, nonregular, nonempty, public or multiply linked receipts;
+valid existing receipts retain their inode without truncation. Ten standalone
+Rust controls cover safe creation/retry/disposal, unsafe targets and changed
+parents/projections. The selector-absent native behavior is preserved.
+
+Actual compiled symlink/hard-link refusal and another interrupted-migration
+positive are required by the next CI run. Standalone safety checks do not
+establish those results. Other migration staging/cleanup writers, post-publish
+crashes and complete power-loss durability remain unverified.
 
 Complete canonical history, safe legacy-state migration and production native
 adapter installation remain unfinished. Successful execution homes are retained.

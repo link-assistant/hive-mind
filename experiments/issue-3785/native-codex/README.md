@@ -386,10 +386,18 @@ disposal with the same inode; a peer completes publication and clears it. An
 omitted-projection control reproduces the original journal loss. Existing
 nonempty private journal directories require offline migration and are preserved.
 
-The previously compiled CLI still reproduces a later fresh-resume failure because
-SQLite retains the deleted owner's path. The combined positive also requires the
-canonical rollout-path adapter and must pass with a rebuilt native CLI in CI.
+The earlier compiled CLI reproduces a later fresh-resume failure because SQLite
+retains the deleted owner's path. The rebuilt path adapter in run 41076013002
+passes the combined interrupted-migration/disposal/fresh-resume control locally.
 An intermediate expected-failure control cannot establish successful resume.
+
+Two real native controls additionally reproduce symlink/hard-link pending
+journals truncating unrelated synthetic evidence. `apply_migration_journals.py`
+adds selected-root admission before migration mutation and descriptor-anchored
+empty-receipt creation without truncation. Ten standalone safety controls pass;
+the full native refusal and migration controls must pass in rebuilt CI before
+claiming the native safety repair verified. Production installation and other
+staging/cleanup writers remain open.
 See the case study's `evidence/native-migration-journals.md` for boundaries and
 the remaining production/legacy-migration requirements.
 

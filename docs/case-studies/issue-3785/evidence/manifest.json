@@ -14,5 +14,13 @@
     "sanitizedBytes": 28407678,
     "redacted": ["credentials", "download query tokens", "emails", "UUIDs", "account identity fields"],
     "residualCredentialBlock": null
+  },
+  {
+    "file": "interrupted-session.log.gz",
+    "contentSha256": "f6845a76460d51177defb4e50d7371c3a027bed52fff0fb1449fc9e691259d4a",
+    "sourceBytes": 46426314,
+    "sanitizedBytes": 45869691,
+    "redacted": ["credentials", "download query tokens", "emails", "UUIDs", "account identity fields"],
+    "residualCredentialBlock": null
   }
 ]

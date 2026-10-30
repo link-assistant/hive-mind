@@ -678,3 +678,13 @@ The requested suspected model false-positive report is
 historical error/turn-failure timestamps, the synthetic maintenance context,
 recovery evidence and the absence of a minimal deterministic classifier trigger.
 No classifier bypass or automatic policy-error retry is proposed.
+
+The complete recovered execution trace is retained as
+`docs/case-studies/issue-3785/evidence/interrupted-session.log.gz` (manifest SHA-256
+`f6845a76460d51177defb4e50d7371c3a027bed52fff0fb1449fc9e691259d4a`, measured
+on uncompressed sanitized content). Recovery streamed the 46,426,314-byte source
+through credential and identity sanitizers in 64 KiB blocks, then required a
+second scan with no residual credential block. The publication sanitizer must
+reach a fixed point in at most four passes per block; non-convergence refuses
+publication. The scripts retain structural diagnostics without printing matched
+credential values.

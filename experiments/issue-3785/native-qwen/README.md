@@ -132,7 +132,10 @@ does not establish model-request admission through the real CLI.
 Native read and coordination CI passes in run [40396374276](https://github.com/link-assistant/hive-mind/actions/runs/40396374276)
 at c1bfa9c6c; downloaded diagnostics confirm all 11 native writer cases.
 All 14 revised writer controls and the actual CLI/factory controls below pass
-locally on the patched disposable package. They still require a fresh CI run.
+locally and in native CI run [41051640593](https://github.com/link-assistant/hive-mind/actions/runs/41051640593)
+at 7f4f4c645. Downloaded artifacts confirm metadata-rewrite, non-rotating and
+legacy-intent controls, all factory/retained-handle refusals, real CLI refusal,
+and both no-selector/sunset compatibility controls.
 Full CLI lifecycle and cross-container evidence,
 alternative credential backends, shared conversation history, production
 integration, migration of existing homes and CLI-upgrade/release/deployment

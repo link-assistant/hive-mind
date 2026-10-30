@@ -396,12 +396,14 @@ before heavy commands and do not retry an OOM build unchanged.
       durable intent. Reproduce malformed-JSON blocking explicit login after
       uncertainty; all seven exact-module transaction tests pass after repair.
 - [ ] Verify refreshed Codex full native CLI intent/crash/login controls in CI;
-      the fresh jobs are queued without an assigned runner.
+      the native history job passes; the full native CLI job is running.
 - [x] Reproduce Qwen retrying consumed G0 after metadata-only rewrite. Use the
       refresh-token generation in durable intent, preserve legacy uncertainty,
       and pass all 14 native writer cases plus reads/factory/CLI controls locally.
-- [ ] Verify the refreshed Qwen controls in native CI and complete its current
-      API-key/Coding Plan authority, history and production integration.
+- [x] Verify the refreshed Qwen controls in native CI run 41051640593 at
+      7f4f4c645; inspect downloaded writer, factory and CLI artifacts. All pass.
+- [ ] Complete Qwen current API-key/Coding Plan authority, history and production
+      integration; passing OAuth method/refusal controls do not establish these.
 - [x] Reproduce Router sidecar arguments overriding durable audit declarations;
       restrict extra arguments to resources and inspect actual sidecar storage
       before task-token issuance. All 51 new controls and older lifecycle suites
@@ -413,3 +415,12 @@ before heavy commands and do not retry an OOM build unchanged.
       not establish packaged six-tool production behavior or lifecycle gates.
 - [ ] Wait for required fresh CI, inspect all non-passing logs, update the PR
       with exact evidence and preserve draft status while criteria are unmet.
+
+- [x] Audit native Codex agent identity publication. Reproduce an old identity
+      key being written into a replacement account/API-key login when G0 has
+      no login_owner_id. Strict actual CLI regression and two focused writer
+      tests fail before repair. Require a matching canonical login even for
+      legacy credentials; all ten exact-function focused tests pass afterward.
+- [ ] Verify all six actual CLI identity publication controls after rebuilding
+      in native CI. The small harness uses mocked storage/locks; it does not
+      replace that full CLI proof or production six-tool integration.

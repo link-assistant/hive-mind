@@ -749,3 +749,34 @@ refuses both alternate and missing credentials before model execution; each
 no-selector control preserves native behavior. Evidence is retained in
 `native-constructors-current.log`. The repaired refresh-intent CLI still needs
 a fresh native build; this older executable does not contain that work.
+
+
+Fresh native Qwen run [41051640593](https://github.com/link-assistant/hive-mind/actions/runs/41051640593)
+passes at 7f4f4c645 (created 2026-10-30T11:56:12Z, job execution
+12:11:16–12:12 UTC). The 421-line job log is preserved locally as
+`ci-logs/native-qwen-41051640593.log`. Downloaded artifact
+`native-qwen-auth-experiment` confirms all 14 writer scenarios, five provider
+modes, six OAuth overrides, 15 retained-handle method refusals, actual CLI
+zero-request refusal, and no-selector/OAuth-sunset controls. This closes fresh
+verification for the experimental Qwen changes, not its open production/current
+API-key/history requirements.
+
+The subsequent native Codex writer audit reproduces another real publication
+race. Pause actual CLI agent registration under synthetic legacy G0 credentials,
+then atomically replace the canonical login with another account or an API key.
+The writer's existing comparison runs only when G0 has login_owner_id; otherwise
+it adds G0's private identity record to the replacement login. Six actual native
+CLI controls pass in `evidence/native-identity-before.log`: both stale-publication
+reproductions, healthy and rotating controls, logout refusal and owner-tagged
+account-switch refusal. No old-account model request is observed. The strict
+regression fails at `A stale identity must not be published into a replacement
+login.` in `evidence/native-identity-strict-before.log`.
+
+`build_identity_publication_tests.py` extracts the exact native writer and login
+comparisons with mocked storage/lock fixtures. Before repair,
+`native-identity-unit-before.log:3,5` identify API-key and legacy-account-switch
+failures (8 pass, 2 fail). The hash-pinned `apply_identity_publication.py` adds a
+canonical-only matching-login check before metadata publication; all ten focused
+controls pass in `native-identity-unit-after.log`. The workflow now requires the
+strict actual CLI before/after controls as well. Full native CLI positive proof
+remains pending and is not inferred from the mocked-storage result.

@@ -166,10 +166,56 @@ provider before constructing any credential manager, AWS exporter, gateway or
 remote catalog. Unsupported providers use an inert native provider that refuses
 routing/auth and supplies only an in-memory catalog. The rebuilt full CLI must
 pass all constructor refusal controls while retaining all four legacy controls.
-That integration evidence remains pending. These cases do not certify gateway
-login, agent-identity bootstrap or every other native endpoint and writer.
+All eight refusal/compatibility cases also pass against the compiled executable
+downloaded from run 40396373397. These cases do not certify gateway login or
+every other native endpoint and writer. The separate identity publication
+experiment below covers one additional writer.
 Remote plugins are disabled before startup, and every probe process group is
 killed and reaped before temporary state is removed.
+
+### Identity metadata during a login replacement
+
+`probe-codex-native-agent-identity.py` runs the actual native CLI against a
+bounded synthetic registration/model endpoint. The provider pauses registration
+after receiving G0 while a second writer atomically publishes a different
+account or API-key login. Native credentials without `login_owner_id` skip the
+existing account comparison, so the pending bootstrap publishes its old account's
+private identity record into the replacement login. Both cases reproduce with
+the compiled executable from run 40396373397. The strict account-switch test
+fails at `A stale identity must not be published into a replacement login.`
+No old-account model request occurs in this executable; this evidence establishes
+stale publication, not execution under the old identity.
+
+The healthy control reaches the model with a native signed assertion. A
+concurrent same-account token rotation preserves G1 and publishes the metadata;
+logout and an owner-tagged account replacement already refuse publication.
+Every child has a 512 MiB data bound, 16 MiB stack, 256 KiB diagnostic bound and
+20-second deadline. The fixture uses private synthetic state and reaps the full
+process group before removal. A second G1 registration is deliberately refused
+by the synthetic provider so it cannot overwrite the stale-publication evidence.
+
+After the durable-intent patch, `apply_identity_publication.py` checks the exact
+intermediate manager hash. Its canonical-only guard requires matching OAuth
+login/account/user state even when the old login has no owner ID. It preserves
+same-login token rotation and the native no-selector behavior. The focused
+`build_identity_publication_tests.py` compiles the exact native writer and login
+comparison functions against in-memory storage/lock fixtures: two of ten tests
+fail before repair and all ten pass afterward. This fixture does not verify
+filesystem coordination. The full native CI job must separately build the actual
+repaired CLI and pass all six native registration scenarios. That full-CLI
+positive result remains pending; production does not install this experiment.
+
+```sh
+python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/intermediate/codex --expect-stale-publication
+# The strict account-switch case must fail before the new writer repair.
+python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/intermediate/codex --scenario account-switch
+# Run after the existing auth, coordination, cached-read and intent appliers.
+python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
+python3 experiments/issue-3785/native-codex/apply_identity_publication.py /absolute/path/to/source
+python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
+# Run the strict six-scenario CLI probe after rebuilding the native executable.
+python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/rebuilt/codex
+```
 
 Native named-history controls also reproduce a separate private-config
 dependency. After naming a thread and deleting its first configuration, fresh

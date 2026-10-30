@@ -8,6 +8,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-manager.mjs'
       - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
       - 'experiments/issue-3785/probe-codex-native-refresh-crash.mjs'
+      - 'experiments/issue-3785/probe-codex-native-agent-identity.py'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
       - 'experiments/issue-3785/probe-codex-native-tui-history.py'
@@ -55,6 +56,17 @@ jobs:
           python3 experiments/issue-3785/native-codex/apply_coordination.py "$native_source"
           python3 experiments/issue-3785/native-codex/apply_cached_reads.py "$native_source"
           python3 experiments/issue-3785/native-codex/apply_refresh_intent.py "$native_source"
+      - name: Reproduce and repair stale native identity metadata publication
+        run: |
+          if python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py "$NATIVE_TRANSACTION_SOURCE" > "$RUNNER_TEMP/native-identity-unit-before.log" 2>&1; then
+            echo "The native identity writer regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'test api_key_login_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F 'test legacy_account_switch_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F '8 passed; 2 failed' "$RUNNER_TEMP/native-identity-unit-before.log"
+          python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_TRANSACTION_SOURCE"
+          python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py "$NATIVE_TRANSACTION_SOURCE" > "$RUNNER_TEMP/native-identity-unit-after.log" 2>&1
       - name: Build the pinned dependency subset and test the exact native modules
         run: |
           cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir "$RUNNER_TEMP/transaction-dependencies" > "$RUNNER_TEMP/native-transaction-dependencies.log" 2>&1
@@ -64,7 +76,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: native-codex-transactions
-          path: ${{ runner.temp }}/native-transaction-*.log
+          path: |
+            ${{ runner.temp }}/native-transaction-*.log
+            ${{ runner.temp }}/native-identity-unit-*.log
           if-no-files-found: error
           retention-days: 7
   native-history:
@@ -222,6 +236,14 @@ jobs:
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-overrides --expect-provider-overrides > "$RUNNER_TEMP/native-request-overrides-before.log" 2>&1
       - name: Reproduce alternate native provider constructor authority
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-constructors --expect-provider-constructors > "$RUNNER_TEMP/native-request-constructors-before.log" 2>&1
+      - name: Reproduce native identity publication into a replacement login
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-stale-publication > "$RUNNER_TEMP/native-identity-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --scenario account-switch > "$RUNNER_TEMP/native-identity-regression.log" 2>&1; then
+            echo "The native identity publication regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'A stale identity must not be published into a replacement login.' "$RUNNER_TEMP/native-identity-regression.log"
       - name: Reproduce consumed predecessor reuse after native refresh owner death
         run: |
           node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-reused-predecessor > "$RUNNER_TEMP/native-refresh-crash-before.log" 2>&1
@@ -244,10 +266,13 @@ jobs:
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
           python3 experiments/issue-3785/native-codex/apply_tui_message_history.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_SOURCE"
           cd "$NATIVE_SOURCE/codex-rs"
           cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
       - name: Verify actual native TUI refuses before executing without safe history
         run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1
+      - name: Verify native identity metadata remains bound to the originating login
+        run: python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-identity-after.log" 2>&1
       - name: Verify actual native peer refuses uncertain predecessor after owner death
         run: |
           node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-after.log" 2>&1
@@ -295,6 +320,7 @@ jobs:
             ${{ runner.temp }}/native-manager-intent-*.log
             ${{ runner.temp }}/native-refresh-*.log
             ${{ runner.temp }}/native-request-*.log
+            ${{ runner.temp }}/native-identity-*.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-prompt-history-*.log
             ${{ runner.temp }}/native-tui-history-*.log

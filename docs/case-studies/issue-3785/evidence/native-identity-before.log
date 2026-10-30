@@ -1,0 +1,6 @@
+PASS: healthy: preserves canonical rotation; model_requests=1
+PASS: rotation: preserves canonical rotation; model_requests=1
+PASS: account-switch: reproduces stale native identity publication; model_requests=0
+PASS: api-key-login: reproduces stale native identity publication; model_requests=0
+PASS: logout: refuses stale identity publication; model_requests=0
+PASS: owned-account-switch: refuses stale identity publication; model_requests=0

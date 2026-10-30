@@ -658,3 +658,16 @@ Latest CI continuation:
       three error-handler failures before repair; all four controls pass after.
 - [ ] Verify the next compiled native run after the proxy and migration staging
       repairs. Current native CI remains failed at the fixture reset.
+
+- [x] Trace Gemini 0.65.0's exact installed native OAuth factory/client. Reproduce
+      nine stale request-header cases, including logout/recreation, in the real
+      cached factory and retained OAuth client. The strict replacement test fails
+      with G0 rather than G1; token verification is a synthetic transport stub.
+- [x] Add the pinned opt-in native Gemini read stage with an independent auth
+      directory, checked canonical reads, retained-client cache clearing and
+      private-copy refusal. All nine read cases, independent-root/disposal and
+      three no-exchange writer/expiry refusals pass locally. This stage refuses
+      refresh/login/logout; it is not installed or production-ready.
+- [ ] Verify the dedicated native Gemini read workflow on the pushed head;
+      implement coordinated native writers, provider/retained-legacy admission,
+      history, lifecycle, production integration and every remaining criterion.

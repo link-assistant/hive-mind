@@ -50,3 +50,10 @@ constrained by upstream support; remaining local implementation is still open.
 
 The original issue must remain open and the pull request must remain unmerged
 until the open and partial rows have implementation and verification evidence.
+
+The new Gemini experiment establishes nine native factory/retained-client stale
+header defects and an opt-in read repair, including independent roots and private
+scope disposal. Its selected mode currently refuses refresh/login/logout writers.
+It is not production integration or completion of A1–A12. See
+`experiments/issue-3785/native-gemini/README.md` and
+`evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.

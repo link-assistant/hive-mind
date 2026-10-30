@@ -1,0 +1,65 @@
+name: Native Gemini auth adapter experiment
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/native-gemini/**'
+      - 'experiments/issue-3785/native-qwen/read_credentials.mjs'
+      - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
+      - '.github/workflows/native-gemini-auth-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-gemini-auth-experiment-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  native-credential-reads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the exact native package without lifecycle scripts or optional binaries
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-dependencies.log" 2>&1 &
+          wait "$!"
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+      - name: Reproduce actual native factory and retained-client stale headers
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --expect-native-gaps > "$RUNNER_TEMP/gemini-reads-before.log" 2>&1
+      - name: Require the strict regression to fail for stale native authority
+        run: |
+          if node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs > "$RUNNER_TEMP/gemini-reads-regression.log" 2>&1; then
+            echo 'The native Gemini read regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: replacement: native factory' "$RUNNER_TEMP/gemini-reads-regression.log"
+          grep -F "selected: 'G0'" "$RUNNER_TEMP/gemini-reads-regression.log"
+          grep -F "selected: 'G1'" "$RUNNER_TEMP/gemini-reads-regression.log"
+      - name: Apply exact pinned native read admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_reads.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_reads.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify actual native headers observe replacement and refuse unsafe storage
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs > "$RUNNER_TEMP/gemini-reads-after.log" 2>&1
+      - name: Verify independent private configuration, disposal and read-stage writer refusal
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs --refusal-controls > "$RUNNER_TEMP/gemini-private-reads-after.log" 2>&1
+      - name: Preserve no-selector native behavior
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --without-selector --expect-native-gaps > "$RUNNER_TEMP/gemini-legacy-reads.log" 2>&1
+      - name: Preserve native diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-auth-experiment
+          path: ${{ runner.temp }}/gemini-*.log
+          if-no-files-found: ignore
+          retention-days: 7

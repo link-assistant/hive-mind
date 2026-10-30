@@ -30,7 +30,7 @@ def token(account, generation, owner=False):
               "access_token": f"SYNTHETIC-ACCESS-{generation}",
               "refresh_token": f"SYNTHETIC-REFRESH-{generation}", "account_id": account}
     if owner:
-        tokens["login_owner_id"] = "synthetic-login"
+        tokens["login_owner_id"] = owner if isinstance(owner, str) else "synthetic-login"
     return {"auth_mode": "chatgpt", "tokens": tokens,
             "last_refresh": datetime.now(timezone.utc).isoformat()}
 
@@ -118,7 +118,7 @@ def run(binary, scenario, negative):
             private.mkdir(mode=0o700)
             canonical.mkdir(mode=0o700)
             auth = canonical / "auth.json"
-            initial = token("synthetic-account-A", "G0", scenario == "owned-account-switch")
+            initial = token("synthetic-account-A", "G0", scenario in ("owned-account-switch", "owned-fresh-login"))
             publish(auth, initial)
             config = f'''model = "synthetic-model"
 model_provider = "offline"
@@ -155,6 +155,9 @@ stream_max_retries = 0
                     if scenario == "account-switch" or scenario == "owned-account-switch":
                         replacement = token("synthetic-account-B", "G1", scenario == "owned-account-switch")
                         publish(auth, replacement)
+                    elif scenario in ("legacy-fresh-owned-login", "owned-fresh-login"):
+                        replacement = token("synthetic-account-A", "G1", "synthetic-new-login")
+                        publish(auth, replacement)
                     elif scenario == "api-key-login":
                         replacement = {"OPENAI_API_KEY": "SYNTHETIC-NEW-LOGIN"}
                         publish(auth, replacement)
@@ -178,7 +181,7 @@ stream_max_retries = 0
                 assert os.fstat(diagnostics.fileno()).st_size <= 256 * 1024
             assert invalid == [], f"Unexpected synthetic loopback endpoints: {invalid!r}."
             allowed = scenario in ("healthy", "rotation")
-            bypass = negative and scenario in ("account-switch", "api-key-login")
+            bypass = negative and scenario in ("account-switch", "api-key-login", "legacy-fresh-owned-login")
             if allowed:
                 assert observed == [("synthetic-account-A", True)], "The healthy native identity control must reach the model."
             if replacement is None:
@@ -215,9 +218,9 @@ if __name__ == "__main__":
     parser.add_argument("binary", type=Path)
     parser.add_argument("--expect-stale-publication", action="store_true")
     parser.add_argument("--scenario", choices=["healthy", "rotation", "account-switch", "api-key-login",
-                                              "logout", "owned-account-switch"])
+                                              "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"])
     args = parser.parse_args()
     assert args.binary.is_absolute() and args.binary.is_file()
     for case in ([args.scenario] if args.scenario else ["healthy", "rotation", "account-switch",
-                                                      "api-key-login", "logout", "owned-account-switch"]):
+                                                      "api-key-login", "logout", "owned-account-switch", "legacy-fresh-owned-login", "owned-fresh-login"]):
         run(args.binary, case, args.expect_stale_publication)

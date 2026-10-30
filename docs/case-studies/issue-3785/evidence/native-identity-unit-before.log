@@ -1,8 +1,9 @@
 
-running 10 tests
+running 11 tests
 test api_key_login_refuses ... FAILED
 test healthy_legacy_login_publishes ... ok
 test legacy_account_switch_refuses ... FAILED
+test legacy_fresh_owned_login_refuses ... FAILED
 test legacy_logout_refuses ... ok
 test legacy_rotation_preserves_new_tokens ... ok
 test missing_owner_changed_generation_refuses ... ok
@@ -15,7 +16,7 @@ failures:
 
 ---- api_key_login_refuses stdout ----
 
-thread 'api_key_login_refuses' (98092) panicked at /tmp/hive-native-identity-tests-skw44jyu/harness.rs:45:5:
+thread 'api_key_login_refuses' (107888) panicked at /tmp/hive-native-identity-tests-jyucsip6/harness.rs:45:5:
 assertion `left == right` failed: Publication must match the current canonical login.
   left: true
  right: false
@@ -23,7 +24,14 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 ---- legacy_account_switch_refuses stdout ----
 
-thread 'legacy_account_switch_refuses' (98094) panicked at /tmp/hive-native-identity-tests-skw44jyu/harness.rs:45:5:
+thread 'legacy_account_switch_refuses' (107890) panicked at /tmp/hive-native-identity-tests-jyucsip6/harness.rs:45:5:
+assertion `left == right` failed: Publication must match the current canonical login.
+  left: true
+ right: false
+
+---- legacy_fresh_owned_login_refuses stdout ----
+
+thread 'legacy_fresh_owned_login_refuses' (107891) panicked at /tmp/hive-native-identity-tests-jyucsip6/harness.rs:45:5:
 assertion `left == right` failed: Publication must match the current canonical login.
   left: true
  right: false
@@ -32,11 +40,12 @@ assertion `left == right` failed: Publication must match the current canonical l
 failures:
     api_key_login_refuses
     legacy_account_switch_refuses
+    legacy_fresh_owned_login_refuses
 
-test result: FAILED. 8 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: FAILED. 8 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 Traceback (most recent call last):
-  File "/tmp/gh-issue-solver-1793358310378/experiments/issue-3785/native-codex/build_identity_publication_tests.py", line 103, in <module>
+  File "/tmp/gh-issue-solver-1793358310378/experiments/issue-3785/native-codex/build_identity_publication_tests.py", line 104, in <module>
     subprocess.run(["prlimit", "--data=134217728", "--stack=8388608", "--core=0", "--", str(binary),
     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     "--test-threads=1"], check=True)
@@ -44,4 +53,4 @@ Traceback (most recent call last):
   File "/home/box/.pyenv/versions/3.15.0/lib/python3.15/subprocess.py", line 692, in run
     raise CalledProcessError(retcode, process.args,
                              output=stdout, stderr=stderr)
-subprocess.CalledProcessError: Command '['prlimit', '--data=134217728', '--stack=8388608', '--core=0', '--', '/tmp/hive-native-identity-tests-skw44jyu/identity-tests', '--test-threads=1']' returned non-zero exit status 101.
+subprocess.CalledProcessError: Command '['prlimit', '--data=134217728', '--stack=8388608', '--core=0', '--', '/tmp/hive-native-identity-tests-jyucsip6/identity-tests', '--test-threads=1']' returned non-zero exit status 101.

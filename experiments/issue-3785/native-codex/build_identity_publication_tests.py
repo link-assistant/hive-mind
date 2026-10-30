@@ -86,6 +86,7 @@ fn check(current: Option<AuthDotJson>, owner: Option<&str>, accepted: bool, sele
 }
 #[test] fn legacy_account_switch_refuses() { check(Some(auth("B", "G1", None)), None, false, true); }
 #[test] fn api_key_login_refuses() { check(Some(AuthDotJson { tokens: None, agent_identity: None }), None, false, true); }
+#[test] fn legacy_fresh_owned_login_refuses() { check(Some(auth("A", "G1", Some("new"))), None, false, true); }
 #[test] fn legacy_logout_refuses() { check(None, None, false, true); }
 #[test] fn healthy_legacy_login_publishes() { check(Some(auth("A", "G0", None)), None, true, true); }
 #[test] fn legacy_rotation_preserves_new_tokens() { check(Some(auth("A", "G1", None)), None, true, true); }

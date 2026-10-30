@@ -178,9 +178,9 @@ killed and reaped before temporary state is removed.
 `probe-codex-native-agent-identity.py` runs the actual native CLI against a
 bounded synthetic registration/model endpoint. The provider pauses registration
 after receiving G0 while a second writer atomically publishes a different
-account or API-key login. Native credentials without `login_owner_id` skip the
+account, API-key login, or a newly owned login to the same account. Native credentials without `login_owner_id` skip the
 existing account comparison, so the pending bootstrap publishes its old account's
-private identity record into the replacement login. Both cases reproduce with
+private identity record into the replacement login. All three cases reproduce with
 the compiled executable from run 40396373397. The strict account-switch test
 fails at `A stale identity must not be published into a replacement login.`
 No old-account model request occurs in this executable; this evidence establishes
@@ -188,7 +188,9 @@ stale publication, not execution under the old identity.
 
 The healthy control reaches the model with a native signed assertion. A
 concurrent same-account token rotation preserves G1 and publishes the metadata;
-logout and an owner-tagged account replacement already refuse publication.
+logout, an owner-tagged account replacement, and a new owned login replacing an
+already owned login refuse publication. The matching-login guard also rejects
+a newly owned same-account login replacing legacy credentials.
 Every child has a 512 MiB data bound, 16 MiB stack, 256 KiB diagnostic bound and
 20-second deadline. The fixture uses private synthetic state and reaps the full
 process group before removal. A second G1 registration is deliberately refused
@@ -199,10 +201,10 @@ intermediate manager hash. Its canonical-only guard requires matching OAuth
 login/account/user state even when the old login has no owner ID. It preserves
 same-login token rotation and the native no-selector behavior. The focused
 `build_identity_publication_tests.py` compiles the exact native writer and login
-comparison functions against in-memory storage/lock fixtures: two of ten tests
-fail before repair and all ten pass afterward. This fixture does not verify
+comparison functions against in-memory storage/lock fixtures: three of eleven tests
+fail before repair and all eleven pass afterward. This fixture does not verify
 filesystem coordination. The full native CI job must separately build the actual
-repaired CLI and pass all six native registration scenarios. That full-CLI
+repaired CLI and pass all eight native registration scenarios. That full-CLI
 positive result remains pending; production does not install this experiment.
 
 ```sh
@@ -213,7 +215,7 @@ python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/pa
 python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
 python3 experiments/issue-3785/native-codex/apply_identity_publication.py /absolute/path/to/source
 python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py /absolute/path/to/source
-# Run the strict six-scenario CLI probe after rebuilding the native executable.
+# Run the strict eight-scenario CLI probe after rebuilding the native executable.
 python3 experiments/issue-3785/probe-codex-native-agent-identity.py /absolute/path/to/rebuilt/codex
 ```
 

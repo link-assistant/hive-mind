@@ -1006,7 +1006,7 @@ Latest CI continuation:
 - [x] Reproduce cached navigation and swallowed persistence failures before
       repairing the inspected native hook. Retain native navigation limits,
       preserve a complete command audit and coordinate fresh cross-process writes.
-- [ ] Verify shell-history disposal, peer navigation, four writers, write refusal,
+- [x] Verify shell-history disposal, peer navigation, four writers, write refusal,
       audit retention and legacy behavior; require the complete surrounding
       native regressions and fresh Node 24 CI before claiming this stage verified.
 - [x] Pass all 22 hook scenarios / 28 bounded native process results on the
@@ -1045,3 +1045,32 @@ Latest CI continuation:
 - [x] Run all 739 default test files after the Formal AI pin consistency fix;
       one complete invocation passes without a global heap override. No OOM kill
       occurs. Preserve new CI logs and verify fresh timestamps and head SHA.
+- [x] Pass fresh Node 24 shell-history CI 41143418875 at 39e2e0d75, created
+      2026-10-30T23:16:01Z. Preserve the complete 938-line log and 658 diagnostic
+      files. Checks/release 41143419018 also passes all default/integration files
+      and both packaged host/nested Docker projection checks at the same head.
+- [x] Reproduce native tracker task loss after healthy creation/update/read and
+      complete private-home disposal. Keep the actual native service/schema and
+      preserve failed fixtures; bound every process and diagnostic file.
+- [x] Preserve tracker generations through checked canonical transactions,
+      independent writers, native session separation and unsafe-storage refusals.
+      Verify native dependency/parent behavior and default unselected compatibility.
+      Keep complete CLI admission and all other unfinished storage criteria open.
+
+- [x] Reproduce actual complete CLI tracker loss after healthy create/update/get/
+      list, private-home disposal and a new native list call during resume.
+      Canonical tracker storage passes the same complete CLI lifecycle locally.
+- [x] Reproduce malformed tracker data reaching inference in the storage draft;
+      checked native configuration startup admission now precedes dispatch.
+- [x] Reproduce a peer reopening a dependency after closure validation and a
+      peer changing an edge after cycle validation. Bind actual native validation
+      reads to their locked append using an async operation context; both focused
+      refusal controls pass without changing committed peer data.
+- [x] Locally verify all 32 tracker scenarios / 40 bounded native process results,
+      seven complete CLI startup refusals and the full surrounding native
+      regressions on a fresh byte-identical source application. Preserve strict
+      before controls and failed drafts separately from passing after controls.
+- [x] Pass complete formatting and ESLint, both helper ESLint checks, focused
+      secret scanning, actionlint, Python AST and Node syntax checks before
+      committing the tracker stage. Preserve all bounded diagnostics locally.
+- [ ] Require fresh exact-head Node 24 tracker CI before marking this stage verified.

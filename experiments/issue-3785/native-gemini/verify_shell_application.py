@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('constructor_package', type=Path)
 parser.add_argument('tested_package', type=Path)
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--tracker', action='store_true', help='Also apply tracker storage and startup admission.')
 args = parser.parse_args()
 source = args.constructor_package.resolve(strict=True)
 tested = args.tested_package.resolve(strict=True)
@@ -31,15 +32,17 @@ def hashes():
     return result
 
 
-for stage in ('history', 'artifacts', 'blobs', 'logger', 'shell_history'):
+stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if args.tracker else ())
+for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()
     subprocess.run([*command, '--check'], check=True)
     assert hashes() == before, 'Checking applicability must not modify the disposable package.'
     subprocess.run(command, check=True)
 
-for name in ('chunk-DKZARV6U.js', 'chunk-XHQ6TTKH.js', 'gemini-GLQ4MVLB.js', 'interactiveCli-AVD3AKNJ.js', 'hive-gemini-admission.mjs', 'hive-gemini-history.mjs', 'hive-gemini-publication.mjs', 'hive-gemini-shell-history.mjs'):
+names = ('chunk-DKZARV6U.js', 'chunk-XHQ6TTKH.js', 'gemini-GLQ4MVLB.js', 'interactiveCli-AVD3AKNJ.js', 'hive-gemini-admission.mjs', 'hive-gemini-history.mjs', 'hive-gemini-publication.mjs', 'hive-gemini-shell-history.mjs') + (('hive-gemini-tracker-history.mjs', 'hive-gemini-tracker-transactions.mjs') if args.tracker else ())
+for name in names:
     actual = (output / 'bundle' / name).read_bytes()
     assert actual == (tested / 'bundle' / name).read_bytes(), 'Fresh application differs from the tested package: ' + name
     print(hashlib.sha256(actual).hexdigest(), name)
-print('PASS: checked fresh source application produces the same eight native manager/CLI/helper files without mutation during applicability checks.')
+print(f'PASS: checked fresh source application produces the same {len(names)} native manager/CLI/helper files without mutation during applicability checks.')

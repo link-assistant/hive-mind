@@ -319,3 +319,111 @@ jobs:
             ${{ runner.temp }}/gemini-*.control.json
           if-no-files-found: ignore
           retention-days: 7
+
+  native-tracker-history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding disposable native shell-history package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-tracker-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-tracker-constructor-cli"
+          for stage in history artifacts blobs logger shell_history; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce native tracker loss after healthy creation and private-home disposal
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-tracker-before.log" > "$RUNNER_TEMP/gemini-tracker-before-control.log" 2>&1; then
+            echo 'The native tracker regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Native tracker tasks must survive private-home disposal.' "$RUNNER_TEMP/gemini-tracker-before-lifetime-peer.log"
+      - name: Reproduce tracker loss through complete native CLI tools
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-before.log" > "$RUNNER_TEMP/gemini-tracker-cli-before-control.log" 2>&1; then
+            echo 'The complete native tracker regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Fresh native CLI must list its persisted tracker task after private-home disposal.' "$RUNNER_TEMP/gemini-tracker-cli-before-control.log"
+      - name: Apply checked canonical native tracker storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce malformed tracker dispatch before native startup admission
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --tracker-history-attack task-schema --diagnostics "$RUNNER_TEMP/gemini-tracker-admission-before.log" > "$RUNNER_TEMP/gemini-tracker-admission-before-control.log" 2>&1; then
+            echo 'The native tracker startup regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native CLI must refuse unsafe tracker history before another inference.' "$RUNNER_TEMP/gemini-tracker-admission-before-control.log"
+      - name: Apply native tracker admission before configuration discovery
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce dependency changes after native validation
+        run: |
+          for state in dependency-race cycle-race; do
+            if python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-tracker-$state-before.log" > "$RUNNER_TEMP/gemini-tracker-$state-before-control.log" 2>&1; then
+              echo 'The native tracker dependency race unexpectedly passed.'
+              exit 1
+            fi
+            grep -F 'Native tracker must refuse a dependency changed after' "$RUNNER_TEMP/gemini-tracker-$state-before-$state-owner.log"
+          done
+      - name: Bind native validation reads to the checked publication transaction
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve tracker generations and independent writers with native service semantics
+        run: python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-after.log" > "$RUNNER_TEMP/gemini-tracker-after-control.log" 2>&1
+      - name: Read the updated task through a fresh resumed native CLI
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-after.log" > "$RUNNER_TEMP/gemini-tracker-cli-after-control.log" 2>&1
+      - name: Refuse unsafe tracker audit before further native inference
+        run: |
+          for state in symlink hardlink unsafe-mode malformed invalid-utf8 oversized task-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --tracker-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-$state.log" > "$RUNNER_TEMP/gemini-tracker-cli-$state-control.log" 2>&1
+          done
+      - name: Rebuild all history stages and require identical tested source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-tracker-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --tracker --output "$RUNNER_TEMP/gemini-tracker-fresh-cli" > "$RUNNER_TEMP/gemini-tracker-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_tracker.py "$RUNNER_TEMP/gemini-tracker-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-tracker-fresh.log" > "$RUNNER_TEMP/gemini-tracker-fresh-control.log" 2>&1
+      - name: Preserve surrounding native history and authentication behavior
+        run: |
+          python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-shell.log" > "$RUNNER_TEMP/gemini-tracker-shell-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-logger.log" > "$RUNNER_TEMP/gemini-tracker-logger-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-storage.log" > "$RUNNER_TEMP/gemini-tracker-storage-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-artifacts.log" > "$RUNNER_TEMP/gemini-tracker-artifacts-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-blobs.log" > "$RUNNER_TEMP/gemini-tracker-blobs-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-publication.log" > "$RUNNER_TEMP/gemini-tracker-publication-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-tracker-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-tracker-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-tracker-auth-reads.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-artifact.log" > "$RUNNER_TEMP/gemini-tracker-cli-artifact-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-blob.log" > "$RUNNER_TEMP/gemini-tracker-cli-blob-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-shell.log" > "$RUNNER_TEMP/gemini-tracker-cli-shell-control.log" 2>&1
+      - name: Preserve tracker diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-tracker-history-experiment
+          path: |
+            ${{ runner.temp }}/gemini-tracker-*.log
+            ${{ runner.temp }}/gemini-tracker-*.network.json
+            ${{ runner.temp }}/gemini-tracker-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7

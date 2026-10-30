@@ -164,3 +164,16 @@ Git/plan/tracker/task storage, child/subagent lifecycle, alternate backends,
 rollover and production installation remain unfinished. Fresh exact-head Node 24
 CI remains required for this shell stage. See
 `evidence/native-gemini-shell-controls.txt` for exact boundaries.
+
+A further native tracker stage reproduces loss of healthy created/updated tasks
+and the same loss through the complete CLI's actual create/update/get/list tools.
+Canonical prompt transactions retain every task generation with native
+project/session separation and schema checks. Checked native startup admission
+addresses a reproduced malformed-task dispatch gap. Two further controls
+reproduce closure and cycle decisions committing after a peer changes a
+dependency; an async operation context validates all observed task revisions
+inside the locked publication without replacing the native business validators.
+See `evidence/native-gemini-tracker-controls.txt` for exact local verification and
+limits. Fresh Node 24 CI, private-state migration, remaining full-history and
+lifecycle requirements, all backends and production integration remain required.
+These experimental stages do not complete A1–A12.

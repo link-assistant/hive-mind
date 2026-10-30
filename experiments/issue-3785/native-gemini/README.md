@@ -669,3 +669,65 @@ backends and production installation remain open. The checked command journal
 retains the existing 32 MiB/100,000-record bound; it does not implement rollover
 or unlimited audit retention. Fresh exact-head Node 24 CI remains required.
 This experiment does not complete the six-tool A1–A12 contract.
+
+## Native tracker generations and validation coordination
+
+The actual exported native `TrackerService`, `Storage` and task schema reproduce
+loss of a successfully created, updated and read task after private-home disposal.
+A separate complete CLI control enables the native task tracker and drives its
+create/update/get/list tools through a TLS-verifying synthetic provider. Its fresh
+resumed CLI returns an empty native list before repair, despite recovering the
+conversation itself. No native exports or SDK methods are changed in that control.
+
+`apply_tracker.py` uses native project/session paths only as checked selectors.
+It records complete task generations in the existing locked prompt audit and
+parses them with the actual native task schema. Reads discover current generations;
+user prompt navigation stays separate. No private tracker JSON is written. Native
+parent/dependency/closure/cycle behavior remains in the original native methods.
+Task-ID collisions, stale task saves and invalid generations refuse publication.
+
+The storage draft accepts malformed task data until the tracker tool executes,
+after model dispatch. `apply_tracker_admission.py` adds checked tracker startup
+before native configuration discovery when the tracker is enabled. Another draft
+allows a peer to reopen a dependency after closure validation or change an edge
+after cycle validation. `apply_tracker_coordination.py` keeps the actual async
+validation reads in an operation context; their observed task revisions must
+still match inside the locked append. Independent task creation stays concurrent.
+The strict before controls retain both missing-rejection assertions.
+
+Apply these three stages after the shell-history stage, in the order above.
+The manager progresses from `439a87bb...` to
+`3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413`, then
+`b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608`, then
+`9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55`.
+The final tracker-data helper is
+`11e56b631ab984ad8bb7992586a9e6e8b0030fba5e47c1e9b0f2c4fb9497b2c1`;
+the transaction helper is
+`c504c700a3c11e6d25777e8b495bfba043c729cd67a91fc476465379bb667fd9`.
+History, publication and interactive bundle pins remain those above.
+
+```sh
+python3 experiments/issue-3785/native-gemini/probe_tracker.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-tracker.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py /path/to/disposable/gemini-cli --history --tracker-history --diagnostics /tmp/gemini-tracker-cli.log
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package /path/to/tested-package --tracker --output /path/to/new-package
+```
+
+The matrix contains 32 scenarios / 40 native process results, including four
+writers preserving all forty tasks and audit events, session/project separation,
+unnamed and 200-character native sessions, parent/closure/cycle behavior, stale
+saves/updates, dependency races, twelve unsafe-audit cases and unselected native
+compatibility. Seven complete CLI unsafe-history controls require refusal before
+any additional inference and retain protected bytes, identity, mode, link count
+and size. The fresh application check rebuilds eight history stages, checks no
+mutation during applicability probes and compares all ten manager/CLI/helper files.
+Each service process has a 256 MiB heap, 16 MiB stack, 25-second deadline and
+64 KiB log bound. CLI deadlines and process-group cleanup are as above.
+See `docs/case-studies/issue-3785/evidence/native-gemini-tracker-controls.txt`
+for verified results and remaining limits; fresh Node 24 CI is required.
+
+This is still an opt-in experiment. Existing private tracker migration, direct
+third-party writers, complete interactive/crash/power-loss admission, Git
+checkpoints, plans/task memory, child/subagent lifecycle, alternate backends,
+audit rollover and production installation remain open. The 32 MiB/100,000-event
+audit refuses additional writes at its bound. It does not implement the complete
+six-tool canonical auth/history contract.

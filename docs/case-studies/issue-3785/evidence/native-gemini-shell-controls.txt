@@ -67,4 +67,8 @@ Remaining: complete interactive failure/crash admission, prior-private-state
 migration, Git checkpoints, plans/tracker/task memory, child/subagent lifecycle,
 all backends, journal rollover and production installation. This is an opt-in
 experiment; production still does not implement the complete six-tool contract.
-Fresh exact-head Node 24 CI remains required. A1-A12 remain unfinished.
+Fresh Node 24 CI 41143418875 passes at
+39e2e0d7586c9b0f0460da29811162764501b039, created 2026-10-30T23:16:01Z.
+The complete 938-line log and all 658 diagnostic files are preserved locally.
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41143418875
+A1-A12 remain unfinished.

@@ -77,3 +77,22 @@ complete command execution/disposal/recall and seven pre-inference TUI refusal
 controls. See `native-gemini-shell-controls.txt` for reproductions, pins and limits.
 Fresh exact-head CI is still required for the version correction and shell stage.
 The production and full six-tool acceptance criteria above remain unfinished.
+
+## Shell-history CI at 39e2e0d75
+
+[Native Gemini 41143418875](https://github.com/link-assistant/hive-mind/actions/runs/41143418875)
+passes on Node 24 at `39e2e0d7586c9b0f0460da29811162764501b039`,
+created 2026-10-30T23:16:01Z. The complete 938-line log and 658 diagnostic
+files are preserved locally. Both complete TUI command execution/disposal/recall
+and all seven refusal-before-inference controls pass, alongside the hook and
+surrounding native authentication/history controls. Checks/release's full default
+test job passes with the Formal AI pin correction.
+
+[Checks/release 41143419018](https://github.com/link-assistant/hive-mind/actions/runs/41143419018)
+now passes at that same head. The complete 73,021-line log is preserved locally:
+line 72495 confirms all 739 default files, line 72557 confirms both GitHub
+integration files, lines 49828-49840 confirm host/nested mount backing and
+Agent/OpenCode atomic replacement, deletion/recreation and two-task writes,
+and lines 72984-72986 confirm no failed or cancelled required jobs.
+Native Codex is still running at this update. The new tracker stage needs its
+own fresh-head CI. The production requirements remain unfinished.

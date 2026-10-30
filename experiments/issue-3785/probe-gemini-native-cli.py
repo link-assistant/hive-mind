@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shutil
 import ssl
@@ -33,6 +34,8 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--shell-history', action='store_true')
 parser.add_argument('--shell-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'command-schema'))
+parser.add_argument('--tracker-history', action='store_true')
+parser.add_argument('--tracker-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'task-schema'))
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
 parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
@@ -55,6 +58,8 @@ parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', '
 args = parser.parse_args()
 assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
 assert not args.shell_history_attack or args.shell_history
+assert not args.tracker_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'tracker_history', 'tracker_history_attack'))
+assert not args.tracker_history_attack or args.tracker_history
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
 assert not args.history_retention or args.history and not (args.history_attack or args.private_history or args.expect_history_gap)
@@ -74,7 +79,7 @@ assert not args.history_tool_output or args.history and not (args.history_attack
 assert not args.history_tool_output_attack or args.history_tool_output
 assert not args.history_blob or args.history and not (args.history_tool_output or args.history_attack or args.history_delete or args.history_import or args.history_retention or args.expect_history_gap or args.private_history)
 assert not args.history_blob_attack or args.history_blob
-tool_mode = args.history_tool_output or args.history_blob
+tool_mode = args.history_tool_output or args.history_blob or args.tracker_history
 artifact_attack = args.history_tool_output_attack or args.history_blob_attack
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
@@ -82,7 +87,7 @@ manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2', '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2', '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', '3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -99,6 +104,10 @@ second_prompt = 'SYNTHETIC-GEMINI-HISTORY-SECOND-PROMPT'
 third_prompt = 'SYNTHETIC-GEMINI-HISTORY-THIRD-PROMPT'
 session = args.session_identifier or str(uuid.uuid4())
 tool_phases = set()
+tracker_steps = {'initial': 0, 'resume': 0}
+tracker_checks = []
+tracker_task = None
+tracker_title = 'SYNTHETIC-TRACKER-PERSISTED'
 artifact_file = None
 artifact_bytes = None
 artifact_identity = None
@@ -133,6 +142,43 @@ assert not native_blob_response([{'parts': [synthetic_image, synthetic_response]
 assert not native_blob_response([{'parts': [synthetic_response, {'text': 'unrelated'}, synthetic_image]}])
 assert native_blob_response([{'parts': [synthetic_response, synthetic_image]}])
 assert native_blob_response([{'parts': [{'functionResponse': {**synthetic_response['functionResponse'], 'parts': [synthetic_image]}}]}])
+
+
+def tracker_tool(contents, phase):
+    global tracker_task
+    step = tracker_steps[phase]
+    if step:
+        call_id = 'synthetic-tracker-' + phase + '-' + str(step - 1)
+        responses = [part['functionResponse'] for turn in contents for part in turn.get('parts', [])
+                     if part.get('functionResponse', {}).get('id') == call_id]
+        assert len(responses) == 1, 'Require the actual native tracker tool response.'
+        output = responses[0]['response'].get('output')
+        assert isinstance(output, str)
+        if phase == 'initial' and step == 1:
+            match = re.fullmatch(r'Created task ([a-f0-9]{6}): SYNTHETIC-TRACKER-CREATED', output)
+            assert match, 'Healthy native CLI must create its real tracker task.'
+            tracker_task = match[1]
+        elif phase == 'initial' and step == 2:
+            assert output == 'Updated task ' + tracker_task + '. Status: in_progress'
+        elif phase == 'initial' and step == 3 or phase == 'resume' and step == 2:
+            task = json.loads(output)
+            assert task['id'] == tracker_task and task['title'] == tracker_title and task['status'] == 'in_progress', 'Fresh native CLI must read its persisted tracker task after private-home disposal.'
+        else:
+            matches = output == '- [' + tracker_task + '] ' + tracker_title + ' (in_progress)'
+            tracker_checks.append({'phase': phase, 'listed_task': matches})
+            assert matches, 'Fresh native CLI must list its persisted tracker task after private-home disposal.'
+    if phase == 'initial':
+        tools = [
+            {'name': 'tracker_create_task', 'args': {'title': 'SYNTHETIC-TRACKER-CREATED', 'description': 'SYNTHETIC native CLI task', 'type': 'task'}},
+            {'name': 'tracker_update_task', 'args': {'id': tracker_task, 'title': tracker_title, 'status': 'in_progress'}},
+            {'name': 'tracker_get_task', 'args': {'id': tracker_task}},
+            {'name': 'tracker_list_tasks', 'args': {}}]
+    else:
+        tools = [{'name': 'tracker_list_tasks', 'args': {}}, {'name': 'tracker_get_task', 'args': {'id': tracker_task}}]
+    if step == len(tools):
+        return None
+    tracker_steps[phase] += 1
+    return {'id': 'synthetic-tracker-' + phase + '-' + str(step), **tools[step]}
 
 
 def attack_artifact():
@@ -188,6 +234,9 @@ try:
                 'general': {'disableAutoUpdate': True}}
     if tool_mode:
         settings['model']['maxSessionTurns'] = 4
+    if args.tracker_history:
+        settings['model']['maxSessionTurns'] = 6
+        settings['experimental'] = {'taskTracker': True}
     if args.history_tool_output:
         settings['tools'] = {'truncateToolOutputThreshold': 1024}
         (workspace / 'bounded-output.txt').write_text(tool_content)
@@ -286,7 +335,13 @@ try:
                                        'blob_reference': '/degraded-blobs/' in content,
                                        'native_blob_response': native_blob_response(payload['request']['contents'])})
                         phase = 'resume' if second_prompt in content else 'initial'
-                        if tool_mode and operation == 'streamGenerateContent' and phase not in tool_phases:
+                        if args.tracker_history and operation == 'streamGenerateContent':
+                            call = tracker_tool(payload['request']['contents'], phase)
+                            if call:
+                                models[-1]['tool_call'] = True
+                                self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-tracker-response'}, stream=True)
+                                return
+                        if tool_mode and not args.tracker_history and operation == 'streamGenerateContent' and phase not in tool_phases:
                             tool_phases.add(phase)
                             models[-1]['tool_call'] = True
                             if phase == 'resume' and artifact_attack:
@@ -673,6 +728,53 @@ try:
         peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
                     'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
                     'XDG_CACHE_HOME': str(peer / '.cache')}
+        if args.tracker_history_attack:
+            audits = list(history.rglob('prompt-history.json'))
+            assert len(audits) == 1
+            audit = audits[0]
+            protected = audit
+            attack = args.tracker_history_attack
+            if attack in ('symlink', 'hardlink'):
+                protected = root / 'protected-tracker-audit'
+                audit.rename(protected)
+                if attack == 'symlink':
+                    audit.symlink_to(protected)
+                else:
+                    os.link(protected, audit)
+            elif attack == 'unsafe-mode':
+                audit.chmod(0o644)
+            elif attack == 'malformed':
+                audit.write_bytes(b'{')
+            elif attack == 'invalid-utf8':
+                audit.write_bytes(b'\xff')
+            elif attack == 'task-schema':
+                records = json.loads(audit.read_text())
+                entry = next(entry for entry in records if entry['type'] == 'tracker-task')
+                entry['message'] = json.dumps({**json.loads(entry['message']), 'status': 'SYNTHETIC-INVALID'})
+                audit.write_text(json.dumps(records))
+            else:
+                with audit.open('r+b') as data:
+                    data.truncate(32 * 1024 * 1024 + 1)
+
+            def tracker_fingerprint():
+                info = protected.stat()
+                digest = hashlib.sha256()
+                with protected.open('rb') as data:
+                    while chunk := data.read(65536):
+                        digest.update(chunk)
+                return info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size, digest.hexdigest()
+
+            original = tracker_fingerprint()
+            previous = len(models)
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-tracker-unsafe.log')
+            code, output = invoke(diagnostic, peer_env, ['--resume', session, '--prompt', second_prompt])
+            assert len(models) == previous, 'Native CLI must refuse unsafe tracker history before another inference.'
+            assert code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output
+            assert tracker_fingerprint() == original
+            assert not list(private.rglob('tracker/*.json')) and not errors, errors
+            print('PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: ' + attack)
+            safe_cleanup = True
+            raise SystemExit(0)
         if args.history_import:
             source = transcripts[0]
             if args.history_import != 'canonical':
@@ -946,6 +1048,8 @@ try:
             raise SystemExit(0)
         resumed = args.diagnostics.with_name(args.diagnostics.stem + '-resume.log')
         code, output = invoke(resumed, peer_env, ['--resume', session, '--prompt', second_prompt])
+        if args.tracker_history:
+            assert {'phase': 'resume', 'listed_task': False} not in tracker_checks, 'Fresh native CLI must list its persisted tracker task after private-home disposal.'
         if artifact_attack:
             assert code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output
             assert len(completions()) == 1 and sum(record['operation'] == 'streamGenerateContent' for record in models) == 3
@@ -982,6 +1086,10 @@ try:
                 assert (artifact_file.stat().st_dev, artifact_file.stat().st_ino) == artifact_identity
                 assert not list(private.rglob('degraded-blobs'))
                 print('PASS: actual native context degradation survives private-home disposal and fresh CLI read_file sends the original PNG to the provider during resume.')
+            if args.tracker_history:
+                assert tracker_steps == {'initial': 4, 'resume': 2} and sum(record['operation'] == 'streamGenerateContent' for record in models) == 8
+                assert not list(private.rglob('tracker/*.json'))
+                print('PASS: actual native CLI creates, updates, gets and lists a task, then a fresh resumed CLI lists and gets it after private-home disposal.')
             print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.')
         assert not (private / 'oauth_creds.json').exists()
         assert not (private / 'google_accounts.json').exists()
@@ -1002,7 +1110,7 @@ finally:
             serving.join(5)
             server.server_close()
         trace = args.diagnostics.with_suffix('.network.json')
-        trace.write_text(json.dumps({'requests': requests, 'models': models, 'errors': errors}, indent=2))
+        trace.write_text(json.dumps({'requests': requests, 'models': models, 'tracker_checks': tracker_checks, 'errors': errors}, indent=2))
         trace.chmod(0o600)
         if safe_cleanup:
             shutil.rmtree(root)

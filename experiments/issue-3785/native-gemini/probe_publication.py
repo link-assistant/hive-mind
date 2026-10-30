@@ -29,7 +29,7 @@ if args.attack and (args.before_control or args.live_journal_replacement or args
     parser.error('Unsafe-evidence controls require the repaired registry after-link state.')
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
-assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() == '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b'
+assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55')
 assert (package / 'bundle/hive-gemini-history.mjs').read_bytes() == (Path(__file__).parent / 'history.mjs').read_bytes()
 assert (package / 'bundle/hive-gemini-publication.mjs').read_bytes() == (Path(__file__).parent / 'publication.mjs').read_bytes()
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-publication-'))

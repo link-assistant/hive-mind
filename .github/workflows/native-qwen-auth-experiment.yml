@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'experiments/issue-3785/native-qwen/**'
+      - 'experiments/issue-3785/native-oauth-transaction.mjs'
       - 'experiments/issue-3785/probe-qwen-native-reads.mjs'
       - 'experiments/issue-3785/probe-qwen-lock-ownership.mjs'
       - 'experiments/issue-3785/probe-qwen-native-writers.mjs'

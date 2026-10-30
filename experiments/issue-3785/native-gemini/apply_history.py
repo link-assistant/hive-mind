@@ -141,7 +141,7 @@ for name, count in [('chunk-XHQ6TTKH.js', 6), ('gemini-GLQ4MVLB.js', 1), ('inter
     return sessions;
   }
   async findArchivedSession(identifier) {
-    if (!nativeGeminiHistorySelected() || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(identifier)) return null;
+    if (!nativeGeminiHistorySelected() || !/^[a-zA-Z0-9_-]+$/.test(identifier)) return null;
     const chatsDir = this.storage.getProjectChatsDir();
     const matches = [];
     for (const filePath of listNativeGeminiArchivedConversations(chatsDir)) {

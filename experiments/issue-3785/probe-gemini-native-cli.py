@@ -37,6 +37,7 @@ parser.add_argument('--history-archive-discovery', action='store_true')
 parser.add_argument('--history-archive-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
 parser.add_argument('--history-archive-live-resume', action='store_true')
 parser.add_argument('--history-archive-second-cycle', action='store_true')
+parser.add_argument('--session-identifier')
 args = parser.parse_args()
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -50,6 +51,7 @@ assert not args.history_archive_discovery or args.history_archive_resume
 assert not args.history_archive_attack or args.history_archive_resume and not args.history_archive_discovery
 assert not args.history_archive_live_resume or args.history_archive_resume and not args.history_archive_attack
 assert not args.history_archive_second_cycle or args.history_archive_resume and not args.history_archive_attack
+assert not args.session_identifier or args.history
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
@@ -71,7 +73,7 @@ serving = None
 first_prompt = 'SYNTHETIC-GEMINI-HISTORY-FIRST-PROMPT'
 second_prompt = 'SYNTHETIC-GEMINI-HISTORY-SECOND-PROMPT'
 third_prompt = 'SYNTHETIC-GEMINI-HISTORY-THIRD-PROMPT'
-session = str(uuid.uuid4())
+session = args.session_identifier or str(uuid.uuid4())
 
 
 def completions():

@@ -284,7 +284,7 @@ export function admitNativeGeminiConversation(file, record) {
   if (!nativeGeminiHistorySelected()) return record;
   try {
     const location = conversationLocation(file);
-    if (!record || typeof record !== 'object' || typeof record.sessionId !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(record.sessionId) || record.projectHash !== location.projectHash || !Array.isArray(record.messages)) throw refuse();
+    if (!record || typeof record !== 'object' || typeof record.sessionId !== 'string' || !/^[a-zA-Z0-9_-]+$/u.test(record.sessionId) || record.projectHash !== location.projectHash || !Array.isArray(record.messages)) throw refuse();
     return record;
   } catch {
     throw refuse();

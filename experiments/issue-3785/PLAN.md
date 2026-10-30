@@ -833,3 +833,9 @@ Latest CI continuation:
       all generations remain discoverable, including startup-only records; the
       third inference contains both preceding prompts and the prior response.
       Every archived generation retains its bytes and inode.
+- [x] Reproduce UUID-only canonical validation rejecting a session identifier
+      accepted by the actual native CLI. Preserve its alphanumeric/dash/underscore
+      alphabet in parsed-record admission and archive lookup; verify complete
+      opaque-ID discovery/deletion/archive/resume after private-home disposal.
+- [ ] Verify the native-ID compatibility change, malformed-ID refusal and all
+      storage controls in CI, then complete the explicit native import path.

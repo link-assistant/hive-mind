@@ -94,3 +94,14 @@ Archive-stage output hashes (manager alone is shared with retirement):
 chunk-XHQ6TTKH.js a79093dce4affd444a4d97b3134b09fb72530b3639a9c5b792c95f8ced638d15
 gemini-GLQ4MVLB.js a574516fde30cdd5a41dfaa403bce8e27a0e9a1be40db93e6a23702f0f096423
 hive-gemini-history.mjs f50eb70195a1bf4954eb2e1b6abe7ebf424aa6e77addb0cf589ef61f064a753f
+
+Native identifier compatibility:
+REPRODUCED: actual --session-id accepts SYNTHETIC_NATIVE_SESSION-3785; the
+            UUID-only canonical loader then rejects its healthy transcript.
+PASS: native discovery/deletion/archive discovery/resume with that identifier,
+      including prior user/model content after private-home disposal.
+Canonical validation and exact archive lookup preserve the native identifier
+alphabet, while non-string session metadata remains invalid.
+Native-ID-stage output hashes:
+chunk-XHQ6TTKH.js 6bb7d4725650029c2d776aa62d36ed47ad12f02998874c0fcbce8b20105f16a7
+hive-gemini-history.mjs 153eb084116e7d575ca91f53c36d34734852e6bb9d23f7c26f436affca15c795

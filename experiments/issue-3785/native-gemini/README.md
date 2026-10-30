@@ -348,3 +348,12 @@ Git/checkpoint/prompt/shell history, interrupted writes and production installat
 remain unfinished. Complete archive indexing, child archives and power-loss
 recovery also remain open. Sharing only conversations does not complete the
 full-history requirement or the six-tool authority contract.
+
+The native `--session-id` parser also accepts alphanumeric IDs with dashes and
+underscores. A compatibility control first completes with such an ID before the
+conversation stage, then reproduces its rejection by UUID-only canonical
+admission. Canonical parsed-record admission and exact archive lookup now use
+the native identifier alphabet. The complete CLI discovers, deletes, lists the
+archive and resumes `SYNTHETIC_NATIVE_SESSION-3785` after private-home disposal.
+Numeric JSON session metadata still refuses; this preserves valid native strings
+without admitting an invalid metadata type.

@@ -668,6 +668,18 @@ Latest CI continuation:
       private-copy refusal. All nine read cases, independent-root/disposal and
       three no-exchange writer/expiry refusals pass locally. This stage refuses
       refresh/login/logout; it is not installed or production-ready.
-- [ ] Verify the dedicated native Gemini read workflow on the pushed head;
-      implement coordinated native writers, provider/retained-legacy admission,
-      history, lifecycle, production integration and every remaining criterion.
+- [x] Verify native Gemini read CI 41094570644 on exact head 823fb80335.
+- [x] Complete the full updated 738-file local default suite without failures.
+- [x] Reproduce native Gemini loss of a rotated refresh token, cache-publication
+      ordering and factory recovery/root-identity regressions. Coordinate inspected
+      native refresh/cache/logout entrypoints with durable intent and no HTTP
+      refresh retries. All thirteen synthetic native process controls pass locally, including an actual
+      native OAuth SDK model request held open while a peer reads G1. Full CLI
+      inference remains unverified.
+- [x] Extract the existing Qwen transaction engine with provider-specific intent
+      names/hash domains. Preserve all fourteen native Qwen manager reads, fourteen
+      retained-client reads and fourteen native writer controls after extraction.
+- [ ] Verify the new Gemini writer and shared-engine CI checks; implement full
+      browser/auth-code/initial login, revocation, account metadata, other provider
+      factories/retained-legacy handles, actual requests, history, lifecycle,
+      production integration and every remaining criterion.

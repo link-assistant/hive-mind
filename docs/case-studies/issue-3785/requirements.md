@@ -53,7 +53,10 @@ until the open and partial rows have implementation and verification evidence.
 
 The new Gemini experiment establishes nine native factory/retained-client stale
 header defects and an opt-in read repair, including independent roots and private
-scope disposal. Its selected mode currently refuses refresh/login/logout writers.
-It is not production integration or completion of A1–A12. See
+scope disposal. A second stage coordinates the inspected refresh, cache-publication
+and logout entrypoints; twelve native controls cover concurrency, uncertainty,
+recovery and directory identity. Browser/auth-code/initial login, revocation and
+remaining provider/storage paths are unfinished. Neither stage is production
+integration or completion of A1–A12. See
 `experiments/issue-3785/native-gemini/README.md` and
 `evidence/native-gemini-reads-controls.txt` for the exact verified boundaries.

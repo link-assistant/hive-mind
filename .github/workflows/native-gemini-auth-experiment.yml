@@ -5,6 +5,9 @@ on:
     paths:
       - 'experiments/issue-3785/native-gemini/**'
       - 'experiments/issue-3785/native-qwen/read_credentials.mjs'
+      - 'experiments/issue-3785/native-oauth-transaction.mjs'
+      - 'src/shared-auth-refresh-lock.lib.mjs'
+      - 'experiments/issue-3785/probe-gemini-native-writers.mjs'
       - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
@@ -45,6 +48,15 @@ jobs:
           grep -F 'AssertionError [ERR_ASSERTION]: replacement: native factory' "$RUNNER_TEMP/gemini-reads-regression.log"
           grep -F "selected: 'G0'" "$RUNNER_TEMP/gemini-reads-regression.log"
           grep -F "selected: 'G1'" "$RUNNER_TEMP/gemini-reads-regression.log"
+      - name: Reproduce native loss of the provider's rotated refresh token
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --legacy-configs --scenario=direct-refresh > "$RUNNER_TEMP/gemini-rotation-before.log" 2>&1; then
+            echo 'The native rotating-token regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F "'synthetic-refresh-G0'" "$RUNNER_TEMP/gemini-rotation-before.log"
+          grep -F "'synthetic-refresh-G1'" "$RUNNER_TEMP/gemini-rotation-before.log"
+          grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-rotation-before.log"
       - name: Apply exact pinned native read admission
         run: |
           python3 experiments/issue-3785/native-gemini/apply_reads.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
@@ -53,6 +65,22 @@ jobs:
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs > "$RUNNER_TEMP/gemini-reads-after.log" 2>&1
       - name: Verify independent private configuration, disposal and read-stage writer refusal
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs --refusal-controls > "$RUNNER_TEMP/gemini-private-reads-after.log" 2>&1
+      - name: Require the read-stage refresh regression to fail
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=two-refreshes > "$RUNNER_TEMP/gemini-writers-before.log" 2>&1; then
+            echo 'The read stage unexpectedly completed coordinated native refresh.'
+            exit 1
+          fi
+          grep -F 'expired native credentials must exchange' "$RUNNER_TEMP/gemini-writers-before.log"
+          grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-writers-before.log"
+      - name: Apply exact pinned native writer coordination
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify native refresh, publication, logout, crash and factory recovery
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
+      - name: Preserve coordinated native canonical reads and private-scope isolation
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1
       - name: Preserve no-selector native behavior
         run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --without-selector --expect-native-gaps > "$RUNNER_TEMP/gemini-legacy-reads.log" 2>&1
       - name: Preserve native diagnostics

@@ -1,0 +1,62 @@
+Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
+Coordinated manager SHA-256: d4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610
+Shared transaction engine SHA-256: bc3b3820a64324a7a388a729728f98217d28454a6e1263d6a2e384b0e3bb8959
+Synthetic native OAuth factory/client/cache writer/logout; no operator state.
+External token verification, user info and token endpoint transports are stubbed.
+
+Stock direct-refresh regression, after a healthy actual native G0 header:
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal
+actual refresh token: synthetic-refresh-G0
+expected refresh token: synthetic-refresh-G1
+The native wrapper overwrites a provider's rotated token before async publication.
+
+Read-stage refresh regression, after healthy native G0 headers in both processes:
+AssertionError [ERR_ASSERTION]: two-refreshes: expired native credentials must exchange
+actual result: selected rejected, exchanges 0
+expected event: exchange predecessor G0
+
+Rejected-factory recovery regression against the first writer stage:
+AssertionError [ERR_ASSERTION]: owner-death: native writer result
+actual: selected rejected, exchanges 0
+expected: selected G2, exchanges 0
+The native promise map retains an initialization rejection after canonical repair.
+
+Authority replacement regression after allowing factory retries:
+AssertionError [ERR_ASSERTION]: factory-root-replacement: native writer result
+actual: selected G2, exchanges 0
+expected: selected rejected, exchanges 0
+Binding the directory identity across retries repairs this further regression.
+
+Final coordinated controls:
+PASS: actual native Gemini inference-overlap (SDK request, synthetic transport)
+PASS: actual native Gemini two-refreshes
+PASS: actual native Gemini login (inspected cache publication, not full browser login)
+PASS: actual native Gemini logout
+PASS: actual native Gemini owner-death
+PASS: actual native Gemini network-refusal
+PASS: actual native Gemini metadata-rewrite
+PASS: actual native Gemini factory-root-replacement
+PASS: actual native Gemini invalid-grant
+PASS: actual native Gemini non-rotating
+PASS: actual native Gemini direct-refresh
+PASS: actual native Gemini direct-no-cache
+PASS: actual native Gemini publication-race
+
+Each checks durable canonical bytes, stable lock identity and no private auth copy.
+Uncertain generations remain blocked without another exchange, including after
+metadata rewrites. A distinct publication repairs uncertainty; a same-refresh-token
+publication refuses. Fresh same-process factory calls then observe G2. A competing
+external G2 is preserved and reconciled by a fresh native reader.
+Selected native refresh options require retry=false, retry count 0 and no-response
+retries 0. The fixture checks options; it does not run a live provider retry test.
+
+After extracting the shared engine, the actual Qwen manager and retained-client
+read sets (14 each) and the complete 14 native writer controls still pass.
+All 738 local default test files pass; this does not certify native experiment code.
+An actual OAuth SDK model request stays pending while a peer reads G1, verifying
+that the credential lock is released during that request. Full CLI inference is open.
+Gemini read-stage CI 41094570644 passes on 823fb80335; the writer CI is newly wired.
+
+Unfinished: browser/auth-code/initial login, revocation, account metadata, all other
+provider factories/backends, full CLI model requests, history and production wiring.
+These selected experiments do not complete the issue's six-tool acceptance matrix.

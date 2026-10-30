@@ -62,3 +62,51 @@ file causes refusal. The read-stage writer controls preserve G0 and make zero
 refresh attempts. Full conversation history requires separate native storage
 work: the upstream runtime directory also contains executable/configuration
 material, so projecting the entire Gemini home/runtime would violate isolation.
+
+## Coordinated writer stage
+
+`apply_coordination.py` builds on the exact read stage. It reuses the inspected
+Qwen transaction engine through `native-oauth-transaction.mjs`, with separate
+Gemini intent names and refresh-token hash domains. The shared lock inode stays
+stable; credential reads, refresh exchange, publication and logout run under its
+kernel lock. The lock is released before inference. No process-lifetime lock is
+used. The canonical directory identity also remains bound across a rejected
+factory initialization and later retries.
+
+The stock native client emits tokens to an unawaited writer, then overwrites a
+provider's rotated refresh token with the cached predecessor. The bounded native
+direct-refresh regression reproduces G0 surviving where G1 must persist. The
+coordinated stage captures the real native exchange, removes its asynchronous
+writer, awaits atomic file/directory synchronization, and sets published state
+before returning to native wrappers. Missing provider refresh tokens retain the
+current one. Native refresh HTTP retries are disabled for selected authority,
+because a lost response cannot justify exchanging that predecessor again.
+
+Thirteen process controls exercise simultaneous refresh, pending cache publication
+and logout, owner death, network refusal, metadata-only rewrites, root replacement
+after failed initialization, invalid grant, non-rotating refresh, direct refresh,
+direct no-cache refresh and a competing external publication. Cold readers make
+zero exchanges after an uncertain outcome. Republishing the uncertain predecessor
+refuses; a distinct login generation repairs storage and supports a new factory
+call in the same process. A regression first failed because the native factory
+cached its rejected promise; selected failed initializations now remove only
+their own promise from the map. A separate before/after control prevents that
+retry from silently accepting a replaced authority directory.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+node experiments/issue-3785/probe-gemini-native-writers.mjs
+node experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs
+```
+
+`getTokenAsync`, revocation and direct revocation remain explicitly refused in
+this stage. The cache-publication control exercises the inspected native writer,
+not browser/auth-code login end to end. Initial login with missing credentials,
+account metadata, other provider constructors/retained handles, full CLI model
+requests, full conversation storage and production installation remain open.
+One control keeps an actual native OAuth client model request pending while a
+second process reads G1, proving the credential lock is released during that
+request. Its model transport is synthetic; full CLI inference remains unverified.
+Synthetic transports verify the native exchange options and publication logic;
+they do not establish live provider replay/grace behavior.

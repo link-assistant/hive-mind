@@ -337,6 +337,19 @@ documents compaction overrides; the pinned native source establishes the
 additional system and experimental realtime fields. This closes those specific
 discovery gaps; complete native surface attestation remains unfinished.
 
+The global `model_catalog_json` selector was another instruction authority:
+native model metadata can supply an arbitrary `model_messages.instructions_template`
+even with every direct instruction key absent. Eight more audit regressions and
+an actual minimal-catalog model request reproduce this bypass. Admission now
+refuses user and managed selectors, leaving model/security configuration and the
+referenced catalog untouched. The real before/after request control also runs
+with `--model-catalog`; repair mode must still refuse and preserve those settings.
+Explicit reconciliation in the disposable fixture restores native instructions
+and preserves the provider and credential identity.
+All 113 focused audit cases pass after including this selector in the shared
+policy. Custom model catalogs require explicit reconciliation into task-scoped
+configuration rather than root-global instruction inheritance.
+
 The pinned Codex profile-v2 loader also reads separate `<name>.config.toml`
 files beside `config.toml`. Fourteen reproducing cases bypassed the clean base
 file before this audit included those native profiles. Admission now enumerates

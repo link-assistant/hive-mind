@@ -607,3 +607,9 @@ Latest CI continuation:
       the next actual request and preserves credential bytes/inode. Add this
       stock-native control and its diagnostics to CI. Complete surface discovery
       and six-tool production storage remain open.
+- [x] Reproduce the indirect native model-catalog instruction authority with
+      eight additional audit failures and a real model request using only a
+      minimal synthetic model catalog. Refuse its global selector without reading
+      or changing the referenced catalog or model/security settings. Require
+      repair mode to refuse too; explicit fixture reconciliation restores native
+      instructions on a real request and retains provider/auth identity.

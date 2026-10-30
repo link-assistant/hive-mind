@@ -83,3 +83,5 @@ Reject linked history/data ancestors during Docker host preparation. On Linux, c
 Persist native Codex migration recovery journals alongside shared rollouts and writer locks. Refuse online movement of existing private pending journals, retain their inode across task configuration disposal, and require the journal mount before Docker launch. Apply descriptor-based directory preparation to scoped history parents as well. Keep the combined interrupted-migration and fresh-resume native controls separate from the unfinished production history contract.
 
 Audit Codex global system, compaction and realtime prompt overrides in conventional homes, selected homes and profiles. Repair user registrations without reading prompt targets; refuse managed overrides while preserving administrator policy and native authentication identities.
+
+Refuse custom global model-catalog selectors, which can supply model-owned instruction templates. Preserve their model/security configuration and referenced catalogs for explicit reconciliation into task scope.

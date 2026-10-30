@@ -15,6 +15,7 @@ from native_process_group import stop_process_group
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("binary", type=Path)
 parser.add_argument("--expect-missed-prompts", action="store_true")
+parser.add_argument("--model-catalog", action="store_true")
 parser.add_argument("--diagnostics", type=Path)
 args = parser.parse_args()
 assert args.binary.is_absolute() and args.binary.is_file()
@@ -144,7 +145,20 @@ try:
         config_dir.mkdir(parents=True, mode=0o700)
         endpoint = f"http://127.0.0.1:{server.server_port}"
         config = config_dir / "config.toml"
-        config.write_text(f'''instructions = "{marker}"
+        prompt_config = f'instructions = "{marker}"'
+        catalog = config_dir / "synthetic-models.json"
+        if args.model_catalog:
+            # A minimal native ModelsResponse: model-owned messages are another
+            # global instruction authority even without instructions/file keys.
+            catalog.write_text(json.dumps({"models": [{
+                "slug": "synthetic-model", "display_name": "Synthetic model",
+                "supported_reasoning_levels": [], "shell_type": "default",
+                "visibility": "list", "supported_in_api": True, "priority": 0,
+                "support_verbosity": False, "truncation_policy": {"mode": "bytes", "limit": 10000},
+                "experimental_supported_tools": [], "model_messages": {"instructions_template": marker},
+            }]}))
+            prompt_config = f'model_catalog_json = {json.dumps(str(catalog))}'
+        config.write_text(f'''{prompt_config}
 model = "synthetic-model"
 model_provider = "offline"
 chatgpt_base_url = "{endpoint}/backend-api"
@@ -167,6 +181,7 @@ stream_max_retries = 0
         auth.write_text('{"OPENAI_API_KEY":"sk-SYNTHETIC-G0"}')
         auth.chmod(0o600)
         original = auth.stat()
+        catalog_bytes = catalog.read_bytes() if args.model_catalog else None
         assert native(root, home), "The unapproved global instruction must reach an actual model request."
         before = config.read_bytes()
         assert audit(root, home) == ("ACCEPTED" if args.expect_missed_prompts else "REFUSED")
@@ -174,12 +189,22 @@ stream_max_retries = 0
         if args.expect_missed_prompts:
             print("REPRODUCED: an accepted global system instruction reached a real native model request.")
         else:
+            if args.model_catalog:
+                assert audit(root, home, repair=True) == "REFUSED"
+                assert config.read_bytes() == before, "Catalog refusal must preserve model/security configuration."
+                # Explicit fixture reconciliation, not an automatic product
+                # repair: a custom catalog may also contain security metadata.
+                config.write_text(config.read_text().replace(prompt_config + "\n", "", 1))
             assert audit(root, home, repair=True) == "ACCEPTED"
             assert not native(root, home), "Repair must restore native instructions without changing the provider."
             assert audit(root, home) == "ACCEPTED"
             assert (auth.stat().st_dev, auth.stat().st_ino) == (original.st_dev, original.st_ino)
             assert auth.read_text() == '{"OPENAI_API_KEY":"sk-SYNTHETIC-G0"}'
-            print("PASS: actual native request contained the global override before repair and native instructions after repair; auth identity survived.")
+            if args.model_catalog:
+                assert catalog.read_bytes() == catalog_bytes, "Repair must not mutate external prompt data."
+            print("PASS: actual native request contained the override; admission refused it and preserved auth identity; " +
+                  ("catalog refusal preserved model/security settings, explicit fixture reconciliation restored native instructions."
+                   if args.model_catalog else "automatic registration repair restored native instructions."))
         assert not invalid, "No undeclared or external endpoint may be used."
 finally:
     server.shutdown()

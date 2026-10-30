@@ -9,7 +9,7 @@ import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 
 // These keys are consumed by the pinned native ConfigToml, beyond the already
 // covered developer_instructions and model_instructions_file registrations.
-const promptKeys = ['instructions', 'compact_prompt', 'experimental_compact_prompt_file', 'experimental_realtime_ws_backend_prompt', 'experimental_realtime_ws_startup_context', 'experimental_realtime_start_instructions'];
+const promptKeys = ['instructions', 'compact_prompt', 'experimental_compact_prompt_file', 'experimental_realtime_ws_backend_prompt', 'experimental_realtime_ws_startup_context', 'experimental_realtime_start_instructions', 'model_catalog_json'];
 const runtime = 'model = "synthetic-model"\napproval_policy = "never"\nsandbox_mode = "read-only"\n';
 const baseline = '[features]\nremote_plugin = false\n';
 
@@ -30,7 +30,7 @@ async function fixture(t) {
 
 for (const key of promptKeys) {
   for (const scope of ['conventional', 'selected', 'profile-file', 'inline-profile']) {
-    test(`global Codex ${key} is refused and repairable in ${scope}`, async t => {
+    test(`global Codex ${key} is refused in ${scope} with protected settings preserved`, async t => {
       const f = await fixture(t);
       const target = path.join(scope === 'conventional' ? f.conventional : f.selected, scope === 'profile-file' ? 'work.config.toml' : 'config.toml');
       const inline = scope === 'inline-profile';
@@ -41,10 +41,17 @@ for (const key of promptKeys) {
       const before = await Promise.all(protectedPaths.map(file => fs.stat(file)));
       await assert.rejects(f.audit({ autoRepair: false }), error => /not clean/iu.test(error.message) && !error.message.includes('private-global-prompt'));
       assert.equal(await fs.readFile(target, 'utf8'), bytes);
-      const result = await f.audit({});
-      assert.ok(result.repaired.some(finding => finding.name === key && finding.kind === 'global-instructions'));
+      if (key === 'model_catalog_json') {
+        await assert.rejects(f.audit({}), /not clean/iu);
+        assert.equal(await fs.readFile(target, 'utf8'), bytes);
+        const result = await f.audit({ requireClean: false, autoRepair: false });
+        assert.ok(result.findings.some(finding => finding.name === key && finding.repair === null));
+      } else {
+        const result = await f.audit({});
+        assert.ok(result.repaired.some(finding => finding.name === key && finding.kind === 'global-instructions'));
+      }
       const parsed = parse(await fs.readFile(target, 'utf8'));
-      assert.equal((inline ? parsed.profiles.work : parsed)[key], undefined);
+      assert.equal((inline ? parsed.profiles.work : parsed)[key], key === 'model_catalog_json' ? '/synthetic/private-global-prompt' : undefined);
       assert.equal(parsed.model, 'synthetic-model');
       assert.equal(parsed.approval_policy, 'never');
       assert.equal(parsed.sandbox_mode, 'read-only');

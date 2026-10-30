@@ -307,7 +307,12 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
           }
         }
         for (const key of ['notify', ...CODEX_GLOBAL_INSTRUCTION_KEYS]) {
-          if (scope[key] !== undefined) remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
+          if (scope[key] === undefined) continue;
+          // A catalog can also carry model and security metadata. Refuse its
+          // global instruction authority without deleting unrelated settings or
+          // following the selected file; reconcile it explicitly in task scope.
+          if (key === 'model_catalog_json') findings.push(makeFinding({ tool: 'codex', kind: 'global-instructions', name: key, location: configPath, detail: 'custom global model catalog requires explicit reconciliation', repair: null }));
+          else remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
         }
         if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);
         for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {

@@ -112,7 +112,9 @@ jobs:
       - name: Verify native cross-scope writer ownership and archive lifecycle
         run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-scopes > "$RUNNER_TEMP/native-history-scopes.log" 2>&1
       - name: Verify global instruction admission with actual native model requests
-        run: python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" > "$RUNNER_TEMP/native-history-global-prompts.log" 2>&1
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" > "$RUNNER_TEMP/native-history-global-prompts.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" --model-catalog > "$RUNNER_TEMP/native-history-global-prompts-catalog.log" 2>&1
       - name: Verify native formats through stopped-container recovery
         run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs > "$RUNNER_TEMP/native-history-recovery.log" 2>&1
       - name: Reproduce private native thread metadata with and without shared SQLite

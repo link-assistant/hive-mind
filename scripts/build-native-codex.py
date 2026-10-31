@@ -14,6 +14,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "src/native-codex/recipe.json"
@@ -152,14 +153,14 @@ def verify_source(root, state, recipe, digest):
     return prepared
 
 
-def inspect_binary(binary, recipe, platform):
+def inspect_binary(binary, recipe, platform, executable=True):
     info = regular(binary, recipe["maxBinaryBytes"])
     with binary.open("rb") as source:
         header = source.read(64)
     if (len(header) != 64 or header[:7] != b"\x7fELF\x02\x01\x01"
             or int.from_bytes(header[16:18], "little") not in (2, 3)
             or int.from_bytes(header[18:20], "little") != recipe["targets"][platform]["elfMachine"]
-            or not info.st_mode & 0o111):
+            or (executable and not info.st_mode & 0o111)):
         raise ValueError("Native binary does not match the admitted Linux platform.")
     return {"sha256": sha256(binary), "bytes": info.st_size}
 
@@ -229,9 +230,122 @@ def build(root, state, platform, output):
     print("Built and verified the pinned native Codex release artifact.")
 
 
+def artifact_paths(recipe):
+    return {"codex", "manifest.json", "source.json", "recipe.json"} | {
+        "licenses/" + name for name in recipe["licenses"]}
+
+
+def verify_artifact(root, recipe, digest, platform, executable=False):
+    if root.is_symlink() or not root.is_dir() or root.resolve() != root:
+        raise ValueError("Native artifact must use a canonical directory.")
+    expected = artifact_paths(recipe)
+    directories = {parent.as_posix() for name in expected for parent in Path(name).parents
+                   if parent.as_posix() != "."}
+    seen = set()
+    for path in root.rglob("*"):
+        name = path.relative_to(root).as_posix()
+        mode = path.lstat().st_mode
+        if stat.S_ISDIR(mode) and name in directories:
+            continue
+        if not stat.S_ISREG(mode) or name not in expected:
+            raise ValueError("Unexpected native artifact entry.")
+        regular(path, recipe["maxBinaryBytes"] if name == "codex" else 4 * 1024 * 1024)
+        seen.add(name)
+    if seen != expected:
+        raise ValueError("Native artifact is incomplete.")
+    if sha256(root / "recipe.json") != digest:
+        raise ValueError("Native artifact recipe differs from the checked-out recipe.")
+    manifest = json.loads((root / "manifest.json").read_text())
+    prepared = json.loads((root / "source.json").read_text())
+    target = recipe["targets"][platform]["target"]
+    expected_manifest = {"schema": 1, "platform": platform, "target": target,
+                         "version": recipe["version"], "upstreamCommit": recipe["upstreamCommit"],
+                         "recipeSha256": digest, "sourceSha256": sha256(root / "source.json"),
+                         "cargoEnvironment": recipe["cargoEnvironment"], "licenses": recipe["licenses"]}
+    if any(manifest.get(key) != value for key, value in expected_manifest.items()):
+        raise ValueError("Native artifact provenance differs from its pinned inputs.")
+    if (prepared.get("schema") != 1 or prepared.get("recipeSha256") != digest
+            or prepared.get("upstreamCommit") != recipe["upstreamCommit"]
+            or prepared.get("cargoEnvironment") != recipe["cargoEnvironment"]
+            or source_digest(prepared["sourceFiles"]) != recipe["sourceInventorySha256"]
+            or prepared.get("compiler") != manifest.get("compiler")
+            or not prepared["compiler"].startswith("rustc " + recipe["rustToolchain"] + " ")
+            or ("host: " + target) not in prepared["compiler"].splitlines()):
+        raise ValueError("Native artifact source or compiler differs from its pinned inputs.")
+    if manifest.get("binary") != inspect_binary(root / "codex", recipe, platform, executable):
+        raise ValueError("Native artifact executable identity changed.")
+    for name, expected_hash in recipe["licenses"].items():
+        if sha256(root / "licenses" / name) != expected_hash:
+            raise ValueError("Native artifact license identity changed.")
+    return manifest
+
+
+def assemble(artifacts, output):
+    """Assemble in an exclusively owned CI workspace; download never executes."""
+    recipe, digest = load_recipe()
+    for platform in recipe["targets"]:
+        verify_artifact(artifacts / ("native-codex-runtime-" + platform), recipe, digest, platform)
+    if output.exists() or output.is_symlink():
+        raise ValueError("Native runtime assembly requires a fresh output directory.")
+    staging = Path(tempfile.mkdtemp(prefix=".native-codex-runtime-", dir=output.parent))
+    try:
+        for platform in recipe["targets"]:
+            source = artifacts / ("native-codex-runtime-" + platform)
+            destination = staging / platform
+            for name in sorted(artifact_paths(recipe)):
+                target = destination / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with target.open("xb") as writer, (source / name).open("rb") as reader:
+                    shutil.copyfileobj(reader, writer, 64 * 1024)
+                target.chmod(0o755 if name == "codex" else 0o644)
+            verify_artifact(destination, recipe, digest, platform, executable=True)
+        staging.chmod(0o755)
+        staging.rename(output)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    print("Assembled both verified native Codex platforms for the npm artifact.")
+
+
+def verify_package(archive):
+    """Check the actual npm file allowlist and bytes without running either CLI."""
+    recipe, digest = load_recipe()
+    prefix = "package/src/native-codex/runtime/"
+    allowed = {platform + "/" + name for platform in recipe["targets"]
+               for name in artifact_paths(recipe)}
+    seen = set()
+    with tempfile.TemporaryDirectory(prefix="native-codex-package-") as temporary:
+        root = Path(temporary)
+        with tarfile.open(archive, "r:gz") as package:
+            for member in package:
+                if not member.name.startswith(prefix):
+                    continue
+                name = member.name[len(prefix):]
+                if (name not in allowed or name in seen or not member.isfile()
+                        or member.size <= 0 or member.size > (
+                            recipe["maxBinaryBytes"] if name.endswith("/codex") else 4 * 1024 * 1024)):
+                    raise ValueError("Unexpected native payload in the npm artifact.")
+                seen.add(name)
+                destination = root / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with package.extractfile(member) as reader, destination.open("xb") as writer:
+                    shutil.copyfileobj(reader, writer, 64 * 1024)
+                destination.chmod(member.mode & 0o777)
+        if seen != allowed:
+            raise ValueError("The actual npm file allowlist omitted a native platform or required file.")
+        for platform in recipe["targets"]:
+            verify_artifact(root / platform, recipe, digest, platform, executable=True)
+    print("Verified both complete native platforms in the actual npm artifact.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
+    assembly = subcommands.add_parser("assemble")
+    assembly.add_argument("artifacts", type=Path)
+    assembly.add_argument("output", type=Path)
+    package = subcommands.add_parser("verify-package")
+    package.add_argument("archive", type=Path)
     for command in ("prepare", "verify-source", "build"):
         sub = subcommands.add_parser(command)
         sub.add_argument("source", type=Path)
@@ -240,6 +354,12 @@ def main():
             sub.add_argument("platform", choices=("linux-x64", "linux-arm64"))
             sub.add_argument("output", type=Path)
     arguments = parser.parse_args()
+    if arguments.command == "assemble":
+        assemble(arguments.artifacts.resolve(strict=True), arguments.output.absolute())
+        return
+    if arguments.command == "verify-package":
+        verify_package(arguments.archive.resolve(strict=True))
+        return
     root = arguments.source.resolve(strict=True)
     state = arguments.state.absolute()
     if state.is_relative_to(root):

@@ -24,6 +24,8 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       assets and image/host installation, then remove production auth copies.
       The pinned optimized x64/arm64 build foundation is being verified first;
       finite-retention CI artifacts are not a runtime distribution service.
+      Assembly now verifies both platform identities and the actual npm file
+      allowlist; complete compiled-artifact CI and production activation remain.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

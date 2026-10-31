@@ -10,6 +10,7 @@
  */
 
 import { CACHE_TTL, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials, resolveLimitsCredentialPaths } from './limits.lib.mjs';
+import { selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
 import { getSelectedRouterLimits } from './limits-router.lib.mjs';
@@ -243,5 +244,6 @@ export async function getCachedClaudeSubscription(verbose = false, { credentials
 export async function getCachedCodexSubscription(verbose = false, { authPath = resolveLimitsCredentialPaths().codex } = {}) {
   const routed = await getSelectedRouterLimits('codex', { verbose });
   if (routed) return routed;
+  if (selectedCodexAuthHome() && !(await readCodexAuth(authPath, verbose))) return { success: false, error: 'Could not read Codex authentication.', failureKind: 'auth' };
   return getCachedUsageLimits({ key: 'codex-subscription', credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, fetchLimits: () => getCodexSubscriptionInfo({ verbose, authPath }) });
 }

@@ -21,6 +21,10 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       builds at 6c422b57; preserve complete logs and installed native controls.
 - [ ] Integrate default selected storage, launcher admission and restored-state
       validation; preserve private configuration and migrate native state safely.
+- [x] Reproduce and repair limits reads bypassing the explicit native Codex
+      authentication selector, including unsafe cache reuse and private endpoint
+      redirection. Verify bounded descriptor-based admission and no fallback.
+      This does not establish default selection or daemon-backed identity.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
       assets and image/host installation, then remove production auth copies.
       The pinned optimized x64/arm64 build foundation is being verified first;
@@ -31,6 +35,16 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       build and assemble both platforms. A fresh actual npm archive check runs
       immediately before publication, including after any version commit/pull.
       This new release wiring still requires its first complete CI execution.
+- [x] Reproduce execution-before-admission in the installed runtime gate and
+      add Codex command installation without executing the upstream launcher.
+      Static packaging fixtures cover bin-link publication, idempotence,
+      changed native bytes and metadata refusals. Sixty-eight focused controls
+      pass; these fixtures never execute their synthetic ELF-shaped payload.
+- [ ] Verify optimized installed-command activation on both architectures and
+      both packaged images. The actual npm probe now installs the pinned
+      upstream package and checks native requests through its selected bin.
+      Local workflow security/line-limit failures are repaired; new CI is due
+      after the currently running first optimized builds finish.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

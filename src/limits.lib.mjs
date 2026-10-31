@@ -5,6 +5,7 @@
  */
 
 import { resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -42,7 +43,8 @@ const execAsync = promisify(exec);
 export function resolveLimitsCredentialPaths(env = process.env, homeDir = homedir()) {
   const claudeHome = resolveClaudeCredentialDirectory(env, homeDir);
   const codexHome = env.CODEX_HOME || join(homeDir, '.codex');
-  return { claude: join(claudeHome, '.credentials.json'), codex: join(codexHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
+  const codexAuthHome = selectedCodexAuthHome(env) ?? codexHome;
+  return { claude: join(claudeHome, '.credentials.json'), codex: join(codexAuthHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
 }
 export const DEFAULT_CREDENTIALS_PATH = resolveLimitsCredentialPaths().claude;
 export const DEFAULT_CODEX_AUTH_PATH = resolveLimitsCredentialPaths().codex;
@@ -92,8 +94,9 @@ export function mapCodexRateLimitWindows(rateLimit) {
 
 export async function readCodexAuth(authPath = resolveLimitsCredentialPaths().codex, verbose = false) {
   try {
-    const content = await readFile(authPath, 'utf-8');
-    const auth = JSON.parse(content);
+    const canonical = selectedCodexAuthHome();
+    if (canonical && authPath !== join(canonical, 'auth.json')) throw new Error('Canonical Codex authentication storage is unavailable or unsafe.');
+    const auth = canonical ? await readCanonicalCodexAuth(canonical, { configurationHome: process.env.CODEX_HOME || join(homedir(), '.codex') }) : JSON.parse(await readFile(authPath, 'utf-8'));
     if (verbose) {
       console.log('[VERBOSE] /limits Codex auth loaded from:', authPath);
     }
@@ -823,7 +826,8 @@ export async function getCodexUsageLimits(verbose = false, authPath = resolveLim
       };
     }
 
-    const resolvedBaseUrl = (baseUrl || (await getCodexUsageBaseUrl(undefined, verbose))).replace(/\/+$/, '');
+    // Private task configuration cannot redirect a canonical bearer credential.
+    const resolvedBaseUrl = (baseUrl || (selectedCodexAuthHome() ? CODEX_USAGE_API_DEFAULT_BASE_URL : await getCodexUsageBaseUrl(undefined, verbose))).replace(/\/+$/, '');
     const usageEndpoint = `${resolvedBaseUrl}/wham/usage`;
     const tokenPayload = decodeJwtPayload(accessToken);
     const requestHeaders = {
@@ -1205,6 +1209,7 @@ export async function getCachedClaudeLimits(verbose = false, { credentialsPath =
 export async function getCachedCodexLimits(verbose = false, { authPath = resolveLimitsCredentialPaths().codex, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {
   const routed = await getSelectedRouterLimits('codex', { verbose });
   if (routed) return routed;
+  if (selectedCodexAuthHome() && !(await readCodexAuth(authPath, verbose))) return { success: false, error: 'Could not read Codex authentication.', failureKind: 'auth' };
   return getCachedUsageLimits({ key: 'codex', fetchLimits, credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
 }
 export async function getCachedGitHubLimits(verbose = false) {

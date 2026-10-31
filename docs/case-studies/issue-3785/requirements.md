@@ -391,3 +391,13 @@ probe. Actual packaged native auth and restore controls pass locally. See
 private configuration, migration and full lifecycle remain unfinished. This
 installation step does not complete A2/A9 or remove the production Codex auth
 copy.
+
+A12 now also has explicit native Codex selector coverage in the production
+limits reader. Before repair, twelve strict controls reproduce private-home
+fallback despite CODEX_AUTH_HOME; further controls reproduce private endpoint
+redirection, unsafe cached success and a second independent credential
+authority. Bounded descriptor-based reads and repeated cache admission now
+pass all 45 selected/legacy/Router assertions. See
+`evidence/codex-limits-authority.txt`. Default canonical selection, daemon-backed
+identity, migration and production credential-copy removal remain open; this
+selected-mode repair does not complete A12 or A2.

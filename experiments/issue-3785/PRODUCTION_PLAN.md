@@ -22,6 +22,8 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       validation; preserve private configuration and migrate native state safely.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
       assets and image/host installation, then remove production auth copies.
+      The pinned optimized x64/arm64 build foundation is being verified first;
+      finite-retention CI artifacts are not a runtime distribution service.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

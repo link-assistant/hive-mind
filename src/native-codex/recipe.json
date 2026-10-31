@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "upstreamRepository": "https://github.com/openai/codex.git",
+  "upstreamCommit": "6aaac694803004a63c6f393d153c96d22521a6b9",
+  "version": "0.164.0",
+  "rustToolchain": "1.99.1",
+  "profile": "release",
+  "maxBinaryBytes": 201326592,
+  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals"],
+  "inputs": {
+    "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",
+    "apply_cached_reads.py": "fa47213861bf68cb5fcfaebfa14b55f6ccea884ff6d4437f3103ddeb9b4ead99",
+    "apply_coordination.py": "abac17643689e02c978797afe973c7262b7e7c7a67d3eb42943908f2b0531258",
+    "apply_identity_publication.py": "1fdeb44a46027fabb79f45ae9de84c788cccedf18a41940803afb51275f7460e",
+    "apply_maintenance.py": "5d6e9ca73424c70738b28fe2929c354f146e25986b671e435db69c78b67e6c69",
+    "apply_message_history.py": "f602ed959aa32f7140cf7cdb39ea507e307c34c8af0571d0b229a3bd67a78836",
+    "apply_migration_journals.py": "27a8c1b169d59062fe3fd52997c09cd7db86a9fffb072ecb78ae1cf6d02fd181",
+    "apply_refresh_intent.py": "c3bbaec73b0fb251d19e12296d15bf541cadb553032630c197c6510a8efc2166",
+    "apply_request_auth.py": "48f94905fa1186d7f1a2736e85e0932f82a35074a91b29e48feb349608f60f03",
+    "apply_rollout_paths.py": "a38f3d6a223369fb5e78cbf5f72a4784a7ce8c049972d2dbb48bf811db6f9771",
+    "apply_session_index.py": "d4f645d86581cfca2ded55425b13ddbed2ade1d74dc0ccd19d9197df8e4281f4",
+    "apply_tui_message_history.py": "cc698315aeca623c55cfdb59533a503bed4f25f474f8fa6ad06431dfca48d533",
+    "cached_reads.patch": "ad12735dc0f2983c0797136fb4b7e505b930bf266687737312e672c4425c7920",
+    "canonical_auth.rs": "cd50cbf6861858d7fb37ebae38a0fbda3c790e5e67195b0959b20cc1245afdd7",
+    "canonical_message_history.rs": "21abe43216366385d23af4ae55621aa16c0ff9813fdd84f19ada6f47c84db794",
+    "canonical_migration_journals.rs": "8befeb805233ee24e12ea4400b7d781dbb1696e435fda13c15c6dda223b0fef7",
+    "canonical_migration_journals_tests.rs": "39738282c02b3c1bb038bc5127c85725088226146f70a2c48783d91c021d7494",
+    "canonical_migration_stages.rs": "4d7cf857d1665ac22d41903b0a273f465842970df4069aceaeae2267b2d537e4",
+    "canonical_migration_stages_tests.rs": "930b34c300732a7b2f3479032904cc85518af459a92a6a677b2d59c88a4013ed",
+    "canonical_refresh_intent.rs": "a21aefa072513f2e13d31fef4b5506cf3154945ba26c72f99fe0f72a100f68f1",
+    "canonical_refresh_transaction.rs": "08a608fb87d5ab3e31a2337babdc657ef73d363c19920bad041606b287fe4065",
+    "canonical_rollout_maintenance.rs": "48d95e6678f71661e2b001fba01528c6573212754ee3c44b81676522d469da93",
+    "canonical_rollout_paths.rs": "d9d7f477844cdb91f235a15273dad3cf8b5834a5e1791a0ea4c8b5b65eeb40a0",
+    "canonical_rollout_paths_tests.rs": "a1628b6b8a683089cc9790e6e183c1a3810f643d7f68801bf2810e08ff782c8a",
+    "canonical_session_index.rs": "74a6c35e2315f109ca6bafd0366826c2dd04f4f8e956e19c84ed25680f39713b",
+    "canonical_session_index_tests.rs": "5b48d7b780da2078fd6b35491274c50717201da2f914da63b6ad7c27eceb8dee",
+    "canonical_transaction.rs": "66a6e583c8d766b6ce533a340871b85feb37b2eb29ec88408ce1adee6fcfaf2c",
+    "coordination.patch": "02807f62854429daf5bf55c15cdfcd0173b3f357a821036cc8b0856124e91a29",
+    "native_lifecycle_probe.rs": "d42cc08b717ba851acd7df18d33f943f2eb592ca458ec285da37b3897069a0f9",
+    "rejected_canonical_provider.rs": "92fd8875d26f694372aa9716b467186e1c93a75524813d3993083c4fec9beb6e"
+  },
+  "targets": {
+    "linux-x64": {
+      "runner": "ubuntu-24.04",
+      "target": "x86_64-unknown-linux-gnu",
+      "elfMachine": 62
+    },
+    "linux-arm64": {
+      "runner": "ubuntu-24.04-arm",
+      "target": "aarch64-unknown-linux-gnu",
+      "elfMachine": 183
+    }
+  },
+  "cargoEnvironment": {
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": "2",
+    "CARGO_PROFILE_RELEASE_DEBUG": "0",
+    "CARGO_PROFILE_RELEASE_STRIP": "symbols",
+    "CARGO_PROFILE_RELEASE_LTO": "false",
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "16"
+  },
+  "licenses": {
+    "LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "NOTICE": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915",
+    "codex-rs/skills/src/assets/samples/imagegen/LICENSE.txt": "4dd13869245e356246a5b770723247bbb80a8f07a181d1d3d873a1734297cdb9",
+    "codex-rs/skills/src/assets/samples/openai-docs/LICENSE.txt": "4dd13869245e356246a5b770723247bbb80a8f07a181d1d3d873a1734297cdb9",
+    "codex-rs/skills/src/assets/samples/skill-creator/license.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "codex-rs/skills/src/assets/samples/skill-installer/LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "codex-rs/vendor/bubblewrap/COPYING": "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c",
+    "docs/license.md": "dca51cd27a681f46b17d7867d1e8311c024ec1478a6e12b6463a71a4e2f869ba",
+    "third_party/voice/NOTICE.md": "40097a1799441051aa0b6645cdc819cceb19be73cdd265eb602aa2b15e0b1f48",
+    "third_party/voice/licenses/LGPL-2.1.txt": "ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db",
+    "third_party/voice/licenses/Opus.txt": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+    "third_party/voice/licenses/PCRE2.md": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811",
+    "third_party/voice/licenses/libffi.txt": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+    "third_party/voice/licenses/proxy-libintl.txt": "d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5",
+    "third_party/voice/licenses/sljit.txt": "5f216505c0f6ea3273caec89e766eef93cdeb7bbb0c429f9360116d7c938feeb",
+    "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+    "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
+  },
+  "sourceInventorySha256": "2d249fff1198fe5be7bfb6a44fd0383e634defe5210ba459224965f272330006"
+}

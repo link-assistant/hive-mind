@@ -32,6 +32,16 @@ Hive Mind. It checks selected-bin publication, idempotence and upstream launcher
 preservation, then runs the complete authentication and provider controls
 through that selected command on both native architectures. This new probe
 and both changed images still require their first compiled CI verification.
+The same actual installed-bin probe additionally exercises native compression
+and peer resume after private configuration disposal, safe/unsafe TUI history,
+stale identity publication, and refresh-owner death with malformed-state repair.
+Those new optimized installed-command controls have not yet run.
+The new image-evidence invalidation assertion first fails on the Python
+compression probe: the change detector recognized only native MJS probes.
+It now includes native Python probes and their process/network helpers.
+All four release controls pass after the fix; changed-file ESLint, Prettier
+and actionlint also pass. The assertion uses the production change classifier.
+Logs: /tmp/issue-3785-recovery/codex-installed-history-invalidation-{before,after}.log
 
 Default canonical selection and removal of production auth copying remain
 unfinished. This command-installation foundation alone does not close O3/A2.

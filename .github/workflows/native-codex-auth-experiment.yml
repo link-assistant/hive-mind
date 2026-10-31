@@ -12,6 +12,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-global-prompts.py'
       - 'experiments/issue-3785/probe-codex-native-compression.py'
       - 'experiments/issue-3785/probe-codex-native-migration.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-authority.py'
       - 'experiments/issue-3785/native-request-proxy.mjs'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'

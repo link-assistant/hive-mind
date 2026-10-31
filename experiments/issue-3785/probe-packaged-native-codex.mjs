@@ -83,3 +83,17 @@ for (const [probe, flags] of [
   process.stdout.write(result.stdout);
 }
 console.log('PASS: complete native authentication and model-request controls use the selected command installed from the actual npm package.');
+
+for (const probe of ['probe-codex-native-compression.py', 'probe-codex-native-tui-history.py', 'probe-codex-native-agent-identity.py']) {
+  const file = fileURLToPath(new URL(probe, import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute('python3', [file, command], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
+for (const flags of [[], ['--repair-malformed']]) {
+  const file = fileURLToPath(new URL('probe-codex-native-refresh-crash.mjs', import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute(process.execPath, ['--max-old-space-size=256', file, command, ...flags], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
+console.log('PASS: the installed selected command preserves peer history after private disposal, rejects unsafe TUI history and stale identity publication, and refuses uncertain refresh predecessors.');

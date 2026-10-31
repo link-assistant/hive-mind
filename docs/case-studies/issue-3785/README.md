@@ -1289,3 +1289,27 @@ bytes and correctly refuses authentication. Both packaged daemon checks now
 require this lifecycle control. The new compiled identity guard, optimized and
 installed artifacts, default canonical selection, migration and complete
 history remain unfinished. See [projection evidence](evidence/codex-docker-auth-projection.txt).
+
+Selected native Gemini now compares launcher-admitted auth/history directory
+identities before inference. Both complete-CLI strict controls fail before the
+final adapter stage and refuse without provider requests afterward. The actual
+installed artifact passes all 38 admission controls and complete marked native
+history/resume after private-home disposal; see
+[inherited identity evidence](evidence/native-gemini-inherited-identity.txt).
+
+The production Gemini connection validator and task launcher also admit exact
+installed native bytes and canonical storage before commands or preparation,
+retaining initial authority through final logging, retries and resume. All 26
+focused tests pass, alongside 13 admission and 15 production-launcher groups
+against the extracted npm artifact with its production dependencies. Those
+launcher groups mock command-stream replies; they do not claim complete native
+conversation proof. All 767 default test files and repository quality checks
+pass, as does the complete fresh native artifact gate, including auth, identity,
+ACP, terminal, child-edit and interrupted-plan controls. See [launcher evidence](evidence/native-gemini-launch-admission.txt). Selected
+Docker projection, default migration and the complete inventory remain OPEN.
+
+The latest official Claude 2.1.316 still reproduces consumed-refresh-predecessor
+reuse after owner death under the strict synthetic provider contract. Both
+pinned and latest native versions fail that criterion; no native repair or
+supported replay guarantee has arrived upstream. See the
+[updated blocker evidence](evidence/claude-2.1.316-owner-death.txt).

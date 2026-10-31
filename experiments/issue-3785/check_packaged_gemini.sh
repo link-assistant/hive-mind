@@ -23,6 +23,10 @@ PY
 node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-gemini.mjs "$prefix-package/package" "$source_package" "$tested_package" "$prefix-cli" > "$prefix-install.log" 2>&1
 if [ "${4:-}" = --install-only ]; then exit 0; fi
 runtime_package=$(cat "$prefix-package/activated-root.txt")
+npm install --prefix "$prefix-package/package" --ignore-scripts --omit=dev --omit=optional --no-audit --no-fund --no-package-lock --no-save > "$prefix-launch-dependencies.log" 2>&1 &
+wait "$!"
+node --max-old-space-size=128 experiments/issue-3785/probe-gemini-launch-admission.mjs "$prefix-package/package/src/gemini-storage-admission.lib.mjs" "$prefix-package/bin/gemini" > "$prefix-launch-admission.log" 2>&1
+node --max-old-space-size=128 experiments/issue-3785/probe-gemini-launcher-storage.mjs "$prefix-package/package/src/gemini.lib.mjs" "$prefix-package/bin/gemini" > "$prefix-launcher-storage.log" 2>&1
 export GEMINI_PROBE_MODULE="$runtime_package/bundle/chunk-DKZARV6U.js"
 node --max-old-space-size=64 experiments/issue-3785/native-gemini/probe_inherited_identity.mjs "$runtime_package" > "$prefix-identities.log" 2>&1
 for state in auth-mismatch history-mismatch correct; do

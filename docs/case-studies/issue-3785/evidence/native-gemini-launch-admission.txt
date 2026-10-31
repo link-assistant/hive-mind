@@ -1,0 +1,153 @@
+Selected native Gemini launcher admission, 2026-10-31.
+Scope: partial A1/A7/A9 launcher evidence. Default activation/migration,
+selected Docker projection and complete six-tool lifecycles remain OPEN.
+
+Root cause: the installed native adapter can reject unsafe storage, but the
+production launcher previously ran a selected stock/unverified command before
+establishing adapter provenance or canonical storage authority. Its version
+failure handling could also continue into the paid connection probe.
+
+The minimal default-suite regression replaces only command-stream and uses
+finite synthetic credentials and a non-executed unverified command. Before
+repair, 24 refusal controls fail and two compatibility controls pass. After
+repair, all 26 pass. Both task entrypoints refuse before preparation. Ordinary
+unselected connection behavior and Router authentication precedence pass.
+  gemini-launch-admission-before-v6.log
+    SHA256 d5cb04b33416d7fccb33fcc4750af136ce5206194e2e1d9c5055c0d99824d691
+  gemini-launch-admission-after.log
+    SHA256 d48ae01c8323deb0ef6b643df2908feffbdfaf8a08cda319fc72f7dd5e2c6043
+
+Admission reuses exact native package verification and bounded canonical
+credential-file reads. It checks owned private descriptor identities,
+independent non-overlapping auth/history roots, inherited device/inode markers,
+conventional and custom configuration roots, competing private credentials and
+accounts, seven alternate auth authorities and complete native OAuth fields.
+It derives child identity markers without mutating the parent environment.
+Initial authority survives preparation, retries and resume; byte, selector,
+root or credential changes produce NATIVE_GEMINI_STORAGE_VIOLATION instead of
+ordinary fallback. Optional fixed-phase debug tracing is off by default and
+prints neither paths nor credential contents.
+
+Thirteen admission groups pass against the real verified installed native
+command, including unmarked/marked authorities, atomic credential replacement,
+logout/re-login, both replaced root identities, malformed OAuth documents,
+configuration symlinks, selector/marker removal and changed native helper bytes.
+The probe never executes a native/provider command.
+  gemini-launch-admission-real-package-v3.log
+    SHA256 574ea3146e210ec257cf12526467e378fa39551bc872770aeef48f9c30f89c97
+
+The separate production-launcher probe imports the actual Gemini library and
+keeps real byte/storage admission while replacing only command-stream replies.
+Its strict before control fails because the launcher uses the configured
+symlink instead of the verified entrypoint. All fifteen repaired groups pass:
+derived/inherited marker forwarding; no parent-environment mutation; refusal
+of newly selected authority, removed inherited identity, auth/history root
+replacement, logout, selector removal and helper replacement between version
+and paid probes; execution preparation/final logging checks; healthy bounded
+retry; and history replacement during retry delay before a second command.
+These mocked replies are launcher-flow evidence, not native conversations.
+  gemini-launcher-storage-before.log
+    SHA256 995620c930cb8bbf7d5c633abb4d2fb2200cb37050930a675f190228057da4d6
+  gemini-launcher-storage-after.log
+    SHA256 525925cf90d7eafe5bb8655d8f355e7377b6e6b8fd1ff80490f61b1a737327dd
+
+Both probes also pass when importing the exact newly packed/extracted npm
+artifact with its production dependencies installed and using its activated
+native command. Their logs have the same hashes as the corresponding source
+controls above. The first artifact attempt stopped before admission because
+the extracted package lacked smol-toml. Preserve that setup failure separately;
+the gate now installs production dependencies in the disposable extracted
+package, without scripts, optional/dev dependencies or lockfile mutation.
+  gemini-launcher-package-control/verification-launch-admission-after-deps.log
+  gemini-launcher-package-control/verification-launcher-storage-after-deps.log
+The complete repeated artifact gate then exits zero with a fresh extracted
+package: installation 5, launcher admission 13, production launcher flow 15,
+native identity 38, auth writers/accounts 41, request admission 30 and canonical
+reads 11 passing groups/controls. Both actual CLI identity mismatches send zero
+model requests. Matching identities complete native conversation discovery and
+resume after whole private-home disposal. ACP has three passing controls,
+terminal four, child-edit five and interrupted-plan recovery two. The original
+plan owner is killed and reaped before private-home disposal; a fresh complete
+CLI recovers its plan through native read_file. All seven network traces have
+empty error arrays. Model-request counts are 0/0/3/5/5/7/7 for identity-auth,
+identity-history, matching identity, ACP, terminal, child and plan respectively;
+these include native auxiliary requests, not seven identical conversation tests.
+  gemini-launcher-packaged-final.log: shell gate exit 0
+  gemini-launcher-package-control/verification-final-* logs:
+    install, launch-admission, launcher-storage, identities, writers, requests,
+    reads, identity-auth-mismatch-control, identity-history-mismatch-control,
+    identity-correct-control, acp-control, terminal-control, child-control,
+    plan-control.
+This repeats the preceding native proof in native-gemini-inherited-identity.txt
+against the new launcher artifact; it does not complete default migration,
+selected Docker projection or the complete six-tool lifecycle.
+
+Affected ordinary Gemini, native admission and Router connection tests pass:
+10 + 26 + 24 + 66 = 126.
+  gemini-launch-admission-affected-tests.log
+    SHA256 7d13198a3dc0b2f38cef0ece33772b89910a0e3753a71c2b1b9bd793e3ebf861
+
+The preceding 766-file local default invocation passed 588 files and stopped
+in the unchanged worker-memory fixture (37 passing, three failing assertions).
+Its global NODE_OPTIONS=--max-old-space-size=192 overrode the worker's own
+48 MiB resource limit, so the bounded pathological fixture completed instead
+of producing the expected worker OOM. The unchanged file passes all 40 tests
+with that override removed, under finite data/stack/core limits:
+  gemini-inherited-worker-no-heap-override.log
+    SHA256 c8e2d04b9638c6765a20019554c5c40b3c0b3d934a96e4fe99d2f812feb9f66c
+No cgroup OOM kill occurred. The new bounded runner wrapper leaves NODE_OPTIONS
+unset for that specific fixture and bounds other test heaps to 192 MiB.
+The repeated frozen 767-file default run passes completely, including all
+40 worker-memory controls. The production/probe source hashes remain unchanged
+through that run.
+  gemini-launch-admission-default-suite.log
+    SHA256 32fc7bf3bb224dcca8dd66e1ae952d27eff482a3fcd8a1cb11a306b08199b9ca
+    line 16395: unchanged worker-memory fixture starts
+    line 23642: All 767 selected test file(s) passed.
+
+Whole-repository formatting passes with a bounded 384 MiB heap after releasing
+inactive fixture file cache. This supersedes the two earlier 192 MiB formatter
+failures on an unrelated 2.7 MiB archived provider catalog; those logs remain
+preserved and are not passing results.
+  gemini-launch-admission-repository-format.log
+    SHA256 18869b1e41ec7130d5485cdb660e3050757433e9884d776b25f8a4bfdd8ba316
+Whole-repository lint, secret scanning, file limits and duplication checks also
+pass; duplication is 10.01%, below the 12% limit. Changed production, probe and
+workflow files pass formatting; the workflow passes actionlint 1.7.12 and YAML
+parsing, and both shell scripts pass bash syntax checks.
+  gemini-launch-admission-repository-lint.log
+  gemini-launch-admission-repository-secrets.log
+  gemini-launch-admission-repository-file-limits.log
+  gemini-launch-admission-repository-duplication.log
+Final changed-file secret/format checks and git diff whitespace checks pass.
+Exact pushed-head CI is required after committing the repair.
+
+Complete fresh artifact control log SHA256 values:
+  verification-final-install.log
+    670582669659fd5f6de8511f4d92c953eb7966f1b9f5470618b39fa7f5b4037d
+  verification-final-launch-admission.log
+    574ea3146e210ec257cf12526467e378fa39551bc872770aeef48f9c30f89c97
+  verification-final-launcher-storage.log
+    525925cf90d7eafe5bb8655d8f355e7377b6e6b8fd1ff80490f61b1a737327dd
+  verification-final-identities.log
+    d304d40bb583275e03d6f6989837b26071045a02f3605141346037b12aaeb34d
+  verification-final-writers.log
+    3e1d4d5edab0fe2081816165c72fcede2727c75529c378ac384d080952bd6442
+  verification-final-requests.log
+    281ac992a29329ea7cb65b3bedcd26ba37ae0910474bb68835b70119dc1868c4
+  verification-final-reads.log
+    4cb35a7c24d173403992384f3f539fef0de3d5a8c03926995a6a4413f2795d14
+  verification-final-identity-auth-mismatch-control.log
+    5263d54fc65563d36dcaee6ced3a6b1059ece37c5172483e770296663943d7f5
+  verification-final-identity-history-mismatch-control.log
+    75a57d0dc9895e48fd3be0c6908b72771ff13af2a271842e39a586571a1e8449
+  verification-final-identity-correct-control.log
+    ed5bacbc1a270a6bbaced8fd7c4a2147fff450ad41ff21b4f30aa6cf12c99ef0
+  verification-final-acp-control.log
+    eeb85bb0e62eff2c55bd8907067cc9bb35bd95ecd700364324a537f2f20fa897
+  verification-final-terminal-control.log
+    7c1692f387a0f1997faf1ef16ae594ff8d6bf8f661fdc750f1d09d6507dacdaa
+  verification-final-child-control.log
+    9ab778d673ab15e21f5cd26f532ac287a036a93792d24dfe84ccf4016b562198
+  verification-final-plan-control.log
+    c40e0d8f75de95b6ca707f1b997502e7c63989ace2c9386ae4a01186a63dd1d2

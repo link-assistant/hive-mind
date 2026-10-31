@@ -759,6 +759,17 @@ matrix and the wider six-tool criteria remain OPEN. See
 `evidence/ci-7d09cacbe-sqlite-native.txt` and
 `evidence/sqlite-release-candidate.txt`.
 
+The subsequent complete development run at ebf5ce2ec passes all nine SQLite
+controls, including the added selected startup refusal. Invalid selected
+migration changes from one model POST before repair to zero with exit 78;
+healthy selected and ordinary controls retain their expected model request.
+All preceding native auth/history/request controls also pass. Selected startup
+is 871-873 ms versus 165-173 ms ordinary, with additional read/write overhead.
+Optimized architectures, actual npm-installed commands and both final images
+remain pending. See `evidence/ci-ebf5ce2ec-sqlite-native.txt`; these development
+results do not establish atomic external rename exclusion, fresh-process
+rollback or the complete daemon lifecycle.
+
 Gemini inherited-identity follow-up: the complete pinned native CLI previously
 accepted incorrect launcher auth and history identities and sent inference
 requests. The final native adapter stage now compares inherited device/inode
@@ -771,3 +782,21 @@ files across all 31 stages; the actual installed npm artifact repeats native
 identity controls. Selected Gemini Docker projection, default canonical
 activation/migration, full daemon lifecycles and the wider A1-A12/B1-B12 criteria
 remain OPEN. See `evidence/native-gemini-inherited-identity.txt`.
+
+Gemini launcher admission follow-up: the connection validator and both task
+entrypoints previously ran an unverified selected command before checking
+canonical storage. Twenty-four focused controls fail before repair; all 26
+pass afterward. The launcher now admits exact installed native bytes, private
+canonical roots, inherited identities and bounded OAuth documents before
+version/provider commands or task preparation. It retains initial authority
+across final command preparation, retries and resume; selected refusals remain
+typed instead of becoming ordinary connection failures. Thirteen admission
+groups and fifteen production-launcher groups pass against the actual extracted
+npm artifact with production dependencies installed. The launcher groups mock
+command-stream responses and do not provide real native conversation evidence.
+All 767 local default test files, repository quality checks and the complete
+fresh native artifact gate pass, including identity refusal, auth reads/writes,
+ACP, terminal, child-edit and killed-plan-owner recovery. See
+`evidence/native-gemini-launch-admission.txt`. Default selection/migration,
+selected Docker projection, daemon
+lifecycles and the wider six-tool criteria remain OPEN.

@@ -226,3 +226,9 @@ before inference and retain initial selectors/identities across native account,
 authentication and history operations. Verify the exact npm-installed adapter
 with independent source reconstruction and native before/after controls.
 Selected Docker projection and default canonical migration remain unfinished.
+
+Admit selected native Gemini commands and canonical storage before connection
+probes or task preparation. Forward retained directory identities and recheck
+native bytes, credentials and selected authority before execution and retries.
+Preserve typed refusals through connection and retry handling; verify the
+production launcher against the extracted npm artifact with real dependencies.

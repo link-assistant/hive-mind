@@ -34,7 +34,7 @@ mutations = ("none", "directory", "database", "database-hardlink", "directory-pe
              "database-permissions", "wal-hardlink", "shm-hardlink", "wal-replace", "shm-replace")
 with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
     fixture = Path(temporary)
-    for mode in ("query", "close-only"):
+    for mode in ("query", "close-only", "rebuild", "rebuild-open"):
         for mutation in mutations:
             case = fixture / f"{mode}-{mutation}"
             case.mkdir(mode=0o700)
@@ -94,6 +94,14 @@ with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
                         assert retired_file.read_bytes() == retired_before, (mode, mutation)
                 else:
                     assert output == "RESULT actualSqlx=1 ordinary=1 nativeDeadlineHandler=1 close=1\n", output
+                    if mode == "rebuild":
+                        import sqlite3
+                        backups = list((selected / "db-backups").glob("sqlite-*/state_5.sqlite"))
+                        assert len(backups) == 1
+                        with sqlite3.connect(backups[0]) as observer:
+                            assert observer.execute("SELECT value FROM synthetic").fetchone()[0] == "before"
+                        with sqlite3.connect(database) as observer:
+                            assert observer.execute("SELECT value FROM replacement").fetchone()[0] == "new"
                 print(json.dumps({"actualSqlx": "0.9.0", "sqlite": "3.51.3", "mode": mode,
                                   "mutation": mutation, "status": "refused" if unsafe else "healthy",
                                   "unsafeFilesUnchanged": unsafe and snapshot(observed) == before}), flush=True)

@@ -13,6 +13,7 @@ expected = {
     'codex-rs/state/src/lib.rs': '54d87c3bc38168c07b4db38687cce4544c2c8951afac0c267d1d2da7010185ca',
     'codex-rs/state/src/sqlite.rs': '2697177d5b1f019ae85f67bf159220dcbb3d42631e712f41cb2fea2e453166d6',
     'codex-rs/state/src/runtime/reclamation.rs': '833104f1e57768ae96c58f5df71d2ae3d658b3c3aeea7141ce960f68ef660650',
+    'codex-rs/state/src/runtime/recovery.rs': '5e4a45ca41ece067d0591da98ecf068fcb24acdb88bf364cc203b1cfbed6b6be',
     'codex-rs/state/Cargo.toml': '1e6d3abbb2baf1a549a7a3cc93b15bf6f748045ef075da7621f95ea42cb50e4e',
     'codex-rs/Cargo.lock': 'bc5f7352658f51deace9dddb4bc404742b06c6402cc825b6d37051c008d989bd',
     'codex-rs/core/src/config/canonical_sqlite_authority.rs': 'c2a2d582e586cfeeb88210b2b6163516fabd8edd6d098c25789be4a4a249d08e',
@@ -41,7 +42,7 @@ def replace(name, before, after):
 sqlite = 'codex-rs/state/src/sqlite.rs'
 replace(sqlite, 'mod busy_retry;\n', '''mod busy_retry;
 #[cfg(target_os = "linux")]
-mod canonical_sqlite_vfs;
+pub(crate) mod canonical_sqlite_vfs;
 #[cfg(target_os = "linux")]
 pub use canonical_sqlite_vfs::admit_canonical_sqlite;
 
@@ -77,6 +78,32 @@ replace(reclamation, '        &SqliteConnectOptions::new()\n            .filenam
         '        &crate::sqlite::canonical_options(path, SqliteConnectOptions::new()\n            .filename(path)')
 replace(reclamation, '            .log_slow_statements(LevelFilter::Off, Duration::ZERO),',
         '            .log_slow_statements(LevelFilter::Off, Duration::ZERO))?,')
+recovery = 'codex-rs/state/src/runtime/recovery.rs'
+replace(recovery, '''    let sqlite_home = db_path.parent().ok_or_else(|| {
+        std::io::Error::other(format!(
+            "database path does not have a parent directory: {}",
+            db_path.display()
+        ))
+    })?;
+    let backups = match''', '''    #[cfg(target_os = "linux")]
+    if std::env::var_os("CODEX_ROLLOUT_HOME").is_some() {
+        let path = db_path.to_path_buf();
+        let backups = tokio::task::spawn_blocking(move || {
+            crate::sqlite::canonical_sqlite_vfs::backup(&path)
+        }).await.map_err(std::io::Error::other)??;
+        let backups: Vec<_> = backups.into_iter().map(|(original_path, backup_path)| {
+            RuntimeDbBackup { original_path, backup_path }
+        }).collect();
+        let _ = RECOVERY_BACKUPS.try_with(|report| report.borrow_mut().extend(backups.iter().cloned()));
+        return Ok(backups);
+    }
+    let sqlite_home = db_path.parent().ok_or_else(|| {
+        std::io::Error::other(format!(
+            "database path does not have a parent directory: {}",
+            db_path.display()
+        ))
+    })?;
+    let backups = match''')
 replace('codex-rs/state/Cargo.toml', '\n[dev-dependencies]\n',
         '\n[build-dependencies]\ncc = "=1.2.55"\n\n[dev-dependencies]\n')
 lockfile = 'codex-rs/Cargo.lock'

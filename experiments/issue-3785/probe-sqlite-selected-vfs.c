@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 int hive_canonical_sqlite_vfs(const char *root);
+int hive_canonical_sqlite_backup(const char *path, char *relative, size_t capacity, unsigned *moved);
 unsigned hive_canonical_sqlite_test_anonymous(void);
 static unsigned native_progress;
 static char shared_path[4096];
@@ -51,7 +52,9 @@ int main(int argc, char **argv) {
   sqlite3_progress_handler(connection, 1, deadline_progress, NULL);
   int initial = strcmp(argv[3], "initial") == 0;
   int closed = strcmp(argv[3], "reopen") == 0;
-  int rebuild = strcmp(argv[3], "rebuild") == 0;
+  int rebuild_busy = strcmp(argv[3], "rebuild-busy") == 0;
+  int rebuild_open = strcmp(argv[3], "rebuild-open") == 0;
+  int rebuild = strcmp(argv[3], "rebuild") == 0 || rebuild_busy;
   int transaction = strcmp(argv[3], "transaction") == 0;
   int read_only = strcmp(argv[3], "read-only") == 0;
   if (!initial) {
@@ -72,12 +75,26 @@ int main(int argc, char **argv) {
   fflush(stdout);
   assert(getchar() == '\n');
   if (rebuild) {
-    char backup[4096];
-    assert(snprintf(backup, sizeof(backup), "%s/retired-main", argv[1]) < (int)sizeof(backup));
-    assert(rename(path, backup) == 0);
+    char relative[4096];
+    unsigned moved;
+    int result = hive_canonical_sqlite_backup(path, relative, sizeof(relative), &moved);
+    if (rebuild_busy) {
+      assert(result == SQLITE_BUSY && moved == 0);
+      assert(sqlite3_close(ordinary) == SQLITE_OK);
+      puts("RESULT rebuildBusy=1");
+      return 0;
+    }
+    assert(result == SQLITE_OK);
+    assert(moved == 1 && strncmp(relative, "db-backups/sqlite-", 18) == 0);
     assert(sqlite3_open_v2(path, &connection, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
                             "hive-canonical-sqlite") == SQLITE_OK);
     initial = 1;
+  }
+  if (rebuild_open) {
+    char relative[4096];
+    unsigned moved;
+    assert(hive_canonical_sqlite_backup(path, relative, sizeof(relative), &moved) == SQLITE_BUSY);
+    assert(moved == 0);
   }
   if (closed)
     assert(sqlite3_open_v2(path, &connection, SQLITE_OPEN_READWRITE, "hive-canonical-sqlite") == SQLITE_OK);
@@ -103,6 +120,7 @@ int main(int argc, char **argv) {
   assert(sqlite3_close(connection) == SQLITE_OK);
   checked(ordinary, "INSERT INTO ordinary VALUES (2)");
   assert(sqlite3_close(ordinary) == SQLITE_OK);
-  puts("RESULT selected=1 ordinary=1 nativeProgress=1 close=1");
+  puts(rebuild_open ? "RESULT selected=1 ordinary=1 nativeProgress=1 close=1 localRebuildBusy=1" :
+       "RESULT selected=1 ordinary=1 nativeProgress=1 close=1");
   return 0;
 }

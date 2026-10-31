@@ -174,11 +174,73 @@ checked, but that output has not been compiled as the full native CLI.
 - [x] Verify the real SQLx adapter in a bounded isolated crate.
 - [x] Reproduce and repair configuration admission's unrelated POSIX lock loss
       in the draft prepared source, with a strict before/after control.
-- [ ] Preserve native backup-and-rebuild corruption recovery through an explicit
-      admitted database identity transition. Current persistent identity pins
-      would reject the upstream's intentional rename/recreate operation.
-- [ ] Measure healthy operation overhead against the same unselected SQLite.
+- [x] Reproduce rejection of intentional backup/rebuild by permanent identity
+      pins. Add a descriptor-relative transition guarded by per-database stable
+      shared/exclusive leases; verify exact backed-up data, rebuilt database,
+      refusal with local handles/live peers, and continued healthy peer writes
+      in the pinned component and real SQLx. Actual CLI verification is pending.
+- [x] Measure healthy operation overhead against the same unselected SQLite.
 - [ ] Verify full native development, optimized, installed package and final
       image behavior. Before/after metadata checks do not by themselves provide
       atomic exclusion against uncoordinated external renames or fresh-process
       rollback protection; those wider requirements remain open.
+
+## Recovery compatibility and experimental native gate
+
+The current component matrix passes 1,031 controls: 64 healthy, 966 explicit
+refusals with exact byte preservation, and a recovery-peer/local-handle summary.
+It covers all seven databases and adds alias/replacement/permission attacks on
+the seven stable authority leases. All 40 real SQLx controls pass, including
+healthy backup/rebuild and refusal to replace a database with a checked-out
+local connection. Before the transition was added, its strict healthy rebuild
+control failed; the explicit negative control preserves that evidence.
+
+Recovery takes an exclusive nonblocking per-database lease only after local
+handles close. Cooperating peers hold the corresponding shared lease throughout
+their process lifetime. Backup creation and all four file moves use retained
+directory descriptors and no-replace renames under the native gate. The backup
+files and directories are fsynced before the old identity pin is closed and the
+lease is downgraded. Ordinary unselected recovery retains the upstream path.
+This excludes cooperating peers, not an uninstrumented external writer.
+
+The bounded component benchmark compares three alternating ordinary/selected
+pairs against the same SQLite 3.51.3 source. The first implementation took
+1,869–2,271 ms for 1,000 cached queries. Descriptor-relative direct-child lookups
+and removal of duplicate metadata checks reduce that to 1,205–1,330 ms; ordinary
+queries took 4–8 ms. Selected startup took 43–50 ms and 100 writes in one
+transaction took 25–33 ms. These are unoptimized component measurements on this
+container, not native CLI performance claims. Guard overhead remains material.
+
+`probe-codex-native-sqlite-recovery.py` exercises actual app-server section
+creation, process disposal, corruption of only state_5.sqlite, fresh private
+configuration, native automatic backup/rebuild and subsequent reads/writes.
+It requires the exact corrupt bytes in the backup, a valid rebuilt database and
+retention of a sentinel in logs_2.sqlite. The preceding optimized CLI passes both
+selected and ordinary compatibility controls. The first fixture assertion
+incorrectly excluded built-in native sections; it now checks the requested
+before/after names while preserving those sections.
+
+The experimental workflow now requires the actual native retired-directory and
+database negative controls, all pinned components, real SQLx, configuration lock
+preservation and overhead measurements. It applies the draft before its final
+development build and requires strict actual native refusal plus selected and
+ordinary corruption recovery afterward. Existing migration, compression,
+concurrency and auth checks remain. These gates have not run with this draft;
+the production recipe and source inventory remain unchanged.
+
+`probe-codex-native-sqlite-performance.py` adds two alternating ordinary/selected
+pairs using the actual app-server protocol: startup and initial section creation,
+25 verified section reads and ten verified writes per process. The preceding
+optimized CLI passes all four finite runs. The new workflow preserves matching
+before/after native measurements; no cross-machine timing threshold is inferred
+from the component benchmark. The final fresh prepared draft has 44 changed/new
+source files with inventory digest
+`b6cef2e679e7f563c25a8b1e359816cf5ffd81109988894e47568dac127032a0`.
+
+- [x] Fix probe cleanup after a refused native peer exits with buffered stdin;
+      the reproducing unit test fails before the fix and all three process-group
+      tests pass afterward. Accept only BrokenPipeError after the peer is reaped.
+- [ ] Inspect the experimental full-native build and every new after control.
+- [ ] Address any healthy-operation regression and measure full-native overhead.
+- [ ] Add the verified source/flags to the release recipe and inventory, then
+      require optimized x64/ARM64, actual installed package and both final images.

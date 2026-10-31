@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #define DATABASE_COUNT 7
@@ -25,10 +27,11 @@ static const char refusal[] = "Canonical SQLite configuration is unavailable or 
 static pthread_mutex_t gate = PTHREAD_MUTEX_INITIALIZER;
 static sqlite3_vfs selected_vfs, *parent_vfs;
 static char selected_root[PATH_MAX];
-static int ancestors[ANCESTOR_COUNT], database_pins[DATABASE_COUNT];
+static int ancestors[ANCESTOR_COUNT], database_pins[DATABASE_COUNT], database_leases[DATABASE_COUNT];
 static size_t ancestor_ends[ANCESTOR_COUNT], ancestor_count;
 static uid_t selected_owner;
 static int initialized;
+static unsigned backup_sequence;
 static _Thread_local const char *diagnostic_operation = "initialize";
 #ifdef HIVE_CANONICAL_SQLITE_TEST
 static unsigned anonymous_opens;
@@ -66,19 +69,36 @@ static _Noreturn void refuse(void) {
 static void lock_gate(void) { if (pthread_mutex_lock(&gate)) refuse(); }
 static void unlock_gate(void) { if (pthread_mutex_unlock(&gate)) refuse(); }
 
+/* Managed direct children are inspected relative to the retained root. The
+ * ancestor checks still validate its current name on both sides of each I/O;
+ * avoid resolving that same absolute directory chain for every child. */
+static int named_info(const char *name, struct stat *info) {
+  size_t bytes = strlen(selected_root);
+  if (ancestor_count && !strncmp(name, selected_root, bytes) && name[bytes] == '/' &&
+      name[bytes + 1] && !strchr(name + bytes + 1, '/')) {
+    return fstatat(ancestors[ancestor_count - 1], name + bytes + 1, info, AT_SYMLINK_NOFOLLOW);
+  }
+  return lstat(name, info);
+}
+
+static int same_file(const struct stat *held, const struct stat *named) {
+  return held->st_dev == named->st_dev && held->st_ino == named->st_ino &&
+      S_ISREG(held->st_mode) && S_ISREG(named->st_mode) &&
+      held->st_uid == selected_owner && named->st_uid == selected_owner &&
+      held->st_nlink == 1 && named->st_nlink == 1 &&
+      !(held->st_mode & 022) && !(named->st_mode & 022);
+}
+
 static int matches(int descriptor, const char *name, int directory, int selected) {
   struct stat held, named;
-  if (descriptor < 0 || fstat(descriptor, &held) || lstat(name, &named) ||
+  if (descriptor < 0 || fstat(descriptor, &held) || named_info(name, &named) ||
       held.st_dev != named.st_dev || held.st_ino != named.st_ino) return 0;
   if (directory) {
     if (!S_ISDIR(held.st_mode) || !S_ISDIR(named.st_mode)) return 0;
     return !selected || (held.st_uid == selected_owner && named.st_uid == selected_owner &&
                          !(held.st_mode & 077) && !(named.st_mode & 077));
   }
-  return S_ISREG(held.st_mode) && S_ISREG(named.st_mode) &&
-      held.st_uid == selected_owner && named.st_uid == selected_owner &&
-      held.st_nlink == 1 && named.st_nlink == 1 &&
-      !(held.st_mode & 022) && !(named.st_mode & 022);
+  return same_file(&held, &named);
 }
 
 static int filename(const char *name, int *database, const char **suffix) {
@@ -104,14 +124,16 @@ static void check_named(const char *name, int missing_allowed) {
   const char *suffix;
   struct stat info;
   if (!filename(name, &database, &suffix)) refuse();
-  if (lstat(name, &info)) {
-    if (missing_allowed && errno == ENOENT) return;
+  if (named_info(name, &info)) {
+    if (missing_allowed && errno == ENOENT && (*suffix || database_pins[database] < 0)) return;
     refuse();
   }
   if (!S_ISREG(info.st_mode) || info.st_uid != selected_owner ||
       info.st_nlink != 1 || (info.st_mode & 022)) refuse();
-  if (!*suffix && database_pins[database] >= 0 &&
-      !matches(database_pins[database], name, 0, 1)) refuse();
+  if (!*suffix && database_pins[database] >= 0) {
+    struct stat held;
+    if (fstat(database_pins[database], &held) || !same_file(&held, &info)) refuse();
+  }
 }
 
 /* The gate covers borrowed descriptor use AND every selected xClose/unmap, so
@@ -127,14 +149,16 @@ static void check_authority(void) {
     if (!matches(ancestors[index], prefix, 1, index + 1 == ancestor_count)) refuse();
   }
   for (int index = 0; index < DATABASE_COUNT; index++) {
+    struct stat lease;
+    struct stat named_lease;
+    if (snprintf(path, sizeof(path), "%s/.%s.authority", selected_root, database_names[index]) >= (int)sizeof(path) ||
+        fstat(database_leases[index], &lease) || named_info(path, &named_lease) ||
+        !same_file(&lease, &named_lease) || (lease.st_mode & 077)) refuse();
     for (int suffix = 0; suffix < 4; suffix++) {
       const char *ending = (const char *[]) { "", "-wal", "-shm", "-journal" }[suffix];
       if (snprintf(path, sizeof(path), "%s/%s%s", selected_root, database_names[index], ending) >= (int)sizeof(path)) refuse();
       check_named(path, 1);
     }
-    if (database_pins[index] < 0) continue;
-    if (snprintf(path, sizeof(path), "%s/%s", selected_root, database_names[index]) >= (int)sizeof(path) ||
-        !matches(database_pins[index], path, 0, 1)) refuse();
   }
   unsigned count = 0;
   for (GuardedFile *file = live_files; file; file = file->next) {
@@ -367,7 +391,9 @@ int hive_canonical_sqlite_vfs(const char *root) {
   }
   selected_owner = geteuid();
   strcpy(selected_root, root);
-  for (int index = 0; index < DATABASE_COUNT; index++) database_pins[index] = -1;
+  for (int index = 0; index < DATABASE_COUNT; index++) {
+    database_pins[index] = database_leases[index] = -1;
+  }
   char prefix[PATH_MAX];
   size_t bytes = strlen(root);
   for (size_t end = 1; end <= bytes; end++) {
@@ -384,9 +410,17 @@ int hive_canonical_sqlite_vfs(const char *root) {
    * close these extra descriptors until process disposal: POSIX locks belong
    * to the process and closing any descriptor for the inode can release them. */
   for (int index = 0; index < DATABASE_COUNT; index++) {
+    char leaf[128];
+    if (snprintf(leaf, sizeof(leaf), ".%s.authority", database_names[index]) >= (int)sizeof(leaf) ||
+        snprintf(prefix, sizeof(prefix), "%s/%s", selected_root, leaf) >= (int)sizeof(prefix)) refuse();
+    int lease = openat(ancestors[ancestor_count - 1], leaf,
+                       O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0600);
+    struct stat info;
+    if (!matches(lease, prefix, 0, 1) || fstat(lease, &info) || (info.st_mode & 077) ||
+        flock(lease, LOCK_SH | LOCK_NB)) refuse();
+    database_leases[index] = lease;
     if (snprintf(prefix, sizeof(prefix), "%s/%s", selected_root, database_names[index]) >= (int)sizeof(prefix)) refuse();
     check_named(prefix, 1);
-    struct stat info;
     if (lstat(prefix, &info)) {
       if (errno == ENOENT) continue;
       refuse();
@@ -407,6 +441,114 @@ int hive_canonical_sqlite_vfs(const char *root) {
   if (sqlite3_vfs_register(&selected_vfs, 0) != SQLITE_OK ||
       sqlite3_auto_extension((void (*)(void))automatic) != SQLITE_OK) refuse();
   initialized = 1;
+  unlock_gate();
+  return SQLITE_OK;
+}
+
+static void backup_directory(int descriptor, const char *path) {
+  struct stat info;
+  if (!matches(descriptor, path, 1, 0) || fstat(descriptor, &info) ||
+      info.st_uid != selected_owner || (info.st_mode & 022)) refuse();
+}
+
+/* A selected process holds seven stable shared leases for its lifetime. Native
+ * recovery may replace one database only after all of this process's matching
+ * handles close and an exclusive lease excludes cooperating native peers.
+ * Keep the whole finite transition under the gate and use held directory fds:
+ * an async sequence of pathname renames could operate in a replaced directory.
+ * Ordinary native recovery retains its upstream implementation. */
+int hive_canonical_sqlite_backup(const char *path, char *relative, size_t capacity, unsigned *moved) {
+  BEGIN();
+  int database;
+  const char *suffix;
+  if (!initialized || !relative || capacity < 128 || !moved ||
+      !filename(path, &database, &suffix) || *suffix) refuse();
+  *moved = 0;
+  for (GuardedFile *file = live_files; file; file = file->next) {
+    int actual;
+    const char *ending;
+    if (filename(file->name, &actual, &ending) && actual == database) {
+      unlock_gate();
+      return SQLITE_BUSY;
+    }
+  }
+  if (flock(database_leases[database], LOCK_EX | LOCK_NB)) {
+    int unavailable = errno == EWOULDBLOCK || errno == EAGAIN;
+    /* Failed flock conversion releases the old shared lock. Restore it before
+     * allowing normal operations; a competing recovery instead forces refusal. */
+    if (flock(database_leases[database], LOCK_SH | LOCK_NB) || !unavailable) refuse();
+    check_authority();
+    unlock_gate();
+    return SQLITE_BUSY;
+  }
+  check_authority();
+  int root = ancestors[ancestor_count - 1];
+  char parent_name[PATH_MAX], backup_name[PATH_MAX];
+  if (snprintf(parent_name, sizeof(parent_name), "%s/db-backups", selected_root) >= (int)sizeof(parent_name)) refuse();
+  if (mkdirat(root, "db-backups", 0700) && errno != EEXIST) refuse();
+  check_authority();
+  int parent = openat(root, "db-backups", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  backup_directory(parent, parent_name);
+  unsigned attempt;
+  char leaf[128];
+  for (attempt = 0; attempt < 100; attempt++) {
+    if (backup_sequence == UINT_MAX) refuse();
+    int bytes = snprintf(leaf, sizeof(leaf), "sqlite-%lld-%ld-%u",
+                         (long long)time(NULL), (long)getpid(), backup_sequence++);
+    if (bytes < 0 || bytes >= (int)sizeof(leaf)) refuse();
+    check_authority();
+    backup_directory(parent, parent_name);
+    if (!mkdirat(parent, leaf, 0700)) break;
+    if (errno != EEXIST) refuse();
+  }
+  if (attempt == 100 || snprintf(relative, capacity, "db-backups/%s", leaf) >= (int)capacity ||
+      snprintf(backup_name, sizeof(backup_name), "%s/%s", parent_name, leaf) >= (int)sizeof(backup_name)) refuse();
+  int backup = openat(parent, leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  backup_directory(backup, backup_name);
+  int original_pin = database_pins[database];
+  database_pins[database] = -1;
+  for (int index = 0; index < 4; index++) {
+    const char *ending = (const char *[]) { "", "-wal", "-shm", "-journal" }[index];
+    char source_leaf[128], source[PATH_MAX], destination[PATH_MAX];
+    if (snprintf(source_leaf, sizeof(source_leaf), "%s%s", database_names[database], ending) >= (int)sizeof(source_leaf) ||
+        snprintf(source, sizeof(source), "%s/%s", selected_root, source_leaf) >= (int)sizeof(source) ||
+        snprintf(destination, sizeof(destination), "%s/%s", backup_name, source_leaf) >= (int)sizeof(destination)) refuse();
+    check_authority();
+    backup_directory(parent, parent_name);
+    backup_directory(backup, backup_name);
+    struct stat info;
+    if (lstat(source, &info)) {
+      if (errno == ENOENT && (index || original_pin < 0)) continue;
+      refuse();
+    }
+    int descriptor = index == 0 && original_pin >= 0 ? original_pin :
+        openat(root, source_leaf, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+    if (!matches(descriptor, source, 0, 1) || fsync(descriptor)) refuse();
+    check_authority();
+    backup_directory(parent, parent_name);
+    backup_directory(backup, backup_name);
+    if (renameat2(root, source_leaf, backup, source_leaf, RENAME_NOREPLACE) ||
+        !matches(descriptor, destination, 0, 1)) refuse();
+    *moved |= 1U << index;
+    check_authority();
+    backup_directory(parent, parent_name);
+    backup_directory(backup, backup_name);
+    if (descriptor != original_pin && close(descriptor)) refuse();
+  }
+  for (int index = 0; index < 4; index++) {
+    char source[PATH_MAX];
+    const char *ending = (const char *[]) { "", "-wal", "-shm", "-journal" }[index];
+    struct stat info;
+    if (snprintf(source, sizeof(source), "%s/%s%s", selected_root, database_names[database], ending) >= (int)sizeof(source) ||
+        !lstat(source, &info) || errno != ENOENT) refuse();
+  }
+  if (!*moved || fsync(backup) || fsync(parent) || fsync(root)) refuse();
+  check_authority();
+  backup_directory(parent, parent_name);
+  backup_directory(backup, backup_name);
+  if ((original_pin >= 0 && close(original_pin)) || close(backup) || close(parent) ||
+      flock(database_leases[database], LOCK_SH | LOCK_NB)) refuse();
+  check_authority();
   unlock_gate();
   return SQLITE_OK;
 }

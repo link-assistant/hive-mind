@@ -31,6 +31,19 @@ def names(database):
         return [row[0] for row in connection.execute("SELECT name FROM thread_sections")]
 
 
+def snapshot(database):
+    result = {}
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path = Path(str(database) + suffix)
+        if path.exists():
+            # Native startup migrations exceed the tiny C fixture's 1 MiB.
+            assert path.is_file() and path.stat().st_size <= 16 * 1024 * 1024, \
+                (path.name, path.stat().st_size)
+            with path.open("rb") as source:
+                result[suffix] = hashlib.file_digest(source, "sha256").hexdigest()
+    return result
+
+
 def run(binary, root, case):
     canonical = root / "canonical"
     canonical.mkdir(mode=0o700)
@@ -66,6 +79,7 @@ def run(binary, root, case):
                     source.rename(Path(str(retired_database) + suffix))
             replacement.rename(database)
             assert database.stat().st_ino != initial.st_ino
+        current_before, retired_before = snapshot(database), snapshot(retired_database)
         try:
             listed = child.request("threadSection/list", {"limit": 10})
             listed_before = BEFORE in [item["name"] for item in listed["data"]]
@@ -89,6 +103,7 @@ def run(binary, root, case):
     for store in {canonical, retired_database.parent}:
         assert len(list(itertools.islice(store.rglob("*"), 101))) <= 100, \
             "Finite synthetic SQLite store entry limit exceeded."
+    unchanged = snapshot(database) == current_before and snapshot(retired_database) == retired_before
     current_names, retired_names = names(database), names(retired_database)
     return {
         "case": case, "refusal": refused,
@@ -96,6 +111,7 @@ def run(binary, root, case):
         "nativeReadNewSection": listed_after,
         "nativeWriteInRetiredDatabase": AFTER in retired_names,
         "nativeWriteInReplacementDatabase": AFTER in current_names,
+        "unsafeFilesUnchanged": unchanged,
     }
 
 
@@ -122,7 +138,7 @@ def main():
             assert result["refusal"] is not None and REFUSAL in json.dumps(result["refusal"]), \
                 "Replacing the admitted SQLite authority must explicitly refuse the subsequent native operation."
             assert not result["nativeWriteInRetiredDatabase"] \
-                and not result["nativeWriteInReplacementDatabase"], \
+                and not result["nativeWriteInReplacementDatabase"] and result["unsafeFilesUnchanged"], \
                 "Refusal must preserve both retired and replacement SQLite evidence."
             print("PASS: actual native SQLite operations refuse the replaced authority without writing.")
 

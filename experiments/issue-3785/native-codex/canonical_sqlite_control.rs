@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let pool = SqlitePoolOptions::new()
         .max_connections(2)
-        .connect_with(options)
+        .connect_with(options.clone())
         .await?;
     pool.execute("CREATE TABLE synthetic(value TEXT)").await?;
     pool.execute("INSERT INTO synthetic VALUES ('before')")
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut signal = [0];
     std::io::stdin().read_exact(&mut signal)?;
     assert_eq!(signal, [b'\n']);
-    if args[2] != "close-only" {
+    if !matches!(args[2].as_str(), "close-only" | "rebuild") {
         let after: String = sqlx::query_scalar("SELECT value FROM synthetic")
             .fetch_one(&mut *connection)
             .await?;
@@ -55,8 +55,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .execute("INSERT INTO synthetic VALUES ('after')")
             .await?;
     }
+    if args[2] == "rebuild-open" {
+        let error = canonical::backup(&path).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+    }
     connection.return_to_pool().await;
     pool.close().await;
+    if args[2] == "rebuild" {
+        let backups = canonical::backup(&path)?;
+        assert_eq!(backups.len(), 1);
+        assert_eq!(backups[0].0, path);
+        assert!(backups[0].1.is_file());
+        let replacement = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        replacement
+            .execute("CREATE TABLE replacement(value)")
+            .await?;
+        replacement
+            .execute("INSERT INTO replacement VALUES ('new')")
+            .await?;
+        replacement.close().await;
+    }
     ordinary.execute("INSERT INTO ordinary VALUES (1)").await?;
     ordinary.close().await?;
     println!("RESULT actualSqlx=1 ordinary=1 nativeDeadlineHandler=1 close=1");

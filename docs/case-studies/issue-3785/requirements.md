@@ -707,3 +707,18 @@ failure. Three exact-command repeats and the original three-case test then
 pass unchanged. The initial command remains recorded as exit 1. All affected
 Router, Agent and Bun tests pass, as do repository quality checks. See
 evidence/router-combined-default-suite.txt for exact hashes and limits.
+
+SQLite recovery follow-up: the draft operation adapter now admits intentional
+backup/rebuild under stable per-database shared/exclusive leases and retained
+directory descriptors. All 1,031 pinned component controls and 40 real SQLx
+controls pass, including exact unsafe-byte preservation, healthy concurrent
+peers, and blocking recovery with a live peer or local handle. The actual
+preceding optimized CLI passes the new selected and ordinary corruption-recovery
+compatibility controls; its retired-directory/database regressions remain
+reproduced. The experimental native workflow now requires those before/after
+controls and the draft's full development build. Those new gates are pending;
+production source/recipe, optimized/package/image activation, atomic external
+rename exclusion and fresh-process rollback remain OPEN. Measured component
+overhead is material and is reported in
+`evidence/sqlite-operation-recovery.txt` and
+`experiments/issue-3785/NATIVE_SQLITE_OPERATION_PLAN.md`.

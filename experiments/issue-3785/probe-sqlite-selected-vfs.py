@@ -62,15 +62,16 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
     mutations = ("none", "directory", "database", "database-hardlink",
                  "directory-permissions", "database-permissions", "wal-hardlink", "shm-hardlink",
                  "directory-symlink", "ancestor-symlink", "database-symlink", "wal-replace", "shm-replace",
-                 "wal-permissions", "shm-permissions")
-    modes = ("initial", "query", "close-only", "transaction", "read-only", "reopen", "threads", "scratch")
+                 "wal-permissions", "shm-permissions", "lease-hardlink", "lease-replace",
+                 "lease-permissions", "lease-symlink")
+    modes = ("initial", "query", "close-only", "transaction", "read-only", "reopen", "threads", "scratch", "rebuild")
     if args.rebuild_only:
         modes, mutations = ("rebuild",), ("none",)
     databases = DATABASES if args.all_databases else DATABASES[:1]
     for database_name in databases:
         for mode in modes:
             for mutation in mutations:
-                if mode in ("initial", "read-only", "reopen") and mutation.startswith(("wal-", "shm-")):
+                if mode in ("initial", "read-only", "reopen", "rebuild") and mutation.startswith(("wal-", "shm-")):
                     continue
                 case = fixture / f"{database_name}-{mode}-{mutation}"
                 case.mkdir(mode=0o700)
@@ -130,6 +131,19 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
                         os.link(Path(str(database) + "-wal"), case / "outside-wal")
                     elif mutation == "shm-hardlink":
                         os.link(Path(str(database) + "-shm"), case / "outside-shm")
+                    elif mutation.startswith("lease-"):
+                        lease = selected / ("." + database_name + ".authority")
+                        if mutation == "lease-hardlink":
+                            os.link(lease, case / "outside-lease")
+                        elif mutation == "lease-permissions":
+                            lease.chmod(0o666)
+                        else:
+                            retired_file = case / "retired-lease"
+                            lease.rename(retired_file)
+                            if mutation == "lease-replace":
+                                lease.touch(mode=0o600)
+                            else:
+                                lease.symlink_to(retired_file)
                     before = snapshot(observed)
                     retired_before = retired_file.read_bytes() if retired_file else None
                     output, error = child.communicate("\n", timeout=5)
@@ -150,6 +164,14 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
                             assert retired_file.read_bytes() == retired_before, (mode, mutation)
                     else:
                         assert output.startswith("RESULT selected=1 ordinary=1 nativeProgress=1 close=1"), output
+                        if mode == "rebuild":
+                            import sqlite3
+                            backups = list((selected / "db-backups").glob("sqlite-*/" + database_name))
+                            assert len(backups) == 1
+                            with sqlite3.connect(backups[0]) as observer:
+                                assert observer.execute("SELECT COUNT(*) FROM synthetic").fetchone()[0] == 1
+                            with sqlite3.connect(database) as observer:
+                                assert observer.execute("SELECT COUNT(*) FROM first").fetchone()[0] == 0
                     print(json.dumps({"database": database_name, "mode": mode, "mutation": mutation,
                                       "status": "refused" if unsafe else "healthy",
                                       "unsafeFilesUnchanged": unsafe and snapshot(observed) == before}), flush=True)
@@ -194,3 +216,38 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
             if child.poll() is None:
                 child.kill()
             child.communicate(timeout=5)
+
+    if not args.rebuild_only:
+        # Recovery must neither rename an active peer's database nor release
+        # local POSIX locks by closing its independent identity pin too early.
+        recovery = fixture / "recovery-peer"
+        recovery.mkdir(mode=0o700)
+        peers = []
+        try:
+            for mode in ("rebuild-open", "rebuild-busy"):
+                child = subprocess.Popen([str(binary), str(recovery), DATABASES[0], mode],
+                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, text=True, preexec_fn=limits)
+                peers.append(child)
+                with selectors.DefaultSelector() as ready:
+                    ready.register(child.stdout, selectors.EVENT_READ)
+                    assert ready.select(timeout=5), "Recovery peer did not become ready"
+                first = child.stdout.readline(1024)
+                assert first.startswith("READY 3.51.3"), (first, mode)
+            before = snapshot(recovery)
+            output, error = peers[1].communicate("\n", timeout=5)
+            assert peers[1].returncode == 0 and output == "RESULT rebuildBusy=1\n" and not error
+            assert snapshot(recovery) == before and not (recovery / "db-backups").exists()
+            output, error = peers[0].communicate("\n", timeout=5)
+            assert peers[0].returncode == 0 and "localRebuildBusy=1" in output and not error
+            assert not (recovery / "db-backups").exists()
+            import sqlite3
+            with sqlite3.connect(recovery / DATABASES[0]) as observer:
+                assert observer.execute("SELECT COUNT(*) FROM synthetic").fetchone()[0] == 3
+            print(json.dumps({"rebuildBlockedByPeer": True, "rebuildBlockedByLocalHandle": True,
+                              "unsafeFilesUnchanged": True, "healthyPeerWrites": True}), flush=True)
+        finally:
+            for child in peers:
+                if child.poll() is None:
+                    child.kill()
+                child.communicate(timeout=5)

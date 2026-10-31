@@ -122,7 +122,12 @@ requires_openai_auth = false
         stop_process_group(self.child)
         self.reader.join(timeout=5)
         assert not self.reader.is_alive(), 'Native reader must stop before fixture disposal.'
-        self.child.stdin.close()
+        try:
+            self.child.stdin.close()
+        except BrokenPipeError:
+            # The process is already reaped. Closing its pending request must
+            # still dispose the reader and diagnostics after explicit refusal.
+            pass
         self.child.stdout.close()
         self.diagnostics.close()
         self.stopped = True

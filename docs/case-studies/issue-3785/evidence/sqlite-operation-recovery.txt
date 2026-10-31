@@ -116,3 +116,14 @@ lines: 5
 Fresh prepared experimental source: 44 files
 sourceInventorySha256: b6cef2e679e7f563c25a8b1e359816cf5ffd81109988894e47568dac127032a0
 Production recipe and source inventory remain unchanged.
+
+Three concurrent actual native app-server peers, preceding optimized CLI
+Binary sha256: 23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+Both modes retain 18 acknowledged sections through overlapping writes,
+private-configuration disposal, survivor writes and fresh-peer admission.
+native-sqlite-peers-compatible-before.log
+sha256: 0ed31465a15461b03a9569cd9eea70725c5ef6589fbec34dc529c8d4c6ec4633
+native-sqlite-peers-compatible-ordinary-before.log
+sha256: 2c14f5ad886318355feac903061947a8d49ae428d6adba7d4d6048c798790ca3
+The newly guarded CLI still requires the experimental CI controls.
+This is a host SQLite control, not the full Docker or conversation matrix.

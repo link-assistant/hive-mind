@@ -244,3 +244,12 @@ source files with inventory digest
 - [ ] Address any healthy-operation regression and measure full-native overhead.
 - [ ] Add the verified source/flags to the release recipe and inventory, then
       require optimized x64/ARM64, actual installed package and both final images.
+
+The three-peer native SQLite control keeps three actual app-server pools alive,
+dispatches overlapping writes, verifies discovery from every peer, disposes one
+private configuration, verifies survivor writes, and admits a fresh peer. Both
+selector modes retain all 18 acknowledged sections and pass SQLite quick-check
+against the preceding optimized CLI. The experimental workflow requires the
+selected control before and after the guard and the ordinary control afterward.
+This host-process check does not substitute for the required Docker lifecycle
+matrix or prove full conversation storage.

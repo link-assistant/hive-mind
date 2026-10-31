@@ -61,3 +61,13 @@ host-socket/nested-daemon images now require its strict identity controls.
 Those complete compiled after gates remain pending. Default canonical auth,
 legacy migration, all history selectors and the other tool projections remain
 unfinished. Unsupported explicit selectors continue to refuse fallback.
+
+The complete local default suite passes all 752 selected files with NODE_OPTIONS
+removed and a 128 MiB V8 heap. The preserved log has 22603 lines, reviewed in
+16 chunks of at most 1500 lines; no failing file or test summary appears.
+SHA256 ef69bbdb77c8e111f08216408da893e2f03c24d680c854fd661da42ec680809e
+Current repository-wide ESLint, shared GitHub-retry checks, file limits and
+changed-file formatting/secret checks pass. The final packaging repair also
+passes all twenty Python and nineteen related Node controls independently.
+There are zero cgroup OOM or OOM-kill events. Compiled after-controls remain
+pending; local success does not complete the default/full-history contract.

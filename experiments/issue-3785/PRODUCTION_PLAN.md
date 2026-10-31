@@ -59,7 +59,7 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       both packaged images. The actual npm probe now installs the pinned
       upstream package and checks native requests through its selected bin.
       Local workflow security/line-limit failures are repaired; new CI is due
-      after the currently running first optimized builds finish.
+      after the preserved optimized size-bound failure is repaired.
 - [x] Reproduce Cargo's legitimate executable hardlink and repair the handoff
       to strict distributed-artifact admission through a bounded stable copy.
       All 19 packaging tests and the actual tiny offline Cargo reproducer pass.

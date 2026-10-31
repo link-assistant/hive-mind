@@ -23,8 +23,9 @@ provide that integration. Keep the complete acceptance inventory open.
 - [x] Run 134 focused tests, eight native primitive tests, nineteen build tests,
       format/lint/workflow checks and the actual Docker lifecycle control.
       Review the independently useful projection before its atomic commit.
-- [ ] Finish the running 752-file default suite and the new compiled native
-      controls. Preserve both optimized outputs before pushing (both archived).
+- [x] Finish all 752 default test files and repository-wide lint; review the
+      complete log in sixteen bounded chunks. Both optimized outputs are archived.
+- [ ] Complete the new compiled native controls and installed image checks.
 
 Default selection, safe legacy migration, all history projections and the other
 five tools remain required work after this bounded integration step.

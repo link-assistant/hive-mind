@@ -155,3 +155,9 @@ configuration inputs without exposing credential contents. Parse Codex provider
 TOML semantically and require its endpoint and credential environment pin.
 Start routed Codex commands without a login profile so it cannot replace the
 admitted environment before the native CLI starts.
+
+Use Claude's selected configuration root for preparation and Docker projection
+of its existing project and session history directories. Preserve private
+configuration and conventional evidence, refuse unavailable or unsafe selected
+history, and retain Router suppression. Complete history and default migration
+remain unfinished.

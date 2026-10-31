@@ -561,3 +561,17 @@ before and after logs. Its compiled executable is byte-identical to the earlier
 5a52ac0f6 executable used in the actual local root/two-peer Docker controls.
 Optimized distribution, installed-image validation and all complete-scope
 requirements remain unfinished. See `evidence/ci-f2e845cb3-native-codex.txt`.
+
+Claude's existing `projects/` and `sessions/` Docker mounts now use the native
+`CLAUDE_CONFIG_DIR` source for both host preparation and mount selection. Five
+strict before controls reproduce conventional-path fallback and ignored linked
+selected storage. The repaired path preserves conventional evidence, mounts only
+the two selected history directories into private container configuration and
+retains Router suppression. Twenty-three focused controls pass. The actual pinned
+CLI reproduces missing resume with conventional sources and preserves the original
+message across the root and two fresh Docker peers with selected sources. Both
+native controls are required by the installed-image gate in both daemon layouts;
+actual image verification at this source is pending CI. This bounded repair does
+not establish complete history, default canonical
+authentication, migration or the unresolved native refresh owner-death contract.
+See `evidence/claude-effective-history.txt`.

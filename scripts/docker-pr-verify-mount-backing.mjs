@@ -1,6 +1,7 @@
 // Required integration gate after both release-shaped PR images are built.
 // This checks the installed launcher against the host and nested daemons;
-// it does not claim native CLI rotation/history lifecycle coverage.
+// Native controls cover credential publication and selected Claude history;
+// full rotation and history lifecycle coverage remains a separate requirement.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -21,6 +22,7 @@ const script = fileURLToPath(new URL('./verify-mounted-task-backing.mjs', import
 const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', import.meta.url));
 const codexAuthScript = fileURLToPath(new URL('./verify-mounted-codex-auth.mjs', import.meta.url));
 const claudeAuthScript = fileURLToPath(new URL('./verify-mounted-claude-auth.mjs', import.meta.url));
+const claudeHistoryScript = fileURLToPath(new URL('./verify-mounted-claude-history.mjs', import.meta.url));
 const nativeRuntimeHelper = fileURLToPath(new URL('./mounted-native-runtime.lib.mjs', import.meta.url));
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
@@ -46,6 +48,7 @@ try {
       args.push('--mount', `type=bind,source=${dataScript},target=/verify-mounted-tool-data.mjs,readonly`);
       args.push('--mount', `type=bind,source=${codexAuthScript},target=/verify-mounted-codex-auth.mjs,readonly`);
       args.push('--mount', `type=bind,source=${claudeAuthScript},target=/verify-mounted-claude-auth.mjs,readonly`);
+      args.push('--mount', `type=bind,source=${claudeHistoryScript},target=/verify-mounted-claude-history.mjs,readonly`);
       args.push('--mount', `type=bind,source=${nativeRuntimeHelper},target=/mounted-native-runtime.lib.mjs,readonly`);
       if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
       else args.push('--privileged');
@@ -76,6 +79,13 @@ try {
       process.stdout.write(`${variant}: ${codexAuthResult.stdout}`);
       const claudeAuthResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-claude-auth.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${claudeAuthResult.stdout}`);
+      // Peers must reach the synthetic provider in the root's loopback namespace.
+      const historyNetwork = variant === 'host' ? `container:${name}` : 'host';
+      for (const legacy of [true, false]) {
+        const historyCommand = `node --max-old-space-size=128 /verify-mounted-claude-history.mjs "$(command -v hive)"${legacy ? ' --expect-legacy-history-gap' : ''}`;
+        const historyResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, '--env', 'HIVE_MOUNT_TEST_DIAGNOSTICS=1', name, 'bash', '-lc', historyCommand], 120_000);
+        process.stdout.write(`${variant}: ${historyResult.stdout}`);
+      }
       for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
     } finally {
       await docker(['rm', '-f', name]).catch(() => {});

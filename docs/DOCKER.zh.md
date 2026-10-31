@@ -2,6 +2,8 @@
 
 本文档介绍如何在 Docker 容器中运行 Hive Mind。
 
+对于 Claude 的隔离任务，`CLAUDE_CONFIG_DIR` 决定宿主机 `projects/` 和 `sessions/` 的来源，默认使用 `~/.claude`。任务仅将这两个目录挂载到私有的 `/home/box/.claude`，不会挂载操作员的配置。所选历史目录缺失时，即使默认目录存在也会阻止挂载；准备过程会拒绝链接和不安全路径。Router 模式不会获得供应商历史。独立凭据目录的选择保持独立。完整历史和默认认证迁移仍未完成。详见[英文说明](DOCKER.md#what-a---isolation-docker-task-receives-issue-2190)。
+
 ## 快速开始
 
 ### 选项 1：使用 Docker Hub 上的预构建镜像（推荐）

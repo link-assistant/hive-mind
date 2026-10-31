@@ -6,6 +6,7 @@ import { getRouterSuppressedCredentialPaths } from './router-isolation.lib.mjs';
 import { prepareToolDataMount, toolDataMount } from './tool-data-mounts.lib.mjs';
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
+import { resolveClaudeConfigDirectory } from './claude-paths.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
 function normalizeTool(tool) {
@@ -14,6 +15,12 @@ function normalizeTool(tool) {
     .toLowerCase();
 }
 const historyUnavailable = tool => new Error(`Canonical ${tool === 'codex' ? 'Codex' : 'Claude'} history storage is unavailable; private fallback is prohibited.`);
+function toolMountSource(entry, tool, env, homeDir) {
+  if (tool !== 'claude' || entry.role !== 'sessions') return path.join(homeDir, entry.relativePath);
+  const configuration = resolveClaudeConfigDirectory(env, homeDir);
+  if (!path.isAbsolute(configuration) || path.normalize(configuration) !== configuration || /[\0\r\n,:]/u.test(configuration)) throw historyUnavailable(tool);
+  return path.join(configuration, path.basename(entry.relativePath));
+}
 const nativeStorageSelectors = new Map([
   ['codex', ['CODEX_AUTH_HOME', 'CODEX_SQLITE_HOME', 'CODEX_ROLLOUT_HOME', 'CODEX_SESSION_INDEX_HOME', 'CODEX_MESSAGE_HISTORY_HOME', 'CODEX_ROLLOUT_MAINTENANCE_HOME']],
   ['gemini', ['GEMINI_AUTH_HOME', 'GEMINI_HISTORY_HOME']],
@@ -107,7 +114,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
     if (isSuppressedPath(entry.relativePath, suppressed)) continue;
     if (nativeAuth && entry.role === 'auth') continue;
-    const source = path.join(homeDir, entry.relativePath);
+    const source = toolMountSource(entry, normalizedTool, env, homeDir);
     const target = path.join(DOCKER_CONTAINER_HOME, entry.relativePath);
     if (entry.kind === 'dir') {
       if (!(await exists(source))) throw historyUnavailable(normalizedTool);
@@ -145,7 +152,7 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
     if (nativeAuth && entry.role === 'auth') continue;
-    const hostPath = path.join(homeDir, entry.relativePath);
+    const hostPath = toolMountSource(entry, normalizedTool, env, homeDir);
     const exists = await fsImpl.promises.access(hostPath).then(
       () => true,
       () => false

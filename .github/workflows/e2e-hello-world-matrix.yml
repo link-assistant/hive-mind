@@ -109,7 +109,7 @@ jobs:
         if: steps.gh.outputs.layer == 'default'
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
-          ACT_VERSION: v0.2.91
+          ACT_VERSION: v0.2.93
           ACT_DIR: ${{ runner.temp }}/act
         run: |
           mkdir -p "$ACT_DIR"

@@ -1076,3 +1076,18 @@ strict before failures and repeats both complete headless restore cycles on the
 fresh reconstruction. These controls do not complete all child/subagent writers,
 interrupted/power-loss durability, migration, backend lifecycle or production
 installation.
+
+The `--restorable-terminal-resume-refusal` control keeps an actual ACP writer
+alive while a fresh terminal attempts to resume the same canonical conversation
+with an automatic prompt. It requires native refusal before another provider
+request and unchanged project, checkpoint metadata and audit bytes. If the
+terminal remains alive, an actual typed prompt must also remain disabled. After
+the owner process group is stopped and reaped, another fresh CLI must resume the
+original history and retain the prior audit. The preceding nineteen-stage
+package already refuses this ownership conflict; the test adds lifecycle
+coverage without claiming a new source repair. See
+[live-owner refusal evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-resume-refusal.txt).
+
+```sh
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics /tmp/gemini-resume-refusal.log
+```

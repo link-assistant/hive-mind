@@ -16,6 +16,7 @@ on:
       - 'experiments/issue-3785/gemini_restorable_tui.py'
       - 'experiments/issue-3785/gemini_restorable_acp.py'
       - 'experiments/issue-3785/gemini_restorable_headless.py'
+      - 'experiments/issue-3785/gemini_resume_refusal.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -428,6 +429,8 @@ jobs:
           for engine in legacy agent; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh-control.log" 2>&1
           done
+      - name: Refuse terminal resume while a real writer lives and recover after owner exit
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics "$RUNNER_TEMP/gemini-acp-resume-refusal.log" > "$RUNNER_TEMP/gemini-acp-resume-refusal-control.log" 2>&1
       - name: Preserve native metadata, terminal and authentication behavior
         run: |
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli

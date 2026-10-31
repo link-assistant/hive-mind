@@ -258,3 +258,12 @@ and no-selector native behavior. Twenty-one checked stages reconstruct seventeen
 identical native files; see `evidence/native-gemini-headless-controls.txt`.
 Fresh Node 24 CI, remaining native writers, complete lifecycle and production
 integration are still required; A1–A12 remain unfinished.
+
+A further actual terminal resume control refuses a session still owned by a
+healthy ACP process, without provider requests or project/metadata/audit changes.
+Typed input stays disabled on the repaired package. After the owner is stopped
+and reaped, another fresh CLI resumes original history with prior audit intact.
+This ownership conflict also refuses on the preceding nineteen-stage package;
+it adds lifecycle evidence without a new source repair. See
+`evidence/native-gemini-resume-refusal.txt`. Fresh Node 24 CI, delayed/interrupted
+resume, physical power loss and complete production integration remain open.

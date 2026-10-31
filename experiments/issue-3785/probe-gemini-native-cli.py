@@ -40,6 +40,7 @@ parser.add_argument('--git-history', action='store_true')
 parser.add_argument('--restorable-history', action='store_true')
 parser.add_argument('--restorable-terminal-reopen', action='store_true')
 parser.add_argument('--restorable-terminal-startup-prompt', action='store_true')
+parser.add_argument('--restorable-terminal-resume-refusal', action='store_true')
 parser.add_argument('--restorable-headless', action='store_true')
 parser.add_argument('--restorable-headless-engine', choices=('legacy', 'agent'))
 parser.add_argument('--restorable-acp', action='store_true')
@@ -73,7 +74,8 @@ assert not args.tracker_history or args.history and not any(value for name, valu
 assert not args.tracker_history_attack or args.tracker_history
 assert not args.git_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'git_history', 'git_history_attack'))
 assert not args.git_history_attack or args.git_history
-assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack', 'restorable_terminal_reopen', 'restorable_terminal_startup_prompt', 'restorable_headless', 'restorable_headless_engine', 'restorable_acp', 'restorable_acp_tool', 'restorable_acp_mode', 'private_history'))
+assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack', 'restorable_terminal_reopen', 'restorable_terminal_startup_prompt', 'restorable_terminal_resume_refusal', 'restorable_headless', 'restorable_headless_engine', 'restorable_acp', 'restorable_acp_tool', 'restorable_acp_mode', 'private_history'))
+assert not args.restorable_terminal_resume_refusal or args.restorable_history and not (args.restorable_terminal_reopen or args.restorable_headless or args.restorable_acp or args.restorable_history_attack or args.private_history)
 assert not args.restorable_terminal_reopen or args.restorable_history and not (args.restorable_acp or args.restorable_history_attack or args.private_history)
 assert not args.restorable_terminal_startup_prompt or args.restorable_terminal_reopen
 assert not args.restorable_headless or args.restorable_history and not (args.restorable_terminal_reopen or args.restorable_acp)
@@ -671,6 +673,17 @@ try:
         raise SystemExit(0)
 
     if args.restorable_history:
+        if args.restorable_terminal_resume_refusal:
+            from gemini_resume_refusal import verify_resume_refusal
+            verify_resume_refusal(invoke=invoke, native=native, root=root, home=home, workspace=workspace,
+                                  history=history, env={**env, 'GEMINI_CLI_EXP_AGENT': 'false'}, settings=settings,
+                                  diagnostics=args.diagnostics, models=models, first_prompt=first_prompt,
+                                  second_prompt=second_prompt, session=session)
+            assert json.loads(auth.read_text()) == credentials
+            assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+            assert not errors, errors
+            safe_cleanup = True
+            raise SystemExit(0)
         if args.restorable_headless:
             from gemini_restorable_headless import verify_headless_checkpoint
             headless_env = {**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.restorable_headless_engine == 'agent' else 'false'}

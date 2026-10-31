@@ -1214,3 +1214,11 @@ Latest CI continuation:
 - [ ] Commit and publish the headless writer stage after local checks; require
       both strict before failures, after/fresh-source cycles and live/startup
       refusal/private controls to pass in fresh Node 24 CI.
+- [x] Verify actual failed terminal resume under a live native writer: no
+      automatic or typed inference, unchanged project/metadata/audit, and healthy
+      recovery after the owner process group is stopped and reaped. The preceding
+      nineteen-stage package also refuses this ownership conflict; this extends
+      lifecycle coverage, without claiming a new source repair. The repaired
+      twenty-one-stage package keeps actual typed prompts disabled after refusal.
+- [ ] Publish the live-owner refusal regression and require its fresh Node 24 CI
+      result. Delayed/interrupted resume and physical power loss remain open.

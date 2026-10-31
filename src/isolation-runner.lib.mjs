@@ -419,7 +419,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     } catch {
       await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
       await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
-      return failLaunch('Shared tool data preparation failed. Verify the selected XDG data directory and its persisted host backing before retrying.');
+      return failLaunch('Shared tool storage preparation failed. Verify persisted authentication/history backing and Docker support for selected native storage before retrying.');
     }
   }
   // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still

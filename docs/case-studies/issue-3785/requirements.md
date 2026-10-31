@@ -477,3 +477,11 @@ otherwise receives G0 after admitting an atomic G1 replacement. All thirteen
 and 109 related Node tests/file targets pass after repair. See
 `evidence/limits-storage-revalidation.txt`. This does not establish an operation
 lease or complete the remaining default authority and lifecycle requirements.
+
+A7 additionally refuses unsupported selected native storage at the Docker launch
+boundary. Previously the nine Codex/Gemini/Qwen selectors, including empty values,
+were ignored and conventional credentials/history were mounted instead. Nineteen
+regressions reproduce before repair; all 22 new and 84 related Node targets pass
+after refusal before host preparation or mount probing. Explicit Router remains
+supported. See `evidence/docker-selected-storage.txt`. Required default native
+projections, migration and replacement-safe unselected mounts remain open.

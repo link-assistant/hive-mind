@@ -98,5 +98,12 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [ ] Wait for every exact-head CI job and preserve failures before further
       pushes. Keep the PR draft while any required criterion remains unfinished.
 
+- [x] Reproduce native storage selectors being dropped at Docker launch and
+      refuse the unsupported projection before preparing competing legacy state.
+      All 22 new and 84 related Node test targets pass; nineteen regressions fail
+      before repair. This establishes refusal only, not the required projection.
+- [ ] Implement and verify default native Docker projections, migrate legacy
+      state without credential snapshots, and complete all six-tool lifecycle gates.
+
 Claude's owner-death refresh reproduction still needs an upstream native repair;
 the report is evidence of a blocker, not a completed acceptance criterion.

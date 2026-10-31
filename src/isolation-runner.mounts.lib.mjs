@@ -13,6 +13,18 @@ function normalizeTool(tool) {
     .toLowerCase();
 }
 const historyUnavailable = tool => new Error(`Canonical ${tool === 'codex' ? 'Codex' : 'Claude'} history storage is unavailable; private fallback is prohibited.`);
+const nativeStorageSelectors = new Map([
+  ['codex', ['CODEX_AUTH_HOME', 'CODEX_SQLITE_HOME', 'CODEX_ROLLOUT_HOME', 'CODEX_SESSION_INDEX_HOME', 'CODEX_MESSAGE_HISTORY_HOME', 'CODEX_ROLLOUT_MAINTENANCE_HOME']],
+  ['gemini', ['GEMINI_AUTH_HOME', 'GEMINI_HISTORY_HOME']],
+  ['qwen', ['QWEN_AUTH_HOME']],
+]);
+function admitNativeStorageProjection(tool, env, useRouter) {
+  if (!useRouter && nativeStorageSelectors.get(tool)?.some(name => env[name] !== undefined)) {
+    // These native adapters do not yet have a Docker projection. Even an empty
+    // selector is explicit: dropping it would select a different authority.
+    throw new Error(`Selected native ${tool} storage cannot be projected into Docker task mounts; refusing credential/history fallback.`);
+  }
+}
 
 /** Whether a host path exists, without blocking the bot's event loop on a stat (issue #3278). */
 export const pathExists = target =>
@@ -83,6 +95,7 @@ function isSuppressedPath(relativePath, suppressed) {
 export async function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, ghRouted = false } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
+  admitNativeStorageProjection(normalizedTool, env, useRouter);
   const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
   if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
     await maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), exists);
@@ -123,6 +136,7 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   const missingAuth = [];
   if (useRouter) return { created, missingAuth };
   const normalizedTool = normalizeTool(tool);
+  admitNativeStorageProjection(normalizedTool, env, useRouter);
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {

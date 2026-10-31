@@ -113,3 +113,8 @@ Discard pending usage and profile responses after credentials change, preserve n
 Require strict native app-server configuration when canonical Codex history is selected, so rejected storage configuration cannot be swallowed by default-configuration fallback before databases open.
 
 Revalidate selected limits storage after asynchronous credential hashing and each coalesced caller's account generation before returning cached or completed responses.
+
+Refuse Docker launches that would drop explicitly selected native Codex, Gemini
+or Qwen authentication/history storage and mount a competing conventional
+source. Preserve explicit Router selection and reject before preparing host
+state. Complete native Docker projections and default migration remain open.

@@ -1457,5 +1457,17 @@ Latest CI continuation:
       native SQLite after-control fails, and obsolete optimized builds are
       cancelled. Review 71217 available checks-log lines in 48 bounded chunks;
       record cancellation and unavailable runner-local compiler stderr explicitly.
-- [ ] Push all repairs, repeat the complete 750-file suite on the final source,
-      and require fresh exact-commit native, installed-package and image checks.
+- [x] Push all preceding repairs at a3ca1a1a8 and repeat the complete default
+      suite without source changes: all 750 selected files pass.
+- [ ] Require fresh exact-commit native, installed-package and image checks.
+
+- [x] Reproduce Docker launch dropping selected native auth/history authority:
+      nineteen failures before repair, including actual distinct credential
+      generations. Refuse unsupported selected projection before preparation
+      and mount probes; all 22 new and 84 related Node targets pass afterward.
+      Explicit Router selection and unselected legacy behavior are preserved.
+- [x] Pass the complete 751-file default suite on unchanged final source with
+      NODE_OPTIONS removed and zero cgroup OOM events. Formatting, lint, secrets,
+      file limits and whitespace checks pass for the Docker repair.
+- [ ] Preserve current native build evidence before pushing the atomic repair.
+      Default projections and the full acceptance inventory remain unfinished.

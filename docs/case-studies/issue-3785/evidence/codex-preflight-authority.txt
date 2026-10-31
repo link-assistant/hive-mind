@@ -1,0 +1,32 @@
+Selected Codex capability authentication, 2026-10-31 UTC
+
+Reproducer:
+  node --test tests/issue-3785-codex-preflight-authority.test.mjs
+All seven strict tests fail before repair. A selected canonical auth.json is
+copied into each private capability scope; independent private credentials,
+missing/public/relative selected storage and an injected task credential all
+reach discovery. A real unverified shell command also runs in selected mode.
+Before: /tmp/issue-3785-recovery/codex-preflight-authority-before.log
+
+The production preflight now admits the explicit CODEX_AUTH_HOME before any
+discovery or task allocation. It rereads canonical storage before preparing a
+scope and before the final catalog probe. Selected scopes never copy auth.json.
+The real command runner admits native package bytes before each selected Codex
+operation and executes its checked absolute entrypoint. Credential conflicts
+refuse without deleting or repairing either authority. Tests use real private
+files and injected discovery callbacks; the unverified-command refusal uses an
+actual executable and proves its marker is absent.
+
+Seven new assertions pass. All 50 selected/legacy/configuration/package and
+catalog controls across seven test files pass without skips. Older curated
+plugin and Formal AI credential-seeding behavior remains covered by those
+legacy controls. ESLint, formatting and git diff whitespace checks pass.
+After: /tmp/issue-3785-recovery/codex-preflight-authority-after.log
+Related: /tmp/issue-3785-recovery/codex-preflight-authority-related-final.log
+
+This covers explicitly selected capability discovery. The default launcher
+still does not select the canonical native contract, so unselected production
+credential copying remains open. Complete runtime/connection identity leases,
+Formal AI backend separation, migration, history and both-daemon lifecycle
+verification remain unfinished. Native optimized installed-command CI is still
+pending; static packaging fixtures are not execution evidence.

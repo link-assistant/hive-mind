@@ -401,3 +401,12 @@ pass all 45 selected/legacy/Router assertions. See
 `evidence/codex-limits-authority.txt`. Default canonical selection, daemon-backed
 identity, migration and production credential-copy removal remain open; this
 selected-mode repair does not complete A12 or A2.
+
+A2 selected-mode capability discovery also now preserves the explicitly
+selected native credential authority. Seven strict reproductions expose task
+credential snapshots and discovery through unsafe/conflicting selected storage
+or an unverified command. All 50 related controls pass after descriptor-based
+admission and native command checks; selected scopes contain no auth.json copy.
+See `evidence/codex-preflight-authority.txt`. Default selection, unselected
+production copies, runtime leases and complete lifecycle integration remain
+open; A2 is not complete.

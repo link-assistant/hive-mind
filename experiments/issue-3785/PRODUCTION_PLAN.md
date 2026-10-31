@@ -25,6 +25,11 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       authentication selector, including unsafe cache reuse and private endpoint
       redirection. Verify bounded descriptor-based admission and no fallback.
       This does not establish default selection or daemon-backed identity.
+- [x] Reproduce selected Codex capability discovery copying credentials and
+      bypassing native command admission. Seven strict regressions fail before
+      repair; all 50 related controls pass afterward. Selected discovery now
+      validates shared credentials and preserves private auth-free scopes.
+      Unselected production credential copies and default integration stay open.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
       assets and image/host installation, then remove production auth copies.
       The pinned optimized x64/arm64 build foundation is being verified first;

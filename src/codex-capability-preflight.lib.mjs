@@ -20,6 +20,8 @@ import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-supp
 import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
 import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
+import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
+import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 
 export { buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace } from './codex-task-scope.lib.mjs';
 
@@ -168,6 +170,10 @@ export function applyCodexCapabilityEnv(env, { codexHome, baseCodexHome } = {}) 
 }
 
 const defaultRunCommand = async ({ command, args, env = process.env, cwd }) => {
+  if (command !== 'gh' && selectedCodexAuthHome(env)) {
+    await readCanonicalCodexAuth(env.CODEX_AUTH_HOME, { configurationHome: env.CODEX_HOME });
+    command = (await verifyNativeCodexCommand({ command, searchPath: env.PATH })).entrypoint;
+  }
   try {
     const result = await execFileAsync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
     return { stdout: result.stdout?.toString() || '', stderr: result.stderr?.toString() || '', code: 0 };
@@ -273,6 +279,8 @@ export const verifyCodexCapabilityExecutionCatalog = async ({ capabilityPrefligh
   if (!capabilityPreflight?.codexHome) return capabilityPreflight;
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const scopedEnv = applyCodexCapabilityEnv(env, capabilityPreflight);
+  const selectedAuth = selectedCodexAuthHome(scopedEnv);
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: capabilityPreflight.codexHome });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
   const visibility = await checkModelVisibleSkills({
     command,
@@ -703,13 +711,17 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   await fs.writeFile(scopedConfigPath, stringifyToml(config));
 };
 
-const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, log = async () => {} }) => {
+const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, env, log = async () => {} }) => {
+  const selectedAuth = selectedCodexAuthHome(env);
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: baseCodexHome });
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
   await Promise.all([fs.rm(path.join(codexHome, 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, 'skills'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sha'), { force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sync.lock'), { force: true })]);
   await syncScopedConfig({ baseConfigPath: path.join(baseCodexHome, 'config.toml'), scopedConfigPath: path.join(codexHome, 'config.toml') });
-  await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
+  // The native selected store reads the shared authority directly. A private
+  // snapshot becomes a conflicting authority and can outlive refresh/logout.
+  if (!selectedAuth) await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
   await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
   // Issue #2888: rollouts go to the operator's (mounted) sessions directory, so
   // a recovery run in another container can still resume this thread.
@@ -778,7 +790,7 @@ const provisionSafeCatalogFallback = async ({ options, error, createScope }) => 
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const codexHome = await createScope({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, projectDir, plugins: [], requiredSkills: [] });
@@ -786,6 +798,16 @@ const provisionSafeCatalogFallback = async ({ options, error, createScope }) => 
 };
 
 export async function runCodexCapabilityPreflight(options = {}) {
+  const env = options.env ?? process.env;
+  const selectedAuth = selectedCodexAuthHome(env);
+  if (selectedAuth) {
+    const base = options.baseCodexHome ?? env.HIVE_MIND_PARENT_CODEX_HOME ?? env.CODEX_HOME ?? path.join(os.homedir(), '.codex');
+    await readCanonicalCodexAuth(selectedAuth, { configurationHome: base });
+    if (!options.runCommand || options.runCommand === defaultRunCommand) {
+      const command = /\s/u.test(options.codexPath ?? 'codex') ? 'codex' : (options.codexPath ?? 'codex');
+      await verifyNativeCodexCommand({ command, searchPath: env.PATH });
+    }
+  }
   const allocator = createCodexTaskScopeAllocator();
   try {
     const result = await runScopedCapabilityPreflight(options, allocator);
@@ -863,7 +885,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // scope as installation, never in the operator home or through a writable
   // link to its marketplace (issue #3785).
   const codexHome = await createScope({ baseCodexHome, owner, repo });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, log });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   let plugins = [];

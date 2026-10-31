@@ -187,6 +187,42 @@ def verify_version(binary, recipe):
             raise ValueError("Native binary reported a different pinned CLI version.")
 
 
+def copy_compiler_binary(source, destination, limit):
+    # Cargo hardlinks its executable to target/.../deps. Admit that compiler-owned
+    # input through a held descriptor, then apply artifact admission to a new inode.
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+                or not before.st_mode & 0o111):
+            raise ValueError("Compiler output must be an owned regular executable.")
+        if before.st_size <= 0 or before.st_size > limit:
+            raise ValueError("Compiler output size is outside the admitted bound.")
+
+        def revision(info):
+            return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns,
+                    info.st_ctime_ns, info.st_nlink, info.st_uid, info.st_mode)
+
+        target = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(target, "wb") as output:
+            remaining = before.st_size
+            while remaining:
+                chunk = os.read(descriptor, min(65536, remaining))
+                if not chunk:
+                    raise ValueError("Compiler output changed while copying.")
+                output.write(chunk)
+                remaining -= len(chunk)
+            if (os.read(descriptor, 1)
+                    or revision(os.fstat(descriptor)) != revision(before)
+                    or revision(source.lstat()) != revision(before)):
+                raise ValueError("Compiler output changed while copying.")
+            output.flush()
+            os.fsync(output.fileno())
+        destination.chmod(0o755)
+    finally:
+        os.close(descriptor)
+
+
 def build(root, state, platform, output):
     recipe, digest = load_recipe()
     prepared = verify_source(root, state, recipe, digest)
@@ -204,13 +240,11 @@ def build(root, state, platform, output):
                    cwd=workspace, env=env, check=True)
     verify_source(root, state, recipe, digest)
     binary = workspace / "target" / target / "release/codex"
-    identity = inspect_binary(binary, recipe, platform)
-    verify_version(binary, recipe)
     output.mkdir(mode=0o755)
-    shutil.copyfile(binary, output / "codex")
-    (output / "codex").chmod(0o755)
-    if inspect_binary(output / "codex", recipe, platform) != identity:
-        raise ValueError("Packaged native binary differs from the compiled output.")
+    copied = output / "codex"
+    copy_compiler_binary(binary, copied, recipe["maxBinaryBytes"])
+    identity = inspect_binary(copied, recipe, platform)
+    verify_version(copied, recipe)
     for name, expected in recipe["licenses"].items():
         source = root / name
         if sha256(source) != expected:

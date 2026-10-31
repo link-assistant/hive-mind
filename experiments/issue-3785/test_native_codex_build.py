@@ -85,6 +85,157 @@ class NativeBuildAdmission(unittest.TestCase):
         self.assertNotIn("CARGO_BUILD_RUSTFLAGS", env)
 
 
+class NativeCompilerOutput(unittest.TestCase):
+    """Cargo's internal executable alias must not become a distributed alias."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="native-cargo-output-test-")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.recipe = json.loads((ROOT / "src/native-codex/recipe.json").read_text())
+        license_bytes = b"Synthetic compiler packaging fixture license.\n"
+        self.recipe["licenses"] = {"LICENSE": hashlib.sha256(license_bytes).hexdigest()}
+        self.recipe_path = self.root / "recipe.json"
+        self.recipe_path.write_text(json.dumps(self.recipe))
+        self.digest = BUILD.sha256(self.recipe_path)
+        self.source = self.root / "checkout"
+        self.source.mkdir()
+        (self.source / "LICENSE").write_bytes(license_bytes)
+        target = self.recipe["targets"]["linux-x64"]["target"]
+        self.binary = self.source / "codex-rs/target" / target / "release/codex"
+        self.binary.parent.mkdir(parents=True)
+        header = bytearray(64)
+        header[:7] = b"\x7fELF\x02\x01\x01"
+        header[16:20] = b"\x03\x00\x3e\x00"
+        self.binary.write_bytes(header)
+        self.binary.chmod(0o755)
+        self.alias = self.binary.parent / "deps/codex-fixture"
+        self.alias.parent.mkdir()
+        os.link(self.binary, self.alias)
+        self.output = self.root / "artifact"
+        self.prepared = {
+            "schema": 1, "recipeSha256": self.digest,
+            "upstreamCommit": self.recipe["upstreamCommit"],
+            "compiler": "rustc " + self.recipe["rustToolchain"] + " (packaging fixture)\nhost: " + target + "\n",
+            "cargoEnvironment": self.recipe["cargoEnvironment"],
+            "sourceFiles": json.loads((ROOT / "src/native-codex/source-files.json").read_text()),
+        }
+        for name, options in [
+            ("load_recipe", {"return_value": (self.recipe, self.digest)}),
+            ("verify_source", {"return_value": self.prepared}),
+            ("compiler", {"return_value": self.prepared["compiler"]}),
+        ]:
+            mock = patch.object(BUILD, name, **options)
+            mock.start()
+            self.addCleanup(mock.stop)
+        for target_object, name, value in [
+            (BUILD, "RECIPE", self.recipe_path),
+            (BUILD.subprocess, "run", lambda *args, **kwargs: None),
+        ]:
+            mock = patch.object(target_object, name, value)
+            mock.start()
+            self.addCleanup(mock.stop)
+        self.executed = []
+
+        def admit_version(binary, recipe):
+            self.assertNotEqual(binary, self.binary)
+            self.assertEqual(binary.stat().st_nlink, 1)
+            BUILD.inspect_binary(binary, recipe, "linux-x64")
+            self.executed.append(binary)
+
+        mock = patch.object(BUILD, "verify_version", side_effect=admit_version)
+        mock.start()
+        self.addCleanup(mock.stop)
+
+    def build(self):
+        BUILD.build(self.source, self.root / "source-state.json", "linux-x64", self.output)
+
+    def test_cargo_hardlink_is_copied_before_native_admission(self):
+        before = self.binary.stat()
+        self.build()
+        self.assertEqual(self.binary.stat().st_nlink, 2)
+        self.assertEqual(self.binary.stat().st_ino, before.st_ino)
+        self.assertEqual(self.alias.stat().st_ino, before.st_ino)
+        self.assertEqual((self.output / "codex").stat().st_nlink, 1)
+        self.assertEqual((self.output / "codex").read_bytes(), self.alias.read_bytes())
+        self.assertEqual(self.executed, [self.output / "codex"])
+        BUILD.verify_artifact(self.output, self.recipe, self.digest, "linux-x64", executable=True)
+
+    def test_copy_is_private_before_admission_even_with_permissive_umask(self):
+        original_read = os.read
+
+        def observe(descriptor, amount):
+            self.assertEqual((self.output / "codex").stat().st_mode & 0o777, 0o600)
+            return original_read(descriptor, amount)
+
+        previous_umask = os.umask(0)
+        try:
+            with patch.object(BUILD.os, "read", side_effect=observe):
+                self.build()
+        finally:
+            os.umask(previous_umask)
+        self.assertEqual(self.executed, [self.output / "codex"])
+
+    def test_linked_compiler_path_is_refused_without_execution(self):
+        self.binary.unlink()
+        self.binary.symlink_to(self.alias)
+        with self.assertRaises((ValueError, OSError)):
+            self.build()
+        self.assertEqual(self.executed, [])
+
+    def test_fifo_compiler_path_is_refused_without_reading_or_execution(self):
+        self.binary.unlink()
+        os.mkfifo(self.binary, 0o600)
+        with self.assertRaises(ValueError):
+            self.build()
+        self.assertEqual(self.executed, [])
+
+    def test_growing_compiler_output_is_refused_before_execution(self):
+        original_read = os.read
+        changed = False
+
+        def grow(descriptor, amount):
+            nonlocal changed
+            result = original_read(descriptor, amount)
+            if not changed:
+                changed = True
+                with self.alias.open("ab") as writer:
+                    writer.write(b"concurrent compiler change")
+            return result
+
+        with patch.object(BUILD.os, "read", side_effect=grow):
+            with self.assertRaisesRegex(ValueError, "changed"):
+                self.build()
+        self.assertTrue(changed)
+        self.assertEqual(self.executed, [])
+
+    def test_oversize_compiler_output_is_refused_before_execution(self):
+        self.recipe["maxBinaryBytes"] = 63
+        with self.assertRaisesRegex(ValueError, "size"):
+            self.build()
+        self.assertEqual(self.executed, [])
+
+    def test_replaced_compiler_path_is_refused_before_execution(self):
+        original_read = os.read
+        changed = False
+
+        def replace(descriptor, amount):
+            nonlocal changed
+            result = original_read(descriptor, amount)
+            if not changed:
+                changed = True
+                self.binary.unlink()
+                self.binary.write_bytes(self.alias.read_bytes())
+                self.binary.chmod(0o755)
+            return result
+
+        with patch.object(BUILD.os, "read", side_effect=replace):
+            with self.assertRaisesRegex(ValueError, "changed"):
+                self.build()
+        self.assertTrue(changed)
+        self.assertEqual(self.executed, [])
+
+
 class NativeArtifactAssembly(unittest.TestCase):
     """Synthetic ELF identity fixtures exercise packaging, never native behavior."""
 
@@ -143,6 +294,12 @@ class NativeArtifactAssembly(unittest.TestCase):
         with (self.x64 / "codex").open("ab") as target:
             target.write(b"changed")
         with self.assertRaisesRegex(ValueError, "identity"):
+            BUILD.assemble(self.artifacts, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_distributed_hardlinked_binary_still_refuses_admission(self):
+        os.link(self.x64 / "codex", self.root / "unadmitted-alias")
+        with self.assertRaisesRegex(ValueError, "unaliased"):
             BUILD.assemble(self.artifacts, self.output)
         self.assertFalse(self.output.exists())
 

@@ -13,7 +13,9 @@
 - [x] Verify the 60 paired cases and ordinary validation controls (66 pass).
 - [x] Add a default-suite wrapper and run affected tests plus quality checks.
 - [x] Record before/after evidence, review the change, and commit atomically.
-- [ ] Include the wrapper in the complete combined default suite before push.
+- [x] Include the wrapper in the complete combined default suite before push.
+      All 765 files ran; the separate Agent source assertion was replaced with
+      actual child-environment coverage and both affected entrypoints pass.
 
 The synthetic native commands exercise production validator admission and
 monitoring. They do not establish native provider request authority, process

@@ -12,7 +12,7 @@
       handler failure. Verify no unhandled child rejection and no leaked timers.
 - [x] Add a default-suite wrapper, run affected guard/admission/lifetime tests
       and required quality checks, then record evidence and commit.
-- [ ] Include the new wrapper in the complete combined default suite before
+- [x] Include the new wrapper in the complete combined default suite before
       the next authorized push.
 
 This repairs the guard's diagnostic error path. It does not establish native

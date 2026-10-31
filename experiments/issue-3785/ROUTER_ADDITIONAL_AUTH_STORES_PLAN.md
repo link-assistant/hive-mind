@@ -14,7 +14,7 @@
       selected-root correctness and unselected healthy controls.
 - [x] Complete affected tests and repository quality checks, record exact
       evidence and commit this independent repair.
-- [ ] Run the combined complete default suite and preserve preceding optimized
+- [x] Run the combined complete default suite and preserve preceding optimized
       CI artifacts before pushing only the prepared branch.
 
 This closes explicit stores only. Complete provider/configuration selectors,

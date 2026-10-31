@@ -7,6 +7,7 @@ import path from 'node:path';
 import { after, test } from 'node:test';
 import { buildRouterCodexConfig, buildRouterTaskEnv } from '../../src/router-isolation.lib.mjs';
 import { ROUTER_ROUTE_DIALECTS } from '../../src/router-routes.lib.mjs';
+import { defaultModels } from '../../src/models/catalog.mjs';
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'router-connection-lifetime-'));
 const inherited = { ...process.env };
@@ -29,20 +30,28 @@ globalThis.use = async name => {
   return import(packageName);
 };
 
-for (const [tool, suffix, model] of [
+const toolCases = [
   ['claude', 'Claude', 'claude-sonnet-4-6'],
   ['codex', 'Codex', 'gpt-6.1-sol'],
   ['agent', 'Agent', 'sonnet'],
   ['opencode', 'OpenCode', 'sonnet'],
   ['gemini', 'Gemini', 'gemini-2.5-pro'],
   ['qwen', 'Qwen', 'qwen3-coder-plus'],
-]) {
-  const validate = (await import(`../../src/${tool}.lib.mjs`))[`validate${suffix}Connection`];
+];
+// Register tests only after every import: a filtered early group can otherwise
+// finish and run the global cleanup before a later import registers its tests.
+const validators = new Map();
+for (const [tool, suffix] of toolCases) validators.set(tool, (await import(`../../src/${tool}.lib.mjs`))[`validate${suffix}Connection`]);
+for (const [tool, , model] of toolCases) {
+  const validate = validators.get(tool);
   for (const useRouter of [false, true, null])
     for (const scenario of useRouter === null ? ['healthy'] : ['healthy', 'version persistent', 'version removed', 'paid persistent', 'paid removed']) {
       test(`${useRouter === null ? 'Ordinary' : 'Router'} ${tool} ${useRouter ? 'argv' : 'env'} connection lifetime: ${scenario}`, { timeout: 10_000 }, async t => {
         const home = fs.mkdtempSync(path.join(root, `${tool}-`));
         const env = { ...buildRouterTaskEnv({ tool, baseUrl: 'https://router.invalid', token: 'synthetic-router-task', homeDir: home, dialect: ROUTER_ROUTE_DIALECTS.canonical }), HOME: home, XDG_CONFIG_HOME: path.join(home, 'config'), XDG_DATA_HOME: path.join(home, 'data'), XDG_CACHE_HOME: path.join(home, 'cache'), HIVE_MIND_STATE_DIR: path.join(home, 'state'), GEMINI_CLI_HOME: home, QWEN_HOME: path.join(home, '.qwen'), HIVE_MIND_USE_ROUTER: useRouter === null || useRouter ? '0' : '1', HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS: '100' };
+        const freeAgent = tool === 'agent' && useRouter === null;
+        const existingAgentConfig = { mcp: { playwright: { enabled: false } }, provider: { kilo: { options: { baseURL: 'https://synthetic-kilo.invalid' }, models: { existing: { id: 'synthetic-existing' } } } } };
+        if (freeAgent) env.LINK_ASSISTANT_AGENT_CONFIG_CONTENT = JSON.stringify(existingAgentConfig);
         if (tool === 'codex') {
           fs.mkdirSync(env.CODEX_HOME, { recursive: true });
           fs.writeFileSync(path.join(env.CODEX_HOME, 'config.toml'), buildRouterCodexConfig({ baseUrl: 'https://router.invalid', dialect: ROUTER_ROUTE_DIALECTS.canonical }));
@@ -63,10 +72,12 @@ for (const [tool, suffix, model] of [
         let calls = 0;
         let kills = 0;
         const nativeEnvironments = [];
-        createCommand = (options, strings) => {
+        const nativeArguments = [];
+        createCommand = (options, strings, values) => {
           assert.ok(++calls <= 2, 'bounded version and paid native probes');
           const version = strings.join(' ').includes('--version');
           nativeEnvironments.push({ ...(options.env || process.env) });
+          nativeArguments.push(values);
           let notify;
           const stopped = new Promise(resolve => {
             notify = resolve;
@@ -104,7 +115,7 @@ for (const [tool, suffix, model] of [
         let result;
         let error;
         try {
-          result = tool === 'codex' ? await validate(model, false, { useRouter }) : tool === 'qwen' ? await validate(model, 'qwen', { useRouter }) : await validate(model, { useRouter });
+          result = tool === 'codex' ? await validate(model, false, { useRouter }) : tool === 'qwen' ? await validate(model, 'qwen', { useRouter }) : await validate(freeAgent ? defaultModels.agent : model, { useRouter });
         } catch (caught) {
           error = caught;
         }
@@ -117,6 +128,17 @@ for (const [tool, suffix, model] of [
           );
           assert.equal(kills, 0);
           if (useRouter === null) assert.ok(fs.existsSync(file), 'ordinary credential storage is preserved');
+          if (freeAgent) {
+            assert.deepEqual(JSON.parse(nativeEnvironments[0].LINK_ASSISTANT_AGENT_CONFIG_CONTENT), existingAgentConfig, 'version probing preserves the original inline config');
+            const config = JSON.parse(nativeEnvironments[1].LINK_ASSISTANT_AGENT_CONFIG_CONTENT);
+            const definition = config.provider.kilo.models['nemotron-3-super-free'];
+            assert.equal(definition.id, 'nvidia/nemotron-3-super-120b-a12b:free');
+            assert.deepEqual(definition.cost, { input: 0, output: 0, cache_read: 0, cache_write: 0 });
+            assert.deepEqual(config.mcp, existingAgentConfig.mcp);
+            assert.deepEqual(config.provider.kilo.options, existingAgentConfig.provider.kilo.options);
+            assert.deepEqual(config.provider.kilo.models.existing, existingAgentConfig.provider.kilo.models.existing);
+            assert.ok(nativeArguments[1].includes('kilo/nemotron-3-super-free'), 'the actual validation child receives the mapped free model');
+          }
         } else assert.deepEqual({ securityRefusal: Boolean(error?.routerAuthViolation), calls, kills }, { securityRefusal: true, calls: scenario.startsWith('version') ? 1 : 2, kills: 1 }, 'stop a running connection probe and retain its refusal before ordinary fallback');
       });
     }

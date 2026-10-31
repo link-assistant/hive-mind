@@ -16,7 +16,7 @@
       verify bounded real-process cleanup and add default-suite regressions.
 - [x] Complete affected tests and repository quality checks; preserve exact
       evidence and commit this independent repair.
-- [ ] Include both wrappers in the combined complete default suite after the
+- [x] Include both wrappers in the combined complete default suite after the
       independent guard/store repairs, before the next authorized push.
 
 Full native request authority, all credential stores and durable Router audit,

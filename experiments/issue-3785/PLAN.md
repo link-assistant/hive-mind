@@ -1073,7 +1073,10 @@ Latest CI continuation:
 - [x] Pass complete formatting and ESLint, both helper ESLint checks, focused
       secret scanning, actionlint, Python AST and Node syntax checks before
       committing the tracker stage. Preserve all bounded diagnostics locally.
-- [ ] Require fresh exact-head Node 24 tracker CI before marking this stage verified.
+- [x] Verify Node 24 tracker job 124374272320 at 3aff67264d in run
+      41146984829 and preserve all 324 artifact files: 40 native process results,
+      complete CLI lifetime/seven startup refusals, fresh-source reconstruction
+      and surrounding regressions pass. The sibling job timeout remains separate.
 - [x] Preserve Gemini 41146984829's 1435-line log and exact-head annotations:
       the tracker job passes; the original history job exceeds its 15-minute
       total during the final authentication controls. Compare independent step
@@ -1089,3 +1092,17 @@ Latest CI continuation:
       controls and a fresh-source reconstruction before enabling this adapter.
       Native terminal restorable-tool metadata, legacy migration, interrupted
       object publication and production integration remain separately unfinished.
+
+- [x] Pass the native Git object's 21 scenarios / 25 process results and all
+      seven complete CLI startup refusals locally. Verify head continuity across
+      complete CLI disposal/resume and compare fourteen fresh-source files.
+      Keep the actual terminal/ACP metadata and production criteria open.
+- [x] Pass final-Git surrounding native tracker, shell, Logger, storage, artifact,
+      blob, publication and authentication suites, plus full CLI tool-output/blob/
+      tracker disposal/resume and real terminal shell recall. Pass full repository
+      formatting/ESLint, focused helper lint, secret scan and workflow checks.
+- [ ] Require exact-head Node 24 Git CI and the independent history-job partition.
+- [ ] Reproduce actual terminal edit/checkpoint/restore metadata loss after a
+      healthy acknowledged edit and private-home disposal, then preserve and
+      validate every restorable-tool metadata generation at the native writers,
+      discovery/completion, TUI and ACP restore paths before production use.

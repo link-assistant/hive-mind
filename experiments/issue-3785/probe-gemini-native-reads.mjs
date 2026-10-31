@@ -82,6 +82,7 @@ if (process.argv[2] === '--worker') {
       '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b',
       'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608',
       '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55',
+      'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3',
     ].includes(createHash('sha256').update(source).digest('hex')),
     'Only an exact inspected Gemini manager stage may run.'
   );

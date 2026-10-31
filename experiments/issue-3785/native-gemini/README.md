@@ -667,7 +667,8 @@ Prior-private-state migration, complete interactive failure and crash admission,
 Git checkpoints, plans/tracker/task memory, child/subagent lifecycle, alternate
 backends and production installation remain open. The checked command journal
 retains the existing 32 MiB/100,000-record bound; it does not implement rollover
-or unlimited audit retention. Fresh exact-head Node 24 CI remains required.
+or unlimited audit retention. Node 24 shell CI 41143418875 passes at
+39e2e0d75; its complete log and 658 diagnostic files are preserved locally.
 This experiment does not complete the six-tool A1–A12 contract.
 
 ## Native tracker generations and validation coordination
@@ -723,7 +724,9 @@ mutation during applicability probes and compares all ten manager/CLI/helper fil
 Each service process has a 256 MiB heap, 16 MiB stack, 25-second deadline and
 64 KiB log bound. CLI deadlines and process-group cleanup are as above.
 See `docs/case-studies/issue-3785/evidence/native-gemini-tracker-controls.txt`
-for verified results and remaining limits; fresh Node 24 CI is required.
+for verified results and remaining limits. The Node 24 tracker job passes in
+run 41146984829 at 3aff67264d; its 324 diagnostics are preserved locally. The
+sibling credential job times out, and the bounded-job partition requires fresh CI.
 
 This is still an opt-in experiment. Existing private tracker migration, direct
 third-party writers, complete interactive/crash/power-loss admission, Git
@@ -731,3 +734,73 @@ checkpoints, plans/task memory, child/subagent lifecycle, alternate backends,
 audit rollover and production installation remain open. The 32 MiB/100,000-event
 audit refuses additional writes at its bound. It does not implement the complete
 six-tool canonical auth/history contract.
+
+## Native Git checkpoint objects and acknowledged generations
+
+The actual exported native `GitService` and `Storage` first create, read and
+restore two healthy snapshots. A fresh service loses them after disposal of its
+private home. These controls keep the native Git methods and real Git children;
+there is no replacement Git implementation or checkpoint service mock.
+
+Apply `apply_git_history.py`, `apply_git_configuration.py` and
+`apply_git_objects.py` after the coordinated tracker stage. Every applicability
+check verifies the exact package, manager and prerequisite helper hashes before
+writing. The manager becomes
+`a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3`.
+The helper progresses from
+`7be869f6383b20eb21f944d9665268aa169e22ba6696f32337e9a21d52d94dcd` to
+`f0573a298e7ebf4ced71dba4b3a90a4d2eac1ddf5be011a525b793530cf39e61`, then
+`bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83`.
+The configuration helper is
+`6da4109b58c0904e490ab3f1e525d1cb42759c4e24572febdea1d67729885451`;
+the object-graph helper is
+`22bb570da1e211791e3bc6a6eeefe46635fd63ba6df4cc87320978b8de45bd9f`.
+
+Native Git writes loose objects directly to the checked canonical project
+`git-checkpoints/objects` directory through an open directory descriptor.
+Its executable configuration, hooks, index and derived refs remain private.
+Each native operation holds a persistent kernel lock, rereads the canonical head
+and reconstructs private refs/index before native work. Checked prompt-journal
+appends retain every acknowledged commit generation. Unchanged snapshots and
+restores add no duplicate head. Retained services see peer writes on their next
+operation; separate private writers serialize their native snapshots.
+
+The initial draft still executes a synthetic clean filter injected into private
+Git configuration. The configuration stage checks generated configuration and
+private directory identities before Git children execute. A second strict
+regression deletes an earlier acknowledged commit: native current-head reads
+still succeed before the object stage. Bounded discovery now validates native
+loose-object hashes, lengths and typed graph edges reachable from every
+acknowledged head before operations. Packs, alternates and unexpected entries
+refuse admission. The current-head deletion hypothesis already refuses without
+this graph stage; it is not claimed as an additional reproduced defect.
+
+```sh
+python3 experiments/issue-3785/native-gemini/probe_git_history.py /path/to/disposable/gemini-cli --diagnostics /tmp/gemini-git.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py /path/to/disposable/gemini-cli --history --git-history --diagnostics /tmp/gemini-git-cli.log
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package /path/to/tested-package --git --output /path/to/new-package
+```
+
+The matrix contains 21 scenarios / 25 bounded native processes. It covers both
+restored file generations, private-home disposal, two writers preserving all six
+files and acknowledged heads, peer freshness, project separation, configuration
+injection, changed selectors and eleven unsafe-object cases. The complete CLI
+initializes its real Git service, completes inference, loses its entire private
+home and resumes with the same canonical head and object identities. Seven
+complete CLI startup attacks require refusal before any additional inference.
+Fresh reconstruction compares all fourteen resulting manager/CLI/helper files.
+
+Each native service process has the same 256 MiB heap, 16 MiB stack, 25-second
+execution and 64 KiB diagnostic limits as the tracker probe. Object admission
+allows at most 10,000 loose objects, 128 MiB compressed total, 32 MiB per compressed
+or inflated object, 200,000 queued graph edges and 1,024 open canonical directory
+bindings. The shared audit retains its 32 MiB/100,000-event refusal bounds.
+These finite experimental limits are not a production retention policy.
+
+Actual terminal/ACP restorable-tool metadata still uses private JSON. The CLI
+control establishes Git startup and canonical initial-head continuity; it does
+not establish interactive edit/checkpoint/restore continuity. Existing private
+Git migration, interrupted object publication, power loss, all backends and
+production installation remain unfinished. The adapter stays opt-in and does
+not complete A1–A12. See the separate Git evidence file for verified controls;
+fresh Node 24 Git CI remains required.

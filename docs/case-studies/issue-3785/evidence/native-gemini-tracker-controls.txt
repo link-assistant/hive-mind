@@ -96,7 +96,14 @@ PASS: complete native CLI tool-output and blob disposal/resume, plus actual
       native-gemini-shell-controls.txt; this stage reruns their positive paths.
 PASS: complete repository formatting and ESLint; focused helper ESLint and
       changed-file secret scanning; actionlint, Python AST and Node syntax.
-Fresh Node 24 tracker CI remains pending at this update.
+Node 24 tracker job in run 41146984829 passes at exact head
+3aff67264dc719995d90c9a02a7189178d7cfa11 (created 2026-10-30T23:52:13Z).
+All 324 tracker artifact files are preserved locally. The sibling credential
+job exceeds its 15-minute total, so the Gemini workflow is not passing; the
+independent regression-job partition still requires fresh CI verification.
+Native Codex run 41146984988 also passes all three compiled jobs at this head.
+https://github.com/link-assistant/hive-mind/actions/runs/41146984829
+https://github.com/link-assistant/hive-mind/actions/runs/41146984988
 
 Service workers: 256 MiB heap, 16 MiB stack, 25-second deadline, 64 KiB logs.
 Complete CLI: 256 MiB heap, 16 MiB stack, 45-second deadline, 256 KiB logs.

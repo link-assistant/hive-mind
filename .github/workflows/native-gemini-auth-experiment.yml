@@ -461,3 +461,103 @@ jobs:
             ${{ runner.temp }}/gemini-tracker-*.control.json
           if-no-files-found: ignore
           retention-days: 7
+
+  native-git-checkpoints:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding native tracker package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-git-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-git-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce actual Git checkpoint loss after private-home disposal
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-git-before.log" > "$RUNNER_TEMP/gemini-git-before-control.log" 2>&1; then
+            echo 'The native Git checkpoint lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Native Git checkpoint history must survive private-home disposal.' "$RUNNER_TEMP/gemini-git-before-lifetime-peer.log"
+      - name: Apply canonical native Git object storage and serialized head publication
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce execution of changed private Git configuration
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario private-filter --diagnostics "$RUNNER_TEMP/gemini-git-filter-before.log" > "$RUNNER_TEMP/gemini-git-filter-before-control.log" 2>&1; then
+            echo 'The native Git configuration regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'REPRODUCED: the actual native Git child executed the synthetic private configuration filter.' "$RUNNER_TEMP/gemini-git-filter-before-private-filter-owner.log"
+      - name: Admit private Git configuration before executing native children
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_configuration.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_configuration.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce acceptance of missing earlier acknowledged Git objects
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario unsafe-missing --diagnostics "$RUNNER_TEMP/gemini-git-missing-before.log" > "$RUNNER_TEMP/gemini-git-missing-before-control.log" 2>&1; then
+            echo 'The native acknowledged-object regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Missing expected rejection: Native Git reads must refuse a missing earlier acknowledged commit object.' "$RUNNER_TEMP/gemini-git-missing-before-unsafe-missing-owner.log"
+      - name: Admit all acknowledged native object graphs with finite discovery bounds
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Restore actual native checkpoints across disposal and concurrent private writers
+        run: python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-git-after.log" > "$RUNNER_TEMP/gemini-git-after-control.log" 2>&1
+      - name: Resume the complete native CLI with the same canonical Git head
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --git-history --diagnostics "$RUNNER_TEMP/gemini-git-cli-after.log" > "$RUNNER_TEMP/gemini-git-cli-after-control.log" 2>&1
+      - name: Refuse unsafe native Git history before another model request
+        run: |
+          for state in missing symlink hardlink unsafe-mode content-change alternates head-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --git-history --git-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-git-cli-$state.log" > "$RUNNER_TEMP/gemini-git-cli-$state-control.log" 2>&1
+          done
+      - name: Rebuild all native Git stages and require identical tested source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-git-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --git --output "$RUNNER_TEMP/gemini-git-fresh-cli" > "$RUNNER_TEMP/gemini-git-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_git_history.py "$RUNNER_TEMP/gemini-git-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-git-fresh.log" > "$RUNNER_TEMP/gemini-git-fresh-control.log" 2>&1
+      - name: Preserve surrounding tracker and history service behavior
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for family in tracker shell_history logger artifacts blobs publication; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --diagnostics "$RUNNER_TEMP/gemini-git-$family.log" > "$RUNNER_TEMP/gemini-git-$family-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-git-storage.log" > "$RUNNER_TEMP/gemini-git-storage-control.log" 2>&1
+      - name: Preserve surrounding native authentication and complete CLI tools
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-git-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-git-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-git-auth-reads.log" 2>&1
+          for mode in history-tool-output history-blob shell-history tracker-history; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history "--$mode" --diagnostics "$RUNNER_TEMP/gemini-git-cli-$mode.log" > "$RUNNER_TEMP/gemini-git-cli-$mode-control.log" 2>&1
+          done
+      - name: Preserve native Git checkpoint diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-git-checkpoint-experiment
+          path: |
+            ${{ runner.temp }}/gemini-git-*.log
+            ${{ runner.temp }}/gemini-git-*.network.json
+            ${{ runner.temp }}/gemini-git-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7

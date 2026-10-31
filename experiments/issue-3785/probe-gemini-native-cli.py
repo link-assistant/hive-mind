@@ -36,6 +36,8 @@ parser.add_argument('--shell-history', action='store_true')
 parser.add_argument('--shell-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'command-schema'))
 parser.add_argument('--tracker-history', action='store_true')
 parser.add_argument('--tracker-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'task-schema'))
+parser.add_argument('--git-history', action='store_true')
+parser.add_argument('--git-history-attack', choices=('missing', 'symlink', 'hardlink', 'unsafe-mode', 'content-change', 'alternates', 'head-schema'))
 parser.add_argument('--expect-history-gap', action='store_true')
 parser.add_argument('--private-history', action='store_true')
 parser.add_argument('--history-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'foreign-project', 'invalid-session'))
@@ -60,6 +62,8 @@ assert not args.shell_history or args.history and not any(value for name, value 
 assert not args.shell_history_attack or args.shell_history
 assert not args.tracker_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'tracker_history', 'tracker_history_attack'))
 assert not args.tracker_history_attack or args.tracker_history
+assert not args.git_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'git_history', 'git_history_attack'))
+assert not args.git_history_attack or args.git_history
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
 assert not args.history_retention or args.history and not (args.history_attack or args.private_history or args.expect_history_gap)
@@ -87,7 +91,7 @@ manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
-                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2', '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', '3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413')
+                        '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2', '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', '3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3')
 history_adapter = manager_hash != 'c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-cli-'))
 root.chmod(0o700)
@@ -237,6 +241,8 @@ try:
     if args.tracker_history:
         settings['model']['maxSessionTurns'] = 6
         settings['experimental'] = {'taskTracker': True}
+    if args.git_history:
+        settings['general']['checkpointing'] = {'enabled': True}
     if args.history_tool_output:
         settings['tools'] = {'truncateToolOutputThreshold': 1024}
         (workspace / 'bounded-output.txt').write_text(tool_content)
@@ -657,6 +663,19 @@ try:
             artifact_bytes = artifact_file.read_bytes()
             artifact_identity = (artifact_file.stat().st_dev, artifact_file.stat().st_ino)
             (workspace / 'bounded.png').unlink()
+        if args.git_history:
+            git_audits = list(history.rglob('prompt-history.json'))
+            assert len(git_audits) == 1
+            git_audit = git_audits[0]
+            git_records = [record for record in json.loads(git_audit.read_text()) if record['type'] == 'git-checkpoint']
+            assert len(git_records) == 1 and re.fullmatch('[a-f0-9]{40}', git_records[0]['message'])
+            git_head = git_records[0]['message']
+            git_stores = list(history.glob('projects/*/git-checkpoints/objects'))
+            assert len(git_stores) == 1
+            git_objects = git_stores[0]
+            git_object = git_objects / git_head[:2] / git_head[2:]
+            git_bytes = git_object.read_bytes()
+            git_identity = git_object.stat().st_dev, git_object.stat().st_ino
         # The whole native process group has exited before private state disposal.
         shutil.rmtree(home)
         if args.history_tool_output:
@@ -728,6 +747,39 @@ try:
         peer_env = {**env, 'HOME': str(peer), 'GEMINI_CLI_HOME': str(peer),
                     'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
                     'XDG_CACHE_HOME': str(peer / '.cache')}
+        if args.git_history_attack:
+            attack = args.git_history_attack
+            protected = git_object
+            if attack in ('missing', 'symlink', 'hardlink'):
+                protected = root / 'protected-git-object'
+                git_object.rename(protected)
+                if attack == 'symlink':
+                    git_object.symlink_to(protected)
+                elif attack == 'hardlink':
+                    os.link(protected, git_object)
+            elif attack == 'unsafe-mode':
+                git_object.chmod(0o666)
+            elif attack == 'content-change':
+                git_object.chmod(0o600)
+                git_object.write_bytes(b'SYNTHETIC CORRUPT GIT OBJECT')
+            elif attack == 'alternates':
+                (git_objects / 'info/alternates').write_text(str(root) + '\n')
+            else:
+                records = json.loads(git_audit.read_text())
+                next(record for record in records if record['type'] == 'git-checkpoint')['message'] = 'SYNTHETIC INVALID HEAD'
+                git_audit.write_text(json.dumps(records))
+            original = protected.read_bytes(), protected.stat().st_dev, protected.stat().st_ino
+            audit_before = git_audit.read_bytes()
+            previous = len(models)
+            diagnostic = args.diagnostics.with_name(args.diagnostics.stem + '-git-unsafe.log')
+            code, output = invoke(diagnostic, peer_env, ['--resume', session, '--prompt', second_prompt])
+            assert len(models) == previous, 'Native CLI must refuse unsafe Git checkpoint history before another inference.'
+            assert code != 0 and 'Gemini canonical conversation history is unavailable or unsafe.' in output
+            assert (protected.read_bytes(), protected.stat().st_dev, protected.stat().st_ino) == original
+            assert git_audit.read_bytes() == audit_before and not errors, errors
+            print('PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: ' + attack)
+            safe_cleanup = True
+            raise SystemExit(0)
         if args.tracker_history_attack:
             audits = list(history.rglob('prompt-history.json'))
             assert len(audits) == 1
@@ -1090,6 +1142,12 @@ try:
                 assert tracker_steps == {'initial': 4, 'resume': 2} and sum(record['operation'] == 'streamGenerateContent' for record in models) == 8
                 assert not list(private.rglob('tracker/*.json'))
                 print('PASS: actual native CLI creates, updates, gets and lists a task, then a fresh resumed CLI lists and gets it after private-home disposal.')
+            if args.git_history:
+                assert git_object.read_bytes() == git_bytes
+                assert (git_object.stat().st_dev, git_object.stat().st_ino) == git_identity
+                assert [record['message'] for record in json.loads(git_audit.read_text()) if record['type'] == 'git-checkpoint'] == [git_head]
+                assert not list(private.rglob('history/**/objects/??/*'))
+                print('PASS: actual native CLI initializes Git checkpoints, disposes its private home, reconstructs the same canonical head and resumes without a duplicate generation.')
             print('PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.')
         assert not (private / 'oauth_creds.json').exists()
         assert not (private / 'google_accounts.json').exists()

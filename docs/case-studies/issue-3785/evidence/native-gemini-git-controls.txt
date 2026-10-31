@@ -1,0 +1,111 @@
+Gemini CLI 0.65.0; locally verified 2026-10-31, Node 26.12.1.
+Actual exported native Storage/GitService and real Git subprocesses.
+Complete CLI uses a TLS-verifying loopback provider, without export instrumentation.
+Every credential, project, conversation, file and provider is synthetic.
+
+Preceding manager 9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55
+Git manager a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3
+Base Git helper 7be869f6383b20eb21f944d9665268aa169e22ba6696f32337e9a21d52d94dcd
+Configuration-admitted helper f0573a298e7ebf4ced71dba4b3a90a4d2eac1ddf5be011a525b793530cf39e61
+Final object-admitted helper bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83
+Configuration helper 6da4109b58c0904e490ab3f1e525d1cb42759c4e24572febdea1d67729885451
+Object graph helper 22bb570da1e211791e3bc6a6eeefe46635fd63ba6df4cc87320978b8de45bd9f
+Kernel lock 6271784aa3773fc3a54056bf1ce8fd7b1f2da3a813e01537c47bcbc6d674c568
+Other tracker/history/publication/CLI pins match native-gemini-tracker-controls.txt.
+
+REPRODUCED: two real native snapshots and both restores succeed. After owner
+            exit and private-home disposal, the fresh native service loses them.
+REPRODUCED: the initial canonical-object draft executes a synthetic executable
+            clean filter added to private Git configuration. The configuration
+            stage now refuses before that child or filter executes.
+REPRODUCED: before object-graph admission, deleting an earlier acknowledged
+            commit still allows the native current-head read. The strict probe
+            requires its exact missing-rejection assertion before repair.
+HYPOTHESIS REFUTED: deleting the current head already refuses in the preceding
+                   stage; this is not reported as a newly reproduced defect.
+
+PASS: all 21 scenarios / 25 bounded actual native process results.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: fresh actual native Git restores both canonical checkpoint generations after private-home disposal.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses changed executable configuration before invoking a filter.
+PASS: independent native Git peer rereads and extends the current canonical checkpoint.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: retained native Git sees peer commits and restores old and new generations on its next operation.
+PASS: actual native Git writer-0 completes three independent snapshots.
+PASS: actual native Git writer-1 completes three independent snapshots.
+PASS: fresh native Git retains every acknowledged generation and all six files from two private writers.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: native Git retains all acknowledged generations without journaling unchanged snapshots or restore.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git separates canonical checkpoint history by real project root.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: native Git refuses changed-selector before changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: native Git refuses changed-service before changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: native Git refuses foreign-repository before changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: unselected native Git retains its original private storage behavior.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses missing without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses missing-blob without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses symlink without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses hardlink without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses unsafe-mode without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses content-change without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses oversized without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses alternates without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses pack without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses parent-replacement without changing canonical data.
+PASS: actual native Git creates two checkpoints, retains an unchanged snapshot and restores both file generations.
+PASS: actual native Git refuses root-replacement without changing canonical data.
+
+PASS: actual native CLI initializes Git checkpoints, disposes its private home, reconstructs the same canonical head and resumes without a duplicate generation.
+PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.
+
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: missing
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: symlink
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: hardlink
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: unsafe-mode
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: content-change
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: alternates
+PASS: complete native CLI refuses unsafe Git checkpoint history before another inference and preserves protected data: head-schema
+
+PASS: fresh checked source application rebuilds eleven history stages and
+      compares all fourteen native manager/CLI/helper files byte for byte.
+      Every applicability check is verified to leave all files unchanged.
+
+Bounds: 256 MiB process heap, 16 MiB stack, 25 seconds / 64 KiB per native
+service process. Complete CLI: 45 seconds / 256 KiB, whole process-group cleanup.
+Canonical data: 10,000 loose objects, 128 MiB compressed total, 32 MiB compressed
+or inflated per object, 200,000 graph edges, 1,024 directory bindings. The shared
+prompt audit refuses at 32 MiB / 100,000 events. Packs/alternates are not admitted.
+Debug stack locations are off by default and require GEMINI_HISTORY_DEBUG=1.
+
+Scope: actual native Git object/head lifecycle and complete native CLI startup.
+The CLI control preserves its initial canonical head across disposal/resume;
+it does not verify interactive edit/checkpoint/restore metadata continuity.
+Terminal and ACP restorable-tool JSON, existing private Git migration,
+interrupted native object publication, physical power loss, alternate backends,
+full-history/child lifecycle and production installation remain unfinished.
+This adapter remains opt-in; it does not complete A1-A12. Fresh Node 24 Git CI
+is required.
+
+PASS: surrounding final-Git native controls: 40 tracker, 28 shell, 36 Logger,
+      65 storage, nine tool-output, 31 blob, fifteen publication recovery and
+      live-journal replacement results. Canonical auth: 41 writers/accounts,
+      30 constructors/requests and eleven actual native read results.
+PASS: surrounding complete CLI tool-output, blob and tracker disposal/resume;
+      real terminal shell command execution/disposal/recall.
+PASS: complete repository formatting/ESLint, focused helper/probe ESLint,
+      changed-file secret scanning, actionlint, Python AST and Node syntax.

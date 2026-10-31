@@ -1227,3 +1227,25 @@ Every one of the existing 73 named checks remains exactly once, and each job
 keeps its 15-minute bound. The new job uploads its own diagnostics. Fresh CI
 must verify the interrupted controls and this partition; the earlier tracker
 success alone does not make the Gemini workflow pass.
+
+
+## Tracker head 3aff67264d: compiled native and complete pipeline checks
+
+Checks/release run 41146984792 and native Codex run 41146984988 both pass at
+`3aff67264dc719995d90c9a02a7189178d7cfa11`, created
+2026-10-30T23:52:13Z. Preserve the complete 72,149-line Checks log and 1,786-line
+Codex log locally, with exact-head job metadata. Checks full-log line 71624
+confirms all 739 default files; line 71686 confirms both integration files.
+Lines 44492–44497 verify actual packaged host/nested backing and Agent/OpenCode
+atomic replacement, deletion/recreation and two-task directory writes.
+Codex passes all three compiled
+jobs. Gemini's native tracker job 124374272320 passes and its complete set of
+324 artifact files is preserved, including forty actual native process results,
+complete CLI task lifetime/seven refusal controls and fresh-source reconstruction.
+The Gemini sibling credential job is canceled at its 15-minute total as detailed
+above; the independent job partition still needs a fresh run. These results do
+not establish production canonical authentication or the remaining A1–A12 scope.
+
+- https://github.com/link-assistant/hive-mind/actions/runs/41146984792
+- https://github.com/link-assistant/hive-mind/actions/runs/41146984988
+- https://github.com/link-assistant/hive-mind/actions/runs/41146984829

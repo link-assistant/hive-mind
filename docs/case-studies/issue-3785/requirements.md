@@ -162,7 +162,7 @@ verifies the same eight manager/CLI/helper files and passes its native hook
 lifetime control. Complete interactive failure/crash admission, migration,
 Git/plan/tracker/task storage, child/subagent lifecycle, alternate backends,
 rollover and production installation remain unfinished. Fresh exact-head Node 24
-CI remains required for this shell stage. See
+CI run 41143418875 passes the shell stage at 39e2e0d75. See
 `evidence/native-gemini-shell-controls.txt` for exact boundaries.
 
 A further native tracker stage reproduces loss of healthy created/updated tasks
@@ -174,6 +174,22 @@ reproduce closure and cycle decisions committing after a peer changes a
 dependency; an async operation context validates all observed task revisions
 inside the locked publication without replacing the native business validators.
 See `evidence/native-gemini-tracker-controls.txt` for exact local verification and
-limits. Fresh Node 24 CI, private-state migration, remaining full-history and
-lifecycle requirements, all backends and production integration remain required.
+limits. The Node 24 tracker job passes in run 41146984829 at 3aff67264d; its
+sibling credential job times out, and the job partition requires fresh CI.
+Private-state migration, remaining full-history and lifecycle requirements,
+all backends and production integration remain required.
 These experimental stages do not complete A1–A12.
+
+A further native Git checkpoint stage first reproduces lost healthy snapshots
+after private-home disposal, executable private configuration filters, and
+acceptance of a missing earlier acknowledged commit. Real native Git objects
+now use checked canonical data-only storage, while executable configuration and
+derived refs/index remain private. Serialized native operations reread the head,
+admit every acknowledged object graph and retain each published generation.
+Twenty-one native scenarios and seven complete CLI startup refusals pass locally;
+the complete CLI also retains its initialized head across disposal and resume.
+Fresh reconstruction checks all fourteen resulting manager/CLI/helper files.
+See `evidence/native-gemini-git-controls.txt` for exact boundaries. Terminal/ACP
+restorable-tool metadata, private-state migration, interrupted object publication,
+physical power loss, all backends and production installation stay unfinished.
+The Git adapter remains experimental; exact-head Node 24 CI remains required.

@@ -1105,8 +1105,27 @@ native writer before approval and execution. Healthy restore, live refusal and
 fresh startup refusal pass; 26 API scenarios / 30 native process results and
 seventeen byte-identical reconstructed native files provide separate evidence.
 See [terminal restore controls](evidence/native-gemini-restorable-controls.txt).
-Actual ACP writing, remaining history/lifecycle coverage, migration and production
-installation remain open. The preceding pushed commit 40db3a6e3c0 passes all eight
+Remaining history/lifecycle coverage, migration and production installation
+remain open. The preceding pushed commit 40db3a6e3c0 passes all eight
 workflows, including all four Gemini jobs, three compiled Codex jobs, 739 default
 files, both integration files and packaged host/nested Docker checks. See
 [exact-commit CI evidence](evidence/ci-40db3a6e3.txt). The new stage requires fresh CI.
+
+All five Node 24 Gemini jobs subsequently pass at `5abb937c55b2` in run
+[41153757108](https://github.com/link-assistant/hive-mind/actions/runs/41153757108),
+including terminal restore, live refusal and startup refusal. The complete
+2933-line workflow log and all 275 terminal-restore artifact files are preserved.
+
+A separate actual ACP experiment reproduces four defects: an approved edit
+without a checkpoint, restore leaving later messages in the next model request,
+the restored prompt disappearing on a third CLI reopen, and checkpoint listings
+showing `Unknown` instead of the saved name and tool. The native ACP
+writer now awaits its checkpoint before approval, applies restore to the actual
+chat/recorder, preserves context and user turn boundaries, and lists validated
+checkpoint names and tools. The full
+three-process restore and prior audit retention pass, alongside live/startup
+metadata refusals and unselected private recording. Native `replace`, automatic
+edits, cancellation and both restore listings also pass locally. See
+[ACP restore controls](evidence/native-gemini-acp-restore-controls.txt). Fresh
+exact-head Node 24 ACP CI and the remaining writers, lifecycle, migration and
+production integration are still required.

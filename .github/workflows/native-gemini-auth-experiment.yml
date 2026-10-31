@@ -14,6 +14,7 @@ on:
       - 'experiments/issue-3785/probe-gemini-native-history-storage.py'
       - 'experiments/issue-3785/native_process_group.py'
       - 'experiments/issue-3785/gemini_restorable_tui.py'
+      - 'experiments/issue-3785/gemini_restorable_acp.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -272,6 +273,128 @@ jobs:
             ${{ runner.temp }}/gemini-*.log
             ${{ runner.temp }}/gemini-*.network.json
             ${{ runner.temp }}/gemini-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-acp-restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Rebuild the exact preceding terminal restore package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-acp-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-acp-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination git_history git_configuration git_objects git_services restorable_history restorable_admission; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce the missing checkpoint after a healthy actual ACP edit
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-writer-before.log" > "$RUNNER_TEMP/gemini-acp-writer-before-control.log" 2>&1; then
+            echo 'The native ACP checkpoint regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-writer-before-control.log"
+          grep -F 'AssertionError: Actual native ACP edits must acknowledge their restorable checkpoint before approval.' "$RUNNER_TEMP/gemini-acp-writer-before-control.log"
+      - name: Apply the pinned actual ACP checkpoint writer
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_restorable.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_restorable.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce the actual ACP restore retaining later model messages
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-model-before.log" > "$RUNNER_TEMP/gemini-acp-model-before-control.log" 2>&1; then
+            echo 'The native ACP model-history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-model-before-control.log"
+          grep -F 'AssertionError: Native ACP restore must update the actual subsequent model history.' "$RUNNER_TEMP/gemini-acp-model-before-control.log"
+      - name: Apply the pinned actual ACP chat and recorder restore
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_restore_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_restore_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce the original prompt disappearing on a third actual ACP reopen
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-durable-before.log" > "$RUNNER_TEMP/gemini-acp-durable-before-control.log" 2>&1; then
+            echo 'The native ACP durable-history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual fresh native ACP restores its Git snapshot and model history after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-durable-before-control.log"
+          grep -F 'AssertionError: A fresh native ACP must resume the restored model history.' "$RUNNER_TEMP/gemini-acp-durable-before-control.log"
+      - name: Preserve native context and prompt turn boundaries
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce native ACP checkpoint listings losing their name and tool
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-acp-mode list --diagnostics "$RUNNER_TEMP/gemini-acp-list-before.log" > "$RUNNER_TEMP/gemini-acp-list-before-control.log" 2>&1; then
+            echo 'The native ACP checkpoint listing regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-list-before-control.log"
+          grep -F 'AssertionError: Actual native ACP checkpoint listings must identify their restorable native filename and tool.' "$RUNNER_TEMP/gemini-acp-list-before-control.log"
+      - name: List validated native ACP checkpoint names and tools
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_checkpoint_listing.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_checkpoint_listing.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-acp-mode list --diagnostics "$RUNNER_TEMP/gemini-acp-list-after.log" > "$RUNNER_TEMP/gemini-acp-list-after-control.log" 2>&1
+      - name: Verify actual ACP restore, third-process resume and audit retention
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
+      - name: Verify native replace, automatic edits and cancellation
+        run: |
+          for state in replace autoEdit cancel; do
+            if [ "$state" = replace ]; then
+              extra=(--restorable-acp-tool replace)
+            else
+              extra=(--restorable-acp-mode "$state")
+            fi
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp "${extra[@]}" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
+          done
+      - name: Refuse live and startup metadata damage and preserve unselected native behavior
+        run: |
+          for state in live-metadata-schema startup-metadata-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
+      - name: Rebuild all eighteen stages and require identical tested native source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-fresh.log" > "$RUNNER_TEMP/gemini-acp-fresh-control.log" 2>&1
+      - name: Preserve native metadata, terminal and authentication behavior
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/probe_restorable_history.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-metadata.log" > "$RUNNER_TEMP/gemini-acp-metadata-control.log" 2>&1
+          for state in healthy live-metadata-schema startup-metadata-schema; do
+            extra=()
+            if [ "$state" != healthy ]; then extra+=(--restorable-history-attack "$state"); fi
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history "${extra[@]}" --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-$state.log" > "$RUNNER_TEMP/gemini-acp-terminal-$state-control.log" 2>&1
+          done
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-acp-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-acp-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-acp-auth-reads.log" 2>&1
+      - name: Preserve actual native ACP diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-acp-restore-experiment
+          path: |
+            ${{ runner.temp }}/gemini-acp-*.log
+            ${{ runner.temp }}/gemini-acp-*.network.json
+            ${{ runner.temp }}/gemini-acp-*.control.json
           if-no-files-found: ignore
           retention-days: 7
 

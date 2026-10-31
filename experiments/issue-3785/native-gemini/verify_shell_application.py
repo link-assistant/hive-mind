@@ -14,6 +14,7 @@ parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--tracker', action='store_true', help='Also apply tracker storage and startup admission.')
 parser.add_argument('--git', action='store_true', help='Also apply tracker and checked native Git checkpoint storage.')
 parser.add_argument('--restorable', action='store_true', help='Also apply Git, native restore metadata and terminal edit admission.')
+parser.add_argument('--acp', action='store_true', help='Also apply native ACP checkpoint, restore, turn-boundary and listing repairs.')
 args = parser.parse_args()
 source = args.constructor_package.resolve(strict=True)
 tested = args.tested_package.resolve(strict=True)
@@ -34,9 +35,10 @@ def hashes():
     return result
 
 
-include_git = args.git or args.restorable
+include_restorable = args.restorable or args.acp
+include_git = args.git or include_restorable
 include_tracker = args.tracker or include_git
-stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if args.restorable else ())
+stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ())
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()
@@ -44,7 +46,7 @@ for stage in stages:
     assert hashes() == before, 'Checking applicability must not modify the disposable package.'
     subprocess.run(command, check=True)
 
-names = ('chunk-DKZARV6U.js', 'chunk-XHQ6TTKH.js', 'gemini-GLQ4MVLB.js', 'interactiveCli-AVD3AKNJ.js', 'hive-gemini-admission.mjs', 'hive-gemini-history.mjs', 'hive-gemini-publication.mjs', 'hive-gemini-shell-history.mjs') + (('hive-gemini-tracker-history.mjs', 'hive-gemini-tracker-transactions.mjs') if include_tracker else ()) + (('hive-gemini-git-history.mjs', 'hive-gemini-git-lock.mjs', 'hive-gemini-git-configuration.mjs', 'hive-gemini-git-objects.mjs') if include_git else ()) + (('chunk-YTHYCFAB.js', 'hive-gemini-restorable-history.mjs', 'hive-gemini-restorable-admission.mjs') if args.restorable else ())
+names = ('chunk-DKZARV6U.js', 'chunk-XHQ6TTKH.js', 'gemini-GLQ4MVLB.js', 'interactiveCli-AVD3AKNJ.js', 'hive-gemini-admission.mjs', 'hive-gemini-history.mjs', 'hive-gemini-publication.mjs', 'hive-gemini-shell-history.mjs') + (('hive-gemini-tracker-history.mjs', 'hive-gemini-tracker-transactions.mjs') if include_tracker else ()) + (('hive-gemini-git-history.mjs', 'hive-gemini-git-lock.mjs', 'hive-gemini-git-configuration.mjs', 'hive-gemini-git-objects.mjs') if include_git else ()) + (('chunk-YTHYCFAB.js', 'hive-gemini-restorable-history.mjs', 'hive-gemini-restorable-admission.mjs') if include_restorable else ())
 for name in names:
     actual = (output / 'bundle' / name).read_bytes()
     assert actual == (tested / 'bundle' / name).read_bytes(), 'Fresh application differs from the tested package: ' + name

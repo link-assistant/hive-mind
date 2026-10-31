@@ -38,6 +38,9 @@ parser.add_argument('--tracker-history', action='store_true')
 parser.add_argument('--tracker-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'task-schema'))
 parser.add_argument('--git-history', action='store_true')
 parser.add_argument('--restorable-history', action='store_true')
+parser.add_argument('--restorable-acp', action='store_true')
+parser.add_argument('--restorable-acp-tool', choices=('write_file', 'replace'))
+parser.add_argument('--restorable-acp-mode', choices=('autoEdit', 'cancel', 'list'))
 parser.add_argument('--restorable-history-attack', choices=('live-metadata-schema', 'startup-metadata-schema'))
 parser.add_argument('--git-history-attack', choices=('missing', 'symlink', 'hardlink', 'unsafe-mode', 'content-change', 'alternates', 'head-schema'))
 parser.add_argument('--expect-history-gap', action='store_true')
@@ -66,7 +69,10 @@ assert not args.tracker_history or args.history and not any(value for name, valu
 assert not args.tracker_history_attack or args.tracker_history
 assert not args.git_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'git_history', 'git_history_attack'))
 assert not args.git_history_attack or args.git_history
-assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack'))
+assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack', 'restorable_acp', 'restorable_acp_tool', 'restorable_acp_mode', 'private_history'))
+assert not args.restorable_acp or args.restorable_history
+assert not (args.restorable_acp_tool or args.restorable_acp_mode) or args.restorable_acp and not (args.private_history or args.restorable_history_attack)
+assert not (args.restorable_history and args.private_history) or args.restorable_acp and not args.restorable_history_attack
 assert not args.restorable_history_attack or args.restorable_history
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -352,8 +358,13 @@ try:
                         if args.restorable_history and operation == 'streamGenerateContent' and phase == 'initial' and phase not in tool_phases:
                             tool_phases.add(phase)
                             models[-1]['tool_call'] = True
-                            call = {'id': 'synthetic-restorable-write', 'name': 'write_file',
+                            call = {'id': 'synthetic-restorable-write', 'name': args.restorable_acp_tool or 'write_file',
                                     'args': {'file_path': str(workspace / 'native-restorable-witness.txt'), 'content': 'SYNTHETIC AFTER NATIVE EDIT café\n'}}
+                            if call['name'] == 'replace':
+                                call['args'] = {'file_path': str(workspace / 'native-restorable-witness.txt'),
+                                                'instruction': 'Replace the exact synthetic before line with the synthetic after line.',
+                                                'old_string': 'SYNTHETIC BEFORE NATIVE EDIT 東京\n',
+                                                'new_string': 'SYNTHETIC AFTER NATIVE EDIT café\n'}
                             self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-restorable-response'}, stream=True)
                             return
                         if args.tracker_history and operation == 'streamGenerateContent':
@@ -638,11 +649,16 @@ try:
         raise SystemExit(0)
 
     if args.restorable_history:
-        from gemini_restorable_tui import verify_restorable_lifetime
+        protocol_options = {}
+        if args.restorable_acp:
+            from gemini_restorable_acp import verify_acp_lifetime as verify_restorable_lifetime
+            protocol_options = {'tool': args.restorable_acp_tool or 'write_file', 'mode': args.restorable_acp_mode}
+        else:
+            from gemini_restorable_tui import verify_restorable_lifetime
         verify_restorable_lifetime(native=native, root=root, home=home, workspace=workspace,
                                    history=history, env=env, settings=settings, diagnostics=args.diagnostics,
                                    models=models, first_prompt=first_prompt, second_prompt=second_prompt,
-                                   attack=args.restorable_history_attack)
+                                   attack=args.restorable_history_attack, **protocol_options)
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors

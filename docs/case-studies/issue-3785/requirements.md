@@ -211,7 +211,24 @@ live refusal and fresh startup refusal pass. All 26 API scenarios / 30 native
 process results pass, and fourteen fresh-source stages reproduce seventeen
 tested manager/CLI/helper files. See
 `evidence/native-gemini-restorable-controls.txt` for exact pins and limits.
-These remain experimental changes requiring fresh exact-head Node 24 CI. Actual
+These remain experimental changes. All five Node 24 Gemini jobs pass at
+5abb937c55b2 in run 41153757108. At that stage, actual
 ACP writing, child/subagent writers, remaining task/plan memory, migration,
 interrupted/power-loss durability, all backend lifecycle coverage and production
 installation remain required. A1–A12 remain unfinished.
+
+The following actual ACP control reproduces missing checkpoint writes, model
+history not changing after restore, the restored first prompt being lost
+on a third CLI reopen because native history coalesces it with filtered session
+context, and restore listings showing `Unknown` for saved names and tools.
+Separate pinned repairs await the ACP writer, apply the native chat/recorder
+restore, preserve actual turn boundaries and list validated checkpoint metadata.
+Native `replace`, automatic edits, cancellation and both restore listings pass
+locally. Three-process restore,
+prior audit byte retention, live/startup schema refusals and original unselected
+behavior pass locally; eighteen fresh stages reproduce seventeen tested native
+files, and that reconstruction passes the full three-process restore cycle.
+See `evidence/native-gemini-acp-restore-controls.txt`. Its exact-head Node
+24 CI, remaining ACP/child writers, plan/task memory, interruption/power loss,
+migration, all-backend lifecycle and production integration remain unfinished.
+This evidence does not complete A1–A12.

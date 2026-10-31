@@ -1141,12 +1141,41 @@ Latest CI continuation:
       including complete Checks and Codex logs and exact test/Docker line numbers.
       Reproduce the final-source shell probe rejecting its new terminal hash
       before execution; add that exact tested hash and rerun the complete suite.
-- [ ] Complete native ACP checkpoint writing (read/restore paths are patched,
-      actual ACP write coverage is still open), child/subagent writers, all plan
+- [ ] Complete every native ACP checkpoint writer, child/subagent writers, all plan
       and task memory, legacy migration, interrupted/power-loss publication and
       production package/image/launcher integration. Native terminal evidence
       does not complete these criteria or the all-six-backend acceptance matrix.
-- [ ] Trace actual ACP session tool execution and require a strict healthy-edit
+- [x] Trace actual ACP session tool execution and require a strict healthy-edit
       regression before implementing its missing checkpoint writer. Exercise the
       actual JSON-RPC CLI, private-home disposal, fresh native session load and
       restore; keep terminal and ACP model-history behavior separately verified.
+- [x] Reproduce the actual ACP edit completing without an acknowledged checkpoint.
+      Await its native snapshot/metadata writer before approval, and revalidate
+      before actual execution. Preserve unselected private behavior.
+- [x] Reproduce native ACP restore changing files while retaining later messages
+      in the next actual provider request. Apply restored history through the
+      actual chat and its existing durable recorder after checked Git restore.
+- [x] Reproduce the original prompt disappearing on a third native ACP reopen:
+      native checkpoint history coalesces it with the filtered session context.
+      Preserve actual turn boundaries before native checkpoint serialization.
+- [x] Reproduce actual restore listings showing Unknown for a saved checkpoint.
+      Read the validated canonical filename and native tool instead of fields
+      absent from the native checkpoint information. Verify both restore commands
+      without inference or project changes.
+- [x] Verify actual native replace, automatic edit mode and cancellation.
+      Automatic edits require the same checkpoint without a permission request;
+      cancellation leaves both project files unchanged and retains its checkpoint.
+- [x] Verify the full three-process ACP restore, complete prior audit retention,
+      live/startup unsafe metadata refusals and unselected native behavior.
+      Distinguish the real conversation audit from temporary empty sessions that
+      native cleanup may archive. Rebuild all eighteen stages without mutation
+      during applicability checks, and compare all seventeen final native files.
+- [x] Add a bounded independent ACP CI job preserving all four strict before
+      controls. Run the combined reconstructed package through all 54 metadata
+      assertions, three terminal controls and all 82 authentication controls.
+- [ ] Commit atomic ACP changes, push only the prepared branch, and require
+      exact-head Node 24 CI before treating that stage as verified.
+- [ ] Extend actual terminal restore verification through a third private-home
+      disposal/resume and inspect its next model history and retained audit.
+      The terminal still obtains checkpoint model history through the coalescing
+      client getter; establish a strict reproducer before changing that writer.

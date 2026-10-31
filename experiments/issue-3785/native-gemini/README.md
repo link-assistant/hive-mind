@@ -893,3 +893,76 @@ fresh reconstruction and surrounding native checks, within fifteen minutes.
 Legacy migration, child/subagent writers, task/plan memory, interrupted and
 power-loss durability, actual ACP writing and production integration remain
 open. Passing this experiment does not complete the issue.
+
+## Actual ACP checkpoint and conversation restore
+
+The ACP entry has its own `Session.runTool` path. A healthy actual `write_file`
+edit completes without calling the terminal's checkpoint writer. A strict
+JSON-RPC CLI regression demonstrates the missing canonical checkpoint before
+`apply_acp_restorable.py` registers and awaits the native snapshot writer before
+approval, then revalidates admission before execution.
+
+Two further strict controls distinguish restoring files from restoring the
+actual model conversation. With only the writer repair, `/restore` rewinds the
+Git snapshot but the next provider request retains later messages.
+`apply_acp_restore_history.py` applies the native `load_history` result through
+the actual chat's `setHistory`, including its existing recorder. That next
+request then passes, but a third CLI reopen loses the original prompt because
+native `getHistory()` coalesces it with the session-context turn that the native
+loader filters out. `apply_acp_durable_history.py` preserves the actual turn
+boundaries before native checkpoint serialization.
+
+Finally, `/restore list` reads nonexistent fields from native checkpoint
+information and displays `Unknown`. `apply_acp_checkpoint_listing.py` uses the
+native checkpoint identifier and its validated canonical tool name. Both
+`/restore` and `/restore list` now identify the saved checkpoint without inference
+or project changes. The unselected private listing branch is preserved.
+
+Apply these four stages in that order after terminal restore admission. Each
+requires Gemini 0.65.0, exact prerequisite hashes and a unique source context;
+`--check` does not mutate the disposable package. They do not install or modify
+production packages.
+
+```sh
+for stage in acp_restorable acp_restore_history acp_durable_history acp_checkpoint_listing; do
+  python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+  python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+done
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-acp --diagnostics /tmp/gemini-acp.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-acp --restorable-acp-tool replace --diagnostics /tmp/gemini-acp-replace.log
+for state in autoEdit cancel list; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-acp --restorable-acp-mode "$state" --diagnostics "/tmp/gemini-acp-$state.log"
+done
+for state in live-metadata-schema startup-metadata-schema; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "/tmp/gemini-acp-$state.log"
+done
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-acp --private-history --diagnostics /tmp/gemini-acp-private.log
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package "$package" --acp --output /path/to/new-package
+```
+
+The actual CLI runs through its newline-delimited JSON-RPC transport, with no
+native exports, SDK methods or server methods instrumented. A synthetic TLS
+provider requests one native edit. The healthy test requires acknowledgement
+before approval, deletes the entire first private home, loads the same session,
+adds a later prompt and restores both the edited file and an untouched companion.
+The next real request contains the original prompt and excludes the later one.
+After deleting the second private home, a third actual ACP must load that same
+restored model history. The prior conversation audit remains an unchanged byte
+prefix, and the acknowledged checkpoint remains available.
+
+Native `replace` and automatic edit mode exercise the same complete cycle;
+automatic mode must acknowledge its checkpoint without requesting permission.
+Cancellation must retain its checkpoint and leave both project files unchanged.
+Live damage after acknowledgement must prevent the approved edit and further
+inference. Fresh startup damage must refuse before inference or project changes.
+Both refusal controls retain the damaged bytes. The no-selector control requires
+native private recording and editing while leaving canonical history untouched.
+
+The independent `native-acp-restore` CI job preserves all four strict before
+controls and actual after controls, reconstructs eighteen checked stages into
+seventeen identical manager/CLI/helper files, and runs the complete restore
+metadata matrix, terminal controls and all 82 authentication controls. Native
+process groups have finite memory, stack, phase, request and diagnostic bounds
+and are reaped before completion. Exact-head Node 24 CI, other ACP/child writers,
+plan/task memory, migration, interruption/power loss, the complete backend
+lifecycle matrix and production installation remain required.

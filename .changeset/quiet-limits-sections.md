@@ -135,3 +135,6 @@ unfinished.
 Admit measured optimized Codex executables within a finite 384 MiB package and
 installer size ceiling, with a full-size packaging regression and preserved
 platform, alias and recipe-ceiling refusals.
+
+Refresh all image and runtime Formal AI bootstrap pins to published 0.355.27
+after the dependency-freshness gate rejected the previous version.

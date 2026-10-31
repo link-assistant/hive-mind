@@ -13,6 +13,7 @@ on:
       - 'experiments/issue-3785/probe-gemini-native-cli.py'
       - 'experiments/issue-3785/probe-gemini-native-history-storage.py'
       - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/gemini_restorable_tui.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -271,6 +272,94 @@ jobs:
             ${{ runner.temp }}/gemini-*.log
             ${{ runner.temp }}/gemini-*.network.json
             ${{ runner.temp }}/gemini-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-restorable-tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding native Git service package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-restorable-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-restorable-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination git_history git_configuration git_objects git_services; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce actual terminal restore metadata loss after a healthy edit
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --diagnostics "$RUNNER_TEMP/gemini-restorable-before.log" > "$RUNNER_TEMP/gemini-restorable-before-control.log" 2>&1; then
+            echo 'The native terminal restore regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native TUI records its restorable checkpoint before approval' "$RUNNER_TEMP/gemini-restorable-before-control.log"
+          grep -F 'AssertionError: Fresh native TUI must restore its actual pre-edit checkpoint after private-home disposal.' "$RUNNER_TEMP/gemini-restorable-before-control.log"
+      - name: Preserve checked native restore metadata in canonical history
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce an approved edit executing with damaged restore metadata
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-history-attack live-metadata-schema --diagnostics "$RUNNER_TEMP/gemini-restorable-admission-before.log" > "$RUNNER_TEMP/gemini-restorable-admission-before-control.log" 2>&1; then
+            echo 'The native terminal edit admission regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Unsafe native restore metadata must prevent the approved native edit.' "$RUNNER_TEMP/gemini-restorable-admission-before-control.log"
+      - name: Require acknowledged native snapshots before approval and execution
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_restorable_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_restorable_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify actual native metadata writers, generations, restore and unsafe storage
+        run: python3 experiments/issue-3785/native-gemini/probe_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-restorable-after.log" > "$RUNNER_TEMP/gemini-restorable-after-control.log" 2>&1
+      - name: Restore the original conversation and project in a fresh actual terminal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --diagnostics "$RUNNER_TEMP/gemini-restorable-cli-after.log" > "$RUNNER_TEMP/gemini-restorable-cli-after-control.log" 2>&1
+      - name: Refuse damaged restore metadata before edit execution and inference
+        run: |
+          for state in live-metadata-schema startup-metadata-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-restorable-cli-$state.log" > "$RUNNER_TEMP/gemini-restorable-cli-$state-control.log" 2>&1
+          done
+      - name: Require identical fresh native source through restore admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-restorable-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --restorable --output "$RUNNER_TEMP/gemini-restorable-fresh-cli" > "$RUNNER_TEMP/gemini-restorable-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_restorable_history.py "$RUNNER_TEMP/gemini-restorable-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-restorable-fresh.log" > "$RUNNER_TEMP/gemini-restorable-fresh-control.log" 2>&1
+      - name: Preserve surrounding native Git, tracker, history and authentication
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for family in git_history tracker; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-restorable-$family.log" > "$RUNNER_TEMP/gemini-restorable-$family-control.log" 2>&1
+          done
+          for family in shell_history logger artifacts blobs publication; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --diagnostics "$RUNNER_TEMP/gemini-restorable-$family.log" > "$RUNNER_TEMP/gemini-restorable-$family-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-restorable-storage.log" > "$RUNNER_TEMP/gemini-restorable-storage-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-restorable-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-restorable-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-restorable-auth-reads.log" 2>&1
+      - name: Preserve native restorable-tool diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-restorable-tool-experiment
+          path: |
+            ${{ runner.temp }}/gemini-restorable-*.log
+            ${{ runner.temp }}/gemini-restorable-*.network.json
+            ${{ runner.temp }}/gemini-restorable-*.control.json
           if-no-files-found: ignore
           retention-days: 7
 

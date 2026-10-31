@@ -1083,7 +1083,8 @@ Latest CI continuation:
       durations with the preceding passing run. Split the final 13 checks into
       an independent reconstruction job, preserving all 73 named checks and
       existing job bounds. Run actionlint and formatting before committing.
-- [ ] Require fresh CI for the partition and interrupted authentication checks.
+- [x] Require fresh CI for the partition and interrupted authentication checks:
+      all four Gemini jobs pass at 40db3a6e3c0 in run 41150101913.
 - [ ] Preserve native Git checkpoint objects and every acknowledged head across
       private-home disposal without sharing Git configuration or hooks. First
       reproduce lifetime loss, private executable filters and missing older
@@ -1101,17 +1102,39 @@ Latest CI continuation:
       blob, publication and authentication suites, plus full CLI tool-output/blob/
       tracker disposal/resume and real terminal shell recall. Pass full repository
       formatting/ESLint, focused helper lint, secret scan and workflow checks.
-- [ ] Require exact-head Node 24 Git CI and the independent history-job partition.
+- [x] Require exact-head Node 24 Git CI and the independent history-job partition
+      at 40db3a6e3c0. Preserve the complete 2373-line Gemini log and 1329 artifact
+      files; all four jobs pass, including the full credential job.
 - [x] Observe successful Git, tracker and independent history-regression jobs at
-      40db3a6e3c0 in run 41150101913. Keep the still-running credential job and
-      complete workflow result separate from those passing jobs.
+      40db3a6e3c0 in run 41150101913. Credential reads subsequently pass too;
+      the complete workflow succeeds at 2026-10-31T00:35:39Z.
 - [x] Trace the actual terminal's missing checkpoint to a second native GitService
       over startup's initialized private repository. Reproduce that refusal in a
       focused native service control, then reuse the checked repository seal.
 - [x] Verify all 24 Git scenarios / 28 native process results and fourteen fresh
-      source files after service reuse. Local CI checks remain running before
-      committing; this stage does not persist native terminal restore metadata.
-- [ ] Reproduce actual terminal edit/checkpoint/restore metadata loss after a
-      healthy acknowledged edit and private-home disposal, then preserve and
-      validate every restorable-tool metadata generation at the native writers,
-      discovery/completion, TUI and ACP restore paths before production use.
+      source files after service reuse. Full formatting/ESLint, actionlint,
+      secret scanning and Python parsing pass before commit c055c7dd2;
+      that stage does not persist native terminal restore metadata.
+- [x] Reproduce actual terminal restore metadata loss after a healthy
+      acknowledged edit and complete private-home disposal. Preserve the actual
+      pre-edit commit, UI conversation, model history, tool and prompt identifier
+      as data-only generations in checked canonical prompt history.
+- [x] Pass 26 native metadata scenarios / 30 native process results: independent
+      writers, retained readers, replacement generations, project separation,
+      restore ordering and 17 unsafe metadata controls. Preserve native automatic
+      tool replay and use an untouched companion file to prove the Git restore.
+- [x] Reproduce an approved native edit executing with damaged restore metadata.
+      Bind the actual terminal writer before native approval and execution;
+      validate registered metadata before provider dispatch, and reject failed
+      snapshots instead of falling back to an older head. Healthy restore,
+      live refusal and fresh startup refusal pass with the guard applied.
+- [x] Rebuild fourteen history stages from the pinned constructor package and
+      compare all seventeen manager, CLI and helper files byte for byte without
+      applicability-check mutations.
+- [ ] Complete final-source surrounding suites and local CI, commit and push the
+      metadata and edit-admission stages, then require exact-head Node 24 CI.
+- [ ] Complete native ACP checkpoint writing (read/restore paths are patched,
+      actual ACP write coverage is still open), child/subagent writers, all plan
+      and task memory, legacy migration, interrupted/power-loss publication and
+      production package/image/launcher integration. Native terminal evidence
+      does not complete these criteria or the all-six-backend acceptance matrix.

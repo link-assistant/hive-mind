@@ -797,7 +797,7 @@ or inflated object, 200,000 queued graph edges and 1,024 open canonical director
 bindings. The shared audit retains its 32 MiB/100,000-event refusal bounds.
 These finite experimental limits are not a production retention policy.
 
-Actual terminal/ACP restorable-tool metadata still uses private JSON. The CLI
+At this Git-only stage, terminal/ACP restorable-tool metadata uses private JSON. The CLI
 control establishes Git startup and canonical initial-head continuity; it does
 not establish interactive edit/checkpoint/restore continuity. Existing private
 Git migration, interrupted object publication, power loss, all backends and
@@ -822,3 +822,74 @@ initialized Storage object for the same private repository. A third control
 requires a fresh UI service to reject an injected executable Git filter.
 This extends the matrix to 24 scenarios / 28 bounded native processes.
 It does not persist terminal restore metadata or establish live approval safety.
+
+## Native terminal restore metadata and edit admission
+
+The Git service stage first allows the actual terminal to complete its healthy
+checkpoint and approved `write_file` edit. Deleting its entire private home then
+leaves `/restore` reporting `File not found`. The strict regression requires both
+the original conversation and project snapshot to survive that disposal.
+
+Apply `apply_restorable_history.py` after `apply_git_services.py`, then
+`apply_restorable_admission.py`. Both stages check exact pinned source hashes and
+unique native contexts before making changes. `--check` makes no changes.
+This remains a disposable experiment; no production launcher installs it.
+
+The actual native `processRestorableToolCalls` writer appends its complete JSON
+to canonical prompt history with type `restorable-tool` and a reserved session.
+Each record retains the generated native filename, Git commit, UI history,
+model conversation, tool arguments and prompt identifier. Replacement filenames
+derive a current view while preserving every acknowledged generation. The
+existing checked publication lock coordinates independent writers. Entries have
+a 4 MiB bound within the journal's existing 32 MiB / 100,000-record bounds.
+
+Every read and write validates all metadata generations with the actual native
+Zod schema, the native timestamp/basename/tool filename, the reserved session,
+and membership of the commit in acknowledged Git history. UI history uses the
+same `{type, id}` schema as the actual terminal. Unsafe, missing or changed
+storage refuses; there is no fallback to disposable private checkpoint JSON.
+The terminal restore command and completion, and the ACP list/read/restore
+paths, derive their data from these checked records. Native restore verifies
+the acknowledged metadata and restores Git before yielding UI history changes.
+
+A second strict terminal regression damages a metadata history item while
+approval is pending. Persistence alone still lets the actual approved edit run.
+The admission stage registers the terminal's real history writer, awaits its
+complete native snapshot before showing approval and again before execution,
+and validates registered metadata before Code Assist dispatch. A failed new
+snapshot cannot use an earlier head. A batch serializes checkpoint operations;
+normal native unselected behavior remains available. ACP writing and nonterminal
+execution paths are separate, unfinished criteria.
+
+Run the actual terminal lifetime and refusal controls with:
+
+```sh
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --diagnostics /tmp/gemini-restorable.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-history-attack live-metadata-schema --diagnostics /tmp/gemini-restorable-live.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-history-attack startup-metadata-schema --diagnostics /tmp/gemini-restorable-startup.log
+python3 experiments/issue-3785/native-gemini/probe_restorable_history.py "$package" --diagnostics /tmp/gemini-restorable-api.log
+```
+
+Native slash restore automatically replays its saved client-initiated tool.
+The terminal test preserves that behavior: an untouched companion file must
+return to its pre-edit contents, the original conversation must reappear, and
+the stored tool replays without another model request. It deletes the whole
+first private home and starts a fresh native terminal, with no native exports or
+SDK methods instrumented and a loopback-only TLS provider.
+
+The API suite runs 26 scenarios / 30 native process results, including two
+writers preserving all six checkpoints, retained readers seeing peer writes,
+replacement generations, project separation, invalid restore ordering, changed
+storage/selector and 17 unsafe journal/schema/commit controls. All processes
+have finite memory, stack, diagnostic and barrier bounds; failed fixtures remain
+available and whole process groups are reaped. `GEMINI_HISTORY_DEBUG=1` enables
+content-free refusal locations; it is off by default.
+
+`verify_shell_application.py --restorable` applies fourteen history stages from
+the pinned constructor package and compares seventeen native manager, CLI and
+helper files with the tested package. The independent `native-restorable-tools`
+CI job preserves the two strict negative controls, positive terminal/API checks,
+fresh reconstruction and surrounding native checks, within fifteen minutes.
+Legacy migration, child/subagent writers, task/plan memory, interrupted and
+power-loss durability, actual ACP writing and production integration remain
+open. Passing this experiment does not complete the issue.

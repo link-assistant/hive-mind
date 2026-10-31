@@ -1097,3 +1097,14 @@ modes, six OAuth overrides and 15 retained-provider methods refuse; the
 no-selector CLI still completes its synthetic loopback request. Current
 API-key/Coding Plan canonical storage remains open. See the native-Qwen
 experiment README for exact commands and boundaries; fresh CI is required.
+
+The latest Gemini terminal experiment preserves actual restorable tool metadata
+and its Git/conversation history after complete private-home disposal. It also
+reproduces an approved edit running with damaged metadata and binds the actual
+native writer before approval and execution. Healthy restore, live refusal and
+fresh startup refusal pass; 26 API scenarios / 30 native process results and
+seventeen byte-identical reconstructed native files provide separate evidence.
+See [terminal restore controls](evidence/native-gemini-restorable-controls.txt).
+Actual ACP writing, remaining history/lifecycle coverage, migration and production
+installation remain open. The preceding pushed commit 40db3a6e3c0 passes all four
+Gemini jobs and all three compiled Codex jobs; the new stage requires fresh CI.

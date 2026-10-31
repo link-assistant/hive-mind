@@ -192,4 +192,26 @@ Fresh reconstruction checks all fourteen resulting manager/CLI/helper files.
 See `evidence/native-gemini-git-controls.txt` for exact boundaries. Terminal/ACP
 restorable-tool metadata, private-state migration, interrupted object publication,
 physical power loss, all backends and production installation stay unfinished.
-The Git adapter remains experimental; exact-head Node 24 CI remains required.
+The Git adapter remains experimental. All four Node 24 Gemini jobs subsequently
+pass in run 41150101913 at 40db3a6e3c0, including the independent history-job
+partition and credential controls. A further service-reuse stage reproduces the
+actual terminal's second GitService refusing startup's initialized repository;
+all 24 Git scenarios / 28 native process results pass after sharing its checked
+repository seal, and fourteen fresh-source files match byte for byte.
+
+The next terminal metadata stage reproduces `/restore` losing a healthy native
+checkpoint after complete private-home disposal. Native conversation, tool,
+prompt and Git metadata now append as checked canonical data-only generations.
+The actual fresh terminal restores the original conversation and untouched
+companion file, preserving native automatic tool replay without further
+inference. A second strict regression reproduces damaged metadata allowing the
+approved edit; the actual native writer is now awaited before approval and
+execution, and registered metadata is checked before dispatch. Healthy restore,
+live refusal and fresh startup refusal pass. All 26 API scenarios / 30 native
+process results pass, and fourteen fresh-source stages reproduce seventeen
+tested manager/CLI/helper files. See
+`evidence/native-gemini-restorable-controls.txt` for exact pins and limits.
+These remain experimental changes requiring fresh exact-head Node 24 CI. Actual
+ACP writing, child/subagent writers, remaining task/plan memory, migration,
+interrupted/power-loss durability, all backend lifecycle coverage and production
+installation remain required. A1–A12 remain unfinished.

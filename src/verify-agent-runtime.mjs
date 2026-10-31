@@ -11,6 +11,7 @@ import os from 'node:os';
 import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from './codex-stock-skills.lib.mjs';
 import { assertCodexStockSkillDiscovery } from './codex-stock-catalog.lib.mjs';
 import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
+import { verifyNativeGeminiCommand } from './native-gemini-command.lib.mjs';
 
 const DEADLINE_MS = 30_000;
 class RuntimeProbeCleanupError extends Error {}
@@ -226,6 +227,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
       assert.equal(stdout.trim(), expected, 'Installed CLI version differs from the pinned runtime.');
     }
     await materializeStock(codexCommand, home, cwd, probeEnv);
+    await verifyNativeGeminiCommand({ command: geminiCommand });
     await verifyToolDataRuntimeVersions({ homeDir: home, cwd, agentCommand, opencodeCommand, geminiCommand, qwenCommand });
     await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   } catch (error) {
@@ -241,7 +243,7 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     await verifyAgentRuntime({ env: process.env });
-    console.log('Installed pinned CLI versions, known global baseline and pristine Codex stock runtime verified.');
+    console.log('Installed pinned CLI versions, native Gemini adapter, known global baseline and pristine Codex stock runtime verified.');
   } catch {
     console.error('Installed agent runtime verification failed. Check pinned versions and restore a verified clean baseline.');
     process.exitCode = 1;

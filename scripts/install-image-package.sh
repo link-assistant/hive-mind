@@ -9,7 +9,7 @@ package_archive=$(cd "$package_source" && npm pack --ignore-scripts --silent --p
 package_archive="$package_stage/$package_archive"
 test -f "$package_archive"
 # These are runtime inputs, not development scripts mounted into a test image.
-for package_file in src/hive.mjs src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json; do
+for package_file in src/hive.mjs src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json; do
   tar -tzf "$package_archive" | grep -Fx "package/$package_file" >/dev/null
 done
 bun install -g "$package_archive"

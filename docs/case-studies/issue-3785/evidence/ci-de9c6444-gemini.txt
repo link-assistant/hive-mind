@@ -1,0 +1,42 @@
+Native Gemini CI at de9c6444692eb2da640ded05aae0bc0eb26f8c03.
+Run https://github.com/link-assistant/hive-mind/actions/runs/41172094758
+Created 2026-10-31T05:18:58Z. All six jobs pass on this exact pushed head.
+This includes the repaired final authentication pin, complete-CLI plan
+interruption controls and stage-27 atomic proof publication. It precedes the
+new production package installer and image activation changes.
+
+Full runner log: ci-logs/native-gemini-41172094758.log, 3,911 lines,
+reviewed in three chunks of at most 1,500 lines. SHA-256:
+01cd33e9a98db044a0d2e739bf867bb9756da5a40c52f483b4e47960789a6ee9
+No runner error annotations. The six preserved artifact collections contain
+2,731 files and 2,473 nonempty bounded review chunks. All 80 assertion-bearing
+files belong to strict before/regression controls, with no assertion in a
+positive control. Of 196 network diagnostics, 194 have errors []. The two
+explicit tracker before controls contain the expected ["AssertionError"],
+confirmed by their strict regression workflow steps. No unexpected network
+error is suppressed. Review script:
+experiments/issue-3785/review_native_gemini_ci.py
+
+Final ACP authentication logs pass 41 native writer assertions, 30 actual
+request-authority assertions and 11 private-configuration read assertions.
+The native manager hash remains the exact verified plan stage:
+80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+No weakening of the source/version allowlist was needed.
+
+Both complete-CLI partial-proof regressions fail before stage 27 and pass
+after repair. Native proof/API recovery, unsafe-storage refusals, live proof
+substitutions and complete-CLI publication boundaries pass, alongside the
+existing terminal/ACP restore, headless, child, metadata and authentication
+controls. These verify the adapter, not the unfinished production contract.
+
+GitHub artifact IDs (preserved locally under gemini-de9-artifacts):
+13032285518 native-gemini-auth-experiment
+13032220181 native-gemini-history-regressions
+13031835914 native-gemini-git-checkpoint-experiment
+13031423697 native-gemini-restorable-tool-experiment
+13031389837 native-gemini-acp-restore-experiment
+13031104943 native-gemini-tracker-history-experiment
+
+The PR remains draft and unmerged. Default canonical selection, remaining
+writers/task memory, migration, cleanup and the full six-tool production
+lifecycle are still open acceptance criteria.

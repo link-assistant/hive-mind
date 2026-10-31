@@ -2,6 +2,8 @@
 // the installed verifier against the actual network-disabled Codex binary.
 // Claude --version is local; this is not a full release-image lifecycle test.
 import assert from 'node:assert/strict';
+import process from 'node:process';
+import console from 'node:console';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, mkdir, realpath, writeFile, rm } from 'node:fs/promises';
@@ -11,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 const execute = promisify(execFile);
 const root = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-package-'));
 const label = `hive-3785-package=${process.pid}`;
-const binary = process.env.CODEX_PROBE_BINARY || '/home/box/.bun/install/global/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex';
+const binary = process.env.CODEX_PROBE_BINARY || path.resolve('experiments/issue-3785/native-codex/stock-cli/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex');
 const env = { ...process.env, BUN_INSTALL: path.join(root, 'bun'), PATH: `${path.join(root, 'bun/bin')}:${process.env.PATH}` };
 try {
   const { stdout: bin } = await execute('bun', ['pm', 'bin', '-g'], { env });
@@ -22,6 +24,11 @@ try {
   await execute('bun', ['install', '--global', '--ignore-scripts'], { env, maxBuffer: 1024 * 1024 });
   const installed = await realpath(path.join(root, 'bun/bin/hive'));
   assert.ok(installed.startsWith(`${root}/`), 'installed package must not resolve into the checkout or host global installation');
+  await execute('bun', ['install', '-g', '@google/gemini-cli@0.65.0'], { env, maxBuffer: 1024 * 1024 });
+  await execute('node', [path.join(path.dirname(installed), 'install-native-gemini.mjs')], { env, maxBuffer: 1024 * 1024 });
+  // Later operational-tool updates must not silently replace the activated
+  // native command with the stock package-manager entrypoint.
+  await execute('bun', ['install', '-g', '--ignore-scripts', 'gh-upload-log@latest'], { env, maxBuffer: 1024 * 1024 });
   const modulePath = path.join(path.dirname(installed), 'verify-agent-runtime.mjs');
   const { verifyAgentRuntime } = await import(pathToFileURL(modulePath).href);
   const proxy = path.join(root, 'codex.mjs');
@@ -48,7 +55,12 @@ process.exit(result.status ?? 1);
   const home = path.join(root, 'global-home');
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
-  await verifyAgentRuntime({ homeDir: home, codexCommand: proxy });
+  // Match the image's explicit policy, including settings that prevent a
+  // pristine home from rehydrating account-synced capabilities at startup.
+  const { CLAUDE_CLOUD_DISABLE_SETTINGS, CLAUDE_CLOUD_DISABLE_ENV } = await import(pathToFileURL(path.join(path.dirname(installed), 'claude-cloud-policy.lib.mjs')));
+  await mkdir(path.join(home, '.claude'));
+  await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify({ ...CLAUDE_CLOUD_DISABLE_SETTINGS, env: CLAUDE_CLOUD_DISABLE_ENV }) + '\n');
+  await verifyAgentRuntime({ homeDir: home, codexCommand: proxy, geminiCommand: path.join(root, 'bun/bin/gemini') });
   console.log('Verified: disposable Bun installation contains the branch package, stock manifest and required runtime verifier.');
   console.log('Its installed verifier passed with the real offline Codex stock tree and local Claude version check.');
   console.log('This does not verify release-image boot, persisted-state migration, auth/history or daemon lifecycle gates.');

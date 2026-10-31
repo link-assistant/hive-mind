@@ -87,3 +87,5 @@ Audit Codex global system, compaction and realtime prompt overrides in conventio
 Refuse custom global model-catalog selectors, which can supply model-owned instruction templates. Preserve their model/security configuration and referenced catalogs for explicit reconciliation into task scope.
 
 Refuse Codex startup `.env` files in conventional and selected global homes. The native loader can redirect skill discovery through HOME before configuration parsing. Preserve opaque environment data for explicit reconciliation, reject unsafe links/types, and recheck concurrent additions before admission.
+
+Ship a reproducible Gemini 0.65.0 native adapter recipe in the actual npm package. Verify all pinned upstream and generated native files before publishing a separate executable generation, activate its package-manager command in both image variants, and require its full byte inventory during installed-runtime admission. Preserve the original upstream package and existing optional dependency resolution. Default canonical storage selection, migration and the complete six-tool lifecycle remain unfinished.

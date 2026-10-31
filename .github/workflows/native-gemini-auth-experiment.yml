@@ -7,6 +7,15 @@ on:
       - 'experiments/issue-3785/native-qwen/read_credentials.mjs'
       - 'experiments/issue-3785/native-oauth-transaction.mjs'
       - 'src/shared-auth-refresh-lock.lib.mjs'
+      - 'src/native-gemini/**'
+      - 'src/native-gemini-package.lib.mjs'
+      - 'src/native-gemini-command.lib.mjs'
+      - 'src/install-native-gemini.mjs'
+      - 'tests/issue-3785-native-gemini-package.test.mjs'
+      - 'tests/issue-3785-native-gemini-command.test.mjs'
+      - 'experiments/issue-3785/build_native_gemini_recipe.py'
+      - 'experiments/issue-3785/probe-packaged-native-gemini.mjs'
+      - 'experiments/issue-3785/check_packaged_gemini.sh'
       - 'experiments/issue-3785/probe-gemini-native-writers.mjs'
       - 'experiments/issue-3785/probe-gemini-native-reads.mjs'
       - 'experiments/issue-3785/probe-gemini-native-request-auth.mjs'
@@ -305,6 +314,7 @@ jobs:
           wait "$!"
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
           echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          cp -a "$package" "$RUNNER_TEMP/gemini-acp-pristine-cli"
           for stage in reads coordination request_auth; do
             python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
             python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
@@ -588,6 +598,8 @@ jobs:
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-acp-auth-writers.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-acp-auth-requests.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-acp-auth-reads.log" 2>&1
+      - name: Install the exact adapter from the actual npm artifact and verify native execution
+        run: bash experiments/issue-3785/check_packaged_gemini.sh "$RUNNER_TEMP/gemini-acp-pristine-cli" "$RUNNER_TEMP/gemini-acp-fresh-cli" "$RUNNER_TEMP/gemini-acp-packaged"
       - name: Preserve actual native ACP diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

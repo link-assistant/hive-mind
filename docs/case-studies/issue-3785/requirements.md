@@ -373,3 +373,21 @@ manager pin; all preceding native plan/lifecycle controls pass. The pin repair
 passes all 82 local auth assertions. See `evidence/ci-ec03c083.txt` and
 `evidence/ci-ec03c083-gemini.txt`; the repair and new interruption stages require
 fresh exact-head CI. These results leave the open production criteria unchanged.
+
+All eight workflows subsequently pass at `de9c6444692e`, including the corrected
+Gemini auth pin and complete CLI atomic-proof controls. The full compiled Codex
+executable, all 94 auth-build files and all 2,731 Gemini artifacts are preserved
+and reviewed; no positive control contains an assertion failure. See
+`evidence/ci-de9c6444.txt` and `evidence/ci-de9c6444-gemini.txt`. These results
+precede the following package/image installation changes.
+
+The native Gemini adapter now has an installation path in the published npm
+artifact. Its reproducible recipe checks all 449 upstream files and 23 changed
+native outputs, preserves the original package, and publishes a verified sibling
+generation. Both image variants activate the package-manager bin link from the
+installed artifact; runtime admission checks the native bytes before its version
+probe. Actual packaged native auth and restore controls pass locally. See
+`evidence/native-gemini-package.txt`. Fresh image CI, default canonical selectors,
+private configuration, migration and full lifecycle remain unfinished. This
+installation step does not complete A2/A9 or remove the production Codex auth
+copy.

@@ -1,0 +1,24 @@
+{
+  "edits": [
+    {
+      "at": 0,
+      "remove": [],
+      "insert": ["import { readNativeGeminiRestorableHistory } from \"./hive-gemini-restorable-history.mjs\";\n"]
+    },
+    {
+      "at": 101172,
+      "remove": ["    await fs35.mkdir(checkpointDir, { recursive: true });\n", "    const files = await fs35.readdir(checkpointDir);\n"],
+      "insert": ["    const canonical = readNativeGeminiRestorableHistory(agentContext.config.storage, ToolCallDataSchema);\n", "    if (canonical === undefined) await fs35.mkdir(checkpointDir, { recursive: true });\n", "    const files = canonical === undefined ? await fs35.readdir(checkpointDir) : [...canonical.keys()];\n"]
+    },
+    {
+      "at": 101201,
+      "remove": ["    const data = await fs35.readFile(filePath, \"utf-8\");\n"],
+      "insert": ["    const data = canonical === undefined ? await fs35.readFile(filePath, \"utf-8\") : canonical.get(selectedFile).content;\n"]
+    },
+    {
+      "at": 101249,
+      "remove": ["    const files = await fs35.readdir(checkpointDir);\n"],
+      "insert": ["    const canonical = readNativeGeminiRestorableHistory(agentContext.config.storage, ToolCallDataSchema);\n", "    const files = canonical === undefined ? await fs35.readdir(checkpointDir) : [...canonical.keys()];\n"]
+    }
+  ]
+}

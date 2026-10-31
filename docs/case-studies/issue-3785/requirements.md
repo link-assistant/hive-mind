@@ -228,9 +228,11 @@ locally. Three-process restore,
 prior audit byte retention, live/startup schema refusals and original unselected
 behavior pass locally; eighteen fresh stages reproduce seventeen tested native
 files, and that reconstruction passes the full three-process restore cycle.
-See `evidence/native-gemini-acp-restore-controls.txt`. Its exact-head Node
-24 CI, remaining ACP/child writers, plan/task memory, interruption/power loss,
-migration, all-backend lifecycle and production integration remain unfinished.
+See `evidence/native-gemini-acp-restore-controls.txt`. All six Node 24 Gemini
+jobs pass at b44086a4cd2d, including the four strict ACP before controls and
+eighteen-stage reconstruction; see `evidence/ci-b44086a4c-gemini.txt`.
+Remaining ACP/child writers, plan/task memory, interruption/power loss, migration,
+all-backend lifecycle and production integration remain unfinished.
 This evidence does not complete A1–A12.
 
 The terminal's own third-process resume reproduces the same coalesced context/
@@ -238,6 +240,11 @@ prompt loss. Preserving its actual checkpoint turn boundaries makes the strict
 interactive-resume test pass, with both prior private homes deleted, the prior
 audit retained and native tool replay preserved. Nineteen checked history stages
 reconstruct seventeen identical native files. See
-`evidence/native-gemini-terminal-reopen-controls.txt`. A separately observed
-automatic startup-prompt/resume race remains unfinished; this checkpoint repair
-does not complete A1–A12 or production installation.
+`evidence/native-gemini-terminal-reopen-controls.txt`. A separate strict automatic
+startup-prompt control reproduces model dispatch before native resume completes.
+Selected prompt admission now awaits actual resumeChat. The fresh twenty-stage
+package passes automatic/manual prompts, ACP restore, live/startup metadata
+refusals and native shell-history controls. See
+`evidence/native-gemini-terminal-resume-controls.txt`. Both terminal stages need
+fresh Node 24 CI. Failed/interrupted resume and the full A1–A12 lifecycle and
+production installation remain unfinished.

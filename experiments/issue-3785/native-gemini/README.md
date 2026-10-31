@@ -994,4 +994,40 @@ separately. The same command fails before the source repair.
 The combined reconstruction has nineteen checked history stages and seventeen
 identical native files. The ACP CI job adds this strict before/after/fresh-source
 terminal control. An automatically submitted startup prompt has a separate
-native resume race; this interactive control does not verify that path.
+native resume race, covered by the following admission stage.
+
+## Admit terminal prompts after native resume
+
+The same three-process restore cycle reproduces a second failure when its final
+terminal uses `--resume` with `--prompt-interactive`. The startup prompt reaches
+the provider before the asynchronous native resume finishes. Its request omits
+the restored original prompt, and subsequent recording can refuse. Merely
+checking `isResuming` cannot close this race: React queues that state update in
+the same render whose initial-prompt effect still sees the preceding value.
+
+`apply_terminal_resume_admission.py` initializes a selected-history admission
+barrier when a resumed session is present. The terminal admits automatic and
+interactive prompts only after the actual native `resumeChat` resolves. A
+failed resume leaves the barrier closed and retains native error feedback.
+Unselected native sessions retain their existing behavior. The stage requires
+the exact terminal checkpoint repair and native manager hashes before mutation;
+`--check` makes no changes.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py "$package"
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics /tmp/gemini-terminal-resume.log
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package "$package" --acp --terminal-resume --output /path/to/new-package
+```
+
+The strict before control first requires both healthy native edits and restore
+to succeed, then fails on the final automatic prompt's actual provider history.
+After repair, that same CLI invocation makes exactly one final request with
+the restored original prompt and without the later prompt or recording refusal.
+The complete prior audit and acknowledged checkpoint remain available after
+both preceding private homes are deleted. Fresh reconstruction applies twenty
+checked stages and compares all seventeen native files. Automatic and manual
+terminal prompts, ACP restore, and live/startup metadata refusals pass on that
+reconstruction. Failed or interrupted resume admission needs further lifecycle
+testing; these healthy controls do not establish that coverage. Production
+installation and the remaining issue acceptance criteria remain unfinished.

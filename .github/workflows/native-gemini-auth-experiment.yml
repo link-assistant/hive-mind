@@ -365,6 +365,19 @@ jobs:
           python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-after.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-after-control.log" 2>&1
+      - name: Reproduce automatic terminal prompt dispatch before resume finishes
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-before.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log" 2>&1; then
+            echo 'The native terminal automatic-prompt regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: fresh actual native TUI restores the original project and conversation, then replays its stored native tool after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
+          grep -F 'AssertionError: An automatic native terminal prompt must wait for resumed model history.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
+      - name: Await native terminal resume before admitting prompts
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-after.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-after-control.log" 2>&1
       - name: Verify actual ACP restore, third-process resume and audit retention
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
       - name: Verify native replace, automatic edits and cancellation
@@ -383,11 +396,12 @@ jobs:
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
           done
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
-      - name: Rebuild all nineteen stages and require identical tested native source
+      - name: Rebuild all twenty stages and require identical tested native source
         run: |
-          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-reopen --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-fresh.log" > "$RUNNER_TEMP/gemini-acp-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh-control.log" 2>&1
       - name: Preserve native metadata, terminal and authentication behavior
         run: |
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli

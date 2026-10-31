@@ -1126,9 +1126,11 @@ checkpoint names and tools. The full
 three-process restore and prior audit retention pass, alongside live/startup
 metadata refusals and unselected private recording. Native `replace`, automatic
 edits, cancellation and both restore listings also pass locally. See
-[ACP restore controls](evidence/native-gemini-acp-restore-controls.txt). Fresh
-exact-head Node 24 ACP CI and the remaining writers, lifecycle, migration and
-production integration are still required.
+[ACP restore controls](evidence/native-gemini-acp-restore-controls.txt). All six
+Node 24 Gemini jobs pass at `b44086a4cd2d`, including the four strict ACP before
+controls and fresh eighteen-stage reconstruction. See
+[ACP CI evidence](evidence/ci-b44086a4c-gemini.txt). The remaining writers,
+lifecycle, migration and production integration are still required.
 
 The terminal has the same checkpoint turn-coalescing defect: after restore and
 another complete private-home disposal, a third terminal's actual model request
@@ -1137,7 +1139,14 @@ loses the original prompt. A strict interactive-resume control fails before
 The reconstructed nineteen-stage package passes the three-terminal control,
 retains the prior audit byte prefix and checkpoint, and preserves native tool
 replay. See [terminal reopen evidence](evidence/native-gemini-terminal-reopen-controls.txt).
-An automatic startup-prompt/resume race remains separate unfinished work.
+The separate automatic startup-prompt/resume race also has a strict actual CLI
+reproduction: its final request arrives before resumed history. A selected
+admission barrier now waits for the actual native resume call to finish before
+admitting automatic or interactive prompts. The fresh twenty-stage package
+passes both prompt paths, ACP restore and metadata refusals. See
+[startup admission evidence](evidence/native-gemini-terminal-resume-controls.txt).
+Both terminal source repairs still require fresh Node 24 CI; failed/interrupted
+resume and complete production lifecycle coverage remain unfinished.
 
 All eight workflows also pass at `5abb937c55b2`, including 739 default test files,
 both integration files, packaged Docker verification and all three compiled

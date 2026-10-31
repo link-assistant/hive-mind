@@ -1173,17 +1173,27 @@ Latest CI continuation:
 - [x] Add a bounded independent ACP CI job preserving all four strict before
       controls. Run the combined reconstructed package through all 54 metadata
       assertions, three terminal controls and all 82 authentication controls.
-- [ ] Commit atomic ACP changes, push only the prepared branch, and require
-      exact-head Node 24 CI before treating that stage as verified.
+- [x] Commit atomic ACP changes and push only the prepared branch. All six Node
+      24 Gemini jobs pass at b44086a4cd2d in run 41156793225; download and inspect
+      all 123 ACP artifacts, including four strict before failures, eighteen
+      reconstructed stages, 54 metadata assertions and 82 auth controls.
 - [x] Extend actual terminal restore verification through a third private-home
       disposal/resume and inspect its next model history and retained audit.
       Reproduce its coalescing checkpoint getter dropping the original prompt;
       preserve actual context/user turns before native serialization. Verify
-      actual interactive input after resume; the automatic startup-prompt race
-      is a distinct path and remains unfinished.
+      actual interactive input after resume; keep its automatic startup-prompt
+      race as a separate reproducing test and source repair.
 - [x] Preserve terminal reopen evidence and rerun surrounding native shell and
       ACP/refusal controls on the fresh combined package.
-- [ ] Commit the atomic terminal checkpoint repair and require fresh Node 24 CI.
-- [ ] Reproduce and fix the actual terminal automatic startup-prompt/resume race.
-      Initial investigation shows model dispatch can precede resumed history and
-      recording can subsequently refuse; wait for native resume before dispatch.
+- [x] Commit the atomic terminal checkpoint repair as be4609d3d2f4.
+- [x] Reproduce the actual terminal automatic startup-prompt/resume race after
+      healthy native restore. Its final real request omits the original history.
+      Add an initially closed selected-history admission barrier and open it only
+      after actual resumeChat resolves. Verify the same strict automatic control
+      and a fresh twenty-stage reconstruction; preserve manual terminal, ACP and
+      live/startup refusal behavior.
+- [ ] Commit and push terminal resume admission after local checks, then require
+      fresh Node 24 CI for both terminal stages. Preserve all preceding compiled
+      Codex results before replacing the running branch workflows.
+- [ ] Exercise failed/interrupted native resume admission and finish remaining
+      native writers, complete lifecycle and production integration criteria.

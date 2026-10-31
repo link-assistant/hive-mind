@@ -1,0 +1,43 @@
+Verified pushed commit:
+  b44086a4cd2d80034be4346aaefd9bea713ec7e1
+Node 24 workflow created 2026-10-31T01:44:34Z:
+  https://github.com/link-assistant/hive-mind/actions/runs/41156793225
+All six Gemini jobs pass; the final job completes at 01:52:41Z.
+
+Preserved full workflow log:
+  ci-logs/native-gemini-41156793225.log (3530 lines).
+  Line 408: actual healthy ACP edit lacks its acknowledged checkpoint.
+  Line 434: actual ACP restore leaves later messages in provider history.
+  Line 460: a third actual ACP loses its restored original prompt.
+  Line 486: native checkpoint listing loses its filename and tool.
+  These are four required strict before-repair failures, followed by checked
+    native source repairs and actual after controls in the successful job.
+  Lines 531-538: fresh eighteen-stage source reconstruction and actual ACP.
+  Lines 555-580: all 123 ACP diagnostic artifact files uploaded.
+  Line 579: artifact SHA-256:
+    394b33b006165f448e6fc5c0c7f99d187729dda1d79307470d314e530fb801b7
+
+All 123 ACP artifact files were downloaded and inspected locally:
+  gemini-acp-source.log: seventeen native manager/CLI/helper files match the
+    fresh eighteen-stage reconstruction, with no applicability-check mutation.
+  Actual three-process restore, third-process resume and complete prior audit
+    retention pass for write_file, replace and autoEdit. Cancellation retains
+    its checkpoint and leaves both project files unchanged.
+  Both checkpoint listings pass without inference or project changes.
+  Live/startup schema refusal and unselected private native behavior pass.
+  Complete metadata suite: 54 PASS assertions.
+  Surrounding terminal healthy/live/startup controls pass.
+  Auth writer/request/read suites: 41 + 30 + 11 PASS assertions.
+
+Successful jobs:
+  native-acp-restore: completed 01:48:12Z.
+  native-credential-reads: completed 01:51:55Z.
+  native-history-regressions: completed 01:48:57Z.
+  native-git-checkpoints: completed 01:52:41Z.
+  native-tracker-history: completed 01:50:08Z.
+  native-restorable-tools: completed 01:50:07Z.
+
+This commit precedes the terminal turn-boundary and automatic-resume admission
+repairs. Their local results need fresh Node 24 CI. Production installation,
+remaining writers, migration, interruption/power loss, all-six-tool authority
+and complete lifecycle requirements remain unfinished.

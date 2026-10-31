@@ -80,7 +80,7 @@ class NativeTerminal:
 
 
 def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
-                               settings, diagnostics, models, first_prompt, second_prompt, attack=None, reopen=False):
+                               settings, diagnostics, models, first_prompt, second_prompt, attack=None, reopen=False, startup_prompt=False):
     witness = workspace / 'native-restorable-witness.txt'
     companion = workspace / 'native-restorable-companion.txt'
     before = 'SYNTHETIC BEFORE NATIVE EDIT 東京\n'
@@ -213,7 +213,8 @@ def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
                  'XDG_CONFIG_HOME': str(final_home / '.config'), 'XDG_DATA_HOME': str(final_home / '.local/share'),
                  'XDG_CACHE_HOME': str(final_home / '.cache')}
     previous = len(models)
-    terminal = NativeTerminal(native, workspace, final_env, None,
+    next_prompt = 'SYNTHETIC-GEMINI-TUI-REOPEN-RESTORE'
+    terminal = NativeTerminal(native, workspace, final_env, next_prompt if startup_prompt else None,
                               diagnostics.with_name(diagnostics.stem + '-reopen.log'), resume=peer_session)
     try:
         # The native resume effect and automatic initial prompt run separately.
@@ -222,19 +223,25 @@ def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
             restored = terminal.output.rfind(b'Restored project to the state before the tool call.')
             ready = terminal.output.rfind(b'Type your message or @path/to/file')
             return restored >= 0 and ready > restored and ready > terminal.output.rfind(b'Resuming session...')
-        terminal.until(resumed_input_ready)
-        terminal.settle()
-        assert len(models) == previous, 'Native terminal resume must not require inference.'
-        terminal.send(b'SYNTHETIC-GEMINI-TUI-REOPEN-RESTORE')
-        terminal.send(b'\r')
+        if not startup_prompt:
+            terminal.until(resumed_input_ready)
+            terminal.settle()
+            assert len(models) == previous, 'Native terminal resume must not require inference.'
+            terminal.send(next_prompt.encode())
+            terminal.send(b'\r')
         terminal.until(lambda: len(models) > previous and b'SYNTHETIC-GEMINI-COMPLETE' in terminal.output)
         terminal.settle()
-        assert models[-1]['first_prompt'] and not models[-1]['second_prompt'], 'A third native terminal must resume its restored original model history.'
+        if startup_prompt:
+            assert models[-1]['first_prompt'] and not models[-1]['second_prompt'], 'An automatic native terminal prompt must wait for resumed model history.'
+        else:
+            assert models[-1]['first_prompt'] and not models[-1]['second_prompt'], 'A third native terminal must resume its restored original model history.'
         assert len(models) == previous + 1, 'Resuming and submitting one terminal turn must make exactly one model request.'
         assert b'Gemini canonical conversation history is unavailable or unsafe.' not in terminal.output
         assert witness.read_text() == after and companion.read_text() == before
         assert all(path.read_bytes().startswith(content) for path, content in audit.items())
         assert any(saved_name == name for saved_name, _ in checkpoints())
+        if startup_prompt:
+            print('PASS: the actual native terminal automatic startup prompt waits for completed resume and records its one request without a history refusal.')
         print('PASS: a third actual native terminal resumes the restored model history and preserves the complete prior audit after a second private-home disposal.')
     finally:
         terminal.close()

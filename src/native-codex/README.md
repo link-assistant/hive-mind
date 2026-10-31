@@ -33,6 +33,17 @@ The normal and instant npm release jobs, and branch-package image checks, now
 require the same successful native build and assemble its two platform artifacts.
 The publish command verifies a fresh actual npm archive after any version commit
 or pull, refusing missing platforms and stale recipe/source identities. This
-release wiring has not yet run. Image/host command activation and removal of the
-launcher's credential copy remain required before this adapter can replace the
-stock production CLI. This foundation does not complete those acceptance criteria.
+release wiring still needs its first complete successful CI run. Checked command
+activation is implemented in both image definitions; actual installed/image
+verification and removal of the launcher's credential copy remain required
+before this adapter can replace the stock production CLI. This foundation does
+not complete those acceptance criteria.
+
+The current recipe reproduces 35 changed native source files. It includes
+startup SQLite database/journal file admission and strict app-server handling
+when canonical history is selected. The latter prevents upstream default-config
+recovery from swallowing a storage-admission error. These changes have focused
+filesystem, packaging and actual existing-policy controls; freshly compiled
+automatic-policy and optimized installed-package verification remain pending.
+See the case study's `evidence/codex-sqlite-fallback.txt` and
+`evidence/ci-6282876-native-experiments.txt` for exact before evidence and limits.

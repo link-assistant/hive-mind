@@ -1449,3 +1449,13 @@ Latest CI continuation:
       source. Recheck storage after hashing and each caller's generation;
       all 109 related Node tests/file targets pass afterward. Operation leases
       and the complete default authority/lifecycle remain unfinished.
+- [x] Finish the 749-file local default run with NODE_OPTIONS removed: all
+      selected files pass and cgroup OOM counters remain zero. The final cache
+      change lands during this run; independently repeat all 109 related checks
+      afterward. The added thirteen-case file increases fresh selection to 750.
+- [x] Preserve all available 6282876 logs: six workflows succeed, the actual
+      native SQLite after-control fails, and obsolete optimized builds are
+      cancelled. Review 71217 available checks-log lines in 48 bounded chunks;
+      record cancellation and unavailable runner-local compiler stderr explicitly.
+- [ ] Push all repairs, repeat the complete 750-file suite on the final source,
+      and require fresh exact-commit native, installed-package and image checks.

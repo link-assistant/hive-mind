@@ -440,3 +440,16 @@ Optional `--diagnostics-dir` on the request fixture and `--diagnostics` on the
 identity fixture retain bounded synthetic native output; ordinary tracing stays
 off. Run 41064060039 subsequently builds and verifies all nine identity cases
 separately; selected structural output is retained in the case-study evidence.
+
+### Current package admission
+
+The release recipe now reproduces 35 changed native files and includes final
+SQLite/log configuration admission, startup database/journal file admission and
+automatic native strict configuration for selected canonical history. The last
+policy repairs a reproduced app-server fallback after core admission refuses.
+Existing native --strict-config controls pass all three override cases, while
+new automatic-policy compilation and both optimized installed packages still
+need CI verification. See the case study's `evidence/codex-sqlite-binding.txt`,
+`evidence/codex-sqlite-fallback.txt` and
+`evidence/ci-6282876-native-experiments.txt`. These startup checks do not establish
+per-operation database leases or complete production canonical history.

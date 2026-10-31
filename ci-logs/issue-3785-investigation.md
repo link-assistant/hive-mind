@@ -1315,3 +1315,15 @@ not establish production canonical authentication or the remaining A1–A12 scop
 - This stage and the admission interruption controls follow 533cc3a20c01 and
   still need fresh exact-head CI. Persisted fresh-process rollback detection,
   power loss, remaining writers and production integration remain unfinished.
+
+All eight workflows pass at exact pushed head `533cc3a20c01814c7ae6f297eebdc09f7f478be6`;
+created 2026-10-31T02:37:16Z, final Codex completion 03:10:52Z. Full Checks
+log has 72,226 lines: default files pass at 63,344, integration at 63,406,
+installed host/nested Docker controls at 66,875–66,880 and completion at 66,882.
+Compiled Codex log has 1,791 lines; all three jobs pass. Downloaded and inspected
+all 94 native build diagnostic files in chunks of at most 1,500 lines. Native
+owner-death refusal, explicit repair, two-live-client authority changes,
+interrupted migration, history resume and unsafe staging controls pass.
+See `docs/case-studies/issue-3785/evidence/ci-533cc3a20.txt` and its companion
+Gemini evidence. These successful runs precede the unpublished evidence and
+streaming repairs; they establish no production/all-six completion claim.

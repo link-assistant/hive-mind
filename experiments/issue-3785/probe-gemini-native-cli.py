@@ -32,6 +32,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
+parser.add_argument('--history-plan', action='store_true')
+parser.add_argument('--history-plan-attack', choices=('missing', 'content-change', 'symlink', 'unsafe-mode'))
 parser.add_argument('--history-subagent', action='store_true')
 parser.add_argument('--history-subagent-restore', action='store_true')
 parser.add_argument('--history-subagent-concurrent', action='store_true')
@@ -77,6 +79,8 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
+assert not args.history_plan or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_plan', 'history_plan_attack', 'private_history'))
+assert not args.history_plan_attack or args.history_plan and not args.private_history
 assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
 assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback', 'history_live_rollback_engine'))
 assert not args.history_live_rollback_engine or args.history_live_rollback
@@ -128,6 +132,7 @@ assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 manager = package / 'bundle/chunk-DKZARV6U.js'
 manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
+                        '80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733',
                         '901d8eb78bafdb235420b6aa931afdadab3efc5574d53a49224739730fa0ecc4',
                         'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07',
                         '91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28',
@@ -143,6 +148,7 @@ models = []
 live_controls = []
 headless_live_damage = []
 subagent_phases = {}
+plan_phases = {}
 live_audit_state = {}
 errors = []
 safe_cleanup = False
@@ -296,6 +302,8 @@ try:
         settings['model']['maxSessionTurns'] = 4
         settings['experimental'] = {'enableAgents': True}
         settings['general']['checkpointing'] = {'enabled': True}
+    if args.history_plan:
+        settings['model']['maxSessionTurns'] = 4
     if args.history_tool_output:
         settings['tools'] = {'truncateToolOutputThreshold': 1024}
         (workspace / 'bounded-output.txt').write_text(tool_content)
@@ -398,6 +406,13 @@ try:
                                        'blob_reference': '/degraded-blobs/' in content,
                                        'native_blob_response': native_blob_response(payload['request']['contents'])})
                         phase = 'resume' if second_prompt in content else 'initial'
+                        if args.history_plan and operation == 'streamGenerateContent':
+                            from gemini_plan_history import plan_tool_call
+                            call = plan_tool_call(payload, first_prompt, workspace, plan_phases)
+                            if call:
+                                models[-1]['tool_call'] = True
+                                self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-plan-response'}, stream=True)
+                                return
                         if args.history_live_rollback and operation == 'streamGenerateContent':
                             from gemini_live_audit import live_audit_tool
                             call = live_audit_tool(payload['request']['contents'], history, root, workspace, live_audit_state, first_prompt)
@@ -722,6 +737,18 @@ try:
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors
         print('PASS: actual native TUI executes a shell command, disposes its private home, recalls and executes the same command in a fresh native TUI.')
+        safe_cleanup = True
+        raise SystemExit(0)
+
+    if args.history_plan:
+        from gemini_plan_history import verify_plan_history
+        verify_plan_history(invoke=invoke, root=root, home=home, workspace=workspace, history=history,
+                            env=env, settings=settings, diagnostics=args.diagnostics, models=models,
+                            first_prompt=first_prompt, session=session, phases=plan_phases,
+                            attack=args.history_plan_attack)
+        assert json.loads(auth.read_text()) == credentials
+        assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+        assert not errors, errors
         safe_cleanup = True
         raise SystemExit(0)
 

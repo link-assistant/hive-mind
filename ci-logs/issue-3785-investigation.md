@@ -1380,3 +1380,53 @@ streaming repairs; they establish no production/all-six completion claim.
 - Suite selection and child restore coverage are pushed at e51270e05e88.
   All eight new workflows are created 03:38:35Z at that exact SHA; their results
   remain pending. Complete production/lifecycle acceptance remains unfinished.
+
+
+2026-10-31, e51270e05e88 completed Gemini correction and child restore:
+- Gemini run 41165252934 matches the pushed SHA and starts 03:38:35Z. All six
+  jobs pass, including the four earlier-stage suites that failed at e375.
+- Preserve the full 3,806-line workflow log; inspect it in three chunks of at
+  most 1,500 lines. No error annotations. Download all 445 ACP artifact files:
+  72 controls contain 17 expected strict before failures, no unexpected
+  tracebacks, and all 66 network logs have no errors.
+- Both complete child-edit restore cycles pass five assertions and seven actual
+  model requests. Fresh twenty-four-stage reconstruction and surrounding
+  metadata/shell/authentication checks pass. Artifact 13029412025 has digest
+  e5a3041cb82dd92dd7f25b506590d582949842c4dad0f028f3883a135c0da7af.
+- Push concurrent-child coverage at 8f9ca8867a; its eight new workflows start
+  03:52:22Z. The preceding Codex run is canceled by that push. Complete current
+  exact-head CI and broad production/lifecycle acceptance remain unfinished.
+
+2026-10-31, 8f9ca8867a concurrent-child CI evidence:
+- Gemini run 41166203183 matches the pushed SHA, starts 03:52:22Z and finishes
+  04:04:23Z. All six jobs pass. Preserve the complete 3,815-line workflow log
+  and all 461 ACP artifact files. The 76 control logs contain 17 expected strict
+  before failures and no unexpected tracebacks; all 70 network logs have no
+  errors. Both concurrent selected engines pass 3 assertions/8 requests and
+  both unselected controls pass 2/6. Metadata/shell/authentication remain passing.
+- Artifact 13028334343 has digest
+  e267539188e4f36d8bb7d5f3d613ab1cb16d4513edc5913e876cdb1b365f27ef.
+  See docs/case-studies/issue-3785/evidence/ci-8f9ca8867-gemini.txt.
+- Preceding Codex run 41165252987 is canceled by the 8f9 push, not a native test
+  assertion: its preserved log line 1008 reports The operation was canceled
+  during the full supported CLI build. Current exact-head CI remains required.
+
+2026-10-31, actual acknowledged native plan retention:
+- Reproduce whole-private-home disposal deleting a complete acknowledged plan
+  with selected canonical history before applying stage 25. The final fixture
+  repeats the exact strict failure after two actual provider requests.
+- Redirect native Storage plan paths and actual standard filesystem admission,
+  retain complete journal generations, and register the native Plan Mode rule
+  for the current canonical directory without overriding higher-priority denial.
+- A separate strict reserved-name experiment demonstrates that accepting
+  .publish-synthetic.md collides with publication metadata. Reject reserved
+  metadata prefixes in both plan validation and the publication allowlist.
+  The final storage suite passes 29 assertions across 23 bounded scenarios.
+- The first real replace fixture omitted the native required instruction field;
+  the actual tool rejects its schema before modifying the plan. Correct the
+  synthetic tool arguments and rerun rather than relaxing native validation.
+- Final real selected/fresh controls pass 3 assertions/5 requests each, private
+  passes 2/2 and four unsafe controls pass 2/3 each, all without network errors.
+  Reconstruct all 25 stages and require 17 identical files. Final surrounding
+  history 69, metadata 54, shell 28, both concurrent engines 3/8, child restore
+  5/7 and ACP/third-terminal restore 3/5 pass. Static checks pass; CI is pending.

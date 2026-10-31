@@ -1309,7 +1309,8 @@ Latest CI continuation:
       later evidence assertions before applying that source stage. Reproduce it
       locally, require an explicit pinned full-evidence suite at stage 23, and
       verify 65/65/69 checks across all three distinct native helper variants.
-- [ ] Publish the stage-specific suite selection and verify fresh exact-head CI.
+- [x] Publish the stage-specific suite selection and verify all six Gemini jobs
+      at e51270e05e88 and 8f9ca8867a, including every earlier-stage suite.
 
 - [x] Verify actual child-edit checkpoints through fresh parent sessions in both
       native headless engines. Each control completes real delegation/editing,
@@ -1320,8 +1321,8 @@ Latest CI continuation:
 - [x] Preserve default legacy child behavior (3), unselected agent-session child
       recording (2) and agent-session unsafe mode/symlink/parent replacement
       refusal (1 each). No native source changes were required for this coverage.
-- [ ] Publish child restore and both-engine regression controls, require their
-      fresh-source CI results, and finish concurrent/remaining child lifecycle.
+- [x] Publish child restore and both-engine regression controls; their complete
+      fresh-source cycles pass in the e512 and 8f9 Gemini CI artifacts.
 
 - [x] Prove two actual generalists overlap model requests before either provider
       response in both native engines. Each edits a different real file, returns
@@ -1330,6 +1331,27 @@ Latest CI continuation:
       Dispose the whole private home; fresh parent discovery/resume retains both
       results, both edits and all three audit prefixes. Selected controls pass
       three assertions/eight requests; unselected controls pass two/six each.
-- [ ] Publish concurrent-child coverage after surrounding/static checks, require
-      fresh-source CI for both engines and private behavior, and finish direct
-      child continuation, remaining definitions/task memory and production work.
+- [x] Publish concurrent-child coverage after surrounding/static checks. All six
+      Gemini jobs pass at 8f9ca8867a, including both selected/private engines.
+- [ ] Finish direct child continuation, remaining definitions/task memory and
+      complete production lifecycle acceptance.
+
+- [x] Preserve exact-head Gemini CI at e51270e05e88: all six jobs pass, including
+      the corrected earlier-stage suites and both complete child-edit restore
+      cycles. Inspect all 445 ACP artifacts, 72 control logs and 66 network logs.
+      This supersedes pending statements for those Gemini controls; all-workflow
+      exact-head validation remains required at the subsequent pushed head.
+- [x] Preserve all 461 concurrent-child CI artifacts at 8f9ca8867a: 76 controls,
+      17 expected before failures and 70 network logs without errors.
+- [x] Reproduce actual acknowledged native plan loss after whole private-home
+      disposal before implementing a repair. Integrate checked canonical plan
+      directories, complete generations and restricted native Plan Mode policy.
+      Verify real write/resume/read, private behavior, four damaged-file refusals
+      and twenty-five-stage reconstruction of seventeen identical native files.
+- [x] Complete final surrounding history 69, metadata 54, shell 28, concurrent
+      children in both engines, child restore, ACP and third-terminal restore.
+      Python parsing, formatting, workflow lint, secrets and file limits pass.
+- [ ] Publish the plan stage with strict before/after/fresh CI controls and
+      verify exact-head CI.
+      Interrupted plan publication, alternate writers, remaining task/memory and
+      complete production/lifecycle acceptance remain unfinished.

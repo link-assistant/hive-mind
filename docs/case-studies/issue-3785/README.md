@@ -1245,6 +1245,27 @@ barrier requires both real requests before either response; both native edits,
 results, full child conversations and distinct checkpoints are retained. After
 whole private-home disposal, fresh parent discovery/resume retains both child
 results, both edits and all three complete audit prefixes. Unselected private
-controls preserve their original storage. See
-[concurrent child evidence](evidence/native-gemini-concurrent-children.txt).
+controls preserve their original storage. All six Gemini CI jobs pass at
+`8f9ca8867a`; all 461 artifacts and 70 network logs without errors are retained.
+See [concurrent child evidence](evidence/native-gemini-concurrent-children.txt)
+and [concurrent CI evidence](evidence/ci-8f9ca8867-gemini.txt).
 Direct child continuation and the complete production inventory remain open.
+
+All six Gemini jobs pass at `e51270e05e88`. The stage-specific suite correction
+resolves the four earlier CI failures, and both full child-edit restore cycles
+pass in CI. All 445 ACP files, 72 controls and 66 network logs are preserved;
+see [exact-head Gemini evidence](evidence/ci-e51270e05-gemini.txt). This precedes
+concurrent-child coverage and the following plan repair; complete exact-head CI
+and the full production inventory remain required.
+
+Actual Plan Mode also acknowledges an implementation plan that disappears with
+its private home. The strict regression reproduces that loss before repair.
+A twenty-fifth checked native stage retains checked canonical plan documents
+and complete journal generations, integrates real filesystem reads/writes and
+updates the restricted Plan Mode policy for the current canonical directory.
+The actual CLI now writes, disposes its whole private home, resumes, reads and
+replaces the complete original plan while retaining both full generations.
+Private behavior and damaged-file refusal remain
+covered. See [plan evidence](evidence/native-gemini-plans.txt). Interrupted
+multi-artifact publication, alternate writers, remaining task/memory paths and
+production installation remain unfinished.

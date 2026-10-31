@@ -21,6 +21,7 @@ on:
       - 'experiments/issue-3785/gemini_subagent_history.py'
       - 'experiments/issue-3785/gemini_subagent_restore.py'
       - 'experiments/issue-3785/gemini_subagent_concurrent.py'
+      - 'experiments/issue-3785/gemini_plan_history.py'
       - 'experiments/issue-3785/gemini_live_audit.py'
       - 'experiments/issue-3785/gemini_live_audit_interactive.py'
       - 'experiments/issue-3785/gemini_live_summary.py'
@@ -287,7 +288,7 @@ jobs:
 
   native-acp-restore:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -486,6 +487,26 @@ jobs:
           for mode in terminal acp; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-after.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-after-control.log" 2>&1
           done
+      - name: Reproduce an acknowledged native plan disappearing with its private home
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-before.log" > "$RUNNER_TEMP/gemini-acp-plan-before-control.log" 2>&1; then
+            echo 'The actual native plan-disposal regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native Plan Mode writes and acknowledges its complete implementation plan before private-home disposal.' "$RUNNER_TEMP/gemini-acp-plan-before-control.log"
+          grep -F 'AssertionError: Actual native plans must survive private-home disposal in canonical history.' "$RUNNER_TEMP/gemini-acp-plan-before-control.log"
+      - name: Retain actual native plans, generations and restricted Plan Mode policy
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package"
+          python3 experiments/issue-3785/native-gemini/probe_plans_history.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-plan-storage.log" > "$RUNNER_TEMP/gemini-acp-plan-storage-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-after.log" > "$RUNNER_TEMP/gemini-acp-plan-after-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-plan-private.log" > "$RUNNER_TEMP/gemini-acp-plan-private-control.log" 2>&1
+          for state in missing content-change symlink unsafe-mode; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --history-plan-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-plan-$state.log" > "$RUNNER_TEMP/gemini-acp-plan-$state-control.log" 2>&1
+          done
       - name: Verify actual ACP restore, third-process resume and audit retention
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
       - name: Verify native replace, automatic edits and cancellation
@@ -504,9 +525,11 @@ jobs:
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
           done
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
-      - name: Rebuild all twenty-four stages and require identical tested native source
+      - name: Rebuild all twenty-five stages and require identical tested native source
         run: |
-          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --stream-admission --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --stream-admission --plans --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --conversation-evidence --diagnostics "$RUNNER_TEMP/gemini-acp-plan-history.log" > "$RUNNER_TEMP/gemini-acp-plan-history-control.log" 2>&1
           for mode in terminal acp; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh-control.log" 2>&1
           done

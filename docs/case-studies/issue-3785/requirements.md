@@ -328,3 +328,15 @@ unselected controls preserve private recording without canonical writes. See
 `evidence/native-gemini-concurrent-children.txt`. Direct child continuation,
 shared-file conflicts, all agent definitions/task memory, publication/power loss
 and full production lifecycle remain open; A9 remains partial.
+
+A9 native plan coverage now reproduces acknowledged plan loss after whole
+private-home disposal, then verifies actual write/resume/read/replace against canonical
+plan documents and full journal generations. Native filesystem controls include
+peers, concurrent documents/generations, session/project separation and unsafe
+read/write refusal; Plan Mode policy stays restricted to the current directory.
+See `evidence/native-gemini-plans.txt`. Interrupted multi-artifact publication,
+all filesystem writers, other task/memory paths and production installation
+remain unfinished; A9 remains partial. Gemini's preceding corrected suites and
+child-edit restore cycles pass all six jobs at `e51270e05e88`; concurrent-child
+coverage passes all six at `8f9ca8867a`. See
+`evidence/ci-e51270e05-gemini.txt` and `evidence/ci-8f9ca8867-gemini.txt`.

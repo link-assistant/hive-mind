@@ -1331,3 +1331,40 @@ This extends existing source-stage verification; direct child continuation,
 shared-file conflicts, other agent definitions and production lifecycle remain
 unfinished. See
 [concurrent child evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-concurrent-children.txt).
+
+## Native implementation plans
+
+The actual `--approval-mode plan` writer originally acknowledges its plan in
+private temporary storage. Whole private-home disposal deletes that plan while
+retaining the selected canonical conversation. `--history-plan` reproduces the
+loss on stage 24 before any repair; the loopback provider sees a healthy write
+and the actual native tool result first.
+
+`apply_plans_history.py` is stage 25. It selects checked project/session plan
+directories, records complete document generations in the existing journal and
+integrates actual native filesystem reads/writes. It also updates the Plan Mode
+policy for the exact current canonical directory at the existing native default
+priority, retaining source-file, traversal and higher-priority restrictions.
+Selected canonical storage takes precedence over private custom paths;
+unselected behavior remains private.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package"
+python3 experiments/issue-3785/native-gemini/probe_plans_history.py "$package" --diagnostics /tmp/gemini-plan-storage.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --diagnostics /tmp/gemini-plan.log
+```
+
+The actual CLI writes, disposes its whole private home, resumes and reads the
+complete original plan, then replaces it while retaining both full generations.
+Separate private and damaged-file controls pass. Native
+storage tests cover full generations, peers, concurrent documents/generations,
+project/session separation, restricted policy and fourteen unsafe cases. Fresh
+reconstruction adds `--plans` to the preceding twenty-four-stage selectors.
+
+Journal/file disagreement refuses. Automatic recovery of interrupted
+multi-artifact plan publication, physical power loss, fresh-process rollback
+authority, alternate filesystem writers, every task/memory path and production
+integration remain unfinished. The Plan Mode policy retains simple Markdown
+filenames; broader Unicode/nested policy coverage is still open. See
+[plan evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-plans.txt).

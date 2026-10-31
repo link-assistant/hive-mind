@@ -231,6 +231,12 @@ export const describeFinalToolResultFailure = ({ error, command = null, toolName
   return `Claude reported success, but ${what} ${how}${detail}`;
 };
 
+/** Issue #3922: the full output of the vetoing tool call, for the log only (the headline stays short). */
+export const formatFinalToolResultOutput = ({ error, toolUseId = null } = {}) => `   Full output of the failed tool call (${toolUseId || 'unknown id'}):\n${String(error).replace(/^/gm, '   │ ')}`;
+
+/** Issue #3922: why a non-zero final tool result did not fail an otherwise successful session. */
+export const describeBenignFinalToolResult = ({ command = null, category = null } = {}) => `ℹ️ The last tool call ${command ? `(\`${command}\`) ` : ''}exited non-zero (${category}: a status answer or a failure the AI handled itself, not a failed verification), so the successful session result stands.`;
+
 export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingInput, resultEventReceived }) => {
   return !commandFailed && !streamingInput && !resultEventReceived;
 };

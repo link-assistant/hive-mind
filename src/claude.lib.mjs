@@ -41,7 +41,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, describeFinalToolResultFailure, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, describeBenignFinalToolResult, describeFinalToolResultFailure, formatFinalToolResultOutput, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
 import { interpretClaudeExitCode, isProcessGroupAlive } from './claude.process-exit.lib.mjs'; // Issue #3015
 import { createClaudeResultCloseController } from './claude.result-close.lib.mjs'; // Issue #3015
@@ -1030,15 +1030,9 @@ export const executeClaudeCommand = async params => {
       if (!commandFailed && !errorDuringExecution && exitCode === 0 && !turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
         commandFailed = true;
         errorDuringExecution = true;
-        // Issue #3922: name the failed command and its explaining line; the full output goes to the log only.
-        lastMessage = describeFinalToolResultFailure(terminalToolResult);
-        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
-        await log(`   Full output of the failed tool call (${terminalToolResult.toolUseId || 'unknown id'}):\n${String(terminalToolResult.error).replace(/^/gm, '   │ ')}`);
-      }
-      // Issue #3922: say why a non-zero final tool result did not fail the session.
-      else if (!commandFailed && resultSuccessReceived && terminalToolResult.failed && terminalToolResult.benign) {
-        await log(`ℹ️ The last tool call ${terminalToolResult.command ? `(\`${terminalToolResult.command}\`) ` : ''}exited non-zero (${terminalToolResult.category}: a status answer or a failure the AI handled itself, not a failed verification), so the successful session result stands.`);
-      }
+        lastMessage = describeFinalToolResultFailure(terminalToolResult); // Issue #3922: short headline; full output below
+        await log(`\n\n❌ Command failed: ${lastMessage}\n${formatFinalToolResultOutput(terminalToolResult)}`, { level: 'error' });
+      } else if (!commandFailed && resultSuccessReceived && terminalToolResult.failed && terminalToolResult.benign) await log(describeBenignFinalToolResult(terminalToolResult)); // Issue #3922
       // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what
       // gets reported. Without this the Kotlin run was filed as `Prompt is too long`,
       // which described the consequence and hid the cause.

@@ -192,23 +192,14 @@ export const isHexInSafeContext = (content, hexString, position) => {
   return SAFE_CONTEXT_PATTERNS.some(pattern => pattern.test(context));
 };
 
-/**
- * Text that, right before a 40-char hex string, says it names a commit: a GitHub commit/tree URL,
- * a git object id in gh/GitHub API JSON, or `git rev-parse`.
- * Issue #3922: these occurrences are not preceded by whitespace, `:` or `=`, so the hex scan never
- * looked at them, and the commit evidence they carry was ignored.
- */
+// Issue #3922: text right before a 40-char hex string that says it names a commit (a GitHub commit/tree URL,
+// a git object id in gh/GitHub API JSON, `git rev-parse`). The hex scan never looked at these occurrences.
 const COMMIT_EVIDENCE_PREFIX = /(?:\/(?:commit|commits|tree|blob)\/|"(?:oid|sha|headRefOid|baseRefOid|head_sha|base_sha|merge_commit_sha|commit_id|commitOid|tree_id)"\s*:\s*"|\bgit\s+rev-parse\s+[^\n]{0,60}\n)$/i;
 
 /**
- * Issue #3922: whether ANY occurrence of a 40-char hex string identifies it as a commit hash.
- *
- * Masking replaces every occurrence of a token, so judging only the occurrence the scan found was
- * wrong: `git rev-parse HEAD` output mirrored on its own line (`[STDOUT] <sha>`) was masked, and
- * with it the same SHA inside every `https://github.com/o/r/commit/<sha>` link of the log, which
- * became `commit/781…75a`. A real secret never appears as a commit URL or object id, so one
- * occurrence with commit evidence is enough to keep them all.
- *
+ * Issue #3922: whether ANY occurrence of a 40-char hex string identifies it as a commit hash. Masking
+ * replaces every occurrence, so a `git rev-parse HEAD` line (`[STDOUT] <sha>`) also masked the SHA in every
+ * `…/commit/<sha>` link (`commit/781…75a`). A secret never appears as a commit URL or object id.
  * @param {string} content - The full content to search
  * @param {string} hexString - The 40-char hex string
  * @returns {boolean} True if some occurrence is in a safe/commit context

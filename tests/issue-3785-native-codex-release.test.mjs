@@ -8,7 +8,26 @@ const read = name => fs.readFile(new URL(`../${name}`, import.meta.url), 'utf8')
 const job = (workflow, name) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n {2}[\w-]+:\n/u)[0] || '';
 
 test('native build and request inputs invalidate image evidence', { timeout: 10000 }, () => {
-  for (const name of ['scripts/build-native-codex.py', 'scripts/verify-native-codex-publish.mjs', 'experiments/issue-3785/native-codex/canonical_auth.rs', 'experiments/issue-3785/test_native_codex_build.py', 'experiments/issue-3785/probe-cargo-executable-hardlink.py', 'experiments/issue-3785/probe_native_codex_preparation.py', 'experiments/issue-3785/probe_native_codex_package.py', 'experiments/issue-3785/probe-packaged-native-codex.mjs', 'experiments/issue-3785/probe-codex-native-request-auth.mjs', 'experiments/issue-3785/probe-codex-native-compression.py', 'experiments/issue-3785/probe-codex-native-limits-generation.py', 'experiments/issue-3785/probe-codex-native-auth-identity.py', 'experiments/issue-3785/probe-codex-native-tui-history.py', 'experiments/issue-3785/probe-codex-native-agent-identity.py', 'experiments/issue-3785/native_process_group.py', 'experiments/issue-3785/native_network_fixture.py', 'experiments/issue-3785/native-request-proxy.mjs'])
+  for (const name of [
+    'scripts/build-native-codex.py',
+    'scripts/verify-native-codex-publish.mjs',
+    'experiments/issue-3785/native-codex/canonical_auth.rs',
+    'experiments/issue-3785/test_native_codex_build.py',
+    'experiments/issue-3785/probe-cargo-executable-hardlink.py',
+    'experiments/issue-3785/probe-codex-native-platform-flags.py',
+    'experiments/issue-3785/probe_native_codex_preparation.py',
+    'experiments/issue-3785/probe_native_codex_package.py',
+    'experiments/issue-3785/probe-packaged-native-codex.mjs',
+    'experiments/issue-3785/probe-codex-native-request-auth.mjs',
+    'experiments/issue-3785/probe-codex-native-compression.py',
+    'experiments/issue-3785/probe-codex-native-limits-generation.py',
+    'experiments/issue-3785/probe-codex-native-auth-identity.py',
+    'experiments/issue-3785/probe-codex-native-tui-history.py',
+    'experiments/issue-3785/probe-codex-native-agent-identity.py',
+    'experiments/issue-3785/native_process_group.py',
+    'experiments/issue-3785/native_network_fixture.py',
+    'experiments/issue-3785/native-request-proxy.mjs',
+  ])
     assert.equal(isNativeCodexBuildInput(name), true, name);
   for (const name of ['docs/case-studies/issue-3785/README.md', 'experiments/unrelated.py', 'experiments/issue-3785/PRODUCTION_PLAN.md']) assert.equal(isNativeCodexBuildInput(name), false, name);
 });
@@ -50,4 +69,7 @@ test('the reusable build has one PR caller and preserves both native installed c
   assert.ok(workflow.includes('native-codex-release-build-${{ github.workflow }}-${{ github.ref }}'));
   assert.ok(workflow.includes('probe-packaged-native-codex.mjs'));
   assert.ok(workflow.includes('runner: ubuntu-24.04-arm'));
+  const flags = workflow.indexOf('probe-codex-native-platform-flags.py');
+  const build = workflow.indexOf('python3 scripts/build-native-codex.py build');
+  assert.ok(flags > 0 && flags < build, 'both native runners must verify directory admission and link refusal before the large build');
 });

@@ -583,3 +583,12 @@ factory/environment controls and new/resumed Claude/Codex command/connection
 controls pass; full native in-memory authority, all-six direct native entry
 coverage and the complete Router audit/lifecycle contract remain unfinished.
 See `evidence/router-task-environment.txt`.
+
+2026-10-31 native ARM release follow-up: run 41202009317 compiles both optimized
+platforms but ARM fails its first canonical-auth probe. All eight native storage
+modules used x86 directory/no-follow bits. Bounded cross-compiled ARM controls
+reproduce 16 failures, including real-directory EINVAL and final-file symlink
+following. Architecture-specific flags repair those primitive boundaries; exact
+source admission and native CI controls precede the next full build. Optimized
+ARM execution, actual npm assembly and both installed-image gates stay OPEN
+until the new-source runs finish; the successful x64 result is preserved.

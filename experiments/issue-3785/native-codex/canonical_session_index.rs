@@ -9,8 +9,17 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-const NOFOLLOW: i32 = 0x20000;
-const DIRECTORY: i32 = 0x10000;
+// ARM64 uses distinct Linux UAPI directory/no-follow bits from x86-64.
+const NOFOLLOW: i32 = if cfg!(target_arch = "aarch64") {
+    0x8000
+} else {
+    0x20000
+};
+const DIRECTORY: i32 = if cfg!(target_arch = "aarch64") {
+    0x4000
+} else {
+    0x10000
+};
 const NONBLOCK: i32 = 0x800;
 const INDEX: &str = "session_index.jsonl";
 const LOCK: &str = ".hive-session-index.lock";

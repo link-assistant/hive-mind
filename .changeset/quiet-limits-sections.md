@@ -166,3 +166,9 @@ Validate native Router API credentials and endpoints against the declared task
 lease and selected route dialect before admission. Forward that dialect into
 nested task environments and refuse missing or divergent launch values without
 exposing them. Full native authority and audit lifecycle remain unfinished.
+
+Use ARM64 Linux directory and no-follow flags in every native Codex storage
+adapter. Verify real directory admission and final-symlink refusal on each
+native CI runner before compiling the full CLI, and repin the exact prepared
+source inventory. Complete optimized package and installed-image gates remain
+required on both platforms.

@@ -51,6 +51,8 @@ class NativeBuildAdmission(unittest.TestCase):
         recipe, digest = BUILD.load_recipe(self.recipe, self.inputs)
         self.assertEqual(recipe["version"], "0.164.0")
         self.assertEqual(len(digest), 64)
+        inventory = json.loads((ROOT / "src/native-codex/source-files.json").read_text())
+        self.assertEqual(BUILD.source_digest(inventory), recipe["sourceInventorySha256"])
 
     def test_changed_input_stops_before_source_mutation(self):
         (self.inputs / "canonical_auth.rs").write_text("changed native implementation\n")

@@ -43,6 +43,8 @@ jobs:
             sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev
           } > "$RUNNER_TEMP/native-release-prerequisites.log" 2>&1 &
           wait "$!"
+      - name: Verify native storage flags before compiling the full CLI
+        run: python3 experiments/issue-3785/probe-codex-native-platform-flags.py > "$RUNNER_TEMP/native-release-platform-flags.log" 2>&1
       - name: Prepare the immutable native source and all verified adapters
         run: |
           native_source="$RUNNER_TEMP/codex-release-source"

@@ -21,7 +21,9 @@ def run(*arguments, passes=True):
     result = subprocess.run(["python3", str(BUILDER), *map(str, arguments)],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if (result.returncode == 0) != passes:
-        raise AssertionError("Native source preparation produced an unexpected result.")
+        diagnostic = output / "unexpected-preparation.log"
+        diagnostic.write_bytes(result.stdout)
+        raise AssertionError(f"Native source preparation produced an unexpected result; see {diagnostic}.")
     return result.stdout
 
 

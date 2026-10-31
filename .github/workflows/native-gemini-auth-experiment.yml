@@ -262,6 +262,40 @@ jobs:
           for state in symlink hardlink unsafe-mode malformed invalid-utf8 oversized command-schema; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --shell-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-shell-tui-$state.log" > "$RUNNER_TEMP/gemini-shell-tui-$state-control.log" 2>&1
           done
+      - name: Preserve native diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-auth-experiment
+          path: |
+            ${{ runner.temp }}/gemini-*.log
+            ${{ runner.temp }}/gemini-*.network.json
+            ${{ runner.temp }}/gemini-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-history-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact native shell-history package for independent regressions
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-regressions-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth history artifacts blobs logger shell_history; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
       - name: Verify bounded history storage and independent concurrent writers
         run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
       - name: Discover and resume actual CLI conversation after private home disposal
@@ -308,11 +342,11 @@ jobs:
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-history-auth-writers.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-history-auth-requests.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-history-auth-reads.log" 2>&1
-      - name: Preserve native diagnostics
+      - name: Preserve independent history regression diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: native-gemini-auth-experiment
+          name: native-gemini-history-regressions
           path: |
             ${{ runner.temp }}/gemini-*.log
             ${{ runner.temp }}/gemini-*.network.json

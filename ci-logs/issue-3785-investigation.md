@@ -1200,3 +1200,30 @@ confirms successful retention, explicit busy-deletion refusal and preserved
 record prefixes/inodes. This verifies the semantic admission and retirement
 commits after the previous formatting-only CI failure. The subsequent local
 archive discovery/resume and publication-race controls need fresh Node 24 CI.
+
+## Gemini 41146984829: preserve coverage within bounded jobs
+
+[Run 41146984829](https://github.com/link-assistant/hive-mind/actions/runs/41146984829)
+was created at 2026-10-30T23:52:13Z for
+`3aff67264dc719995d90c9a02a7189178d7cfa11`. The new native tracker job passes,
+including all 32 scenarios, complete CLI tools and seven startup refusals. The
+credential/history job is cancelled after 15 minutes; check 124374272496's
+annotation explicitly says “The job has exceeded the maximum execution time of
+15m0s”. Its 1435-line log is retained as
+`ci-logs/native-gemini-41146984829.log`. Lines 1409–1418 show the final native
+authentication regression step starting at 00:05:47Z and cancellation at
+00:07:23Z, without an assertion failure in the workflow log.
+
+Compared with the passing run 41143418875, multiple independent finite controls
+are slower: writer/login/revocation checks take 68.7 rather than 43.0 seconds;
+unsafe artifact controls 53.1 rather than 36.4; unsafe archive controls 58.4
+rather than 36.3. The final authentication step previously completed in 64.1
+seconds. These timings identify accumulated suite duration as the job-level
+problem; they do not establish that the interrupted assertions passed.
+
+Move the final 13 history/discovery/retirement/import/authentication checks into
+an independent job that reconstructs the same pinned shell-history package.
+Every one of the existing 73 named checks remains exactly once, and each job
+keeps its 15-minute bound. The new job uploads its own diagnostics. Fresh CI
+must verify the interrupted controls and this partition; the earlier tracker
+success alone does not make the Gemini workflow pass.

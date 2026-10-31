@@ -1074,3 +1074,18 @@ Latest CI continuation:
       secret scanning, actionlint, Python AST and Node syntax checks before
       committing the tracker stage. Preserve all bounded diagnostics locally.
 - [ ] Require fresh exact-head Node 24 tracker CI before marking this stage verified.
+- [x] Preserve Gemini 41146984829's 1435-line log and exact-head annotations:
+      the tracker job passes; the original history job exceeds its 15-minute
+      total during the final authentication controls. Compare independent step
+      durations with the preceding passing run. Split the final 13 checks into
+      an independent reconstruction job, preserving all 73 named checks and
+      existing job bounds. Run actionlint and formatting before committing.
+- [ ] Require fresh CI for the partition and interrupted authentication checks.
+- [ ] Preserve native Git checkpoint objects and every acknowledged head across
+      private-home disposal without sharing Git configuration or hooks. First
+      reproduce lifetime loss, private executable filters and missing older
+      commits. Verify actual native Git peers, concurrent writers, audit history,
+      project separation and unsafe-object refusals. Add complete CLI startup
+      controls and a fresh-source reconstruction before enabling this adapter.
+      Native terminal restorable-tool metadata, legacy migration, interrupted
+      object publication and production integration remain separately unfinished.

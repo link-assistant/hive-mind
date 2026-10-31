@@ -85,6 +85,11 @@ const capabilityProbe = fileURLToPath(new URL('probe-codex-native-capability-aut
 const capabilityResult = await execute('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', process.execPath, '--jitless', '--max-old-space-size=96', capabilityProbe, command, installed], { maxBuffer: 262144 });
 process.stdout.write(capabilityResult.stdout);
 
+await verifyNativeCodexCommand({ command });
+const catalogueProbe = fileURLToPath(new URL('probe-codex-native-model-catalogue.mjs', import.meta.url));
+const catalogueResult = await execute('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', process.execPath, '--jitless', '--max-old-space-size=96', catalogueProbe, command, installed], { maxBuffer: 262144 });
+process.stdout.write(catalogueResult.stdout);
+
 for (const [probe, flags] of [
   ['probe-codex-native-auth-root.mjs', []],
   ['probe-codex-native-request-auth.mjs', []],

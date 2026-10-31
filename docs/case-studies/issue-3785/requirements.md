@@ -431,3 +431,12 @@ A3/A9. See `evidence/codex-sqlite-authority.txt`. The first optimized x64 compil
 finished, then packaging rejected Cargo's internal hardlink. Nineteen packaging
 controls and a tiny actual Cargo build pass after the bounded-copy repair;
 optimized runtime verification remains due (`evidence/native-codex-cargo-handoff.txt`).
+
+A2 metadata discovery now also uses the actual task environment and selected
+binary, admitting native bytes before execution. Six new regressions and all
+41 related Node tests pass. The actual development CLI returns compiled metadata
+with malformed private configuration and absent credentials through --bundled;
+the unbundled control refuses that configuration. Installed-package CI requires
+the same reader with native byte admission, pending a fresh run. This does not
+complete default selection, production credential-copy removal or the complete
+lifecycle. See `evidence/codex-model-catalogue-admission.txt`.

@@ -103,3 +103,5 @@ Refuse ambiguous private Codex configuration paths alongside selected canonical 
 Copy Cargo-owned native executables into a bounded fresh artifact before strict byte and version admission. Preserve compiler hardlinks while refusing changed or oversized source inputs, symbolic links, nonregular files and distributed binary aliases.
 
 Pin native Codex admission of final SQLite and log storage in the compiled release recipe. Require the actual platform and installed-command probes to refuse private configuration and command-line redirection before database creation.
+
+Read Codex compiled model metadata with the task environment and actual selected binary. Admit selected native command bytes before discovery and use bundled metadata without loading account or private configuration.

@@ -1,0 +1,44 @@
+Codex compiled model catalogue admission, 2026-10-31 UTC
+
+Reproducer:
+  node --test tests/issue-3785-codex-model-catalogue-admission.test.mjs
+Five initial regressions fail before repair: selected discovery executes an
+unverified command, the reader and default fetcher lose explicit environment,
+the actual executable differs from cache provenance, and effort discovery
+ignores the task environment. A sixth execution regression independently
+captures operator CODEX_HOME in the metadata child instead of its private scope.
+The bundled-argument control also fails before explicitly selecting --bundled.
+Before logs: /tmp/issue-3785-recovery/codex-model-catalogue-{admission,bundled,scope}-before.log
+
+The reader now admits installed native bytes before selected execution, passes
+the explicit environment and requests debug models --bundled. Default fetchers
+forward their actual binary, and execution constructs the private environment
+before resolving reasoning effort. Compiled metadata remains available without
+credentials; it does not authorize a model request or credential write.
+
+All six new regressions and all 41 related Node tests pass across eleven files,
+including native command construction, MCP, resume, process exit, incomplete
+session and catalogue/command behavior. Existing assertion-script files also
+report their inner assertions as passing. No test is skipped.
+After: /tmp/issue-3785-recovery/codex-model-catalogue-final-tests.log
+
+Actual native control:
+  prlimit --data=536870912 --stack=16777216 --core=0 -- node --jitless --max-old-space-size=96 experiments/issue-3785/probe-codex-native-model-catalogue.mjs /absolute/codex --unpackaged-development
+The preserved complete development Codex executable returns eleven compiled
+models with reasoning metadata through the production reader despite malformed
+private TOML and absent credentials. The unbundled control refuses that same
+configuration. Private config bytes remain unchanged, no private auth is made
+and the canonical fixture remains empty. Curated synthetic state, denied proxy
+destinations, twenty-second operation bounds and bounded output are used.
+Log: /tmp/issue-3785-recovery/codex-model-catalogue-native-final.log
+Both experimental and actual installed-package workflows require the probe;
+installed native byte admission is exercised only by the installed variant.
+Fresh installed-package verification remains pending.
+
+The fixture initially used an unsupported state-directory variable and wrote
+one synthetic model cache entry to fallback state. It now uses HIVE_MIND_STATE_DIR.
+A held state lock and exact synthetic model/path guard removed only that entry,
+preserving the other cache entry. No credentials or conversations were involved.
+
+Default canonical selection, credential-copy removal, full native history,
+runtime identity leases and the complete six-tool lifecycle remain unfinished.

@@ -670,12 +670,12 @@ export const executeCodexCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log, env: codexEnv });
+    let isResumeMode = !!argv.resume;
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.

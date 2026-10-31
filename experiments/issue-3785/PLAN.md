@@ -1409,3 +1409,15 @@ Latest CI continuation:
       draft PR with precise evidence/limits and require fresh exact-head checks.
 - [ ] Complete physical power loss, orphan cleanup, durable rollback authority,
       remaining writers/task memory and all production requirements.
+
+- [x] Reproduce metadata execution before selected native byte admission, lost
+      environment/binary provenance and operator-home reasoning discovery.
+      Pass all six new regressions and 41 related Node tests after repair.
+- [x] Verify actual development CLI compiled metadata with malformed private
+      configuration and absent credentials; retain the unbundled refusal control.
+      Require both experimental and installed-package variants in CI.
+- [ ] Verify new exact-head installed Codex command, SQLite authority, capability
+      authentication, compiled metadata and both image controls; preserve the
+      preceding ARM build diagnostics before pushing queued changes.
+- [ ] Complete default six-tool authority selection, migration, all native
+      writers/history/backend lifecycle and unresolved Claude refresh-owner death.

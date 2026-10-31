@@ -73,8 +73,11 @@ provider's grace-window or replay behavior.
 
 Canonical uncertainty needs durable intent or a documented provider replay
 contract. The retained workflow explicitly expects the existing defect; a passing
-experiment job must not be presented as a repaired crash criterion. Production
-mounts remain unchanged. Native login, all other credential backends/writers,
+experiment job must not be presented as a repaired crash criterion. Explicitly
+selected dedicated credential parents now have a production Docker projection;
+the actual pinned root/two-peer replacement and logout control is described in
+`docs/case-studies/issue-3785/evidence/claude-docker-auth-projection.txt`.
+Default mounts and migration remain unfinished. Native login, all other credential backends/writers,
 cross-container PID/mount namespace recovery, complete history, root/two-task
 lifecycle and release/deployment integration are still unfinished.
 

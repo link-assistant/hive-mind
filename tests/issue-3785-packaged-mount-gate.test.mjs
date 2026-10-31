@@ -65,6 +65,16 @@ if(args[0]==='run'){
       assert.ok(args.includes(`HIVE_MOUNT_TEST_SEARCH_SOURCE=${path.join(path.dirname(home), 'rg')}`), 'the copied image executable must use the selected daemon namespace');
       assert.ok(commands.indexOf(copies[index]) < commands.indexOf(args), 'copy must precede task admission');
       assert.ok(commands.some(command => command[0] === 'rm' && command.at(-1) === name));
+      for (const tool of ['codex', 'claude']) {
+        const native = commands.find(command => command[0] === 'exec' && command.includes(name) && command.at(-1).includes(`/verify-mounted-${tool}-auth.mjs`));
+        assert.ok(native, `each daemon must exercise the installed ${tool} credential-parent lifecycle`);
+        assert.ok(commands.indexOf(native) > commands.indexOf(args));
+      }
+      const launch = commands.find(command => command[0] === 'run' && command.includes(name));
+      assert.ok(
+        launch.some(arg => arg.endsWith('target=/mounted-native-runtime.lib.mjs,readonly')),
+        'the native probes require their exact runtime-copy helper inside each image'
+      );
     }
   });
 }

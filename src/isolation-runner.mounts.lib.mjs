@@ -5,7 +5,7 @@ import path from 'node:path';
 import { getRouterSuppressedCredentialPaths } from './router-isolation.lib.mjs';
 import { prepareToolDataMount, toolDataMount } from './tool-data-mounts.lib.mjs';
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
-import { codexAuthDockerProjection } from './codex-auth-docker.lib.mjs';
+import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
 function normalizeTool(tool) {
@@ -96,7 +96,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
-  const nativeAuth = !useRouter && (await codexAuthDockerProjection({ tool: normalizedTool, env, homeDir, expectedIdentity: nativeAuthIdentity }));
+  const nativeAuth = !useRouter && (await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir, expectedIdentity: nativeAuthIdentity }));
   const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
   if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
     await maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), exists);
@@ -140,7 +140,7 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   if (useRouter) return { created, missingAuth };
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
-  const nativeAuth = await codexAuthDockerProjection({ tool: normalizedTool, env, homeDir });
+  const nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {

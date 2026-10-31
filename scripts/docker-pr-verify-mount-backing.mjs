@@ -20,6 +20,8 @@ const probeImage = process.env.HIVE_MOUNT_TEST_IMAGE || 'node:24-alpine';
 const script = fileURLToPath(new URL('./verify-mounted-task-backing.mjs', import.meta.url));
 const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', import.meta.url));
 const codexAuthScript = fileURLToPath(new URL('./verify-mounted-codex-auth.mjs', import.meta.url));
+const claudeAuthScript = fileURLToPath(new URL('./verify-mounted-claude-auth.mjs', import.meta.url));
+const nativeRuntimeHelper = fileURLToPath(new URL('./mounted-native-runtime.lib.mjs', import.meta.url));
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
@@ -43,6 +45,8 @@ try {
       const args = ['run', '--detach', '--pull', 'never', '--name', name, '--env', 'DIND_HOST_PASSTHROUGH=off', '--mount', `type=bind,source=${fixture},target=/mount-fixture`, '--mount', `type=bind,source=${script},target=/verify-mounted-task-backing.mjs,readonly`];
       args.push('--mount', `type=bind,source=${dataScript},target=/verify-mounted-tool-data.mjs,readonly`);
       args.push('--mount', `type=bind,source=${codexAuthScript},target=/verify-mounted-codex-auth.mjs,readonly`);
+      args.push('--mount', `type=bind,source=${claudeAuthScript},target=/verify-mounted-claude-auth.mjs,readonly`);
+      args.push('--mount', `type=bind,source=${nativeRuntimeHelper},target=/mounted-native-runtime.lib.mjs,readonly`);
       if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
       else args.push('--privileged');
       args.push(image, 'sleep', 'infinity');
@@ -70,6 +74,8 @@ try {
       process.stdout.write(`${variant}: ${dataResult.stdout}`);
       const codexAuthResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-codex-auth.mjs "$(command -v hive)"'], 120_000);
       process.stdout.write(`${variant}: ${codexAuthResult.stdout}`);
+      const claudeAuthResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-claude-auth.mjs "$(command -v hive)"'], 120_000);
+      process.stdout.write(`${variant}: ${claudeAuthResult.stdout}`);
       for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
     } finally {
       await docker(['rm', '-f', name]).catch(() => {});

@@ -17,7 +17,7 @@ import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidire
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { createSubAgentCallEntry, accumulateSubAgentUsage, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
-import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, startClaudeNativeCommand } from './claude.command-builder.lib.mjs';
 import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
@@ -27,6 +27,7 @@ import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } fr
 import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
+import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
 import { shellQuote } from './shell-command.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
@@ -392,17 +393,8 @@ export const executeClaudeCommand = async params => {
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
-      if (argv.resume) {
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p ${promptForAttempt} --append-system-prompt ${systemPrompt}`;
-      } else if (streamingInput) {
-        // Issue #817: Drive Claude via --input-format stream-json on a pipe
-        // stdin. Initial prompt + later PR comments are written as NDJSON
-        // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
-        const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
-      } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
-      }
+      await assertAdmittedClaudeAuth({ env: { ...process.env, ...claudeEnv } });
+      execCommand = startClaudeNativeCommand({ $, tempDir, claudeEnv, command: toolInvocation.command, resume: argv.resume, streamingInput, effectiveModel, fallbackModelArgs, mcpDisableArgs, disallowedToolsArgs, promptForAttempt, systemPrompt });
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
       }

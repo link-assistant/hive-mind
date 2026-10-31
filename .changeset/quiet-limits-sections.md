@@ -138,3 +138,10 @@ platform, alias and recipe-ceiling refusals.
 
 Refresh all image and runtime Formal AI bootstrap pins to published 0.355.27
 after the dependency-freshness gate rejected the previous version.
+
+Project explicitly selected dedicated Claude credential parents into Docker
+tasks, revalidate launch identity in limits/profile/cache readers and before
+native connection and execution, and require actual pinned root/two-peer
+replacement and logout controls in both daemon image checks. Keep independent
+configuration private; default migration, full history and native refresh
+owner-death coordination remain unfinished.

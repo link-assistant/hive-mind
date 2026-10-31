@@ -23,7 +23,7 @@ that missing distribution evidence.
 Complete workflow log: 1992 lines, reviewed in two <=1500-line chunks.
 SHA256: 56c6eb8922296ccab495ff7e7826019bbf92055b9fd9ddf3cb32aeb26674c61c
 All 125 text artifact logs: 6161 lines, reviewed in 126 bounded chunks.
-The six assertion/traceback findings are expected strict before regressions.
+Six files contain assertion/traceback findings from expected before regressions.
 No unexpected after-control failure appears.
 
 Artifact inspection exposes missing native-limits-*.log retention despite the

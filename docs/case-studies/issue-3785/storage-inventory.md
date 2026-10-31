@@ -54,8 +54,11 @@ the selector is NFC-normalized. Native `auth status --json` and `auth logout`
 use the selected store without changing the synthetic credentials in the
 private configuration root. This interface is described in an
 [upstream documentation issue](https://github.com/anthropics/claude-code/issues/79223).
-The `/limits` reader now follows the same precedence. This does not yet replace
-the legacy production credential file mount or establish complete native login/refresh/history behavior.
+The `/limits` reader now follows the same precedence. An explicitly selected,
+dedicated parent also has a checked production Docker projection; actual pinned
+root/two-peer replacement and logout controls pass. Default legacy credential
+file mounts, native refresh owner death and complete login/history behavior remain
+unfinished. See `evidence/claude-docker-auth-projection.txt` for exact boundaries.
 
 Claude already documents a shared refresh lock in its
 [refresh-contention diagnostic](https://code.claude.com/docs/en/errors#could-not-refresh-your-login-because-another-claude-code-process-is-refreshing-it).

@@ -513,3 +513,23 @@ controls, eight primitive Rust tests and the real root/two-Docker-peer lifecycle
 run. A1/A2/A3/A4/A7/A10/A11/A12 remain open in their complete requested scope:
 compiled marker admission, packaged images, default selection, legacy migration
 and the other tool/history paths are not established by that local control.
+
+Explicit dedicated Claude credential parents now have a production Docker
+projection with pre/post-daemon directory admission. The actual pinned
+2.1.310 CLI and two offline Docker peers observe atomic replacement, root/task
+logout, synthetic reauthentication and private-config disposal. The native
+single-file-bind negative control continues reading retired credentials after
+replacement and logout. Limits/profile caches and Hive-managed native
+connection/execution revalidate the admitted parent. Required installed-package
+checks now include the same Claude control in both daemon layouts. This verifies
+selected authentication only; it does not establish default migration, selected
+configuration-root history projection, full history, all native writers or repair
+the reproduced refresh owner-death defect. A1–A12 remain open/partial. See
+`evidence/claude-docker-auth-projection.txt`.
+
+The exact development Codex CLI at 5a52ac0f6 now passes all three jobs in run
+41198752671, including compiled directory-identity and retired-usage controls.
+The preserved executable also passes both controls and the actual root/two-peer
+Docker auth lifecycle locally. This completes development after verification
+for those guards; optimized/installed/image gates and all complete-scope
+requirements remain unfinished. See `evidence/ci-5a52ac0f6-native-codex.txt`.

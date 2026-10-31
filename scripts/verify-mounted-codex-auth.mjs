@@ -2,12 +2,12 @@
 // The optional experimental binary is for bounded local reproduction only.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
 
 const execute = promisify(execFile);
 const entry = await fs.realpath(process.argv[2]);
@@ -27,11 +27,6 @@ const runtime = path.join(fixture, 'runtime');
 const names = Array.from({ length: 3 }, () => `hive-codex-auth-${randomUUID()}`);
 const baseEnv = { PATH: process.env.PATH, DOCKER_HOST: 'unix:///var/run/docker.sock', HIVE_MIND_DOCKER_ISOLATION_IMAGE: image };
 const docker = args => execute('docker', args, { env: baseEnv, maxBuffer: 262144, signal: AbortSignal.timeout(30_000) });
-const digest = async filename => {
-  const hash = createHash('sha256');
-  for await (const chunk of createReadStream(filename, { highWaterMark: 65536 })) hash.update(chunk);
-  return hash.digest('hex');
-};
 const key = generation => `sk-SYNTHETIC-PARENT-AUTH-${generation}`;
 const auth = path.join(canonical, 'auth.json');
 const publish = async (generation, atomic = true) => {
@@ -77,26 +72,7 @@ async function peers(generation) {
 
 try {
   for (const directory of [canonical, homeDir, rootConfig, runtime]) await fs.mkdir(directory, { mode: 0o700 });
-  await fs.mkdir(path.join(runtime, 'lib'), { mode: 0o700 });
-  const nativeHash = await digest(native.entrypoint);
-  await fs.copyFile(native.entrypoint, path.join(runtime, 'codex'));
-  await fs.chmod(path.join(runtime, 'codex'), 0o700);
-  assert.equal(await digest(path.join(runtime, 'codex')), nativeHash);
-  // Use the exact root-image loader and shared libraries with the admitted
-  // binary in the small offline peer image; no second CLI installation occurs.
-  const { stdout } = await execute('ldd', [native.entrypoint], { maxBuffer: 65536 });
-  const libraries = [...new Set([...stdout.matchAll(/(?:=>\s*)?(\/(?:usr\/)?lib[^\s]*)\s+\(0x[0-9a-f]+\)/gu)].map(match => match[1]))];
-  const loader = libraries.find(filename => /^ld-linux[^/]*\.so\./u.test(path.basename(filename)));
-  assert.ok(loader && libraries.length < 32, 'Native runtime dependencies are incomplete.');
-  const basenames = new Set();
-  for (const filename of libraries) {
-    const basename = path.basename(filename);
-    assert.ok(!basenames.has(basename), 'Ambiguous native runtime dependency.');
-    basenames.add(basename);
-    await fs.copyFile(filename, path.join(runtime, 'lib', basename));
-    await fs.chmod(path.join(runtime, 'lib', basename), 0o500);
-  }
-  command = `/__native_runtime/lib/${path.basename(loader)} --library-path /__native_runtime/lib /__native_runtime/codex`;
+  command = await prepareMountedNativeRuntime(native.entrypoint, runtime, 'codex');
   await publish('G0000');
   const selectedEnv = { ...baseEnv, CODEX_AUTH_HOME: canonical };
   const prepared = await prepareDockerIsolationHostPaths({ tool: 'codex', homeDir, env: selectedEnv });

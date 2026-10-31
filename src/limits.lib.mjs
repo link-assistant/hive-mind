@@ -5,6 +5,7 @@
  */
 
 import { resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { assertAdmittedClaudeAuth, CLAUDE_AUTH_IDENTITY, selectedClaudeAuthHome } from './claude-canonical-auth.lib.mjs';
 import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -151,8 +152,9 @@ async function getCodexUsageBaseUrl(configPath = resolveLimitsCredentialPaths().
  */
 export async function readCredentials(credentialsPath = resolveLimitsCredentialPaths().claude, verbose = false) {
   try {
-    const content = await readFile(credentialsPath, 'utf-8');
-    const credentials = JSON.parse(content);
+    const admitted = process.env[CLAUDE_AUTH_IDENTITY] !== undefined;
+    if (admitted && credentialsPath !== join(selectedClaudeAuthHome(), '.credentials.json')) throw new Error('Canonical Claude authentication storage is unavailable or unsafe.');
+    const credentials = admitted ? await assertAdmittedClaudeAuth() : JSON.parse(await readFile(credentialsPath, 'utf-8'));
     if (verbose) {
       console.log('[VERBOSE] /limits credentials loaded from:', credentialsPath);
     }
@@ -164,6 +166,18 @@ export async function readCredentials(credentialsPath = resolveLimitsCredentialP
     }
     return null;
   }
+}
+export function claudeLimitsAuthAdmission(credentialsPath, verbose) {
+  const identity = process.env[CLAUDE_AUTH_IDENTITY];
+  if (identity === undefined) return undefined;
+  const root = selectedClaudeAuthHome();
+  return async () => {
+    try {
+      return process.env[CLAUDE_AUTH_IDENTITY] === identity && selectedClaudeAuthHome() === root && Boolean(await readCredentials(credentialsPath, verbose));
+    } catch {
+      return false;
+    }
+  };
 }
 /**
  * Format a retry-after value into a user-friendly message.
@@ -683,7 +697,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = re
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
   try {
-    const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath);
+    const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath, claudeLimitsAuthAdmission(credentialsPath, verbose));
     // Read credentials
     const credentials = await readCredentials(credentialsPath, verbose);
 
@@ -1223,7 +1237,7 @@ export function resetLimitCache() {
 export async function getCachedClaudeLimits(verbose = false, { credentialsPath = resolveLimitsCredentialPaths().claude, fetchLimits = () => getClaudeUsageLimits(verbose, credentialsPath) } = {}) {
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
-  return getCachedUsageLimits({ key: 'claude', fetchLimits, credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API });
+  return getCachedUsageLimits({ key: 'claude', fetchLimits, credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: claudeLimitsAuthAdmission(credentialsPath, verbose) });
 }
 
 export async function getCachedCodexLimits(verbose = false, { authPath = resolveLimitsCredentialPaths().codex, fetchLimits = () => getCodexUsageLimits(verbose, authPath) } = {}) {

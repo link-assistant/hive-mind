@@ -24,7 +24,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -45,7 +45,7 @@ globalThis.use = async name => {
   return import(packageName);
 };
 
-const { executeClaudeCommand } = await import('../src/claude.lib.mjs');
+const { executeClaudeCommand, validateClaudeConnection } = await import('../src/claude.lib.mjs');
 const { USE_M_PACKAGE_VERSIONS } = await import('../src/use-with-retry.lib.mjs');
 const { resetCumulativeAnthropicCost } = await import('../src/anthropic-cost-accumulator.lib.mjs');
 
@@ -60,7 +60,7 @@ test('the tests replay the command-stream version production loads', () => {
   assert.equal(devDependencies['command-stream'], USE_M_PACKAGE_VERSIONS['command-stream']);
 });
 
-async function run(t, argv) {
+async function run(t, argv, { beforeExecution = async () => {}, onNative = () => {} } = {}) {
   resetCumulativeAnthropicCost();
   const dir = await mkdtemp(path.join(os.tmpdir(), 'claude-prompt-argv-3282-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -77,6 +77,7 @@ async function run(t, argv) {
   const fakeDollar =
     options =>
     (strings, ...values) => {
+      onNative();
       template = { options, strings, values };
       return {
         result: { code: 0 },
@@ -100,7 +101,10 @@ async function run(t, argv) {
       logFile = value;
     },
     formatAligned: (_icon, label, value = '') => `${label} ${value}`.trim(),
-    getResourceSnapshot: async () => ({ memory: 'Mem:\nMemAvailable: 1 GB', load: '0.00' }),
+    getResourceSnapshot: async () => {
+      await beforeExecution();
+      return { memory: 'Mem:\nMemAvailable: 1 GB', load: '0.00' };
+    },
     forkedRepo: null,
     feedbackLines: [],
     claudePath: 'claude',
@@ -153,3 +157,40 @@ test('the logged command (and --dry-run result) is copy-pastable shell', { timeo
   assert.equal(flag(args, '--append-system-prompt'), systemPrompt);
   assert.equal(fs.existsSync(marker), false);
 });
+
+for (const resumed of [false, true]) {
+  test(`admitted Claude ${resumed ? 'resume' : 'new execution'} refuses a replaced credential parent before launching`, { timeout: 30_000 }, async t => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'claude-native-admission-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const canonical = path.join(root, 'canonical');
+    const configuration = path.join(root, 'private-config');
+    for (const directory of [canonical, configuration]) await mkdir(directory, { mode: 0o700 });
+    const credentials = '{"claudeAiOauth":{"accessToken":"SYNTHETIC-ADMITTED"}}';
+    await writeFile(path.join(canonical, '.credentials.json'), credentials, { mode: 0o600 });
+    const info = await stat(canonical, { bigint: true });
+    const selection = { CLAUDE_CONFIG_DIR: configuration, CLAUDE_SECURESTORAGE_CONFIG_DIR: canonical, HIVE_MIND_CLAUDE_AUTH_IDENTITY: `${info.dev}:${info.ino}` };
+    for (const [name, value] of Object.entries(selection)) {
+      const before = process.env[name];
+      t.after(() => {
+        if (before === undefined) delete process.env[name];
+        else process.env[name] = before;
+      });
+      process.env[name] = value;
+    }
+    let launches = 0;
+    const { result } = await run(t, resumed ? { resume: SESSION } : {}, {
+      onNative: () => {
+        launches++;
+      },
+      beforeExecution: async () => {
+        await rename(canonical, `${canonical}-retired`);
+        await mkdir(canonical, { mode: 0o700 });
+        await writeFile(path.join(canonical, '.credentials.json'), credentials, { mode: 0o600 });
+      },
+    });
+    assert.equal(result.success, false);
+    assert.equal(launches, 0);
+    assert.match(result.errorInfo.message, /Canonical Claude authentication storage/u);
+    await assert.rejects(validateClaudeConnection('haiku'), /Canonical Claude authentication storage/u);
+  });
+}

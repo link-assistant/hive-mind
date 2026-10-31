@@ -11,6 +11,7 @@ import { createTransientRetryBudget, waitWithCountdown } from './tool-retry.lib.
 import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
+import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
@@ -44,6 +45,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
     return true;
   };
   const attemptValidation = async () => {
+    await assertAdmittedClaudeAuth();
     try {
       if (retryCount === 0) {
         await log('🔍 Validating Claude CLI connection...');

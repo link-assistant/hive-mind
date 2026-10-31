@@ -485,3 +485,12 @@ regressions reproduce before repair; all 22 new and 84 related Node targets pass
 after refusal before host preparation or mount probing. Explicit Router remains
 supported. See `evidence/docker-selected-storage.txt`. Required default native
 projections, migration and replacement-safe unselected mounts remain open.
+
+The a3 development CLI now verifies automatic strict handling for selected
+canonical history: all three redirected SQLite/log controls and both database
+alias controls pass before database creation or outside mutation. The following
+compression fixture contains an obsolete native feature, exposed by strict
+validation; removing that fixture setting restores actual compression, peer
+reads and resume after private-home disposal with the identical compiled binary.
+Optimized distribution, operation leases and full lifecycle criteria remain open.
+See `evidence/ci-a3ca1a1a8-native.txt` for exact CI attribution and diagnostics.

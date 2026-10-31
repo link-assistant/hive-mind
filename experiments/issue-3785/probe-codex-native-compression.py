@@ -9,6 +9,7 @@ import queue
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -35,7 +36,6 @@ model_provider = "offline"
 [features]
 remote_plugin = false
 apps = false
-rollout_compression = false
 [model_providers.offline]
 name = "Offline"
 base_url = "http://127.0.0.1:1/v1"
@@ -88,6 +88,8 @@ requires_openai_auth = false
         try:
             result = self.replies.get(timeout=8)
         except queue.Empty:
+            if os.environ.get('CODEX_PROBE_DIAGNOSTICS') == '1':
+                print(self.diagnostic(), file=sys.stderr, flush=True)
             raise AssertionError(f'Native protocol deadline exceeded; exit={self.child.poll()}; reader_failed={self.failure is not None}.') from None
         assert self.failure is None
         if 'error' in result and os.environ.get('CODEX_PROBE_DIAGNOSTIC_FILE'):

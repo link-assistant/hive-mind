@@ -1471,3 +1471,12 @@ Latest CI continuation:
       file limits and whitespace checks pass for the Docker repair.
 - [ ] Preserve current native build evidence before pushing the atomic repair.
       Default projections and the full acceptance inventory remain unfinished.
+
+- [x] Preserve the complete a3 native failure and all artifacts. The compiled
+      CLI passes automatic SQLite redirect and database-alias admission.
+      Startup tracing identifies an unsupported compression fixture feature;
+      remove that setting while retaining strict admission. The same binary
+      then passes actual compression, peer reads and fresh resume after disposal.
+- [x] Pass all 24 preserved-CLI post-admission control invocations after the
+      fixture repair; review all 63 log lines with zero unexpected failures.
+      Preserve complete a3 evidence. Keep current optimized builds running.

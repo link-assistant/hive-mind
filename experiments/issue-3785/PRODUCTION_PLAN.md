@@ -84,8 +84,11 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [x] Reproduce compiled core-admission errors being swallowed by app-server
       default-config fallback. Verify the native strict policy prevents all
       database creation and pin its automatic selection in the 35-file recipe.
-- [ ] Verify automatic strict selection through freshly compiled artifacts;
-      explicit --strict-config controls are evidence for policy behavior only.
+- [x] Verify automatic strict selection through the actual a3 development CLI:
+      all three redirect and both database-alias controls pass without an
+      explicit --strict-config flag. Optimized and installed artifacts remain
+      separate unfinished gates. Repair the obsolete compression fixture field
+      exposed by strict validation and repeat native post-admission controls.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [x] Reproduce and repair pending limits credential-generation races in cached

@@ -47,3 +47,11 @@ installed generation. This optimized compiler/assembly/installed-package workflo
 has not yet run. Production release publication, image/host command activation
 and removal of the production auth.json copy remain open. O3/A2 and the six-tool
 lifecycle contract remain unfinished; the pull request remains draft.
+
+2026-10-31 follow-up: the first optimized x64 compiler succeeds, then packaging
+rejects Cargo's internal hardlink. See native-codex-cargo-handoff.txt for the
+reproducer and bounded-copy repair. The recipe now also pins final SQLite
+configuration admission, producing a complete 34-file prepared inventory in two
+fresh checkouts; see codex-sqlite-authority.txt. Both new compiled platform and
+actual installed-command checks still require CI. These updates supersede the
+31-file count above without claiming optimized installation or full lifecycle.

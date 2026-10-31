@@ -419,3 +419,15 @@ passes two-task replacement/disposal/logout controls with synthetic credentials
 and no inference. The same installed-module control is required in both image
 checks, pending new CI. See `evidence/formal-ai-codex-authority.txt`. Default
 selection, unselected copies and complete backend/history lifecycle remain open.
+
+A3/A9 selected native Codex SQLite admission now has actual before evidence for
+private sqlite_home, command-line sqlite_home and log_dir redirection. Six
+filesystem guard tests pass, and the release recipe pins that guard in an
+identical 34-file inventory produced by two fresh checkouts. Both platform and
+installed-command CI now require explicit refusal before database creation.
+Compiled after verification, operation leases, canonical database file binding
+and default production selection remain due; these changes do not complete
+A3/A9. See `evidence/codex-sqlite-authority.txt`. The first optimized x64 compile
+finished, then packaging rejected Cargo's internal hardlink. Nineteen packaging
+controls and a tiny actual Cargo build pass after the bounded-copy repair;
+optimized runtime verification remains due (`evidence/native-codex-cargo-handoff.txt`).

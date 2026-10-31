@@ -6,7 +6,7 @@
   "rustToolchain": "1.99.1",
   "profile": "release",
   "maxBinaryBytes": 201326592,
-  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals"],
+  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority"],
   "inputs": {
     "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",
     "apply_cached_reads.py": "fa47213861bf68cb5fcfaebfa14b55f6ccea884ff6d4437f3103ddeb9b4ead99",
@@ -19,6 +19,7 @@
     "apply_request_auth.py": "48f94905fa1186d7f1a2736e85e0932f82a35074a91b29e48feb349608f60f03",
     "apply_rollout_paths.py": "a38f3d6a223369fb5e78cbf5f72a4784a7ce8c049972d2dbb48bf811db6f9771",
     "apply_session_index.py": "d4f645d86581cfca2ded55425b13ddbed2ade1d74dc0ccd19d9197df8e4281f4",
+    "apply_sqlite_authority.py": "ddc910fdc2527af6819ed2ecb32e5388364c4c8ce2a30d392e84cef52760e512",
     "apply_tui_message_history.py": "cc698315aeca623c55cfdb59533a503bed4f25f474f8fa6ad06431dfca48d533",
     "cached_reads.patch": "ad12735dc0f2983c0797136fb4b7e505b930bf266687737312e672c4425c7920",
     "canonical_auth.rs": "cd50cbf6861858d7fb37ebae38a0fbda3c790e5e67195b0959b20cc1245afdd7",
@@ -34,6 +35,8 @@
     "canonical_rollout_paths_tests.rs": "a1628b6b8a683089cc9790e6e183c1a3810f643d7f68801bf2810e08ff782c8a",
     "canonical_session_index.rs": "74a6c35e2315f109ca6bafd0366826c2dd04f4f8e956e19c84ed25680f39713b",
     "canonical_session_index_tests.rs": "5b48d7b780da2078fd6b35491274c50717201da2f914da63b6ad7c27eceb8dee",
+    "canonical_sqlite_authority.rs": "e687530c88d1aa9c06108958c76fbbff10d7fff6cd0045e2b2fdade4a71424dc",
+    "canonical_sqlite_authority_tests.rs": "bcd7fcde26027fb921c2667e145df5fbc540ee986eb5c8f04a70139dc29ed752",
     "canonical_transaction.rs": "66a6e583c8d766b6ce533a340871b85feb37b2eb29ec88408ce1adee6fcfaf2c",
     "coordination.patch": "02807f62854429daf5bf55c15cdfcd0173b3f357a821036cc8b0856124e91a29",
     "native_lifecycle_probe.rs": "d42cc08b717ba851acd7df18d33f943f2eb592ca458ec285da37b3897069a0f9",
@@ -79,5 +82,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "2d249fff1198fe5be7bfb6a44fd0383e634defe5210ba459224965f272330006"
+  "sourceInventorySha256": "8af3a34fe10a01a7f0f02547a0c5c9e700861bf9c136b84e405bef6ee4be1aa3"
 }

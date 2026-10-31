@@ -38,10 +38,19 @@ Logs: /tmp/issue-3785-recovery/codex-sqlite-authority-{apply-check,unit}.log
 
 The native experiment workflow now requires all three actual-CLI negative
 controls, a strict before failure and explicit after refusals. These new CI
-controls have not run yet; they do not change the distributed recipe.
+controls have not run yet.
 
-This is final-configuration admission only. The guard has not yet been wired
-into the distributed recipe or verified in the compiled actual CLI. SQLite
-operation leases, database file binding, root replacement during a running
-operation and production default selection remain unfinished. No complete
-canonical history or lifecycle acceptance claim is made by these unit tests.
+The distributed recipe now pins the guard/applier/tests as its thirteenth
+adapter stage. Two fresh source checkouts independently prepare and verify the
+same complete 34-file source inventory, with digest:
+  8af3a34fe10a01a7f0f02547a0c5c9e700861bf9c136b84e405bef6ee4be1aa3
+Recipe SHA256:
+  be418612690f58f86993a02627ed29a9a697e24cf41993bed8c4e6d16d8b4501
+Logs: /tmp/issue-3785-recovery/codex-release-sqlite-preparation/prepare-{1,2}.log
+Both platform build jobs and the actual installed-command control now require
+all three explicit after refusals. Those changed jobs have not run yet.
+
+This is final-configuration admission only; compiled actual-CLI validation is
+still due. SQLite operation leases, database file binding, root replacement
+during a running operation and production default selection remain unfinished.
+No complete canonical history or lifecycle acceptance claim is made here.

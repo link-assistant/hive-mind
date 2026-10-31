@@ -4,6 +4,21 @@
     "mode": 420,
     "sha256": "bc5f7352658f51deace9dddb4bc404742b06c6402cc825b6d37051c008d989bd"
   },
+  "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
+    "bytes": 2831,
+    "mode": 420,
+    "sha256": "e687530c88d1aa9c06108958c76fbbff10d7fff6cd0045e2b2fdade4a71424dc"
+  },
+  "codex-rs/core/src/config/canonical_sqlite_authority_tests.rs": {
+    "bytes": 4613,
+    "mode": 420,
+    "sha256": "bcd7fcde26027fb921c2667e145df5fbc540ee986eb5c8f04a70139dc29ed752"
+  },
+  "codex-rs/core/src/config/mod.rs": {
+    "bytes": 212178,
+    "mode": 420,
+    "sha256": "e000290e064801b44f70d58d17462b45e57303f541eaa2f0062d2e26fd2bdc34"
+  },
   "codex-rs/login/src/auth/account_grant.rs": {
     "bytes": 5082,
     "mode": 420,

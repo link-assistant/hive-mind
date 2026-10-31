@@ -101,3 +101,5 @@ Preserve explicitly selected canonical Codex authentication during Formal AI con
 Refuse ambiguous private Codex configuration paths alongside selected canonical credentials. Preserve explicitly empty selectors for refusal instead of replacing them with an operator-home fallback in limits and Formal AI configuration.
 
 Copy Cargo-owned native executables into a bounded fresh artifact before strict byte and version admission. Preserve compiler hardlinks while refusing changed or oversized source inputs, symbolic links, nonregular files and distributed binary aliases.
+
+Pin native Codex admission of final SQLite and log storage in the compiled release recipe. Require the actual platform and installed-command probes to refuse private configuration and command-line redirection before database creation.

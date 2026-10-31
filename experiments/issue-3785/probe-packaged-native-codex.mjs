@@ -71,6 +71,13 @@ assert.deepEqual(await fs.readFile(stock), stockBytes);
 assert.equal(await fs.realpath(command), selected.entrypoint);
 console.log('PASS: the actual npm-installed stock command selects the checked native generation idempotently while preserving the upstream launcher.');
 
+for (const selection of ['configuration', 'cli', 'logs']) {
+  const file = fileURLToPath(new URL('probe-codex-native-sqlite-authority.py', import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute('python3', [file, command, '--case', selection], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
+
 await verifyNativeCodexCommand({ command });
 const capabilityProbe = fileURLToPath(new URL('probe-codex-native-capability-auth.mjs', import.meta.url));
 // JITless avoids V8's large executable reservation under the inherited data

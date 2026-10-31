@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs';
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Qwen Code CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -376,22 +378,27 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
 };
 
 // Function to validate Qwen connection
-export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen') => {
+export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen', { useRouter = false } = {}) => {
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
   const mappedModel = mapModelToId(model);
 
   try {
     await log('🔍 Validating Qwen Code connection...');
 
     try {
+      assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
       const versionResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Qwen Code CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Qwen Code version check failed (${versionError.code}), proceeding with connection test...`, { level: 'warning' });
     }
 
+    assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
     const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
     const output = getCommandResultOutput(testResult);
 
@@ -417,6 +424,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
     await log('✅ Qwen Code connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Qwen Code connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Qwen Code is installed and accessible as qwen', { level: 'error' });
     return false;
@@ -568,11 +576,14 @@ export const executeQwenCommand = async params => {
     let sessionId = argv.resume || null;
 
     try {
-      const execCommand = dollar({
+      if (argv.useRouter === true) qwenEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'qwen', cwd: tempDir, env: qwenEnv });
+      const launch = dollar({
         cwd: tempDir,
         mirror: false,
         env: qwenEnv,
-      })`sh -lc ${commandScript}`;
+      });
+      const execCommand = isRouterAuthGuardRequired(qwenEnv) ? launch`sh -c ${commandScript}` : launch`sh -lc ${commandScript}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -589,7 +600,7 @@ export const executeQwenCommand = async params => {
       let allOutput = '';
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'qwen', env: qwenEnv, cwd: tempDir, log })) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -781,6 +792,8 @@ export const executeQwenCommand = async params => {
         resultSummary,
       };
     } catch (error) {
+      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'qwen', cwd: tempDir, env: qwenEnv });
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_qwen',
         qwenPath,

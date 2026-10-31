@@ -181,6 +181,8 @@ Routed Codex commands skip shell login profiles so they cannot replace the admit
 
 Admission also derives the expected native API credential and endpoint from the declared Router task token, origin and route dialect. Missing or changed values are refused without printing their contents. The task environment forwards the selected dialect to nested launches. These checks do not mediate credentials held inside a native CLI.
 
+Agent, OpenCode, Gemini and Qwen also check their final launch environment before new commands, resumes and connection probes. They monitor the listed shared credential files while consuming output and preserve security refusals through stream or output-processing errors, without ordinary retry. Routed Qwen commands skip shell login profiles. Shared connection dispatch and Hive startup carry explicit Router selection through admission, including Formal AI availability checks; startup refusals retain exit 77. Additional tool-specific credential stores, native in-memory authority and durable Router audit remain unfinished.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

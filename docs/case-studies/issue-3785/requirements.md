@@ -592,3 +592,16 @@ following. Architecture-specific flags repair those primitive boundaries; exact
 source admission and native CI controls precede the next full build. Optimized
 ARM execution, actual npm assembly and both installed-image gates stay OPEN
 until the new-source runs finish; the successful x64 result is preserved.
+
+Four additional direct Router adapters now admit their final native environment
+before new/resumed commands and connection probes: Agent, OpenCode, Gemini and
+Qwen. The corrected isolated matrix reproduces 157 failures in 177 controls
+before repair. Further strict controls reproduce swallowed security refusals
+on output-processing failure and Hive startup's generic error exit. These paths
+now retain the security result without ordinary retry; shared connection
+dispatch also carries explicit selection through Formal AI availability checks,
+and routed Qwen does not load shell login profiles. Listed shared credential
+files are monitored while consuming output. Full tool-specific credential stores,
+native in-memory authority, request mediation and the complete Router durable
+audit/lifecycle contract remain OPEN. See
+`evidence/router-extra-native-admission.txt` for the exact verification scope.

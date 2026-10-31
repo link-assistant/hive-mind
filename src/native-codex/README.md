@@ -53,6 +53,10 @@ revision together. They revalidate that revision before dispatch and response
 publication, refusing retired usage after logout, replacement or malformed
 canonical credentials. The actual prior CLI reproduces all three failures;
 development, optimized, installed-command and both image checks require the
-same real-process controls. Compiled verification of this new guard is pending.
-This does not establish a filesystem operation lease or complete default
-canonical selection. See `evidence/codex-native-limits-generation.txt`.
+same real-process controls. The development and optimized x64 executables pass
+these controls at f2e845cb3; optimized ARM64, installed-command and image
+verification remain pending. This does not establish a filesystem operation
+lease or complete default canonical selection. See the case study's
+`evidence/codex-native-limits-generation.txt`,
+`evidence/ci-f2e845cb3-native-codex.txt` and
+`evidence/native-linux-platform-flags.txt`.

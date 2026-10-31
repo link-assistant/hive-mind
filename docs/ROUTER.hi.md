@@ -136,6 +136,8 @@ Router वाले Codex commands shell की login profile लोड नह�
 
 प्रवेश जाँच अपेक्षित native API क्रेडेंशियल और endpoint को घोषित Router task token, origin और route बोली से तय करती है। गायब या बदले हुए मानों को उनका विवरण छापे बिना अस्वीकार किया जाता है। कार्य का environment चुनी हुई बोली को nested launches तक पहुँचाता है। ये जाँच native CLI की मेमोरी में मौजूद क्रेडेंशियल को नियंत्रित नहीं करतीं।
 
+Agent, OpenCode, Gemini और Qwen भी नई command, resume और connection probe से पहले अंतिम launch environment जाँचते हैं। आउटपुट पढ़ते समय वे ऊपर दी गई साझा credential फ़ाइलों की निगरानी करते हैं; stream या आउटपुट processing की त्रुटि आने पर भी सुरक्षा अस्वीकृति बनी रहती है और सामान्य retry नहीं होता। Router वाले Qwen commands shell login profile लोड नहीं करते। साझा connection dispatch और Hive startup स्पष्ट Router चयन को admission तक पहुँचाते हैं, जिसमें Formal AI availability जाँच भी शामिल है; startup अस्वीकृति का exit code 77 रहता है। अन्य tool-specific credential stores, native CLI की memory में credentials का नियंत्रण और टिकाऊ Router audit अभी अधूरे हैं।
+
 ## अभी क्या कवर नहीं है
 
 राउटर वाला हर रन शुरू होने से पहले यही सूची छापता है। ये प्रयोगात्मक स्थिति की ईमानदार सीमाएँ हैं:

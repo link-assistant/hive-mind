@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // OpenCode-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -48,7 +50,9 @@ export const mapModelToId = model => {
 };
 
 // Function to validate OpenCode connection
-export const validateOpenCodeConnection = async (model = defaultModels.opencode) => {
+export const validateOpenCodeConnection = async (model = defaultModels.opencode, { useRouter = false } = {}) => {
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
   await assertSharedToolData({ tool: 'opencode' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
@@ -67,6 +71,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Check if OpenCode CLI is installed and get version
       try {
+        assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
         const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
@@ -75,6 +80,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  OpenCode CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
@@ -82,6 +88,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
+      assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
       const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
@@ -102,6 +109,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
       await log('✅ OpenCode connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       await log(`❌ Failed to validate OpenCode connection: ${error.message}`, { level: 'error' });
       await log('   💡 Make sure OpenCode CLI is installed and accessible', { level: 'error' });
       return false;
@@ -341,6 +349,8 @@ export const executeOpenCodeCommand = async params => {
     try {
       // Pipe the prompt file to opencode via stdin
       await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
+      if (argv.useRouter === true) opencodeEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'opencode', cwd: tempDir, env: opencodeEnv });
       if (argv.resume) {
         const commandRunner = $({
           cwd: tempDir,
@@ -436,7 +446,7 @@ export const executeOpenCodeCommand = async params => {
         }
       };
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'opencode', env: opencodeEnv, cwd: tempDir, log })) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -660,6 +670,8 @@ export const executeOpenCodeCommand = async params => {
         // Ignore cleanup errors
       }
 
+      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'opencode', cwd: tempDir, env: opencodeEnv });
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_opencode',
         command: params.command,

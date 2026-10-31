@@ -14,5 +14,5 @@ step does not establish in-memory native authority or the full audit lifecycle.
       environment and argv selection; retain security exit 77 and no fallback.
 - [x] Run focused controls, repository checks and the complete default suite.
 - [x] Update evidence and review; commit the independently useful change.
-- [ ] Push only the prepared branch after preserving preceding CI; keep the
+- [x] Push only the prepared branch after preserving preceding CI; keep the
       complete acceptance inventory open.

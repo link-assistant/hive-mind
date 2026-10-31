@@ -7,8 +7,9 @@ Native Claude:
 https://github.com/link-assistant/hive-mind/actions/runs/41202009275
 Native Qwen:
 https://github.com/link-assistant/hive-mind/actions/runs/41202009276
-Both workflows succeed because their unresolved strict controls are explicitly
-expected to fail. That workflow status does not satisfy those requirements.
+Both workflows require strict negative controls before their positive controls.
+Some expose remaining gaps; others precede opt-in repairs in the same workflow.
+That workflow status does not establish the complete production requirements.
 
 The actual Claude owner-death trace contains two POST /v1/oauth/token exchanges
 after the first owner consumed the predecessor. Preserved artifact
@@ -24,8 +25,11 @@ history surfaces or change the meaning of these earlier expected failures.
 qwen-cli-regression.log:5 fails "Selected canonical Qwen authority must refuse
 independent provider credentials before model execution." The actual native
 CLI sent POST /v1/chat/completions using synthetic generation G2 despite the
-selected independent canonical OAuth authority. Its OAuth sunset remains a
-separate expected refusal, not current usable OAuth integration.
+selected independent canonical OAuth authority. This is a before-control: the
+later apply_request_auth.py stage makes the strict CLI refusal and provider
+factory controls pass. It does not establish production activation or complete
+backend authority. Its OAuth sunset remains a separate expected refusal, not
+current usable OAuth integration.
 
 Both complete artifact collections are preserved locally: 55 text files, 249
 lines, reviewed in chunks of at most 1500 lines. Before-controls and expected

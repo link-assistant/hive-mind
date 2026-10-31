@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Google Gemini CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -265,7 +267,9 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null, { onEv
 };
 
 // Function to validate Gemini CLI connection
-export const validateGeminiConnection = async (model = defaultModels.gemini) => {
+export const validateGeminiConnection = async (model = defaultModels.gemini, { useRouter = false } = {}) => {
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
   const mappedModel = mapModelToId(model);
   const geminiPath = process.env.GEMINI_PATH || 'gemini';
 
@@ -273,15 +277,18 @@ export const validateGeminiConnection = async (model = defaultModels.gemini) => 
     await log('🔍 Validating Gemini CLI connection...');
 
     try {
+      assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
       const versionResult = await $`timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Gemini CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Gemini CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
 
+    assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
     const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
     const stdout = testResult.stdout?.toString() || '';
     const stderr = testResult.stderr?.toString() || '';
@@ -309,6 +316,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini) => 
     await log('✅ Gemini CLI connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Gemini CLI connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Gemini CLI is installed, authenticated, and accessible', { level: 'error' });
     return false;
@@ -479,6 +487,8 @@ export const executeGeminiCommand = async params => {
       // Issue #1809: feed the prompt directly to gemini-cli stdin via command-stream
       // instead of "cat <file> | gemini" — the pipeline form swallowed the upstream
       // non-zero exit code (no pipefail) and yielded false success: true reports.
+      if (argv.useRouter === true) geminiEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'gemini', cwd: tempDir, env: geminiEnv });
       const execCommand = $({
         cwd: tempDir,
         stdin: combinedPrompt,
@@ -497,7 +507,7 @@ export const executeGeminiCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'gemini', env: geminiEnv, cwd: tempDir, log })) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -698,6 +708,8 @@ export const executeGeminiCommand = async params => {
         resultSummary: geminiJsonState.resultSummary || null,
       };
     } catch (error) {
+      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'gemini', cwd: tempDir, env: geminiEnv });
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_gemini',
         command: params.command,

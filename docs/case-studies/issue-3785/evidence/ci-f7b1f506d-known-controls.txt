@@ -1,0 +1,36 @@
+Fresh native controls, 2026-10-31 UTC
+
+Source: f7b1f506d3b44cada82957ba3c010cb3f82cdb22
+Runs created: 2026-10-31 14:47:46 UTC, after this source was pushed.
+Claude: https://github.com/link-assistant/hive-mind/actions/runs/41211781170
+Qwen: https://github.com/link-assistant/hive-mind/actions/runs/41211781165
+Both complete successfully. Their strict negative controls are required by the
+workflow and must be interpreted alongside the subsequent positive controls.
+
+Claude owner-death remains a native defect: claude-owner-death-strict.log:1
+records two POST /v1/oauth/token exchanges, and line 6 refuses the resulting
+reuse of a consumed predecessor. Log SHA256:
+431e058c023540818fb5b3d18604d3e4887c99614e7147b1d670058361d06553
+The upstream blocker remains recorded at:
+https://github.com/anthropics/claude-code/issues/106218#issuecomment-6528599854
+
+Claude and Qwen private-history negative controls fail fresh-peer resume at
+claude-history-strict.log:7 and qwen-history-strict.log:5. Their separate shared
+history positive controls both complete the original request, delete private
+roots, resume in a fresh process and send the original history to the synthetic
+provider. These do not establish default migration, every native history surface
+or production activation. The selected Claude production Docker projection has
+separate evidence in claude-effective-history.txt; installed image checks remain.
+
+Qwen's qwen-cli-regression.log:5 is a before-control: it records an independent
+synthetic G2 POST /v1/chat/completions despite selected canonical OAuth storage.
+After the pinned native provider patch, qwen-cli-after.log:1 passes refusal
+before requests. Native factory and retained-provider-handle controls also pass,
+along with unselected legacy behavior. OAuth sunset remains an expected refusal,
+not usable CLI OAuth integration. The experimental patch does not establish
+complete production backend authority.
+
+Both complete diagnostic collections and full workflow logs are preserved
+locally: 57 text files, 1064 lines, read in 50 chunks of at most 1500 lines.
+The original acceptance inventory stays OPEN. A green negative-control workflow
+or an opt-in repair does not complete its default storage and lifecycle contract.

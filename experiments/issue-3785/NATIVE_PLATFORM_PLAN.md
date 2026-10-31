@@ -8,8 +8,8 @@
 - [x] Correct every affected native storage module, update admitted recipe input
       hashes and verify healthy directory opens and symlink refusal on both CPUs.
 - [x] Run the small native controls on both CI runners before the full CLI build.
-      The workflow now requires the controls; new runner execution is pending.
+      Both runners pass in run 41211781231 at f7b1f506d3.
 - [x] Preserve exact local and CI evidence and run repository checks; commit
       the repair with the actual prepared source inventory and regression test.
-- [ ] Push the prepared branch and verify the complete downstream package and
-      both image layouts afterward.
+- [x] Push only the prepared branch after preserving preceding CI.
+- [ ] Verify the complete downstream package and both image layouts afterward.

@@ -172,3 +172,10 @@ adapter. Verify real directory admission and final-symlink refusal on each
 native CI runner before compiling the full CLI, and repin the exact prepared
 source inventory. Complete optimized package and installed-image gates remain
 required on both platforms.
+
+Check final Router environments in Agent, OpenCode, Gemini and Qwen native
+execution and connection paths. Preserve typed security refusal through output
+and stream errors, monitor listed shared credential files, and skip login
+profiles for routed Qwen commands. Forward explicit Router selection through
+shared connection checks and preserve Hive startup exit 77. Full native
+credential-store authority and durable Router audit remain unfinished.

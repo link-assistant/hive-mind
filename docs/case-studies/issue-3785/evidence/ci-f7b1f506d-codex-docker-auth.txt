@@ -1,0 +1,36 @@
+Exact f7b1f506d development Codex Docker authentication, 2026-10-31 UTC
+
+The successful development build from CI run 41211781173 was downloaded and
+preserved before the next push. Its executable is 419,122,384 bytes, SHA256:
+df12dfaa13e0328cd63cf4ca401f134273bb01bbd626c8c285051a3fdac6c487
+These bytes differ from the preceding development executable; earlier Docker
+controls therefore did not establish this exact binary's behavior.
+
+The existing scripts/verify-mounted-codex-auth.mjs was run with this exact
+experimental binary and the production isolation host-preparation, mount-source
+translation and Docker argument builders at eef2d0088. It copied the native
+loader/dependencies into read-only offline node:24-alpine peers, verified copied
+executable bytes, and pinned the selected canonical directory's device/inode.
+No provider transport or live credential was used.
+
+PASS: root and two concurrent Docker peers observe G0000, atomic replacement
+G0001, task logout, peer reauthentication G0002, root logout, root reauthentication
+G0003, in-place update G0004, and deletion/recreation of all private config homes.
+All three retain the same canonical credential authority. The separate actual
+single-file-bind control retains retired G0000 bytes after replacement and the
+native adapter refuses that unlinked predecessor, then remains refused after
+logout. Both positive peers and the negative peer are removed; fixture cleanup
+and the explicit no-remaining-container assertion pass.
+
+The finite offline peer processes have 240-second lifetimes, PID limit 32,
+512 MiB data and 16 MiB stack limits, disabled core dumps, read-only roots,
+32 MiB temporary filesystems and bounded command/output limits. This local
+threaded cgroup uses the script's explicit experimental peer path; it does not
+attest production per-container memory controllers or the final release image.
+
+Complete sanitized diagnostic log (28 lines) SHA256:
+01bb46bc6c1a3b5ce47ebfec667a680c947a60af9fedcd10171cc8be6822c72a
+
+This is exact development-byte authentication evidence for one daemon layout.
+Optimized two-platform, installed npm package/image gates, canonical full
+history and production default activation remain separate unfinished criteria.

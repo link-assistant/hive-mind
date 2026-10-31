@@ -29,7 +29,9 @@ SHA256: df12dfaa13e0328cd63cf4ca401f134273bb01bbd626c8c285051a3fdac6c487
 These bytes differ from the preceding development build. Earlier local Docker
 controls do not independently verify these exact executable bytes.
 
-The optimized x64/arm64 release builds remain in progress. Their installed
+At development-artifact preservation time, the optimized x64/arm64 release
+builds remained in progress. Their subsequently successful build/installed
+controls are preserved in ci-f7b1f506d-native-release.txt. The installed
 package, assembled artifact and complete image gates are separate required
 evidence. This development result does not establish production activation,
 default migration, all native writers or the full six-tool contract. Keep the

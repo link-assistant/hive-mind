@@ -26,16 +26,17 @@ before copying into a fresh private generation. It publishes only after the
 copied bytes verify, preserves collisions and admits existing generations only
 when they match this package's manifest. Dependent CI jobs install the actual
 npm archive on both native machines and run authentication/model request controls
-through that module's installed generation. These compiled-package checks have
-not yet run.
+through that module's installed generation. These compiled-package checks pass
+on both native platforms at `f7b1f506d`; the case study preserves exact output
+identities in `evidence/ci-f7b1f506d-native-release.txt`.
 
 The normal and instant npm release jobs, and branch-package image checks, now
 require the same successful native build and assemble its two platform artifacts.
 The publish command verifies a fresh actual npm archive after any version commit
 or pull, refusing missing platforms and stale recipe/source identities. This
-release wiring still needs its first complete successful CI run. Checked command
-activation is implemented in both image definitions; actual installed/image
-verification and removal of the launcher's credential copy remain required
+release wiring still requires complete final image verification. Checked command
+activation is implemented in both image definitions; final image verification
+and removal of the launcher's credential copy remain required
 before this adapter can replace the stock production CLI. This foundation does
 not complete those acceptance criteria.
 
@@ -44,7 +45,8 @@ startup SQLite database/journal file admission and strict app-server handling
 when canonical history is selected. The latter prevents upstream default-config
 recovery from swallowing a storage-admission error. These changes have focused
 filesystem and packaging controls. The actual development CLI passes automatic
-strict-policy controls; optimized installed-package verification remains pending.
+strict-policy controls; optimized and installed-package controls pass on both
+native architectures at `f7b1f506d`. SQLite operation lifetime remains unfinished.
 See the case study's `evidence/codex-sqlite-fallback.txt` and
 `evidence/ci-a3ca1a1a8-native.txt` for exact evidence and limits.
 
@@ -54,9 +56,12 @@ publication, refusing retired usage after logout, replacement or malformed
 canonical credentials. The actual prior CLI reproduces all three failures;
 development, optimized, installed-command and both image checks require the
 same real-process controls. The development and optimized x64 executables pass
-these controls at f2e845cb3; optimized ARM64, installed-command and image
-verification remain pending. This does not establish a filesystem operation
-lease or complete default canonical selection. See the case study's
+these controls at f2e845cb3. Both optimized platforms and installed commands pass
+at `f7b1f506d`; its image build fails at native activation after Bun installation.
+The copyfile installation repair has real-Bun regression coverage; complete
+image verification remains pending. This does not establish a filesystem
+operation lease or complete default canonical selection. See the case study's
 `evidence/codex-native-limits-generation.txt`,
 `evidence/ci-f2e845cb3-native-codex.txt` and
-`evidence/native-linux-platform-flags.txt`.
+`evidence/native-linux-platform-flags.txt` and
+`evidence/ci-f7b1f506d-native-release.txt`.

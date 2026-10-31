@@ -1306,3 +1306,28 @@ to the existing twenty-four source stages. It does not establish direct child
 continuation or concurrent-child correctness; remaining agent definitions, task
 memory and production lifecycle criteria remain unfinished. See
 [child restore evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-subagent-restore.txt).
+
+## Concurrent native children
+
+`--history-subagent-concurrent` delegates two actual generalists together. The
+local TLS fixture waits for both real child model requests before responding to
+either, with a finite five-second barrier. Each child edits a different real
+file and completes its own task; the parent's actual next request must contain
+both results. Both native headless engines pass this control.
+
+The selected-history control requires three separate full conversations and
+two distinct acknowledged canonical edit checkpoints without private transcript
+or checkpoint metadata copies. After deleting the whole private home, a fresh
+native CLI discovers/resumes the parent with both child results, both edits and
+all three complete audit prefixes retained. The unselected control preserves
+separate private recordings without writing canonical history. CI runs all four
+engine/selection controls against the reconstructed package.
+
+```sh
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-concurrent --history-subagent-engine agent --diagnostics /tmp/gemini-concurrent-children.log
+```
+
+This extends existing source-stage verification; direct child continuation,
+shared-file conflicts, other agent definitions and production lifecycle remain
+unfinished. See
+[concurrent child evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-concurrent-children.txt).

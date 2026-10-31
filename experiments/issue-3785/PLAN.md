@@ -1322,3 +1322,14 @@ Latest CI continuation:
       refusal (1 each). No native source changes were required for this coverage.
 - [ ] Publish child restore and both-engine regression controls, require their
       fresh-source CI results, and finish concurrent/remaining child lifecycle.
+
+- [x] Prove two actual generalists overlap model requests before either provider
+      response in both native engines. Each edits a different real file, returns
+      its own result and retains its separate full conversation and distinct
+      acknowledged canonical checkpoint without private transcript copies.
+      Dispose the whole private home; fresh parent discovery/resume retains both
+      results, both edits and all three audit prefixes. Selected controls pass
+      three assertions/eight requests; unselected controls pass two/six each.
+- [ ] Publish concurrent-child coverage after surrounding/static checks, require
+      fresh-source CI for both engines and private behavior, and finish direct
+      child continuation, remaining definitions/task memory and production work.

@@ -315,6 +315,16 @@ parent restore of project and model history without inference, and third-process
 resume after deleting the second home. Both complete prior root/child audit
 prefixes remain retained; each control passes five assertions and seven actual
 provider requests. See `evidence/native-gemini-subagent-restore.txt`. This extends
-verification of existing native repairs. Concurrent children, direct child
-continuation, remaining definitions/task memory and production lifecycle remain
+verification of existing native repairs. Direct child continuation, remaining
+definitions/task memory and production lifecycle remain
 unfinished; the acceptance status is still partial.
+
+A9 concurrent-child coverage independently runs two actual generalists in both
+native headless engines. A finite provider barrier proves both model requests
+overlap before either response. Both real edits, results, distinct checkpoints
+and separate full conversations survive whole private-home disposal and fresh
+parent discovery/resume. All three preceding audit prefixes remain retained;
+unselected controls preserve private recording without canonical writes. See
+`evidence/native-gemini-concurrent-children.txt`. Direct child continuation,
+shared-file conflicts, all agent definitions/task memory, publication/power loss
+and full production lifecycle remain open; A9 remains partial.

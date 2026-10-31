@@ -1237,6 +1237,14 @@ a real generalist edit leaves canonical pre-edit metadata, a fresh ACP parent
 restores project/model history after complete private-home disposal, and a third
 native CLI resumes after deleting the second home. Both complete audit prefixes
 are preserved. This extends lifecycle coverage without another source patch; see
-[child restore evidence](evidence/native-gemini-subagent-restore.txt). Concurrent
-children, direct child continuation and complete production acceptance remain
-unfinished.
+[child restore evidence](evidence/native-gemini-subagent-restore.txt). Direct
+child continuation and complete production acceptance remain unfinished.
+
+Two actual concurrent generalists also pass in both engines. A finite provider
+barrier requires both real requests before either response; both native edits,
+results, full child conversations and distinct checkpoints are retained. After
+whole private-home disposal, fresh parent discovery/resume retains both child
+results, both edits and all three complete audit prefixes. Unselected private
+controls preserve their original storage. See
+[concurrent child evidence](evidence/native-gemini-concurrent-children.txt).
+Direct child continuation and the complete production inventory remain open.

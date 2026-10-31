@@ -34,6 +34,7 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-subagent', action='store_true')
 parser.add_argument('--history-subagent-restore', action='store_true')
+parser.add_argument('--history-subagent-concurrent', action='store_true')
 parser.add_argument('--history-subagent-engine', choices=('legacy', 'agent'))
 parser.add_argument('--history-live-rollback', action='store_true')
 parser.add_argument('--history-live-rollback-engine', choices=('legacy', 'agent', 'terminal', 'acp'))
@@ -79,8 +80,9 @@ args = parser.parse_args()
 assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
 assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback', 'history_live_rollback_engine'))
 assert not args.history_live_rollback_engine or args.history_live_rollback
-assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_restore', 'history_subagent_engine', 'history_subagent_attack', 'private_history'))
+assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_restore', 'history_subagent_concurrent', 'history_subagent_engine', 'history_subagent_attack', 'private_history'))
 assert not args.history_subagent_restore or args.history_subagent and not (args.history_subagent_attack or args.private_history)
+assert not args.history_subagent_concurrent or args.history_subagent and not (args.history_subagent_restore or args.history_subagent_attack)
 assert not args.history_subagent_engine or args.history_subagent
 assert not args.history_subagent_attack or args.history_subagent and not args.private_history
 assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
@@ -387,6 +389,8 @@ try:
                                        'session_summary': payload['request']['contents'][0].get('parts', [{}])[0].get('text', '').startswith("Summarize the user's primary intent or goal"),
                                        'second_prompt': second_prompt in content,
                                        'child_result': 'SYNTHETIC-GEMINI-CHILD-EDIT-COMPLETE' in content,
+                                       'concurrent_child_a': 'SYNTHETIC-CONCURRENT-CHILD-A-COMPLETE' in content,
+                                       'concurrent_child_b': 'SYNTHETIC-CONCURRENT-CHILD-B-COMPLETE' in content,
                                        'third_prompt': third_prompt in content,
                                        'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content,
                                        'artifact_reference': '/tool-outputs/' in content,
@@ -403,11 +407,17 @@ try:
                                 return
                         if args.history_subagent and operation == 'streamGenerateContent':
                             from gemini_subagent_history import child_tool_call
-                            call = child_tool_call(payload['request']['contents'], first_prompt, workspace, subagent_phases,
-                                                   attack=args.history_subagent_attack, history=history, session=session, root=root)
-                            if call:
-                                models[-1]['tool_call'] = True
-                                self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-child-response'}, stream=True)
+                            record = models[-1]
+                            if args.history_subagent_concurrent:
+                                from gemini_subagent_concurrent import concurrent_tool_calls
+                                calls = concurrent_tool_calls(payload['request']['contents'], first_prompt, workspace, subagent_phases)
+                            else:
+                                call = child_tool_call(payload['request']['contents'], first_prompt, workspace, subagent_phases,
+                                                       attack=args.history_subagent_attack, history=history, session=session, root=root)
+                                calls = [call] if call else None
+                            if calls:
+                                record['tool_call'] = True
+                                self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call} for call in calls]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-child-response'}, stream=True)
                                 return
                         restorable_phase = phase == 'initial' or (args.restorable_headless and args.restorable_history_attack == 'live-metadata-schema' and phase == 'resume')
                         if args.restorable_history and operation == 'streamGenerateContent' and restorable_phase and phase not in tool_phases:
@@ -744,6 +754,8 @@ try:
 
     if args.history_subagent:
         from gemini_subagent_history import verify_subagent_history
+        if args.history_subagent_concurrent:
+            from gemini_subagent_concurrent import verify_concurrent_children as verify_subagent_history
         verify_subagent_history(invoke=invoke, root=root, home=home, workspace=workspace,
                                 history=history, env={**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.history_subagent_engine == 'agent' else 'false'}, settings=settings,
                                 diagnostics=args.diagnostics, models=models, first_prompt=first_prompt,

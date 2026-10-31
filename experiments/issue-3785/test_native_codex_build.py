@@ -102,6 +102,36 @@ class NativeBuildAdmission(unittest.TestCase):
         self.assertNotIn("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER", env)
         self.assertNotIn("CARGO_BUILD_RUSTFLAGS", env)
 
+    def test_native_c_and_sqlite_build_overrides_are_removed(self):
+        recipe, _ = BUILD.load_recipe(self.recipe, self.inputs)
+        overrides = {
+            "CC": "unexpected-c-compiler",
+            "CC_x86_64_unknown_linux_gnu": "unexpected-target-compiler",
+            "HOST_CC": "unexpected-host-compiler",
+            "TARGET_AR": "unexpected-target-archiver",
+            "CXXSTDLIB": "unexpected-runtime",
+            "CRATE_CC_NO_DEFAULTS": "1",
+            "CFLAGS": "-USQLITE_ENABLE_FILESTAT",
+            "CFLAGS_x86_64-unknown-linux-gnu": "-USQLITE_ENABLE_FILESTAT",
+            "TARGET_CFLAGS": "-USQLITE_ENABLE_FILESTAT",
+            "LIBSQLITE3_SYS_USE_PKG_CONFIG": "1",
+            "SQLITE3_LIB_DIR": str(self.root / "unadmitted-library"),
+            "X86_64_UNKNOWN_LINUX_GNU_SQLITE3_LIB_DIR": str(self.root / "unadmitted-target-library"),
+            "SQLITE_MAX_VARIABLE_NUMBER": "1",
+            "LIBSQLITE3_FLAGS": "SQLITE_OMIT_WAL",
+        }
+        env = BUILD.build_environment(recipe, {
+            "PATH": "/usr/bin", "CARGO_HOME": str(self.root / "cargo-cache"),
+            **overrides,
+        })
+        for name in overrides:
+            if name in recipe["cargoEnvironment"]:
+                self.assertEqual(env[name], recipe["cargoEnvironment"][name])
+            else:
+                self.assertNotIn(name, env)
+        self.assertEqual(env["PATH"], "/usr/bin")
+        self.assertEqual(env["CARGO_HOME"], str(self.root / "cargo-cache"))
+
 
 class NativeCompilerOutput(unittest.TestCase):
     """Cargo's internal executable alias must not become a distributed alias."""

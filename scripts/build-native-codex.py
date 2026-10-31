@@ -80,9 +80,23 @@ def source_digest(inventory):
 
 def build_environment(recipe, inherited=None):
     inherited = os.environ if inherited is None else inherited
+    # The selected VFS needs checked bundled SQLite and its FILESTAT flag.
+    # libsqlite3-sys also accepts environment-only switches to another library.
+    native_inputs = ("CC", "CXX", "AR", "RANLIB", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "CXXSTDLIB")
+    sqlite_targets = tuple(item["target"].upper().replace("-", "_") + "_SQLITE3_"
+                           for item in recipe["targets"].values())
+
+    def native_override(name):
+        return name.startswith(("LIBSQLITE3_", "SQLITE3_", "SQLITE_MAX_", "CRATE_CC_") + sqlite_targets) or any(
+            name == item or name.startswith(item + "_")
+            or name in ("HOST_" + item, "TARGET_" + item)
+            for item in native_inputs
+        )
+
     env = {name: value for name, value in inherited.items()
            if not name.startswith(("CARGO_", "RUSTFLAGS", "RUSTUP_TOOLCHAIN"))
-           and name != "RUSTC_WRAPPER" and name != "RUSTC_WORKSPACE_WRAPPER"}
+           and name != "RUSTC_WRAPPER" and name != "RUSTC_WORKSPACE_WRAPPER"
+           and not native_override(name)}
     # Keep only cache locations from Cargo's inherited configuration. Compiler,
     # target, flags, profile and parallelism always come from the pinned recipe.
     for name in ("CARGO_HOME", "RUSTUP_HOME"):

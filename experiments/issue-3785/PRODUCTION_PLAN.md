@@ -30,6 +30,12 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       repair; all 50 related controls pass afterward. Selected discovery now
       validates shared credentials and preserves private auth-free scopes.
       Unselected production credential copies and default integration stay open.
+- [x] Reproduce and repair selected Codex credential copies during Formal AI
+      seeding and admission gaps around its configuration writer. All 53 related
+      assertions and the actual Formal AI 0.355.7 writer control pass locally.
+- [ ] Verify the same real Formal AI writer control through the installed npm
+      modules in both required image checks; complete backend request/history
+      lifecycle independently of this configuration-only control.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
       assets and image/host installation, then remove production auth copies.
       The pinned optimized x64/arm64 build foundation is being verified first;

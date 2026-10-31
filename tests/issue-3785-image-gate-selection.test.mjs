@@ -30,6 +30,7 @@ test('the real detector requires image checks for packaged runtime and gate upda
     ['scripts/install-image-package.sh', true],
     ['scripts/install-image-ripgrep.mjs', true],
     ['scripts/verify-dind-exec-defaults.sh', true],
+    ['experiments/issue-3785/probe-formal-ai-codex-auth.mjs', true],
     ['coolify/start.sh', true],
     ['docs/case-studies/issue-3785/README.md', false],
     ['experiments/issue-3785/probe-mount-namespace.mjs', false],

@@ -57,6 +57,7 @@ import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_
 import { keepProcessAcrossSessions, releaseKeptProcess } from './session-survivors.lib.mjs';
 import { prepareToolGhAuth } from './tool-env-gh-auth.lib.mjs';
 import { getVersion } from './version.lib.mjs';
+import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -364,7 +365,9 @@ export const buildFormalAiClientEnv = async ({ client, home, apiKey = FORMAL_AI_
  * Issue #2247 (H7): the only files of the operator's Codex home a Formal AI task
  * is allowed to inherit.
  *
- * `auth.json` is the one credential the CLI needs to start; `config.toml` is
+ * This legacy allowlist applies without CODEX_AUTH_HOME. Selected canonical
+ * authentication is validated in place and never copied into a task home.
+ * `auth.json` is the legacy credential; `config.toml` is
  * seeded with every `mcp_servers` entry removed (see {@link stripCodexMcpServers}).
  * Everything else in `~/.codex` — `plugins/`, `skills/`, `sessions/`,
  * `history.jsonl` — is operator state that a task has no reason to read and
@@ -421,18 +424,24 @@ export const stripCodexMcpServers = config => {
 };
 
 /**
- * Seed a Codex home with one credential and a config that declares no MCP
- * servers — issue #2247 (H7).
+ * Seed private configuration without MCP servers. With selected canonical
+ * authentication, refuse independent credentials and never make a snapshot.
  */
-const seedCodexClientHome = async ({ source, destination, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
+const seedCodexClientHome = async ({ source, destination, authHome, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
   const seeded = [];
+  if (authHome) {
+    await readCanonicalCodexAuth(authHome, { configurationHome: source });
+    await readCanonicalCodexAuth(authHome, { configurationHome: destination });
+  }
   await mkdirImpl(destination, { recursive: true });
 
-  try {
-    await cpImpl(join(source, 'auth.json'), join(destination, 'auth.json'), { verbatimSymlinks: true, force: true });
-    seeded.push({ file: 'auth.json', note: null });
-  } catch {
-    // Not signed in yet — Formal AI's provider block carries the API key.
+  if (!authHome) {
+    try {
+      await cpImpl(join(source, 'auth.json'), join(destination, 'auth.json'), { verbatimSymlinks: true, force: true });
+      seeded.push({ file: 'auth.json', note: null });
+    } catch {
+      // Not signed in yet — Formal AI's provider block carries the API key.
+    }
   }
 
   try {
@@ -444,6 +453,7 @@ const seedCodexClientHome = async ({ source, destination, cpImpl, mkdirImpl, rea
     // No global config — `formal-ai with --global` writes a fresh one.
   }
 
+  if (authHome) await readCanonicalCodexAuth(authHome, { configurationHome: destination });
   return seeded;
 };
 
@@ -470,7 +480,7 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
     const isCodex = client.id === 'codex';
     const source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
     if (isCodex) {
-      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
+      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome: selectedCodexAuthHome(env), cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
       for (const { file, note } of files) seeded.push(`${join(source, file)} → ${join(relativeDir, file)}${note ? ` (${note})` : ''}`);
       continue;
     }
@@ -486,13 +496,22 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
 
 /** Materialise the tool's provider configuration inside an isolated HOME. */
 export const configureFormalAiClientHome = async ({ tool, baseUrl, home, formalAiPath = 'formal-ai', run = execFileAsync, env = process.env, timeoutMs = 120_000 }) => {
+  const authHome = tool === 'codex' ? selectedCodexAuthHome(env) : null;
+  const configurationHome = join(home, '.codex');
+  const admitSelectedAuthentication = async () => {
+    if (!authHome) return;
+    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME || join(homedir(), '.codex') });
+    await readCanonicalCodexAuth(authHome, { configurationHome });
+  };
+  await admitSelectedAuthentication();
   const args = ['with', '--global', '--no-start-server', '--base-url', baseUrl, tool];
   await run(formalAiPath, args, {
     encoding: 'utf8',
-    env: { ...process.env, ...env, HOME: home },
+    env: { ...process.env, ...env, HOME: home, ...(authHome ? { CODEX_HOME: configurationHome } : {}) },
     timeout: timeoutMs,
     maxBuffer: 32 * 1024 * 1024,
   });
+  await admitSelectedAuthentication();
   return { args, home };
 };
 

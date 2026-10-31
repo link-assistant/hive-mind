@@ -410,3 +410,12 @@ admission and native command checks; selected scopes contain no auth.json copy.
 See `evidence/codex-preflight-authority.txt`. Default selection, unselected
 production copies, runtime leases and complete lifecycle integration remain
 open; A2 is not complete.
+
+A2 selected-mode Formal AI configuration now also preserves the native Codex
+credential authority. Ten new regressions reproduce credential snapshots,
+conflicting/unsafe storage, logout and writer admission gaps; all 53 related
+assertions pass after repair. The actual Formal AI 0.355.7 configuration writer
+passes two-task replacement/disposal/logout controls with synthetic credentials
+and no inference. The same installed-module control is required in both image
+checks, pending new CI. See `evidence/formal-ai-codex-authority.txt`. Default
+selection, unselected copies and complete backend/history lifecycle remain open.

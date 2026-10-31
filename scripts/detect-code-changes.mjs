@@ -443,7 +443,7 @@ async function detectChanges() {
   // Dockerfile is unchanged. An incremental source-only update must not skip
   // the stock/runtime and both-daemon mount gates (issue #3785).
   const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
-  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file) || isNativeCodexBuildInput(file));
+  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file) || isNativeCodexBuildInput(file) || file === 'experiments/issue-3785/probe-formal-ai-codex-auth.mjs');
   setOutput('docker', dockerChanged ? 'true' : 'false');
 
   // Detect helm chart changes

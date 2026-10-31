@@ -95,3 +95,5 @@ Build and package pinned native Codex runtimes for Linux x64 and arm64. Require 
 Honor the native Codex authentication selector in limits and subscription reads. Refuse unsafe or conflicting canonical storage before using cached results, and prevent private configuration from redirecting canonical bearer credentials.
 
 Preserve the selected native Codex credential authority during capability discovery. Avoid private credential snapshots, reject unsafe or conflicting selected credentials before allocating task state, and admit native command bytes before selected discovery runs.
+
+Preserve explicitly selected canonical Codex authentication during Formal AI configuration. Skip credential snapshots, admit storage before and after native configuration writes, select private configuration for the writer, and require the actual installed writer control in both image checks.

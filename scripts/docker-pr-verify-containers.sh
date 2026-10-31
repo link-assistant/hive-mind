@@ -46,6 +46,17 @@ docker run --rm --privileged \
   "${DIND_IMAGE_NAME}:test" \
   bash /verify-docker-image.sh
 
+for verified_image in "${IMAGE_NAME}:test" "${DIND_IMAGE_NAME}:test"; do
+  echo "Checking installed Formal AI configuration preserves selected Codex auth: ${verified_image}"
+  docker run --rm --network none \
+    -v "$(pwd)/experiments/issue-3785/probe-formal-ai-codex-auth.mjs:/probe-formal-ai-codex-auth.mjs:ro" \
+    --entrypoint bash "${verified_image}" -c '
+      set -euo pipefail
+      native_hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")
+      node --max-old-space-size=128 /probe-formal-ai-codex-auth.mjs "$(command -v formal-ai)" "$native_hive_root"
+    '
+done
+
 bash scripts/verify-dind-exec-defaults.sh "${DIND_IMAGE_NAME}:test"
 
 node scripts/docker-pr-verify-mount-backing.mjs

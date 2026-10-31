@@ -1091,3 +1091,40 @@ coverage without claiming a new source repair. See
 ```sh
 python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics /tmp/gemini-resume-refusal.log
 ```
+
+## Actual child conversation directories
+
+`--history --history-subagent` runs the real native root `invoke_agent`, generalist
+child executor, `write_file`, `complete_task` and root continuation. The private
+control completes the actual edit and retains both full native conversations.
+Selected canonical recording instead refuses before child inference: native
+recursive directory creation uses mode `0755`, which checked storage rejects.
+
+`apply_subagent_history.py` routes the exact child directory context through the
+existing anchored `0700` allocator and registers its conversation anchor. Unsafe
+existing directories still refuse. The package version, preceding manager and
+history helper hashes and source context must match before mutation; `--check`
+does not modify the package. Original unselected private behavior is retained.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package"
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --diagnostics /tmp/gemini-child.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --private-history --diagnostics /tmp/gemini-child-private.log
+for state in unsafe-mode symlink parent-replacement; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-attack "$state" --diagnostics "/tmp/gemini-child-$state.log"
+done
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package "$package" --acp --terminal-resume --headless --subagent --output /path/to/new-package
+```
+
+The healthy selected control retains both complete root/child transcripts without
+private copies, deletes the complete private home, discovers and resumes the root
+through fresh native processes and checks its actual model history for the child
+result. Discovery retains the native session-summary request and append-only
+metadata publication. Prior audit bytes remain an unchanged prefix; the child
+transcript remains unchanged. Unsafe permissions, a symlink and parent replacement
+each refuse before child inference or edits, retaining protected paths and audit.
+Fresh reconstruction applies twenty-two checked stages and compares seventeen
+native files. See [child recording evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-subagent-history.txt).
+Child checkpoint/restore, concurrent writers, other native agents, complete
+lifecycle and production integration remain unfinished.

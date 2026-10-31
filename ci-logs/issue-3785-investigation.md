@@ -1249,3 +1249,36 @@ not establish production canonical authentication or the remaining A1–A12 scop
 - https://github.com/link-assistant/hive-mind/actions/runs/41146984792
 - https://github.com/link-assistant/hive-mind/actions/runs/41146984988
 - https://github.com/link-assistant/hive-mind/actions/runs/41146984829
+
+
+2026-10-31, complete ACP baseline b44086a4cd2d:
+- All eight runs created 01:44:34Z have success at that exact SHA. The final
+  compiled Codex job ends 02:18:54Z; later local work was held for that result.
+- Checks 41156793281: all 739 default files at log line 63290, both integration
+  files at 63352, nested restart controls 71715-71720, installed-package backing
+  and two-task/atomic replacement controls 71722-71727, all Docker pass 71729.
+- Codex 41156793261: full 1791-line log preserved. Exact storage/index tests
+  pass at 344/365, actual status/logout at 701; owner-death strict before at
+  758, repaired actual CLI controls 843-852. Downloaded native-codex-auth-build
+  artifacts confirm owner-death refusal, explicit repair, native TUI/prompt
+  history, both actual API-key/ChatGPT peers and constructor refusal controls.
+- Gemini 41156793225: all six jobs pass; complete 3530-line log and all 123 ACP
+  artifacts retained. Strict before failures 408/434/460/486, fresh eighteen
+  stages 531-538, metadata 54 and auth 41/30/11 assertions all pass.
+- Workflows 41156793178, Links 41156793063, Qwen 41156793264, Claude 41156793128,
+  Security 41156793433 also pass. Claude still reproduces its upstream defect.
+- These results precede terminal reopen/admission, headless and child repairs.
+  Fresh exact-head CI remains required; baseline green is not their evidence.
+- Latest issue/PR conversations, inline comments and reviews refreshed and
+  unchanged. Default branch remains 279ac05609d2, already an ancestor of HEAD.
+
+2026-10-31, checked child-history stage:
+- Healthy private actual root/generalist delegation edits, completes and returns
+  to root inference before the strict canonical before control fails. Native
+  recursive mkdir creates 0755 child parents; checked 0700 allocation repairs it.
+- Fresh twenty-two-stage reconstruction retains seventeen identical native files.
+  Actual root/child recording, private-home disposal, discovery and resume pass;
+  unsafe mode, symlink and parent replacement refuse before child execution.
+- Fresh-package shell 28, metadata 54, auth 41/30/11, terminal 4, ACP 3, both
+  headless engines 4 each, owner refusal/recovery 5 and live/startup refusal 1/2
+  all pass locally. Exact new-head CI and broader lifecycle work remain open.

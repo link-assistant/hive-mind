@@ -1163,3 +1163,21 @@ and original private-history controls. Twenty-one checked stages reconstruct
 seventeen identical native files. See
 [headless checkpoint evidence](evidence/native-gemini-headless-controls.txt).
 This stage still needs fresh Node 24 CI and production integration.
+
+The actual native child executor also refused healthy canonical recording:
+its default recursive mkdir created the parent-session directory with mode
+`0755`. The checked allocator now creates that directory with mode `0700` and
+registers its native conversation anchor. Real root delegation, child edit,
+child completion and root continuation retain both full canonical transcripts.
+After deleting the complete private home, fresh discovery and root resume retain
+the child result and prior audit. Unsafe directory permissions, symlinks and
+parent replacement refuse before child inference or edits. Twenty-two checked
+stages reconstruct seventeen identical native files; see
+[child recording evidence](evidence/native-gemini-subagent-history.txt).
+Child checkpoint/restore and the broader lifecycle criteria remain unfinished.
+
+All eight workflows pass at `b44086a4cd2d`, including the complete default and
+integration suites, packaged Docker verification, six Gemini jobs and three
+compiled Codex jobs. See [complete CI evidence](evidence/ci-b44086a4c.txt).
+That pushed commit precedes the terminal reopen/admission, headless checkpoint
+and child-directory repairs; those newer changes still require fresh CI.

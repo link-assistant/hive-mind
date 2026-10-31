@@ -17,6 +17,7 @@ on:
       - 'experiments/issue-3785/gemini_restorable_acp.py'
       - 'experiments/issue-3785/gemini_restorable_headless.py'
       - 'experiments/issue-3785/gemini_resume_refusal.py'
+      - 'experiments/issue-3785/gemini_subagent_history.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -402,6 +403,25 @@ jobs:
             done
             python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-private.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-private-control.log" 2>&1
           done
+      - name: Reproduce canonical child recording refusal after healthy private delegation
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-private-before.log" > "$RUNNER_TEMP/gemini-acp-child-private-before-control.log" 2>&1
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-before.log" > "$RUNNER_TEMP/gemini-acp-child-before-control.log" 2>&1; then
+            echo 'The native child recording regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Healthy actual native child execution must retain canonical recording without refusing delegation.' "$RUNNER_TEMP/gemini-acp-child-before-control.log"
+      - name: Allocate checked child directories and retain actual root and child history
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package"
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-after.log" > "$RUNNER_TEMP/gemini-acp-child-after-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-private.log" > "$RUNNER_TEMP/gemini-acp-child-private-control.log" 2>&1
+          for state in unsafe-mode symlink parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-child-$state.log" > "$RUNNER_TEMP/gemini-acp-child-$state-control.log" 2>&1
+          done
       - name: Verify actual ACP restore, third-process resume and audit retention
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
       - name: Verify native replace, automatic edits and cancellation
@@ -420,9 +440,10 @@ jobs:
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
           done
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
-      - name: Rebuild all twenty-one stages and require identical tested native source
+      - name: Rebuild all twenty-two stages and require identical tested native source
         run: |
-          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-fresh.log" > "$RUNNER_TEMP/gemini-acp-child-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-fresh.log" > "$RUNNER_TEMP/gemini-acp-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh-control.log" 2>&1
@@ -451,6 +472,7 @@ jobs:
           name: native-gemini-acp-restore-experiment
           path: |
             ${{ runner.temp }}/gemini-acp-*.log
+            ${{ runner.temp }}/gemini-acp-*.diff
             ${{ runner.temp }}/gemini-acp-*.network.json
             ${{ runner.temp }}/gemini-acp-*.control.json
           if-no-files-found: ignore

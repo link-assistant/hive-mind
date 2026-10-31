@@ -1192,9 +1192,9 @@ Latest CI continuation:
       after actual resumeChat resolves. Verify the same strict automatic control
       and a fresh twenty-stage reconstruction; preserve manual terminal, ACP and
       live/startup refusal behavior.
-- [ ] Commit and push terminal resume admission after local checks, then require
-      fresh Node 24 CI for both terminal stages. Preserve all preceding compiled
-      Codex results before replacing the running branch workflows.
+- [x] Commit terminal resume admission as 62bc78758 after local checks. Preserve
+      all preceding compiled Codex results before replacing branch workflows.
+- [ ] Push the terminal stages and require fresh exact-head Node 24 CI.
 - [ ] Exercise failed/interrupted native resume admission and finish remaining
       native writers, complete lifecycle and production integration criteria.
 - [x] Trace headless native edits separately from terminal and ACP execution.
@@ -1211,9 +1211,9 @@ Latest CI continuation:
       Reconstruct all twenty-one stages without applicability mutation and retain
       all seventeen identical native files. The fresh package also preserves the
       actual automatic terminal prompt/resume control.
-- [ ] Commit and publish the headless writer stage after local checks; require
-      both strict before failures, after/fresh-source cycles and live/startup
-      refusal/private controls to pass in fresh Node 24 CI.
+- [x] Commit the headless writer stage as 3a4756af2 after local checks.
+- [ ] Publish it and require both strict before failures, after/fresh-source
+      cycles and live/startup refusal/private controls in fresh Node 24 CI.
 - [x] Verify actual failed terminal resume under a live native writer: no
       automatic or typed inference, unchanged project/metadata/audit, and healthy
       recovery after the owner process group is stopped and reaped. The preceding
@@ -1222,3 +1222,25 @@ Latest CI continuation:
       twenty-one-stage package keeps actual typed prompts disabled after refusal.
 - [ ] Publish the live-owner refusal regression and require its fresh Node 24 CI
       result. Delayed/interrupted resume and physical power loss remain open.
+- [x] Preserve all eight successful workflows at b44086a4cd2d, including full
+      Checks/Codex logs, downloaded compiled native build artifacts and exact
+      test, provider, owner-death and packaged Docker evidence. These results
+      precede the later terminal, headless and child source repairs.
+- [x] Reproduce canonical child recording refusal after a healthy actual private
+      root invoke_agent/generalist child edit/complete_task/root continuation.
+      Trace default recursive mkdir creating 0755 parent-session directories;
+      route creation through checked 0700 allocation and register the anchor.
+- [x] Verify complete canonical root/child transcripts, private-home deletion,
+      fresh native discovery/summary and root resume retaining the actual child
+      result and preceding audit. Unsafe mode, symlink and parent replacement
+      refuse before child inference/edits while preserving protected evidence.
+      Reconstruct twenty-two stages without applicability mutation and compare
+      all seventeen native files byte for byte.
+- [x] Finish surrounding regressions on the fresh child package: shell 28,
+      metadata 54, authentication 41/30/11, terminal 4, ACP 3, both headless
+      engines 4 each, live-owner refusal/recovery 5 and terminal live/startup
+      refusal 1/2 assertions all pass.
+- [ ] Commit/push the child repair and require all exact-head CI checks.
+- [ ] Complete child checkpoints/restores, concurrent children, remaining agent
+      definitions, task/plan memory and production lifecycle/installations;
+      healthy child recording is insufficient.

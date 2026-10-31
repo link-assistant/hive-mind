@@ -29,7 +29,8 @@ assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 module = package / 'bundle/chunk-DKZARV6U.js'
 assert hashlib.sha256(module.read_bytes()).hexdigest() in (
     '901d8eb78bafdb235420b6aa931afdadab3efc5574d53a49224739730fa0ecc4',
-    'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07')
+    'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07',
+    '13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769')
 helper = package / 'bundle/hive-gemini-restorable-history.mjs'
 assert helper.read_bytes() == (Path(__file__).parent / 'restorable_history.mjs').read_bytes()
 suite_root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-restorable-'))

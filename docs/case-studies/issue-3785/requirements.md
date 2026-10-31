@@ -267,3 +267,16 @@ This ownership conflict also refuses on the preceding nineteen-stage package;
 it adds lifecycle evidence without a new source repair. See
 `evidence/native-gemini-resume-refusal.txt`. Fresh Node 24 CI, delayed/interrupted
 resume, physical power loss and complete production integration remain open.
+
+Actual native root delegation and child editing also reproduce canonical
+recording refusal: native recursive mkdir creates an unsafe `0755` child
+directory. Checked `0700` allocation retains both complete root/child transcripts,
+and fresh discovery/root resume retains the child result after private-home
+deletion. Unsafe permissions, symlink and parent replacement refuse before child
+inference or edits. Twenty-two checked stages reconstruct seventeen identical
+native files; see `evidence/native-gemini-subagent-history.txt`. Child checkpoint/
+restore, concurrent writers, other agent definitions, task/plan memory, complete
+lifecycle and production installation remain open. This partial A7/A9 evidence
+does not complete A1–A12. All eight workflows pass at the preceding ACP baseline
+`b44086a4cd2d`; see `evidence/ci-b44086a4c.txt`. Newer terminal, headless and child
+repairs still require fresh CI.

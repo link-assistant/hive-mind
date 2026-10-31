@@ -1362,9 +1362,10 @@ storage tests cover full generations, peers, concurrent documents/generations,
 project/session separation, restricted policy and fourteen unsafe cases. Fresh
 reconstruction adds `--plans` to the preceding twenty-four-stage selectors.
 
-Journal/file disagreement refuses. Automatic recovery of interrupted
-multi-artifact plan publication, physical power loss, fresh-process rollback
-authority, alternate filesystem writers, every task/memory path and production
-integration remain unfinished. The Plan Mode policy retains simple Markdown
+Journal/file disagreement refuses at stage 25. Stage 26 adds checked durable
+intent and recovery at synchronized native API boundaries; see
+[interrupted plan publication](PLAN_PUBLICATION.md). Physical power loss,
+fresh-process rollback authority, alternate filesystem writers, every task/memory
+path and production integration remain unfinished. The Plan Mode policy retains simple Markdown
 filenames; broader Unicode/nested policy coverage is still open. See
 [plan evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-plans.txt).

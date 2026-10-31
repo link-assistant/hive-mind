@@ -22,9 +22,9 @@ package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 helper = package / 'bundle/hive-gemini-history.mjs'
 source = Path(__file__).parent / 'native-gemini/history.mjs'
-assert helper.read_bytes() == source.read_bytes() or hashlib.sha256(helper.read_bytes()).hexdigest() in ('216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed', '4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd', '316d864e6ba63b15c6685b7da7f86f831652eedfbc0c1c62ed01edc619a31688')
+assert helper.read_bytes() == source.read_bytes() or hashlib.sha256(helper.read_bytes()).hexdigest() in ('216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed', '4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd', '316d864e6ba63b15c6685b7da7f86f831652eedfbc0c1c62ed01edc619a31688', 'd522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da')
 if args.conversation_evidence:
-    assert hashlib.sha256(helper.read_bytes()).hexdigest() in ('4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd', '316d864e6ba63b15c6685b7da7f86f831652eedfbc0c1c62ed01edc619a31688'), 'Complete evidence controls require their exact repaired native helper.'
+    assert hashlib.sha256(helper.read_bytes()).hexdigest() in ('4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd', '316d864e6ba63b15c6685b7da7f86f831652eedfbc0c1c62ed01edc619a31688', 'd522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da'), 'Complete evidence controls require their exact repaired native helper.'
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-history-storage-'))
 root.chmod(0o700)
 children = []

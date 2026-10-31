@@ -19,17 +19,20 @@ parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 attacks = ('symlink', 'hardlink', 'unsafe-mode', 'missing', 'content', 'invalid-utf8',
            'oversized', 'parent-replacement', 'root-replacement', 'changed-selector',
-           'journal-schema', 'unknown', 'filename', 'reserved')
+           'journal-schema', 'unknown', 'filename', 'reserved', 'plan-reserved')
 scenarios = ('lifetime', 'generations', 'peer', 'concurrent', 'same-file', 'separation',
              'missing-unacknowledged', 'policy', 'private') + tuple('unsafe-' + attack for attack in attacks)
 parser.add_argument('--scenario', choices=scenarios)
+parser.add_argument('--plan-transactions', action='store_true')
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 module = package / 'bundle/chunk-DKZARV6U.js'
 assert hashlib.sha256(module.read_bytes()).hexdigest() == '80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733'
 helper = package / 'bundle/hive-gemini-history.mjs'
-assert helper.read_bytes().endswith((Path(__file__).parent / 'plans_history.mjs').read_bytes())
+assert helper.read_bytes().endswith((Path(__file__).parent / 'plans_history.mjs').read_bytes()) or hashlib.sha256(helper.read_bytes()).hexdigest() == 'd522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da'
+if args.plan_transactions:
+    assert hashlib.sha256(helper.read_bytes()).hexdigest() == 'd522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da'
 suite_root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-plans-'))
 suite_root.chmod(0o700)
 children = []
@@ -82,6 +85,8 @@ try:
 
     for scenario in scenarios:
         if args.scenario and args.scenario != scenario:
+            continue
+        if not args.scenario and scenario == 'unsafe-plan-reserved' and not args.plan_transactions:
             continue
         root = suite_root / scenario
         root.mkdir(mode=0o700)

@@ -1355,3 +1355,20 @@ Latest CI continuation:
       verify exact-head CI.
       Interrupted plan publication, alternate writers, remaining task/memory and
       complete production/lifecycle acceptance remain unfinished.
+
+- [x] Reproduce native first/replacement plan journal/file disagreement after
+      bounded owner death and whole private-home disposal. Record checked intent
+      and recover complete generations at three synchronized API boundaries.
+- [x] Reproduce and repair draft staging-inode substitution and array-valued
+      staging-name acceptance. Final publication suite passes 59 assertions,
+      including 23 unsafe controls; storage passes 30 across 24 scenarios.
+      Reconstruct all 26 stages and require 17 identical native files.
+- [x] Complete final reconstructed-package actual plan/private/four-damage checks,
+      both concurrent-child engines, child restore, ACP and third-terminal restore.
+      All 11 network logs have no errors. History 69, metadata 54, shell 28 and
+      static checks pass.
+- [ ] Commit/push both plan stages and require fresh exact-head CI.
+- [ ] Complete whole-CLI interrupted plan recovery, partial intent/pre-intent
+      staging, power loss, remaining native writers and broad production lifecycle.
+- [x] Preserve all eight successful workflows at 8f9ca8867a before pushing again,
+      including full compiled Codex and Docker/739-default/2-integration evidence.

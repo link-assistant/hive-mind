@@ -340,3 +340,14 @@ remain unfinished; A9 remains partial. Gemini's preceding corrected suites and
 child-edit restore cycles pass all six jobs at `e51270e05e88`; concurrent-child
 coverage passes all six at `8f9ca8867a`. See
 `evidence/ci-e51270e05-gemini.txt` and `evidence/ci-8f9ca8867-gemini.txt`.
+
+A9 plan publication now has strict native API owner-death reproductions for
+first and replacement documents. A twenty-sixth source stage records checked
+durable intent and recovers complete journal/file generations after synchronized
+intent, journal and document publication boundaries. All 59 recovery/refusal
+assertions and 30 storage assertions pass locally; fresh reconstruction compares
+17 identical native files. See `evidence/native-gemini-plan-publication.txt`.
+Whole-CLI interruption, partial intent, power loss, remaining writers/task memory
+and full production lifecycle remain unfinished. This is partial A9 evidence.
+All eight workflows pass at the preceding `8f9ca8867a` concurrent-child head;
+the new plan stages require their own fresh exact-head CI.

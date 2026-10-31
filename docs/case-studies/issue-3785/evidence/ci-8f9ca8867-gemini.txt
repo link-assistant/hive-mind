@@ -27,6 +27,7 @@ requests. Fresh reconstruction verifies twenty-four stages and seventeen
 identical native files. Surrounding metadata 54, shell 28 and authentication
 41/30/11 assertions pass.
 
-This is Gemini evidence at this SHA. Other exact-head workflows were still
-running when recorded. Plan preservation, production installation, direct child
+This is Gemini evidence at this SHA. All eight workflows subsequently passed;
+see ci-8f9ca8867.txt for complete compiled Codex and Docker evidence.
+Plan preservation, production installation, direct child
 continuation and the complete six-tool lifecycle are separate unfinished work.

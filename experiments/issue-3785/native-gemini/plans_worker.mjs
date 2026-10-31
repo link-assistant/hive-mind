@@ -159,6 +159,8 @@ if (scenario === 'generations') {
     await assert.rejects(service.writeTextFile(path.join(plans, 'source.js'), first), refusal);
   } else if (attack === 'reserved') {
     await assert.rejects(service.writeTextFile(path.join(plans, '.publish-synthetic.md'), first), refusal);
+  } else if (attack === 'plan-reserved') {
+    await assert.rejects(service.writeTextFile(path.join(plans, '.plan-synthetic.md'), first), refusal);
   } else throw new Error('Unknown bounded plan scenario.');
   const target = attack === 'unknown' ? path.join(plans, 'unknown.md') : file;
   const auditRoot = path.join(root, attack === 'root-replacement' ? 'canonical.retained' : 'canonical');

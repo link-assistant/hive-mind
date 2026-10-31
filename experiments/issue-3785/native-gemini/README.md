@@ -1208,10 +1208,16 @@ done
 python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics /tmp/gemini-live-audit-before.log
 python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package" --check
 python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package"
-python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics /tmp/gemini-evidence-storage.log
+python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --conversation-evidence --diagnostics /tmp/gemini-evidence-storage.log
 python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics /tmp/gemini-live-audit-after.log
 python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-summary --diagnostics /tmp/gemini-live-summary.log
 ```
+
+The storage probe's `--conversation-evidence` option requires the exact repaired
+helper and all 69 storage assertions. Earlier-stage regression jobs retain their
+65 assertions; explicit `--scenario evidence-*` requests still run strict before
+controls on those packages. This keeps the independent source stages checked
+without treating an earlier package as though its later repair were applied.
 
 Fresh reconstruction uses `--acp --terminal-resume --headless --subagent
 --conversation-evidence` and compares all seventeen native files byte for byte.

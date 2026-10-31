@@ -1299,3 +1299,10 @@ Latest CI continuation:
       finish successfully; local static checks pass.
 - [ ] Commit/push streaming admission and verify all fresh exact-head CI jobs.
       Complete the remaining acceptance inventory.
+
+- [x] Investigate CI at e375e9df5: preserve completed history/tracker/Git/restore
+      job logs and artifacts. All four fail because the shared base suite runs
+      later evidence assertions before applying that source stage. Reproduce it
+      locally, require an explicit pinned full-evidence suite at stage 23, and
+      verify 65/65/69 checks across all three distinct native helper variants.
+- [ ] Publish the stage-specific suite selection and verify fresh exact-head CI.

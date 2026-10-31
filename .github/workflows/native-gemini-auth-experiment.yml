@@ -462,7 +462,7 @@ jobs:
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
           python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package" --check
           python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package"
-          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-evidence-storage.log" > "$RUNNER_TEMP/gemini-acp-evidence-storage-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --conversation-evidence --diagnostics "$RUNNER_TEMP/gemini-acp-evidence-storage.log" > "$RUNNER_TEMP/gemini-acp-evidence-storage-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-after-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-after-control.log" 2>&1
       - name: Reproduce actual response delivery before canonical audit refusal

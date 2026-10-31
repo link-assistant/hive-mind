@@ -1343,3 +1343,23 @@ streaming repairs; they establish no production/all-six completion claim.
 - All subprocesses finish; Python parsing, formatting, workflow/ShellCheck,
   secrets, file-size and whitespace checks pass. Fresh exact-head CI is still
   required. Persisted rollback authority and production lifecycle remain open.
+
+2026-10-31, e375e9df5070 CI storage-stage mismatch:
+- Runs are created 03:24:35/36Z after the 03:24:22Z commit and match its full SHA.
+  Gemini run 41164253228 fails four independent jobs: history, tracker, Git and
+  restorable tools. Their earlier helper stages intentionally precede stage 23.
+- Downloaded complete job logs: history 124428265020 line 337, tracker
+  124428264987 line 476, Git 124428265068 line 497 and restore 124428265087
+  line 488 report exit 1. Downloaded all four diagnostic artifacts. Each storage
+  control passes 61 earlier scenarios before the new evidence-rollback case;
+  its worker diagnostic line 5 reports Missing expected exception for retained
+  conversation evidence. History control lines 63-69 show the parent assertion.
+- Reproduced the same strict failure locally on the shell-history package before
+  changing suite selection. The shared suite had acquired stage-23-only tests
+  unconditionally; the independent jobs still build their intentional stages.
+- Add --conversation-evidence, requiring the exact repaired helper, to the
+  final-stage full suite. Earlier suites retain all 65 original assertions;
+  explicit evidence scenarios still run and fail as strict before controls.
+- Local complete suites pass 65/65/69 on the base, child and retained-evidence
+  helpers respectively. Native source is unchanged by this CI repair. New
+  exact-head CI remains required; broad production criteria remain unfinished.

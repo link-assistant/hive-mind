@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
+import console from 'node:console';
 
 const { Storage, StandardFileSystemService } = await import(process.env.NATIVE_MODULE);
 const root = process.env.FIXTURE_ROOT;
@@ -62,7 +64,7 @@ if (phase === 'owner') {
   fs.fsyncSync = fd => {
     synchronize(fd);
     const selected = fs.readlinkSync('/proc/self/fd/' + fd);
-    if (!fs.statSync(selected).isDirectory()) return;
+    if (!fs.fstatSync(fd).isDirectory()) return;
     const recorded = journal();
     const matching = (point === 'after-journal' && recorded && path.dirname(recorded) === selected && entries().some(row => JSON.parse(row.message).content === replacement)) || (point === 'after-publish' && selected === plans && fs.existsSync(file) && fs.readFileSync(file, 'utf8') === replacement) || (point === 'after-intent' && selected === plans && fs.existsSync(path.join(plans, '.plan-transaction.json')));
     if (!matching) return;

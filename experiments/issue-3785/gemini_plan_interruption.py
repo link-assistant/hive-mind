@@ -13,8 +13,16 @@ def recovered_plan_tool_call(contents, file, phases):
     phases['recovery'] = step + 1
     if step == 0:
         phases['recovery_file'] = file
+        if phases.get('retry_partial_plan'):
+            return {'id': 'synthetic-plan-retry', 'name': 'write_file', 'args': {'file_path': str(file), 'content': phases['recovery_expected']}}
         return {'id': 'synthetic-plan-recovery', 'name': 'read_file', 'args': {'file_path': str(file)}}
-    assert step == 1
+    if phases.get('retry_partial_plan') and step == 1:
+        responses = [part['functionResponse'] for turn in contents for part in turn.get('parts', [])
+                     if part.get('functionResponse', {}).get('id') == 'synthetic-plan-retry']
+        assert len(responses) == 1 and 'error' not in responses[0].get('response', {})
+        assert file.read_text() == phases['recovery_expected']
+        return {'id': 'synthetic-plan-recovery', 'name': 'read_file', 'args': {'file_path': str(file)}}
+    assert step == (2 if phases.get('retry_partial_plan') else 1)
     responses = [part['functionResponse'] for turn in contents for part in turn.get('parts', [])
                  if part.get('functionResponse', {}).get('id') == 'synthetic-plan-recovery']
     assert len(responses) == 1 and 'error' not in responses[0].get('response', {})
@@ -61,7 +69,24 @@ def verify_plan_interruption(*, invoke, root, home, workspace, history, env, set
     assert len(journals) <= 1
     before = [] if not journals else [json.loads(row['message'])['content'] for row in json.loads(journals[0].read_text()) if row['type'] == 'plan-document']
     previous = [] if scenario == 'first' else [PLAN]
-    assert before == previous + ([] if point == 'after-intent' else [expected])
+    assert before == previous + ([] if point in ('after-intent', 'partial-intent-journal') else [expected])
+    partial_proof = None
+    if point == 'partial-intent-journal':
+        candidates = [p for p in file.parent.iterdir()
+                      if p.name.startswith('.publish-') or p.name.endswith('.journal.tmp')]
+        assert len(candidates) == 1
+        partial_proof = candidates[0]
+        partial_bytes = partial_proof.read_bytes()
+        partial_inode = partial_proof.stat().st_ino
+        try:
+            json.loads(partial_bytes)
+        except json.JSONDecodeError:
+            pass
+        else:
+            raise AssertionError('The bounded native write must leave an actually incomplete proof.')
+        assert file.exists() == (scenario == 'replacement')
+        if file.exists():
+            assert file.read_text() == PLAN
     shutil.rmtree(home)
     print('PASS: the complete actual native Plan Mode CLI reaches ' + scenario + ' ' + point + ', is killed and reaped, and loses its whole private home before acknowledgement.', flush=True)
     peer = root / 'native-plan-recovery-home'
@@ -73,16 +98,24 @@ def verify_plan_interruption(*, invoke, root, home, workspace, history, env, set
                 'XDG_CONFIG_HOME': str(peer / '.config'), 'XDG_DATA_HOME': str(peer / '.local/share'),
                 'XDG_CACHE_HOME': str(peer / '.cache')}
     phases['recovery_expected'] = expected
+    phases['retry_partial_plan'] = point == 'partial-intent-journal'
     previous = len(models)
     code, output = invoke(diagnostics.with_name(diagnostics.stem + '-recovery.log'), peer_env,
                           ['--approval-mode', 'plan', '--resume', session, '--prompt', 'SYNTHETIC-GEMINI-PLAN-RECOVER'])
     assert code == 0 and 'SYNTHETIC-GEMINI-COMPLETE' in output, 'Fresh complete native CLI must recover the interrupted plan and resume its canonical session.'
-    assert len(models) == previous + 2 and phases['recovery'] == 2
+    recovery_requests = 3 if phases['retry_partial_plan'] else 2
+    assert len(models) == previous + recovery_requests and phases['recovery'] == recovery_requests
     assert file.read_text() == expected and phases['recovery_file'] == file
     assert all(p.read_bytes().startswith(content) for p, content in original_audits.items())
     assert not list(peer.rglob('synthetic-retained-plan.md'))
     journal = next(history.rglob('prompt-history.json'))
     after = [json.loads(row['message'])['content'] for row in json.loads(journal.read_text()) if row['type'] == 'plan-document']
     assert after == ([PLAN] if scenario == 'first' else [PLAN, UPDATED_PLAN])
-    assert not any(p.name.startswith('.plan-') for p in file.parent.iterdir())
+    if not phases['retry_partial_plan']:
+        assert not any(p.name.startswith('.plan-') for p in file.parent.iterdir())
+    else:
+        assert partial_proof.stat().st_ino == partial_inode
+        assert partial_proof.read_bytes() == partial_bytes
+        assert not (file.parent / '.plan-transaction.json').exists()
+        assert not any(p.name.startswith('.publish-') for p in file.parent.iterdir())
     print('PASS: a fresh complete actual native CLI resumes the killed owner session and delivers the complete recovered plan through its real read_file result, retaining every full generation and preceding audit.', flush=True)

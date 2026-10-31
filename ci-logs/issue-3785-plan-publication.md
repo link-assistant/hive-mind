@@ -94,3 +94,39 @@ negative controls, 59 API assertions, 30 storage assertions and twelve whole-CLI
 assertions. Six after network logs have no errors. Logs use
 `/tmp/issue-3785-recovery/gemini-plan-cli-ci-*`. Python AST (89), formatting,
 actionlint/ShellCheck, secret scanning, file limits and whitespace checks pass.
+
+Atomic proof publication extension:
+
+1. Reproduce a half-written visible publication proof in the complete actual CLI
+   for first/replacement plans. Owner dies before acknowledgement; delete its
+   complete private home. Fresh native resume refuses with the exact expected
+   assertion and unsafe-history diagnostic. Retain both strict before logs.
+2. Stage 27 writes the proof into an exclusive checked temporary descriptor,
+   synchronizes it, then links only complete JSON into the visible namespace.
+   Recovery admits exactly the checked temporary alias, validates data before
+   alias removal and validates full proof bytes/identity again afterwards.
+3. Fourteen native proof-link boundary cases pass 28 assertions; thirteen unsafe
+   cases pass 26 assertions and unchanged full fingerprints; two live proof
+   inode/content substitution controls refuse before visible publication.
+4. Initial registry fixture expected a basename; actual native storage uses the
+   SHA-256 of the full workspace path. Correct the assertion and repeat all cases.
+5. Both complete actual CLI partial-write retries pass after whole-home disposal,
+   retaining every full generation and audit. Extend the final driver to require
+   retained incomplete orphan bytes/inode and no active proof/intent after retry.
+6. Run the complete strict-before/repair/after driver sequentially, including
+   preceding generic/plan/storage boundaries and six full-CLI synchronized cases.
+   Reconstruct all 27 stages and compare 17 native source files. Completion and
+   exact-head CI evidence follow when verified; broader A9 remains unfinished.
+7. Preserve two regression-fixture failures: the generic live hook watches the
+   earlier visible FD name, while the plan hook stats a removed temporary name.
+   Derive the visible proof only for explicit stage 27, use the opened FD for
+   directory classification, and verify the original-stage live control still
+   passes. All native recovery/refusal suites and the v3 driver remainder pass.
+   All twelve strict-before/after network logs have no errors; both latest retries
+   also preserve the orphan bytes/inode and leave no active intent/proof.
+
+Preserve completed preceding runs before another push: ec03 Checks passes all
+739 default files, both integration files and installed host/nested Docker
+controls; all three Codex jobs pass. Retain full logs, all 94 auth-build files and
+the complete compiled CLI with recorded artifact/executable hashes. See
+evidence/ci-ec03c083.txt. Gemini's separate exact-pin repair still needs fresh CI.

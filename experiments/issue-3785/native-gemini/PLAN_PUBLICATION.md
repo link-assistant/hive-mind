@@ -76,3 +76,8 @@ before valid intent, physical power loss, persisted fresh-process rollback
 authority, alternate/sandboxed writers, broader nested/Unicode Plan Mode policy,
 every other task/memory path and complete production lifecycle remain unfinished.
 No automatic cleanup of pre-intent orphan staging is claimed.
+
+The next [atomic-proof stage](ATOMIC_PUBLICATION.md) separately reproduces a
+partial visible proof write and requires fresh whole-CLI resume plus an actual
+write retry. It adds complete proof publication and exact alias recovery while
+retaining incomplete unreferenced staging. The broader limits above remain open.

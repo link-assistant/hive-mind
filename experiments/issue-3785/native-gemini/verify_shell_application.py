@@ -23,7 +23,9 @@ parser.add_argument('--conversation-evidence', action='store_true', help='Also r
 parser.add_argument('--stream-admission', action='store_true', help='Also refuse response streaming after lost audit evidence; requires --conversation-evidence.')
 parser.add_argument('--plans', action='store_true', help='Also retain checked native plans and generations; requires --stream-admission.')
 parser.add_argument('--plan-transactions', action='store_true', help='Also recover interrupted native plan publication; requires --plans.')
+parser.add_argument('--atomic-proofs', action='store_true', help='Also atomically publish complete recovery proofs; requires --plan-transactions.')
 args = parser.parse_args()
+assert not args.atomic_proofs or args.plan_transactions, 'Atomic publication requires plan transactions.'
 assert not args.plan_transactions or args.plans, 'Plan transactions require the preceding plan-history stage.'
 assert not args.plans or args.stream_admission, 'Plan storage requires the preceding streaming-admission stage.'
 assert not args.stream_admission or args.conversation_evidence, 'Streaming admission requires retained conversation evidence.'
@@ -56,6 +58,8 @@ include_tracker = args.tracker or include_git
 stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ()) + (('terminal_durable_history',) if include_terminal_reopen else ()) + (('terminal_resume_admission',) if args.terminal_resume else ()) + (('headless_restorable',) if args.headless else ()) + (('subagent_history',) if args.subagent else ()) + (('conversation_evidence',) if args.conversation_evidence else ()) + (('stream_admission',) if args.stream_admission else ()) + (('plans_history',) if args.plans else ())
 if args.plan_transactions:
     stages += ('plan_transactions',)
+if args.atomic_proofs:
+    stages += ('atomic_publication',)
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()

@@ -1382,3 +1382,30 @@ Latest CI continuation:
       writers and broad production lifecycle.
 - [x] Preserve all eight successful workflows at 8f9ca8867a before pushing again,
       including full compiled Codex and Docker/739-default/2-integration evidence.
+
+- [x] Diagnose ec03 Gemini failure from fresh exact-SHA logs and all 722 ACP
+      artifacts: the final authentication regressions omit the new exact manager
+      pin. Reproduce all three refusals, add only that hash and pass 41 writer,
+      30 request and 11 private-read assertions plus static checks. Commit repair.
+- [x] Reproduce a half-written visible publication proof through both complete
+      native CLI first/replacement writes before repair. Atomically publish the
+      complete checked proof and admit only its exact temporary hard-link alias.
+- [x] Pass fourteen native proof-link boundary recoveries, thirteen unchanged-
+      fingerprint unsafe refusals and both live same-inode-content/identical-byte-
+      inode proof substitutions. Repeat actual fresh CLI resume/write/read retries.
+- [x] Finish the expanded atomic-proof CI driver, preserving earlier
+      publication/plan/storage and complete CLI controls. Retain orphan bytes and
+      identity; require no active proof/intent after successful retry.
+      All steps pass across the preserved v2 prefix and v3 remainder after fixing
+      two descriptor-path assumptions in the regression fixtures. Original-stage
+      generic live-journal behavior also passes. All twelve network logs are clean.
+- [x] Reconstruct all twenty-seven stages and require seventeen identical native
+      files; repeat actual ACP/terminal restore, both concurrent-child engines,
+      both child-edit restores and partial-write retry. History 69, metadata 54,
+      shell 28 and earlier-stage plan recovery pass; seven network logs are clean.
+- [x] Complete final focused ESLint, Prettier, workflow/ShellCheck, secret,
+      file-limit and whitespace checks before committing the atomic repair.
+- [ ] Preserve preceding compiled Codex and Docker CI before pushing, update the
+      draft PR with precise evidence/limits and require fresh exact-head checks.
+- [ ] Complete physical power loss, orphan cleanup, durable rollback authority,
+      remaining writers/task memory and all production requirements.

@@ -24,14 +24,22 @@ attacks = ('journal-symlink', 'journal-hardlink', 'journal-mode', 'journal-malfo
 parser.add_argument('--attack', choices=attacks)
 parser.add_argument('--before-control', action='store_true', help='Restore the exact preceding helper only in a disposable native package copy.')
 parser.add_argument('--live-journal-replacement', action='store_true')
+parser.add_argument('--atomic-proofs', action='store_true', help='Require the exact stage-27 source instead of the earlier publication stage.')
 args = parser.parse_args()
 if args.attack and (args.before_control or args.live_journal_replacement or args.scenario not in (None, 'registry') or args.point not in (None, 'after-link')):
     parser.error('Unsafe-evidence controls require the repaired registry after-link state.')
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
-assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3', 'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07')
-assert (package / 'bundle/hive-gemini-history.mjs').read_bytes() == (Path(__file__).parent / 'history.mjs').read_bytes()
-assert (package / 'bundle/hive-gemini-publication.mjs').read_bytes() == (Path(__file__).parent / 'publication.mjs').read_bytes()
+if args.atomic_proofs:
+    assert not args.before_control, 'Earlier-stage reconstruction must retain its original exact source pins.'
+    for name, pin in {'chunk-DKZARV6U.js': '80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733',
+                      'hive-gemini-history.mjs': 'd522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da',
+                      'hive-gemini-publication.mjs': '3b2b4dbc2296e6da81d314879e466f100f211579ebee13a63a74d9129bae28d8'}.items():
+        assert hashlib.sha256((package / 'bundle' / name).read_bytes()).hexdigest() == pin, name
+else:
+    assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3', 'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07')
+    assert (package / 'bundle/hive-gemini-history.mjs').read_bytes() == (Path(__file__).parent / 'history.mjs').read_bytes()
+    assert (package / 'bundle/hive-gemini-publication.mjs').read_bytes() == (Path(__file__).parent / 'publication.mjs').read_bytes()
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-publication-'))
 root.chmod(0o700)
 children = []
@@ -79,7 +87,12 @@ if (phase === 'live') {
   const synchronize = fs.fsyncSync;
   fs.fsyncSync = fd => {
     synchronize(fd);
-    const journal = fs.readlinkSync('/proc/self/fd/' + fd);
+    let journal = fs.readlinkSync('/proc/self/fd/' + fd);
+    if (process.env.SYNTHETIC_ATOMIC_PROOFS === '1') {
+      const proof = /^\.history-([a-f0-9-]+)\.journal\.tmp(?: \(deleted\))?$/u.exec(path.basename(journal));
+      if (proof) journal = path.join(path.dirname(journal), `.publish-${proof[1]}.json`);
+      if (!fs.existsSync(journal)) return;
+    }
     if (!injected && /^\.publish-.*\.json$/u.test(path.basename(journal))) {
       const original = fs.statSync(journal);
       const bytes = fs.readFileSync(journal);
@@ -173,6 +186,8 @@ console.log('PASS: fresh native ' + scenario + ' reads retain exact bytes/device
         with diagnostic.open('wb') as output:
             diagnostic.chmod(0o600)
             env = {'PATH': os.environ['PATH'], 'HOME': str(private), 'GEMINI_CLI_HOME': str(private), 'GEMINI_HISTORY_HOME': str(fixture / 'canonical'), 'FIXTURE_ROOT': str(fixture)}
+            if args.atomic_proofs:
+                env['SYNTHETIC_ATOMIC_PROOFS'] = '1'
             child = subprocess.Popen(['prlimit', '--data=2147483648', '--stack=16777216', '--core=0', '--', shutil.which('node'), '--max-old-space-size=192', str(worker), scenario, phase, point], env=env, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
             children.append(child)
             try:

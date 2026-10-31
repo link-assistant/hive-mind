@@ -1369,3 +1369,13 @@ fresh-process rollback authority, alternate filesystem writers, every task/memor
 path and production integration remain unfinished. The Plan Mode policy retains simple Markdown
 filenames; broader Unicode/nested policy coverage is still open. See
 [plan evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-plans.txt).
+
+Stage 27 closes a reproduced partial-proof boundary: both complete native CLI
+first/replacement writes can resume after a half-written proof and whole-home
+disposal, then retry through actual `write_file` and `read_file`. Complete proofs
+are linked atomically from checked temporary descriptors. Fourteen native
+proof-link recoveries, thirteen unsafe cases and two live substitutions cover
+the new boundaries; preceding publication, plan and CLI checks remain required.
+Incomplete unreferenced staging is retained. See
+[atomic publication proofs](ATOMIC_PUBLICATION.md) for commands, exact pins and
+the remaining durability and production limits.

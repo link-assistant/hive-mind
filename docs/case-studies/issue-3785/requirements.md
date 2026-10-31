@@ -355,3 +355,21 @@ power loss, remaining writers/task memory
 and full production lifecycle remain unfinished. This is partial A9 evidence.
 All eight workflows pass at the preceding `8f9ca8867a` concurrent-child head;
 the new plan stages require their own fresh exact-head CI.
+
+A9 partial-proof coverage separately reproduces incomplete visible publication
+JSON in the complete actual CLI before repair, for first and replacement plans.
+Stage 27 publishes only a complete checked proof and validates its exact temporary
+alias during recovery. Fourteen native API kill/recover cases, thirteen unsafe
+cases and two live proof substitutions pass locally. Fresh CLI resume and real
+write/read retries retain complete generations; incomplete unreferenced staging
+is retained. See `evidence/native-gemini-atomic-publication.txt`. Physical power
+loss, orphan cleanup, durable rollback authority, other writers and production
+lifecycle remain unfinished; A9 remains partial.
+
+At `ec03c083d0e0`, seven of eight workflows pass, including compiled native Codex,
+739 default test files, both integration files and installed host/nested Docker
+controls. Gemini's final auth regressions reject an omitted exact plan-stage
+manager pin; all preceding native plan/lifecycle controls pass. The pin repair
+passes all 82 local auth assertions. See `evidence/ci-ec03c083.txt` and
+`evidence/ci-ec03c083-gemini.txt`; the repair and new interruption stages require
+fresh exact-head CI. These results leave the open production criteria unchanged.

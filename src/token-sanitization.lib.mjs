@@ -193,6 +193,36 @@ export const isHexInSafeContext = (content, hexString, position) => {
 };
 
 /**
+ * Text that, right before a 40-char hex string, says it names a commit: a GitHub commit/tree URL,
+ * a git object id in gh/GitHub API JSON, or `git rev-parse`.
+ * Issue #3922: these occurrences are not preceded by whitespace, `:` or `=`, so the hex scan never
+ * looked at them, and the commit evidence they carry was ignored.
+ */
+const COMMIT_EVIDENCE_PREFIX = /(?:\/(?:commit|commits|tree|blob)\/|"(?:oid|sha|headRefOid|baseRefOid|head_sha|base_sha|merge_commit_sha|commit_id|commitOid|tree_id)"\s*:\s*"|\bgit\s+rev-parse\s+[^\n]{0,60}\n)$/i;
+
+/**
+ * Issue #3922: whether ANY occurrence of a 40-char hex string identifies it as a commit hash.
+ *
+ * Masking replaces every occurrence of a token, so judging only the occurrence the scan found was
+ * wrong: `git rev-parse HEAD` output mirrored on its own line (`[STDOUT] <sha>`) was masked, and
+ * with it the same SHA inside every `https://github.com/o/r/commit/<sha>` link of the log, which
+ * became `commit/781…75a`. A real secret never appears as a commit URL or object id, so one
+ * occurrence with commit evidence is enough to keep them all.
+ *
+ * @param {string} content - The full content to search
+ * @param {string} hexString - The 40-char hex string
+ * @returns {boolean} True if some occurrence is in a safe/commit context
+ */
+export const hexHasCommitEvidence = (content, hexString) => {
+  if (!content || !hexString) return false;
+  for (let position = content.indexOf(hexString); position !== -1; position = content.indexOf(hexString, position + hexString.length)) {
+    if (COMMIT_EVIDENCE_PREFIX.test(content.slice(Math.max(0, position - 80), position))) return true;
+    if (isHexInSafeContext(content, hexString, position)) return true;
+  }
+  return false;
+};
+
+/**
  * Get GitHub tokens from local config files
  * @returns {Promise<string[]>} Array of tokens found
  */
@@ -853,8 +883,8 @@ export const sanitizeOutput = async (output, options = {}) => {
         continue;
       }
 
-      // Only mask if NOT in a safe git/gist context
-      if (!isHexInSafeContext(tempContent, token, position)) {
+      // Only mask if NOT in a safe git/gist context — at this or any other occurrence (issue #3922)
+      if (!isHexInSafeContext(tempContent, token, position) && !hexHasCommitEvidence(tempContent, token)) {
         if (isExcluded(token)) {
           sanitizationStats.excluded++;
           continue;
@@ -1286,7 +1316,7 @@ export const extractTokensFromUserContent = async (text, options = {}) => {
   let m;
   while ((m = hexPattern.exec(text)) !== null) {
     const token = m[1];
-    if (!isHexInSafeContext(text, token, m.index)) {
+    if (!isHexInSafeContext(text, token, m.index) && !hexHasCommitEvidence(text, token)) {
       tokens.add(token);
     }
   }
@@ -1304,6 +1334,7 @@ export default {
   createCredentialStreamSanitizer,
   isSafeToken,
   isHexInSafeContext,
+  hexHasCommitEvidence,
   getGitHubTokensFromFiles,
   getGitHubTokensFromCommand,
   sanitizeOutput,

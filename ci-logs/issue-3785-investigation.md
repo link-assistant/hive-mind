@@ -1282,3 +1282,18 @@ not establish production canonical authentication or the remaining A1–A12 scop
 - Fresh-package shell 28, metadata 54, auth 41/30/11, terminal 4, ACP 3, both
   headless engines 4 each, owner refusal/recovery 5 and live/startup refusal 1/2
   all pass locally. Exact new-head CI and broader lifecycle work remain open.
+
+2026-10-31, terminal/headless/child baseline 533cc3a20c01:
+- All six Gemini jobs pass in 41160834587, created 02:37:16Z at the exact SHA.
+  The final ACP job completes 02:46:54Z. Full 3681-line log is preserved.
+- Nine strict before failures reproduce ACP, terminal, both headless engines
+  and child-recording defects. Fresh twenty-two-stage reconstruction produces
+  seventeen identical native files without applicability-check mutation.
+- All 272 ACP artifacts are downloaded and inspected: 45 control logs, nine
+  expected failures, no unexpected failures; 43 network logs have no errors.
+  Full metadata 54, shell 28 and authentication 41/30/11 assertions pass.
+- Artifact 13027595764 has SHA-256
+  2add9af1456612e74b1ba41404e200433b12572236ee31227684fce4a02cedf6.
+- Added interruption controls and conversation-evidence repair follow this
+  pushed baseline and still require their own exact-head CI. Codex and main
+  checks are still running while this Gemini evidence is recorded.

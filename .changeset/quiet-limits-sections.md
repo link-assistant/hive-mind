@@ -89,3 +89,9 @@ Refuse custom global model-catalog selectors, which can supply model-owned instr
 Refuse Codex startup `.env` files in conventional and selected global homes. The native loader can redirect skill discovery through HOME before configuration parsing. Preserve opaque environment data for explicit reconciliation, reject unsafe links/types, and recheck concurrent additions before admission.
 
 Ship a reproducible Gemini 0.65.0 native adapter recipe in the actual npm package. Verify all pinned upstream and generated native files before publishing a separate executable generation, activate its package-manager command in both image variants, and require its full byte inventory during installed-runtime admission. Preserve the original upstream package and existing optional dependency resolution. Default canonical storage selection, migration and the complete six-tool lifecycle remain unfinished.
+
+Build and package pinned native Codex runtimes for Linux x64 and arm64. Require verified native bytes for package publication and image admission, and activate a separate checked runtime without modifying the upstream launcher or user state.
+
+Honor the native Codex authentication selector in limits and subscription reads. Refuse unsafe or conflicting canonical storage before using cached results, and prevent private configuration from redirecting canonical bearer credentials.
+
+Preserve the selected native Codex credential authority during capability discovery. Avoid private credential snapshots, reject unsafe or conflicting selected credentials before allocating task state, and admit native command bytes before selected discovery runs.

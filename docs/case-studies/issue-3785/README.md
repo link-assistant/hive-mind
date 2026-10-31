@@ -7,9 +7,14 @@ Observed failed CLI: Codex 0.164.0. Local Claude CLI: 2.1.310.
 
 **The issue remains unfinished.** Display, entitlement labeling, cache invalidation,
 Router usage selection, and task-owned Codex catalog discovery are implemented.
-The default canonical authentication/history contract, complete global baseline enforcement,
-migration, and packaged-image release/deployment gates are not implemented or
-verified by these changes. Passing the tests below does not satisfy those criteria.
+Native Gemini packaging and installed-image admission are verified in CI. Native
+Codex packaging and image gates are implemented; optimized x64 and arm64 builds
+and installed-package checks remain pending. Explicitly selected Codex credentials
+are admitted before limits reads and capability discovery without making private
+authentication snapshots. The default canonical authentication/history contract,
+complete global baseline enforcement, migration, and full six-tool release and
+deployment lifecycle remain unfinished. Passing narrower tests does not satisfy
+those criteria.
 
 ## Recovery on 2026-10-30
 

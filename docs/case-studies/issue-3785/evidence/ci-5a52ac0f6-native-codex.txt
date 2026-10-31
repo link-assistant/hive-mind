@@ -1,0 +1,51 @@
+Native Codex development CI after-controls, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41198752671
+Source: 5a52ac0f65e7920a1ccdcfdeef2cfd18c8295f52
+Created: 2026-10-31 11:54:01 UTC
+Conclusion: success; all three jobs pass.
+Native file-authority job: 124530160092
+
+The full supported CLI compiles before and after the checked native patches.
+All required native directory-identity, usage-generation, SQLite override and
+alias, compression/resume, migration recovery, TUI, identity publication,
+refresh-owner-death, model-request, provider-constructor, capability and
+credential-free metadata after-controls pass. Expected strict before-controls
+still fail at their documented assertions; their negative controls pass.
+
+The exact preserved development executable is 419122384 bytes.
+SHA256: 81eb9e87a53f85b1a67139c07f3df56b4897fcc07eb714c2073bbe709382f12f
+This is the experimental development CLI, not an optimized distributed artifact.
+The current recipe still requires fresh optimized x64/arm64 and installed-image
+verification. Neither development success nor static artifact fixtures supply
+that missing distribution evidence.
+
+Complete workflow log: 1992 lines, reviewed in two <=1500-line chunks.
+SHA256: 56c6eb8922296ccab495ff7e7826019bbf92055b9fd9ddf3cb32aeb26674c61c
+All 125 text artifact logs: 6161 lines, reviewed in 126 bounded chunks.
+The six assertion/traceback findings are expected strict before regressions.
+No unexpected after-control failure appears.
+
+Artifact inspection exposes missing native-limits-*.log retention despite the
+successful usage-control step. A generic emitted-log versus retained-glob test
+fails with four missing filename templates before repair. Add the missing
+artifact glob; all 21 build/artifact/diagnostic tests pass afterward. Actionlint,
+ShellCheck, Zizmor and secret scanning validate the change separately.
+
+Repeat locally using the identical preserved executable and actual protocol:
+- probe-codex-native-auth-identity.py: all five controls pass (healthy, wrong,
+  malformed, replaced parent, missing selector with private credentials).
+- probe-codex-native-limits-generation.py: healthy none passes; logout, atomic
+  replacement and malformed authentication each refuse the retired response.
+- verify-mounted-codex-auth.mjs: actual production builders, root and two live
+  offline Docker peers pass replacement, task/root native logout and login,
+  in-place change and complete private-home disposal. The actual single-file
+  negative control retains retired bytes and refuses authentication.
+All native processes and all three containers are removed/reaped on completion.
+The existing finite data/stack/core, protocol, output and lifetime bounds apply.
+No provider credentials, remote requests or SDK instrumentation are used.
+
+These controls complete development after verification for the new native
+identity and usage guards. Default selection, migration, full history, database
+operation leases, optimized distribution and all other six-tool acceptance
+requirements remain unfinished. The PR remains draft and unmerged.

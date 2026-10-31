@@ -457,6 +457,7 @@ jobs:
             ${{ runner.temp }}/native-request-diagnostics/*.log
             ${{ runner.temp }}/native-identity-*.log
             ${{ runner.temp }}/native-auth-directory-identity.log
+            ${{ runner.temp }}/native-limits-*.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-compression-*.log
             ${{ runner.temp }}/native-migration-*.log

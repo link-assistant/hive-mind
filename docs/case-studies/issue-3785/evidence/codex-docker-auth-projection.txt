@@ -71,3 +71,12 @@ changed-file formatting/secret checks pass. The final packaging repair also
 passes all twenty Python and nineteen related Node controls independently.
 There are zero cgroup OOM or OOM-kill events. Compiled after-controls remain
 pending; local success does not complete the default/full-history contract.
+
+Subsequent development after verification: all three jobs in run 41198752671
+pass at 5a52ac0f65e7920a1ccdcfdeef2cfd18c8295f52. The exact compiled CLI
+SHA256 is 81eb9e87a53f85b1a67139c07f3df56b4897fcc07eb714c2073bbe709382f12f.
+All five native identity and four usage-generation controls also pass locally
+with this same executable; the production-builder root/two-Docker-peer native
+lifecycle passes. See ci-5a52ac0f6-native-codex.txt for complete run/log evidence.
+Optimized, installed-command and packaged-image after gates remain required;
+this new result does not complete default/full-history integration.

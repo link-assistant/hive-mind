@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Exercise release input admission without compiling on a constrained host."""
 import importlib.util
+import fnmatch
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -20,6 +22,20 @@ SPEC.loader.exec_module(BUILD)
 
 
 class NativeBuildAdmission(unittest.TestCase):
+    def test_native_experiment_preserves_emitted_diagnostics(self):
+        workflow = (ROOT / ".github/workflows/native-codex-auth-experiment.yml").read_text()
+        emitted = set(re.findall(r'\$RUNNER_TEMP/(native-[^"\s<>]+\.log)', workflow))
+        retained = re.findall(r'\$\{\{ runner.temp \}\}/([^\s]+\.log)', workflow)
+        self.assertTrue(emitted, "The native diagnostic inventory must not be empty.")
+        missing = []
+        for name in sorted(emitted):
+            # Shell loop variables represent independent diagnostics. The
+            # artifact glob must retain every generated filename.
+            example = re.sub(r'\$\{?\w+\}?', 'synthetic', name)
+            if not any(fnmatch.fnmatchcase(example, pattern) for pattern in retained):
+                missing.append(name)
+        self.assertEqual(missing, [], "Native controls must preserve their diagnostics.")
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="native-codex-build-test-")
         self.addCleanup(self.temporary.cleanup)

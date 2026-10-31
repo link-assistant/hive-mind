@@ -17,7 +17,7 @@ from native_process_group import stop_process_group
 class NativeTerminal:
     """Drive an actual native CLI process through a finite PTY session."""
 
-    def __init__(self, native, workspace, env, prompt, diagnostic):
+    def __init__(self, native, workspace, env, prompt, diagnostic, *, resume=None):
         self.master, slave = pty.openpty()
         self.child = None
         self.output = bytearray()
@@ -29,7 +29,9 @@ class NativeTerminal:
             self.child = subprocess.Popen(
                 ['prlimit', '--data=2147483648', '--stack=16777216', '--core=0', '--',
                  shutil.which('node'), '--max-old-space-size=256', str(native / 'bundle/gemini.js'),
-                 '--model', 'gemini-2.5-flash', '--skip-trust', '--prompt-interactive', prompt],
+                 '--model', 'gemini-2.5-flash', '--skip-trust',
+                 *(['--resume', resume] if resume else []),
+                 *(['--prompt-interactive', prompt] if prompt is not None else [])],
                 env={**env, 'TERM': 'xterm-256color', 'COLUMNS': '120', 'LINES': '40'},
                 cwd=workspace, stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
         except BaseException:
@@ -78,7 +80,7 @@ class NativeTerminal:
 
 
 def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
-                               settings, diagnostics, models, first_prompt, second_prompt, attack=None):
+                               settings, diagnostics, models, first_prompt, second_prompt, attack=None, reopen=False):
     witness = workspace / 'native-restorable-witness.txt'
     companion = workspace / 'native-restorable-companion.txt'
     before = 'SYNTHETIC BEFORE NATIVE EDIT 東京\n'
@@ -175,6 +177,12 @@ def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
             return
         terminal.until(lambda: b'SYNTHETIC-GEMINI-COMPLETE' in terminal.output)
         terminal.settle()
+        if reopen:
+            audit = {path: path.read_bytes() for path in history.rglob('*.jsonl')
+                     if '.archive' not in path.parts and second_prompt in path.read_text()}
+            assert len(audit) == 1, 'Identify the actual terminal conversation audit before restore.'
+            recording = next(iter(audit))
+            peer_session = json.loads(recording.read_text().splitlines()[0])['sessionId']
         previous = len(models)
         terminal.send(('/restore ' + name.removesuffix('.json')).encode())
         terminal.send(b'\r')
@@ -189,5 +197,44 @@ def verify_restorable_lifetime(*, native, root, home, workspace, history, env,
         assert first_prompt.encode() in terminal.output, 'Native restore must load the saved original conversation.'
         assert len(models) == previous, 'Native restore must use retained metadata and Git objects before another model request.'
         print('PASS: fresh actual native TUI restores the original project and conversation, then replays its stored native tool after complete private-home disposal.')
+    finally:
+        terminal.close()
+
+    if not reopen:
+        return
+    assert all(path.read_bytes().startswith(content) for path, content in audit.items()), 'Native terminal restore must retain the prior conversation audit.'
+    shutil.rmtree(peer)
+    final_home = root / 'restorable-after-restore-home'
+    final_private = final_home / '.gemini'
+    final_private.mkdir(parents=True, mode=0o700)
+    (final_private / 'settings.json').write_text(json.dumps(settings))
+    (final_private / 'settings.json').chmod(0o600)
+    final_env = {**peer_env, 'HOME': str(final_home), 'GEMINI_CLI_HOME': str(final_home),
+                 'XDG_CONFIG_HOME': str(final_home / '.config'), 'XDG_DATA_HOME': str(final_home / '.local/share'),
+                 'XDG_CACHE_HOME': str(final_home / '.cache')}
+    previous = len(models)
+    terminal = NativeTerminal(native, workspace, final_env, None,
+                              diagnostics.with_name(diagnostics.stem + '-reopen.log'), resume=peer_session)
+    try:
+        # The native resume effect and automatic initial prompt run separately.
+        # Wait for the resumed UI before submitting a real interactive turn.
+        def resumed_input_ready():
+            restored = terminal.output.rfind(b'Restored project to the state before the tool call.')
+            ready = terminal.output.rfind(b'Type your message or @path/to/file')
+            return restored >= 0 and ready > restored and ready > terminal.output.rfind(b'Resuming session...')
+        terminal.until(resumed_input_ready)
+        terminal.settle()
+        assert len(models) == previous, 'Native terminal resume must not require inference.'
+        terminal.send(b'SYNTHETIC-GEMINI-TUI-REOPEN-RESTORE')
+        terminal.send(b'\r')
+        terminal.until(lambda: len(models) > previous and b'SYNTHETIC-GEMINI-COMPLETE' in terminal.output)
+        terminal.settle()
+        assert models[-1]['first_prompt'] and not models[-1]['second_prompt'], 'A third native terminal must resume its restored original model history.'
+        assert len(models) == previous + 1, 'Resuming and submitting one terminal turn must make exactly one model request.'
+        assert b'Gemini canonical conversation history is unavailable or unsafe.' not in terminal.output
+        assert witness.read_text() == after and companion.read_text() == before
+        assert all(path.read_bytes().startswith(content) for path, content in audit.items())
+        assert any(saved_name == name for saved_name, _ in checkpoints())
+        print('PASS: a third actual native terminal resumes the restored model history and preserves the complete prior audit after a second private-home disposal.')
     finally:
         terminal.close()

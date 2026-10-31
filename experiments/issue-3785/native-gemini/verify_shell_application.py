@@ -15,6 +15,7 @@ parser.add_argument('--tracker', action='store_true', help='Also apply tracker s
 parser.add_argument('--git', action='store_true', help='Also apply tracker and checked native Git checkpoint storage.')
 parser.add_argument('--restorable', action='store_true', help='Also apply Git, native restore metadata and terminal edit admission.')
 parser.add_argument('--acp', action='store_true', help='Also apply native ACP checkpoint, restore, turn-boundary and listing repairs.')
+parser.add_argument('--terminal-reopen', action='store_true', help='Also preserve terminal checkpoint turn boundaries for a third-process resume.')
 args = parser.parse_args()
 source = args.constructor_package.resolve(strict=True)
 tested = args.tested_package.resolve(strict=True)
@@ -35,10 +36,10 @@ def hashes():
     return result
 
 
-include_restorable = args.restorable or args.acp
+include_restorable = args.restorable or args.acp or args.terminal_reopen
 include_git = args.git or include_restorable
 include_tracker = args.tracker or include_git
-stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ())
+stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ()) + (('terminal_durable_history',) if args.terminal_reopen else ())
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()

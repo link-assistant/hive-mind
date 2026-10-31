@@ -1129,3 +1129,17 @@ edits, cancellation and both restore listings also pass locally. See
 [ACP restore controls](evidence/native-gemini-acp-restore-controls.txt). Fresh
 exact-head Node 24 ACP CI and the remaining writers, lifecycle, migration and
 production integration are still required.
+
+The terminal has the same checkpoint turn-coalescing defect: after restore and
+another complete private-home disposal, a third terminal's actual model request
+loses the original prompt. A strict interactive-resume control fails before
+`apply_terminal_durable_history.py` preserves the actual context/user boundaries.
+The reconstructed nineteen-stage package passes the three-terminal control,
+retains the prior audit byte prefix and checkpoint, and preserves native tool
+replay. See [terminal reopen evidence](evidence/native-gemini-terminal-reopen-controls.txt).
+An automatic startup-prompt/resume race remains separate unfinished work.
+
+All eight workflows also pass at `5abb937c55b2`, including 739 default test files,
+both integration files, packaged Docker verification and all three compiled
+Codex jobs. See [CI evidence](evidence/ci-5abb937c5.txt). That commit precedes the
+ACP and third-terminal repairs and does not verify those later changes.

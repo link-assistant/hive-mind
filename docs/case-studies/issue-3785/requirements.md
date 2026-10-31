@@ -232,3 +232,12 @@ See `evidence/native-gemini-acp-restore-controls.txt`. Its exact-head Node
 24 CI, remaining ACP/child writers, plan/task memory, interruption/power loss,
 migration, all-backend lifecycle and production integration remain unfinished.
 This evidence does not complete A1–A12.
+
+The terminal's own third-process resume reproduces the same coalesced context/
+prompt loss. Preserving its actual checkpoint turn boundaries makes the strict
+interactive-resume test pass, with both prior private homes deleted, the prior
+audit retained and native tool replay preserved. Nineteen checked history stages
+reconstruct seventeen identical native files. See
+`evidence/native-gemini-terminal-reopen-controls.txt`. A separately observed
+automatic startup-prompt/resume race remains unfinished; this checkpoint repair
+does not complete A1–A12 or production installation.

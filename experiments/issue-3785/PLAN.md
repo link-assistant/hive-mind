@@ -1175,7 +1175,15 @@ Latest CI continuation:
       assertions, three terminal controls and all 82 authentication controls.
 - [ ] Commit atomic ACP changes, push only the prepared branch, and require
       exact-head Node 24 CI before treating that stage as verified.
-- [ ] Extend actual terminal restore verification through a third private-home
+- [x] Extend actual terminal restore verification through a third private-home
       disposal/resume and inspect its next model history and retained audit.
-      The terminal still obtains checkpoint model history through the coalescing
-      client getter; establish a strict reproducer before changing that writer.
+      Reproduce its coalescing checkpoint getter dropping the original prompt;
+      preserve actual context/user turns before native serialization. Verify
+      actual interactive input after resume; the automatic startup-prompt race
+      is a distinct path and remains unfinished.
+- [x] Preserve terminal reopen evidence and rerun surrounding native shell and
+      ACP/refusal controls on the fresh combined package.
+- [ ] Commit the atomic terminal checkpoint repair and require fresh Node 24 CI.
+- [ ] Reproduce and fix the actual terminal automatic startup-prompt/resume race.
+      Initial investigation shows model dispatch can precede resumed history and
+      recording can subsequently refuse; wait for native resume before dispatch.

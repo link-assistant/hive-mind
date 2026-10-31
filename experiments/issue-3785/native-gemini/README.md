@@ -966,3 +966,32 @@ process groups have finite memory, stack, phase, request and diagnostic bounds
 and are reaped before completion. Exact-head Node 24 CI, other ACP/child writers,
 plan/task memory, migration, interruption/power loss, the complete backend
 lifecycle matrix and production installation remain required.
+
+## Terminal restore followed by another resume
+
+The terminal checkpoint writer uses the same coalescing client getter as the
+earlier ACP writer. A strict three-process terminal control demonstrates that
+restoring the project and displaying the original conversation is insufficient:
+after disposing the second private home, the next model request loses the
+original prompt. `apply_terminal_durable_history.py` preserves the actual
+context/user turn boundaries before native checkpoint serialization. Its exact
+input hash is the terminal edit-admission stage; ACP stages are independent.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py "$package"
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-terminal-reopen --diagnostics /tmp/gemini-terminal-reopen.log
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package "$package" --acp --terminal-reopen --output /path/to/new-package
+```
+
+The third real terminal resumes the recorded native session, waits for the
+resumed input UI, and submits a new interactive prompt. Its actual provider
+request must contain the restored original prompt and exclude the later one.
+Both preceding private homes have been deleted. The restored companion file,
+native automatic tool replay and complete prior conversation audit are checked
+separately. The same command fails before the source repair.
+
+The combined reconstruction has nineteen checked history stages and seventeen
+identical native files. The ACP CI job adds this strict before/after/fresh-source
+terminal control. An automatically submitted startup prompt has a separate
+native resume race; this interactive control does not verify that path.

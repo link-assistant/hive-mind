@@ -19,7 +19,9 @@ parser.add_argument('--terminal-reopen', action='store_true', help='Also preserv
 parser.add_argument('--terminal-resume', action='store_true', help='Also wait for native terminal resume before admitting its first prompt.')
 parser.add_argument('--headless', action='store_true', help='Also register both native noninteractive checkpoint writers; requires --acp.')
 parser.add_argument('--subagent', action='store_true', help='Also check native child conversation directories; requires --headless.')
+parser.add_argument('--conversation-evidence', action='store_true', help='Also retain live conversation evidence across operations; requires --subagent.')
 args = parser.parse_args()
+assert not args.conversation_evidence or args.subagent, 'Conversation evidence requires the preceding child-history stage.'
 assert not args.subagent or args.headless, 'The child-history stage requires the preceding headless stage.'
 assert not args.headless or args.acp, 'The headless stage requires the preceding ACP CLI stages.'
 source = args.constructor_package.resolve(strict=True)
@@ -45,7 +47,7 @@ include_terminal_reopen = args.terminal_reopen or args.terminal_resume
 include_restorable = args.restorable or args.acp or include_terminal_reopen
 include_git = args.git or include_restorable
 include_tracker = args.tracker or include_git
-stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ()) + (('terminal_durable_history',) if include_terminal_reopen else ()) + (('terminal_resume_admission',) if args.terminal_resume else ()) + (('headless_restorable',) if args.headless else ()) + (('subagent_history',) if args.subagent else ())
+stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if include_git else ()) + (('restorable_history', 'restorable_admission') if include_restorable else ()) + (('acp_restorable', 'acp_restore_history', 'acp_durable_history', 'acp_checkpoint_listing') if args.acp else ()) + (('terminal_durable_history',) if include_terminal_reopen else ()) + (('terminal_resume_admission',) if args.terminal_resume else ()) + (('headless_restorable',) if args.headless else ()) + (('subagent_history',) if args.subagent else ()) + (('conversation_evidence',) if args.conversation_evidence else ())
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()

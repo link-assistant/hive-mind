@@ -280,3 +280,20 @@ lifecycle and production installation remain open. This partial A7/A9 evidence
 does not complete A1–A12. All eight workflows pass at the preceding ACP baseline
 `b44086a4cd2d`; see `evidence/ci-b44086a4c.txt`. Newer terminal, headless and child
 repairs still require fresh CI.
+
+The terminal/headless/child source stages now have exact-head Node 24 evidence:
+all six Gemini jobs pass at `533cc3a20c01`, with nine strict before failures and
+fresh twenty-two-stage reconstruction (`evidence/ci-533cc3a20-gemini.txt`).
+This supersedes the preceding pending-CI statements for those stages only.
+
+A7/A9 also have a strict actual CLI audit-rollback reproduction and process-local
+repair: an older valid record previously removed the real tool call/result
+while inference completed. Retained inode and byte-prefix evidence now refuses
+that loss, preserving the protected complete audit and healthy project edit.
+A legitimate actual discovery peer may still append metadata while the original
+terminal keeps its writer claim and completes another inference. Full storage
+69 and fresh twenty-three-stage reconstruction pass locally; see
+`evidence/native-gemini-conversation-evidence.txt`. This new stage and admission
+interruption controls still require fresh CI. Fresh-process persisted rollback
+authority, publication/power loss, remaining writers and production integration
+remain unfinished; A1–A12 retain their existing incomplete status.

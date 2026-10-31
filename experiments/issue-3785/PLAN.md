@@ -1194,7 +1194,9 @@ Latest CI continuation:
       live/startup refusal behavior.
 - [x] Commit terminal resume admission as 62bc78758 after local checks. Preserve
       all preceding compiled Codex results before replacing branch workflows.
-- [ ] Push the terminal stages and require fresh exact-head Node 24 CI.
+- [x] Push the terminal stages; all six Gemini jobs pass at exact head
+      533cc3a20c01 in run 41160834587, including both terminal strict before
+      controls and reconstructed-source manual/automatic resume.
 - [ ] Exercise failed/interrupted native resume admission and finish remaining
       native writers, complete lifecycle and production integration criteria.
 - [x] Trace headless native edits separately from terminal and ACP execution.
@@ -1212,16 +1214,18 @@ Latest CI continuation:
       all seventeen identical native files. The fresh package also preserves the
       actual automatic terminal prompt/resume control.
 - [x] Commit the headless writer stage as 3a4756af2 after local checks.
-- [ ] Publish it and require both strict before failures, after/fresh-source
-      cycles and live/startup refusal/private controls in fresh Node 24 CI.
+- [x] Publish the headless stage: both strict before failures, after/fresh-source
+      cycles and live/startup refusal/private controls pass in Node 24 CI
+      41160834587 at 533cc3a20c01.
 - [x] Verify actual failed terminal resume under a live native writer: no
       automatic or typed inference, unchanged project/metadata/audit, and healthy
       recovery after the owner process group is stopped and reaped. The preceding
       nineteen-stage package also refuses this ownership conflict; this extends
       lifecycle coverage, without claiming a new source repair. The repaired
       twenty-one-stage package keeps actual typed prompts disabled after refusal.
-- [ ] Publish the live-owner refusal regression and require its fresh Node 24 CI
-      result. Delayed/interrupted resume and physical power loss remain open.
+- [x] Publish the live-owner refusal regression; all five assertions pass in
+      Node 24 CI 41160834587. The added startup/discovery interruption controls
+      follow that SHA; asynchronous resume and physical power loss remain open.
 - [x] Preserve all eight successful workflows at b44086a4cd2d, including full
       Checks/Codex logs, downloaded compiled native build artifacts and exact
       test, provider, owner-death and packaged Docker evidence. These results
@@ -1254,3 +1258,21 @@ Latest CI continuation:
 - [ ] Publish the delayed/interrupted lock admission controls after focused
       checks; require their strict native before and both fresh-source controls
       in new exact-head Node 24 CI. Preserve the current compiled CI first.
+
+- [x] Reproduce retained native conversation evidence loss before repair: strict
+      helper append/read rollback and same-byte file replacement fail; actual
+      native inference completes after losing its real tool call/result. Retain
+      inode/complete-prefix evidence and require actual native refusal instead.
+      All 69 storage assertions pass; a real discovery peer appends its summary
+      while the original terminal retains its writer and completes another
+      inference. Reconstruct twenty-three stages and compare seventeen files.
+- [x] Finish reconstructed-package regressions: metadata 54, shell 28,
+      authentication 41/30/11, child refusal/private behavior, terminal metadata
+      refusal, writer-owner recovery and both admission interruption controls.
+      Python AST, formatting, actionlint/ShellCheck, file limits, secret scanning
+      and whitespace checks pass. The final actual rollback check also verifies
+      the substituted audit inode is unchanged on refusal.
+- [ ] Commit/push the evidence stage and require strict before, legitimate peer,
+      actual refusal and fresh-source controls in exact-head Node 24 CI.
+      Persisted fresh-process rollback authority and publication/power-loss
+      coverage remain unfinished.

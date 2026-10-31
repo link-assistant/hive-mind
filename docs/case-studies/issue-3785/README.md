@@ -1190,3 +1190,22 @@ and reaping it permits a healthy fresh recovery with unchanged prior audit.
 The earlier package fails the delayed original-history assertion. This covers
 startup/discovery lock admission; asynchronous resume, publication interruption,
 physical power loss and production integration remain unfinished.
+
+All six Gemini jobs now pass at `533cc3a20c01`, including terminal admission,
+both headless engines and canonical child recording. All 272 ACP artifacts,
+nine strict before failures and fresh twenty-two-stage reconstruction are
+preserved; see [Gemini CI evidence](evidence/ci-533cc3a20-gemini.txt).
+This supersedes the earlier pending-CI statements for those specific stages.
+The newer admission interruption controls still require fresh CI.
+
+A separate actual CLI regression finds valid audit rollback silently removing
+a previously recorded tool call/result while inference completes. The
+history helper now retains its observed inode and complete byte-prefix digest
+across operations, refusing valid rollback and same-byte inode substitution.
+The actual CLI refuses with protected complete audit and project edit intact;
+a legitimate native discovery peer's appended summary remains usable by the
+original live terminal on its next inference. The full 69 storage checks and
+fresh twenty-three-stage reconstruction pass locally; see
+[conversation evidence](evidence/native-gemini-conversation-evidence.txt).
+This process-local witness does not establish fresh-process rollback detection
+or complete the production/lifecycle requirements.

@@ -1163,3 +1163,63 @@ canonical history lock. They do not interrupt an already pending asynchronous
 `resumeChat`, checkpoint publication or physical power loss. Every native
 process retains the existing finite heap, data, stack, phase and output bounds;
 all process groups are reaped. See [admission evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-admission-interruption.txt).
+
+## Retained complete conversation evidence
+
+The history helper previously checked the full current schema and each read's
+file identity, but did not compare a later operation with the complete audit
+already observed by the same process. A valid older record could replace that
+audit, and subsequent native recording silently accepted the lost tool call and
+result. The actual headless CLI reproduces this after a healthy `write_file`:
+the bounded local provider returns its second response after an older valid
+record is substituted, and the CLI exits successfully with the tool audit gone.
+
+`apply_conversation_evidence.py` is the twenty-third checked stage. It pins the
+exact child-stage manager and helper, modifying only the latter. A bounded map
+retains each observed inode, UTF-8 byte length and complete byte-prefix digest.
+Reads, appends, rewrites, archives and restores refuse rollback or replacement
+before accepting that evidence. Appends acknowledge their new complete prefix.
+Only acknowledged native rewrite/restore publication resets the witness; native
+rewrites still preserve their preceding complete generation. No-selector paths
+retain their existing behavior.
+
+Three strict helper regressions fail before repair: append after valid rollback,
+read after valid rollback, and identical complete bytes on a substituted inode.
+All pass after repair. The full 69-assertion suite also retains archive, import,
+Unicode, artifact, stale-generation and independent writer controls. A positive
+helper control accepts a peer's append-only metadata on the same inode.
+
+The actual CLI rollback control now refuses with the canonical history error,
+retains the healthy project edit and protected complete audit, leaves substituted
+evidence unchanged, and sends no further model request. A separate actual native
+terminal remains live while another actual native `--list-sessions` process
+appends its normal generated summary. The original terminal then completes a
+second inference with its original model history and full preceding audit plus
+the peer summary. This positive control passes before and after repair.
+
+```sh
+# Run on the twenty-two-stage package: each strict command must fail.
+for state in evidence-rollback evidence-read-rollback evidence-replacement; do
+  python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --scenario "$state" --diagnostics "/tmp/gemini-$state-before.log"
+done
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics /tmp/gemini-live-audit-before.log
+python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package"
+python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics /tmp/gemini-evidence-storage.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics /tmp/gemini-live-audit-after.log
+python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-summary --diagnostics /tmp/gemini-live-summary.log
+```
+
+Fresh reconstruction uses `--acp --terminal-resume --headless --subagent
+--conversation-evidence` and compares all seventeen native files byte for byte.
+This witness exists within a process; it cannot establish whether a valid audit
+was rolled back before a fresh process started. Persisted rollback authority,
+publication interruption, physical power loss, remaining native writers and
+production installation remain unfinished. See
+[retained evidence controls](../../../docs/case-studies/issue-3785/evidence/native-gemini-conversation-evidence.txt).
+
+All six Node 24 Gemini jobs at `533cc3a20c01` pass, including the preceding
+terminal/headless/child stages, nine strict before controls and twenty-two-stage
+reconstruction. See [CI evidence](../../../docs/case-studies/issue-3785/evidence/ci-533cc3a20-gemini.txt).
+Those results precede this evidence repair and the new admission interruption
+controls, which still need fresh exact-head CI.

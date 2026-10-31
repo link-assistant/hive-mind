@@ -1297,3 +1297,21 @@ not establish production canonical authentication or the remaining A1–A12 scop
 - Added interruption controls and conversation-evidence repair follow this
   pushed baseline and still require their own exact-head CI. Codex and main
   checks are still running while this Gemini evidence is recorded.
+
+2026-10-31, retained complete native conversation evidence:
+- Before repair, helper append/read rollback and identical-byte inode
+  replacement all fail their strict refusal assertions after healthy native
+  writes. Actual CLI also completes inference after losing its recorded real
+  write_file call/result to an older valid conversation generation.
+- Stage 23 retains process-local inode and complete byte-prefix evidence.
+  Actual CLI now refuses without another model request, preserving its healthy
+  project edit and protected complete audit plus substituted bytes and inode.
+- Full storage 69 and fresh twenty-three-stage/seventeen-file reconstruction
+  pass. A real discovery peer appends its native summary beside a live terminal;
+  the terminal's next inference retains original model history and full audit.
+- Fresh surrounding metadata 54, shell 28, authentication 41/30/11, child
+  refusal/private behavior, terminal live/startup refusal 1/2, owner recovery 5
+  and delayed/interrupted admission 2/3 all pass. Local static checks pass.
+- This stage and the admission interruption controls follow 533cc3a20c01 and
+  still need fresh exact-head CI. Persisted fresh-process rollback detection,
+  power loss, remaining writers and production integration remain unfinished.

@@ -15,13 +15,13 @@ from native_process_group import stop_process_group
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
-parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race', 'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8', 'unicode-healthy', 'artifact-healthy', 'artifact-symlink', 'artifact-hardlink', 'artifact-unsafe-mode', 'artifact-invalid-utf8', 'artifact-content-change', 'artifact-missing', 'artifact-directory-replacement', 'artifact-root-replacement', 'artifact-file-replacement', 'artifact-collision', 'artifact-foreign-project', 'artifact-missing-parent', 'artifact-oversized', 'artifact-traversal', 'artifact-unregistered-temp'))
+parser.add_argument('--scenario', choices=('create-append-race', 'restore-publish-race', 'read-invalid-utf8', 'archive-invalid-utf8', 'import-invalid-utf8', 'unicode-healthy', 'artifact-healthy', 'artifact-symlink', 'artifact-hardlink', 'artifact-unsafe-mode', 'artifact-invalid-utf8', 'artifact-content-change', 'artifact-missing', 'artifact-directory-replacement', 'artifact-root-replacement', 'artifact-file-replacement', 'artifact-collision', 'artifact-foreign-project', 'artifact-missing-parent', 'artifact-oversized', 'artifact-traversal', 'artifact-unregistered-temp', 'evidence-rollback', 'evidence-read-rollback', 'evidence-replacement', 'evidence-extension'))
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
 helper = package / 'bundle/hive-gemini-history.mjs'
 source = Path(__file__).parent / 'native-gemini/history.mjs'
-assert hashlib.sha256(helper.read_bytes()).digest() == hashlib.sha256(source.read_bytes()).digest()
+assert helper.read_bytes() == source.read_bytes() or hashlib.sha256(helper.read_bytes()).hexdigest() in ('216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed', '4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd')
 root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-history-storage-'))
 root.chmod(0o700)
 children = []
@@ -82,7 +82,32 @@ if (name === 'lease-owner') {
   assert.equal(h.readNativeGeminiConversation(file), '{"initial":true}\n');
   const saved = fs.readFileSync(file);
   const named = fs.realpathSync(file);
-  if (name.startsWith('artifact-')) {
+  if (name.startsWith('evidence-')) {
+    const next = JSON.stringify({ nativeToolResult: 'SYNTHETIC café 東京 🐝' }) + '\n';
+    h.appendNativeGeminiConversation(file, next);
+    const complete = fs.readFileSync(file);
+    const original = fs.statSync(file);
+    if (name === 'evidence-extension') {
+      const metadata = '{"$set":{"summary":"SYNTHETIC PEER SUMMARY"}}\n';
+      fs.appendFileSync(file, metadata);
+      h.appendNativeGeminiConversation(file, '{"final":true}\n');
+      assert.equal(fs.readFileSync(file, 'utf8'), complete.toString() + metadata + '{"final":true}\n');
+      assert.equal(fs.statSync(file).ino, original.ino);
+    } else {
+      if (name === 'evidence-replacement') fs.renameSync(file, path.join(root, 'protected-complete-audit'));
+      fs.writeFileSync(file, name === 'evidence-replacement' ? complete : saved, { mode: 0o600 });
+      const replaced = fs.statSync(file);
+      const protectedBytes = fs.readFileSync(file);
+      const operation = name === 'evidence-read-rollback' ? () => h.readNativeGeminiConversation(file) : () => h.appendNativeGeminiConversation(file, '{"unexpected":true}\n');
+      assert.throws(operation, refused, 'Previously observed complete conversation evidence must not be silently replaced or rolled back.');
+      assert.deepEqual(fs.readFileSync(file), protectedBytes);
+      assert.equal(fs.statSync(file).ino, replaced.ino);
+      if (name === 'evidence-replacement') {
+        assert.deepEqual(fs.readFileSync(path.join(root, 'protected-complete-audit')), complete);
+        assert.equal(fs.statSync(path.join(root, 'protected-complete-audit')).ino, original.ino);
+      }
+    }
+  } else if (name.startsWith('artifact-')) {
     const temporary = path.join(root, 'private', 'tmp');
     h.registerNativeGeminiProjectTemp(path.join(root, 'private'), path.join(root, 'workspace'), temporary);
     const content = 'SYNTHETIC TOOL OUTPUT 日本語 café 🐝\n';
@@ -478,7 +503,8 @@ try:
                      'artifact-root-replacement', 'artifact-file-replacement',
                      'artifact-collision', 'artifact-foreign-project',
                      'artifact-missing-parent', 'artifact-oversized',
-                     'artifact-traversal', 'artifact-unregistered-temp'):
+                     'artifact-traversal', 'artifact-unregistered-temp',
+                     'evidence-rollback', 'evidence-read-rollback', 'evidence-replacement', 'evidence-extension'):
         if args.scenario and scenario != args.scenario:
             continue
         finish([launch(fixture(scenario), scenario)])

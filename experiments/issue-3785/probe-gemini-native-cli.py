@@ -33,6 +33,8 @@ parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-subagent', action='store_true')
+parser.add_argument('--history-live-rollback', action='store_true')
+parser.add_argument('--history-live-summary', action='store_true')
 parser.add_argument('--history-subagent-attack', choices=('unsafe-mode', 'symlink', 'parent-replacement'))
 parser.add_argument('--shell-history', action='store_true')
 parser.add_argument('--shell-history-attack', choices=('symlink', 'hardlink', 'unsafe-mode', 'malformed', 'invalid-utf8', 'oversized', 'command-schema'))
@@ -71,6 +73,8 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
+assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
+assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback'))
 assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_attack', 'private_history'))
 assert not args.history_subagent_attack or args.history_subagent and not args.private_history
 assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
@@ -130,6 +134,7 @@ models = []
 live_controls = []
 headless_live_damage = []
 subagent_phases = {}
+live_audit_state = {}
 errors = []
 safe_cleanup = False
 server = None
@@ -276,6 +281,8 @@ try:
         settings['general']['checkpointing'] = {'enabled': True}
     if args.restorable_history:
         settings['model']['maxSessionTurns'] = 4
+    if args.history_live_rollback or args.history_live_summary:
+        settings['model']['maxSessionTurns'] = 4
     if args.history_subagent:
         settings['model']['maxSessionTurns'] = 4
         settings['experimental'] = {'enableAgents': True}
@@ -379,6 +386,13 @@ try:
                                        'blob_reference': '/degraded-blobs/' in content,
                                        'native_blob_response': native_blob_response(payload['request']['contents'])})
                         phase = 'resume' if second_prompt in content else 'initial'
+                        if args.history_live_rollback and operation == 'streamGenerateContent':
+                            from gemini_live_audit import live_audit_tool
+                            call = live_audit_tool(payload['request']['contents'], history, root, workspace, live_audit_state)
+                            if call:
+                                models[-1]['tool_call'] = True
+                                self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-live-audit-response'}, stream=True)
+                                return
                         if args.history_subagent and operation == 'streamGenerateContent':
                             from gemini_subagent_history import child_tool_call
                             call = child_tool_call(payload['request']['contents'], first_prompt, workspace, subagent_phases,
@@ -690,6 +704,27 @@ try:
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors
         print('PASS: actual native TUI executes a shell command, disposes its private home, recalls and executes the same command in a fresh native TUI.')
+        safe_cleanup = True
+        raise SystemExit(0)
+
+    if args.history_live_summary:
+        from gemini_live_summary import verify_live_summary
+        verify_live_summary(invoke=invoke, native=native, root=root, home=home, workspace=workspace,
+                            history=history, env=env, settings=settings, diagnostics=args.diagnostics,
+                            models=models, first_prompt=first_prompt, second_prompt=second_prompt)
+        assert json.loads(auth.read_text()) == credentials
+        assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+        assert not errors, errors
+        safe_cleanup = True
+        raise SystemExit(0)
+
+    if args.history_live_rollback:
+        from gemini_live_audit import verify_live_audit
+        verify_live_audit(invoke=invoke, env={**env, 'GEMINI_CLI_EXP_AGENT': 'false'}, diagnostics=args.diagnostics,
+                          models=models, workspace=workspace, state=live_audit_state, session=session, first_prompt=first_prompt)
+        assert json.loads(auth.read_text()) == credentials
+        assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+        assert not errors, errors
         safe_cleanup = True
         raise SystemExit(0)
 

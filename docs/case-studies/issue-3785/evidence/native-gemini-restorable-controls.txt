@@ -71,3 +71,17 @@ state migration, interrupted and power-loss durability, all backend lifecycle
 coverage and production package/image/launcher installation remain open. These
 results do not establish the complete issue acceptance contract. Exact-head
 Node 24 CI is required after committing and pushing this stage.
+
+Final-source surrounding regression results:
+  PASS: all 24 Git scenarios / 28 native processes.
+  PASS: all 32 tracker scenarios / 40 native processes.
+  PASS: all 22 shell-hook scenarios / 28 native processes.
+  PASS: all 36 Logger process results, all 14 artifact compatibility/results,
+        all 31 blob controls and all 15 first-publication owner-death cases.
+  PASS: all 65 storage controls. Existing helpers are byte-identical.
+  PASS: all 41 authentication writer/account, 30 native request and 11
+        canonical-read controls on the final reconstructed manager/helper.
+  The shell probe initially rejected the changed terminal bundle before running
+  its controls. Its exact final hash was added; all 28 results then passed.
+  Full repository formatting/ESLint, focused helper lint and secret scanning,
+  actionlint, Python parsing and diff whitespace checks pass before publication.

@@ -1131,10 +1131,22 @@ Latest CI continuation:
 - [x] Rebuild fourteen history stages from the pinned constructor package and
       compare all seventeen manager, CLI and helper files byte for byte without
       applicability-check mutations.
-- [ ] Complete final-source surrounding suites and local CI, commit and push the
-      metadata and edit-admission stages, then require exact-head Node 24 CI.
+- [x] Complete final-source Git, tracker, shell, Logger, artifact, blob, storage
+      and first-publication recovery suites; commit the metadata and edit guard.
+- [x] Pass all 41 authentication writer/account, 30 request and 11 canonical-read
+      controls on the final reconstructed native package. Reap every process.
+- [ ] Publish the verified commits and require exact-head Node 24 restore and
+      surrounding regression CI.
+- [x] Preserve all eight successful workflows at preceding commit 40db3a6e3c0,
+      including complete Checks and Codex logs and exact test/Docker line numbers.
+      Reproduce the final-source shell probe rejecting its new terminal hash
+      before execution; add that exact tested hash and rerun the complete suite.
 - [ ] Complete native ACP checkpoint writing (read/restore paths are patched,
       actual ACP write coverage is still open), child/subagent writers, all plan
       and task memory, legacy migration, interrupted/power-loss publication and
       production package/image/launcher integration. Native terminal evidence
       does not complete these criteria or the all-six-backend acceptance matrix.
+- [ ] Trace actual ACP session tool execution and require a strict healthy-edit
+      regression before implementing its missing checkpoint writer. Exercise the
+      actual JSON-RPC CLI, private-home disposal, fresh native session load and
+      restore; keep terminal and ACP model-history behavior separately verified.

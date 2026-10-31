@@ -1106,5 +1106,7 @@ fresh startup refusal pass; 26 API scenarios / 30 native process results and
 seventeen byte-identical reconstructed native files provide separate evidence.
 See [terminal restore controls](evidence/native-gemini-restorable-controls.txt).
 Actual ACP writing, remaining history/lifecycle coverage, migration and production
-installation remain open. The preceding pushed commit 40db3a6e3c0 passes all four
-Gemini jobs and all three compiled Codex jobs; the new stage requires fresh CI.
+installation remain open. The preceding pushed commit 40db3a6e3c0 passes all eight
+workflows, including all four Gemini jobs, three compiled Codex jobs, 739 default
+files, both integration files and packaged host/nested Docker checks. See
+[exact-commit CI evidence](evidence/ci-40db3a6e3.txt). The new stage requires fresh CI.

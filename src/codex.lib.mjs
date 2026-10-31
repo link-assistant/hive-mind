@@ -57,7 +57,7 @@ import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs'; // Issue #2190
-import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
@@ -451,6 +451,7 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
 };
 // Function to validate Codex CLI connection
 export const validateCodexConnection = async (model = defaultModels.codex, verbose = false, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log });
   const checkRouter = env => assertRouterTaskAuthentication({ tool: 'codex', env: { ...env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
   checkRouter(process.env);
   // Map model alias to full ID
@@ -463,7 +464,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     // Check if Codex CLI is installed and get version
     try {
       checkRouter(process.env);
-      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Codex CLI version: ${version}`);
@@ -476,7 +477,8 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     // Using exec mode with JSON output for validation
     const connectionEnv = getCodexExecEnv(verbose);
     checkRouter(connectionEnv);
-    const testResult = await $({ env: connectionEnv })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    const runValidation = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log, env: () => connectionEnv });
+    const testResult = await runValidation`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
     if (testResult.code !== 0) {
       const stderr = testResult.stderr?.toString() || '';
       const stdout = testResult.stdout?.toString() || '';

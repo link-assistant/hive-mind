@@ -2,7 +2,7 @@
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs';
-import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Qwen Code CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -379,6 +379,7 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
 
 // Function to validate Qwen connection
 export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen', { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'qwen', useRouter, log });
   const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
   assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
   const mappedModel = mapModelToId(model);
@@ -388,7 +389,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
 
     try {
       assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
-      const versionResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --version`;
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Qwen Code CLI version: ${version}`);
@@ -399,7 +400,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
     }
 
     assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
-    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
+    const testResult = await runConnection`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
     const output = getCommandResultOutput(testResult);
 
     if (testResult.code !== 0) {

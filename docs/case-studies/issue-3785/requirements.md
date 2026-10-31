@@ -645,3 +645,13 @@ single callback invocation remain intact. Successful native cancellation after
 a broken kill operation, connection-probe lifetime, complete native request
 authority and the broader issue inventory remain OPEN.
 See `evidence/router-guard-diagnostics.txt` for exact bounded evidence.
+
+Router connection lifetime follow-up: all six validators now admit the exact
+native child environment and monitor running version/paid-validation commands.
+Explicit Router selection reaches both probes; Agent/Codex overlays remain.
+A retained violation cancels once and bypasses ordinary version/Claude pipe
+fallback even after its file disappears. Strict before: 6 pass, 54 fail; paired
+after plus six ordinary credential-preservation controls: 66 pass. All 765
+affected tests pass. Complete native request authority, durable Router audit,
+production OAuth availability and six-tool canonical storage/migration remain
+OPEN. See `evidence/router-connection-lifetime.txt` for exact bounded evidence.

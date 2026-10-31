@@ -201,3 +201,7 @@ refuse OpenCode's inline registry without exposing credential contents.
 Keep Router guard decisions independent of diagnostic failures. Handle throwing
 or rejected loggers and synchronous stop-handler exceptions without unhandled
 rejections, preserving the first violation and exactly one stop callback.
+
+Admit and monitor actual version and connection-validation commands for all six
+Router tools. Forward explicit selection into child environments, preserve
+Agent/Codex overlays, and retain security refusals before ordinary fallback.

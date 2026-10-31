@@ -2,7 +2,7 @@
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
-import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Agent-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -286,6 +286,7 @@ export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SN
 
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log });
   const guardEnv = () => ({ ...process.env, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
   assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
   await assertSharedToolData({ tool: 'agent' });
@@ -309,7 +310,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       let agentVersion = null;
       try {
         assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
-        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           agentVersion = getAgentCliVersion(version);
@@ -371,7 +372,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
       await assertSharedToolData({ tool: 'agent', env: validationEnv });
       assertRouterTaskAuthentication({ tool: 'agent', env: { ...validationEnv, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
-      const testResult = await $({ env: validationEnv })`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      const runValidation = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log, env: () => validationEnv });
+      const testResult = await runValidation`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';

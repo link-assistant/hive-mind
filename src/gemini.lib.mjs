@@ -2,7 +2,7 @@
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
-import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Google Gemini CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -268,6 +268,7 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null, { onEv
 
 // Function to validate Gemini CLI connection
 export const validateGeminiConnection = async (model = defaultModels.gemini, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'gemini', useRouter, log });
   const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
   assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
   const mappedModel = mapModelToId(model);
@@ -278,7 +279,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini, { u
 
     try {
       assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
-      const versionResult = await $`timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --version`;
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Gemini CLI version: ${version}`);
@@ -289,7 +290,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini, { u
     }
 
     assertRouterTaskAuthentication({ tool: 'gemini', env: guardEnv() });
-    const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
+    const testResult = await runConnection`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
     const stdout = testResult.stdout?.toString() || '';
     const stderr = testResult.stderr?.toString() || '';
     const combinedOutput = `${stdout}\n${stderr}`;

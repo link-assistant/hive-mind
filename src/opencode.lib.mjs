@@ -2,7 +2,7 @@
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
-import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // OpenCode-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -51,6 +51,7 @@ export const mapModelToId = model => {
 
 // Function to validate OpenCode connection
 export const validateOpenCodeConnection = async (model = defaultModels.opencode, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'opencode', useRouter, log });
   const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
   assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
   await assertSharedToolData({ tool: 'opencode' });
@@ -72,7 +73,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode,
       // Check if OpenCode CLI is installed and get version
       try {
         assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
-        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           if (retryCount === 0) {
@@ -89,7 +90,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode,
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
       assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
-      const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+      const testResult = await runConnection`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';

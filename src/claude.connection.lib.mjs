@@ -13,8 +13,10 @@ import { stringifyErrorValue } from './error-text.lib.mjs';
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner } from './router-command-stream.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log });
   const checkRouter = () => assertRouterTaskAuthentication({ tool: 'claude', env: { ...process.env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
   checkRouter();
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
@@ -57,7 +59,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       }
       try {
         checkRouter();
-        const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           detectedClaudeVersion = version; // issue #1146
@@ -74,13 +76,13 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       let result;
       try {
         checkRouter();
-        result = await $`printf hi | claude --model ${mappedModel} -p`;
+        result = await runConnection`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
         if (pipeError.routerAuthViolation) throw pipeError;
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
           checkRouter();
-          result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
+          result = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
             await log(`❌ Claude CLI timed out after ${Math.floor(timeouts.claudeCli / 1000)} seconds`, {

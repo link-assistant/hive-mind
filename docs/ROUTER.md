@@ -191,6 +191,8 @@ The file guard also refuses Agent/OpenCode `auth.json` under conventional or sel
 
 Router guard diagnostics are best effort: throwing or rejected loggers cannot disable monitoring or create unhandled rejections. Synchronous or asynchronous stop-handler failures retain the original violation and do not trigger a second stop attempt. This preserves the security decision; successful cancellation still depends on the native stop operation.
 
+All six tools also monitor running version and connection-validation commands. Each probe receives its admitted native environment, including explicit Router selection and Agent/Codex overlays. A violation stops the probe and remains a security refusal if the file disappears, preventing ordinary version fallback, Claude pipe fallback or retry. Ordinary validation preserves its native credential stores.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

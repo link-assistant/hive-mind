@@ -1,4 +1,31 @@
-import { assertRouterTaskAuthentication, formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs';
+import { assertRouterTaskAuthentication, formatRouterAuthViolation, isRouterAuthGuardRequired, startRouterAuthGuard } from './router-auth-guard.lib.mjs';
+
+/** Preserve ordinary command tags; selected probes receive the admitted env. */
+export function createRouterConnectionRunner({ $, tool, useRouter = false, log, env }) {
+  return async (strings, ...values) => {
+    const nativeEnv = { ...(env ? env() : process.env), ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) };
+    assertRouterTaskAuthentication({ tool, env: nativeEnv });
+    const selected = isRouterAuthGuardRequired(nativeEnv);
+    const launch = selected || env ? $({ env: nativeEnv }) : $;
+    const command = launch(strings, ...values);
+    if (!selected) return await command;
+    const monitored = streamWithRouterAuthenticationGuard({ command, tool, env: nativeEnv, log });
+    if (await monitored.first) throw await monitored.close({ cancel: true });
+    let result;
+    let error;
+    let failed = false;
+    try {
+      result = await command;
+    } catch (caught) {
+      failed = true;
+      error = caught;
+    }
+    const refusal = await monitored.close({ cancel: failed });
+    if (refusal) throw refusal;
+    if (failed) throw error;
+    return result;
+  };
+}
 
 /** Async iterator cleanup cannot replace an error thrown by its consumer. */
 export function resolveRouterAuthenticationError(error, options) {
@@ -51,5 +78,5 @@ export function streamWithRouterAuthenticationGuard({ command, tool, env, cwd, l
       if (error) throw error;
     }
   })();
-  return Object.assign(stream, { close });
+  return Object.assign(stream, { close, first: guard.first });
 }

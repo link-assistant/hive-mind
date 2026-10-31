@@ -46,9 +46,21 @@ pub(crate) struct CanonicalAuth {
 
 impl CanonicalAuth {
     pub(crate) fn configured() -> io::Result<Option<Self>> {
+        let admitted = std::env::var_os("HIVE_MIND_CODEX_AUTH_IDENTITY");
         match std::env::var_os("CODEX_AUTH_HOME") {
+            None if admitted.is_some() => Err(refused()),
             None => Ok(None),
-            Some(path) => Self::open(Path::new(&path)).map(Some),
+            Some(path) => {
+                let shared = Self::open(Path::new(&path))?;
+                if let Some(expected) = admitted {
+                    let current = shared.directory.metadata()?;
+                    let actual = format!("{}:{}", current.dev(), current.ino());
+                    if expected.to_str() != Some(actual.as_str()) {
+                        return Err(refused());
+                    }
+                }
+                Ok(Some(shared))
+            }
         }
     }
 

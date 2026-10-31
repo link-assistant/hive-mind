@@ -51,10 +51,12 @@ for verified_image in "${IMAGE_NAME}:test" "${DIND_IMAGE_NAME}:test"; do
   docker run --rm --network none \
     -v "$(pwd)/experiments/issue-3785/probe-formal-ai-codex-auth.mjs:/probe-formal-ai-codex-auth.mjs:ro" \
     -v "$(pwd)/experiments/issue-3785/probe-codex-native-limits-generation.py:/probe-codex-native-limits-generation.py:ro" \
+    -v "$(pwd)/experiments/issue-3785/probe-codex-native-auth-identity.py:/probe-codex-native-auth-identity.py:ro" \
     --entrypoint bash "${verified_image}" -c '
       set -euo pipefail
       native_hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")
       node --max-old-space-size=128 /probe-formal-ai-codex-auth.mjs "$(command -v formal-ai)" "$native_hive_root"
+      python3 /probe-codex-native-auth-identity.py "$(command -v codex)"
       for mutation in none logout replace malformed; do
         python3 /probe-codex-native-limits-generation.py "$(command -v codex)" --mutation "$mutation"
       done

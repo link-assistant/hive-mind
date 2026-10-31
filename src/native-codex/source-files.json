@@ -35,9 +35,9 @@
     "sha256": "565f51760501a17e7b85997194474b84c41bcc2dab727607f085f5f6f4b35a5c"
   },
   "codex-rs/login/src/auth/canonical_auth.rs": {
-    "bytes": 8299,
+    "bytes": 8851,
     "mode": 420,
-    "sha256": "ae25021fe480de14e570ae787e24a397421fbce081f3d180fc0dd1cfc74fc411"
+    "sha256": "e7b0c0f2f1847f416f5def6dbc23e7aedc41be9d6100bda522e281189bd2376c"
   },
   "codex-rs/login/src/auth/canonical_refresh_intent.rs": {
     "bytes": 4975,

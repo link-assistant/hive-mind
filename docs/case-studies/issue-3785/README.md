@@ -1274,3 +1274,18 @@ Private behavior and damaged-file refusal remain
 covered. See [plan evidence](evidence/native-gemini-plans.txt). Interrupted
 multi-artifact publication, alternate writers, remaining task/memory paths and
 production installation remain unfinished.
+
+The selected Codex Docker authentication path now binds a dedicated credential
+parent and carries its admitted device/inode through launch, capability
+preflight, Formal AI configuration and limits reads. Five strict regressions
+fail before repair. The actual a3 native executable also accepts a substituted
+equal-content root before the new native identity guard; its strict control
+fails while five ignored-marker controls pass. Eight native primitive tests
+and all 134 related Node controls pass after repair. A real offline Docker
+control with that preserved executable and the current production builders
+passes root/two-peer replacement, task/root logout, reauthentication and whole
+private-configuration disposal. Its file-bind negative control retains retired
+bytes and correctly refuses authentication. Both packaged daemon checks now
+require this lifecycle control. The new compiled identity guard, optimized and
+installed artifacts, default canonical selection, migration and complete
+history remain unfinished. See [projection evidence](evidence/codex-docker-auth-projection.txt).

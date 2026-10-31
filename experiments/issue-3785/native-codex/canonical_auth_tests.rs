@@ -75,6 +75,48 @@ impl Drop for ReapedChild {
 
 #[test]
 #[ignore]
+fn identity_worker() {
+    let admitted = CanonicalAuth::configured();
+    let expected = std::env::var("SYNTHETIC_EXPECT_ADMITTED").unwrap() == "1";
+    assert_eq!(admitted.is_ok(), expected);
+    if expected {
+        assert!(admitted.unwrap().is_some());
+    }
+}
+
+#[test]
+fn launcher_identity_rejects_wrong_malformed_or_missing_selection() {
+    let fixture = Fixture::new();
+    let info = fs::metadata(&fixture.0).unwrap();
+    let correct = format!("{}:{}", info.dev(), info.ino());
+    for (marker, selected, admitted) in [
+        (correct.as_str(), true, true),
+        ("0:0", true, false),
+        ("", true, false),
+        (correct.as_str(), false, false),
+    ] {
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command
+            .args(["--exact", "identity_worker", "--ignored"])
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("HIVE_MIND_CODEX_AUTH_IDENTITY", marker)
+            .env(
+                "SYNTHETIC_EXPECT_ADMITTED",
+                if admitted { "1" } else { "0" },
+            )
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        if selected {
+            command.env("CODEX_AUTH_HOME", &fixture.0);
+        }
+        ReapedChild(command.spawn().unwrap()).finish();
+    }
+}
+
+#[test]
+#[ignore]
 fn worker() {
     let deadline = Instant::now() + Duration::from_secs(4);
     let mut shared = CanonicalAuth::configured().unwrap().unwrap();

@@ -504,3 +504,12 @@ real-process controls are required by development, optimized, installed-command
 and both image checks. Compiled verification is pending; full default authority,
 operation leases and lifecycle acceptance remain open. See
 `evidence/codex-native-limits-generation.txt`.
+
+The explicit Codex authentication projection now binds a dedicated parent and
+carries its admitted identity through launch, preflight, Formal AI and limits.
+[Projection evidence](evidence/codex-docker-auth-projection.txt) records the five
+failing Node regressions, actual native before control, 134 passing Node
+controls, eight primitive Rust tests and the real root/two-Docker-peer lifecycle
+run. A1/A2/A3/A4/A7/A10/A11/A12 remain open in their complete requested scope:
+compiled marker admission, packaged images, default selection, legacy migration
+and the other tool/history paths are not established by that local control.

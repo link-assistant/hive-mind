@@ -98,17 +98,31 @@ for (const conflict of ['source', 'destination']) {
   });
 }
 
-for (const scenario of ['missing', 'public', 'relative']) {
+for (const scenario of ['missing', 'public', 'relative', 'wrong directory identity']) {
   test(`Formal AI refuses ${scenario} selected credentials before creating configuration`, { timeout: 10000 }, async t => {
     const f = await fixture(t);
     if (scenario === 'missing') await fs.unlink(f.auth);
     if (scenario === 'public') await fs.chmod(f.canonical, 0o755);
     if (scenario === 'relative') f.options.env.CODEX_AUTH_HOME = '.';
+    if (scenario === 'wrong directory identity') f.options.env.HIVE_MIND_CODEX_AUTH_IDENTITY = '0:0';
     await assert.rejects(seedFormalAiClientHome(f.options), /Canonical Codex authentication storage/u);
     assert.equal(f.copied.length, 0);
     await assert.rejects(fs.lstat(f.destination), { code: 'ENOENT' });
   });
 }
+
+test('the Formal AI configuration writer refuses a substituted admitted directory', { timeout: 10000 }, async t => {
+  const f = await fixture(t);
+  const info = await fs.stat(f.canonical, { bigint: true });
+  f.options.env.HIVE_MIND_CODEX_AUTH_IDENTITY = `${info.dev}:${info.ino}`;
+  await seedFormalAiClientHome(f.options);
+  await fs.rename(f.canonical, `${f.canonical}-retired`);
+  await fs.mkdir(f.canonical, { mode: 0o700 });
+  await fs.copyFile(path.join(`${f.canonical}-retired`, 'auth.json'), f.auth);
+  let calls = 0;
+  await assert.rejects(configureFormalAiClientHome({ tool: 'codex', home: f.options.home, env: f.options.env, run: async () => calls++ }), /Canonical Codex authentication storage/u);
+  assert.equal(calls, 0);
+});
 
 test('Formal AI refuses a credential injected while task configuration is written', { timeout: 10000 }, async t => {
   const f = await fixture(t);

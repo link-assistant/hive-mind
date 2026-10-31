@@ -97,7 +97,7 @@ export async function readCodexAuth(authPath = resolveLimitsCredentialPaths().co
   try {
     const canonical = selectedCodexAuthHome();
     if (canonical && authPath !== join(canonical, 'auth.json')) throw new Error('Canonical Codex authentication storage is unavailable or unsafe.');
-    const auth = canonical ? await readCanonicalCodexAuth(canonical, { configurationHome: process.env.CODEX_HOME ?? join(homedir(), '.codex') }) : JSON.parse(await readFile(authPath, 'utf-8'));
+    const auth = canonical ? await readCanonicalCodexAuth(canonical, { configurationHome: process.env.CODEX_HOME ?? join(homedir(), '.codex'), expectedIdentity: process.env.HIVE_MIND_CODEX_AUTH_IDENTITY }) : JSON.parse(await readFile(authPath, 'utf-8'));
     if (verbose) {
       console.log('[VERBOSE] /limits Codex auth loaded from:', authPath);
     }

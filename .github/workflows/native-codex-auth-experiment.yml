@@ -17,6 +17,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-sqlite-authority.py'
       - 'experiments/issue-3785/probe-codex-native-sqlite-binding.py'
       - 'experiments/issue-3785/probe-codex-native-limits-generation.py'
+      - 'experiments/issue-3785/probe-codex-native-auth-identity.py'
       - 'experiments/issue-3785/native-request-proxy.mjs'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
@@ -374,6 +375,8 @@ jobs:
           for alias in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" > "$RUNNER_TEMP/native-sqlite-$alias-after.log" 2>&1
           done
+      - name: Verify native launcher directory identity
+        run: python3 experiments/issue-3785/probe-codex-native-auth-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-auth-directory-identity.log" 2>&1
       - name: Verify native usage publication rejects retired authentication
         run: |
           for mutation in none logout replace malformed; do
@@ -453,6 +456,7 @@ jobs:
             ${{ runner.temp }}/native-request-*.log
             ${{ runner.temp }}/native-request-diagnostics/*.log
             ${{ runner.temp }}/native-identity-*.log
+            ${{ runner.temp }}/native-auth-directory-identity.log
             ${{ runner.temp }}/native-maintenance-*.log
             ${{ runner.temp }}/native-compression-*.log
             ${{ runner.temp }}/native-migration-*.log

@@ -9,13 +9,16 @@ const revision = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:$
 const absoluteStoragePath = root => typeof root === 'string' && path.isAbsolute(root) && root !== path.parse(root).root && path.normalize(root) === root && !/[\0\r\n]/u.test(root);
 
 export function selectedCodexAuthHome(env = process.env) {
-  if (env.CODEX_AUTH_HOME === undefined) return null;
+  if (env.CODEX_AUTH_HOME === undefined) {
+    if (env.HIVE_MIND_CODEX_AUTH_IDENTITY !== undefined) throw refused();
+    return null;
+  }
   const root = env.CODEX_AUTH_HOME;
   if (!absoluteStoragePath(root)) throw refused();
   return root;
 }
 
-export async function readCanonicalCodexAuth(root, { configurationHome } = {}) {
+export async function readCanonicalCodexAuth(root, { configurationHome, expectedIdentity } = {}) {
   let directory;
   let descriptor;
   try {
@@ -34,6 +37,7 @@ export async function readCanonicalCodexAuth(root, { configurationHome } = {}) {
     directory = await fs.open(root, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     const held = await directory.stat({ bigint: true });
     if (!held.isDirectory() || held.uid !== owner || (held.mode & 0o077n) !== 0n) throw refused();
+    if (expectedIdentity !== undefined && (!/^[0-9]{1,20}:[0-9]{1,20}$/u.test(expectedIdentity) || expectedIdentity !== `${held.dev}:${held.ino}`)) throw refused();
     const anchored = `/proc/self/fd/${directory.fd}/auth.json`;
     descriptor = await fs.open(anchored, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = await descriptor.stat({ bigint: true });

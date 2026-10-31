@@ -123,3 +123,11 @@ Bind selected native Codex account usage requests to their captured credential
 revision and refuse retired responses after logout, credential replacement or
 malformed authority. Require actual process controls through development,
 optimized, installed-package and both image verification paths.
+
+Project an explicitly selected dedicated Codex credential parent into Docker
+tasks and propagate its admitted directory identity through launch, preflight,
+Formal AI and limits reads. Reject competing legacy credentials, unsafe paths
+and substituted backing before execution. Require actual native root/two-peer
+replacement, logout, reauthentication and private-home disposal controls in
+both daemon image checks. Default selection, migration and full history remain
+unfinished.

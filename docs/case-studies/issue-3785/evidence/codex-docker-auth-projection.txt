@@ -1,0 +1,63 @@
+Explicit Codex Docker authentication projection, 2026-10-31 UTC
+
+Requirements: A1/A2/A3/A4/A6/A7/A10/A11/A12, bounded to an explicitly selected dedicated
+Codex credential parent. Default selection and complete six-tool integration
+remain open. This is not a full-history or native refresh-concurrency result.
+
+Five strict Node regressions fail on the preceding implementation: a healthy
+dedicated authority cannot mount; preparation/builder cannot preserve its
+selector and identity; equal-content replacement cannot be admitted safely;
+readers ignore an expected identity; dropping a selected root ignores its
+launch marker. The existing 22 refusal/Router controls remain intact.
+
+The actual a3 development executable is preserved from
+https://github.com/link-assistant/hive-mind/actions/runs/41189998687
+SHA256 fcdd43932b3ca543a0b3d3387d894f830ab04469f598a5053d2827da7c732cd9
+Run experiments/issue-3785/probe-codex-native-auth-identity.py BINARY.
+Healthy status succeeds; strict wrong-identity status fails with:
+  AssertionError: Native Codex accepted a different admitted authentication directory.
+All five --expect-ignored-marker controls pass (healthy, wrong, malformed,
+equal-content replaced parent, missing selector with private credentials).
+These are synthetic API keys; no provider requests or SDK export patches.
+
+The production builder now mounts the credential directory at
+/home/box/.hive-mind/canonical/codex-auth and forwards CODEX_AUTH_HOME plus
+HIVE_MIND_CODEX_AUTH_IDENTITY. Preparation and post-daemon-resolution checks
+refuse substituted roots, competing legacy credentials, overlapping config,
+empty private selectors and Docker delimiter ambiguity before launch. The
+native adapter checks this identity against its held directory before reads;
+Node preflight, Formal AI and limits readers preserve the same admission.
+
+All 134 focused Node tests pass. Eight bounded native primitive tests pass;
+two subprocess worker entry points are intentionally ignored in the parent.
+All nineteen build/artifact admission tests pass. Two fresh upstream source
+preparations match the exact 36-file inventory; repeat preparation, changed
+source, extra source and changed recipe identity refuse.
+Recipe SHA256: 036998b7784d904c401bddbfd0410550e3034d30a380b37120c4870373b8b21e
+Source digest: 534fad4c3796b296a91d05ee2942831d7ff8b77589a3e1fdf09fe529030aa470
+
+Run scripts/verify-mounted-codex-auth.mjs INSTALLED_HIVE [EXPERIMENTAL_BINARY]
+with HIVE_MOUNT_TEST_IMAGE=node:24-alpine and a private writable fixture parent.
+The optional experimental argument is only for bounded local reproduction.
+The local test passes using the exact preserved a3 binary and current actual
+production prepare/build/daemon-translation functions. Root and two concurrent
+offline Docker peers read atomic G0->G1 replacement, task logout, task login G2,
+root logout, root login G3, in-place G4 and G4 after whole private-config removal.
+Both mounted directory identities equal the admitted host identity. No private
+operator auth snapshot exists. A real single-file bind retains G0 bytes after
+host replacement; native status refuses the unlinked predecessor. It does not
+observe G1 or subsequent logout. All three containers are removed and reaped.
+The native binary and exact root loader/libraries are copied into a read-only
+runtime bind; peer configuration remains private. No second CLI is installed.
+Native data/stack/core limits are finite (512 MiB/16 MiB/0); peer lifetimes and
+commands are bounded. Image runs additionally impose 128 MiB container memory.
+The local delegated threaded cgroup cannot impose a memory controller, so the
+experimental fixture uses its finite data limit and the existing root cgroup.
+Initial 128 MiB data admission failed; 512 MiB matches the other native probes.
+
+Local Docker success does not verify the new compiled native marker guard.
+Development, both optimized platforms, actual installed npm commands and both
+host-socket/nested-daemon images now require its strict identity controls.
+Those complete compiled after gates remain pending. Default canonical auth,
+legacy migration, all history selectors and the other tool projections remain
+unfinished. Unsupported explicit selectors continue to refuse fallback.

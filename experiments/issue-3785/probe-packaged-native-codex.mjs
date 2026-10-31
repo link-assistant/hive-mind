@@ -84,6 +84,11 @@ for (const alias of ['symlink', 'hardlink']) {
   process.stdout.write(result.stdout);
 }
 
+await verifyNativeCodexCommand({ command });
+const authIdentityProbe = fileURLToPath(new URL('probe-codex-native-auth-identity.py', import.meta.url));
+const authIdentityResult = await execute('python3', [authIdentityProbe, command], { maxBuffer: 262144 });
+process.stdout.write(authIdentityResult.stdout);
+
 for (const mutation of ['none', 'logout', 'replace', 'malformed']) {
   const file = fileURLToPath(new URL('probe-codex-native-limits-generation.py', import.meta.url));
   await verifyNativeCodexCommand({ command });

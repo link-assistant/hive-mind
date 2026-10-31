@@ -66,6 +66,7 @@ jobs:
           node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-request.log" 2>&1
           node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" --provider-overrides > "$RUNNER_TEMP/native-release-overrides.log" 2>&1
           node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" --provider-constructors > "$RUNNER_TEMP/native-release-constructors.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-auth-identity.py "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-auth-identity.log" 2>&1
       - name: Refuse private database and log redirection in the compiled package
         env:
           CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex

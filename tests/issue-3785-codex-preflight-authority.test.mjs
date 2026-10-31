@@ -56,17 +56,33 @@ test('a second operator credential authority refuses before discovery or task al
   await assert.rejects(fs.lstat(path.join(f.root, '.hive-mind')), { code: 'ENOENT' });
 });
 
-for (const scenario of ['missing', 'public', 'relative']) {
+for (const scenario of ['missing', 'public', 'relative', 'wrong directory identity']) {
   test(`unsafe ${scenario} selected authentication refuses before discovery`, { timeout: 10000 }, async t => {
     const f = await fixture(t);
     if (scenario === 'missing') await fs.unlink(f.auth);
     if (scenario === 'public') await fs.chmod(f.options.baseCodexHome, 0o755);
     if (scenario === 'relative') f.options.env.CODEX_AUTH_HOME = '.';
+    if (scenario === 'wrong directory identity') f.options.env.HIVE_MIND_CODEX_AUTH_IDENTITY = '0:0';
     await assert.rejects(runCodexCapabilityPreflight(f.options), /Canonical Codex authentication storage/u);
     assert.equal(f.calls.length, 0);
     await assert.rejects(fs.lstat(path.join(f.root, '.hive-mind')), { code: 'ENOENT' });
   });
 }
+
+test('the final catalog probe refuses a replaced admitted directory before execution', { timeout: 10000 }, async t => {
+  const f = await fixture(t);
+  const info = await fs.stat(f.options.env.CODEX_AUTH_HOME, { bigint: true });
+  f.options.env.HIVE_MIND_CODEX_AUTH_IDENTITY = `${info.dev}:${info.ino}`;
+  const capabilityPreflight = await runCodexCapabilityPreflight(f.options);
+  t.after(capabilityPreflight.dispose);
+  assert.ok(f.calls.every(call => call.env.HIVE_MIND_CODEX_AUTH_IDENTITY === f.options.env.HIVE_MIND_CODEX_AUTH_IDENTITY));
+  await fs.rename(f.options.env.CODEX_AUTH_HOME, `${f.options.env.CODEX_AUTH_HOME}-retired`);
+  await fs.mkdir(f.options.env.CODEX_AUTH_HOME, { mode: 0o700 });
+  await fs.copyFile(path.join(`${f.options.env.CODEX_AUTH_HOME}-retired`, 'auth.json'), f.auth);
+  const count = f.calls.length;
+  await assert.rejects(verifyCodexCapabilityExecutionCatalog({ ...f.options, capabilityPreflight }), /Canonical Codex authentication storage/u);
+  assert.equal(f.calls.length, count);
+});
 
 test('the final catalog probe rejects an injected private credential authority', { timeout: 10000 }, async t => {
   const f = await fixture(t);

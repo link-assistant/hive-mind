@@ -23,7 +23,7 @@
     "apply_sqlite_authority.py": "99d94b8b467a363ec60178c714ecbdc592803414831d06fe3a48d3c575657528",
     "apply_tui_message_history.py": "cc698315aeca623c55cfdb59533a503bed4f25f474f8fa6ad06431dfca48d533",
     "cached_reads.patch": "ad12735dc0f2983c0797136fb4b7e505b930bf266687737312e672c4425c7920",
-    "canonical_auth.rs": "cd50cbf6861858d7fb37ebae38a0fbda3c790e5e67195b0959b20cc1245afdd7",
+    "canonical_auth.rs": "da0546e1dfd868c5131a679a01ba118a18c6d873d06a765a476f3079cc204179",
     "canonical_message_history.rs": "21abe43216366385d23af4ae55621aa16c0ff9813fdd84f19ada6f47c84db794",
     "canonical_migration_journals.rs": "8befeb805233ee24e12ea4400b7d781dbb1696e435fda13c15c6dda223b0fef7",
     "canonical_migration_journals_tests.rs": "39738282c02b3c1bb038bc5127c85725088226146f70a2c48783d91c021d7494",
@@ -83,5 +83,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "fa7482276476bd9370224b49288d79c4bc3570e7b527c8fc726a9a2c4e730c6a"
+  "sourceInventorySha256": "534fad4c3796b296a91d05ee2942831d7ff8b77589a3e1fdf09fe529030aa470"
 }

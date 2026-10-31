@@ -5,6 +5,7 @@ import path from 'node:path';
 import { getRouterSuppressedCredentialPaths } from './router-isolation.lib.mjs';
 import { prepareToolDataMount, toolDataMount } from './tool-data-mounts.lib.mjs';
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
+import { codexAuthDockerProjection } from './codex-auth-docker.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
 function normalizeTool(tool) {
@@ -19,9 +20,8 @@ const nativeStorageSelectors = new Map([
   ['qwen', ['QWEN_AUTH_HOME']],
 ]);
 function admitNativeStorageProjection(tool, env, useRouter) {
-  if (!useRouter && nativeStorageSelectors.get(tool)?.some(name => env[name] !== undefined)) {
-    // These native adapters do not yet have a Docker projection. Even an empty
-    // selector is explicit: dropping it would select a different authority.
+  if (!useRouter && nativeStorageSelectors.get(tool)?.some(name => env[name] !== undefined && !(tool === 'codex' && name === 'CODEX_AUTH_HOME'))) {
+    // Unsupported selectors remain explicit, including an empty value.
     throw new Error(`Selected native ${tool} storage cannot be projected into Docker task mounts; refusing credential/history fallback.`);
   }
 }
@@ -92,10 +92,11 @@ function isSuppressedPath(relativePath, suppressed) {
  * (issue #1939). The gh config is only withheld when `ghRouted` says gh has
  * somewhere else to go; otherwise the task would lose GitHub access entirely.
  */
-export async function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, ghRouted = false } = {}) {
+export async function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, ghRouted = false, nativeAuthIdentity } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
+  const nativeAuth = !useRouter && (await codexAuthDockerProjection({ tool: normalizedTool, env, homeDir, expectedIdentity: nativeAuthIdentity }));
   const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
   if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
     await maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), exists);
@@ -105,6 +106,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
   await maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), exists);
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
     if (isSuppressedPath(entry.relativePath, suppressed)) continue;
+    if (nativeAuth && entry.role === 'auth') continue;
     const source = path.join(homeDir, entry.relativePath);
     const target = path.join(DOCKER_CONTAINER_HOME, entry.relativePath);
     if (entry.kind === 'dir') {
@@ -114,6 +116,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
       await maybeAddMount(mounts, source, target, exists);
     }
   }
+  if (nativeAuth) mounts.push(nativeAuth.mount);
   const dataMount = !useRouter && toolDataMount({ tool: normalizedTool, homeDir, env });
   if (dataMount) {
     if (!(await exists(dataMount.source))) throw new Error('Shared tool data storage is missing; private data fallback is prohibited.');
@@ -137,9 +140,11 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   if (useRouter) return { created, missingAuth };
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
+  const nativeAuth = await codexAuthDockerProjection({ tool: normalizedTool, env, homeDir });
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };
   for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
+    if (nativeAuth && entry.role === 'auth') continue;
     const hostPath = path.join(homeDir, entry.relativePath);
     const exists = await fsImpl.promises.access(hostPath).then(
       () => true,
@@ -156,5 +161,5 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
       missingAuth.push(hostPath);
     }
   }
-  return { created, missingAuth };
+  return { created, missingAuth, ...(nativeAuth ? { nativeAuthIdentity: nativeAuth.identity } : {}) };
 }

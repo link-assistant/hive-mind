@@ -107,6 +107,10 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       before repair. This establishes refusal only, not the required projection.
 - [ ] Implement and verify default native Docker projections, migrate legacy
       state without credential snapshots, and complete all six-tool lifecycle gates.
+- [x] Add the explicit dedicated Codex auth-parent projection and carry admitted
+      directory identity through Node readers and native configuration. The real
+      root/two-Docker-peer lifecycle control and 134 focused Node tests pass.
+      Track compiled after checks and default integration in DOCKER_STORAGE_PLAN.md.
 
 Claude's owner-death refresh reproduction still needs an upstream native repair;
 the report is evidence of a blocker, not a completed acceptance criterion.

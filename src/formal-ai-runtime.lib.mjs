@@ -427,11 +427,11 @@ export const stripCodexMcpServers = config => {
  * Seed private configuration without MCP servers. With selected canonical
  * authentication, refuse independent credentials and never make a snapshot.
  */
-const seedCodexClientHome = async ({ source, destination, authHome, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
+const seedCodexClientHome = async ({ source, destination, authHome, expectedIdentity, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
   const seeded = [];
   if (authHome) {
-    await readCanonicalCodexAuth(authHome, { configurationHome: source });
-    await readCanonicalCodexAuth(authHome, { configurationHome: destination });
+    await readCanonicalCodexAuth(authHome, { configurationHome: source, expectedIdentity });
+    await readCanonicalCodexAuth(authHome, { configurationHome: destination, expectedIdentity });
   }
   await mkdirImpl(destination, { recursive: true });
 
@@ -453,7 +453,7 @@ const seedCodexClientHome = async ({ source, destination, authHome, cpImpl, mkdi
     // No global config — `formal-ai with --global` writes a fresh one.
   }
 
-  if (authHome) await readCanonicalCodexAuth(authHome, { configurationHome: destination });
+  if (authHome) await readCanonicalCodexAuth(authHome, { configurationHome: destination, expectedIdentity });
   return seeded;
 };
 
@@ -482,7 +482,7 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
     let source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
     if (authHome) source = env.CODEX_HOME ?? join(realHome, relativeDir);
     if (isCodex) {
-      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome, cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
+      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY, cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
       for (const { file, note } of files) seeded.push(`${join(source, file)} → ${join(relativeDir, file)}${note ? ` (${note})` : ''}`);
       continue;
     }
@@ -502,8 +502,8 @@ export const configureFormalAiClientHome = async ({ tool, baseUrl, home, formalA
   const configurationHome = join(home, '.codex');
   const admitSelectedAuthentication = async () => {
     if (!authHome) return;
-    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME ?? join(homedir(), '.codex') });
-    await readCanonicalCodexAuth(authHome, { configurationHome });
+    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME ?? join(homedir(), '.codex'), expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
+    await readCanonicalCodexAuth(authHome, { configurationHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
   };
   await admitSelectedAuthentication();
   const args = ['with', '--global', '--no-start-server', '--base-url', baseUrl, tool];

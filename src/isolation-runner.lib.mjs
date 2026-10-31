@@ -51,6 +51,7 @@ export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; 
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
 import { toolDataContainerEnv, toolDataPrivateMounts } from './tool-data-mounts.lib.mjs';
+import { codexAuthDockerProjection } from './codex-auth-docker.lib.mjs';
 export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
@@ -206,7 +207,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   for (const [name, value] of Object.entries(toolDataContainerEnv({ tool: normalizeTool(tool), identity: options.sharedDataIdentity, useRouter: routerWired }))) {
     startArgs.push('-e', `${name}=${value}`);
   }
-  const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
+  const nativeAuth = !routerWired && (await codexAuthDockerProjection({ tool: normalizeTool(tool), env, homeDir, expectedIdentity: options.nativeAuthIdentity }));
+  const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off', nativeAuthIdentity: nativeAuth?.identity });
+  if (nativeAuth) for (const [name, value] of Object.entries(nativeAuth.env)) startArgs.push('-e', `${name}=${value}`);
   // Issue #2164 (R13): a routed task also loses the ability to destroy remote
   // history by accident. The hook lives on the host and is mounted read-only, so
   // the task cannot edit the rule it is being held to; git is pointed at it with
@@ -231,6 +234,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   // This builder also formats synthetic commands in unit tests. The production
   // launcher always supplies the backing-store resolver before execution.
   const resolvedMounts = options.resolveMountSources ? await options.resolveMountSources({ mounts, image, env }) : mounts;
+  if (nativeAuth) await codexAuthDockerProjection({ tool: normalizeTool(tool), env, homeDir, expectedIdentity: nativeAuth.identity });
   for (const mount of resolvedMounts) {
     startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
@@ -414,6 +418,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     try {
       const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), env: effectiveOptions.env, useRouter: Boolean(router) });
       effectiveOptions.sharedDataIdentity = prepared.identity;
+      effectiveOptions.nativeAuthIdentity = prepared.nativeAuthIdentity;
       for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
       for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
     } catch {

@@ -171,7 +171,7 @@ export function applyCodexCapabilityEnv(env, { codexHome, baseCodexHome } = {}) 
 
 const defaultRunCommand = async ({ command, args, env = process.env, cwd }) => {
   if (command !== 'gh' && selectedCodexAuthHome(env)) {
-    await readCanonicalCodexAuth(env.CODEX_AUTH_HOME, { configurationHome: env.CODEX_HOME });
+    await readCanonicalCodexAuth(env.CODEX_AUTH_HOME, { configurationHome: env.CODEX_HOME, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
     command = (await verifyNativeCodexCommand({ command, searchPath: env.PATH })).entrypoint;
   }
   try {
@@ -280,7 +280,7 @@ export const verifyCodexCapabilityExecutionCatalog = async ({ capabilityPrefligh
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const scopedEnv = applyCodexCapabilityEnv(env, capabilityPreflight);
   const selectedAuth = selectedCodexAuthHome(scopedEnv);
-  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: capabilityPreflight.codexHome });
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: capabilityPreflight.codexHome, expectedIdentity: scopedEnv.HIVE_MIND_CODEX_AUTH_IDENTITY });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
   const visibility = await checkModelVisibleSkills({
     command,
@@ -713,7 +713,7 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
 
 const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, env, log = async () => {} }) => {
   const selectedAuth = selectedCodexAuthHome(env);
-  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: baseCodexHome });
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: baseCodexHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
@@ -802,7 +802,7 @@ export async function runCodexCapabilityPreflight(options = {}) {
   const selectedAuth = selectedCodexAuthHome(env);
   if (selectedAuth) {
     const base = options.baseCodexHome ?? env.HIVE_MIND_PARENT_CODEX_HOME ?? env.CODEX_HOME ?? path.join(os.homedir(), '.codex');
-    await readCanonicalCodexAuth(selectedAuth, { configurationHome: base });
+    await readCanonicalCodexAuth(selectedAuth, { configurationHome: base, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
     if (!options.runCommand || options.runCommand === defaultRunCommand) {
       const command = /\s/u.test(options.codexPath ?? 'codex') ? 'codex' : (options.codexPath ?? 'codex');
       await verifyNativeCodexCommand({ command, searchPath: env.PATH });

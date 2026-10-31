@@ -14,7 +14,7 @@ async function fixture(t) {
   const configuration = path.join(root, 'configuration');
   await fs.mkdir(canonical, { mode: 0o700 });
   await fs.mkdir(configuration, { mode: 0o700 });
-  const previous = { CODEX_AUTH_HOME: process.env.CODEX_AUTH_HOME, CODEX_HOME: process.env.CODEX_HOME, HOME: process.env.HOME };
+  const previous = { CODEX_AUTH_HOME: process.env.CODEX_AUTH_HOME, CODEX_HOME: process.env.CODEX_HOME, HOME: process.env.HOME, HIVE_MIND_CODEX_AUTH_IDENTITY: process.env.HIVE_MIND_CODEX_AUTH_IDENTITY };
   Object.assign(process.env, { CODEX_AUTH_HOME: canonical, CODEX_HOME: configuration, HOME: path.join(root, 'operator') });
   t.after(() => {
     for (const [name, value] of Object.entries(previous)) {
@@ -28,6 +28,24 @@ async function fixture(t) {
   await fs.writeFile(protectedAuth, JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'synthetic-private' } }), { mode: 0o600 });
   return { root, canonical, configuration, auth, protectedAuth };
 }
+
+test('limits reject a replaced admitted directory before sending credentials or using cached limits', { timeout: 5000 }, async t => {
+  const f = await fixture(t);
+  resetLimitCache();
+  t.after(resetLimitCache);
+  const info = await fs.stat(f.canonical, { bigint: true });
+  process.env.HIVE_MIND_CODEX_AUTH_IDENTITY = `${info.dev}:${info.ino}`;
+  const fetcher = t.mock.method(globalThis, 'fetch', async () => new globalThis.Response('{}'));
+  assert.equal((await getCachedCodexLimits()).success, true);
+  assert.equal(fetcher.mock.callCount(), 1);
+  await fs.rename(f.canonical, `${f.canonical}-retired`);
+  await fs.mkdir(f.canonical, { mode: 0o700 });
+  await fs.copyFile(path.join(`${f.canonical}-retired`, 'auth.json'), f.auth);
+  assert.equal(await readCodexAuth(), null);
+  assert.equal((await getCachedCodexLimits()).success, false);
+  assert.equal((await getCodexUsageLimits()).success, false);
+  assert.equal(fetcher.mock.callCount(), 1);
+});
 
 for (const configurationHome of ['', '.', 'relative', '/', '/private/../other', '/private//config', '/private/config\n']) {
   test(`selected Codex authentication refuses an ambiguous configuration selector ${JSON.stringify(configurationHome)}`, { timeout: 5000 }, async t => {

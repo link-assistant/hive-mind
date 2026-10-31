@@ -34,5 +34,14 @@ verify Docker, normal release and instant release each reject failed, cancelled
 or skipped native builds. All eight release image gate assertions pass.
 Log: /tmp/issue-3785-recovery/codex-release-image-gate-final.log.
 
-At this investigation checkpoint both native architecture builds were still
-compiling. No optimized installed-runtime or image pass is claimed here.
+Both native optimized compiles subsequently finish: x64 in 72m 50s and ARM
+in 104m 52s. Both fail the same Cargo hardlink packaging check before native
+runtime admission. The bounded copy repair is committed with nineteen tests
+and an actual tiny Cargo control; see native-codex-cargo-handoff.txt.
+Complete checks log: ci-logs/checks-release-41178521287.log, 48335 lines,
+reviewed in 33 chunks of at most 1500 lines. Native failures are at 41173
+and 41552; the release.yml assertion is at 43332. Pipeline status 48301
+lists only test-suites and native-codex-build. All eight workflow outcomes
+are now final; six succeed, checks and Workflows fail. The exact repaired
+head still needs fresh CI; no optimized installed-runtime or image pass
+is claimed here.

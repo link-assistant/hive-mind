@@ -13,6 +13,16 @@ Lines 3507-3515: inspect_binary -> regular rejects the Cargo executable because
 it has more than one hardlink. No compiled artifact was uploaded by that old
 workflow after its packaging failure; optimized runtime admission is unverified.
 
+ARM job 124471313431 completes with the same failure at 08:43:11 UTC.
+Runner log: ci-logs/native-codex-arm64-124471313431.log (374 lines).
+Artifact 13036738682, native-codex-build-logs-linux-arm64, is preserved locally;
+ZIP SHA256: 1ddf1777f86f05420a39e0835464467b42da32041d6c08c3e6e6ae136c437953
+Its 3507-line native-release-build.log was reviewed in three bounded chunks.
+Line 3493: optimized compilation finishes in 104m 52s, inside the job limit.
+Lines 3499-3507: the same inspect_binary -> regular hardlink refusal.
+Both platforms prepared identical 31-file source inventories and recipe hashes.
+No timeout or Rust compiler failure occurred on either architecture.
+
 Root cause: Cargo legitimately hardlinks target/release/codex to its internal
 deps executable. The unaliased-file rule belongs to distributed artifacts,
 not this compiler-owned intermediate output.

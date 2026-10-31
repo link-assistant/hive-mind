@@ -1417,7 +1417,9 @@ Latest CI continuation:
       configuration and absent credentials; retain the unbundled refusal control.
       Require both experimental and installed-package variants in CI.
 - [ ] Verify new exact-head installed Codex command, SQLite authority, capability
-      authentication, compiled metadata and both image controls; preserve the
-      preceding ARM build diagnostics before pushing queued changes.
+      authentication, compiled metadata and both image controls.
+- [x] Preserve both preceding native build artifacts before pushing. Both
+      optimized compiles finish; x64 and ARM hit the same Cargo hardlink guard.
+      Download the full 48335-line checks log and review in bounded chunks.
 - [ ] Complete default six-tool authority selection, migration, all native
       writers/history/backend lifecycle and unresolved Claude refresh-owner death.

@@ -1327,3 +1327,19 @@ interrupted migration, history resume and unsafe staging controls pass.
 See `docs/case-studies/issue-3785/evidence/ci-533cc3a20.txt` and its companion
 Gemini evidence. These successful runs precede the unpublished evidence and
 streaming repairs; they establish no production/all-six completion claim.
+
+2026-10-31, actual terminal/ACP streaming after audit rollback:
+- Stage 23 correctly rejects recording but delivers the final answer before
+  that rejection. Both strict native protocol controls reproduce it after a
+  healthy real edit and complete recorded tool result.
+- Stage 24 admits native dispatch and every response chunk against retained
+  evidence, and always settles dispatch serialization after cleanup refusal.
+  Both actual clients refuse answer delivery and a subsequent prompt, retaining
+  the healthy edit and protected/substituted audit bytes and inode identities.
+- Fresh reconstruction checks twenty-four stages and seventeen identical files.
+  Actual terminal, ACP, both headless engines, legitimate discovery peers,
+  root/child recording and all restore cycles pass. Surrounding metadata 54,
+  shell 28, authentication 41/30/11 and admission interruption 2/3 pass locally.
+- All subprocesses finish; Python parsing, formatting, workflow/ShellCheck,
+  secrets, file-size and whitespace checks pass. Fresh exact-head CI is still
+  required. Persisted rollback authority and production lifecycle remain open.

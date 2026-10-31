@@ -1,6 +1,7 @@
 """Replace a live actual conversation with an older valid native generation."""
-def live_audit_tool(contents, history, root, workspace, state):
-    recording, = [p for p in history.rglob('*.jsonl') if '.archive' not in p.parts]
+def live_audit_tool(contents, history, root, workspace, state, first_prompt):
+    recording, = [p for p in history.rglob('*.jsonl') if '.archive' not in p.parts
+                  and first_prompt in p.read_text()]
     if not state:
         state.update(recording=recording, initial=recording.read_bytes())
         return {'id': 'synthetic-audit-edit', 'name': 'write_file',

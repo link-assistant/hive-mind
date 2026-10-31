@@ -34,7 +34,7 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-subagent', action='store_true')
 parser.add_argument('--history-live-rollback', action='store_true')
-parser.add_argument('--history-live-rollback-engine', choices=('legacy', 'agent'))
+parser.add_argument('--history-live-rollback-engine', choices=('legacy', 'agent', 'terminal', 'acp'))
 parser.add_argument('--history-live-summary', action='store_true')
 parser.add_argument('--history-subagent-attack', choices=('unsafe-mode', 'symlink', 'parent-replacement'))
 parser.add_argument('--shell-history', action='store_true')
@@ -124,6 +124,7 @@ manager_hash = hashlib.sha256(manager.read_bytes()).hexdigest()
 assert manager_hash in ('c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792',
                         '901d8eb78bafdb235420b6aa931afdadab3efc5574d53a49224739730fa0ecc4',
                         'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07',
+                        '91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28',
                         '13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769',
                         '6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3',
                         '3062c3291a9a49d62177b20b8ef450c50f96a507cd4bdc168969a9dc45764970', '4b4daad35a3af8de066e49d866d14f163502a51234acb10c7c2b76a32213af64', '463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61', '0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42', 'ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa', '236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2', '439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', '3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3')
@@ -390,7 +391,7 @@ try:
                         phase = 'resume' if second_prompt in content else 'initial'
                         if args.history_live_rollback and operation == 'streamGenerateContent':
                             from gemini_live_audit import live_audit_tool
-                            call = live_audit_tool(payload['request']['contents'], history, root, workspace, live_audit_state)
+                            call = live_audit_tool(payload['request']['contents'], history, root, workspace, live_audit_state, first_prompt)
                             if call:
                                 models[-1]['tool_call'] = True
                                 self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-live-audit-response'}, stream=True)
@@ -721,9 +722,15 @@ try:
         raise SystemExit(0)
 
     if args.history_live_rollback:
-        from gemini_live_audit import verify_live_audit
-        verify_live_audit(invoke=invoke, env={**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.history_live_rollback_engine == 'agent' else 'false'}, diagnostics=args.diagnostics,
-                          models=models, workspace=workspace, state=live_audit_state, session=session, first_prompt=first_prompt)
+        if args.history_live_rollback_engine in ('terminal', 'acp'):
+            from gemini_live_audit_interactive import verify_interactive_audit
+            verify_interactive_audit(native=native, env=env, diagnostics=args.diagnostics,
+                                     models=models, workspace=workspace, state=live_audit_state,
+                                     first_prompt=first_prompt, mode=args.history_live_rollback_engine)
+        else:
+            from gemini_live_audit import verify_live_audit
+            verify_live_audit(invoke=invoke, env={**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.history_live_rollback_engine == 'agent' else 'false'}, diagnostics=args.diagnostics,
+                              models=models, workspace=workspace, state=live_audit_state, session=session, first_prompt=first_prompt)
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors

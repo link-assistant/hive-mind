@@ -1209,3 +1209,19 @@ fresh twenty-three-stage reconstruction pass locally; see
 [conversation evidence](evidence/native-gemini-conversation-evidence.txt).
 This process-local witness does not establish fresh-process rollback detection
 or complete the production/lifecycle requirements.
+
+Actual terminal and ACP streaming expose a further failure: they deliver the
+answer before recording rejects the rolled-back audit. A twenty-fourth checked
+stage validates retained evidence before model dispatch and each response chunk,
+and always settles dispatch serialization even if error cleanup also refuses.
+Both strict native before controls fail after healthy editing; repaired terminal
+and ACP refuse response delivery and a subsequent real prompt without a third
+model request or protected-state changes. See
+[streaming evidence](evidence/native-gemini-stream-admission.txt).
+
+All eight workflows pass at the preceding pushed head `533cc3a20c01`, including
+739 default test files, both integration files, installed host/nested Docker
+checks, six Gemini jobs and all three compiled Codex jobs. See
+[complete CI evidence](evidence/ci-533cc3a20.txt). Those runs precede the new
+interruption controls and evidence/streaming repairs; fresh CI remains required
+for them, and the complete production acceptance inventory remains open.

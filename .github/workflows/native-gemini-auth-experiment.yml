@@ -20,6 +20,7 @@ on:
       - 'experiments/issue-3785/gemini_resume_interruption.py'
       - 'experiments/issue-3785/gemini_subagent_history.py'
       - 'experiments/issue-3785/gemini_live_audit.py'
+      - 'experiments/issue-3785/gemini_live_audit_interactive.py'
       - 'experiments/issue-3785/gemini_live_summary.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
@@ -464,6 +465,25 @@ jobs:
           python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-evidence-storage.log" > "$RUNNER_TEMP/gemini-acp-evidence-storage-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-after-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-after-control.log" 2>&1
+      - name: Reproduce actual response delivery before canonical audit refusal
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for mode in terminal acp; do
+            if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-before.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log" 2>&1; then
+              echo 'The actual native streaming audit regression unexpectedly passed before repair.'
+              exit 1
+            fi
+            grep -F 'REPRODUCED: actual native inference completes after valid audit rollback, silently losing its previously recorded tool call/result from the selected conversation.' "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log"
+            grep -F 'AssertionError: Actual native recording must refuse a valid rollback of its previously observed complete conversation.' "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log"
+          done
+      - name: Admit actual response chunks and refuse subsequent unsafe dispatch
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package"
+          for mode in terminal acp; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-after.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-after-control.log" 2>&1
+          done
       - name: Verify actual ACP restore, third-process resume and audit retention
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
       - name: Verify native replace, automatic edits and cancellation
@@ -482,9 +502,12 @@ jobs:
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
           done
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
-      - name: Rebuild all twenty-three stages and require identical tested native source
+      - name: Rebuild all twenty-four stages and require identical tested native source
         run: |
-          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --stream-admission --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          for mode in terminal acp; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh-control.log" 2>&1
+          done
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-audit-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-summary --diagnostics "$RUNNER_TEMP/gemini-acp-live-summary-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-summary-fresh-control.log" 2>&1

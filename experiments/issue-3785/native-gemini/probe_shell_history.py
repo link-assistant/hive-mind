@@ -23,9 +23,9 @@ parser.add_argument('--scenario', choices=scenarios)
 args = parser.parse_args()
 package = args.package.resolve(strict=True)
 assert json.loads((package / 'package.json').read_text())['version'] == '0.65.0'
-assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3', 'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07', '13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769')
+assert hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b', 'b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608', '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55', 'a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3', 'ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07', '13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769', '91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28')
 history = (package / 'bundle/hive-gemini-history.mjs').read_bytes()
-if hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() == '13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769':
+if hashlib.sha256((package / 'bundle/chunk-DKZARV6U.js').read_bytes()).hexdigest() in ('13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769', '91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28'):
     assert hashlib.sha256(history).hexdigest() in ('216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed', '4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd')
 else:
     assert history == (Path(__file__).parent / 'history.mjs').read_bytes()

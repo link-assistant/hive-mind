@@ -297,3 +297,14 @@ terminal keeps its writer claim and completes another inference. Full storage
 interruption controls still require fresh CI. Fresh-process persisted rollback
 authority, publication/power loss, remaining writers and production integration
 remain unfinished; A1–A12 retain their existing incomplete status.
+
+A7/A9 streaming controls independently reproduce terminal and ACP delivery of
+the final answer before audit recording refuses. A twenty-fourth checked stage
+validates retained evidence before dispatch and response chunks, and settles
+the dispatch promise even if failed-history cleanup also refuses. Actual
+terminal and ACP now refuse before delivering that answer and promptly refuse
+a second real prompt without another model request or protected-state changes.
+See `evidence/native-gemini-stream-admission.txt`. Full process-persistent audit
+authority, every writer and production lifecycle acceptance remain unfinished.
+All eight workflows pass at the preceding pushed head `533cc3a20c01`
+(`evidence/ci-533cc3a20.txt`); these newer stages require fresh exact-head CI.

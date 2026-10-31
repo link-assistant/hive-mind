@@ -1244,7 +1244,8 @@ Latest CI continuation:
       metadata 54, authentication 41/30/11, terminal 4, ACP 3, both headless
       engines 4 each, live-owner refusal/recovery 5 and terminal live/startup
       refusal 1/2 assertions all pass.
-- [ ] Commit/push the child repair and require all exact-head CI checks.
+- [x] Commit/push the child repair; all eight workflows pass at 533cc3a20c01.
+      Preserve full compiled Codex/Checks logs and all 272 Gemini ACP artifacts.
 - [ ] Complete child checkpoints/restores, concurrent children, remaining agent
       definitions, task/plan memory and production lifecycle/installations;
       healthy child recording is insufficient.
@@ -1282,3 +1283,19 @@ Latest CI continuation:
       assertion fails; the reconstructed repaired package refuses with retained
       protected bytes and inode. Add before/after/fresh CI controls alongside the
       separate legacy engine; this extends coverage without another source patch.
+
+- [x] Reproduce actual terminal and ACP response delivery after valid live audit
+      rollback. Require the healthy edit and complete tool result first; refuse
+      response delivery and subsequent dispatch when retained evidence fails.
+      Trace response streaming, preserve strict before controls and verify a new
+      pinned source stage on a fresh reconstruction with surrounding regressions.
+
+- [x] Verify repaired terminal/ACP streaming and prompt refusal of a second real
+      prompt; reconstruct twenty-four stages and compare seventeen native files.
+      All actual rollback engines, legitimate discovery peers, child recording,
+      terminal/ACP restore and both headless restore cycles pass locally.
+- [x] Finish reconstructed-package metadata 54, shell 28, authentication
+      41/30/11 and delayed/interrupted admission 2/3 checks. All subprocesses
+      finish successfully; local static checks pass.
+- [ ] Commit/push streaming admission and verify all fresh exact-head CI jobs.
+      Complete the remaining acceptance inventory.

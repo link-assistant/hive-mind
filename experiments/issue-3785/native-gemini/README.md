@@ -1193,8 +1193,8 @@ Both actual native noninteractive engines independently reproduce the same
 strict audit loss before repair. Select the agent-session control with
 `--history-live-rollback-engine agent`; the default uses the legacy engine.
 Both repaired engines refuse with the canonical history error,
-retains the healthy project edit and protected complete audit, leaves substituted
-evidence unchanged, and sends no further model request. A separate actual native
+retain the healthy project edit and protected complete audit, leave substituted
+evidence unchanged, and send no further model request. A separate actual native
 terminal remains live while another actual native `--list-sessions` process
 appends its normal generated summary. The original terminal then completes a
 second inference with its original model history and full preceding audit plus
@@ -1226,3 +1226,47 @@ terminal/headless/child stages, nine strict before controls and twenty-two-stage
 reconstruction. See [CI evidence](../../../docs/case-studies/issue-3785/evidence/ci-533cc3a20-gemini.txt).
 Those results precede this evidence repair and the new admission interruption
 controls, which still need fresh exact-head CI.
+
+## Response streaming after audit refusal
+
+The actual terminal and ACP protocols expose a later boundary than the
+noninteractive exit status. On the twenty-third stage, both send the final answer
+text before the recorder rejects a rolled-back audit. ACP then returns a protocol
+error, and the terminal reports the recording error after displaying the answer.
+The strict regressions require a healthy approved edit and complete recorded tool
+result first, then fail if the real final answer reaches either client.
+
+`apply_stream_admission.py` adds a twenty-fourth checked stage. Its exact manager
+pin is `13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769`;
+the retained-evidence helper stays unchanged. The resulting manager is
+`91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28`.
+Native chat dispatch validates retained conversation evidence before waiting for
+its serialization promise, after that wait, immediately before inference, and
+before delivering each response chunk. Post-model hooks also precede a final
+check. Error cleanup always settles the serialization promise, including when
+history rollback itself refuses. Unselected native behavior retains its paths.
+
+Both actual protocols now refuse the substituted evidence before delivering the
+answer. A second typed terminal prompt or ACP prompt receives another refusal
+without a third model request. The healthy project edit, complete protected
+audit and substituted bytes/inode remain unchanged through both refusals.
+ACP's fixture selects its actual prompted conversation, preserving the separate
+initial empty native session. The CLI and SDK remain uninstrumented.
+
+```sh
+# On stage 23, both strict commands must fail after healthy editing.
+for mode in terminal acp; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "/tmp/gemini-stream-$mode-before.log"
+done
+python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package"
+# Repeat both controls; each must pass including its second prompt.
+```
+
+Fresh reconstruction adds `--stream-admission` to the preceding twenty-three
+stage selectors and compares all seventeen native files. Each selected response
+chunk performs a bounded complete-record read; this experimental correctness
+guard still needs performance evaluation before production installation.
+Persisted fresh-process rollback authority, interruption/power-loss paths and
+complete native writer/production lifecycle coverage remain unfinished. See
+[streaming evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-stream-admission.txt).

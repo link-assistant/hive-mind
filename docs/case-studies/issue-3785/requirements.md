@@ -248,3 +248,13 @@ refusals and native shell-history controls. See
 `evidence/native-gemini-terminal-resume-controls.txt`. Both terminal stages need
 fresh Node 24 CI. Failed/interrupted resume and the full A1–A12 lifecycle and
 production installation remain unfinished.
+
+Both actual headless native engines separately reproduce successful edit and
+inference without canonical checkpoint acknowledgement. Registering their
+schedulers with the native pre-edit writer makes a headless edit, fresh ACP
+restore and third headless resume pass after two private-home disposals.
+Both engines preserve prior audit bytes and pass live/startup metadata refusal
+and no-selector native behavior. Twenty-one checked stages reconstruct seventeen
+identical native files; see `evidence/native-gemini-headless-controls.txt`.
+Fresh Node 24 CI, remaining native writers, complete lifecycle and production
+integration are still required; A1–A12 remain unfinished.

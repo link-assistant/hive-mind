@@ -1197,3 +1197,20 @@ Latest CI continuation:
       Codex results before replacing the running branch workflows.
 - [ ] Exercise failed/interrupted native resume admission and finish remaining
       native writers, complete lifecycle and production integration criteria.
+- [x] Trace headless native edits separately from terminal and ACP execution.
+      Both the legacy and native agent-session engines first complete actual
+      write_file/inference, then fail the strict canonical checkpoint assertion.
+      Register both native schedulers with the checked pre-edit writer.
+- [x] Verify actual headless edit, fresh ACP restore and third headless resume
+      through two complete private-home disposals in both native engines. Require
+      restored original model history, unchanged prior audit and actual Git undo.
+- [x] Verify both headless engines' startup and live metadata-damage refusals and
+      unselected private recording/editing. Live damage occurs during a real
+      resumed model request after a healthy edit; the returned second edit and
+      further inference refuse while protected project/audit bytes are retained.
+      Reconstruct all twenty-one stages without applicability mutation and retain
+      all seventeen identical native files. The fresh package also preserves the
+      actual automatic terminal prompt/resume control.
+- [ ] Commit and publish the headless writer stage after local checks; require
+      both strict before failures, after/fresh-source cycles and live/startup
+      refusal/private controls to pass in fresh Node 24 CI.

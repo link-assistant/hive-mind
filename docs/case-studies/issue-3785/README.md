@@ -1152,3 +1152,14 @@ All eight workflows also pass at `5abb937c55b2`, including 739 default test file
 both integration files, packaged Docker verification and all three compiled
 Codex jobs. See [CI evidence](evidence/ci-5abb937c5.txt). That commit precedes the
 ACP and third-terminal repairs and does not verify those later changes.
+
+Actual headless edits expose another missing writer in both native engines.
+Each engine completes `write_file` and inference before the strict checkpoint
+assertion fails. Registering both headless schedulers with the actual native
+pre-edit writer makes the complete headless-edit/ACP-restore/headless-resume
+cycle pass through two private-home disposals, with restored original model
+history and retained audit. Both engines also pass live/startup metadata refusal
+and original private-history controls. Twenty-one checked stages reconstruct
+seventeen identical native files. See
+[headless checkpoint evidence](evidence/native-gemini-headless-controls.txt).
+This stage still needs fresh Node 24 CI and production integration.

@@ -40,6 +40,8 @@ parser.add_argument('--git-history', action='store_true')
 parser.add_argument('--restorable-history', action='store_true')
 parser.add_argument('--restorable-terminal-reopen', action='store_true')
 parser.add_argument('--restorable-terminal-startup-prompt', action='store_true')
+parser.add_argument('--restorable-headless', action='store_true')
+parser.add_argument('--restorable-headless-engine', choices=('legacy', 'agent'))
 parser.add_argument('--restorable-acp', action='store_true')
 parser.add_argument('--restorable-acp-tool', choices=('write_file', 'replace'))
 parser.add_argument('--restorable-acp-mode', choices=('autoEdit', 'cancel', 'list'))
@@ -71,12 +73,14 @@ assert not args.tracker_history or args.history and not any(value for name, valu
 assert not args.tracker_history_attack or args.tracker_history
 assert not args.git_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'git_history', 'git_history_attack'))
 assert not args.git_history_attack or args.git_history
-assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack', 'restorable_terminal_reopen', 'restorable_terminal_startup_prompt', 'restorable_acp', 'restorable_acp_tool', 'restorable_acp_mode', 'private_history'))
+assert not args.restorable_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'restorable_history', 'restorable_history_attack', 'restorable_terminal_reopen', 'restorable_terminal_startup_prompt', 'restorable_headless', 'restorable_headless_engine', 'restorable_acp', 'restorable_acp_tool', 'restorable_acp_mode', 'private_history'))
 assert not args.restorable_terminal_reopen or args.restorable_history and not (args.restorable_acp or args.restorable_history_attack or args.private_history)
 assert not args.restorable_terminal_startup_prompt or args.restorable_terminal_reopen
+assert not args.restorable_headless or args.restorable_history and not (args.restorable_terminal_reopen or args.restorable_acp)
+assert not args.restorable_headless_engine or args.restorable_headless
 assert not args.restorable_acp or args.restorable_history
 assert not (args.restorable_acp_tool or args.restorable_acp_mode) or args.restorable_acp and not (args.private_history or args.restorable_history_attack)
-assert not (args.restorable_history and args.private_history) or args.restorable_acp and not args.restorable_history_attack
+assert not (args.restorable_history and args.private_history) or (args.restorable_acp or args.restorable_headless) and not args.restorable_history_attack
 assert not args.restorable_history_attack or args.restorable_history
 assert not args.expect_history_gap or args.history
 assert not args.private_history or args.history
@@ -115,6 +119,7 @@ children = []
 requests = []
 models = []
 live_controls = []
+headless_live_damage = []
 errors = []
 safe_cleanup = False
 server = None
@@ -359,7 +364,8 @@ try:
                                        'blob_reference': '/degraded-blobs/' in content,
                                        'native_blob_response': native_blob_response(payload['request']['contents'])})
                         phase = 'resume' if second_prompt in content else 'initial'
-                        if args.restorable_history and operation == 'streamGenerateContent' and phase == 'initial' and phase not in tool_phases:
+                        restorable_phase = phase == 'initial' or (args.restorable_headless and args.restorable_history_attack == 'live-metadata-schema' and phase == 'resume')
+                        if args.restorable_history and operation == 'streamGenerateContent' and restorable_phase and phase not in tool_phases:
                             tool_phases.add(phase)
                             models[-1]['tool_call'] = True
                             call = {'id': 'synthetic-restorable-write', 'name': args.restorable_acp_tool or 'write_file',
@@ -369,6 +375,18 @@ try:
                                                 'instruction': 'Replace the exact synthetic before line with the synthetic after line.',
                                                 'old_string': 'SYNTHETIC BEFORE NATIVE EDIT 東京\n',
                                                 'new_string': 'SYNTHETIC AFTER NATIVE EDIT café\n'}
+                            if args.restorable_headless and args.restorable_history_attack == 'live-metadata-schema' and phase == 'resume':
+                                call['id'] = 'synthetic-restorable-write-resume'
+                                journal, = history.rglob('prompt-history.json')
+                                rows = json.loads(journal.read_text())
+                                row = next(row for row in rows if row['type'] == 'restorable-tool')
+                                saved = json.loads(row['message'])
+                                data = json.loads(saved['content'])
+                                data['history'] = [{'type': 'user', 'id': 'SYNTHETIC INVALID HISTORY ID'}]
+                                saved['content'] = json.dumps(data)
+                                row['message'] = json.dumps(saved)
+                                journal.write_text(json.dumps(rows))
+                                headless_live_damage.append((journal, journal.read_bytes()))
                             self.send(200, {'response': {'candidates': [{'index': 0, 'content': {'role': 'model', 'parts': [{'functionCall': call}]}, 'finishReason': 'STOP'}], 'modelVersion': 'gemini-2.5-flash'}, 'traceId': 'synthetic-restorable-response'}, stream=True)
                             return
                         if args.tracker_history and operation == 'streamGenerateContent':
@@ -653,6 +671,20 @@ try:
         raise SystemExit(0)
 
     if args.restorable_history:
+        if args.restorable_headless:
+            from gemini_restorable_headless import verify_headless_checkpoint
+            headless_env = {**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.restorable_headless_engine == 'agent' else 'false'}
+            verify_headless_checkpoint(invoke=invoke, native=native, root=root, settings=settings,
+                                       env=headless_env, home=home, history=history,
+                                       workspace=workspace, diagnostics=args.diagnostics,
+                                       models=models, first_prompt=first_prompt,
+                                       second_prompt=second_prompt, session=session,
+                                       attack=args.restorable_history_attack, live_damage=headless_live_damage)
+            assert json.loads(auth.read_text()) == credentials
+            assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+            assert not errors, errors
+            safe_cleanup = True
+            raise SystemExit(0)
         protocol_options = {}
         if args.restorable_acp:
             from gemini_restorable_acp import verify_acp_lifetime as verify_restorable_lifetime

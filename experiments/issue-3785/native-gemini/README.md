@@ -1031,3 +1031,48 @@ terminal prompts, ACP restore, and live/startup metadata refusals pass on that
 reconstruction. Failed or interrupted resume admission needs further lifecycle
 testing; these healthy controls do not establish that coverage. Production
 installation and the remaining issue acceptance criteria remain unfinished.
+
+## Actual headless checkpoint writers
+
+Both native noninteractive implementations complete a real `write_file` edit
+and subsequent inference without acknowledging a canonical restorable checkpoint.
+Separate strict controls reproduce this for the legacy scheduler and the agent
+session engine selected by native `GEMINI_CLI_EXP_AGENT=true`.
+
+`apply_headless_restorable.py` registers a writer for each of the two pinned
+headless schedulers. The existing native edit-admission path awaits the actual
+Git snapshot and complete checkpoint metadata before execution. Checkpoint
+history preserves the chat's raw context/user turn boundaries. Registration is
+inactive without selected history or checkpointing. The version, manager,
+admission helper and preceding ACP CLI hashes are required; both expected
+scheduler contexts must match before mutation. `--check` makes no changes.
+
+```sh
+python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package" --check
+python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package"
+for engine in legacy agent; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "/tmp/gemini-headless-$engine.log"
+done
+python3 experiments/issue-3785/native-gemini/verify_shell_application.py /path/to/constructor-package "$package" --acp --terminal-resume --headless --output /path/to/new-package
+```
+
+The healthy control starts with an actual headless edit, deletes its entire
+private home, loads the recorded session through a fresh actual ACP, adds a later
+prompt and restores the saved checkpoint. Both the edited file and an untouched
+companion return to their original contents without inference. The next actual
+provider request includes the original prompt and excludes the later prompt.
+After deleting that private home, a third actual headless CLI resumes the same
+restored history while retaining the complete preceding conversation audit.
+
+Each engine also has startup and live metadata-damage controls. The live control
+first completes a healthy edit, then damages its checkpoint while a real resumed
+model request returns another edit. That edit and further inference must refuse,
+preserving the protected project and damaged audit bytes. Startup damage must
+refuse before another model request or project change.
+The no-selector controls require original native private recording and editing
+without canonical history writes. The combined fresh reconstruction applies
+twenty-one checked stages and compares seventeen native files. CI retains both
+strict before failures and repeats both complete headless restore cycles on the
+fresh reconstruction. These controls do not complete all child/subagent writers,
+interrupted/power-loss durability, migration, backend lifecycle or production
+installation.

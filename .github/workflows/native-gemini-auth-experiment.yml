@@ -15,6 +15,7 @@ on:
       - 'experiments/issue-3785/native_process_group.py'
       - 'experiments/issue-3785/gemini_restorable_tui.py'
       - 'experiments/issue-3785/gemini_restorable_acp.py'
+      - 'experiments/issue-3785/gemini_restorable_headless.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 
@@ -378,6 +379,28 @@ jobs:
           python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-after.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-after-control.log" 2>&1
+      - name: Reproduce missing headless checkpoints after healthy edits in both native engines
+        run: |
+          for engine in legacy agent; do
+            if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-before.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log" 2>&1; then
+              echo 'The native headless checkpoint regression unexpectedly passed before repair.'
+              exit 1
+            fi
+            grep -F 'PASS: actual headless native CLI completes its real write_file edit and subsequent inference.' "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log"
+            grep -F 'AssertionError: Actual headless native edits must acknowledge their canonical restorable checkpoint.' "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log"
+          done
+      - name: Bind both native headless checkpoint writers and verify complete restore cycles
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package"
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-after.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-after-control.log" 2>&1
+            for state in live-metadata-schema startup-metadata-schema; do
+              python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-$state.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-$state-control.log" 2>&1
+            done
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-private.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-private-control.log" 2>&1
+          done
       - name: Verify actual ACP restore, third-process resume and audit retention
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
       - name: Verify native replace, automatic edits and cancellation
@@ -396,12 +419,15 @@ jobs:
             python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
           done
           python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
-      - name: Rebuild all twenty stages and require identical tested native source
+      - name: Rebuild all twenty-one stages and require identical tested native source
         run: |
-          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-fresh.log" > "$RUNNER_TEMP/gemini-acp-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh-control.log" 2>&1
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh-control.log" 2>&1
+          done
       - name: Preserve native metadata, terminal and authentication behavior
         run: |
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli

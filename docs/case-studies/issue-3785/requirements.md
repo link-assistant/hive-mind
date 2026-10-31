@@ -722,3 +722,14 @@ rename exclusion and fresh-process rollback remain OPEN. Measured component
 overhead is material and is reported in
 `evidence/sqlite-operation-recovery.txt` and
 `experiments/issue-3785/NATIVE_SQLITE_OPERATION_PLAN.md`.
+
+A7 SQLite startup follow-up: actual optimized `codex exec` still sends a model
+request when a valid canonical database has an unusable native migration table.
+The strict selected control fails before repair; the ordinary control confirms
+the existing fallback. A separate draft refuses the selected native init error
+branch before returning an absent runtime. Its exact-function fixture fails
+before repair and passes all six controls afterward, including a full diagnostic
+pipe and missing stderr. Actual newly compiled native, optimized, installed and
+final-image after controls remain OPEN; the running `7d09cacbe` workflow predates
+this additional patch. See `evidence/sqlite-startup-fallback.txt`. This finding
+and focused draft do not complete A7 or the wider canonical-storage criteria.

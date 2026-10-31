@@ -253,3 +253,35 @@ against the preceding optimized CLI. The experimental workflow requires the
 selected control before and after the guard and the ordinary control afterward.
 This host-process check does not substitute for the required Docker lifecycle
 matrix or prove full conversation storage.
+
+## Selected startup fallback
+
+The actual optimized CLI also sends a model request after native SQLite
+migration fails. A minimal valid database containing only
+`CREATE TABLE _sqlx_migrations(version INTEGER PRIMARY KEY)` reproduces native
+`no such column: checksum`. The selected strict real-process control fails:
+the healthy and unusable-schema cases both send one synthetic model request.
+The ordinary control retains its existing fallback. These are confined actual
+`codex exec` invocations, not an HTTP-client imitation.
+
+The root cause is `codex-rollout::state_db::init`: it logs every runtime
+initialization error and returns None, allowing execution without that state.
+The draft `apply_sqlite_startup.py` refuses the selected Linux error branch
+before returning. It writes a constant bounded diagnostic through nonblocking
+stderr and calls `_exit(78)` to avoid native cleanup writers. Ordinary errors
+and both healthy modes retain their prior behavior.
+
+The exact extracted native init function fails its strict constructor-fixture
+control before repair. All six controls pass afterward: both healthy modes,
+ordinary fallback, selected refusal, a full diagnostic pipe and a missing stderr
+descriptor. The fixture replaces the runtime constructor and libc declarations;
+it executes the real error branch and Linux descriptor operations. It does not
+prove full native execution or SQLx integration. The experimental workflow now
+requires paired actual-CLI failures and strict after/ordinary controls; the
+currently running `7d09cacbe` workflow predates this additional patch.
+
+- [x] Reproduce selected native model execution after a SQLite migration error.
+- [x] Verify actual ordinary behavior and the exact init function before/after.
+- [ ] Verify the newly compiled CLI refuses before a model request.
+- [ ] Include this policy in the admitted production inventory and every native
+      release, installed-package and final-image control after native verification.

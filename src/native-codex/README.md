@@ -29,6 +29,10 @@ npm archive on both native machines and run authentication/model request control
 through that module's installed generation. These compiled-package checks have
 not yet run.
 
-Release publication, image/host command activation and removal of the launcher's
-credential copy remain required before this adapter can replace the stock
-production CLI. This build foundation does not complete those acceptance criteria.
+The normal and instant npm release jobs, and branch-package image checks, now
+require the same successful native build and assemble its two platform artifacts.
+The publish command verifies a fresh actual npm archive after any version commit
+or pull, refusing missing platforms and stale recipe/source identities. This
+release wiring has not yet run. Image/host command activation and removal of the
+launcher's credential copy remain required before this adapter can replace the
+stock production CLI. This foundation does not complete those acceptance criteria.

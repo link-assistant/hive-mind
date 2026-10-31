@@ -17,7 +17,8 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       package produced by the installed npm artifact.
 - [x] Wire verified command installation and installed-runtime byte admission
       into both image variants. Preserve native dependency resolution.
-- [ ] Verify the image changes in both required branch-package Docker builds.
+- [x] Verify the Gemini image changes in both required branch-package Docker
+      builds at 6c422b57; preserve complete logs and installed native controls.
 - [ ] Integrate default selected storage, launcher admission and restored-state
       validation; preserve private configuration and migrate native state safely.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
@@ -26,6 +27,10 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       finite-retention CI artifacts are not a runtime distribution service.
       Assembly now verifies both platform identities and the actual npm file
       allowlist; complete compiled-artifact CI and production activation remain.
+      Normal/instant publication and branch image checks now require that same
+      build and assemble both platforms. A fresh actual npm archive check runs
+      immediately before publication, including after any version commit/pull.
+      This new release wiring still requires its first complete CI execution.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

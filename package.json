@@ -31,7 +31,7 @@
     "format:check": "prettier --check \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "changeset:publish": "npm run build:pre && changeset publish",
+    "changeset:publish": "npm run build:pre && node scripts/verify-native-codex-publish.mjs && changeset publish",
     "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/hive-models.mjs && chmod +x src/telegram-bot.mjs && chmod +x src/close-linked-issues.mjs",
     "prepare": "husky"
   },

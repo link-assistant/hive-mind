@@ -397,6 +397,11 @@ function isExcludedFromCodeChanges(filePath) {
 // sync with LOCKFILE_AGENTS in scripts/check-package-manager.lib.mjs (issue #2198).
 const PACKAGE_MANIFEST_PATTERN = /^(package-lock\.json|npm-shrinkwrap\.json|bun\.lock|bun\.lockb|deno\.lock|nub\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|yarn\.lock|aube-lock\.yaml|aube-workspace\.yaml)$/;
 
+/** Native source/build/probe updates invalidate installed-image evidence too. */
+export function isNativeCodexBuildInput(file) {
+  return /^(scripts\/(build-native-codex\.py|verify-native-codex-publish\.mjs)|experiments\/issue-3785\/(native-codex\/.+|test_native_codex_build\.py|probe_native_codex_(preparation|package)\.py|probe-(packaged-native-codex|codex-native-[^/]+)\.mjs|native-request-proxy\.mjs))$/u.test(file);
+}
+
 /**
  * Main function to detect changes
  */
@@ -438,7 +443,7 @@ async function detectChanges() {
   // Dockerfile is unchanged. An incremental source-only update must not skip
   // the stock/runtime and both-daemon mount gates (issue #3785).
   const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
-  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file));
+  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file) || isNativeCodexBuildInput(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
 
   // Detect helm chart changes

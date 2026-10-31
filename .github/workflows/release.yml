@@ -398,13 +398,25 @@ jobs:
         run: |
           node tests/docs-validation.mjs
           node tests/test-docs-language-sync.mjs
+  native-codex-build:
+    name: Verified native Codex package
+    needs: [detect-changes, changeset-check]
+    if: |
+      !cancelled() &&
+      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' ||
+       (github.ref == 'refs/heads/main' &&
+        ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') ||
+         (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))))
+    uses: ./.github/workflows/native-codex-build.yml
   docker-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits, native-codex-build]
     # Verify changed PR images and every publication candidate before npm release.
     if: |
       !cancelled() &&
+      needs.native-codex-build.result == 'success' &&
       !contains(needs.*.result, 'failure') &&
       (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
       (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
@@ -425,6 +437,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-codex-runtime-*
+          path: ${{ runner.temp }}/native-codex-downloads
+      - name: Admit the same-run native package before building either image
+        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
       - name: Verify Docker release-order contract
         run: |
           echo "Statically verifying: release Docker publish waits for npm availability"
@@ -492,8 +510,8 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   release:
     name: Release
-    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
-    if: ${{ !cancelled() && needs.docker-pr-check.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight, native-codex-build]
+    if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && needs.docker-pr-check.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
     # Post-publish verification may wait up to 25 minutes for npm to expose the
     # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough.
@@ -550,6 +568,12 @@ jobs:
         # Commits the bump directly to main with the checkout's built-in token;
         # no release pull request is opened (issue #2402).
         run: node scripts/version-and-commit.mjs --mode changeset
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-codex-runtime-*
+          path: ${{ runner.temp }}/native-codex-downloads
+      - name: Admit the same-run native payload before npm publication
+        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
         # (re-runs), OR package.json's version is missing from npm (issue #2175).
@@ -879,9 +903,9 @@ jobs:
         run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
   instant-release:
     name: Instant Release
-    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight, native-codex-build]
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
-    if: ${{ !cancelled() && needs.docker-pr-check.result == 'success' && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
+    if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && needs.docker-pr-check.result == 'success' && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
     # Same 25-minute post-publish verification window as the release job (issue #2923).
     timeout-minutes: 45
@@ -926,6 +950,12 @@ jobs:
           BUMP_TYPE: ${{ github.event.inputs.bump_type }}
           RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
         run: node scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-codex-runtime-*
+          path: ${{ runner.temp }}/native-codex-downloads
+      - name: Admit the same-run native payload before npm publication
+        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
         id: publish_npm
@@ -1316,6 +1346,7 @@ jobs:
       - test-execution
       - memory-check-linux
       - validate-docs
+      - native-codex-build
       - docker-pr-check
       - helm-pr-check
       - release-preflight

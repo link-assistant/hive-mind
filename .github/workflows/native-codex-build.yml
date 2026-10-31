@@ -1,21 +1,6 @@
 name: Native Codex release build
 
 on:
-  pull_request:
-    paths:
-      - 'scripts/build-native-codex.py'
-      - 'src/native-codex/**'
-      - 'src/native-codex-runtime.lib.mjs'
-      - 'tests/issue-3785-native-codex-runtime.test.mjs'
-      - 'experiments/issue-3785/native-codex/**'
-      - 'experiments/issue-3785/test_native_codex_build.py'
-      - 'experiments/issue-3785/probe_native_codex_preparation.py'
-      - 'experiments/issue-3785/probe_native_codex_package.py'
-      - 'experiments/issue-3785/probe-packaged-native-codex.mjs'
-      - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
-      - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
-      - 'experiments/issue-3785/native-request-proxy.mjs'
-      - '.github/workflows/native-codex-build.yml'
   workflow_call:
   workflow_dispatch:
 

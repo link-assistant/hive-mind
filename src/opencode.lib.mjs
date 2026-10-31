@@ -264,6 +264,7 @@ export const executeOpenCodeCommand = async params => {
 
     // Build OpenCode command
     let execCommand;
+    let routerStream;
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
@@ -367,6 +368,7 @@ export const executeOpenCodeCommand = async params => {
         execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --model ${mappedModel}`;
       }
 
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'opencode', env: opencodeEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -446,7 +448,7 @@ export const executeOpenCodeCommand = async params => {
         }
       };
 
-      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'opencode', env: opencodeEnv, cwd: tempDir, log })) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -663,6 +665,7 @@ export const executeOpenCodeCommand = async params => {
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'opencode', cwd: tempDir, env: opencodeEnv });
       // Clean up the opencode.json config file even on error
       try {
         await fs.unlink(opencodeConfigPath);
@@ -670,7 +673,6 @@ export const executeOpenCodeCommand = async params => {
         // Ignore cleanup errors
       }
 
-      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'opencode', cwd: tempDir, env: opencodeEnv });
       if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_opencode',

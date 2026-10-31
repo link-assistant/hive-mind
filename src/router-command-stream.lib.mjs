@@ -11,28 +11,45 @@ export function resolveRouterAuthenticationError(error, options) {
   return null;
 }
 
-/** Keep monitoring and the final security decision intact when a stream fails. */
-export async function* streamWithRouterAuthenticationGuard({ command, tool, env, cwd, log }) {
+/** Arm before any post-command await; close also covers unconsumed output. */
+export function streamWithRouterAuthenticationGuard({ command, tool, env, cwd, log }) {
   let stopping = Promise.resolve();
+  let stopRequested = false;
+  const stopCommand = () => {
+    if (!stopRequested) {
+      stopRequested = true;
+      stopping = Promise.resolve().then(() => command.kill?.('SIGKILL'));
+    }
+    return stopping;
+  };
   const guard = startRouterAuthGuard({
     tool,
     env,
     cwd,
     log,
-    onViolation: () => {
-      stopping = Promise.resolve().then(() => command.kill?.('SIGKILL'));
-      return stopping;
-    },
+    onViolation: stopCommand,
   });
-  try {
-    await guard.first;
-    if (!guard.violation) yield* command.stream();
-  } finally {
-    guard.stop();
+  const close = async ({ cancel = false } = {}) => {
     await guard.check();
+    if (cancel) stopCommand();
     await stopping.catch(() => {});
-    // Refuse even when the consumer returns early or an ordinary stream fails.
-    // eslint-disable-next-line no-unsafe-finally
-    if (guard.violation) throw Object.assign(new Error(formatRouterAuthViolation(guard.violation)), { code: 'ROUTER_AUTH_VIOLATION', routerAuthViolation: guard.violation });
-  }
+    guard.stop();
+    return guard.violation ? Object.assign(new Error(formatRouterAuthViolation(guard.violation)), { code: 'ROUTER_AUTH_VIOLATION', routerAuthViolation: guard.violation }) : null;
+  };
+  const stream = (async function* () {
+    let completed = false;
+    try {
+      await guard.first;
+      if (!guard.violation) {
+        yield* command.stream();
+        completed = true;
+      }
+    } finally {
+      const error = await close({ cancel: !completed });
+      // Refuse even when the consumer returns early or an ordinary stream fails.
+      // eslint-disable-next-line no-unsafe-finally
+      if (error) throw error;
+    }
+  })();
+  return Object.assign(stream, { close });
 }

@@ -574,6 +574,7 @@ export const executeQwenCommand = async params => {
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
     let sessionId = argv.resume || null;
+    let routerStream;
 
     try {
       if (argv.useRouter === true) qwenEnv.HIVE_MIND_USE_ROUTER = '1';
@@ -584,6 +585,7 @@ export const executeQwenCommand = async params => {
         env: qwenEnv,
       });
       const execCommand = isRouterAuthGuardRequired(qwenEnv) ? launch`sh -c ${commandScript}` : launch`sh -lc ${commandScript}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'qwen', env: qwenEnv, cwd: tempDir, log });
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -600,7 +602,7 @@ export const executeQwenCommand = async params => {
       let allOutput = '';
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'qwen', env: qwenEnv, cwd: tempDir, log })) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -792,7 +794,7 @@ export const executeQwenCommand = async params => {
         resultSummary,
       };
     } catch (error) {
-      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'qwen', cwd: tempDir, env: qwenEnv });
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'qwen', cwd: tempDir, env: qwenEnv });
       if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_qwen',

@@ -482,6 +482,7 @@ export const executeGeminiCommand = async params => {
     let limitResetTime = null;
     let lastMessage = '';
     let plainTextError = null;
+    let routerStream;
 
     try {
       // Issue #1809: feed the prompt directly to gemini-cli stdin via command-stream
@@ -495,6 +496,7 @@ export const executeGeminiCommand = async params => {
         mirror: false,
         env: geminiEnv,
       })`${toolInvocation.command} ${geminiArgList}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'gemini', env: geminiEnv, cwd: tempDir, log });
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -507,7 +509,7 @@ export const executeGeminiCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'gemini', env: geminiEnv, cwd: tempDir, log })) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -708,7 +710,7 @@ export const executeGeminiCommand = async params => {
         resultSummary: geminiJsonState.resultSummary || null,
       };
     } catch (error) {
-      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'gemini', cwd: tempDir, env: geminiEnv });
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'gemini', cwd: tempDir, env: geminiEnv });
       if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_gemini',

@@ -183,6 +183,8 @@ Admission also derives the expected native API credential and endpoint from the 
 
 Agent, OpenCode, Gemini and Qwen also check their final launch environment before new commands, resumes and connection probes. They monitor the listed shared credential files while consuming output and preserve security refusals through stream or output-processing errors, without ordinary retry. Routed Qwen commands skip shell login profiles. Shared connection dispatch and Hive startup carry explicit Router selection through admission, including Formal AI availability checks; startup refusals retain exit 77. Additional tool-specific credential stores, native in-memory authority and durable Router audit remain unfinished.
 
+Agent, OpenCode, Gemini and Qwen arm this file monitoring immediately after command creation, before input attachment or logging. A detected violation remains a security refusal if its file disappears before error handling. An abandoned command is cancelled before monitoring closes, including when logging fails before output consumption. These controls cover bounded process-group cleanup; they do not establish complete native request mediation.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

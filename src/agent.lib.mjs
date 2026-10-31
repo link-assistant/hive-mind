@@ -580,6 +580,7 @@ export const executeAgentCommand = async params => {
 
     // Build Agent command
     let execCommand;
+    let routerStream;
     let bidirectionalHandler = null;
     let bidirectionalHandlerFinalized = false;
     let queuedFeedback = [];
@@ -658,6 +659,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
         const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
         if (!attached) {
           throw new Error('Agent live stream-json input requested, but stdin attachment failed');
@@ -670,6 +672,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -840,7 +843,7 @@ export const executeAgentCommand = async params => {
         }
       };
 
-      for await (const chunk of streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log })) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await handleAgentStreamEvents(stdoutScanner.write(output));
@@ -1175,7 +1178,7 @@ export const executeAgentCommand = async params => {
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
-      const authenticationError = resolveRouterAuthenticationError(error, { tool: 'agent', cwd: tempDir, env: agentEnv });
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'agent', cwd: tempDir, env: agentEnv });
       if (authenticationError) {
         await finalizeAgentBidirectionalHandler();
         return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };

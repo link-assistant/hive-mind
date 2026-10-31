@@ -138,6 +138,8 @@ Router वाले Codex commands shell की login profile लोड नह�
 
 Agent, OpenCode, Gemini और Qwen भी नई command, resume और connection probe से पहले अंतिम launch environment जाँचते हैं। आउटपुट पढ़ते समय वे ऊपर दी गई साझा credential फ़ाइलों की निगरानी करते हैं; stream या आउटपुट processing की त्रुटि आने पर भी सुरक्षा अस्वीकृति बनी रहती है और सामान्य retry नहीं होता। Router वाले Qwen commands shell login profile लोड नहीं करते। साझा connection dispatch और Hive startup स्पष्ट Router चयन को admission तक पहुँचाते हैं, जिसमें Formal AI availability जाँच भी शामिल है; startup अस्वीकृति का exit code 77 रहता है। अन्य tool-specific credential stores, native CLI की memory में credentials का नियंत्रण और टिकाऊ Router audit अभी अधूरे हैं।
 
+Agent, OpenCode, Gemini और Qwen कमांड बनते ही इन फ़ाइलों की निगरानी शुरू करते हैं, इनपुट जोड़ने या लॉग लिखने से पहले। त्रुटि सँभालने से पहले फ़ाइल मिट जाने पर भी पाया गया उल्लंघन सुरक्षा अस्वीकृति बना रहता है। छोड़ी गई कमांड निगरानी बंद होने से पहले रद्द की जाती है, आउटपुट पढ़ने से पहले लॉग विफल होने पर भी। ये जाँचें सीमित प्रक्रिया समूह की सफ़ाई को परखती हैं; पूर्ण नेटिव अनुरोध नियंत्रण अभी अधूरा है।
+
 ## अभी क्या कवर नहीं है
 
 राउटर वाला हर रन शुरू होने से पहले यही सूची छापता है। ये प्रयोगात्मक स्थिति की ईमानदार सीमाएँ हैं:

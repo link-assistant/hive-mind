@@ -605,3 +605,13 @@ files are monitored while consuming output. Full tool-specific credential stores
 native in-memory authority, request mediation and the complete Router durable
 audit/lifecycle contract remain OPEN. See
 `evidence/router-extra-native-admission.txt` for the exact verification scope.
+
+The four additional Router adapters now arm monitoring at command creation,
+before input attachment or logging, and stop abandoned commands before closing
+it. A detected violation remains sticky after its file disappears. All 50 strict
+before controls fail: 48 mocked new/resume/selection/error cases and two actual
+Agent command-stream startup controls with finite parent/child processes. These
+all pass after the repair. Ordinary command construction is lazy; the real
+process control specifically exercises Agent's stdin attachment. Claude/Codex
+lifetime, full native authority and every broader criterion above remain OPEN.
+See `evidence/router-command-lifetime.txt` for exact validation and limits.

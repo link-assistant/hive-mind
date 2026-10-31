@@ -179,3 +179,8 @@ and stream errors, monitor listed shared credential files, and skip login
 profiles for routed Qwen commands. Forward explicit Router selection through
 shared connection checks and preserve Hive startup exit 77. Full native
 credential-store authority and durable Router audit remain unfinished.
+
+Arm Router monitoring before post-command input/logging awaits in Agent,
+OpenCode, Gemini and Qwen. Retain detected violations after file removal and
+stop abandoned commands before closing their guard. Add bounded real
+parent/child cleanup controls for Agent's actual streaming-input startup.

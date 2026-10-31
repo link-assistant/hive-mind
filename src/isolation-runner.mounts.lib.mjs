@@ -23,7 +23,6 @@ function toolMountSource(entry, tool, env, homeDir) {
 }
 const nativeStorageSelectors = new Map([
   ['codex', ['CODEX_AUTH_HOME', 'CODEX_SQLITE_HOME', 'CODEX_ROLLOUT_HOME', 'CODEX_SESSION_INDEX_HOME', 'CODEX_MESSAGE_HISTORY_HOME', 'CODEX_ROLLOUT_MAINTENANCE_HOME']],
-  ['gemini', ['GEMINI_AUTH_HOME', 'GEMINI_HISTORY_HOME']],
   ['qwen', ['QWEN_AUTH_HOME']],
 ]);
 function admitNativeStorageProjection(tool, env, useRouter) {
@@ -123,7 +122,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
       await maybeAddMount(mounts, source, target, exists);
     }
   }
-  if (nativeAuth) mounts.push(nativeAuth.mount);
+  if (nativeAuth) mounts.push(...(nativeAuth.mounts || [nativeAuth.mount]));
   const dataMount = !useRouter && toolDataMount({ tool: normalizedTool, homeDir, env });
   if (dataMount) {
     if (!(await exists(dataMount.source))) throw new Error('Shared tool data storage is missing; private data fallback is prohibited.');

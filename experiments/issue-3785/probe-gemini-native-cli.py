@@ -32,6 +32,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
+parser.add_argument('--docker-storage', action='store_true')
+parser.add_argument('--docker-launcher', type=Path)
+parser.add_argument('--docker-network')
+parser.add_argument('--docker-experimental', action='store_true')
 parser.add_argument('--storage-identity', choices=('correct', 'auth-mismatch', 'history-mismatch'))
 parser.add_argument('--history-plan', action='store_true')
 parser.add_argument('--history-plan-attack', choices=('missing', 'content-change', 'symlink', 'unsafe-mode'))
@@ -82,6 +86,8 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
+assert not args.docker_storage or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'docker_storage', 'docker_launcher', 'docker_network', 'docker_experimental'))
+assert not (args.docker_launcher or args.docker_network or args.docker_experimental) or args.docker_storage
 assert not args.storage_identity or not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'storage_identity'))
 assert args.storage_identity != 'history-mismatch' or args.history
 assert not args.history_plan or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_plan', 'history_plan_attack', 'history_plan_interruption', 'history_plan_point', 'private_history'))
@@ -278,9 +284,14 @@ try:
     # Copy entrypoints and chunks: symlinked JS would resolve imports against
     # the original package and silently bypass the inspected adapter.
     native = root / 'native'
-    native.mkdir(mode=0o700)
-    shutil.copyfile(package / 'package.json', native / 'package.json')
-    shutil.copytree(package / 'bundle', native / 'bundle', symlinks=False)
+    if args.docker_storage:
+        # Retain the complete verified manifest/upstream inventory on the
+        # fixture bind so host-socket peers can attest their actual native bytes.
+        shutil.copytree(package, native, symlinks=False)
+    else:
+        native.mkdir(mode=0o700)
+        shutil.copyfile(package / 'package.json', native / 'package.json')
+        shutil.copytree(package / 'bundle', native / 'bundle', symlinks=False)
     home, canonical, workspace = [root / name for name in ('home', 'canonical', 'workspace')]
     for directory in (home, canonical, workspace):
         directory.mkdir(mode=0o700)
@@ -338,6 +349,10 @@ try:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(certificate, key)
 
+    accepted_authorizations = {'Bearer synthetic-access-G0'}
+    if args.docker_storage:
+        accepted_authorizations.update({'Bearer synthetic-access-G1', 'Bearer synthetic-access-G2'})
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
 
@@ -384,13 +399,13 @@ try:
                 body = self.rfile.read(length)
                 if target.path == '/tokeninfo':
                     assert not body and not target.query
-                    assert self.headers.get('Authorization') == 'Bearer synthetic-access-G0'
+                    assert self.headers.get('Authorization') in accepted_authorizations
                     self.send(200, {'expires_in': 3600, 'scope': 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email'})
                 elif target.path == '/oauth2/v2/userinfo':
-                    assert self.headers.get('Authorization') == 'Bearer synthetic-access-G0'
+                    assert self.headers.get('Authorization') in accepted_authorizations
                     self.send(200, {'email': 'synthetic@example.invalid'})
                 elif target.path.startswith('/v1internal:'):
-                    assert self.headers.get('Authorization') == 'Bearer synthetic-access-G0'
+                    assert self.headers.get('Authorization') in accepted_authorizations
                     operation = target.path.split(':', 1)[1]
                     payload = json.loads(body) if body else {}
                     if operation == 'loadCodeAssist':
@@ -412,6 +427,8 @@ try:
                                        'full_artifact': tool_middle in content,
                                        'blob_reference': '/degraded-blobs/' in content,
                                        'native_blob_response': native_blob_response(payload['request']['contents'])})
+                        if args.docker_storage:
+                            models[-1]['credential_generation'] = self.headers['Authorization'][-2:]
                         phase = 'resume' if second_prompt in content else 'initial'
                         if args.history_plan and operation == 'streamGenerateContent':
                             from gemini_plan_history import plan_tool_call
@@ -864,6 +881,16 @@ try:
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors
+        safe_cleanup = True
+        raise SystemExit(0)
+
+    if args.docker_storage:
+        from gemini_docker_storage import verify_docker_storage
+        verify_docker_storage(args=args, package=native, home=home, canonical=canonical,
+                              history=history, workspace=workspace, certificate=certificate,
+                              managed=managed, settings=settings, env=env,
+                              first_prompt=first_prompt, second_prompt=second_prompt,
+                              children=children, completions=completions, errors=errors)
         safe_cleanup = True
         raise SystemExit(0)
 

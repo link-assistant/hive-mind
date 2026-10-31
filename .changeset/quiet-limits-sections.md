@@ -225,10 +225,19 @@ launcher-admitted directory identities. Refuse mismatched or malformed markers
 before inference and retain initial selectors/identities across native account,
 authentication and history operations. Verify the exact npm-installed adapter
 with independent source reconstruction and native before/after controls.
-Selected Docker projection and default canonical migration remain unfinished.
+Default canonical migration and the complete Docker lifecycle remain unfinished.
 
 Admit selected native Gemini commands and canonical storage before connection
 probes or task preparation. Forward retained directory identities and recheck
 native bytes, credentials and selected authority before execution and retries.
 Preserve typed refusals through connection and retry handling; verify the
 production launcher against the extracted npm artifact with real dependencies.
+
+Project selected native Gemini authentication and conversation parent directories
+independently into Docker tasks. Reuse canonical credential admission, retain
+directory identities through daemon mount-source resolution, and preserve private
+configuration, Router suppression and refusals for unsupported selectors.
+Exercise actual native conversation resume and external credential publication
+with two live Docker peers; require the installed-image control in both daemon
+layouts. Default migration, concurrent native refresh and the complete storage
+lifecycle remain unfinished.

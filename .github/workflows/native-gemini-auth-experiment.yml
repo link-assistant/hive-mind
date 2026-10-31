@@ -33,6 +33,10 @@ on:
       - 'experiments/issue-3785/gemini_live_audit.py'
       - 'experiments/issue-3785/gemini_live_audit_interactive.py'
       - 'experiments/issue-3785/gemini_live_summary.py'
+      - 'experiments/issue-3785/gemini_docker_storage.py'
+      - 'experiments/issue-3785/verify-gemini-docker-storage.mjs'
+      - 'src/isolation-runner*.mjs'
+      - 'src/native-auth-docker.lib.mjs'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
 permissions:

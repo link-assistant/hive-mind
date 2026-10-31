@@ -1219,6 +1219,12 @@ and ACP refuse response delivery and a subsequent real prompt without a third
 model request or protected-state changes. See
 [streaming evidence](evidence/native-gemini-stream-admission.txt).
 
+The actual ACP/restore CI job passes these twenty-four source stages at
+`e375e9df5070`, including strict before failures, actual refusal, fresh package
+reconstruction and interruption controls. All 418 diagnostic files are retained;
+see [source-stage CI evidence](evidence/ci-e375e9df5-gemini.txt). The overall
+workflow fails four earlier-stage suite-selection checks, corrected separately.
+
 All eight workflows pass at the preceding pushed head `533cc3a20c01`, including
 739 default test files, both integration files, installed host/nested Docker
 checks, six Gemini jobs and all three compiled Codex jobs. See

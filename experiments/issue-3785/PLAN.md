@@ -1256,7 +1256,7 @@ Latest CI continuation:
       this startup/discovery boundary from interrupted asynchronous resumeChat,
       checkpoint publication and physical power-loss paths, which remain open.
 
-- [ ] Publish the delayed/interrupted lock admission controls after focused
+- [x] Publish the delayed/interrupted lock admission controls after focused
       checks; require their strict native before and both fresh-source controls
       in new exact-head Node 24 CI. Preserve the current compiled CI first.
 
@@ -1273,7 +1273,7 @@ Latest CI continuation:
       Python AST, formatting, actionlint/ShellCheck, file limits, secret scanning
       and whitespace checks pass. The final actual rollback check also verifies
       the substituted audit inode is unchanged on refusal.
-- [ ] Commit/push the evidence stage and require strict before, legitimate peer,
+- [x] Commit/push the evidence stage and require strict before, legitimate peer,
       actual refusal and fresh-source controls in exact-head Node 24 CI.
       Persisted fresh-process rollback authority and publication/power-loss
       coverage remain unfinished.
@@ -1297,8 +1297,12 @@ Latest CI continuation:
 - [x] Finish reconstructed-package metadata 54, shell 28, authentication
       41/30/11 and delayed/interrupted admission 2/3 checks. All subprocesses
       finish successfully; local static checks pass.
-- [ ] Commit/push streaming admission and verify all fresh exact-head CI jobs.
-      Complete the remaining acceptance inventory.
+- [x] Commit/push streaming admission; its actual ACP/restore job passes at
+      e375e9df5070, including all new before/after/fresh controls. Preserve all
+      418 artifacts, 66 control logs and 60 network logs without errors.
+- [ ] Require all eight workflows at the corrected suite/child-restore head.
+      Complete the remaining acceptance inventory. The e375 workflow fails four
+      earlier-stage suite-selection mismatches; it is not an all-green result.
 
 - [x] Investigate CI at e375e9df5: preserve completed history/tracker/Git/restore
       job logs and artifacts. All four fail because the shared base suite runs

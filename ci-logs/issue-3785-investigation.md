@@ -1363,3 +1363,20 @@ streaming repairs; they establish no production/all-six completion claim.
 - Local complete suites pass 65/65/69 on the base, child and retained-evidence
   helpers respectively. Native source is unchanged by this CI repair. New
   exact-head CI remains required; broad production criteria remain unfinished.
+
+2026-10-31, e375e9df5070 completed Gemini source-stage evidence:
+- The ACP/restore and credential-read jobs pass; the overall workflow fails the
+  four earlier-stage suite-selection mismatches documented above. Preserve its
+  full 3,674-line log and review it in chunks of at most 1,500 lines.
+- Download all 418 ACP artifact files. Its 66 control logs contain 17 expected
+  strict before failures and no unexpected assertions; all 60 network logs have
+  no errors. Fresh reconstruction verifies twenty-four checked stages and all
+  seventeen identical native files. Streaming refusal, complete evidence,
+  legitimate peer metadata, delayed/interrupted admission and surrounding
+  metadata/shell/authentication checks pass at the exact pushed SHA.
+- Artifact 13028532375 has SHA-256
+  1453b0b521c5ac5d51892c1cb159520f47fafa4fbaa3c39b88b3e179cd0c7826.
+  See docs/case-studies/issue-3785/evidence/ci-e375e9df5-gemini.txt.
+- Suite selection and child restore coverage are pushed at e51270e05e88.
+  All eight new workflows are created 03:38:35Z at that exact SHA; their results
+  remain pending. Complete production/lifecycle acceptance remains unfinished.

@@ -84,6 +84,13 @@ for (const alias of ['symlink', 'hardlink']) {
   process.stdout.write(result.stdout);
 }
 
+for (const mutation of ['none', 'logout', 'replace', 'malformed']) {
+  const file = fileURLToPath(new URL('probe-codex-native-limits-generation.py', import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute('python3', [file, command, '--mutation', mutation], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
+
 await verifyNativeCodexCommand({ command });
 const capabilityProbe = fileURLToPath(new URL('probe-codex-native-capability-auth.mjs', import.meta.url));
 // JITless avoids V8's large executable reservation under the inherited data

@@ -118,3 +118,8 @@ Refuse Docker launches that would drop explicitly selected native Codex, Gemini
 or Qwen authentication/history storage and mount a competing conventional
 source. Preserve explicit Router selection and reject before preparing host
 state. Complete native Docker projections and default migration remain open.
+
+Bind selected native Codex account usage requests to their captured credential
+revision and refuse retired responses after logout, credential replacement or
+malformed authority. Require actual process controls through development,
+optimized, installed-package and both image verification paths.

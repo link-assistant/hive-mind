@@ -494,3 +494,13 @@ validation; removing that fixture setting restores actual compression, peer
 reads and resume after private-home disposal with the identical compiled binary.
 Optimized distribution, operation leases and full lifecycle criteria remain open.
 See `evidence/ci-a3ca1a1a8-native.txt` for exact CI attribution and diagnostics.
+
+A12 also has a distinct native endpoint regression: the actual a3 development
+CLI returns pending G0 usage after logout, atomic replacement or malformed
+selected authentication. All three strict process controls reproduce before
+repair. The pinned adapter now captures the native auth revision with its
+credentials and checks it before dispatch and response publication. The same
+real-process controls are required by development, optimized, installed-command
+and both image checks. Compiled verification is pending; full default authority,
+operation leases and lifecycle acceptance remain open. See
+`evidence/codex-native-limits-generation.txt`.

@@ -39,11 +39,20 @@ verification and removal of the launcher's credential copy remain required
 before this adapter can replace the stock production CLI. This foundation does
 not complete those acceptance criteria.
 
-The current recipe reproduces 35 changed native source files. It includes
+The current recipe reproduces 36 changed native source files. It includes
 startup SQLite database/journal file admission and strict app-server handling
 when canonical history is selected. The latter prevents upstream default-config
 recovery from swallowing a storage-admission error. These changes have focused
-filesystem, packaging and actual existing-policy controls; freshly compiled
-automatic-policy and optimized installed-package verification remain pending.
+filesystem and packaging controls. The actual development CLI passes automatic
+strict-policy controls; optimized installed-package verification remains pending.
 See the case study's `evidence/codex-sqlite-fallback.txt` and
-`evidence/ci-6282876-native-experiments.txt` for exact before evidence and limits.
+`evidence/ci-a3ca1a1a8-native.txt` for exact evidence and limits.
+
+Selected native account usage requests capture credentials and their auth
+revision together. They revalidate that revision before dispatch and response
+publication, refusing retired usage after logout, replacement or malformed
+canonical credentials. The actual prior CLI reproduces all three failures;
+development, optimized, installed-command and both image checks require the
+same real-process controls. Compiled verification of this new guard is pending.
+This does not establish a filesystem operation lease or complete default
+canonical selection. See `evidence/codex-native-limits-generation.txt`.

@@ -76,6 +76,13 @@ jobs:
           for alias in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$CODEX_NATIVE_EXPERIMENT" --alias "$alias" > "$RUNNER_TEMP/native-release-sqlite-$alias.log" 2>&1
           done
+      - name: Reject retired usage responses in the optimized native package
+        env:
+          CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex
+        run: |
+          for mutation in none logout replace malformed; do
+            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$CODEX_NATIVE_EXPERIMENT" --mutation "$mutation" > "$RUNNER_TEMP/native-release-limits-$mutation.log" 2>&1
+          done
       - name: Preserve native build and request diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

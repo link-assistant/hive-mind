@@ -6,12 +6,13 @@
   "rustToolchain": "1.99.1",
   "profile": "release",
   "maxBinaryBytes": 201326592,
-  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority"],
+  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority", "limits_generation"],
   "inputs": {
     "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",
     "apply_cached_reads.py": "fa47213861bf68cb5fcfaebfa14b55f6ccea884ff6d4437f3103ddeb9b4ead99",
     "apply_coordination.py": "abac17643689e02c978797afe973c7262b7e7c7a67d3eb42943908f2b0531258",
     "apply_identity_publication.py": "1fdeb44a46027fabb79f45ae9de84c788cccedf18a41940803afb51275f7460e",
+    "apply_limits_generation.py": "7319895ef2361d0d3942d90d70a1001bb31a2bec5d7ffedfe114ad7208f1b04b",
     "apply_maintenance.py": "5d6e9ca73424c70738b28fe2929c354f146e25986b671e435db69c78b67e6c69",
     "apply_message_history.py": "f602ed959aa32f7140cf7cdb39ea507e307c34c8af0571d0b229a3bd67a78836",
     "apply_migration_journals.py": "27a8c1b169d59062fe3fd52997c09cd7db86a9fffb072ecb78ae1cf6d02fd181",
@@ -82,5 +83,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "bcfced32f555cba845ac90993647541df2cf293a7d10cb0d5eedbd2b8ef92d15"
+  "sourceInventorySha256": "fa7482276476bd9370224b49288d79c4bc3570e7b527c8fc726a9a2c4e730c6a"
 }

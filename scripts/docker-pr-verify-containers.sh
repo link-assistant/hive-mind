@@ -47,13 +47,17 @@ docker run --rm --privileged \
   bash /verify-docker-image.sh
 
 for verified_image in "${IMAGE_NAME}:test" "${DIND_IMAGE_NAME}:test"; do
-  echo "Checking installed Formal AI configuration preserves selected Codex auth: ${verified_image}"
+  echo "Checking installed Formal AI configuration and native Codex usage authority: ${verified_image}"
   docker run --rm --network none \
     -v "$(pwd)/experiments/issue-3785/probe-formal-ai-codex-auth.mjs:/probe-formal-ai-codex-auth.mjs:ro" \
+    -v "$(pwd)/experiments/issue-3785/probe-codex-native-limits-generation.py:/probe-codex-native-limits-generation.py:ro" \
     --entrypoint bash "${verified_image}" -c '
       set -euo pipefail
       native_hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")
       node --max-old-space-size=128 /probe-formal-ai-codex-auth.mjs "$(command -v formal-ai)" "$native_hive_root"
+      for mutation in none logout replace malformed; do
+        python3 /probe-codex-native-limits-generation.py "$(command -v codex)" --mutation "$mutation"
+      done
     '
 done
 

@@ -110,3 +110,9 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 
 Claude's owner-death refresh reproduction still needs an upstream native repair;
 the report is evidence of a blocker, not a completed acceptance criterion.
+
+- [x] Reproduce native usage response publication after selected credentials
+      retire: logout, replacement and malformed-file cases all fail strictly.
+- [ ] Pin and compile native generation admission; enforce actual healthy and
+      retired-response controls in development, both optimized platforms,
+      installed npm commands and both packaged images.

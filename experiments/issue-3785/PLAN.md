@@ -1480,3 +1480,15 @@ Latest CI continuation:
 - [x] Pass all 24 preserved-CLI post-admission control invocations after the
       fixture repair; review all 63 log lines with zero unexpected failures.
       Preserve complete a3 evidence. Keep current optimized builds running.
+
+- [x] Reproduce stale native usage after logout, replacement and malformed auth
+      with the actual a3 CLI; all three strict regression cases fail as expected.
+- [x] Pin generation admission in the native recipe and reproduce its complete
+      source inventory twice; verify packaging and workflow checks locally.
+- [x] Pass all 751 default files on unchanged final code with no OOM events;
+      review the complete 22574-line log in sixteen bounded chunks.
+- [ ] Require the real-process controls in development, optimized, installed
+      command and both image gates. Preserve existing optimized outputs before
+      pushing; verify the new guard with the freshly compiled CLI.
+- [ ] Complete remaining default selection, native writers, migration and the
+      six-tool lifecycle inventory; keep PR draft until every criterion passes.

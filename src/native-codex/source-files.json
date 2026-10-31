@@ -9,6 +9,11 @@
     "mode": 420,
     "sha256": "10b348713465bfb40d6b5a84719f2fe6692056cff7f546b0c3c3273518a5d0e7"
   },
+  "codex-rs/app-server/src/request_processors/account_processor.rs": {
+    "bytes": 64166,
+    "mode": 420,
+    "sha256": "03a7f87116f0ebcb82ea05ade3ca7311b2ab2756cf0b18647676378ec0003926"
+  },
   "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
     "bytes": 4910,
     "mode": 420,
@@ -50,9 +55,9 @@
     "sha256": "7a0780b1b347fd5a89235f8a43e0e328481723c7bd0ac6b61c16c111577a3b1d"
   },
   "codex-rs/login/src/auth/manager.rs": {
-    "bytes": 142002,
+    "bytes": 142465,
     "mode": 420,
-    "sha256": "ec69f361a1fdd1380a51c3423b810766c0586bf6a9102a12a20bc9face51fa5b"
+    "sha256": "38542e94195a33541471fe120a7037b51bada9f66e7e1812c1c957fde5d90b08"
   },
   "codex-rs/login/src/auth/storage.rs": {
     "bytes": 24171,

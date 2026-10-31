@@ -74,6 +74,13 @@ def run(binary, root, case):
             listed_after = AFTER in [item["name"] for item in listed["data"]]
         except native.NativeFailure as error:
             refused = error.error
+        except (AssertionError, BrokenPipeError):
+            # A native VFS refusal must terminate before checkpoint/atexit
+            # writers. Accept transport loss only with its exact process
+            # refusal, never a timeout, crash, generic error or killed fixture.
+            if child.child.poll() != 78 or REFUSAL not in child.diagnostic():
+                raise
+            refused = {"exitCode": 78, "message": REFUSAL}
         child.diagnostic()
     finally:
         child.stop()

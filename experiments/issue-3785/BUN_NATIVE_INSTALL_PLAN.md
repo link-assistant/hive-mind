@@ -17,7 +17,9 @@
       evidence. All affected tests pass; the full 766-file run has one unrelated
       intermittent help failure, whose original three-case entrypoint passes
       on rerun. Preserve both results, without claiming the invocation passed.
-- [ ] Commit and push the independently verified installation repair.
+- [x] Commit and push the independently verified installation repair (706b34b11,
+      included in 6d4275541). Fresh release run 41225226347 starts at
+      2026-10-31T17:34:56Z against that exact pushed head.
 - [ ] Inspect the next full Docker CI result against its exact head and time.
 
 This repairs package installation, not the separately reproduced native SQLite

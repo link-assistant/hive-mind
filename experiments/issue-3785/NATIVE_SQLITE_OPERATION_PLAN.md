@@ -1,7 +1,8 @@
 # Canonical SQLite operation lifetime
 
 This is a remaining acceptance boundary, separate from successful startup
-configuration and file-type admission. No implementation is claimed here.
+configuration and file-type admission. The component adapter below is a draft;
+the production recipe does not consume it.
 
 - [x] Trace the prepared pinned native configuration admission and the actual
       codex-state SQLite connection shim. Startup validates the root and existing
@@ -113,3 +114,71 @@ amalgamation compiler is limited to 384 MiB data, 8 MiB stack and thirty seconds
 fixture compilation and every test process remain limited to 128 MiB. This
 checks the source component with its common bundled build definitions, not the
 complete Codex dependency graph or its native executable.
+
+## Native connection callbacks and descriptor ownership
+
+- [x] Verify automatic connection hooks run before the initial PRAGMA and leave
+      ordinary connections alone, using the exact checked SQLite component.
+- [x] Inspect actual SQLite-owned main/SHM descriptors through the pinned Unix
+      FILESTAT control with its opt-in build flag. Keep SQLite responsible for
+      closing its own handles and preserve unrelated native progress handlers.
+- [x] Find every native progress-handler replacement: quick-check, integrity
+      checks and reclamation install their own deadline callbacks. A guard
+      installed only in that slot would be removed during healthy operation.
+- [x] Verify a separate statement/row/profile callback plus selected VFS checks
+      against every managed database, aliases, journals and concurrent peers.
+- [ ] Integrate the admitted adapter and exact compiler inputs into the checked
+      prepared source, source inventory, release recipe and all native gates.
+
+The eight `probe-sqlite-native-handles.py` controls pass against SQLite 3.51.3.
+The descriptor control deliberately does not claim cleanup-write refusal;
+`probe-sqlite-selected-vfs.py` is the separate draft statement/I/O integration.
+Its final 715 component controls pass: 57 healthy and 658 explicit refusals with
+exact preservation of the database, WAL and SHM bytes. These include every one of
+the seven databases, cached queries, retained transactions, initial PRAGMAs,
+read-only and replacement connections, native deadline-handler replacement,
+three threads, two concurrent WAL processes, and a verified file-backed scratch
+table. Production does not consume the draft yet.
+
+Official API references: [connection hooks](https://www.sqlite.org/c3ref/auto_extension.html),
+[FILESTAT and VFS controls](https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html)
+and [statement/row/profile events](https://www.sqlite.org/c3ref/c_trace.html).
+The trace callback return is ignored by SQLite, so an unsafe authority must
+produce an explicit process refusal rather than return a nonzero trace result.
+
+## Actual SQLx and configuration-lock controls
+
+`build_sqlite_vfs_control.py` builds only the adapter and real SQLx 0.9.0 with
+bundled libsqlite3-sys 0.37.0, not the Codex workspace. Each compiler has a
+512 MiB data limit and 16 MiB stack; jobs and incremental compilation are
+disabled or limited. The first build found a diagnostic-variable shadowing
+compile error, fixed before any runtime assertion was counted. No compiler was
+killed. `probe-sqlx-selected-vfs.py` passes all 20 query/close controls, preserving
+unsafe file bytes while healthy selected and ordinary in-memory connections
+work. The isolated crate's lock resolution is not the complete Codex graph.
+
+`probe-sqlite-config-lock.py` reproduces a second real defect: opening and
+closing an independent descriptor during native configuration admission
+releases a pre-existing POSIX database lock owned by this process. The original
+core module fails the strict control; the draft prepared core module passes.
+The latter checks path metadata without closing extra database descriptors;
+the selected adapter holds bounded main descriptors until process disposal.
+This lock control links host SQLite only for registration and uses no SQLite
+data I/O; its result is distinct from the pinned component and real SQLx tests.
+
+The checked source applier attaches the draft before startup connection PRAGMAs
+and covers writable, read-only, legacy cleanup, direct reclamation and lazy
+replacement connections. Its applicability and prepared output have been
+checked, but that output has not been compiled as the full native CLI.
+
+- [x] Verify the real SQLx adapter in a bounded isolated crate.
+- [x] Reproduce and repair configuration admission's unrelated POSIX lock loss
+      in the draft prepared source, with a strict before/after control.
+- [ ] Preserve native backup-and-rebuild corruption recovery through an explicit
+      admitted database identity transition. Current persistent identity pins
+      would reject the upstream's intentional rename/recreate operation.
+- [ ] Measure healthy operation overhead against the same unselected SQLite.
+- [ ] Verify full native development, optimized, installed package and final
+      image behavior. Before/after metadata checks do not by themselves provide
+      atomic exclusion against uncoordinated external renames or fresh-process
+      rollback protection; those wider requirements remain open.

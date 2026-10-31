@@ -1,0 +1,56 @@
+Draft SQLite operation authority component evidence
+Date: 2026-10-31 UTC
+Production recipe remains unchanged; full native operation acceptance is OPEN.
+
+sqlite-native-handles-design.log
+8/8 pinned descriptor/initial-hook controls
+sha256: 4a6e90b2a3efd73a06b2c1e35d0fcd4ca6c9468aed4e5fcd17ddecdaa94ef5ac
+lines: 8
+
+sqlite-selected-vfs-final-component.log
+715/715 pinned component controls: 57 healthy, 658 refusals preserving exact file bytes
+sha256: 40525a390b3d2e9130f03a8658b7d8d091312fb86a00163dffa70258b23131cf
+lines: 715
+
+sqlite-vfs-actual-sqlx.log
+20/20 actual SQLx 0.9.0 query/close controls
+sha256: 7534074f76fca85ae88cf63fdb198da1d647d2dcdfe89c141aede8b7d86ae0e6
+lines: 20
+
+sqlite-config-lock-before.log
+Negative control: actual original admission releases an existing POSIX database lock
+sha256: 292413b76affe9474cf7ba25b519ece76de94c95395ab88d1025369c03d82aa9
+lines: 1
+
+sqlite-config-lock-strict-before.log
+Strict reproducer fails before repair
+sha256: b1a3dc4853a8458ee43f5348bb1f341d4062877501c38c5b47ae53adbae68ab9
+lines: 6
+
+sqlite-config-lock-after.log
+Prepared admission preserves the existing POSIX database lock
+sha256: ca2a95712d4fb04bee4644f3c0514efd259f4e20a1062c94ba8925b7923d592a
+lines: 1
+
+Fresh baseline CI at 6d4275541098974f16923fb4a67f56494ccc7960
+https://github.com/link-assistant/hive-mind/actions/runs/41225226347/job/124608516244
+Created 2026-10-31T17:34:56Z; test job completed 17:50:00Z.
+Log line 23909: All 766 selected test file(s) passed.
+Log line 23971: All 2 selected test file(s) passed (GitHub integration).
+Log SHA256: caa46b314bfccdecc367e37c18c62be7256a47a97f4602853aa57fe31334c3e8
+
+Build validation: bounded real SQLx control compiled with jobs=1, data=512MiB,
+stack=16MiB, debug=0. Component SQLite: exact checked libsqlite3-sys 0.37.0
+amalgamation SHA256 9512509b1bccb7461f79bea8aad6280ae4699e925fa4804381b71f59e7efb0c5.
+The complete Codex executable has not been built with the new draft adapter.
+Corruption recovery identity transitions, native overhead and atomic external
+rename exclusion are unfinished; neither component success nor baseline CI
+establishes the wider storage acceptance criterion.
+
+sqlite-selected-vfs-rebuild-before.log
+Explicit negative control reproduces rejection of intentional native backup/rebuild.
+sha256: 0bf60ca20cf9120626cb3c9d708af13dbff5787069ef9c589800345d6f6968da
+
+sqlite-selected-vfs-rebuild-strict-before.log
+Strict healthy rebuild control fails before an admitted identity transition exists.
+sha256: 4f341639fe05a730becea4a81c8025d9eee04f36416cef93f9c1062357b0343e

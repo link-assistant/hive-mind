@@ -61,11 +61,19 @@ const usageLimitsInFlightByCache = new WeakMap();
 
 export const changedLimitsAuthentication = () => ({ success: false, failureKind: 'auth', error: 'Authentication changed while reading limits. Please retry.' });
 
+async function authenticationMatches(credentialsPath, version, validateCredentials) {
+  if (validateCredentials && !(await validateCredentials())) return false;
+  if (version !== (await credentialsVersion(credentialsPath))) return false;
+  // Hashing yields to other writers. Its unchanged auth file does not prove
+  // that the selected directory or private configuration is still admissible.
+  return !validateCredentials || (await validateCredentials());
+}
+
 // Take this snapshot before reading the bearer credential, then check it before
 // dispatch and after the complete response. Digests stay internal to this module.
 export async function captureLimitsAuthentication(credentialsPath, validateCredentials) {
   const version = await credentialsVersion(credentialsPath);
-  return async () => version !== null && (!validateCredentials || (await validateCredentials())) && version === (await credentialsVersion(credentialsPath));
+  return async () => version !== null && (await authenticationMatches(credentialsPath, version, validateCredentials));
 }
 
 /**
@@ -101,6 +109,7 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
   // Never reuse another home/account's result, including in-flight requests.
   key = `${key}:${resolve(credentialsPath)}`;
   const version = await credentialsVersion(credentialsPath);
+  if (validateCredentials && !(await validateCredentials())) return changedLimitsAuthentication();
   const minutes = Math.round(usageTtlMs / 60000);
   const cached = cache.get(key, usageTtlMs);
   if (cached && version !== null && cached.credentialsVersion === version) {
@@ -120,14 +129,14 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
   if (usageLimitsInFlight.has(requestKey)) {
     if (verbose) console.log(`[VERBOSE] /limits-cache: Joining in-flight ${key} limits request`);
     const result = await usageLimitsInFlight.get(requestKey);
-    return validateCredentials && !(await validateCredentials()) ? changedLimitsAuthentication() : result;
+    return (await authenticationMatches(credentialsPath, version, validateCredentials)) ? result : changedLimitsAuthentication();
   }
   if (verbose) console.log(`[VERBOSE] /limits-cache: Cache miss for ${key} limits, fetching from API...`);
   const request = (async () => {
     // A retired request must neither reach the caller nor overwrite a newer
     // generation's cache entry, even when its HTTP response was successful.
     const result = await fetchLimits();
-    if ((validateCredentials && !(await validateCredentials())) || version !== (await credentialsVersion(credentialsPath))) return changedLimitsAuthentication();
+    if (!(await authenticationMatches(credentialsPath, version, validateCredentials))) return changedLimitsAuthentication();
     if (result.success) {
       cache.set(key, { result, credentialsVersion: version }, usageTtlMs);
     } else if (result.failureKind === 'rate_limited' || result.failureKind === 'auth') {

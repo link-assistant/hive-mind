@@ -1443,3 +1443,9 @@ Latest CI continuation:
       35-file recipe twice and pass all 36 packaging/Node controls.
 - [ ] Verify the newly compiled automatic strict policy, both optimized native
       packages and actual installed/image controls in fresh exact-head CI.
+- [x] Reproduce storage changes during actual credential hashing and a
+      coalesced caller's atomic account replacement. All thirteen regressions
+      fail against the preserved preceding module without modifying working
+      source. Recheck storage after hashing and each caller's generation;
+      all 109 related Node tests/file targets pass afterward. Operation leases
+      and the complete default authority/lifecycle remain unfinished.

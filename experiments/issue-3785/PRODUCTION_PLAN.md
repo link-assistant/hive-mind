@@ -91,6 +91,10 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [x] Reproduce and repair pending limits credential-generation races in cached
       and direct usage/profile readers. All 32 new and 96 related Node tests/file
       targets pass. Default canonical selection and native refresh remain open.
+- [x] Reproduce thirteen further storage/hash and coalesced-generation races;
+      pass all 109 related Node tests/file targets after revalidating both
+      selected storage and each caller's captured credential generation.
+      These checks do not establish an operation lease.
 - [ ] Wait for every exact-head CI job and preserve failures before further
       pushes. Keep the PR draft while any required criterion remains unfinished.
 

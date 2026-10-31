@@ -111,3 +111,5 @@ Refuse existing canonical Codex SQLite database and journal aliases, nonregular 
 Discard pending usage and profile responses after credentials change, preserve newer limits cache entries when older requests finish last, and revalidate selected Codex storage before publishing a response. Invalidate cached rate-limit errors when accounts change.
 
 Require strict native app-server configuration when canonical Codex history is selected, so rejected storage configuration cannot be swallowed by default-configuration fallback before databases open.
+
+Revalidate selected limits storage after asynchronous credential hashing and each coalesced caller's account generation before returning cached or completed responses.

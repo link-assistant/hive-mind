@@ -468,3 +468,12 @@ The adapter now selects that policy automatically for selected canonical
 history. Two fresh checkouts reproduce its 35-file inventory, and 36 related
 packaging/Node controls pass. Compiled automatic-selection verification remains
 due. See `evidence/codex-sqlite-fallback.txt`; A3/A9 remain unfinished.
+
+A12 additionally revalidates storage after asynchronous credential hashing.
+Thirteen regressions fail against the preceding module: unchanged auth bytes
+otherwise let changed root permissions/private auth injection survive cache
+hits, dispatch and direct/cached response publication. A coalesced caller also
+otherwise receives G0 after admitting an atomic G1 replacement. All thirteen
+and 109 related Node tests/file targets pass after repair. See
+`evidence/limits-storage-revalidation.txt`. This does not establish an operation
+lease or complete the remaining default authority and lifecycle requirements.

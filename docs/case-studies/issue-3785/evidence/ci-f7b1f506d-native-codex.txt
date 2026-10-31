@@ -1,0 +1,36 @@
+Native Codex development CI preservation, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41211781173
+Source: f7b1f506d3b44cada82957ba3c010cb3f82cdb22
+Created: 2026-10-31 14:47:46 UTC
+Native file-authority job finished: 2026-10-31 15:22:15 UTC
+Conclusion: success; all three jobs pass.
+
+The development CLI compiles and passes the required directory-identity,
+provider-constructor/model-request, two-manager replacement/logout/refresh,
+refresh owner-death, identity-publication, usage-generation, SQLite
+redirection/alias, prompt/transcript/index, compression, migration and native
+discovery controls. Stock/native-before controls retain their expected
+failures; these are distinct from the successful repaired controls.
+
+All four artifacts are preserved locally. The 136 text files contain 6182
+lines, read in 137 chunks of at most 1500 lines. Nine files have indexed strict
+before-regression findings. The refresh-crash strict failure also appears in
+native-refresh-crash-regression.log:5 and has a passing paired after control.
+The actual expected negative assertions and the positive output were reviewed.
+
+The complete workflow log has 1992 lines, read in two bounded chunks.
+SHA256: 7eab180515a90ac2af840dc7be5eea06dba56e7470d67fb62906415167e56042
+Its identity unit before-control has eight passes and four deliberate failures;
+all twelve repaired identity tests pass. No unexpected after failure appears.
+
+The preserved development executable is 419122384 bytes.
+SHA256: df12dfaa13e0328cd63cf4ca401f134273bb01bbd626c8c285051a3fdac6c487
+These bytes differ from the preceding development build. Earlier local Docker
+controls do not independently verify these exact executable bytes.
+
+The optimized x64/arm64 release builds remain in progress. Their installed
+package, assembled artifact and complete image gates are separate required
+evidence. This development result does not establish production activation,
+default migration, all native writers or the full six-tool contract. Keep the
+pull request draft and unmerged and the complete inventory unfinished.

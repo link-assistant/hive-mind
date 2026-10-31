@@ -26,6 +26,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 import { createServer } from 'node:http';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -197,7 +198,7 @@ test('Router Codex refuses a provider changed after capability preflight before 
   withFormalAiCodexFixture(async ({ scopedHome, runIteration }) => {
     const { result, launches } = await runIteration({
       model: 'gpt-5.4',
-      envOverrides: { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', OPENAI_BASE_URL: 'https://router.invalid/v1' },
+      envOverrides: { ...buildRouterTaskEnv({ tool: 'codex', baseUrl: 'https://router.invalid', token: 'synthetic-router-task' }), HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', OPENAI_BASE_URL: 'https://router.invalid/v1' },
       beforeExecution: async () => writeFile(path.join(scopedHome, 'config.toml'), 'model_provider = "openai"\n'),
     });
     assert.equal(launches, 0, 'the command-stream runner must not start before Router admission');
@@ -209,25 +210,38 @@ test('Router Codex refuses a provider changed after capability preflight before 
 
 for (const selection of ['environment', 'argv']) {
   for (const resume of [false, true]) {
-    test(`Router Codex preserves its admitted environment through shell startup: ${selection}, ${resume ? 'resume' : 'new'}`, { timeout: 30_000 }, async () =>
-      withFormalAiCodexFixture(async ({ operatorHome, scopedHome, runIteration }) => {
-        const thread = 'router-session-3785';
-        const { result, executions } = await runIteration({
-          model: 'gpt-5.4',
-          envOverrides: { HOME: path.dirname(operatorHome), HIVE_MIND_USE_ROUTER: selection === 'environment' ? '1' : '0', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', OPENAI_API_KEY: 'synthetic-router-task', OPENAI_BASE_URL: 'https://router.invalid/v1' },
-          argvOverrides: { useRouter: selection === 'argv', resume: resume ? thread : null },
-          beforeExecution: async () => {
-            await writeFile(path.join(scopedHome, 'config.toml'), 'model_provider = "hive-mind-router"\n[model_providers.hive-mind-router]\nbase_url = "https://router.invalid/v1"\nenv_key = "OPENAI_API_KEY"\n');
-            await mkdir(path.join(scopedHome, 'sessions'), { recursive: true });
-            await writeFile(path.join(scopedHome, 'sessions', `rollout-test-${thread}.jsonl`), '{}\n');
-          },
-        });
-        assert.equal(result.success, true);
-        assert.equal(executions.length, 1);
-        assert.match(executions[0].command, /^sh -c /u, 'a Router task must not source a profile after authentication admission');
-        if (resume) assert.ok(executions[0].command.includes(`exec resume "${thread}"`));
-      })
-    );
+    for (const scenario of ['clean', 'changed key', 'missing key', 'changed endpoint']) {
+      test(`Router Codex native environment: ${selection}, ${resume ? 'resume' : 'new'}, ${scenario}`, { timeout: 30_000 }, async () =>
+        withFormalAiCodexFixture(async ({ operatorHome, scopedHome, runIteration }) => {
+          const thread = 'router-session-3785';
+          const envOverrides = { ...buildRouterTaskEnv({ tool: 'codex', baseUrl: 'https://router.invalid', token: 'synthetic-router-task' }), HOME: path.dirname(operatorHome), HIVE_MIND_USE_ROUTER: selection === 'environment' ? '1' : '0' };
+          if (scenario === 'changed key') envOverrides.OPENAI_API_KEY = 'SYNTHETIC-UNRELATED-VENDOR-KEY';
+          if (scenario === 'missing key') envOverrides.OPENAI_API_KEY = '';
+          if (scenario === 'changed endpoint') envOverrides.OPENAI_BASE_URL = 'https://vendor.invalid/v1';
+          const { result, executions } = await runIteration({
+            model: 'gpt-5.4',
+            envOverrides,
+            argvOverrides: { useRouter: selection === 'argv', resume: resume ? thread : null },
+            beforeExecution: async () => {
+              await writeFile(path.join(scopedHome, 'config.toml'), `model_provider = "hive-mind-router"\n[model_providers.hive-mind-router]\nbase_url = "${envOverrides.OPENAI_BASE_URL}"\nenv_key = "OPENAI_API_KEY"\n`);
+              await mkdir(path.join(scopedHome, 'sessions'), { recursive: true });
+              await writeFile(path.join(scopedHome, 'sessions', `rollout-test-${thread}.jsonl`), '{}\n');
+            },
+          });
+          if (scenario !== 'clean') {
+            assert.equal(result.success, false);
+            assert.equal(executions.length, 0, 'divergent native environment must be refused before command creation');
+            assert.ok(result.routerAuthViolation?.violations.some(violation => violation.kind === 'router-environment'));
+            assert.doesNotMatch(JSON.stringify(result.routerAuthViolation), /SYNTHETIC-UNRELATED-VENDOR-KEY/u);
+            return;
+          }
+          assert.equal(result.success, true);
+          assert.equal(executions.length, 1);
+          assert.match(executions[0].command, /^sh -c /u, 'a Router task must not source a profile after authentication admission');
+          if (resume) assert.ok(executions[0].command.includes(`exec resume "${thread}"`));
+        })
+      );
+    }
   }
 }
 

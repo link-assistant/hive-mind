@@ -575,3 +575,11 @@ actual image verification at this source is pending CI. This bounded repair does
 not establish complete history, default canonical
 authentication, migration or the unresolved native refresh owner-death contract.
 See `evidence/claude-effective-history.txt`.
+
+Router admission now compares the native launch credential and endpoint with
+the declared task token, origin and resolved service dialect for all six tools.
+The task factory forwards the selected dialect into nested launches. Forty-two
+factory/environment controls and new/resumed Claude/Codex command/connection
+controls pass; full native in-memory authority, all-six direct native entry
+coverage and the complete Router audit/lifecycle contract remain unfinished.
+See `evidence/router-task-environment.txt`.

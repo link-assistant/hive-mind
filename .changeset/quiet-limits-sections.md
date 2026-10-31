@@ -161,3 +161,8 @@ of its existing project and session history directories. Preserve private
 configuration and conventional evidence, refuse unavailable or unsafe selected
 history, and retain Router suppression. Complete history and default migration
 remain unfinished.
+
+Validate native Router API credentials and endpoints against the declared task
+lease and selected route dialect before admission. Forward that dialect into
+nested task environments and refuse missing or divergent launch values without
+exposing them. Full native authority and audit lifecycle remain unfinished.

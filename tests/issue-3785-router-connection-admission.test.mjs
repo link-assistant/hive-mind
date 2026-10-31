@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 
 let nativeCommand;
 const dollar = (strings, ...values) => {
@@ -45,14 +46,19 @@ for (const [name, invoke] of [
 }
 
 for (const tool of ['claude', 'codex']) {
-  for (const scenario of ['vendor credentials', 'missing token', 'argv Router selection', 'after version', 'clean']) {
+  for (const scenario of ['vendor credentials', 'missing token', 'argv Router selection', 'after version', 'changed key', 'missing key', 'changed endpoint', 'argv changed key', 'key changed after version', 'clean']) {
     test(`Router ${tool} connection admission: ${scenario}`, { timeout: 10_000 }, async t => {
       const home = fs.mkdtempSync(path.join(os.tmpdir(), 'router-connection-'));
       t.after(() => fs.rmSync(home, { recursive: true, force: true }));
       const configuration = path.join(home, `.${tool}`);
       fs.mkdirSync(configuration);
       fs.writeFileSync(path.join(configuration, 'config.toml'), 'model_provider = "hive-mind-router"\n[model_providers.hive-mind-router]\nbase_url = "https://router.invalid/v1"\nenv_key = "OPENAI_API_KEY"\n');
-      const selected = { HOME: home, CODEX_HOME: configuration, CLAUDE_CONFIG_DIR: configuration, HIVE_MIND_USE_ROUTER: scenario === 'argv Router selection' ? '0' : '1', HIVE_MIND_ROUTER_TOKEN: scenario === 'missing token' ? '' : 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', OPENAI_BASE_URL: 'https://router.invalid/v1', HIVE_MIND_MODELS_HOT_LOAD: '0', HIVE_MIND_STATE_DIR: path.join(home, 'state') };
+      const selected = { ...buildRouterTaskEnv({ tool, baseUrl: 'https://router.invalid', token: 'synthetic-router-task', homeDir: home }), HOME: home, CODEX_HOME: configuration, CLAUDE_CONFIG_DIR: configuration, HIVE_MIND_USE_ROUTER: scenario.startsWith('argv ') ? '0' : '1', HIVE_MIND_ROUTER_TOKEN: scenario === 'missing token' ? '' : 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', OPENAI_BASE_URL: 'https://router.invalid/v1', HIVE_MIND_MODELS_HOT_LOAD: '0', HIVE_MIND_STATE_DIR: path.join(home, 'state') };
+      const credentialKey = tool === 'claude' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+      const endpointKey = tool === 'claude' ? 'ANTHROPIC_BASE_URL' : 'OPENAI_BASE_URL';
+      if (scenario === 'changed key' || scenario === 'argv changed key') selected[credentialKey] = 'SYNTHETIC-UNRELATED-VENDOR-KEY';
+      if (scenario === 'missing key') selected[credentialKey] = '';
+      if (scenario === 'changed endpoint') selected[endpointKey] = 'https://vendor.invalid';
       for (const [key, value] of Object.entries(selected)) {
         const before = process.env[key];
         process.env[key] = value;
@@ -67,15 +73,16 @@ for (const tool of ['claude', 'codex']) {
       nativeCommand = command => {
         commands.push(command);
         if (scenario === 'after version') contaminate();
+        if (scenario === 'key changed after version') process.env[credentialKey] = 'SYNTHETIC-UNRELATED-VENDOR-KEY';
         return { code: 0, stdout: 'synthetic-native-ok', stderr: '' };
       };
-      const validate = () => (tool === 'claude' ? validateClaudeConnection('claude-opus-4-8', { useRouter: scenario === 'argv Router selection' }) : validateCodexConnection('gpt-5.4', false, { useRouter: scenario === 'argv Router selection' }));
+      const validate = () => (tool === 'claude' ? validateClaudeConnection('claude-opus-4-8', { useRouter: scenario.startsWith('argv ') }) : validateCodexConnection('gpt-5.4', false, { useRouter: scenario.startsWith('argv ') }));
       if (scenario === 'clean') {
         assert.equal(await validate(), true);
         assert.equal(commands.length, 2);
       } else {
         await assert.rejects(validate(), error => error.code === 'ROUTER_AUTH_VIOLATION' && error.routerAuthViolation?.tool === tool);
-        assert.equal(commands.length, scenario === 'after version' ? 1 : 0, 'a security stop must not launch a request or fall back');
+        assert.equal(commands.length, ['after version', 'key changed after version'].includes(scenario) ? 1 : 0, 'a security stop must not launch a request or fall back');
       }
     });
   }
@@ -86,7 +93,7 @@ test('Claude connection fallback rechecks Router credentials after a pipe failur
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const configuration = path.join(home, '.claude');
   fs.mkdirSync(configuration);
-  for (const [key, value] of Object.entries({ HOME: home, CLAUDE_CONFIG_DIR: configuration, HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task' })) {
+  for (const [key, value] of Object.entries({ ...buildRouterTaskEnv({ tool: 'claude', baseUrl: 'https://router.invalid', token: 'synthetic-router-task', homeDir: home }), HOME: home, CLAUDE_CONFIG_DIR: configuration, HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task' })) {
     const before = process.env[key];
     process.env[key] = value;
     t.after(() => {

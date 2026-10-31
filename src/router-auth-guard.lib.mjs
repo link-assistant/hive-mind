@@ -42,6 +42,7 @@ import path from 'node:path';
 import { TextDecoder } from 'node:util';
 import { parse as parseToml } from 'smol-toml';
 import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { inspectRouterTaskEnvironment } from './router-task-auth.lib.mjs';
 
 /** `solve` exits with this when the guard fires: distinct from 1 (tool failure) and 75 (disk), so a supervisor can tell a security stop from a crash. */
 export const EXIT_CODE_ROUTER_AUTH_VIOLATION = 77;
@@ -226,8 +227,7 @@ const hasCodexProviderOverride = value => {
  * @returns {{ violations: Array<{path: string, kind: string, reason: string}>, checked: number }}
  */
 export const inspectRouterAuthSurface = ({ tool = 'claude', env = process.env, homeDir = env?.HOME || os.homedir(), cwd = process.cwd(), fsImpl = fs, surface = null } = {}) => {
-  const violations = [];
-  if (isRouterAuthGuardRequired(env) && !String(env?.HIVE_MIND_ROUTER_TOKEN || '').trim()) violations.push({ path: '(router task environment)', kind: 'router-token', reason: 'the router task token is missing' });
+  const violations = isRouterAuthGuardRequired(env) ? inspectRouterTaskEnvironment({ tool, env }) : [];
   let entries;
   try {
     entries = surface || describeRouterAuthSurface({ tool, homeDir, cwd, env });

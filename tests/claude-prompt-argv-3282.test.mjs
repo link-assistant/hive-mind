@@ -22,6 +22,7 @@
  * @hive-mind-test-suite default
  */
 import assert from 'node:assert/strict';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
@@ -196,13 +197,17 @@ for (const resumed of [false, true]) {
 }
 
 for (const resumed of [false, true])
-  for (const scenario of ['vendor credentials', 'missing token', 'argv Router selection', 'clean']) {
+  for (const scenario of ['vendor credentials', 'missing token', 'argv Router selection', 'changed key', 'missing key', 'changed bearer', 'changed endpoint', 'argv changed key', 'clean']) {
     test(`Router Claude ${resumed ? 'resume' : 'new execution'} admission: ${scenario}`, { timeout: 30_000 }, async t => {
       const home = await mkdtemp(path.join(os.tmpdir(), 'claude-router-admission-'));
       t.after(() => rm(home, { recursive: true, force: true }));
       const config = path.join(home, '.claude');
       await mkdir(config);
-      const selection = { HOME: home, CLAUDE_CONFIG_DIR: config, HIVE_MIND_USE_ROUTER: scenario === 'argv Router selection' ? '0' : '1', HIVE_MIND_ROUTER_TOKEN: scenario === 'missing token' ? '' : 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', ANTHROPIC_AUTH_TOKEN: 'synthetic-router-task', ANTHROPIC_API_KEY: 'synthetic-router-task', ANTHROPIC_BASE_URL: 'https://router.invalid' };
+      const selection = { ...buildRouterTaskEnv({ tool: 'claude', baseUrl: 'https://router.invalid', token: 'synthetic-router-task', homeDir: home }), HOME: home, CLAUDE_CONFIG_DIR: config, HIVE_MIND_USE_ROUTER: scenario.startsWith('argv ') ? '0' : '1', HIVE_MIND_ROUTER_TOKEN: scenario === 'missing token' ? '' : 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', ANTHROPIC_AUTH_TOKEN: 'synthetic-router-task', ANTHROPIC_API_KEY: 'synthetic-router-task', ANTHROPIC_BASE_URL: 'https://router.invalid' };
+      if (scenario === 'changed key' || scenario === 'argv changed key') selection.ANTHROPIC_API_KEY = 'SYNTHETIC-UNRELATED-VENDOR-KEY';
+      if (scenario === 'missing key') selection.ANTHROPIC_API_KEY = '';
+      if (scenario === 'changed bearer') selection.ANTHROPIC_AUTH_TOKEN = 'SYNTHETIC-UNRELATED-VENDOR-KEY';
+      if (scenario === 'changed endpoint') selection.ANTHROPIC_BASE_URL = 'https://vendor.invalid';
       for (const [name, value] of Object.entries(selection)) {
         const before = process.env[name];
         t.after(() => {
@@ -214,7 +219,7 @@ for (const resumed of [false, true])
       let launches = 0;
       const { result } = await run(
         t,
-        { model: 'claude-opus-4-8', useRouter: scenario === 'argv Router selection', ...(resumed ? { resume: SESSION } : {}) },
+        { model: 'claude-opus-4-8', useRouter: scenario.startsWith('argv '), ...(resumed ? { resume: SESSION } : {}) },
         {
           onNative: () => {
             launches++;
@@ -233,5 +238,6 @@ for (const resumed of [false, true])
       assert.equal(result.success, false);
       assert.ok(result.routerAuthViolation, 'the solver must preserve the security-stop exit code');
       assert.match(result.errorInfo.message, /Security violation.*router token/u);
+      assert.doesNotMatch(JSON.stringify(result.routerAuthViolation), /SYNTHETIC-UNRELATED-VENDOR-KEY/u);
     });
   }

@@ -1,0 +1,54 @@
+Preserved CI and unresolved native controls, 2026-10-31 UTC
+
+Source: f2e845cb38cfbdf53e435db1307e0086a4e38d0c
+Runs created: 2026-10-31 12:38:27 UTC
+
+Native Claude:
+https://github.com/link-assistant/hive-mind/actions/runs/41202009275
+Native Qwen:
+https://github.com/link-assistant/hive-mind/actions/runs/41202009276
+Both workflows succeed because their unresolved strict controls are explicitly
+expected to fail. That workflow status does not satisfy those requirements.
+
+The actual Claude owner-death trace contains two POST /v1/oauth/token exchanges
+after the first owner consumed the predecessor. Preserved artifact
+claude-owner-death-strict.log:6 fails "A peer must refuse the consumed
+predecessor after owner death." The external blocker remains open:
+https://github.com/anthropics/claude-code/issues/106218#issuecomment-6528599854
+
+claude-history-strict.log:7 and qwen-history-strict.log:5 fail fresh-peer native
+resume after private runtime disposal. The later selected-Claude Docker history
+repair has its own actual before/after evidence and does not complete all native
+history surfaces or change the meaning of these earlier expected failures.
+
+qwen-cli-regression.log:5 fails "Selected canonical Qwen authority must refuse
+independent provider credentials before model execution." The actual native
+CLI sent POST /v1/chat/completions using synthetic generation G2 despite the
+selected independent canonical OAuth authority. Its OAuth sunset remains a
+separate expected refusal, not current usable OAuth integration.
+
+Both complete artifact collections are preserved locally: 55 text files, 249
+lines, reviewed in chunks of at most 1500 lines. Before-controls and expected
+unresolved failures were inspected directly, including the native request trace.
+Complete workflow logs:
+- Claude, 375 lines, SHA256:
+  1f97e528f87094c4364bc2663e5302fc55fd835553653d78b5b28e63631077d2
+- Qwen, 438 lines, SHA256:
+  35484e7aa28b460ab59b05d764144f42eaae63c895423613c14b5c6f763338dc
+
+Three other successful workflow logs are preserved and reviewed as well:
+- Security/CodeQL, 7880 lines, six chunks, SHA256:
+  eade6b0c4b2cd76aa71bce535c9dd6468dc953318b37d6293b375ebaad953be5
+  https://github.com/link-assistant/hive-mind/actions/runs/41202009278
+- Workflow validation, 602 lines, SHA256:
+  d7e171f25fd6c8283a72d2b5ec29d83047f84139dc683dce17195cadee252655
+  https://github.com/link-assistant/hive-mind/actions/runs/41202009277
+- Links, 521 lines, SHA256:
+  c5d474f499efe62e3c8265126937e5cb43866f373dc19fca4b69b827b96a5294
+  https://github.com/link-assistant/hive-mind/actions/runs/41202009279
+  The link checker reports 1761 successful links and zero errors.
+
+Combined, these five workflow logs contain 9816 lines in ten bounded chunks.
+They do not establish success for later source commits, optimized release
+artifacts, installed packages, complete image lifecycle or all-six acceptance.
+The original inventory remains authoritative. Keep the PR draft and unmerged.

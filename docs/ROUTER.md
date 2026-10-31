@@ -179,6 +179,8 @@ A routed task receives the `la_sk_…` token the router issued for it. Token rev
 
 Routed Codex commands skip shell login profiles so they cannot replace the admitted environment. The file guard checks admission and polls for persistent changes. It does not establish complete six-tool authority or cover credentials held only in memory.
 
+Admission also derives the expected native API credential and endpoint from the declared Router task token, origin and route dialect. Missing or changed values are refused without printing their contents. The task environment forwards the selected dialect to nested launches. These checks do not mediate credentials held inside a native CLI.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

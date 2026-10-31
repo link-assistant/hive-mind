@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 import { inspectRouterAuthSurface, isRouterAuthGuardRequired, resolveRouterAuthGuardIntervalMs, startRouterAuthGuard } from '../src/router-auth-guard.lib.mjs';
 
 function fixture(t) {
@@ -13,7 +14,8 @@ function fixture(t) {
   const cwd = path.join(homeDir, 'workspace');
   const codexHome = path.join(homeDir, '.codex');
   for (const dir of [cwd, codexHome, path.join(homeDir, '.claude')]) fs.mkdirSync(dir);
-  const env = { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', OPENAI_BASE_URL: 'https://router.invalid/v1', CODEX_HOME: codexHome };
+  const router = { baseUrl: 'https://router.invalid', token: 'synthetic-router-task', homeDir };
+  const env = { ...buildRouterTaskEnv({ ...router, tool: 'claude' }), ...buildRouterTaskEnv({ ...router, tool: 'codex' }) };
   const configPath = path.join(codexHome, 'config.toml');
   const pinned = 'model_provider = "hive-mind-router"\n[model_providers.hive-mind-router]\nbase_url = "https://router.invalid/v1"\nenv_key = "OPENAI_API_KEY"\n';
   fs.writeFileSync(configPath, pinned);

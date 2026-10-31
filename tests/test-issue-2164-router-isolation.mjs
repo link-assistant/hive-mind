@@ -101,7 +101,7 @@ const ROUTER = getInternalRouterBaseUrl();
 const claudeTaskEnv = buildRouterTaskEnv({ tool: 'claude', baseUrl: ROUTER, token: TASK_TOKEN });
 assertEqual(claudeTaskEnv.ANTHROPIC_BASE_URL, ROUTER, 'claude is redirected via ANTHROPIC_BASE_URL');
 assertEqual(matches([claudeTaskEnv.ANTHROPIC_AUTH_TOKEN, claudeTaskEnv.ANTHROPIC_API_KEY], [TASK_TOKEN, TASK_TOKEN]), true, "and the task's token is offered in both forms the router accepts");
-assertEqual(matches(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'CURL_CA_BUNDLE', 'GH_TOKEN', 'GITHUB_TOKEN', 'GIT_TERMINAL_PROMPT', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER', 'NODE_EXTRA_CA_CERTS', 'REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE']), true, 'and nothing else is injected');
+assertEqual(matches(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'CURL_CA_BUNDLE', 'GH_TOKEN', 'GITHUB_TOKEN', 'GIT_TERMINAL_PROMPT', 'HIVE_MIND_ROUTER_ROUTES', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER', 'NODE_EXTRA_CA_CERTS', 'REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE']), true, 'and nothing else is injected');
 assertEqual(claudeTaskEnv.GH_HOST, undefined, 'gh keeps its own host: the interception happens in DNS, so every gh command form is covered');
 assertEqual(claudeTaskEnv.GH_TOKEN === TASK_TOKEN, true, 'gh authenticates to the router with the same scoped token, and holds no GitHub credential');
 

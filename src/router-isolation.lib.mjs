@@ -357,6 +357,7 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode
     HIVE_MIND_USE_ROUTER: '1',
     HIVE_MIND_ROUTER_URL: baseUrl,
     HIVE_MIND_ROUTER_TOKEN: token,
+    HIVE_MIND_ROUTER_ROUTES: routes.id,
     // Trust the router's CA without losing the public roots.
     NODE_EXTRA_CA_CERTS: ROUTER_CA_CONTAINER_PATH,
     SSL_CERT_FILE: ROUTER_CA_BUNDLE_CONTAINER_PATH,

@@ -21,6 +21,7 @@
  *      no other way of auth.
  */
 import { EventEmitter } from 'node:events';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -345,7 +346,7 @@ const makeHome = () => {
   fs.mkdirSync(path.join(home, '.config', 'gh'), { recursive: true });
   return { home, cwd, cleanup: () => fs.rmSync(home, { recursive: true, force: true }) };
 };
-const routedEnv = { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_task', HIVE_MIND_ROUTER_URL: 'https://link-assistant-router', ANTHROPIC_BASE_URL: 'https://link-assistant-router', ANTHROPIC_AUTH_TOKEN: 'la_sk_task', OPENAI_BASE_URL: 'https://link-assistant-router/v1' };
+const routedEnv = { ...buildRouterTaskEnv({ tool: 'claude', baseUrl: 'https://link-assistant-router', token: 'la_sk_task' }), ...buildRouterTaskEnv({ tool: 'codex', baseUrl: 'https://link-assistant-router', token: 'la_sk_task' }), HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_task', HIVE_MIND_ROUTER_URL: 'https://link-assistant-router', ANTHROPIC_BASE_URL: 'https://link-assistant-router', ANTHROPIC_AUTH_TOKEN: 'la_sk_task', OPENAI_BASE_URL: 'https://link-assistant-router/v1' };
 const inspect = ({ tool, home, cwd, env = routedEnv }) => inspectRouterAuthSurface({ tool, homeDir: home, cwd, env: { ...env, CODEX_HOME: path.join(home, '.codex') } });
 const firstReason = result => result.violations[0]?.reason ?? null;
 

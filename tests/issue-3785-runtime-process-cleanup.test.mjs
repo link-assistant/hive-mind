@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
+import { verifyAgentRuntimeBaseline as verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 
 async function live(pid) {
   try {

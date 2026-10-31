@@ -24,5 +24,15 @@ artifact assembly now lives in one composite action; redundant syntax-check
 echo wrappers were removed. release.yml is 1347 lines and the reproducing test
 passes. Six release/dependency/order controls and actionlint also pass.
 
+The subsequent full local default-suite run reached the release image gate
+and reproduced a second regression: its expression-evaluation fixture omitted
+the new native-codex-build dependency. All five existing assertions therefore
+failed with "Cannot read properties of undefined (reading 'result')".
+Log: /tmp/issue-3785-recovery/codex-command-default-suite.log.
+The fixture now supplies that dependency explicitly. Three additional controls
+verify Docker, normal release and instant release each reject failed, cancelled
+or skipped native builds. All eight release image gate assertions pass.
+Log: /tmp/issue-3785-recovery/codex-release-image-gate-final.log.
+
 At this investigation checkpoint both native architecture builds were still
 compiling. No optimized installed-runtime or image pass is claimed here.

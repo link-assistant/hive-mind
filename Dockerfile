@@ -371,8 +371,9 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     bun install -g gh-load-pull-request && \
     bun install -g gh-upload-log@latest
 
-# Activate the adapter from the installed Hive Mind artifact after global installs.
+# Activate the adapters from the installed Hive Mind artifact after global installs.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

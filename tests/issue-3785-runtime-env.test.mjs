@@ -36,7 +36,7 @@ readline.createInterface({input: process.stdin}).on('line', line => {
   const codex = path.join(root, 'codex.mjs');
   for (const file of [claude, codex]) await writeFile(file, code, { mode: 0o700 });
   const module = new URL('../src/verify-agent-runtime.mjs', import.meta.url).href;
-  const invoke = `import assert from 'node:assert/strict'; import {verifyAgentRuntime} from ${JSON.stringify(module)}; await assert.rejects(verifyAgentRuntime(${JSON.stringify({ homeDir: home, claudeCommand: claude, codexCommand: codex })}), /stock|runtime/i);`;
+  const invoke = `import assert from 'node:assert/strict'; import {verifyAgentRuntimeBaseline as verifyAgentRuntime} from ${JSON.stringify(module)}; await assert.rejects(verifyAgentRuntime(${JSON.stringify({ homeDir: home, claudeCommand: claude, codexCommand: codex })}), /stock|runtime/i);`;
   // The parent itself receives only synthetic state; no operator credentials
   // need to be read, copied or placed into this regression's environment.
   await promisify(execFile)(process.execPath, ['--input-type=module', '-e', invoke], {

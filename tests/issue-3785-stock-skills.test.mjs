@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { test } from 'node:test';
 import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
-import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
+import { verifyAgentRuntimeBaseline as verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 import { createHash } from 'node:crypto';
 import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from '../src/codex-stock-skills.lib.mjs';
 

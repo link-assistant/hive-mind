@@ -1,35 +1,11 @@
 /** Activate and verify the installed native adapter without running provider code. */
 import fs from 'node:fs/promises';
-import { constants } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { installNativeGemini, verifyNativeGemini } from './native-gemini-package.lib.mjs';
+import { locateNativeCommand as locate, nativeCommandRevision as revision } from './native-agent-command.lib.mjs';
 
 const refusal = () => new Error('The installed native Gemini command could not be verified; installation and execution were refused.');
-const revision = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
-
-async function locate(command, searchPath) {
-  if (typeof command !== 'string' || !command || command.includes('\0')) throw refusal();
-  const candidates = path.isAbsolute(command)
-    ? [command]
-    : !command.includes('/')
-      ? (searchPath || '')
-          .split(path.delimiter)
-          .filter(entry => path.isAbsolute(entry))
-          .map(entry => path.join(entry, command))
-      : [];
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate, constants.X_OK);
-    } catch (error) {
-      if (['ENOENT', 'ENOTDIR', 'EACCES'].includes(error.code)) continue;
-      throw error;
-    }
-    // Resolve only the containing directory, retaining the selected bin link.
-    return path.join(await fs.realpath(path.dirname(candidate)), path.basename(candidate));
-  }
-  throw refusal();
-}
 
 async function selected(bin) {
   const entrypoint = await fs.realpath(bin);

@@ -14,6 +14,7 @@ const installed = await fs.realpath(process.argv[2]);
 const output = path.resolve(process.argv[3]);
 await fs.mkdir(output, { mode: 0o700 });
 const { installNativeCodexRuntime, verifyNativeCodexRuntime } = await import(pathToFileURL(path.join(installed, 'src/native-codex-runtime.lib.mjs')));
+const { installNativeCodexCommand, verifyNativeCodexCommand } = await import(pathToFileURL(path.join(installed, 'src/native-codex-command.lib.mjs')));
 const source = path.join(installed, 'src/native-codex/runtime', `linux-${process.arch}`);
 const sourceBefore = await fs.stat(path.join(source, 'codex'));
 const destination = path.join(output, 'runtime');
@@ -56,6 +57,20 @@ assert.equal((await fs.stat(collision)).ino, collisionBefore.ino);
 assert.equal((await fs.readdir(output)).filter(name => name.startsWith('.hive-native-codex-')).length, 1);
 console.log('PASS: changed binary bytes, extra executable, missing execution permission and destination collisions refuse without corrupting healthy source or prior state.');
 
+const command = path.resolve(process.argv[4]);
+const stock = await fs.realpath(command);
+const stockBefore = await fs.stat(stock);
+const stockBytes = await fs.readFile(stock);
+const selected = await installNativeCodexCommand({ command });
+assert.equal((await verifyNativeCodexCommand({ command })).entrypoint, selected.entrypoint);
+const selectedLink = await fs.lstat(command);
+assert.equal((await installNativeCodexCommand({ command })).entrypoint, selected.entrypoint);
+assert.equal((await fs.lstat(command)).ino, selectedLink.ino);
+assert.equal((await fs.stat(stock)).ino, stockBefore.ino);
+assert.deepEqual(await fs.readFile(stock), stockBytes);
+assert.equal(await fs.realpath(command), selected.entrypoint);
+console.log('PASS: the actual npm-installed stock command selects the checked native generation idempotently while preserving the upstream launcher.');
+
 for (const [probe, flags] of [
   ['probe-codex-native-auth-root.mjs', []],
   ['probe-codex-native-request-auth.mjs', []],
@@ -63,7 +78,8 @@ for (const [probe, flags] of [
   ['probe-codex-native-request-auth.mjs', ['--provider-constructors']],
 ]) {
   const file = fileURLToPath(new URL(probe, import.meta.url));
-  const result = await execute(process.execPath, ['--max-old-space-size=256', file, ready.entrypoint, ...flags], { maxBuffer: 262144 });
+  await verifyNativeCodexCommand({ command });
+  const result = await execute(process.execPath, ['--max-old-space-size=256', file, command, ...flags], { maxBuffer: 262144 });
   process.stdout.write(result.stdout);
 }
-console.log('PASS: complete native authentication and model-request controls use the generation installed from the actual npm package.');
+console.log('PASS: complete native authentication and model-request controls use the selected command installed from the actual npm package.');

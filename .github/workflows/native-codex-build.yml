@@ -136,11 +136,13 @@ jobs:
           name: native-codex-npm-package
           path: ${{ runner.temp }}/native-codex-npm-package
       - name: Install the actual package and exercise its native admission
-        run: |
+        # The archive is built and byte-verified in this same run. Installing
+        # that fresh artifact is the test; it cannot be a committed dependency.
+        run: | # zizmor: ignore[adhoc-packages]
           archive=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0].filename' "$RUNNER_TEMP/native-codex-npm-package/pack.json")
-          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$RUNNER_TEMP/native-codex-npm-package/$archive" > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
+          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$RUNNER_TEMP/native-codex-npm-package/$archive" @openai/codex@0.164.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
           wait "$!"
-          node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
+          node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
       - name: Preserve installed-package diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

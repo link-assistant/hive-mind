@@ -382,8 +382,9 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     bun install -g gh-load-pull-request && \
     bun install -g gh-upload-log@latest
 
-# Activate the adapter from the installed Hive Mind artifact after global installs.
+# Activate the adapters from the installed Hive Mind artifact after global installs.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # Issue #2190: @playwright/cli ships the optional `playwright-cli` Agent Skill
 # deployed per task by --playwright-skill (default stays Playwright MCP only).

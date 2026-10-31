@@ -12,6 +12,7 @@ import { CODEX_STOCK_SKILLS, validateCodexStockSkills } from './codex-stock-skil
 import { assertCodexStockSkillDiscovery } from './codex-stock-catalog.lib.mjs';
 import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
 import { verifyNativeGeminiCommand } from './native-gemini-command.lib.mjs';
+import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 
 const DEADLINE_MS = 30_000;
 class RuntimeProbeCleanupError extends Error {}
@@ -208,7 +209,10 @@ export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand
   assert.match(stdout, /^ripgrep \d+\.\d+\.\d+\b/u, 'Installed Agent search runtime is missing or unusable.');
 }
 
-export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen' } = {}) {
+/** Baseline/catalog probes, also exercised with isolated unit-test CLIs.
+ * Production callers must use verifyAgentRuntime for native byte admission.
+ */
+export async function verifyAgentRuntimeBaseline({ homeDir = os.homedir(), env = {}, codexCommand = 'codex', claudeCommand = 'claude', agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen' } = {}) {
   await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
   const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-stock-gate-'));
   let cleanupSafe = true;
@@ -240,10 +244,18 @@ export async function verifyAgentRuntime({ homeDir = os.homedir(), env = {}, cod
   }
 }
 
+/** Audit selected roots and admit the packaged CLI before any native execution. */
+export async function verifyAgentRuntime(options = {}) {
+  const { homeDir = os.homedir(), env = {}, codexCommand = 'codex' } = options;
+  await runAgentConfigAudit({ homeDir, env, autoRepair: false, requireClean: true });
+  const native = await verifyNativeCodexCommand({ command: codexCommand, searchPath: env.PATH ?? process.env.PATH });
+  await verifyAgentRuntimeBaseline({ ...options, codexCommand: native.entrypoint });
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     await verifyAgentRuntime({ env: process.env });
-    console.log('Installed pinned CLI versions, native Gemini adapter, known global baseline and pristine Codex stock runtime verified.');
+    console.log('Installed pinned CLI versions, native Codex and Gemini adapters, known global baseline and pristine Codex stock runtime verified.');
   } catch {
     console.error('Installed agent runtime verification failed. Check pinned versions and restore a verified clean baseline.');
     process.exitCode = 1;

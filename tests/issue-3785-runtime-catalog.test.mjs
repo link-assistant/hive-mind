@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { CODEX_STOCK_SKILLS } from '../src/codex-stock-skills.lib.mjs';
-import { verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
+import { verifyAgentRuntimeBaseline as verifyAgentRuntime } from '../src/verify-agent-runtime.mjs';
 import { assertCodexStockSkillDiscovery } from '../src/codex-stock-catalog.lib.mjs';
 
 test('the pinned native stock catalog is accepted independently of discovery order', () => {

@@ -60,7 +60,28 @@ Python AST (88 files), Prettier, actionlint/ShellCheck, secret scanning, file-li
 limits and whitespace checks pass locally.
 Fresh exact-head CI remains required for these new plan stages.
 
-Remaining limits: whole-CLI interrupted-plan lifecycle, partial/malformed intent
+Complete actual native CLI recovery now independently passes the same six
+first/replacement x after-intent/after-journal/after-publish boundaries.
+Strict stage-25 first/replacement after-journal controls reach SIGKILL and delete
+their entire private homes; fresh actual CLI resume refuses with the canonical
+unsafe-history diagnostic and the exact expected recovery assertion.
+  gemini-plan-cli-death-first-before-control.log
+  gemini-plan-cli-death-replacement-before-control.log
+Final stage-26 controls use a finite Linux-only fsync interposer, without
+instrumenting native tools, provider or SDK. Each fresh CLI resumes the killed
+session and delivers all UTF-8 plan lines through its real read_file response.
+Every preceding audit prefix and full journal generation remains retained;
+completed transaction metadata disappears and no private plan copy is created.
+  gemini-plan-cli-death-v2-{first,replacement}-{after-intent,after-journal,after-publish}-control.log
+  12 PASS total; first cases 3 model requests each, replacements 6 each.
+  healthy control 3 PASS / 5 requests; private control 2 PASS / 2 requests.
+  All eight network diagnostics have errors [].
+The first after-intent fixture correctly permits an absent initial journal;
+recovery creates the first full generation instead of requiring fabricated data.
+CI repeats strict before controls and all six whole-CLI recoveries, then repeats
+replacement recovery on the independently reconstructed package.
+
+Remaining limits: partial/malformed intent
 creation, pre-intent orphan staging, physical power loss, fresh-process persisted
 rollback authority, alternate/sandboxed writers, nested/Unicode policy, remaining
 agent/task/memory paths and full production lifecycle. API kill-point recovery

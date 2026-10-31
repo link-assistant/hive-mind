@@ -38,6 +38,16 @@ generations and remove completed transaction metadata. These six cases pass
 twelve assertions. They inject finite filesystem kill points into the actual
 native API; they do not instrument the provider or SDK.
 
+The complete actual CLI independently reproduces both failures before repair.
+After repair it passes the same six interruption boundaries through real native
+`write_file`/`replace` tools. A Linux-only, explicitly armed `LD_PRELOAD` fixture
+calls real `fsync`, records the selected directory boundary and kills the CLI.
+After deleting the whole private home, a fresh CLI resumes the same canonical
+session. Its real `read_file` result delivers every UTF-8 plan line to the local
+provider, retains all full generations and preceding audit bytes, and removes
+completed transaction metadata. These six cases pass twelve additional
+assertions. The fixture does not intercept the CLI tools, provider or SDK.
+
 A live staging substitution control also requires refusal before a new journal
 generation when an adversary substitutes identical bytes in another inode.
 Twenty-three unsafe-intent, staging, target and conflicting-journal controls each
@@ -60,8 +70,8 @@ CI runs the same driver, repeats recovery on the reconstructed package and check
 actual CLI plan resume plus the existing surrounding native lifecycle controls.
 See [recorded evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-plan-publication.txt).
 
-This verifies the stated synchronized native API boundaries. A whole actual CLI
-interrupted-plan cycle, partial or malformed intent creation, unreferenced staging
+This verifies the stated synchronized native API and whole-CLI boundaries.
+Partial or malformed intent creation, unreferenced staging
 before valid intent, physical power loss, persisted fresh-process rollback
 authority, alternate/sandboxed writers, broader nested/Unicode Plan Mode policy,
 every other task/memory path and complete production lifecycle remain unfinished.

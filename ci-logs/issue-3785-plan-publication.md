@@ -35,7 +35,7 @@ only to the disposable pinned Gemini experiment. The PR stays draft/unmerged.
    exact timestamps, SHA, artifact digests and specific log line numbers.
 
 Final surrounding tests, static checks and exact-head CI are recorded below
-when complete. Whole actual CLI interrupted-plan recovery, partial intent,
+when complete. Partial intent,
 pre-intent orphan staging, power loss, persisted rollback authority, remaining
 writers/task memory and full production lifecycle remain unfinished.
 
@@ -45,3 +45,32 @@ ACP and third-terminal restore 3/5. All 11 network logs have no errors. Surround
 history 69, metadata 54 and shell 28 pass. Python AST (88 files), Prettier,
 actionlint/ShellCheck, secret scanning, file limits and whitespace checks pass.
 All local background commands finish and all native process groups are reaped.
+
+Whole-CLI interruption extension:
+
+1. Before repair, kill the complete actual CLI after durable journal publication
+   for both first writes and replacements. Delete its whole private home; fresh
+   actual resume fails with the precise expected assertion and unsafe-history
+   diagnostic. Preserve both strict negative-control logs.
+2. Run all six first/replacement x intent/journal/document boundaries against
+   stage 26. An explicitly armed Linux-only fsync interposer invokes real fsync,
+   records the selected boundary and sends SIGKILL. Native tools/provider/SDK
+   remain real. Bound compilation and CLI processes and reap every group.
+3. Correct a fixture assumption: first-write death after intent legitimately has
+   no journal yet. Require absent or preceding generation before recovery and
+   the exact complete new generation afterwards; never fabricate journal data.
+4. All six controls pass twelve assertions. Fresh-home actual resume/read_file
+   delivers all UTF-8 plan lines, keeps every full generation and preceding audit,
+   leaves no private plan or completed metadata. First cases use three model
+   requests, replacements six; healthy 3/5 and private 2/2 also pass. All eight
+   network diagnostics have errors []. Logs use gemini-plan-cli-death-v2-*.
+5. Add the same strict before and six after controls to the existing CI driver;
+   independently reconstruct source and repeat complete CLI replacement recovery.
+   Remaining partial-intent/power-loss/backend/production criteria stay open.
+
+The exact expanded CI driver passes on a separate stage-25 package, applying
+stage 26 itself: both strict whole-CLI before failures, preceding API/reserved
+negative controls, 59 API assertions, 30 storage assertions and twelve whole-CLI
+assertions. Six after network logs have no errors. Logs use
+`/tmp/issue-3785-recovery/gemini-plan-cli-ci-*`. Python AST (89), formatting,
+actionlint/ShellCheck, secret scanning, file limits and whitespace checks pass.

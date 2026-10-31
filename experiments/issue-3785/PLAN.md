@@ -1368,7 +1368,17 @@ Latest CI continuation:
       All 11 network logs have no errors. History 69, metadata 54, shell 28 and
       static checks pass.
 - [ ] Commit/push both plan stages and require fresh exact-head CI.
-- [ ] Complete whole-CLI interrupted plan recovery, partial intent/pre-intent
-      staging, power loss, remaining native writers and broad production lifecycle.
+- [x] Reproduce complete actual CLI first/replacement interruption before repair;
+      verify all six intent/journal/document boundaries after repair, disposing
+      the whole home before fresh native resume/read_file and retaining every
+      full generation and preceding audit. Twelve assertions pass; ordinary
+      healthy/private controls and all eight error-free network logs pass.
+- [x] Verify the expanded exact CI driver locally: strict before controls,
+      59 API assertions, 30 storage assertions and twelve whole-CLI assertions;
+      all six recovered network logs have no errors. Static checks pass.
+- [ ] Commit/push the whole-CLI controls and obtain fresh exact-head CI after
+      preserving the preceding build runs.
+- [ ] Complete partial intent/pre-intent staging, power loss, remaining native
+      writers and broad production lifecycle.
 - [x] Preserve all eight successful workflows at 8f9ca8867a before pushing again,
       including full compiled Codex and Docker/739-default/2-integration evidence.

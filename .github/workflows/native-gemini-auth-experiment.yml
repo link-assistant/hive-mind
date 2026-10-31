@@ -22,6 +22,7 @@ on:
       - 'experiments/issue-3785/gemini_subagent_restore.py'
       - 'experiments/issue-3785/gemini_subagent_concurrent.py'
       - 'experiments/issue-3785/gemini_plan_history.py'
+      - 'experiments/issue-3785/gemini_plan_interruption.py'
       - 'experiments/issue-3785/gemini_live_audit.py'
       - 'experiments/issue-3785/gemini_live_audit_interactive.py'
       - 'experiments/issue-3785/gemini_live_summary.py'
@@ -531,6 +532,7 @@ jobs:
         run: |
           python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --stream-admission --plans --plan-transactions --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
           python3 experiments/issue-3785/native-gemini/probe_plan_publication.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --scenario replacement --point after-journal --diagnostics "$RUNNER_TEMP/gemini-acp-plan-publication-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-publication-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --history-plan-interruption replacement --history-plan-point after-journal --diagnostics "$RUNNER_TEMP/gemini-acp-plan-publication-cli-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-publication-cli-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-fresh-control.log" 2>&1
           python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --conversation-evidence --diagnostics "$RUNNER_TEMP/gemini-acp-plan-history.log" > "$RUNNER_TEMP/gemini-acp-plan-history-control.log" 2>&1
           for mode in terminal acp; do

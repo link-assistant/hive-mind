@@ -18,6 +18,9 @@ def plan_tool_call(payload, first_prompt, workspace, phases):
     directory = (workspace / match[1]).resolve()
     file = directory / 'synthetic-retained-plan.md'
     assert first_prompt in content
+    if 'SYNTHETIC-GEMINI-PLAN-RECOVER' in content:
+        from gemini_plan_interruption import recovered_plan_tool_call
+        return recovered_plan_tool_call(contents, file, phases)
     phase = 'resume' if 'SYNTHETIC-GEMINI-PLAN-REOPEN' in content else 'initial'
     step = phases.get(phase, 0)
     phases[phase] = step + 1

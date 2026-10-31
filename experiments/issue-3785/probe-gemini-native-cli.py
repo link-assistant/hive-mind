@@ -34,6 +34,8 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-plan', action='store_true')
 parser.add_argument('--history-plan-attack', choices=('missing', 'content-change', 'symlink', 'unsafe-mode'))
+parser.add_argument('--history-plan-interruption', choices=('first', 'replacement'))
+parser.add_argument('--history-plan-point', choices=('after-intent', 'after-journal', 'after-publish'), default=None)
 parser.add_argument('--history-subagent', action='store_true')
 parser.add_argument('--history-subagent-restore', action='store_true')
 parser.add_argument('--history-subagent-concurrent', action='store_true')
@@ -79,8 +81,10 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
-assert not args.history_plan or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_plan', 'history_plan_attack', 'private_history'))
+assert not args.history_plan or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_plan', 'history_plan_attack', 'history_plan_interruption', 'history_plan_point', 'private_history'))
 assert not args.history_plan_attack or args.history_plan and not args.private_history
+assert not args.history_plan_interruption or args.history_plan and not (args.history_plan_attack or args.private_history)
+assert not args.history_plan_point or args.history_plan_interruption
 assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
 assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback', 'history_live_rollback_engine'))
 assert not args.history_live_rollback_engine or args.history_live_rollback
@@ -742,10 +746,12 @@ try:
 
     if args.history_plan:
         from gemini_plan_history import verify_plan_history
-        verify_plan_history(invoke=invoke, root=root, home=home, workspace=workspace, history=history,
-                            env=env, settings=settings, diagnostics=args.diagnostics, models=models,
-                            first_prompt=first_prompt, session=session, phases=plan_phases,
-                            attack=args.history_plan_attack)
+        from gemini_plan_interruption import verify_plan_interruption
+        options = {'scenario': args.history_plan_interruption, 'point': args.history_plan_point or 'after-journal'} if args.history_plan_interruption else {'attack': args.history_plan_attack}
+        verify = verify_plan_interruption if args.history_plan_interruption else verify_plan_history
+        verify(invoke=invoke, root=root, home=home, workspace=workspace, history=history,
+               env=env, settings=settings, diagnostics=args.diagnostics, models=models,
+               first_prompt=first_prompt, session=session, phases=plan_phases, **options)
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors

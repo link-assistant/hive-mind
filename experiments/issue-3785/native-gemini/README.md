@@ -1363,7 +1363,7 @@ project/session separation, restricted policy and fourteen unsafe cases. Fresh
 reconstruction adds `--plans` to the preceding twenty-four-stage selectors.
 
 Journal/file disagreement refuses at stage 25. Stage 26 adds checked durable
-intent and recovery at synchronized native API boundaries; see
+intent and recovery at synchronized native API and whole-CLI boundaries; see
 [interrupted plan publication](PLAN_PUBLICATION.md). Physical power loss,
 fresh-process rollback authority, alternate filesystem writers, every task/memory
 path and production integration remain unfinished. The Plan Mode policy retains simple Markdown

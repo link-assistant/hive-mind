@@ -347,7 +347,11 @@ durable intent and recovers complete journal/file generations after synchronized
 intent, journal and document publication boundaries. All 59 recovery/refusal
 assertions and 30 storage assertions pass locally; fresh reconstruction compares
 17 identical native files. See `evidence/native-gemini-plan-publication.txt`.
-Whole-CLI interruption, partial intent, power loss, remaining writers/task memory
+The complete actual CLI independently reproduces both pre-repair failures and
+passes twelve assertions across the same six interruption boundaries. After
+whole-home disposal, real native resume/read_file delivers the complete UTF-8
+plan while preserving every full generation and preceding audit. Partial intent,
+power loss, remaining writers/task memory
 and full production lifecycle remain unfinished. This is partial A9 evidence.
 All eight workflows pass at the preceding `8f9ca8867a` concurrent-child head;
 the new plan stages require their own fresh exact-head CI.

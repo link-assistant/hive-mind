@@ -4,6 +4,7 @@ set -euo pipefail
 package=$1
 prefix=$2
 export PYTHONDONTWRITEBYTECODE=1
+bash experiments/issue-3785/native-gemini/check_plan_cli_interruption.sh "$package" "$prefix-cli" before
 for scenario in first replacement; do
   if python3 experiments/issue-3785/native-gemini/probe_plan_publication.py "$package" --scenario "$scenario" --point after-journal --diagnostics "$prefix-$scenario-before.log" > "$prefix-$scenario-before-control.log" 2>&1; then
     echo 'Native interrupted plan publication unexpectedly recovered before repair.'
@@ -25,3 +26,4 @@ for state in intent-symlink intent-hardlink intent-mode intent-malformed intent-
   python3 experiments/issue-3785/native-gemini/probe_plan_publication.py "$package" --attack "$state" --diagnostics "$prefix-$state.log" > "$prefix-$state-control.log" 2>&1
 done
 python3 experiments/issue-3785/native-gemini/probe_plans_history.py "$package" --plan-transactions --diagnostics "$prefix-storage.log" > "$prefix-storage-control.log" 2>&1
+bash experiments/issue-3785/native-gemini/check_plan_cli_interruption.sh "$package" "$prefix-cli" after

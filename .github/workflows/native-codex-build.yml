@@ -73,6 +73,9 @@ jobs:
           for selection in configuration cli logs; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$CODEX_NATIVE_EXPERIMENT" --case "$selection" > "$RUNNER_TEMP/native-release-sqlite-$selection.log" 2>&1
           done
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$CODEX_NATIVE_EXPERIMENT" --alias "$alias" > "$RUNNER_TEMP/native-release-sqlite-$alias.log" 2>&1
+          done
       - name: Preserve native build and request diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

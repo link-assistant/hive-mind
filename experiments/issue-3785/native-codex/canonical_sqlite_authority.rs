@@ -7,6 +7,16 @@ use std::path::Path;
 
 const NOFOLLOW: i32 = 0x20000;
 const DIRECTORY: i32 = 0x10000;
+const NONBLOCK: i32 = 0x800;
+const DATABASES: [&str; 7] = [
+    "state_5.sqlite",
+    "logs_2.sqlite",
+    "goals_1.sqlite",
+    "memories_1.sqlite",
+    "memories_v2_1.sqlite",
+    "queue_1.sqlite",
+    "thread_history_1.sqlite",
+];
 
 fn refused() -> io::Error {
     io::Error::new(
@@ -24,6 +34,45 @@ fn absolute(path: &Path) -> bool {
                 .split('/')
                 .all(|part| !part.is_empty() && part != "." && part != "..")
     })
+}
+
+// This admission does not hold a lease across later SQLite operations. Keep all
+// metadata checks bounded and never open aliases, repair or read database data.
+fn database_files(root: &Path, owner: u32) -> io::Result<()> {
+    for database in DATABASES {
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let path = root.join(format!("{database}{suffix}"));
+            let before = match fs::symlink_metadata(&path) {
+                Ok(info) => info,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
+            };
+            if !before.is_file()
+                || before.uid() != owner
+                || before.nlink() != 1
+                || before.mode() & 0o022 != 0
+            {
+                return Err(refused());
+            }
+            let descriptor = OpenOptions::new()
+                .read(true)
+                .custom_flags(NOFOLLOW | NONBLOCK)
+                .open(&path)?;
+            let held = descriptor.metadata()?;
+            let visible = fs::symlink_metadata(&path)?;
+            for info in [&held, &visible] {
+                if !info.is_file()
+                    || info.uid() != owner
+                    || info.nlink() != 1
+                    || info.mode() & 0o022 != 0
+                    || (info.dev(), info.ino()) != (before.dev(), before.ino())
+                {
+                    return Err(refused());
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// CODEX_ROLLOUT_HOME selects the canonical history contract. Upstream's
@@ -83,6 +132,16 @@ fn validate(
         || private_info.mode() & 0o077 != 0
         || fs::canonicalize(root)? != root
         || fs::canonicalize(private)? != private
+    {
+        return Err(refused());
+    }
+    database_files(root, owner)?;
+    let after = fs::symlink_metadata(root)?;
+    if !after.is_dir()
+        || after.uid() != owner
+        || after.mode() & 0o077 != 0
+        || (held.dev(), held.ino()) != (after.dev(), after.ino())
+        || fs::canonicalize(root)? != root
     {
         return Err(refused());
     }

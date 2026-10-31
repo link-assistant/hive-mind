@@ -77,6 +77,12 @@ for (const selection of ['configuration', 'cli', 'logs']) {
   const result = await execute('python3', [file, command, '--case', selection], { maxBuffer: 262144 });
   process.stdout.write(result.stdout);
 }
+for (const alias of ['symlink', 'hardlink']) {
+  const file = fileURLToPath(new URL('probe-codex-native-sqlite-binding.py', import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute('python3', [file, command, '--alias', alias], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
 
 await verifyNativeCodexCommand({ command });
 const capabilityProbe = fileURLToPath(new URL('probe-codex-native-capability-auth.mjs', import.meta.url));

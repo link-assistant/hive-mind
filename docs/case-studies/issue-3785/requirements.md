@@ -440,3 +440,12 @@ the unbundled control refuses that configuration. Installed-package CI requires
 the same reader with native byte admission, pending a fresh run. This does not
 complete default selection, production credential-copy removal or the complete
 lifecycle. See `evidence/codex-model-catalogue-admission.txt`.
+
+A3/A9 also now has an actual native SQLite alias reproduction: symlink and
+hardlink controls apply native migrations to an outside database despite the
+selected canonical directory. Four new filesystem regressions fail before
+startup file admission; all eleven native unit tests and 36 related packaging
+and Node tests pass after repair. A fresh pinned checkout reproduces the new
+34-file inventory. Both platform and installed-command CI require actual alias
+refusals, pending the next run. This does not establish per-operation leases or
+complete A3/A9. See `evidence/codex-sqlite-binding.txt`.

@@ -105,3 +105,5 @@ Copy Cargo-owned native executables into a bounded fresh artifact before strict 
 Pin native Codex admission of final SQLite and log storage in the compiled release recipe. Require the actual platform and installed-command probes to refuse private configuration and command-line redirection before database creation.
 
 Read Codex compiled model metadata with the task environment and actual selected binary. Admit selected native command bytes before discovery and use bundled metadata without loading account or private configuration.
+
+Refuse existing canonical Codex SQLite database and journal aliases, nonregular entries and independent writers during startup admission. Preserve healthy native files and outside evidence, and require actual symlink/hardlink controls in compiled and installed package checks.

@@ -74,6 +74,13 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [ ] Verify SQLite admission in both compiled platform artifacts and actual
       installed commands; complete database operation leases and canonical
       file binding before claiming production full-history isolation.
+- [x] Reproduce actual native database migrations through canonical symlink
+      and hardlink aliases. Four filesystem regressions fail before startup
+      file admission; all eleven native unit tests pass after repair. A fresh
+      source checkout reproduces the new 34-file recipe inventory.
+- [ ] Verify both aliases refuse without changing outside database evidence
+      in the actual compiled and installed native CLIs. Complete runtime
+      database leases, creation/recovery/cleanup and persisted file binding.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

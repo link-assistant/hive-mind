@@ -15,6 +15,7 @@ on:
       - 'experiments/issue-3785/probe-codex-native-compression.py'
       - 'experiments/issue-3785/probe-codex-native-migration.py'
       - 'experiments/issue-3785/probe-codex-native-sqlite-authority.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-binding.py'
       - 'experiments/issue-3785/native-request-proxy.mjs'
       - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
       - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
@@ -331,6 +332,16 @@ jobs:
             exit 1
           fi
           grep -F 'Private configuration redirected acknowledged canonical SQLite storage.' "$RUNNER_TEMP/native-sqlite-regression.log"
+      - name: Reproduce native database aliases reaching another authority
+        run: |
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" --expect-follow > "$RUNNER_TEMP/native-sqlite-$alias-before.log" 2>&1
+          done
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-binding-regression.log" 2>&1; then
+            echo "The native SQLite binding regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'An aliased native database must refuse explicitly before SQLite opens.' "$RUNNER_TEMP/native-sqlite-binding-regression.log"
       - name: Apply and build canonical request admission
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
@@ -345,6 +356,9 @@ jobs:
         run: |
           for scenario in configuration cli logs; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" > "$RUNNER_TEMP/native-sqlite-$scenario-after.log" 2>&1
+          done
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" > "$RUNNER_TEMP/native-sqlite-$alias-after.log" 2>&1
           done
       - name: Verify actual compression, canonical metadata and resume after disposal
         run: |

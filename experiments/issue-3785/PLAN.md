@@ -1423,3 +1423,10 @@ Latest CI continuation:
       Download the full 48335-line checks log and review in bounded chunks.
 - [ ] Complete default six-tool authority selection, migration, all native
       writers/history/backend lifecycle and unresolved Claude refresh-owner death.
+- [x] Reproduce actual Codex migrations reaching another authority through
+      canonical SQLite symlinks and hardlinks, with a healthy native baseline.
+      Fail four strict filesystem tests before repair, then pass all eleven.
+- [x] Pin startup database/journal file admission in the 34-file recipe and
+      verify a fresh full preparation plus 19 packaging and 17 Node tests.
+- [ ] Verify actual compiled and installed alias refusal in subsequent CI.
+      Finish per-operation leases and all remaining canonical lifecycle work.

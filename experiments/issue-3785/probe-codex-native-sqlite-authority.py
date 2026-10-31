@@ -17,7 +17,7 @@ class NativeRefusal(Exception):
     """A native response or exit may carry the specific admission error."""
 
 
-def exercise(binary, root, override):
+def exercise(binary, root, override, prepare=None):
     canonical, configuration, redirected = (root / name for name in ("canonical", "configuration", "redirected"))
     for directory in (root, canonical, configuration, redirected):
         directory.mkdir(mode=0o700, exist_ok=True)
@@ -28,6 +28,8 @@ def exercise(binary, root, override):
         config = "log_dir=" + json.dumps(str(redirected)) + "\n" + config
     config += '[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n'
     (configuration / "config.toml").write_text(config)
+    if prepare is not None:
+        prepare(canonical, configuration, redirected)
     environment = {
         "PATH": os.environ.get("PATH", ""), "HOME": str(root),
         "CODEX_HOME": str(configuration), "CODEX_SQLITE_HOME": str(canonical),

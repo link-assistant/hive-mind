@@ -24,6 +24,19 @@ legacy controls. ESLint, formatting and git diff whitespace checks pass.
 After: /tmp/issue-3785-recovery/codex-preflight-authority-after.log
 Related: /tmp/issue-3785-recovery/codex-preflight-authority-related-final.log
 
+The preserved full native development executable independently passes the
+actual capability-discovery control. It renders its bundled skill catalog
+for both tasks and after replacement, refuses logout and injected private
+credentials, and preserves the canonical generation after task disposal.
+This uses a bounded real-native runner, with no mocked CLI response:
+  node --max-old-space-size=96 experiments/issue-3785/probe-codex-native-capability-auth.mjs /absolute/codex --unpackaged-development
+The repeated control uses JITless Node under inherited 512 MiB data/16 MiB
+stack bounds; ordinary Node cannot reserve its JIT range under that data limit.
+Log: /tmp/issue-3785-recovery/codex-preflight-native-development-jitless.log
+The experimental workflow requires this control. The installed-package probe
+instead imports its actual installed preflight module and uses its default
+runner, including native byte admission. That new CI control has not run yet.
+
 This covers explicitly selected capability discovery. The default launcher
 still does not select the canonical native contract, so unselected production
 credential copying remains open. Complete runtime/connection identity leases,

@@ -71,6 +71,13 @@ assert.deepEqual(await fs.readFile(stock), stockBytes);
 assert.equal(await fs.realpath(command), selected.entrypoint);
 console.log('PASS: the actual npm-installed stock command selects the checked native generation idempotently while preserving the upstream launcher.');
 
+await verifyNativeCodexCommand({ command });
+const capabilityProbe = fileURLToPath(new URL('probe-codex-native-capability-auth.mjs', import.meta.url));
+// JITless avoids V8's large executable reservation under the inherited data
+// bound; the real native Codex process keeps the same 512 MiB/16 MiB limits.
+const capabilityResult = await execute('prlimit', ['--data=536870912', '--stack=16777216', '--core=0', '--', process.execPath, '--jitless', '--max-old-space-size=96', capabilityProbe, command, installed], { maxBuffer: 262144 });
+process.stdout.write(capabilityResult.stdout);
+
 for (const [probe, flags] of [
   ['probe-codex-native-auth-root.mjs', []],
   ['probe-codex-native-request-auth.mjs', []],

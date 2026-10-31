@@ -1379,3 +1379,25 @@ the new boundaries; preceding publication, plan and CLI checks remain required.
 Incomplete unreferenced staging is retained. See
 [atomic publication proofs](ATOMIC_PUBLICATION.md) for commands, exact pins and
 the remaining durability and production limits.
+
+## Inherited authentication and history identities
+
+Stage 28 compares each selected native directory with the optional device/inode
+identity admitted before launch. The preceding complete CLI ignores both
+inherited markers and sends inference requests even when either is wrong.
+`apply_inherited_identity.py` pins all five preceding helpers before adding a
+shared admission helper to account/authentication reads, history initialization
+and request admission. It retains selectors, markers and directory identities
+for the process lifetime; removing a selector or marker cannot restore private
+fallback. Unselected and selected unmarked behavior remain supported.
+
+`check_inherited_identity.sh` requires both strict whole-CLI before controls,
+then reconstructs all 31 authentication/history stages independently. It checks
+20 resulting files and runs 38 isolated native admission controls. The actual
+npm-artifact gate repeats those controls and full native wrong-auth,
+wrong-history and healthy history/resume controls against its installed
+generation, followed by the existing native writer/request/read and lifecycle
+checks. Selected Docker projection, default activation/migration and the wider
+six-tool requirements remain unfinished. See
+[exact evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-inherited-identity.txt)
+and the [work plan](../GEMINI_INHERITED_IDENTITY_PLAN.md).

@@ -8,7 +8,7 @@ native byte inventory. Default canonical storage selection, launcher admission
 and restored-state migration remain unfinished.
 
 The recipe checks all 449 files in the locked upstream npm archive, applies
-exact line edits to five bundles, and installs eighteen checked helpers. Every
+exact line edits to five bundles, and installs nineteen checked helpers. Every
 input, recipe payload and output has a SHA-256 check. The upstream archive's
 SHA-512 integrity is retained in the manifest. The upstream Apache license is
 included as `LICENSE.upstream`; Hive Mind's adapter changes use the repository
@@ -44,11 +44,11 @@ Reproduce the recipe after installing the repository's development dependencies:
 ```sh
 python3 experiments/issue-3785/build_native_gemini_recipe.py \
   /path/to/gemini-cli-0.65.0.tgz /path/to/pristine-package \
-  /path/to/tested-stage-27-package /path/to/fresh-recipe
+  /path/to/tested-stage-28-package /path/to/fresh-recipe
 ```
 
 The archive must match the committed lockfile integrity. The checked tested
-package is reconstructed by the thirty native authentication/history stages.
+package is reconstructed by the thirty-one native authentication/history stages.
 The generator verifies every edit against the original complete source before
 writing a recipe and formats the JSON reproducibly.
 
@@ -60,3 +60,14 @@ activated generation. No native exports are replaced in these complete CLI
 controls. `verifyNativeGemini` checks executable provenance only;
 the launcher must separately establish canonical authentication and full history
 before execution.
+
+Selected native authentication and history accept optional launcher-admitted
+device/inode identities through `HIVE_MIND_GEMINI_AUTH_IDENTITY` and
+`HIVE_MIND_GEMINI_HISTORY_IDENTITY`. Native account/authentication reads,
+history initialization and inference recheck them against their selected owned
+private directories. The native process retains the initial selections and
+markers, refusing later removal, changes or directory replacement. A marker
+without its selector also refuses admission. Ordinary unselected behavior is
+preserved. This native contract does not activate selected Docker projection or
+default canonical migration. See
+[inherited identity evidence](../../docs/case-studies/issue-3785/evidence/native-gemini-inherited-identity.txt).

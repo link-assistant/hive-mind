@@ -1,5 +1,4 @@
 name: Native Gemini auth adapter experiment
-
 on:
   pull_request:
     paths:
@@ -37,14 +36,11 @@ on:
       - 'experiments/issue-3785/gemini_live_summary.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: native-gemini-auth-experiment-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
-
 jobs:
   native-credential-reads:
     runs-on: ubuntu-24.04
@@ -598,8 +594,10 @@ jobs:
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-acp-auth-writers.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-acp-auth-requests.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-acp-auth-reads.log" 2>&1
+      - name: Reproduce and repair inherited storage identities, then independently rebuild the native adapter
+        run: bash experiments/issue-3785/native-gemini/check_inherited_identity.sh "$RUNNER_TEMP/gemini-acp-constructor-cli" "$RUNNER_TEMP/gemini-acp-fresh-cli" "$RUNNER_TEMP/gemini-acp-identity"
       - name: Install the exact adapter from the actual npm artifact and verify native execution
-        run: bash experiments/issue-3785/check_packaged_gemini.sh "$RUNNER_TEMP/gemini-acp-pristine-cli" "$RUNNER_TEMP/gemini-acp-fresh-cli" "$RUNNER_TEMP/gemini-acp-packaged"
+        run: bash experiments/issue-3785/check_packaged_gemini.sh "$RUNNER_TEMP/gemini-acp-pristine-cli" "$RUNNER_TEMP/gemini-acp-identity-fresh-cli" "$RUNNER_TEMP/gemini-acp-packaged"
       - name: Preserve actual native ACP diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

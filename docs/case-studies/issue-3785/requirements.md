@@ -758,3 +758,16 @@ rename exclusion, fresh-process rollback, the complete Docker/daemon lifecycle
 matrix and the wider six-tool criteria remain OPEN. See
 `evidence/ci-7d09cacbe-sqlite-native.txt` and
 `evidence/sqlite-release-candidate.txt`.
+
+Gemini inherited-identity follow-up: the complete pinned native CLI previously
+accepted incorrect launcher auth and history identities and sent inference
+requests. The final native adapter stage now compares inherited device/inode
+markers before account/authentication reads, history initialization and
+inference, retaining initial selectors and identities across later operations.
+Both strict before controls reproduce the gap. Both repaired whole-CLI refusal
+controls and the matching-identity conversation/resume control pass, as do 38
+isolated native admission controls. Independent reconstruction compares 20
+files across all 31 stages; the actual installed npm artifact repeats native
+identity controls. Selected Gemini Docker projection, default canonical
+activation/migration, full daemon lifecycles and the wider A1-A12/B1-B12 criteria
+remain OPEN. See `evidence/native-gemini-inherited-identity.txt`.

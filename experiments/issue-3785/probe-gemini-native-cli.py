@@ -32,6 +32,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
+parser.add_argument('--storage-identity', choices=('correct', 'auth-mismatch', 'history-mismatch'))
 parser.add_argument('--history-plan', action='store_true')
 parser.add_argument('--history-plan-attack', choices=('missing', 'content-change', 'symlink', 'unsafe-mode'))
 parser.add_argument('--history-plan-interruption', choices=('first', 'replacement'))
@@ -81,6 +82,8 @@ parser.add_argument('--session-identifier')
 parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-export'))
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
+assert not args.storage_identity or not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'storage_identity'))
+assert args.storage_identity != 'history-mismatch' or args.history
 assert not args.history_plan or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_plan', 'history_plan_attack', 'history_plan_interruption', 'history_plan_point', 'private_history'))
 assert not args.history_plan_attack or args.history_plan and not args.private_history
 assert not args.history_plan_interruption or args.history_plan and not (args.history_plan_attack or args.private_history)
@@ -523,6 +526,16 @@ try:
            'XDG_CACHE_HOME': str(home / '.cache')}
     if args.history and not args.private_history:
         env['GEMINI_HISTORY_HOME'] = str(history)
+    if args.storage_identity:
+        info = canonical.stat()
+        env['HIVE_MIND_GEMINI_AUTH_IDENTITY'] = f'{info.st_dev}:{info.st_ino}'
+        if args.storage_identity == 'auth-mismatch':
+            env['HIVE_MIND_GEMINI_AUTH_IDENTITY'] = '0:0'
+        if args.history:
+            info = history.stat()
+            env['HIVE_MIND_GEMINI_HISTORY_IDENTITY'] = f'{info.st_dev}:{info.st_ino}'
+            if args.storage_identity == 'history-mismatch':
+                env['HIVE_MIND_GEMINI_HISTORY_IDENTITY'] = '0:0'
     args.diagnostics.parent.mkdir(parents=True, exist_ok=True)
 
     def invoke(diagnostic, child_env, flags):
@@ -858,6 +871,18 @@ try:
     if args.history:
         flags.extend(['--session-id', session])
     code, output = invoke(args.diagnostics, env, flags)
+    if args.storage_identity in ('auth-mismatch', 'history-mismatch'):
+        assert code != 0 and not models, 'Native CLI must refuse a mismatched inherited storage identity before inference.'
+        kind = 'authentication' if args.storage_identity == 'auth-mismatch' else 'conversation history'
+        assert f'Gemini canonical {kind} is unavailable or unsafe.' in output
+        assert json.loads(auth.read_text()) == credentials
+        assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
+        assert not (private / 'oauth_creds.json').exists()
+        assert not (private / 'google_accounts.json').exists()
+        assert not errors, errors
+        print('PASS: actual native CLI refuses ' + args.storage_identity + ' before inference, preserving canonical credentials and private configuration isolation.')
+        safe_cleanup = True
+        raise SystemExit(0)
     assert code == 0, 'Native CLI did not complete successfully; inspect bounded diagnostics.'
     assert not errors, errors
     assert models, 'Require a real native CLI model request.'

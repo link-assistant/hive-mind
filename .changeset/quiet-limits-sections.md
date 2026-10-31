@@ -219,3 +219,10 @@ controls in optimized builds, installed npm commands and both final images.
 Ignore inherited C compiler and SQLite library overrides during checked builds.
 Atomic external rename exclusion, fresh-process rollback and the complete
 six-tool canonical storage lifecycle remain unfinished.
+
+Bind selected native Gemini authentication and conversation storage to optional
+launcher-admitted directory identities. Refuse mismatched or malformed markers
+before inference and retain initial selectors/identities across native account,
+authentication and history operations. Verify the exact npm-installed adapter
+with independent source reconstruction and native before/after controls.
+Selected Docker projection and default canonical migration remain unfinished.

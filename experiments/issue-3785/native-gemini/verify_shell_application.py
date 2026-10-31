@@ -24,7 +24,9 @@ parser.add_argument('--stream-admission', action='store_true', help='Also refuse
 parser.add_argument('--plans', action='store_true', help='Also retain checked native plans and generations; requires --stream-admission.')
 parser.add_argument('--plan-transactions', action='store_true', help='Also recover interrupted native plan publication; requires --plans.')
 parser.add_argument('--atomic-proofs', action='store_true', help='Also atomically publish complete recovery proofs; requires --plan-transactions.')
+parser.add_argument('--inherited-identity', action='store_true', help='Also admit launcher storage identities; requires --atomic-proofs.')
 args = parser.parse_args()
+assert not args.inherited_identity or args.atomic_proofs, 'Inherited identities require the final atomic-publication stage.'
 assert not args.atomic_proofs or args.plan_transactions, 'Atomic publication requires plan transactions.'
 assert not args.plan_transactions or args.plans, 'Plan transactions require the preceding plan-history stage.'
 assert not args.plans or args.stream_admission, 'Plan storage requires the preceding streaming-admission stage.'
@@ -60,6 +62,8 @@ if args.plan_transactions:
     stages += ('plan_transactions',)
 if args.atomic_proofs:
     stages += ('atomic_publication',)
+if args.inherited_identity:
+    stages += ('inherited_identity',)
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()
@@ -68,6 +72,8 @@ for stage in stages:
     subprocess.run(command, check=True)
 
 names = ('chunk-DKZARV6U.js', 'chunk-XHQ6TTKH.js', 'gemini-GLQ4MVLB.js', 'interactiveCli-AVD3AKNJ.js', 'hive-gemini-admission.mjs', 'hive-gemini-history.mjs', 'hive-gemini-publication.mjs', 'hive-gemini-shell-history.mjs') + (('hive-gemini-tracker-history.mjs', 'hive-gemini-tracker-transactions.mjs') if include_tracker else ()) + (('hive-gemini-git-history.mjs', 'hive-gemini-git-lock.mjs', 'hive-gemini-git-configuration.mjs', 'hive-gemini-git-objects.mjs') if include_git else ()) + (('chunk-YTHYCFAB.js', 'hive-gemini-restorable-history.mjs', 'hive-gemini-restorable-admission.mjs') if include_restorable else ())
+if args.inherited_identity:
+    names += ('hive-gemini-reads.mjs', 'hive-gemini-accounts.mjs', 'hive-gemini-storage-identity.mjs')
 for name in names:
     actual = (output / 'bundle' / name).read_bytes()
     assert actual == (tested / 'bundle' / name).read_bytes(), 'Fresh application differs from the tested package: ' + name

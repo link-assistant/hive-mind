@@ -31,15 +31,15 @@
     },
     "bundle/hive-gemini-accounts.mjs": {
       "payload": "hive-gemini-accounts.mjs.json",
-      "payloadSha256": "618c36ba6480e0c03189a4d1169e23842fe410d2cc8e8e132bb29b0d033ceab0",
-      "sha256": "a34d60e457b3459680ed65b7b08e5e9288efdf554d32e93787ef5e760af80c9d",
-      "size": 9337
+      "payloadSha256": "9869a482ff44a059a0229b641df8512a44abcf90900dfea5139fa7e1912ca707",
+      "sha256": "7ff53a502b0e8e7e6be48ddd8ecb9341a20307d3266b69834a20a7a5329793c0",
+      "size": 9472
     },
     "bundle/hive-gemini-admission.mjs": {
       "payload": "hive-gemini-admission.mjs.json",
-      "payloadSha256": "e7ad6384f664a4bc1973d743c9dae98834d1ba31d9ccdd3157dd4620303bf250",
-      "sha256": "39288c41c6bfb09c9150efeb383dc25001dccd14417d2a949eaf762887bb5373",
-      "size": 3629
+      "payloadSha256": "0a360b2f0f460889e2f9b82f8d736683cf4683ba66092c858064f68500266e98",
+      "sha256": "4295266680ab563e571e7af3d72be762b91948b940ec0abea766583f905737ef",
+      "size": 3847
     },
     "bundle/hive-gemini-git-configuration.mjs": {
       "payload": "hive-gemini-git-configuration.mjs.json",
@@ -67,9 +67,9 @@
     },
     "bundle/hive-gemini-history.mjs": {
       "payload": "hive-gemini-history.mjs.json",
-      "payloadSha256": "d411edc33af276b43a0138e20396f61f5df173727a82436215e7de9f07bb2609",
-      "sha256": "d522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da",
-      "size": 49755
+      "payloadSha256": "addcf0c50d30847fdf345ea280beebbb1915cf04da408b6348228c15b80d959d",
+      "sha256": "4e8997989bd15779ea8e663fe7cd88cc9bebee1cffabe39d8f394dafedf771fb",
+      "size": 49915
     },
     "bundle/hive-gemini-publication.mjs": {
       "payload": "hive-gemini-publication.mjs.json",
@@ -79,9 +79,9 @@
     },
     "bundle/hive-gemini-reads.mjs": {
       "payload": "hive-gemini-reads.mjs.json",
-      "payloadSha256": "59b2ccba6ca353aa887f98467434a559017f955051f931a18791742e0fb747a6",
-      "sha256": "cc0e6fafbdafe16ca23d9d31de3338f58b931f17b85e330053431e23d3b87edb",
-      "size": 3845
+      "payloadSha256": "ef0af90010c6dda97dc23a33ea169c1d88f6ed4f811837d3a72c1fcfaee74488",
+      "sha256": "12823c530218bdd1d1bfd322451bc79ed8fcd8c25dd1d66807909a720ac91ce1",
+      "size": 4004
     },
     "bundle/hive-gemini-restorable-admission.mjs": {
       "payload": "hive-gemini-restorable-admission.mjs.json",
@@ -100,6 +100,12 @@
       "payloadSha256": "b5f43d23879ff6bc03e1bdb8c3c27a35dfcbbec26f53c99c1a18e24950c8f4df",
       "sha256": "c1b5b1abca32643ae0674779fe21bcf5713795906b9f6aac0d57a0ce3774e2f0",
       "size": 3302
+    },
+    "bundle/hive-gemini-storage-identity.mjs": {
+      "payload": "hive-gemini-storage-identity.mjs.json",
+      "payloadSha256": "7d3c6affd4b4a4b5a1a4feb4e8b130336b1fbb619219b6f661629184c3428c6d",
+      "sha256": "72d5757195df3120eb60083efddf892df194328938e75ce64c4aa7bd0001ca00",
+      "size": 1853
     },
     "bundle/hive-gemini-tracker-history.mjs": {
       "payload": "hive-gemini-tracker-history.mjs.json",

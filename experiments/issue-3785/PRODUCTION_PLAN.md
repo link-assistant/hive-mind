@@ -36,6 +36,10 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [ ] Verify the same real Formal AI writer control through the installed npm
       modules in both required image checks; complete backend request/history
       lifecycle independently of this configuration-only control.
+- [x] Reproduce ambiguous private configuration selectors bypassing selected
+      Codex credential admission. Ten new regressions fail before strict path
+      validation and preservation of explicit empty selectors; all 106 related
+      controls pass after repair without changing unselected behavior.
 - [ ] Distribute the pinned compiled Codex adapter through reproducible release
       assets and image/host installation, then remove production auth copies.
       The pinned optimized x64/arm64 build foundation is being verified first;

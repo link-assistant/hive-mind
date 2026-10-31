@@ -97,3 +97,5 @@ Honor the native Codex authentication selector in limits and subscription reads.
 Preserve the selected native Codex credential authority during capability discovery. Avoid private credential snapshots, reject unsafe or conflicting selected credentials before allocating task state, and admit native command bytes before selected discovery runs.
 
 Preserve explicitly selected canonical Codex authentication during Formal AI configuration. Skip credential snapshots, admit storage before and after native configuration writes, select private configuration for the writer, and require the actual installed writer control in both image checks.
+
+Refuse ambiguous private Codex configuration paths alongside selected canonical credentials. Preserve explicitly empty selectors for refusal instead of replacing them with an operator-home fallback in limits and Formal AI configuration.

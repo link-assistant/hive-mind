@@ -42,9 +42,10 @@ const execAsync = promisify(exec);
  */
 export function resolveLimitsCredentialPaths(env = process.env, homeDir = homedir()) {
   const claudeHome = resolveClaudeCredentialDirectory(env, homeDir);
-  const codexHome = env.CODEX_HOME || join(homeDir, '.codex');
-  const codexAuthHome = selectedCodexAuthHome(env) ?? codexHome;
-  return { claude: join(claudeHome, '.credentials.json'), codex: join(codexAuthHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
+  const selectedAuth = selectedCodexAuthHome(env);
+  const defaultCodexHome = join(homeDir, '.codex');
+  const codexHome = selectedAuth ? (env.CODEX_HOME ?? defaultCodexHome) : env.CODEX_HOME || defaultCodexHome;
+  return { claude: join(claudeHome, '.credentials.json'), codex: join(selectedAuth ?? codexHome, 'auth.json'), codexConfig: join(codexHome, 'config.toml') };
 }
 export const DEFAULT_CREDENTIALS_PATH = resolveLimitsCredentialPaths().claude;
 export const DEFAULT_CODEX_AUTH_PATH = resolveLimitsCredentialPaths().codex;
@@ -96,7 +97,7 @@ export async function readCodexAuth(authPath = resolveLimitsCredentialPaths().co
   try {
     const canonical = selectedCodexAuthHome();
     if (canonical && authPath !== join(canonical, 'auth.json')) throw new Error('Canonical Codex authentication storage is unavailable or unsafe.');
-    const auth = canonical ? await readCanonicalCodexAuth(canonical, { configurationHome: process.env.CODEX_HOME || join(homedir(), '.codex') }) : JSON.parse(await readFile(authPath, 'utf-8'));
+    const auth = canonical ? await readCanonicalCodexAuth(canonical, { configurationHome: process.env.CODEX_HOME ?? join(homedir(), '.codex') }) : JSON.parse(await readFile(authPath, 'utf-8'));
     if (verbose) {
       console.log('[VERBOSE] /limits Codex auth loaded from:', authPath);
     }

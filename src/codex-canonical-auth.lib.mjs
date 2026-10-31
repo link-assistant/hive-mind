@@ -6,11 +6,12 @@ import { TextDecoder } from 'node:util';
 
 const refused = () => new Error('Canonical Codex authentication storage is unavailable or unsafe.');
 const revision = info => `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+const absoluteStoragePath = root => typeof root === 'string' && path.isAbsolute(root) && root !== path.parse(root).root && path.normalize(root) === root && !/[\0\r\n]/u.test(root);
 
 export function selectedCodexAuthHome(env = process.env) {
   if (env.CODEX_AUTH_HOME === undefined) return null;
   const root = env.CODEX_AUTH_HOME;
-  if (typeof root !== 'string' || !path.isAbsolute(root) || root === path.parse(root).root || path.normalize(root) !== root || /[\0\r\n]/u.test(root)) throw refused();
+  if (!absoluteStoragePath(root)) throw refused();
   return root;
 }
 
@@ -19,7 +20,7 @@ export async function readCanonicalCodexAuth(root, { configurationHome } = {}) {
   let descriptor;
   try {
     const assertSingleAuthority = async () => {
-      if (typeof configurationHome !== 'string') throw refused();
+      if (!absoluteStoragePath(configurationHome)) throw refused();
       if (configurationHome === root) return;
       const privateAuth = await fs.lstat(path.join(configurationHome, 'auth.json')).catch(error => {
         if (error.code === 'ENOENT') return null;

@@ -478,9 +478,11 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
     if (!relativeDir || relativeDir === '.' || relativeDir.startsWith('..')) continue;
     // Codex reads CODEX_HOME, which Hive Mind may already have repointed at a repository-scoped home (issue #2074).
     const isCodex = client.id === 'codex';
-    const source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    const authHome = isCodex ? selectedCodexAuthHome(env) : null;
+    let source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    if (authHome) source = env.CODEX_HOME ?? join(realHome, relativeDir);
     if (isCodex) {
-      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome: selectedCodexAuthHome(env), cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
+      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome, cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
       for (const { file, note } of files) seeded.push(`${join(source, file)} → ${join(relativeDir, file)}${note ? ` (${note})` : ''}`);
       continue;
     }
@@ -500,7 +502,7 @@ export const configureFormalAiClientHome = async ({ tool, baseUrl, home, formalA
   const configurationHome = join(home, '.codex');
   const admitSelectedAuthentication = async () => {
     if (!authHome) return;
-    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME || join(homedir(), '.codex') });
+    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME ?? join(homedir(), '.codex') });
     await readCanonicalCodexAuth(authHome, { configurationHome });
   };
   await admitSelectedAuthentication();

@@ -33,3 +33,14 @@ Log: /tmp/issue-3785-recovery/codex-limits-authority-final.log
 This verifies explicit CODEX_AUTH_HOME selection. Production default selection,
 daemon-backed root identity admission, credential migration and removal of
 production copies are still unfinished. This evidence does not close A12/A2.
+
+A later selected-private-path control reproduces seven empty/relative/root/
+non-normalized/control-character configuration paths being admitted. Three
+additional strict controls reproduce an explicitly empty CODEX_HOME being
+replaced with an operator-home fallback in limits and Formal AI seeding/writing.
+All ten fail before repair. Shared admission now validates absolute normalized
+configuration selectors, and selected callers preserve empty values for refusal.
+All 106 related limits, Router, preflight and Formal AI assertions pass.
+Before: /tmp/issue-3785-recovery/codex-private-selector-before.log
+After: /tmp/issue-3785-recovery/codex-private-selector-after.log
+This remains selected-mode admission; the broader open criteria above remain.

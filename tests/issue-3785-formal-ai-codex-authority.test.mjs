@@ -31,6 +31,36 @@ async function fixture(t) {
   return { root, canonical, configuration, auth, destination, copied, options };
 }
 
+test('selected Formal AI seeding preserves an explicitly empty configuration selector for refusal', { timeout: 10000 }, async t => {
+  const f = await fixture(t);
+  await assert.rejects(seedFormalAiClientHome({ ...f.options, realHome: path.join(f.root, 'operator'), env: { ...f.options.env, CODEX_HOME: '' } }), /Canonical Codex authentication storage/u);
+  assert.equal(f.copied.length, 0);
+  await assert.rejects(fs.lstat(f.destination), { code: 'ENOENT' });
+});
+
+test('selected Formal AI configuration refuses an explicitly empty selector before invoking its writer', { timeout: 10000 }, async t => {
+  const f = await fixture(t);
+  const previousHome = process.env.HOME;
+  process.env.HOME = path.join(f.root, 'operator');
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+  });
+  let calls = 0;
+  await assert.rejects(
+    configureFormalAiClientHome({
+      tool: 'codex',
+      home: f.options.home,
+      env: { ...f.options.env, CODEX_HOME: '' },
+      run: async () => {
+        calls++;
+      },
+    }),
+    /Canonical Codex authentication storage/u
+  );
+  assert.equal(calls, 0);
+});
+
 test('Formal AI seeds selected Codex configuration without credential snapshots', { timeout: 10000 }, async t => {
   const f = await fixture(t);
   // A legacy operator home may initially hold both config and canonical auth.

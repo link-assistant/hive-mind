@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { readCodexAuth, resolveLimitsCredentialPaths, getCodexUsageLimits, getCachedCodexLimits, getCachedCodexSubscription, resetLimitCache } from '../src/limits.lib.mjs';
+import { readCanonicalCodexAuth } from '../src/codex-canonical-auth.lib.mjs';
 
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-limits-authority-'));
@@ -13,8 +14,8 @@ async function fixture(t) {
   const configuration = path.join(root, 'configuration');
   await fs.mkdir(canonical, { mode: 0o700 });
   await fs.mkdir(configuration, { mode: 0o700 });
-  const previous = { CODEX_AUTH_HOME: process.env.CODEX_AUTH_HOME, CODEX_HOME: process.env.CODEX_HOME };
-  Object.assign(process.env, { CODEX_AUTH_HOME: canonical, CODEX_HOME: configuration });
+  const previous = { CODEX_AUTH_HOME: process.env.CODEX_AUTH_HOME, CODEX_HOME: process.env.CODEX_HOME, HOME: process.env.HOME };
+  Object.assign(process.env, { CODEX_AUTH_HOME: canonical, CODEX_HOME: configuration, HOME: path.join(root, 'operator') });
   t.after(() => {
     for (const [name, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[name];
@@ -27,6 +28,21 @@ async function fixture(t) {
   await fs.writeFile(protectedAuth, JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'synthetic-private' } }), { mode: 0o600 });
   return { root, canonical, configuration, auth, protectedAuth };
 }
+
+for (const configurationHome of ['', '.', 'relative', '/', '/private/../other', '/private//config', '/private/config\n']) {
+  test(`selected Codex authentication refuses an ambiguous configuration selector ${JSON.stringify(configurationHome)}`, { timeout: 5000 }, async t => {
+    const f = await fixture(t);
+    await assert.rejects(readCanonicalCodexAuth(f.canonical, { configurationHome }), /Canonical Codex authentication storage/u);
+  });
+}
+
+test('selected limits do not replace an explicitly empty private selector with a fallback home', { timeout: 5000 }, async t => {
+  await fixture(t);
+  process.env.CODEX_HOME = '';
+  const fetcher = t.mock.method(globalThis, 'fetch', async () => new globalThis.Response('{}'));
+  assert.equal((await getCodexUsageLimits()).success, false);
+  assert.equal(fetcher.mock.callCount(), 0);
+});
 
 test('selected canonical credentials cannot be sent to a private configuration endpoint', { timeout: 5000 }, async t => {
   const f = await fixture(t);

@@ -315,3 +315,37 @@ this repair and the startup-fallback patch.
 - [x] Reproduce optimized fortified compilation failure before changing the guard.
 - [x] Verify optimized component behavior, refusal diagnostics and real SQLx.
 - [ ] Verify the complete native builds and release/package/image controls.
+
+## Unreleased recipe admission
+
+The full development workflow at `7d09cacbe` completes successfully. Both
+retired-authority strict controls exit 78 and preserve every snapshotted unsafe
+file. Selected and ordinary native corruption recovery preserve exact backup
+bytes and unrelated state. Three concurrent native peers retain 18 acknowledged
+sections after one private configuration is disposed and a fresh peer joins;
+SQLite quick-check passes in both modes. Existing auth, history, migration and
+request controls also pass. The selected guard increases measured development
+startup from 146–159 ms ordinary to 486–497 ms, 25 reads from 34–38 ms to 53–57 ms,
+and ten writes from 11 ms to 27–29 ms. These are finite same-run measurements.
+
+The unreleased recipe now includes the VFS and selected-startup adapters, all
+five source inputs, the checked 45-file inventory and SQLITE_ENABLE_FILESTAT.
+The fortified C diagnostic fix and startup-fallback fix postdate the successful
+development workflow, so their full native after controls still require CI.
+Two fresh preparations reproduce the candidate inventory; repeated preparation,
+changed/extra source and changed recipe identity all refuse. All 22 build and
+admission unit tests pass, including inherited C compiler and SQLite selector
+removal. Nineteen native release/runtime/command assertions pass.
+
+Both optimized native architectures, actual npm-installed commands and both
+final images now require strict retired-directory/database refusal, selected
+and ordinary recovery, three-peer persistence, selected startup refusal,
+ordinary fallback and alternating performance measurements. These gates are
+pending for the candidate. They do not replace the full Docker lifecycle and
+daemon matrix or establish atomic external rename exclusion, fresh-process
+rollback protection or all six tools' canonical storage requirements.
+
+- [x] Inspect every new full-development after control and measure native overhead.
+- [x] Pin the candidate source and require optimized/package/image controls.
+- [ ] Inspect the candidate's compiled startup-fallback after controls.
+- [ ] Complete optimized x64/ARM64, installed npm and both final-image controls.

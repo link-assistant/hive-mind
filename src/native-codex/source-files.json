@@ -1,8 +1,8 @@
 {
   "codex-rs/Cargo.lock": {
-    "bytes": 407540,
+    "bytes": 407547,
     "mode": 420,
-    "sha256": "bc5f7352658f51deace9dddb4bc404742b06c6402cc825b6d37051c008d989bd"
+    "sha256": "3c14b3c5b24ad592a30025619cf06bf03ed97d4e97215fcd2b986f0c0843dd0f"
   },
   "codex-rs/app-server/src/lib.rs": {
     "bytes": 67930,
@@ -15,9 +15,9 @@
     "sha256": "03a7f87116f0ebcb82ea05ade3ca7311b2ab2756cf0b18647676378ec0003926"
   },
   "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
-    "bytes": 5104,
+    "bytes": 4457,
     "mode": 420,
-    "sha256": "c2a2d582e586cfeeb88210b2b6163516fabd8edd6d098c25789be4a4a249d08e"
+    "sha256": "af02759dadccf27df2854cc3ecdebd07ba16b26fad16f5d5bf869b300874ff4d"
   },
   "codex-rs/core/src/config/canonical_sqlite_authority_tests.rs": {
     "bytes": 8343,
@@ -114,6 +114,26 @@
     "mode": 420,
     "sha256": "aab70abe6fa97f4c038512f612302ecbd176c3ba76eb36a80302c1038df58713"
   },
+  "codex-rs/rollout/src/state_db.rs": {
+    "bytes": 25980,
+    "mode": 420,
+    "sha256": "e72353d43fd4b26b1385b619e0968ca45e9ccd245dd9b2d16297d6451e6653fe"
+  },
+  "codex-rs/state/Cargo.toml": {
+    "bytes": 1081,
+    "mode": 420,
+    "sha256": "503f5557b8a617c87bad344b0051be374dcd05e0021ef4e1d7761649f7249474"
+  },
+  "codex-rs/state/build.rs": {
+    "bytes": 535,
+    "mode": 420,
+    "sha256": "f5ec3ec3f02bc14325bb03d9cf1273729d03fad887e5f2b734c4de30c7ece4c3"
+  },
+  "codex-rs/state/src/lib.rs": {
+    "bytes": 7038,
+    "mode": 420,
+    "sha256": "6320c235f97cb452ce392fdcdc1ac1867f774bbc88fd4f70e291d884dbdb6927"
+  },
   "codex-rs/state/src/runtime/canonical_rollout_paths.rs": {
     "bytes": 4909,
     "mode": 420,
@@ -124,10 +144,35 @@
     "mode": 420,
     "sha256": "a1628b6b8a683089cc9790e6e183c1a3810f643d7f68801bf2810e08ff782c8a"
   },
+  "codex-rs/state/src/runtime/reclamation.rs": {
+    "bytes": 14971,
+    "mode": 420,
+    "sha256": "449736da2b74f39e53d53f577abd44acebc4df5a1cc6769a9d701f2532da363b"
+  },
+  "codex-rs/state/src/runtime/recovery.rs": {
+    "bytes": 9702,
+    "mode": 420,
+    "sha256": "2aa1f45d552cf144e83d20cd15859d6c9c28ce3c594561bf32a495c61ebe5818"
+  },
   "codex-rs/state/src/runtime/threads.rs": {
     "bytes": 139935,
     "mode": 420,
     "sha256": "a8a7cbcaf9ff9ec57970f1c094dbb457c0087ed7d62222a0f9a524dce225e146"
+  },
+  "codex-rs/state/src/sqlite.rs": {
+    "bytes": 22014,
+    "mode": 420,
+    "sha256": "5e72e09a12f1a9dea1a89d27e5f4025f96b0e4989a92c8f07680a1329b4f6d8c"
+  },
+  "codex-rs/state/src/sqlite/canonical_sqlite_vfs.c": {
+    "bytes": 25212,
+    "mode": 420,
+    "sha256": "253903ddc980c620b42acdce3b30756a13e311d37dbbef83fb3d90dbf5bbdcd1"
+  },
+  "codex-rs/state/src/sqlite/canonical_sqlite_vfs.rs": {
+    "bytes": 4277,
+    "mode": 420,
+    "sha256": "8f859355946d01e54211d90441f4a780ce64eac146744f9caba52ef3a0a664c4"
   },
   "codex-rs/thread-store/src/local/rollout_migration.rs": {
     "bytes": 55025,

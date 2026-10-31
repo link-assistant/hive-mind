@@ -40,15 +40,29 @@ and removal of the launcher's credential copy remain required
 before this adapter can replace the stock production CLI. This foundation does
 not complete those acceptance criteria.
 
-The current recipe reproduces 36 changed native source files. It includes
+The current unreleased recipe reproduces 45 changed native source files. It includes
 startup SQLite database/journal file admission and strict app-server handling
 when canonical history is selected. The latter prevents upstream default-config
 recovery from swallowing a storage-admission error. These changes have focused
 filesystem and packaging controls. The actual development CLI passes automatic
-strict-policy controls; optimized and installed-package controls pass on both
-native architectures at `f7b1f506d`. SQLite operation lifetime remains unfinished.
+strict-policy controls; optimized and installed-package controls for the previous
+recipe pass on both native architectures at `f7b1f506d`.
 See the case study's `evidence/codex-sqlite-fallback.txt` and
 `evidence/ci-a3ca1a1a8-native.txt` for exact evidence and limits.
+
+The candidate adds the selected SQLite operation adapter and refuses selected
+startup failures before model execution. It pins the bundled SQLite FILESTAT
+flag and removes inherited C compiler and SQLite library overrides. Development
+CLI controls at `7d09cacbe` verify byte-preserving refusal after directory or
+database replacement, native corruption recovery and three concurrent peers.
+That build predates the startup-fallback and fortified compiler repairs. Both
+optimized architectures, installed npm commands and final images now require
+the strict operation, recovery, peer and startup controls; their results for
+this candidate remain pending. Measured development startup rises from about
+150 ms to 490 ms with the selected guard. Atomic external rename exclusion and
+fresh-process rollback protection remain unfinished. See
+`evidence/ci-7d09cacbe-sqlite-native.txt` and
+`evidence/sqlite-release-candidate.txt` in the case study.
 
 Selected native account usage requests capture credentials and their auth
 revision together. They revalidate that revision before dispatch and response

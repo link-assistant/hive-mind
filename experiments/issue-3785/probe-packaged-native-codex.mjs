@@ -84,6 +84,24 @@ for (const alias of ['symlink', 'hardlink']) {
   process.stdout.write(result.stdout);
 }
 
+for (const [probe, flags] of [
+  ['probe-codex-native-sqlite-lifetime.py', ['--case', 'directory']],
+  ['probe-codex-native-sqlite-lifetime.py', ['--case', 'database']],
+  ['probe-codex-native-sqlite-recovery.py', []],
+  ['probe-codex-native-sqlite-recovery.py', ['--without-path-selector']],
+  ['probe-codex-native-sqlite-performance.py', []],
+  ['probe-codex-native-sqlite-peers.py', []],
+  ['probe-codex-native-sqlite-peers.py', ['--without-path-selector']],
+  ['probe-codex-native-sqlite-startup.py', []],
+  ['probe-codex-native-sqlite-startup.py', ['--without-path-selector']],
+]) {
+  const file = fileURLToPath(new URL(probe, import.meta.url));
+  await verifyNativeCodexCommand({ command });
+  const result = await execute('python3', [file, command, ...flags], { maxBuffer: 262144 });
+  process.stdout.write(result.stdout);
+}
+console.log('PASS: the installed native command refuses retired or unusable selected SQLite and preserves healthy recovery and concurrent peers.');
+
 await verifyNativeCodexCommand({ command });
 const authIdentityProbe = fileURLToPath(new URL('probe-codex-native-auth-identity.py', import.meta.url));
 const authIdentityResult = await execute('python3', [authIdentityProbe, command], { maxBuffer: 262144 });

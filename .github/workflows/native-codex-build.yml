@@ -79,6 +79,18 @@ jobs:
           for alias in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$CODEX_NATIVE_EXPERIMENT" --alias "$alias" > "$RUNNER_TEMP/native-release-sqlite-$alias.log" 2>&1
           done
+      - name: Exercise guarded SQLite operations in the optimized native package
+        env:
+          CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex
+        run: |
+          for scenario in directory database; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-lifetime.py "$CODEX_NATIVE_EXPERIMENT" --case "$scenario" > "$RUNNER_TEMP/native-release-sqlite-lifetime-$scenario.log" 2>&1
+          done
+          for scenario in recovery peers startup; do
+            python3 "experiments/issue-3785/probe-codex-native-sqlite-$scenario.py" "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-sqlite-$scenario-selected.log" 2>&1
+            python3 "experiments/issue-3785/probe-codex-native-sqlite-$scenario.py" "$CODEX_NATIVE_EXPERIMENT" --without-path-selector > "$RUNNER_TEMP/native-release-sqlite-$scenario-ordinary.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-codex-native-sqlite-performance.py "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-sqlite-performance.log" 2>&1
       - name: Reject retired usage responses in the optimized native package
         env:
           CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex

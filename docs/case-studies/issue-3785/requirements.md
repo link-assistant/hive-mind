@@ -743,3 +743,18 @@ The component benchmark still reports material overhead. The experimental gate
 now checks these independent components before compiling the full CLI; actual
 native/release/package/image verification and production activation remain
 OPEN. See `evidence/sqlite-optimized-guard.txt`.
+
+Selected SQLite candidate follow-up: the full development workflow at
+7d09cacbe passes strict directory/database replacement refusal with exact unsafe
+byte preservation, selected/ordinary native corruption recovery, three live
+native peers and all preceding auth/history/migration/request controls. The
+guard's measured startup and query/write overhead remain material. The
+unreleased recipe now pins the VFS and startup adapters, 45-file inventory and
+bundled FILESTAT flag. Two fresh preparations and all 22 build/admission tests
+pass. Optimized x64/ARM64, installed npm and both final-image gates now require
+these actual native SQLite controls. Those candidate results, including the
+later startup-fallback and fortified C fixes, remain pending. Atomic external
+rename exclusion, fresh-process rollback, the complete Docker/daemon lifecycle
+matrix and the wider six-tool criteria remain OPEN. See
+`evidence/ci-7d09cacbe-sqlite-native.txt` and
+`evidence/sqlite-release-candidate.txt`.

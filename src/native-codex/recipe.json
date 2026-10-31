@@ -6,7 +6,7 @@
   "rustToolchain": "1.99.1",
   "profile": "release",
   "maxBinaryBytes": 402653184,
-  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority", "limits_generation"],
+  "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority", "limits_generation", "sqlite_vfs", "sqlite_startup"],
   "inputs": {
     "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",
     "apply_cached_reads.py": "fa47213861bf68cb5fcfaebfa14b55f6ccea884ff6d4437f3103ddeb9b4ead99",
@@ -21,6 +21,8 @@
     "apply_rollout_paths.py": "a38f3d6a223369fb5e78cbf5f72a4784a7ce8c049972d2dbb48bf811db6f9771",
     "apply_session_index.py": "d4f645d86581cfca2ded55425b13ddbed2ade1d74dc0ccd19d9197df8e4281f4",
     "apply_sqlite_authority.py": "99d94b8b467a363ec60178c714ecbdc592803414831d06fe3a48d3c575657528",
+    "apply_sqlite_startup.py": "2194e0b97dc38da6b7524f25c5311e697462f31302b94572caf935a155092479",
+    "apply_sqlite_vfs.py": "9d5e7cfc1fc82b4e13db78049b2d7eb09e5d75d3e00bfe0da4a7cc56afa0f681",
     "apply_tui_message_history.py": "cc698315aeca623c55cfdb59533a503bed4f25f474f8fa6ad06431dfca48d533",
     "cached_reads.patch": "ad12735dc0f2983c0797136fb4b7e505b930bf266687737312e672c4425c7920",
     "canonical_auth.rs": "25f4a01f78b364a02dad86c13a1bc7c211dff93e63949fb779ae46708fd29b3f",
@@ -38,6 +40,9 @@
     "canonical_session_index_tests.rs": "5b48d7b780da2078fd6b35491274c50717201da2f914da63b6ad7c27eceb8dee",
     "canonical_sqlite_authority.rs": "c2a2d582e586cfeeb88210b2b6163516fabd8edd6d098c25789be4a4a249d08e",
     "canonical_sqlite_authority_tests.rs": "4c4f3cbe0acc7d08de168a2deb6da19ef8827d14b7794a81e82aefb487e3079e",
+    "canonical_sqlite_build.rs": "f5ec3ec3f02bc14325bb03d9cf1273729d03fad887e5f2b734c4de30c7ece4c3",
+    "canonical_sqlite_vfs.c": "253903ddc980c620b42acdce3b30756a13e311d37dbbef83fb3d90dbf5bbdcd1",
+    "canonical_sqlite_vfs.rs": "8f859355946d01e54211d90441f4a780ce64eac146744f9caba52ef3a0a664c4",
     "canonical_transaction.rs": "66a6e583c8d766b6ce533a340871b85feb37b2eb29ec88408ce1adee6fcfaf2c",
     "coordination.patch": "02807f62854429daf5bf55c15cdfcd0173b3f357a821036cc8b0856124e91a29",
     "native_lifecycle_probe.rs": "d42cc08b717ba851acd7df18d33f943f2eb592ca458ec285da37b3897069a0f9",
@@ -62,7 +67,8 @@
     "CARGO_PROFILE_RELEASE_DEBUG": "0",
     "CARGO_PROFILE_RELEASE_STRIP": "symbols",
     "CARGO_PROFILE_RELEASE_LTO": "false",
-    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "16"
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "16",
+    "LIBSQLITE3_FLAGS": "SQLITE_ENABLE_FILESTAT"
   },
   "licenses": {
     "LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
@@ -83,5 +89,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "042b24389cdbf2babe4a436392cbf9252baf8119702b569d76a70afcfb0bd067"
+  "sourceInventorySha256": "3cec1b0a4531286ded0bbba58bf1025bebe395088bf970979134107ff294c2ba"
 }

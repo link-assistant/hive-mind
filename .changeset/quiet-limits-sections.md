@@ -211,3 +211,11 @@ Install global image packages with Bun's copyfile backend so pinned Codex
 metadata and bundled native payloads have independent inodes. Preserve strict
 single-link admission and verify actual Bun installation and native command
 activation in all three image layouts with finite synthetic package controls.
+
+Add selected native Codex SQLite operation checks, coordinated corruption
+recovery and startup refusal to the pinned unreleased native recipe. Require
+actual retired-directory/database refusal, recovery, concurrent-peer and startup
+controls in optimized builds, installed npm commands and both final images.
+Ignore inherited C compiler and SQLite library overrides during checked builds.
+Atomic external rename exclusion, fresh-process rollback and the complete
+six-tool canonical storage lifecycle remain unfinished.

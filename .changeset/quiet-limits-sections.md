@@ -196,3 +196,8 @@ Inspect native Agent/OpenCode credential registries and Gemini/Qwen OAuth
 files at conventional and selected roots before Router launch and while running.
 Resolve relative roots against the native cwd, expand Qwen tilde selection and
 refuse OpenCode's inline registry without exposing credential contents.
+
+
+Keep Router guard decisions independent of diagnostic failures. Handle throwing
+or rejected loggers and synchronous stop-handler exceptions without unhandled
+rejections, preserving the first violation and exactly one stop callback.

@@ -189,6 +189,8 @@ Claude and Codex use the same retained monitoring before input attachment or com
 
 The file guard also refuses Agent/OpenCode `auth.json` under conventional or selected XDG data roots, and Gemini/Qwen `oauth_creds.json` under conventional or selected native configuration/authentication roots. It resolves relative roots against the native working directory and expands Qwen’s `~` selector. OpenCode’s inline `OPENCODE_AUTH_CONTENT` registry is refused. Existing bounded file inspection and retained polling cover these stores; provider settings, other environment selectors and in-memory native credentials still need complete request mediation.
 
+Router guard diagnostics are best effort: throwing or rejected loggers cannot disable monitoring or create unhandled rejections. Synchronous or asynchronous stop-handler failures retain the original violation and do not trigger a second stop attempt. This preserves the security decision; successful cancellation still depends on the native stop operation.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

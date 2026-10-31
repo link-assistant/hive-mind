@@ -279,6 +279,15 @@ export const startRouterAuthGuard = ({ tool = 'claude', env = process.env, homeD
   let checkedPaths = 0;
   let timer = null;
   let firing = null;
+  // Diagnostics cannot interrupt security decisions or leave unhandled rejections.
+  const emitDiagnostic = (...args) => {
+    if (!log) return;
+    try {
+      Promise.resolve(log(...args)).catch(() => {});
+    } catch {
+      // A synchronous logger is equally optional.
+    }
+  };
   const fire = async violations => {
     if (handle.violation) return handle.violation;
     handle.violation = { violations, detectedAt: new Date().toISOString(), tool: normalizeTool(tool) };
@@ -287,10 +296,9 @@ export const startRouterAuthGuard = ({ tool = 'claude', env = process.env, homeD
       timer = null;
     }
     if (onViolation) {
-      firing = Promise.resolve(onViolation(handle.violation)).catch(error => {
-        if (log) return log(`⚠️ Router auth guard handler failed: ${error?.message || error}`);
-        return null;
-      });
+      firing = Promise.resolve()
+        .then(() => onViolation(handle.violation))
+        .catch(error => emitDiagnostic(`⚠️ Router auth guard handler failed: ${error?.message || error}`));
       await firing;
     }
     return handle.violation;
@@ -309,17 +317,17 @@ export const startRouterAuthGuard = ({ tool = 'claude', env = process.env, homeD
   timer = setIntervalImpl(
     () => {
       handle.check().catch(error => {
-        if (log) log(`⚠️ Router auth guard check failed: ${error?.message || error}`);
+        emitDiagnostic(`⚠️ Router auth guard check failed: ${error?.message || error}`);
       });
     },
     intervalMs || resolveRouterAuthGuardIntervalMs(env)
   );
   if (typeof timer?.unref === 'function') timer.unref();
   handle.first = handle.check().catch(error => {
-    if (log) log(`⚠️ Router auth guard check failed: ${error?.message || error}`);
+    emitDiagnostic(`⚠️ Router auth guard check failed: ${error?.message || error}`);
     return null;
   });
-  if (log) log(`🛡️ Router auth guard armed: ${checkedPaths} credential path(s) watched every ${intervalMs || resolveRouterAuthGuardIntervalMs(env)} ms (issue #2190)`, { verbose: true });
+  emitDiagnostic(`🛡️ Router auth guard armed: ${checkedPaths} credential path(s) watched every ${intervalMs || resolveRouterAuthGuardIntervalMs(env)} ms (issue #2190)`, { verbose: true });
   return handle;
 };
 

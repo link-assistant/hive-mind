@@ -636,3 +636,12 @@ runtime violation and ordinary unselected runs. Native model/provider requests
 are not executed by these path controls. Provider settings, all environment
 selectors, native in-memory authority and durable Router audit remain OPEN.
 See `evidence/router-additional-auth-stores.txt` for before/after coverage.
+
+Router guard diagnostic follow-up: six isolated 32 MiB child controls reproduce
+crashes from synchronous/asynchronous initial diagnostics and handler-failure
+diagnostics. All pass with best-effort diagnostic handling and synchronous stop
+exceptions captured inside the handled callback chain. The first violation and
+single callback invocation remain intact. Successful native cancellation after
+a broken kill operation, connection-probe lifetime, complete native request
+authority and the broader issue inventory remain OPEN.
+See `evidence/router-guard-diagnostics.txt` for exact bounded evidence.

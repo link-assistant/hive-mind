@@ -40,7 +40,8 @@ import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeMode
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { assertRouterTaskAuthentication, formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
@@ -318,6 +319,17 @@ export const executeClaudeCommand = async params => {
     const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
+    let routerStream;
+    let routerGuardEnv = process.env;
+    let startupTimeoutId = null;
+    let activityTimeoutId = null;
+    let resultClose;
+    const clearAttemptTimeouts = () => {
+      if (startupTimeoutId) clearTimeout(startupTimeoutId);
+      if (activityTimeoutId) clearTimeout(activityTimeoutId);
+      startupTimeoutId = activityTimeoutId = null;
+      resultClose?.stop();
+    };
     const useRouter = argv.useRouter === true || /^(1|true|yes|on)$/i.test(String(process.env.HIVE_MIND_USE_ROUTER || ''));
     // Issue #2771: cheapest pricing tier by default — standard speed, short context and a plain
     // model name; `[1m]` is only passed where Claude Code needs it for a long-context run.
@@ -337,6 +349,14 @@ export const executeClaudeCommand = async params => {
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (useClaudeFallbackModel) claudeArgs += ` --fallback-model ${mappedFallbackModel}`;
     let queuedFeedback = [];
+    let bidirectionalHandlerFinalized = false;
+    const finalizeAttemptInput = async () => {
+      if (!bidirectionalHandlerFinalized) {
+        bidirectionalHandlerFinalized = true;
+        queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      }
+      return queuedFeedback;
+    };
     // Issue #817: When --accept-incomming-comments-as-input is set and we are
     // not resuming a prior session, drive Claude via NDJSON stream-json input
     // so incoming PR comments can be streamed as additional user turns.
@@ -373,6 +393,7 @@ export const executeClaudeCommand = async params => {
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
       const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
+      if (useRouter) claudeEnv.HIVE_MIND_USE_ROUTER = '1';
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       claudeBaseUrl = (await claudeAttribution.prepareEnv(claudeEnv)).ANTHROPIC_BASE_URL || null; // Issue #3279: attribution hooks via GIT_CONFIG_*; endpoint kept for pricing
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
@@ -394,9 +415,10 @@ export const executeClaudeCommand = async params => {
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       await assertAdmittedClaudeAuth({ env: { ...process.env, ...claudeEnv } });
-      const routerGuardEnv = { ...process.env, ...claudeEnv, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) };
+      routerGuardEnv = { ...process.env, ...claudeEnv };
       assertRouterTaskAuthentication({ tool: argv.tool || 'claude', cwd: tempDir, env: routerGuardEnv });
       execCommand = startClaudeNativeCommand({ $, tempDir, claudeEnv, command: toolInvocation.command, resume: argv.resume, streamingInput, effectiveModel, fallbackModelArgs, mcpDisableArgs, disallowedToolsArgs, promptForAttempt, systemPrompt });
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: argv.tool || 'claude', env: routerGuardEnv, cwd: tempDir, log });
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
       }
@@ -417,33 +439,12 @@ export const executeClaudeCommand = async params => {
       let subagentToolResultErrorCount = 0;
       let forceExitTriggered = false;
       let firstChunkReceived = false;
-      let startupTimeoutId = null;
       let isStartupTimeout = false;
       let lastEventTime = null;
-      let activityTimeoutId = null;
       let isActivityTimeout = false;
       // Issue #1516: Kill process group (-pid) so leaked /bin/sh children don't survive
       // prettier-ignore
       const killProcessTree = signal => { try { const pid = execCommand.pid || execCommand._pid; if (pid) { process.kill(-pid, signal); return; } } catch { /* not group leader */ } execCommand.kill(signal); };
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token. Any other credential surfacing on disk while Claude runs
-      // is a security violation: the process is killed at once and solve exits
-      // with EXIT_CODE_ROUTER_AUTH_VIOLATION whenever Router mode is selected.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: argv.tool || 'claude',
-        cwd: tempDir,
-        env: routerGuardEnv,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          forceExitTriggered = true;
-          try {
-            killProcessTree('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
-      });
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -511,7 +512,7 @@ export const executeClaudeCommand = async params => {
       });
       // Issue #1280/#3015: stop a CLI that does not exit after its result, but not while print mode
       // is still waiting for background tasks (up to its own CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS).
-      const resultClose = createClaudeResultCloseController({ streamCloseMs: timeouts.resultStreamCloseMs, printBgWaitCeilingMs: claudeCode.printBgWaitCeilingMs, fallbackWaitMs: timeouts.streamActivityMs, log, isForceExitTriggered: () => forceExitTriggered, onTimeout: forceExitOnTimeout, onTurnReopened: () => resetActivityTimeout() });
+      resultClose = createClaudeResultCloseController({ streamCloseMs: timeouts.resultStreamCloseMs, printBgWaitCeilingMs: claudeCode.printBgWaitCeilingMs, fallbackWaitMs: timeouts.streamActivityMs, log, isForceExitTriggered: () => forceExitTriggered, onTimeout: forceExitOnTimeout, onTurnReopened: () => resetActivityTimeout() });
       // Apply the same result semantics to NDJSON lines and the final unterminated buffer.
       const processResultEvent = async data => {
         resultEventReceived = true;
@@ -605,7 +606,7 @@ export const executeClaudeCommand = async params => {
           }
         }
       };
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         // Issue #1510: Continue processing stream after SIGTERM to capture final output
         // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
         if (!firstChunkReceived) {
@@ -915,14 +916,6 @@ export const executeClaudeCommand = async params => {
       if (resultEventReceived) {
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
       }
-      // Issue #2190: one last read after the stream closed, so a credential
-      // written in the final moments of the session cannot slip past the
-      // interval; a violation ends the run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, limitTimezone: null, messageCount, toolUseCount, anthropicTotalCostUSD, errorDuringExecution: true, resultSummary: null, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) } };
-      }
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;
         // Specifically detect "command not found" via exit code 127
@@ -959,7 +952,7 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
-      queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      queuedFeedback = await finalizeAttemptInput();
       const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
       if (baseBranchIntervention && !baseBranchCommandIntervention.wasSent()) {
         if ((sessionId || argv.resume) && baseBranchInterventionResumeCount < 1) {
@@ -1270,7 +1263,10 @@ export const executeClaudeCommand = async params => {
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     } catch (error) {
-      if (error.routerAuthViolation) return { success: false, sessionId, routerAuthViolation: error.routerAuthViolation, errorInfo: { message: error.message } };
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: argv.tool || 'claude', env: routerGuardEnv, cwd: tempDir });
+      clearAttemptTimeouts();
+      await finalizeAttemptInput().catch(() => {});
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { message: routerError.message } };
       reportError(error, {
         context: 'execute_claude',
         command: params.command,
@@ -1333,6 +1329,9 @@ export const executeClaudeCommand = async params => {
         errorInfo: { message: error.message || error.toString() },
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
+    } finally {
+      clearAttemptTimeouts();
+      await finalizeAttemptInput().catch(() => {});
     }
   }; // End of executeWithRetry function
   const claudeResult = (await executeWithRetry().finally(() => claudeAttribution.finalize({ branchName }))) || {}; // Start with retry logic; attribution is finalized on every path (issue #3279)

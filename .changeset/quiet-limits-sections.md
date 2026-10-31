@@ -184,3 +184,9 @@ Arm Router monitoring before post-command input/logging awaits in Agent,
 OpenCode, Gemini and Qwen. Retain detected violations after file removal and
 stop abandoned commands before closing their guard. Add bounded real
 parent/child cleanup controls for Agent's actual streaming-input startup.
+
+
+Apply retained Router monitoring before Claude/Codex input and logging, forward
+explicit selection to their actual native environments, and cancel abandoned
+commands before retry. Stop Claude live-input polling and attempt timers on
+exception paths, retaining existing timeout and result-close behavior.

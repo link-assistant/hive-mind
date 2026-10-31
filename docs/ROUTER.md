@@ -185,6 +185,8 @@ Agent, OpenCode, Gemini and Qwen also check their final launch environment befor
 
 Agent, OpenCode, Gemini and Qwen arm this file monitoring immediately after command creation, before input attachment or logging. A detected violation remains a security refusal if its file disappears before error handling. An abandoned command is cancelled before monitoring closes, including when logging fails before output consumption. These controls cover bounded process-group cleanup; they do not establish complete native request mediation.
 
+Claude and Codex use the same retained monitoring before input attachment or command logging. Explicit Router selection reaches the actual native environment. Failed attempts cancel the command before ordinary retry; Claude also stops live-input polling and its attempt timers. Bounded Claude process-group and polling controls cover logging failures, while native request authority and the wider Router lifecycle remain unfinished.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

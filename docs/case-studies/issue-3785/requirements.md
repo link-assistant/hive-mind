@@ -615,3 +615,14 @@ all pass after the repair. Ordinary command construction is lazy; the real
 process control specifically exercises Agent's stdin attachment. Claude/Codex
 lifetime, full native authority and every broader criterion above remain OPEN.
 See `evidence/router-command-lifetime.txt` for exact validation and limits.
+
+Claude/Codex command-lifetime follow-up: 32 isolated new/resume, env/argv,
+security/ordinary/healthy controls reproduce 28 failures before repair. Two
+actual Claude live-input controls additionally reproduce a surviving finite
+parent/child group and one leaked polling interval. All 34 pass after arming
+the retained guard before stdin/logging, forwarding explicit selection into
+the actual native environment, cancelling abandoned commands before retry,
+and clearing Claude polling and attempt timers. Existing timeout and result
+handling are preserved. Full native request mediation, every credential store,
+guard diagnostic failures and the wider acceptance inventory remain OPEN.
+See `evidence/router-primary-lifetime.txt` for bounded evidence and limits.

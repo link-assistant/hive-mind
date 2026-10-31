@@ -56,7 +56,8 @@ import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs';
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { assertRouterTaskAuthentication, formatRouterAuthViolation, isRouterAuthGuardRequired, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
@@ -676,6 +677,7 @@ export const executeCodexCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
+    let routerStream;
     const mappedModel = mapModelToId(argv.model);
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
@@ -697,6 +699,7 @@ export const executeCodexCommand = async params => {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    if (argv.useRouter === true) codexEnv.HIVE_MIND_USE_ROUTER = '1';
     await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
@@ -827,7 +830,7 @@ export const executeCodexCommand = async params => {
         await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
       }
       const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log });
-      const routerGuardEnv = { ...codexEnv, ...(argv.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) };
+      const routerGuardEnv = codexEnv;
       assertRouterTaskAuthentication({ tool: 'codex', cwd: tempDir, env: routerGuardEnv });
       const launch = $({
         cwd: tempDir,
@@ -836,22 +839,7 @@ export const executeCodexCommand = async params => {
       });
       // A login profile must not replace the Router environment after admission.
       execCommand = isRouterAuthGuardRequired(routerGuardEnv) ? launch`sh -c ${fullCommand}` : launch`sh -lc ${fullCommand}`;
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token; see router-auth-guard.lib.mjs. Admission ran before spawn.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: 'codex',
-        cwd: tempDir,
-        env: routerGuardEnv,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          try {
-            if (execCommand?.kill) execCommand.kill('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
-      });
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'codex', env: routerGuardEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -913,7 +901,7 @@ export const executeCodexCommand = async params => {
       const codexStderrLines = createLineBuffer();
       const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const raw = chunk.data.toString();
           if (argv.verbose) {
@@ -987,13 +975,6 @@ export const executeCodexCommand = async params => {
       if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
         sessionId = codexJsonState.sessionId;
         await log(`📌 Session ID: ${sessionId}`);
-      }
-      // Issue #2190: final read after the stream closed; a violation ends the
-      // run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, codexJsonDetails: codexJsonState, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) }, result: formatRouterAuthViolation(routerAuthGuard.violation), resultSummary: null };
       }
       if (codexJsonState.resultSummary) {
         lastTextContent = codexJsonState.resultSummary;
@@ -1188,7 +1169,8 @@ export const executeCodexCommand = async params => {
       }
       return buildRunResult({ success: true, pluginProvisioning });
     } catch (error) {
-      if (error.routerAuthViolation) return { success: false, sessionId, routerAuthViolation: error.routerAuthViolation, errorInfo: { hasError: true, message: error.message }, result: error.message };
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'codex', env: codexEnv, cwd: tempDir });
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { hasError: true, message: routerError.message }, result: routerError.message };
       // Don't report auth errors to Sentry as they are user configuration issues
       if (!error.isAuthError) {
         reportError(error, {

@@ -1,0 +1,28 @@
+Native package integration CI investigation, 2026-10-31 UTC
+
+Head: 484591c54293ba1acbcfc93eae9aa75b48663bc9
+All listed runs were created at 2026-10-31T06:55:20Z, after its push.
+This is a failure investigation, not a passing-CI claim.
+
+Workflows: https://github.com/link-assistant/hive-mind/actions/runs/41178521237
+Preserved runner log: ci-logs/workflows-41178521237.log (597 lines).
+Line 295: native-codex-build.yml:141, ad-hoc installation of packages.
+Line 296: zizmor exits 12. The step deliberately installs the actual archive
+built and byte-verified in the same run; a committed dependency would not test
+that artifact. A step-local adhoc-packages exception documents this boundary.
+Local zizmor 1.31.1 accepts the changed workflows and assembly action.
+
+Checks: https://github.com/link-assistant/hive-mind/actions/runs/41178521287
+Completed failing job: test-suites, 124471567510.
+Downloaded via actions/jobs/124471567510/logs while native builds were active.
+Preserved job log: ci-logs/test-suites-124471567510.log (1376 lines).
+Lines 1297-1308: extracted-modules-2198.test.mjs rejects release.yml's
+1376 lines against the existing 1350-line warning threshold. The separate
+1500-line job passed and did not catch this stricter default-suite assertion.
+The existing test reproduces locally before changes. Repeated same-run native
+artifact assembly now lives in one composite action; redundant syntax-check
+echo wrappers were removed. release.yml is 1347 lines and the reproducing test
+passes. Six release/dependency/order controls and actionlint also pass.
+
+At this investigation checkpoint both native architecture builds were still
+compiling. No optimized installed-runtime or image pass is claimed here.

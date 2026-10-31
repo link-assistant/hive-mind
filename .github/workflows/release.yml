@@ -167,15 +167,9 @@ jobs:
         with:
           node-version: 24.x
       - name: Test solve.mjs compilation
-        run: |
-          echo "Testing solve.mjs compilation..."
-          timeout 30s node --check src/solve.mjs
-          echo "solve.mjs compiles successfully"
+        run: timeout 30s node --check src/solve.mjs
       - name: Test hive.mjs compilation
-        run: |
-          echo "Testing hive.mjs compilation..."
-          timeout 30s node --check src/hive.mjs
-          echo "hive.mjs compiles successfully"
+        run: timeout 30s node --check src/hive.mjs
       - name: Check Node.js syntax for all .mjs files
         run: bash scripts/check-mjs-syntax.sh
   lint:
@@ -401,13 +395,7 @@ jobs:
   native-codex-build:
     name: Verified native Codex package
     needs: [detect-changes, changeset-check]
-    if: |
-      !cancelled() &&
-      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
-      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' ||
-       (github.ref == 'refs/heads/main' &&
-        ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') ||
-         (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))))
+    if: ${{ !cancelled() && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || (github.ref == 'refs/heads/main' && ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')))) }}
     uses: ./.github/workflows/native-codex-build.yml
   docker-pr-check:
     runs-on: ubuntu-24.04
@@ -437,16 +425,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: native-codex-runtime-*
-          path: ${{ runner.temp }}/native-codex-downloads
-      - name: Admit the same-run native package before building either image
-        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
+      - uses: ./.github/actions/assemble-native-codex
       - name: Verify Docker release-order contract
         run: |
-          echo "Statically verifying: release Docker publish waits for npm availability"
-          echo "and passes the exact published version into Docker builds."
           node tests/test-docker-release-order.mjs
           node tests/test-docker-pr-memory.mjs
       - name: Free up disk space
@@ -568,12 +549,7 @@ jobs:
         # Commits the bump directly to main with the checkout's built-in token;
         # no release pull request is opened (issue #2402).
         run: node scripts/version-and-commit.mjs --mode changeset
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: native-codex-runtime-*
-          path: ${{ runner.temp }}/native-codex-downloads
-      - name: Admit the same-run native payload before npm publication
-        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
+      - uses: ./.github/actions/assemble-native-codex
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
         # (re-runs), OR package.json's version is missing from npm (issue #2175).
@@ -950,12 +926,7 @@ jobs:
           BUMP_TYPE: ${{ github.event.inputs.bump_type }}
           RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
         run: node scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: native-codex-runtime-*
-          path: ${{ runner.temp }}/native-codex-downloads
-      - name: Admit the same-run native payload before npm publication
-        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
+      - uses: ./.github/actions/assemble-native-codex
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
         id: publish_npm

@@ -43,7 +43,11 @@ Repair and local verification:
   All three strict helper controls pass; positive append-only metadata passes.
   Full storage suite: 69 assertions pass, including archive/restore, import,
   Unicode, artifacts, stale generations and four independent writer peers.
-  Actual live rollback: two assertions pass. Native recording refuses with the
+  Actual live rollback: two assertions pass independently in both native
+  noninteractive engines. The agent-session engine also first reproduces the
+  same strict audit loss on the preceding stage. Select that path with
+  --history-live-rollback-engine agent; the default control uses legacy.
+  Native recording refuses with the
   canonical history error, without another model request. The completed healthy
   project edit and protected complete audit remain intact; substituted audit
   bytes and identity remain unchanged.

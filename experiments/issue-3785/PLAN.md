@@ -1276,3 +1276,9 @@ Latest CI continuation:
       actual refusal and fresh-source controls in exact-head Node 24 CI.
       Persisted fresh-process rollback authority and publication/power-loss
       coverage remain unfinished.
+
+- [x] Independently reproduce actual valid audit rollback in the native
+      agent-session engine, after its healthy real tool edit. Its strict before
+      assertion fails; the reconstructed repaired package refuses with retained
+      protected bytes and inode. Add before/after/fresh CI controls alongside the
+      separate legacy engine; this extends coverage without another source patch.

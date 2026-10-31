@@ -1189,7 +1189,10 @@ All pass after repair. The full 69-assertion suite also retains archive, import,
 Unicode, artifact, stale-generation and independent writer controls. A positive
 helper control accepts a peer's append-only metadata on the same inode.
 
-The actual CLI rollback control now refuses with the canonical history error,
+Both actual native noninteractive engines independently reproduce the same
+strict audit loss before repair. Select the agent-session control with
+`--history-live-rollback-engine agent`; the default uses the legacy engine.
+Both repaired engines refuse with the canonical history error,
 retains the healthy project edit and protected complete audit, leaves substituted
 evidence unchanged, and sends no further model request. A separate actual native
 terminal remains live while another actual native `--list-sessions` process

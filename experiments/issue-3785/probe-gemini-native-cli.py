@@ -34,6 +34,7 @@ parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-subagent', action='store_true')
 parser.add_argument('--history-live-rollback', action='store_true')
+parser.add_argument('--history-live-rollback-engine', choices=('legacy', 'agent'))
 parser.add_argument('--history-live-summary', action='store_true')
 parser.add_argument('--history-subagent-attack', choices=('unsafe-mode', 'symlink', 'parent-replacement'))
 parser.add_argument('--shell-history', action='store_true')
@@ -74,7 +75,8 @@ parser.add_argument('--history-import', choices=('canonical', 'export', 'legacy-
 parser.add_argument('--history-import-attack', choices=('symlink', 'hardlink', 'malformed', 'truncated', 'schema', 'invalid-session', 'invalid-project', 'unsafe-mode', 'unsafe-parent'))
 args = parser.parse_args()
 assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
-assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback'))
+assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback', 'history_live_rollback_engine'))
+assert not args.history_live_rollback_engine or args.history_live_rollback
 assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_attack', 'private_history'))
 assert not args.history_subagent_attack or args.history_subagent and not args.private_history
 assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
@@ -720,7 +722,7 @@ try:
 
     if args.history_live_rollback:
         from gemini_live_audit import verify_live_audit
-        verify_live_audit(invoke=invoke, env={**env, 'GEMINI_CLI_EXP_AGENT': 'false'}, diagnostics=args.diagnostics,
+        verify_live_audit(invoke=invoke, env={**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.history_live_rollback_engine == 'agent' else 'false'}, diagnostics=args.diagnostics,
                           models=models, workspace=workspace, state=live_audit_state, session=session, first_prompt=first_prompt)
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity

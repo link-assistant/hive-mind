@@ -1,0 +1,66 @@
+Native Codex source adapter experiment, 2026-10-26
+
+Supported tag: openai/codex rust-v0.164.0
+Peeled source commit: 6aaac694803004a63c6f393d153c96d22521a6b9
+Annotated tag object: fe3b29455488c2e189e43ad5526a107900c5e1b7
+Source-pinned compiler: Rust 1.99.1
+
+Before: the installed unmodified native CLI exits 1 for login status when the
+synthetic key is outside CODEX_HOME in an independent CODEX_AUTH_HOME directory.
+The probe fails its first expected-success assertion. No model call or real
+credentials are used; only structural results are retained.
+
+Adapter: source-context/pin-checked changes in the native file-store backend,
+private directory and file validation, descriptor-anchored bounded reads,
+temporary-file/rename/fsync commits, native delete/recreate and refusal of
+independent scoped copies or alternate storage-backend fallback.
+
+Seven primitive tests pass; the subprocess-only worker is intentionally ignored
+by the parent harness and spawned explicitly. Coverage includes stable inode,
+locked generation reread/one predecessor use, forced owner death, atomic
+replacement/logout/recreation, unsafe auth/lock files, independent equal-content
+copies/links, bounded input and lock replacement.
+
+The source lockfile requires 166 local package versions to match the release
+workspace. Exact before/after hashes and a parsed comparison verify external
+versions, sources, checksums and dependency edges are unchanged. Builds use
+--locked. The local compiler reaches its explicit allocation bound; it is not
+repeated unchanged. Actual compilation runs on the adequately provisioned CI.
+
+Native CI: https://github.com/link-assistant/hive-mind/actions/runs/40354283432
+Branch SHA: 9689667ce9c6dae46e30302c362849b3614f7281
+Created: 2026-10-26 15:56:41 UTC
+Native job completed successfully: 2026-10-26 16:20:06 UTC
+Retained log: ci-logs/native-codex-40354283432.log (470 lines)
+Native CLI acceptance output: line 420
+Downloaded diagnostics: ci-logs/native-codex-40354283432/
+
+All five actual codex-login manager controls pass before and after coordination:
+- replacement: before both cached reads fail; after both observe G1, no exchange
+- logout: before both cached reads fail; after both observe absence, no exchange
+- refresh: before two G0 exchanges and one failure; after one exchange, both pass
+- refresh-login: before login commits during paused exchange and refresh fails;
+  after login waits, both pass, and the login result remains canonical
+- refresh-logout: before logout commits during paused exchange and refresh fails;
+  after logout waits, both pass, and the canonical file remains absent
+Both processes must load initial auth and reach explicit barriers; startup or
+build failures cannot satisfy the negative controls.
+
+The coordinated full native CLI builds and passes status across two independent
+config homes, canonical atomic replacement, logout, native API-key
+reauthentication/peer status, environment-key refusal, missing-authority and
+conflicting scoped-copy rejection.
+
+The second source patch serializes manager refresh/login/logout/identity writes
+and account-grant exchange leases, reloads canonical auth in async auth(),
+checks the predecessor before commit, and bounds exchange/wait duration. Its
+applier checks the immutable manager and exact storage module before mutation.
+These passes cover the named controls, not every request path: model-provider
+synchronous request headers call auth_cached(), which still needs invalidation.
+Provider-route admission, owner death after IdP consumption but before durable
+commit, full history, migration and the six-tool lifecycle matrix remain open.
+
+The images and production launcher do not use this adapter. The production
+Codex credential copy is still unfinished. Reproduction and workflow live in
+experiments/issue-3785/native-codex and
+.github/workflows/native-codex-auth-experiment.yml.

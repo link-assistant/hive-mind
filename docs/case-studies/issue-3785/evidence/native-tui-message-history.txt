@@ -1,0 +1,60 @@
+Issue 3785 continuation, 2026-10-26 UTC. Synthetic prompts and credentials only.
+Native source: 6aaac694803004a63c6f393d153c96d22521a6b9, Codex 0.164.0.
+
+Probe: experiments/issue-3785/probe-codex-native-tui-history.py
+Actual native executable downloaded from CI 40370836766, before prompt-history
+projection and TUI publication ordering. Every child has a 512 MiB data limit,
+16 MiB stack, no core dumps, a finite 20-second PTY loop and bounded output.
+Only declared loopback endpoints receive synthetic model requests. All process
+groups are killed/reaped before disposable configuration is removed.
+
+Before repair, actual native TUI:
+  PASS: healthy prompt input persists native private history and sends one G0
+        request to the local synthetic model endpoint.
+  PASS: unsafe selected canonical history (0644 history.jsonl) still sends G0.
+  FAIL: strict zero-model-request assertion after the same healthy control.
+  PASS: without the selector, both legacy native histories retain behavior.
+The first version of the PTY harness accidentally sent Enter in the paste
+burst. The corrected harness sends Enter separately after 500 ms; both healthy
+and unsafe controls reach the actual model endpoint.
+
+Root cause in the immutable native source:
+  tui/src/chatwidget/input_submission.rs submits the model operation before
+  enqueuing AppendMessageHistoryEntry.
+  tui/src/app/thread_routing.rs spawns persistence and only logs a write error.
+The canonical public-API append can refuse correctly while TUI execution proceeds.
+
+Prepared repair: apply_tui_message_history.py validates all five complete
+source hashes before mutation. It combines the original native mention-aware
+history text and operation in one app event, awaits canonical publication,
+and only then forwards the operation through the existing command handler.
+History failures exit with a constant diagnostic before sending the turn.
+An image-only prompt validates authority without inventing a history row.
+Missing-thread/direct submission cannot silently bypass selected publication.
+No selector retains the native asynchronous history path.
+
+Local verification:
+  PASS: strict regression fails on the actual earlier native executable.
+  PASS: pristine pin + canonical history patch accepts the TUI patch;
+        fresh output is byte-identical to the tested source and rustfmt passes.
+  PASS: changed native source refuses without partial mutation.
+  PASS: 14 public history controls and 12 upstream tests after the patch in the
+        focused harness (only two passive configuration types stubbed).
+  PASS: actionlint for the required full native before/after/legacy CI steps.
+Full patched TUI compilation and actual positive execution controls are pending
+CI. The workflow checks the real pre-repair canonical-history CLI separately.
+These local results do not establish that positive integration result.
+
+The executable from completed native run 40384255301 at 3f37d553d includes
+canonical prompt history and request admission, before the TUI ordering patch.
+The same actual TUI probe passes its healthy canonical-history/model control
+and reproduces unsafe-history execution without a private history file.
+The strict control then fails at probe line 170 (zero model requests required).
+Logs: /tmp/issue-3785-tui-canonical-before.log and
+/tmp/issue-3785-tui-canonical-regression.log. This independently isolates the
+application ordering bug after the real storage patch; fixed execution remains
+pending the subsequent full native CI build.
+
+Open: all other model-operation paths, metadata/read error propagation,
+all-writer/crash semantics, full history backing, deployment and production
+integration. This experiment does not complete A1/A7/A9 or the six-tool contract.

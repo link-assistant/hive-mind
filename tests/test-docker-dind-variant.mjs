@@ -66,7 +66,7 @@ assertExcludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'Keep the final image as root', 'Dockerfile.dind');
 
 const detectCodeChanges = await read('scripts/detect-code-changes.mjs');
-assertIncludes(detectCodeChanges, 'Dockerfile.dind', 'scripts/detect-code-changes.mjs');
+assertIncludes(detectCodeChanges, 'Dockerfile\\.dind', 'scripts/detect-code-changes.mjs');
 
 const dockerDocs = await read('docs/DOCKER.md');
 assertIncludes(dockerDocs, 'konard/hive-mind-dind:latest', 'docs/DOCKER.md');

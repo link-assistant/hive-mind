@@ -43,7 +43,7 @@
  *   - package: 'true' if package.json changed
  *   - docs: 'true' if any .md files changed
  *   - workflow: 'true' if any .github/workflows/ files changed
- *   - docker: 'true' if Dockerfile, Dockerfile.dind, coolify/Dockerfile, .dockerignore, or scripts/dind/ (files copied into the DinD image) changed
+ *   - docker: 'true' if image definitions, packaged runtime/dependencies, startup or image verification inputs changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
  *   - helm: 'true' if any helm/ files changed
  */
@@ -397,6 +397,11 @@ function isExcludedFromCodeChanges(filePath) {
 // sync with LOCKFILE_AGENTS in scripts/check-package-manager.lib.mjs (issue #2198).
 const PACKAGE_MANIFEST_PATTERN = /^(package-lock\.json|npm-shrinkwrap\.json|bun\.lock|bun\.lockb|deno\.lock|nub\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|yarn\.lock|aube-lock\.yaml|aube-workspace\.yaml)$/;
 
+/** Native source/build/probe updates invalidate installed-image evidence too. */
+export function isNativeCodexBuildInput(file) {
+  return /^(scripts\/(build-native-codex\.py|verify-native-codex-publish\.mjs)|experiments\/issue-3785\/(native-codex\/.+|test_native_codex_build\.py|probe-cargo-executable-hardlink\.py|probe_native_codex_(preparation|package)\.py|probe-packaged-native-codex\.mjs|probe-codex-native-[^/]+\.(mjs|py)|native_(process_group|network_fixture)\.py|native-request-proxy\.mjs))$/u.test(file);
+}
+
 /**
  * Main function to detect changes
  */
@@ -433,10 +438,12 @@ async function detectChanges() {
   const workflowChanged = changedFiles.some(file => file.startsWith('.github/workflows/'));
   setOutput('workflow', workflowChanged ? 'true' : 'false');
 
-  // Detect docker-related changes
-  // Note: ubuntu-24-server-install.sh was removed in issue #1394 - now using pinned konard/box base image
-  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/Dockerfile|\.dockerignore|scripts\/dind\/.+)$/;
-  const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
+  // PR builds install this branch's package. Changes to installed source or
+  // verification scripts therefore invalidate image evidence even when the
+  // Dockerfile is unchanged. An incremental source-only update must not skip
+  // the stock/runtime and both-daemon mount gates (issue #3785).
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
+  const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file) || isNativeCodexBuildInput(file) || file === 'experiments/issue-3785/probe-formal-ai-codex-auth.mjs');
   setOutput('docker', dockerChanged ? 'true' : 'false');
 
   // Detect helm chart changes

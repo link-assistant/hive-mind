@@ -183,6 +183,8 @@ zh
   time
     current "当前时间：{{time}}"
   limits
+    stored
+      metadata "已存储的元数据"
     additional
       codex
         limits "其他 Codex 限额"

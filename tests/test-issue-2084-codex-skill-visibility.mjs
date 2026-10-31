@@ -59,12 +59,12 @@ const entry = { pluginId: 'superpowers@openai-curated', name: 'superpowers', sou
 // the prompt Codex renders lists no superpowers skills. Materializing on `add`
 // mirrors the real CLI, so this fixture isolates the visibility defect from
 // issue #2088's cache-repair defect.
-const scopedCache = path.join(baseCodexHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS', 'plugins', 'cache', 'openai-curated', 'superpowers', '5.1.3', 'skills');
 const makeRunCommand =
   ({ skillsVisible }) =>
   async ({ command, args, env }) => {
     if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
     if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: issueText }), stderr: '', code: 0 };
+    const scopedCache = path.join(env.CODEX_HOME, 'plugins', 'cache', 'openai-curated', 'superpowers', '5.1.3', 'skills');
     if (args[0] === 'plugin' && args[1] === 'add') {
       await mkdir(path.join(scopedCache, 'using-superpowers'), { recursive: true });
       await writeFile(path.join(scopedCache, 'using-superpowers', 'SKILL.md'), '---\nname: using-superpowers\n---\n');
@@ -136,9 +136,9 @@ assert(
 
 // --- the probe must never make things worse ---------------------------------
 
-const withoutProbe = async ({ command, args }) => {
+const withoutProbe = async ({ command, args, env }) => {
   if (args?.[0] === 'debug') return { stdout: '', stderr: "error: unrecognized subcommand 'prompt-input'", code: 2 };
-  return makeRunCommand({ skillsVisible: false })({ command, args });
+  return makeRunCommand({ skillsVisible: false })({ command, args, env });
 };
 
 const legacy = await runCodexCapabilityPreflight({

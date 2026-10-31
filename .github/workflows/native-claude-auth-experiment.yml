@@ -1,0 +1,85 @@
+name: Native Claude auth experiment
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/probe-claude-native-refresh.py'
+      - 'experiments/issue-3785/probe-claude-secure-storage.mjs'
+      - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/native_claude_history.py'
+      - '.github/workflows/native-claude-auth-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-claude-auth-experiment-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  native-refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the same pinned native version used by the release image
+        run: |
+          curl -fsSL https://claude.ai/install.sh -o "$RUNNER_TEMP/claude-install.sh"
+          bash "$RUNNER_TEMP/claude-install.sh" 2.1.310 > "$RUNNER_TEMP/claude-install.log" 2>&1 &
+          wait "$!"
+          native_binary="$HOME/.local/bin/claude"
+          echo "NATIVE_CLAUDE=$native_binary" >> "$GITHUB_ENV"
+          version_home="$RUNNER_TEMP/claude-version-home"
+          mkdir -m 700 "$version_home"
+          test "$(env -i PATH="$PATH" HOME="$version_home" "$native_binary" --version)" = '2.1.310 (Claude Code)'
+          sha256sum "$native_binary" > "$RUNNER_TEMP/claude-native-digest.log"
+          printf '%s  %s\n' b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56 "$native_binary" | sha256sum --check
+      - name: Verify independent native credential storage and logout
+        run: node experiments/issue-3785/probe-claude-secure-storage.mjs "$NATIVE_CLAUDE" > "$RUNNER_TEMP/claude-storage.log" 2>&1
+      - name: Verify native healthy, refresh, concurrency and pending writer controls
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --diagnostics "$RUNNER_TEMP/claude-healthy-native.log" > "$RUNNER_TEMP/claude-healthy.log" 2>&1
+          for scenario in expired concurrent replace-login logout; do
+            python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" "--$scenario" --diagnostics "$RUNNER_TEMP/claude-$scenario-native.log" > "$RUNNER_TEMP/claude-$scenario.log" 2>&1
+          done
+      - name: Verify native global output-style instruction discovery
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --global-output-style --diagnostics "$RUNNER_TEMP/claude-output-style-native.log" > "$RUNNER_TEMP/claude-output-style.log" 2>&1
+      - name: Preserve the unresolved native owner-death regression
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --owner-death --expect-predecessor-reuse --diagnostics "$RUNNER_TEMP/claude-owner-death-native.log" > "$RUNNER_TEMP/claude-owner-death.log" 2>&1
+          if python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --owner-death --diagnostics "$RUNNER_TEMP/claude-owner-death-strict-native.log" > "$RUNNER_TEMP/claude-owner-death-strict.log" 2>&1; then
+            echo 'The unresolved native owner-death regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'A peer must refuse the consumed predecessor after owner death.' "$RUNNER_TEMP/claude-owner-death-strict.log"
+      - name: Verify actual completed history and native peer resume
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --history --private-history --expect-history-gap --diagnostics "$RUNNER_TEMP/claude-history-before-native.log" > "$RUNNER_TEMP/claude-history-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --history --private-history --diagnostics "$RUNNER_TEMP/claude-history-strict-native.log" > "$RUNNER_TEMP/claude-history-strict.log" 2>&1; then
+            echo 'The private-history disposal regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'A fresh native peer must resume persisted history.' "$RUNNER_TEMP/claude-history-strict.log"
+          python3 experiments/issue-3785/probe-claude-native-refresh.py "$NATIVE_CLAUDE" --history --diagnostics "$RUNNER_TEMP/claude-history-after-native.log" > "$RUNNER_TEMP/claude-history-after.log" 2>&1
+      - name: Preserve synthetic native diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-claude-auth-experiment
+          path: ${{ runner.temp }}/claude-*.log
+          if-no-files-found: error
+          retention-days: 7

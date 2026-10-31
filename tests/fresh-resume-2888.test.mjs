@@ -84,12 +84,35 @@ test('the rollout is copied out of the stopped container when it is only there',
   const calls = [];
   const copy = async (container, source, destination) => {
     calls.push({ container, source });
+    if (source !== '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.') return { success: false, error: 'legacy fixture has no shared directory' };
     await writeRollout(destination);
     return { success: true };
   };
   const h = freshHarness({ home, copy });
   await h.recover();
-  assert.deepEqual(calls, [{ container: SESSION, source: '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.' }]);
+  assert.deepEqual(calls, [
+    { container: SESSION, source: '/home/box/.codex/sessions/.' },
+    { container: SESSION, source: '/home/box/.codex/archived_sessions/.' },
+    { container: SESSION, source: '/home/box/.codex/hive-mind/repositories/link-assistant/router/sessions/.' },
+  ]);
+  assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(home, '.codex', 'sessions'), threadId: THREAD }));
+  assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
+});
+
+test('fresh task homes recover through the shared container sessions path', async () => {
+  const home = await tempHome();
+  const calls = [];
+  const h = freshHarness({
+    home,
+    copy: async (container, source, destination) => {
+      calls.push({ container, source });
+      if (source !== '/home/box/.codex/sessions/.') return { success: false, error: 'task config has a unique disposable path' };
+      await writeRollout(destination);
+      return { success: true };
+    },
+  });
+  await h.recover();
+  assert.deepEqual(calls, [{ container: SESSION, source: '/home/box/.codex/sessions/.' }]);
   assert.ok(await findCodexRolloutFile({ sessionsDir: path.join(home, '.codex', 'sessions'), threadId: THREAD }));
   assert.deepEqual(h.launches[0].args.slice(-2), ['--resume', THREAD]);
 });
@@ -164,7 +187,7 @@ test('two solves of one repository linking sessions at once both report it share
   const base = path.join(root, '.codex');
   const scoped = path.join(base, 'hive-mind', 'repositories', 'link-assistant', 'router');
   // Both runs see no link yet; the second one's symlink() then finds the first one's.
-  const fsImpl = { ...fs, lstat: async () => null };
+  const fsImpl = { ...fs, lstat: async (file, options) => (file === path.join(scoped, 'sessions') ? null : fs.lstat(file, options)) };
   const outcomes = await Promise.all([shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl }), shareScopedCodexSessions({ baseCodexHome: base, codexHome: scoped, fsImpl })]);
   assert.deepEqual(outcomes.map(outcome => outcome.status).sort(), ['already-shared', 'shared'], JSON.stringify(outcomes));
   // A different file in its place is still a failure.

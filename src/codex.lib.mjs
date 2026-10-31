@@ -588,6 +588,9 @@ export const executeCodex = async params => {
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
   const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
+  // Retain the execution home until native history metadata/SQLite also have a
+  // verified canonical projection (issue #3785). A later task always allocates
+  // fresh configuration; deleting this home would discard unprojected data.
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -667,12 +670,12 @@ export const executeCodexCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log, env: codexEnv });
+    let isResumeMode = !!argv.resume;
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.

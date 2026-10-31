@@ -563,7 +563,7 @@ The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills fo
 
 ### What a `--isolation docker` task receives (issue #2190)
 
-Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. Only the credential file and the session directories are shared:
+Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. The current mount builder exposes credential files and selected session directories:
 
 | Tool   | Shared with every task (bind-mounted)                                       | Per container (from the image)                                                   |
 | ------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -573,14 +573,20 @@ Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a t
 
 Why:
 
-- **One credential file for all tasks.** A token refreshed by one task (or by the host) is immediately visible to every other task, because they all mount the very same file.
+- **Credential mount limitation.** A file bind mount retains an inode across host atomic replacement, and Codex preflight additionally copies authentication into its scope. These paths do not establish one rotating authority; [the case study](./case-studies/issue-3785/README.md) documents the unresolved defect and real CLI probes.
 - **No global reconfiguration from inside a task.** Plugins, marketplaces, skills, MCP registrations and settings a task installs stay in that container and disappear with it; the next task starts from the image defaults again.
 - **No inherited bloat.** A plugin synced into the host's global state (the `superpowers` plugin from the Codex remote catalog or the official Claude marketplace was the trigger for issue #2190) is never mounted into a task, so it cannot make the agent refuse to work or inflate its token usage.
 - **Audit stays global.** `projects/` and `sessions/` are still mounted from the host, so transcripts of every task can be discovered and audited in one place.
 
 Hive Mind creates the session directories on the host before launching a task. The credential file is never created for you: an empty `auth.json` makes Codex fail with `EOF while parsing`, so log in once on the host (or seed it with `{}` and log in from a task). With `--use-router` none of the vendor paths is mounted at all: the task authenticates only with its own router token ([docs/ROUTER.md](./ROUTER.md)).
 
-On top of the mount split, every `solve`/`hive` start audits the global Claude/Codex configuration and, by default, removes anything that is not part of the minimal profile (plugins, marketplaces, global skills, MCP servers other than Playwright, and the Codex remote plugin sync). Disable the repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; the warnings are still printed.
+The root Telegram bot and every `solve`/`hive` start audit the known global Claude/Codex configuration surfaces before tool connection checks. Repair is enabled by default. Disable repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; remaining findings or repair failures still block execution. Dry-run/command-preparation inspection does not repair state. Installed Codex stock runtime files are checked against a pristine 0.164.0 content manifest. Both images pin Codex 0.164.0 and Claude 2.1.310; CLI upgrades require a reviewed stock manifest. Changed, incomplete or linked stock content blocks admission before repair. Complete alternate/managed discovery and packaged-image lifecycle/deployment validation remain open.
+
+TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
+
+Images set `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` to preserve those pinned versions during idle and command-triggered updates. Other agentic and operational CLIs continue to update. Keep this exclusion when overriding updater settings; change the CLI pins and reviewed stock manifest together when upgrading an image.
+
+The audit also rejects known global instruction files, rules, legacy prompts and hook manifests. Instruction files and hook manifests require explicit removal or quarantine; inline global hooks/instructions and unapproved Codex profile/agent registrations can be repaired automatically. Clean profiles and unrelated model, permission and concurrency settings are preserved.
 
 ### Required Codex capability preflight
 

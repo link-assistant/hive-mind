@@ -4,8 +4,7 @@ import { promptText } from './prompt-text.lib.mjs';
  *
  * Explicit plugin and Agent Skill requirements are discovered from the issue
  * before `codex exec`. Required marketplace plugins are installed into a
- * CODEX_HOME scoped by repository and rebuilt from a clean capability state
- * for each task, leaving the operator's global state and target repository
+ * fresh task CODEX_HOME, leaving the operator's global state and target repository
  * untouched.
  */
 
@@ -14,11 +13,17 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
+import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
+import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
+import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
+
+export { buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace } from './codex-task-scope.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|us(?:e|es|ing))\b/i;
@@ -159,18 +164,16 @@ export function detectRequiredCodexCapabilities(text, { source = null } = {}) {
 
 export const isExplicitRequirement = (requirements, capability) => (requirements?.explicit || []).includes(String(capability || '').toLowerCase());
 
-const sanitizePathSegment = value => String(value || '').replace(/[^a-zA-Z0-9._-]/gu, '_');
-
-export function buildCodexCapabilityStatePath({ baseCodexHome, owner, repo }) {
-  return path.join(baseCodexHome, 'hive-mind', 'repositories', sanitizePathSegment(owner), sanitizePathSegment(repo));
-}
-
 export function applyCodexCapabilityEnv(env, { codexHome, baseCodexHome } = {}) {
   if (!codexHome) return env;
   return { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 }
 
 const defaultRunCommand = async ({ command, args, env = process.env, cwd }) => {
+  if (command !== 'gh' && selectedCodexAuthHome(env)) {
+    await readCanonicalCodexAuth(env.CODEX_AUTH_HOME, { configurationHome: env.CODEX_HOME, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
+    command = (await verifyNativeCodexCommand({ command, searchPath: env.PATH })).entrypoint;
+  }
   try {
     const result = await execFileAsync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
     return { stdout: result.stdout?.toString() || '', stderr: result.stderr?.toString() || '', code: 0 };
@@ -276,6 +279,8 @@ export const verifyCodexCapabilityExecutionCatalog = async ({ capabilityPrefligh
   if (!capabilityPreflight?.codexHome) return capabilityPreflight;
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const scopedEnv = applyCodexCapabilityEnv(env, capabilityPreflight);
+  const selectedAuth = selectedCodexAuthHome(scopedEnv);
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: capabilityPreflight.codexHome, expectedIdentity: scopedEnv.HIVE_MIND_CODEX_AUTH_IDENTITY });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
   const visibility = await checkModelVisibleSkills({
     command,
@@ -550,18 +555,6 @@ export async function collectCodexCapabilityRequirements({ owner, repo, issueNum
   return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected, sources, skippedInstructionFiles: instructions.skipped };
 }
 
-const replaceWithRelativeSymlink = async ({ source, target }) => {
-  try {
-    const current = await fs.readlink(target);
-    if (path.resolve(path.dirname(target), current) === path.resolve(source)) return;
-  } catch {
-    // Missing path or a non-symlink is reconciled below.
-  }
-  await fs.rm(target, { recursive: true, force: true });
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.symlink(path.relative(path.dirname(target), source), target, 'dir');
-};
-
 const syncFileIfPresent = async (source, target) => {
   try {
     await fs.copyFile(source, target);
@@ -704,35 +697,38 @@ const configureScopedPluginLoader = async ({ codexHome, plugins, log }) => {
 // do: each task rebuilds its exact selected provider set from an empty scope.
 const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
   const baseConfig = await readIfPresent(baseConfigPath);
-  const pluginPattern = /^\[plugins\."[^"]+"\][^\n]*(?:\n(?!\[)[^\n]*)*/gmu;
-  const baseWithoutPlugins = baseConfig.replace(pluginPattern, '').trimEnd();
-  await fs.writeFile(scopedConfigPath, baseWithoutPlugins ? `${baseWithoutPlugins}\n` : '');
+  let config;
+  try {
+    config = parseToml(baseConfig, { integersAsBigInt: 'asNeeded' });
+  } catch {
+    // TOML diagnostics can quote private values. Never pass them to task logs
+    // or degrade malformed input into a scope that reaches native discovery.
+    throw catalogBoundaryError('Cannot establish task configuration from malformed operator Codex configuration.');
+  }
+  // Quoted keys, dotted assignments, inline and nested tables all represent
+  // the same plugin authority. Headers embedded in strings are ordinary data.
+  delete config.plugins;
+  await fs.writeFile(scopedConfigPath, stringifyToml(config));
 };
 
-const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, needsMarketplace, log = async () => {} }) => {
+const prepareScopedCodexHome = async ({ baseCodexHome, codexHome, env, log = async () => {} }) => {
+  const selectedAuth = selectedCodexAuthHome(env);
+  if (selectedAuth) await readCanonicalCodexAuth(selectedAuth, { configurationHome: baseCodexHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
   await fs.mkdir(codexHome, { recursive: true });
   // These directories can contribute instructions independently of current
   // installation metadata. Remove them before copying any runtime state.
   await Promise.all([fs.rm(path.join(codexHome, 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, 'skills'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins'), { recursive: true, force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sha'), { force: true }), fs.rm(path.join(codexHome, '.tmp', 'plugins.sync.lock'), { force: true })]);
   await syncScopedConfig({ baseConfigPath: path.join(baseCodexHome, 'config.toml'), scopedConfigPath: path.join(codexHome, 'config.toml') });
-  await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
+  // The native selected store reads the shared authority directly. A private
+  // snapshot becomes a conflicting authority and can outlive refresh/logout.
+  if (!selectedAuth) await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
   await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
   // Issue #2888: rollouts go to the operator's (mounted) sessions directory, so
   // a recovery run in another container can still resume this thread.
-  const sessionsShare = describeScopedCodexSessions(await shareScopedCodexSessions({ baseCodexHome, codexHome }));
+  const sessionsOutcome = await shareScopedCodexSessions({ baseCodexHome, codexHome });
+  if (sessionsOutcome.status === 'failed') throw catalogBoundaryError('Cannot establish shared Codex sessions; task execution was refused to preserve recoverable history.');
+  const sessionsShare = describeScopedCodexSessions(sessionsOutcome);
   if (sessionsShare) await log(sessionsShare, { verbose: !sessionsShare.includes('⚠️') });
-
-  if (!needsMarketplace) return;
-  const marketplaceSource = path.join(baseCodexHome, '.tmp', 'plugins');
-  const marketplaceSha = path.join(baseCodexHome, '.tmp', 'plugins.sha');
-  try {
-    await fs.access(marketplaceSource);
-    await fs.access(marketplaceSha);
-    await replaceWithRelativeSymlink({ source: marketplaceSource, target: path.join(codexHome, '.tmp', 'plugins') });
-    await fs.copyFile(marketplaceSha, path.join(codexHome, '.tmp', 'plugins.sha'));
-  } catch {
-    throw new CodexCapabilityPreflightError(`The operator Codex marketplace snapshot is unavailable at ${marketplaceSource}. ` + `Run 'codex plugin list --available --json' once in the operator container, then retry.`);
-  }
 };
 
 // --- issue #2088: repair the repository-scoped plugin payload ----------------
@@ -788,13 +784,13 @@ export const isCodexCapabilityStrict = (env = process.env) => /^(?:1|true|yes|on
 // scope; issue #2254 catalog/provenance failures remain non-bypassable.
 export const isCodexCapabilityAdvisory = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_ADVISORY || ''));
 
-const provisionSafeCatalogFallback = async ({ options, error }) => {
+const provisionSafeCatalogFallback = async ({ options, error, createScope }) => {
   const { owner, repo, projectDir, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = options;
   if (!owner || !repo) throw catalogBoundaryError('Cannot establish a repository-scoped Codex fallback after capability provisioning failed.');
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
-  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
+  const codexHome = await createScope({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: false, log });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, projectDir, plugins: [], requiredSkills: [] });
@@ -802,9 +798,32 @@ const provisionSafeCatalogFallback = async ({ options, error }) => {
 };
 
 export async function runCodexCapabilityPreflight(options = {}) {
+  const env = options.env ?? process.env;
+  const selectedAuth = selectedCodexAuthHome(env);
+  if (selectedAuth) {
+    const base = options.baseCodexHome ?? env.HIVE_MIND_PARENT_CODEX_HOME ?? env.CODEX_HOME ?? path.join(os.homedir(), '.codex');
+    await readCanonicalCodexAuth(selectedAuth, { configurationHome: base, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
+    if (!options.runCommand || options.runCommand === defaultRunCommand) {
+      const command = /\s/u.test(options.codexPath ?? 'codex') ? 'codex' : (options.codexPath ?? 'codex');
+      await verifyNativeCodexCommand({ command, searchPath: env.PATH });
+    }
+  }
+  const allocator = createCodexTaskScopeAllocator();
+  try {
+    const result = await runScopedCapabilityPreflight(options, allocator);
+    // Teardown is safe before inference. Execution homes must be retained
+    // until every native conversation artifact has canonical storage.
+    return { ...result, dispose: allocator.dispose };
+  } catch (error) {
+    await allocator.dispose();
+    throw error;
+  }
+}
+
+async function runScopedCapabilityPreflight(options, { createScope, dispose }) {
   const { log = async () => {}, env = process.env } = options;
   try {
-    return await provisionCodexCapabilities(options);
+    return await provisionCodexCapabilities({ ...options, createScope });
   } catch (error) {
     if (!(error instanceof CodexCapabilityPreflightError)) throw error;
     if (error.details?.securityBoundary) {
@@ -829,11 +848,12 @@ export async function runCodexCapabilityPreflight(options = {}) {
     }
     await log(`⚠️  Codex capability preflight skipped: ${error.message}`);
     await log('   Continuing with an empty, provenance-checked repository scope. Set HIVE_MIND_CODEX_CAPABILITY_STRICT=1 to fail instead.');
-    return provisionSafeCatalogFallback({ options, error });
+    await dispose();
+    return provisionSafeCatalogFallback({ options, error, createScope });
   }
 }
 
-async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, requiredPlugins, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
+async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, requiredPlugins, createScope, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
   // Issue #2102: requirements no longer come from the issue alone, so a missing
   // issue number (a pull-request continuation, for example) must not skip the
   // repository's own AGENTS.md/CLAUDE.md files or an operator override. Owner and
@@ -861,24 +881,27 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // repository-local discovery deterministic without relying on Hive's launch
   // directory (issue #2094).
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
-  const baseEnv = { ...env, CODEX_HOME: baseCodexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
+  // Catalog discovery writes marketplace snapshots. Run it in the same private
+  // scope as installation, never in the operator home or through a writable
+  // link to its marketplace (issue #3785).
+  const codexHome = await createScope({ baseCodexHome, owner, repo });
+  await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
+  await configureScopedPluginLoader({ codexHome, plugins: [], log });
+  const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   let plugins = [];
   let providers = new Map();
   if (hasRequirements) {
-    const baseCatalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
-    const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
+    const catalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: scopedEnv });
+    const catalog = parseJsonCommand(catalogResult, 'Codex plugin catalog discovery');
     // Host-global Agent Skills are instructions outside the repository contract.
     const skillDirectories = [projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
-    ({ plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog: baseCatalog, skillDirectories }));
+    ({ plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog, skillDirectories }));
   }
   for (const plugin of plugins) {
     await log(`   ✅ Verified ${plugin} in the Codex plugin catalog`, { verbose: true });
   }
 
-  const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
-  await prepareScopedCodexHome({ baseCodexHome, codexHome, needsMarketplace: plugins.length > 0, log });
   await configureScopedPluginLoader({ codexHome, plugins, log });
-  const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 
   if (plugins.length === 0) {
     if (requirements.skills.length > 0) await log('   ✅ Required Agent Skills are available from the repository skill directory');

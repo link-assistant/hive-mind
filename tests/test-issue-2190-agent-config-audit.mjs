@@ -20,6 +20,8 @@ import path from 'path';
 import { AGENT_CONFIG_MINIMAL_ENV, auditAgentConfig, CODEX_REMOTE_PLUGIN_DISABLE_ARGS, isAgentConfigAutoRepairEnabled, MINIMAL_MCP_SERVERS, removeTomlTable, repairAgentConfig, runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 import { REQUIRED_CLAUDE_QUIET_ENV } from '../src/claude-quiet-config.lib.mjs';
 
+const claudeBaseline = { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } };
+
 let passed = 0;
 let failed = 0;
 
@@ -87,7 +89,7 @@ const makeDriftedHome = () => {
   write(path.join(home, '.claude', 'commands', 'review.md'), 'review');
   write(path.join(home, '.claude', 'settings.json'), JSON.stringify({ model: 'opus', enabledPlugins: { 'superpowers@claude-plugins-official': true } }));
   write(path.join(home, '.claude', 'projects', '-tmp-x', 'session.jsonl'), '{}');
-  write(path.join(home, '.claude.json'), JSON.stringify({ oauthAccount: { emailAddress: 'x@example.com' }, mcpServers: { playwright: { command: 'npx' }, github: { command: 'npx' } }, officialMarketplaceAutoInstalled: true }));
+  write(path.join(home, '.claude.json'), JSON.stringify({ oauthAccount: { emailAddress: 'x@example.com' }, mcpServers: { playwright: { command: 'npx', args: ['-y', '@playwright/mcp@latest'] }, github: { command: 'npx' } }, officialMarketplaceAutoInstalled: true }));
   return home;
 };
 
@@ -96,7 +98,7 @@ const home = makeDriftedHome();
 const { findings, repairable, warnOnly } = auditAgentConfig({ homeDir: home });
 const keyOf = f => `${f.tool}:${f.kind}:${f.name}`;
 const keys = findings.map(keyOf).sort();
-assertDeepEqual(keys, ['claude:custom-command:review.md', 'claude:marketplace:claude-plugins-official', 'claude:mcp-server:github', 'claude:plugin-enable:superpowers@claude-plugins-official', 'claude:plugin-state:installed_plugins.json', 'claude:plugin-state:known_marketplaces.json', 'claude:plugin:claude-plugins-official/superpowers', 'claude:skill:leftover-skill', 'codex:mcp-server:github', 'codex:plugin-enable:openai-curated-remote/superpowers', 'codex:plugin:openai-curated-remote/superpowers', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:skill:my-global-skill', 'codex:skill:shared-skill'], 'every non-minimal item is a finding and playwright MCP is not');
+assertDeepEqual(keys, ['claude:cloud-capabilities:account-sync-and-connectors', 'claude:custom-command:review.md', 'claude:marketplace:claude-plugins-official', 'claude:mcp-server:github', 'claude:plugin-enable:superpowers@claude-plugins-official', 'claude:plugin-state:installed_plugins.json', 'claude:plugin-state:known_marketplaces.json', 'claude:plugin:claude-plugins-official/superpowers', 'claude:skill:leftover-skill', 'codex:mcp-server:github', 'codex:plugin-enable:openai-curated-remote/superpowers', 'codex:plugin:openai-curated-remote/superpowers', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:skill:my-global-skill', 'codex:skill:shared-skill'], 'every non-minimal item is a finding and playwright MCP is not');
 assertEqual(warnOnly.length, 1, 'only the custom command is warn-only');
 assertEqual(warnOnly[0].kind, 'custom-command', 'custom commands are reported but never removed');
 assertEqual(repairable.length, findings.length - 1, 'everything else carries a repair');
@@ -139,7 +141,7 @@ assertEqual(fs.existsSync(path.join(home, '.claude', 'commands', 'review.md')), 
 assertEqual(fs.existsSync(path.join(home, '.claude', '.credentials.json')), true, 'claude credentials are untouched');
 assertEqual(fs.existsSync(path.join(home, '.claude', 'projects', '-tmp-x', 'session.jsonl')), true, 'claude projects are untouched');
 const repairedSettings = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'settings.json'), 'utf8'));
-assertDeepEqual(repairedSettings, { model: 'opus', enabledPlugins: {} }, 'only the plugin enable entry left settings.json');
+assertDeepEqual(repairedSettings, { model: 'opus', enabledPlugins: {}, ...claudeBaseline }, 'plugin state is removed and cloud rehydration is disabled');
 const repairedClaudeJson = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
 assertDeepEqual(Object.keys(repairedClaudeJson.mcpServers), ['playwright'], 'only playwright MCP remains in ~/.claude.json');
 // Compare first and pass only the verdict on, so the assertion never prints the account field (CodeQL js/clear-text-logging).
@@ -151,12 +153,13 @@ assertDeepEqual(after.findings.map(keyOf), ['claude:custom-command:review.md'], 
 
 console.log('\n5. A fresh Docker-image home is clean');
 const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-fresh-'));
-write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n\n[mcp_servers.playwright]\ncommand = "npx"\n');
-write(path.join(fresh, '.claude.json'), JSON.stringify({ mcpServers: { playwright: {} } }));
+write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
+write(path.join(fresh, '.claude.json'), JSON.stringify({ mcpServers: { playwright: { command: 'npx', args: ['-y', '@playwright/mcp@latest'] } } }));
+write(path.join(fresh, '.claude/settings.json'), JSON.stringify(claudeBaseline));
 assertEqual(auditAgentConfig({ homeDir: fresh }).findings.length, 0, 'the minimal configuration has no findings');
 const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-empty-'));
 const emptyFindings = auditAgentConfig({ homeDir: empty }).findings;
-assertDeepEqual(emptyFindings.map(keyOf), ['codex:remote-plugin-sync:features.remote_plugin'], 'an empty home only needs the remote plugin pin');
+assertDeepEqual(emptyFindings.map(keyOf), ['claude:cloud-capabilities:account-sync-and-connectors', 'codex:remote-plugin-sync:features.remote_plugin'], 'an empty home needs explicit cloud and remote plugin pins');
 repairAgentConfig(emptyFindings);
 assertEqual(fs.readFileSync(path.join(empty, '.codex', 'config.toml'), 'utf8').includes('remote_plugin = false'), true, 'the pin creates config.toml when missing');
 

@@ -14,6 +14,7 @@
 
 import { buildRouterCodexConfig, buildRouterGitConfigEntries, buildRouterTaskEnv, buildRouterTaskWiringScript, describeRouterCoverageGaps, getInternalRouterBaseUrl, getRouterSuppressedCredentialPaths, isRouterEnabled, normalizeRouterBaseUrl, resolveRouterBaseUrl, resolveRouterGhHost, resolveRouterGitHubRouting, ROUTER_CA_BUNDLE_CONTAINER_PATH, ROUTER_CA_CONTAINER_PATH, ROUTER_GITHUB_API_HOST, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 import { buildDockerIsolationStartArgs, getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
+import assert from 'node:assert/strict';
 
 let passed = 0;
 let failed = 0;
@@ -49,7 +50,7 @@ const TASK_TOKEN = 'la_sk_x';
 
 const HOME = '/home/box';
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
+const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.codex/archived_sessions`, `${HOME}/.codex/thread-writer-locks`, `${HOME}/.codex/rollout-migrations`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
 const existsAll = candidate => hostPaths.has(candidate);
 const mountPairs = mounts => mounts.map(mount => `${mount.source}:${mount.target}`);
 // Matched as a whole hostname rather than with `includes`: a substring test on a
@@ -210,7 +211,8 @@ assertEqual(
   true,
   'and the github.com rewrite among them'
 );
-assertDeepEqual(await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), defaultArgs, 'without an issued token the launch falls back to the default mounts rather than stranding the agent with no model access');
+await assert.rejects(buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), /Router.*token/i);
+pass('without an issued token an explicitly selected Router launch is rejected');
 
 // A guard that cannot be written to the host is not fatal — the remaining R13
 // layers still apply — but it must drop cleanly out of the git config rather

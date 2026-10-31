@@ -1,0 +1,30 @@
+✔ Retry-After is parsed from seconds and HTTP dates (1.536204ms)
+✔ a Claude 429 is cached instead of re-asked every queue cycle (7.787999ms)
+✔ a Retry-After longer than the usage TTL is honoured (3.512789ms)
+✔ concurrent callers share one usage request (the 429 pairs two seconds apart) (1.807831ms)
+✔ a Codex 401 is cached until the auth file changes (14.536811ms)
+✔ other failures (network, 5xx) are not cached (1.953833ms)
+✔ the real fetchers classify their failures (4.057364ms)
+✔ Claude authentication error has its own section without subscription metadata (9.878927ms)
+✔ both providers have separate sections when neither has authentication (1.216769ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (28.691881ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (6.682509ms)
+✔ missing Claude authentication does not invent a cancelled subscription (5.480677ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (16.091079ms)
+✔ a successful usage cache is invalidated when credentials rotate (13.152872ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (52.078772ms)
+✔ different credential authorities never share a usage cache entry (4.068064ms)
+✔ resetting the usage cache isolates new callers from an obsolete in-flight request (4.545995ms)
+✔ limits paths follow effective tool homes and never fall back to another home (1.258457ms)
+✔ logout immediately invalidates cached Codex subscription claims (15.155965ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (16.637588ms)
+✔ successful profile diagnostics omit values from credentials and provider metadata (8.376467ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (17.044085ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1271.333737

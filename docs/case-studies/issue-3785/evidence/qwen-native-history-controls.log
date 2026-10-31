@@ -1,0 +1,14 @@
+before:
+REPRODUCED: actual Qwen cannot resume after private runtime disposal; model_requests=1.
+PASS: fixture forwards no external tunnels; refused 1 native model-catalog requests before TLS.
+
+strict-before:
+Traceback (most recent call last):
+  File "<workspace>/experiments/issue-3785/probe-qwen-native-history.py", line 172, in <module>
+    assert code == 0, 'A fresh native Qwen peer must resume persisted history.'
+           ^^^^^^^^^
+AssertionError: A fresh native Qwen peer must resume persisted history.
+
+after:
+PASS: actual native Qwen completes, disposes private roots, resumes with prior messages and retains its transcript; model_requests=2.
+PASS: fixture forwards no external tunnels; refused 2 native model-catalog requests before TLS.

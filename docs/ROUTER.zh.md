@@ -61,7 +61,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_SIDECAR=0`              | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                                      |
 | `HIVE_MIND_ROUTER_IMAGE`                  | 覆盖路由器镜像                                                                              |
 | `HIVE_MIND_ROUTER_ROUTES`                 | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical`      |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | sidecar 的额外 `docker run` 参数                                                            |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | 仅支持 sidecar 资源限制；允许的参数与持久卷检查参见[英文配置说明](ROUTER.md#configuration)  |
 | `CODEX_CLIENT_VERSION`                    | 路由器向 ChatGPT 后端声明的 Codex 客户端版本；未设置时使用它自带的较新默认值                |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`           | 自行提供令牌签名密钥，而不是生成一个                                                        |
 | `HIVE_MIND_ROUTER_GH_HOST`                | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）                   |

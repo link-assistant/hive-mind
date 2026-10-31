@@ -1,0 +1,56 @@
+Verified pushed commit:
+  8f9ca8867aa1fbc87ef356d7a37081a31c8c1577
+All eight workflows created 2026-10-31T03:52:22Z pass. Final Checks pipeline
+completes 04:21:44Z; compiled Codex completes 04:20:29Z. These results precede
+the canonical-plan and interrupted-plan-publication stages.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41166203220
+  Full ci-logs/checks-41166203220.log retained: 73,259 lines, reviewed in
+    49 chunks of at most 1500 lines; no error annotations.
+  Line 64444: all 739 default test files pass.
+  Line 64506: both GitHub integration test files pass.
+  Lines 68341-68348: nested daemon restart and committed-container restart.
+  Lines 68349-68354: host/nested installed-package task writes and Agent/OpenCode
+    atomic replacement/deletion/recreation/two-task/private-refusal controls pass.
+  Line 68356: all system, development and nested Docker checks pass.
+  Integration cleanup emits existing branch-ruleset warnings at 64502/64504;
+    assertions pass and retained disposable branches are explicitly reported.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41166203180
+  All three jobs pass. Full ci-logs/native-codex-41166203180.log retained:
+    1,790 lines, reviewed in two chunks; no error annotations.
+  Lines 744/765: canonical storage seven and session index five tests pass.
+  Line 1101: actual status/logout/replacement across private homes passes.
+  Downloaded native-codex-auth-build: 94 files, reviewed in 95 chunks of at
+    most 1500 lines. All four assertion failures are required strict pre-repair
+    controls (compression paths, migration staging, identity, refresh death).
+  Actual repaired CLI passes interrupted plain/compressed/subagent migration,
+    journal/staging refusal, compression and fresh resume, identity provenance,
+    TUI refusal, prompt history, request auth/constructors and refresh owner-death
+    refusal/explicit-login repair without reusing the consumed predecessor.
+  Artifact 13029907026: 90,262 bytes, archive SHA-256
+    139530f93ed0581e1d73b8d1222092fa6e8aa22cbb58436f919072bd972f8dda.
+  Full compiled CLI downloaded separately, artifact 13030191108: 114,239,444
+    bytes, archive SHA-256
+    4575ed8a11b2b6d1d66ed6d615f691c99a4a5342cd44aba11dced1e984c7f7f4.
+    Extracted executable SHA-256
+    61e786a8bb7fee18e8e1fe349ee1821786124ce0bf3c4f416e33ab5ec5b34bc3.
+  Local downloads: /tmp/issue-3785-recovery/codex-8f9-build-artifacts and
+    /tmp/issue-3785-recovery/codex-8f9-cli-artifacts.
+
+Native Gemini:
+  https://github.com/link-assistant/hive-mind/actions/runs/41166203183
+  All six jobs pass. See ci-8f9ca8867-gemini.txt: 461 downloaded ACP files,
+    both actual concurrent-child engines and private controls, child restore,
+    twenty-four-stage reconstruction and surrounding native regressions.
+
+Other successful workflows at this SHA:
+  Workflows 41166203168; Links 41166203216; Claude 41166203273;
+  Qwen 41166203185; Security 41166203239.
+
+Passing Claude reproduction still demonstrates its unresolved native refresh
+owner-death defect. These successful workflows do not establish production
+installation or the complete six-backend lifecycle. New plan stages require
+fresh exact-head CI; all broader unmet acceptance criteria remain unfinished.

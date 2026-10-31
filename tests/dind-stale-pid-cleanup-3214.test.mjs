@@ -200,5 +200,7 @@ test('changes to the in-image dind scripts trigger the Docker build checks', () 
   const dockerPattern = new RegExp(match[1], match[2]);
   assert.ok(dockerPattern.test('scripts/dind/clear-stale-dind-pids.sh'));
   assert.ok(dockerPattern.test('Dockerfile.dind'));
-  assert.ok(!dockerPattern.test('scripts/detect-code-changes.mjs'));
+  // The selection code itself is part of the image gate's validation contract.
+  assert.ok(dockerPattern.test('scripts/detect-code-changes.mjs'));
+  assert.ok(!dockerPattern.test('scripts/unrelated-example.mjs'));
 });

@@ -1,0 +1,39 @@
+Same-repository configuration isolation regression, 2026-10-26
+
+Before: two sequential or concurrent preflights return the same mutable home.
+Both new tests fail on that equality. A second preflight rewrites the first
+task's config and clears its skill/plugin payload. A namespace symlink also
+passes before the linked-directory refusal is added.
+
+After: each preflight uses a new mode-0700 run directory beneath the operator
+home's sibling .hive-mind/codex-tasks namespace. Neither normal provisioning
+nor degraded fallback reuses a prior CODEX_HOME. The first task's config,
+profile and skill remain unchanged when another task starts. Allocation rejects
+linked ancestors; failed preflights dispose their newly allocated scopes.
+Explicit pre-execution disposal preserves shared session targets and operator
+credentials, and refuses a replaced task directory.
+
+28 focused cases pass across capability detection, repair, catalog provenance,
+session handling, Formal AI restarts, the new scope regressions and workflow
+cancellation policy. Retained local log:
+/tmp/issue-3785-task-homes-verified.log
+
+The actual pinned native Codex 0.164.0 also passes a bounded offline Docker
+probe with concurrent same-repository tasks in distinct checkouts. Each native
+catalog sees its own fixture skill and excludes its peer; repeated catalog
+reads preserve both tasks. A third task gets a fresh home, while the first
+config and operator config/auth identity and bytes remain unchanged.
+Reproduce: node experiments/issue-3785/probe-codex-task-scopes.mjs
+Local log: /tmp/issue-3785-native-task-scopes.log
+This verifies discovery only, without inference or refresh.
+
+A failed shared-sessions projection now refuses execution before native startup.
+Fresh-container recovery tries the canonical sessions directory first, then the
+historical repository-scoped location; regression fixtures cover both layouts.
+All 28 cases across recovery, scoped-config and preflight tests pass in
+/tmp/issue-3785-fresh-scope-recovery-after.log.
+
+Production execution homes are deliberately retained: unprojected native
+history/index/SQLite must not be deleted. These retained homes are not reused
+as another task's configuration. Full canonical history, production cleanup,
+and the full native two-task execution lifecycle remain unfinished.

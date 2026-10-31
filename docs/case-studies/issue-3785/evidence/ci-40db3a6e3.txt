@@ -1,0 +1,43 @@
+Preceding pushed commit:
+  40db3a6e3c0acb1dfb19ac9a6f89d36251e0b2d2
+All eight workflows created 2026-10-31T00:25:40Z complete successfully.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41150101904
+  Preserved full log: ci-logs/checks-release-41150101904.log (72149 lines).
+  Line 67740: All 739 selected test file(s) passed, 00:39:55Z.
+  Line 67802: All 2 selected integration test file(s) passed, 00:40:55Z.
+  Lines 71276-71282: nested daemon restart and committed-container restart.
+  Lines 71283-71288: actual installed-package host/nested backing and
+    Agent/OpenCode atomic replacement, deletion/recreation, two-task writes
+    and private-redirection refusal controls pass.
+  Line 71290: all system, development and nested Docker checks pass, 00:53:28Z.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41150101835
+  Preserved full log: ci-logs/native-codex-41150101835.log (1788 lines).
+  All three jobs pass: refresh-intent-modules, native-file-authority,
+    native-history.
+  Line 743: seven canonical storage tests pass, with one worker ignored.
+  Line 1100: actual native status/logout share a separate canonical authority
+    across private configuration homes and atomic replacement, without copies
+    or missing-root fallback. Native build and subsequent controls pass.
+
+Native Gemini:
+  https://github.com/link-assistant/hive-mind/actions/runs/41150101913
+  Preserved full log: ci-logs/native-gemini-41150101913.log (2373 lines).
+  All four Node 24 jobs pass, completing 00:35:39Z. All 1329 diagnostic
+    artifact files were downloaded. This includes the Git object stage,
+    independent history regressions, tracker and credential controls.
+
+Other successful workflows at this exact commit:
+  Workflows: 41150101815
+  Links: 41150101863
+  Qwen: 41150101896
+  Claude: 41150101923
+  Security: 41150101947
+
+These results precede the GitService reuse and terminal restore metadata/edit
+admission commits. They do not verify those later changes. Claude's successful
+job includes the expected reproduction of its unfixed refresh uncertainty;
+the production all-six-tool and complete lifecycle criteria remain unfinished.

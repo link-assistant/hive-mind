@@ -9,8 +9,10 @@
  * See `docs/case-studies/issue-1793/`.
  */
 
-import { CACHE_TTL, DEFAULT_CODEX_AUTH_PATH, DEFAULT_CREDENTIALS_PATH, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials } from './limits.lib.mjs';
+import { CACHE_TTL, claudeLimitsAuthAdmission, codexLimitsAuthAdmission, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials, resolveLimitsCredentialPaths } from './limits.lib.mjs';
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { captureLimitsAuthentication, changedLimitsAuthentication, getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
+import { getSelectedRouterLimits } from './limits-router.lib.mjs';
 
 const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
 
@@ -67,7 +69,8 @@ export function formatSubscriptionHeading(provider, subscription, options = {}) 
   const plan = humanizePlanType(planType, normalizedProvider);
   const titleKey = normalizedProvider === 'claude' ? 'claude_subscription_title' : 'chatgpt_subscription_title';
   const title = lt(titleKey, { plan: plan ? ` ${plan}` : '' }, { locale });
-  const detail = formatSubscriptionDetail(subscription, { locale });
+  const details = [subscription?.source === 'stored-token' ? lt('stored_metadata', {}, { locale }) : subscription?.source === 'router' ? 'Router' : '', formatSubscriptionDetail(subscription, { locale })].filter(Boolean);
+  const detail = details.join('; ');
   return detail ? `${title} (${detail})` : title;
 }
 
@@ -90,8 +93,11 @@ export function formatSubscriptionHeading(provider, subscription, options = {}) 
  * @param {string} opts.credentialsPath - Override Claude credentials path
  * @returns {Object} `{ success, subscription? , error? }`
  */
-export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPath = DEFAULT_CREDENTIALS_PATH } = {}) {
+export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPath = resolveLimitsCredentialPaths().claude } = {}) {
+  const routed = await getSelectedRouterLimits('claude', { verbose });
+  if (routed) return routed;
   try {
+    const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath, claudeLimitsAuthAdmission(credentialsPath, verbose));
     const credentials = await readCredentials(credentialsPath, verbose);
     if (!credentials) {
       return {
@@ -122,27 +128,36 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
       console.log(`[VERBOSE] /limits subscription: GET ${PROFILE_API_ENDPOINT}`);
     }
 
-    const response = await fetch(PROFILE_API_ENDPOINT, { method: 'GET', headers: requestHeaders });
+    if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
+    const response = await fetch(PROFILE_API_ENDPOINT, { method: 'GET', headers: requestHeaders, signal: AbortSignal.timeout(30000) });
     if (!response.ok) {
       if (verbose) {
-        console.error(`[VERBOSE] /limits subscription HTTP ${response.status} ${response.statusText}`);
+        console.error(`[VERBOSE] /limits subscription HTTP ${response.status}`);
       }
+      await response.body?.cancel();
+      if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
       return {
         success: false,
-        error: `Failed to fetch Claude profile: ${response.status} ${response.statusText}`,
+        error: `Failed to fetch Claude profile: HTTP ${response.status}`,
       };
     }
 
     const data = await response.json();
-    if (verbose) {
-      console.log('[VERBOSE] /limits subscription body:', JSON.stringify(data, null, 2));
-    }
-
+    if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
     const organization = data?.organization || {};
+    const account = data?.account || {};
+    // Entitlements from an authenticated profile take precedence over a label
+    // cached before a cancellation/downgrade. A cancelled renewal can retain
+    // paid access until the billing period ends, so status alone is insufficient.
+    const currentPlan = account.has_claude_max === true ? 'max' : account.has_claude_pro === true ? 'pro' : account.has_claude_max === false && account.has_claude_pro === false ? 'free' : planType;
+    if (verbose) {
+      console.log('[VERBOSE] /limits Claude subscription: authenticated profile received.');
+    }
     return {
       success: true,
       subscription: {
-        planType,
+        planType: currentPlan,
+        source: 'authenticated-profile',
         status: organization.subscription_status || null,
         createdAt: organization.subscription_created_at || null,
         trialEndsAt: organization.claude_code_trial_ends_at || null,
@@ -150,8 +165,8 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
       },
     };
   } catch (error) {
-    if (verbose) console.error('[VERBOSE] /limits subscription error:', error);
-    return { success: false, error: `Failed to get Claude subscription info: ${error.message}` };
+    if (verbose) console.error('[VERBOSE] /limits subscription error:', error.name);
+    return { success: false, error: 'Failed to get Claude subscription info. Check connectivity and the provider response format.' };
   }
 }
 
@@ -159,16 +174,18 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
  * Get Codex subscription metadata.
  *
  * Decodes the OIDC `id_token` persisted in `~/.codex/auth.json`. The token's
- * `https://api.openai.com/auth` claim carries the active ChatGPT subscription
- * window — including `chatgpt_subscription_active_until`, which is exactly
- * the renewal/end date the issue asks for. No HTTP call is needed.
+ * `https://api.openai.com/auth` claim can carry a stored subscription window.
+ * This is unverified cached metadata, not a current authenticated entitlement
+ * check; access credentials can already be expired. No HTTP call is made.
  *
  * @param {Object} opts
  * @param {boolean} opts.verbose
  * @param {string} opts.authPath
  * @returns {Object} `{ success, subscription? , error? }`
  */
-export async function getCodexSubscriptionInfo({ verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH } = {}) {
+export async function getCodexSubscriptionInfo({ verbose = false, authPath = resolveLimitsCredentialPaths().codex } = {}) {
+  const routed = await getSelectedRouterLimits('codex', { verbose });
+  if (routed) return routed;
   try {
     const auth = await readCodexAuth(authPath, verbose);
     if (!auth) {
@@ -200,6 +217,7 @@ export async function getCodexSubscriptionInfo({ verbose = false, authPath = DEF
     return {
       success: true,
       subscription: {
+        source: 'stored-token',
         planType: claims.chatgpt_plan_type || null,
         activeStart: claims.chatgpt_subscription_active_start || null,
         endsAt: claims.chatgpt_subscription_active_until || null,
@@ -207,8 +225,8 @@ export async function getCodexSubscriptionInfo({ verbose = false, authPath = DEF
       },
     };
   } catch (error) {
-    if (verbose) console.error('[VERBOSE] /limits Codex subscription error:', error);
-    return { success: false, error: `Failed to get Codex subscription info: ${error.message}` };
+    if (verbose) console.error('[VERBOSE] /limits Codex subscription error:', error.name);
+    return { success: false, error: 'Failed to get Codex subscription info. Check the stored authentication format.' };
   }
 }
 
@@ -216,30 +234,18 @@ export async function getCodexSubscriptionInfo({ verbose = false, authPath = DEF
  * Cached Claude subscription metadata. Uses the same 20-minute
  * TTL as `/limits` so we don't add traffic to the Anthropic OAuth API.
  */
-export async function getCachedClaudeSubscription(verbose = false) {
-  const cache = getLimitCache();
-  const cached = cache.get('claude-subscription', CACHE_TTL.USAGE_API);
-  if (cached) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude subscription');
-    return cached;
-  }
-  const result = await getClaudeSubscriptionInfo({ verbose });
-  if (result.success) cache.set('claude-subscription', result, CACHE_TTL.USAGE_API);
-  return result;
+export async function getCachedClaudeSubscription(verbose = false, { credentialsPath = resolveLimitsCredentialPaths().claude } = {}) {
+  const routed = await getSelectedRouterLimits('claude', { verbose });
+  if (routed) return routed;
+  return getCachedUsageLimits({ key: 'claude-subscription', credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: claudeLimitsAuthAdmission(credentialsPath, verbose), fetchLimits: () => getClaudeSubscriptionInfo({ verbose, credentialsPath }) });
 }
 
 /**
  * Cached Codex subscription metadata. The JWT decode is local, but we still
  * cache for parity with the rest of the /limits pipeline.
  */
-export async function getCachedCodexSubscription(verbose = false) {
-  const cache = getLimitCache();
-  const cached = cache.get('codex-subscription', CACHE_TTL.USAGE_API);
-  if (cached) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex subscription');
-    return cached;
-  }
-  const result = await getCodexSubscriptionInfo({ verbose });
-  if (result.success) cache.set('codex-subscription', result, CACHE_TTL.USAGE_API);
-  return result;
+export async function getCachedCodexSubscription(verbose = false, { authPath = resolveLimitsCredentialPaths().codex } = {}) {
+  const routed = await getSelectedRouterLimits('codex', { verbose });
+  if (routed) return routed;
+  return getCachedUsageLimits({ key: 'codex-subscription', credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: codexLimitsAuthAdmission(authPath, verbose), fetchLimits: () => getCodexSubscriptionInfo({ verbose, authPath }) });
 }

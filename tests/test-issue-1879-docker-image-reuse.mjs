@@ -53,7 +53,7 @@ function assertNotIncludes(haystack, needle, label) {
   else fail(label, `string NOT containing ${needle}`, haystack);
 }
 
-const noopExists = () => false;
+const historyExists = target => ['/home/box/.claude/projects', '/home/box/.claude/sessions'].includes(target);
 
 console.log('\n--- Image tag pinning ---');
 
@@ -71,11 +71,11 @@ console.log('\n--- Native invocation reuses a locally present image (no --pull) 
 const valueAfter = (arr, flag) => arr[arr.indexOf(flag) + 1];
 const baseEnv = { HIVE_MIND_IMAGE_VARIANT: 'dind' };
 
-const argsDefault = await buildDockerIsolationStartArgs('solve', ['https://example/issues/1'], { sessionId: 's1', tool: 'claude', env: baseEnv, homeDir: '/home/box', existsSync: noopExists });
+const argsDefault = await buildDockerIsolationStartArgs('solve', ['https://example/issues/1'], { sessionId: 's1', tool: 'claude', env: baseEnv, homeDir: '/home/box', existsSync: historyExists });
 assertNotIncludes(argsDefault.join(' '), '--pull', 'no --pull flag is emitted (start-command reuses a local image, pulling only when missing)');
 assertEqual(valueAfter(argsDefault, '--image'), 'konard/hive-mind-dind:latest', 'default dind image flows into the start-command --image flag');
 
-const argsPinned = await buildDockerIsolationStartArgs('solve', ['x'], { sessionId: 's1', tool: 'claude', env: { ...baseEnv, HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' }, homeDir: '/home/box', existsSync: noopExists });
+const argsPinned = await buildDockerIsolationStartArgs('solve', ['x'], { sessionId: 's1', tool: 'claude', env: { ...baseEnv, HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' }, homeDir: '/home/box', existsSync: historyExists });
 assertEqual(valueAfter(argsPinned, '--image'), 'konard/hive-mind-dind:1.74.11', 'pinned tag flows into --image so a pre-seeded host image is matched and reused');
 assertNotIncludes(argsPinned.join(' '), '--pull', 'a pinned image still carries no --pull flag (reuse-if-present is inherent)');
 // The image must appear exactly once, as the --image value — not duplicated as a

@@ -1,0 +1,182 @@
+name: Native Codex release build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-codex-release-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: Build and exercise ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Test build input and executable admission
+        run: python3 experiments/issue-3785/test_native_codex_build.py
+      - name: Install the pinned compiler and native build prerequisites
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt
+          {
+            sudo apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev
+          } > "$RUNNER_TEMP/native-release-prerequisites.log" 2>&1 &
+          wait "$!"
+      - name: Prepare the immutable native source and all verified adapters
+        run: |
+          native_source="$RUNNER_TEMP/codex-release-source"
+          git init "$native_source"
+          git -C "$native_source" remote add origin https://github.com/openai/codex.git
+          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$native_source" checkout --detach FETCH_HEAD
+          python3 scripts/build-native-codex.py prepare "$native_source" "$RUNNER_TEMP/native-release-source.json" > "$RUNNER_TEMP/native-release-prepare.log" 2>&1
+      - name: Verify Cargo executable hardlink handoff
+        run: python3 experiments/issue-3785/probe-cargo-executable-hardlink.py > "$RUNNER_TEMP/native-release-cargo-handoff.log" 2>&1
+      - name: Build the optimized native CLI and verify the packaged identity
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python3 scripts/build-native-codex.py build "$RUNNER_TEMP/codex-release-source" "$RUNNER_TEMP/native-release-source.json" "$NATIVE_PLATFORM" "$RUNNER_TEMP/native-codex-runtime" > "$RUNNER_TEMP/native-release-build.log" 2>&1
+      - name: Exercise actual packaged authentication and model request authority
+        env:
+          CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex
+        run: |
+          node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-auth-root.mjs "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-auth.log" 2>&1
+          node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-request.log" 2>&1
+          node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" --provider-overrides > "$RUNNER_TEMP/native-release-overrides.log" 2>&1
+          node --max-old-space-size=256 experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_NATIVE_EXPERIMENT" --provider-constructors > "$RUNNER_TEMP/native-release-constructors.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-auth-identity.py "$CODEX_NATIVE_EXPERIMENT" > "$RUNNER_TEMP/native-release-auth-identity.log" 2>&1
+      - name: Refuse private database and log redirection in the compiled package
+        env:
+          CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex
+        run: |
+          for selection in configuration cli logs; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$CODEX_NATIVE_EXPERIMENT" --case "$selection" --diagnostics > "$RUNNER_TEMP/native-release-sqlite-$selection.log" 2>&1
+          done
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$CODEX_NATIVE_EXPERIMENT" --alias "$alias" > "$RUNNER_TEMP/native-release-sqlite-$alias.log" 2>&1
+          done
+      - name: Reject retired usage responses in the optimized native package
+        env:
+          CODEX_NATIVE_EXPERIMENT: ${{ runner.temp }}/native-codex-runtime/codex
+        run: |
+          for mutation in none logout replace malformed; do
+            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$CODEX_NATIVE_EXPERIMENT" --mutation "$mutation" > "$RUNNER_TEMP/native-release-limits-$mutation.log" 2>&1
+          done
+      - name: Preserve native build and request diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-build-logs-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/native-release-*.log
+            ${{ runner.temp }}/native-release-source.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve compiler output for diagnosing packaging failures
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          # Diagnostic input only: never consumed by package assembly or runtime.
+          name: native-codex-unadmitted-compiler-output-${{ matrix.platform }}
+          path: ${{ runner.temp }}/codex-release-source/codex-rs/target/*/release/codex
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve the verified self-contained platform artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-runtime-${{ matrix.platform }}
+          path: ${{ runner.temp }}/native-codex-runtime/
+          if-no-files-found: error
+          retention-days: 14
+  assemble-package:
+    name: Verify both native platforms in the actual npm artifact
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-codex-runtime-*
+          path: ${{ runner.temp }}/native-codex-downloads
+      - name: Assemble only fully verified native platform outputs
+        run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
+      - name: Verify the actual npm package contents and every native byte
+        run: python3 experiments/issue-3785/probe_native_codex_package.py "$RUNNER_TEMP/native-codex-npm-package"
+      - name: Preserve actual package and verification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-npm-package
+          path: ${{ runner.temp }}/native-codex-npm-package/
+          if-no-files-found: error
+          retention-days: 14
+  installed-runtime:
+    name: Exercise installed npm runtime on ${{ matrix.platform }}
+    needs: [assemble-package]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-codex-npm-package
+          path: ${{ runner.temp }}/native-codex-npm-package
+      - name: Install the actual package and exercise its native admission
+        # The archive is built and byte-verified in this same run. Installing
+        # that fresh artifact is the test; it cannot be a committed dependency.
+        run: | # zizmor: ignore[adhoc-packages]
+          archive=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0].filename' "$RUNNER_TEMP/native-codex-npm-package/pack.json")
+          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$RUNNER_TEMP/native-codex-npm-package/$archive" @openai/codex@0.164.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
+          wait "$!"
+          node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
+      - name: Preserve installed-package diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-installed-${{ matrix.platform }}
+          path: ${{ runner.temp }}/native-installed-*.log
+          if-no-files-found: error
+          retention-days: 14

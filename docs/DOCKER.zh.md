@@ -363,7 +363,17 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+
+凭据共享仍有限制：主机原子替换文件后，文件绑定挂载仍指向旧 inode；Codex 预检还会把身份验证复制到任务作用域。这些路径尚未形成统一的轮换权威存储。[案例研究](./case-studies/issue-3785/README.md) 记录了这个未解决的问题及真实 CLI 实验。
+
+根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。已安装的 Codex 内置文件会与原始 CLI 0.164.0 的内容清单比较。两个镜像均固定 Codex 0.164.0 和 Claude 2.1.310；升级 CLI 需审核新清单。被修改、不完整或含链接的内置内容会在修复前阻止启动。完整的替代/托管路径、镜像生命周期和部署验证仍未完成。
+
+镜像设置 `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex`，在空闲和命令触发的更新中保留这两个固定版本。其他代理和运维 CLI 继续更新。覆盖更新设置时请保留此排除项；升级镜像时，CLI 版本和经过审核的内置文件清单必须一起更新。
+
+TOML 修复保留无关设置值，但会规范格式并移除注释。干净的配置保持不变。
+
+审计还会拒绝已知的全局指令文件、规则、旧提示和钩子清单。指令文件和钩子清单需要明确删除或隔离；内联全局钩子/指令以及未经批准的 Codex 配置档/代理注册可以自动修复。干净的配置档及其他模型、权限和并发设置会保留。
 
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 

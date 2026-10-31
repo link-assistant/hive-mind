@@ -1,0 +1,34 @@
+Native Codex run: 41087509499
+Head: 2ec3b3a7c4b13fd26d148e517bc5d915e1199c2f
+Native CLI: supported source 6aaac694803004a63c6f393d153c96d22521a6b9 / 0.164.0
+All credentials and endpoints are synthetic; no tunnel is forwarded.
+
+Uploaded native-request-constructors-after.log, after seven passing controls:
+node:events:505
+    throw er; // Unhandled 'error' event
+    ^
+
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:221:20)
+
+Local deterministic error-event regression before repair:
+tests 4; pass 1; fail 3
+ECONNRESET, EPIPE and ENETUNREACH throw unhandled socket errors.
+
+Local regression after repair:
+PASS: refused native tunnel survives ECONNRESET and retains network validation
+PASS: refused native tunnel survives EPIPE and retains network validation
+PASS: refused native tunnel survives ENETUNREACH and retains network validation
+PASS: an unknown tunnel remains invalid and receives only a local refusal
+tests 4; pass 4; fail 0
+
+Downloaded exact-run CLI with the repaired fixture, --provider-constructors:
+PASS: Amazon Bedrock, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.

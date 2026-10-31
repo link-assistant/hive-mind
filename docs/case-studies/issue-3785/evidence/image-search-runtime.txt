@@ -1,0 +1,13 @@
+Synthetic-only image search verification, 2026-10-26 UTC.
+
+Before runtime enforcement: missing and invalid rg accepted (2 regression failures).
+Before image installation: actual production-masked Docker task fails with spawnSync rg ENOENT.
+Before detector fix: image package installer change reports docker=false.
+
+After fixes:
+37 focused storage/search/detector tests pass.
+Actual architecture-matched pinned package executable installs in a disposable directory.
+Both concurrent Agent Docker tasks execute rg with the production noexec cache mask.
+Agent and OpenCode production directory gates both pass on a small cached-base image.
+Failed installer checks preserve previous executable; linked destination rejected.
+Actual Box-image checks and complete native lifecycle matrix remain unverified.

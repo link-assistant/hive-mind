@@ -29,7 +29,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { buildCodexCapabilityStatePath } from './codex-capability-preflight.lib.mjs';
-import { CODEX_SESSIONS_DIRNAME, findCodexRolloutFile } from './codex-sessions.lib.mjs';
+import { CODEX_SESSIONS_DIRNAME, CODEX_ARCHIVED_SESSIONS_DIRNAME, findCodexRolloutFile, findCodexThreadRollout } from './codex-sessions.lib.mjs';
+import { publishCodexRollout } from './codex-rollout-publication.lib.mjs';
 import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { DOCKER_ISOLATION_TOOL_MOUNTS } from './isolation-runner.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
@@ -72,26 +73,38 @@ export function withoutResume(command) {
  * Copy `threadId`'s rollout out of the stopped container into the host
  * sessions directory the next container mounts. Never throws.
  *
- * @returns {Promise<{restored: boolean, file: string|null, error: string|null}>}
+ * @returns {Promise<{restored: boolean, file: string|null, conflictFile?: string|null, error: string|null}>}
  */
 export async function restoreCodexRolloutFromContainer({ containerName, sessionInfo, threadId, hostSessionsDir, runner, fsImpl = fs, tmpDir = os.tmpdir(), verbose = false }) {
   const parsed = sessionInfo?.url ? parseGitHubUrl(sessionInfo.url) : null;
   if (!containerName || typeof runner?.copyFromDockerContainer !== 'function') return { restored: false, file: null, error: 'docker cp unavailable' };
   if (!parsed?.valid || !parsed.owner || !parsed.repo) return { restored: false, file: null, error: 'repository unknown' };
-  const scopedSessions = path.posix.join(buildCodexCapabilityStatePath({ baseCodexHome: TASK_CONTAINER_CODEX_HOME, owner: parsed.owner, repo: parsed.repo }), CODEX_SESSIONS_DIRNAME);
+  const scopedHome = buildCodexCapabilityStatePath({ baseCodexHome: TASK_CONTAINER_CODEX_HOME, owner: parsed.owner, repo: parsed.repo });
+  const sources = [TASK_CONTAINER_CODEX_HOME, scopedHome].flatMap(home => [CODEX_SESSIONS_DIRNAME, CODEX_ARCHIVED_SESSIONS_DIRNAME].map(directory => ({ source: path.posix.join(home, directory), directory })));
   let staging = null;
   try {
     staging = await fsImpl.mkdtemp(path.join(tmpDir, 'hive-mind-codex-rollout-'));
-    const copied = await runner.copyFromDockerContainer(containerName, `${scopedSessions}/.`, staging, verbose);
-    if (!copied?.success) return { restored: false, file: null, error: copied?.error || 'docker cp failed' };
-    const found = await findCodexRolloutFile({ sessionsDir: staging, threadId, fsImpl });
-    if (!found) return { restored: false, file: null, error: `no rollout for ${threadId} in ${containerName}:${scopedSessions}` };
-    const file = path.join(hostSessionsDir, path.relative(staging, found));
-    await fsImpl.mkdir(path.dirname(file), { recursive: true });
-    await fsImpl.copyFile(found, file);
-    return { restored: true, file, error: null };
+    for (const [index, { source, directory }] of sources.entries()) {
+      const destination = path.join(staging, String(index));
+      await fsImpl.mkdir(destination);
+      let copied;
+      try {
+        copied = await runner.copyFromDockerContainer(containerName, `${source}/.`, destination, verbose);
+      } catch {
+        continue;
+      }
+      if (!copied?.success) continue;
+      const found = await findCodexRolloutFile({ sessionsDir: destination, threadId, fsImpl });
+      if (!found) continue;
+      const hostDirectory = directory === CODEX_SESSIONS_DIRNAME ? hostSessionsDir : path.join(path.dirname(hostSessionsDir), directory);
+      const file = path.join(hostDirectory, path.relative(destination, found));
+      await fsImpl.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+      const publication = await publishCodexRollout({ source: found, target: file, fsImpl, retainConflict: true });
+      return { restored: true, file, conflictFile: publication.conflictFile, error: null };
+    }
+    return { restored: false, file: null, error: `no recoverable rollout for ${threadId} in ${containerName}` };
   } catch (error) {
-    return { restored: false, file: null, error: error?.message || String(error) };
+    return { restored: false, file: null, conflictFile: error?.conflictFile || null, error: error?.message || String(error) };
   } finally {
     if (staging) await fsImpl.rm(staging, { recursive: true, force: true }).catch(() => {});
   }
@@ -119,7 +132,7 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
   // --use-router tasks get no ~/.codex mounts, so no host rollout can reach them.
   if (hasUseRouterFlag(command.args)) return drop(`Codex thread ${threadId} cannot be resumed in a new --use-router container (no ~/.codex/sessions mount). Starting a new Codex session on the same branch instead.`);
   const hostSessionsDir = path.join(homeDir, '.codex', CODEX_SESSIONS_DIRNAME);
-  const present = await findCodexRolloutFile({ sessionsDir: hostSessionsDir, threadId, fsImpl });
+  const present = await findCodexThreadRollout({ codexHome: path.dirname(hostSessionsDir), threadId, fsImpl });
   if (present) {
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: Codex rollout ${present} is mounted; resuming thread ${threadId}`);
     return keep(FRESH_RESUME_OUTCOMES.KEPT);
@@ -127,6 +140,9 @@ export async function resolveFreshRecoveryCommand({ sessionName, sessionInfo, co
   const containerName = sessionInfo?.sessionId || sessionName || null;
   const restored = await restoreCodexRolloutFromContainer({ containerName, sessionInfo, threadId, hostSessionsDir, runner, fsImpl, tmpDir, verbose });
   if (restored.restored) {
+    if (restored.conflictFile) {
+      return keep(FRESH_RESUME_OUTCOMES.RESTORED, `Kept the concurrently written canonical Codex thread ${threadId}; preserved recovered evidence at ${restored.conflictFile}.`);
+    }
     if (verbose) console.log(`[VERBOSE] Fresh recovery of ${sessionName}: copied Codex rollout of ${threadId} from ${containerName} to ${restored.file}`);
     return keep(FRESH_RESUME_OUTCOMES.RESTORED, `Copied Codex thread ${threadId} out of the killed container so the new one can resume it.`);
   }

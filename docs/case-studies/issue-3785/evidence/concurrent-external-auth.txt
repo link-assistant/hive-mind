@@ -1,0 +1,29 @@
+Pinned native runtime: codex-cli 0.164.0
+All credentials, account identifiers and conversations are disposable synthetic fixtures.
+Commands:
+  node experiments/issue-3785/probe-appserver-concurrent-auth.mjs --without-lock
+  node experiments/issue-3785/probe-appserver-concurrent-auth.mjs
+
+Without the adapter lock: expected exit 1
+  callbacks=2, exchanges=2, lock=false
+  Synthetic provider rejects reuse of the consumed predecessor.
+
+With the packaged descriptor-based adapter lock: exit 0
+  PASS: a live container owner excludes its peer; forced owner removal releases the same lock inode.
+  PASS: two native app-server callbacks share a lock across containers; only one synthetic G0 exchange occurs.
+  PASS: both next native requests use committed G1 without creating a private native auth.json.
+
+Lock implementation:
+  src/shared-auth-refresh-lock.lib.mjs
+  Parent-owned FD, inherited by flock; kernel ownership survives the short
+  acquisition child and ends when the parent closes/dies. No lock unlink.
+  Ten process/safety/cancellation regressions pass. Both native Docker controls
+  above were repeated with this exact module mounted read-only into workers.
+
+Limits:
+  Experimental callback workers only, not production native exec or direct host writers.
+  No real account access, successful inference, login/logout or full-history matrix.
+  Native external auth caches access tokens until callback; no before-every-request reread claim.
+  Containers have no external network, 64 PIDs and 1 GiB per-process data limits;
+  worker heaps are 64 MiB and the two-client experiment has a 45-second deadline.
+  Every native process/container is awaited before disposable fixture removal.

@@ -1,0 +1,11 @@
+Final synthetic-only local probe output, 2026-10-26 UTC.
+
+agent: installed directory projection preserves atomic replacements, deletion/recreation and two-task filesystem writes; private redirection is rejected.
+opencode: installed directory projection preserves atomic replacements, deletion/recreation and two-task filesystem writes; private redirection is rejected.
+agent: native task A writes history; task B resumes it and reads the host atomic credential replacement.
+opencode: native task A writes history; task B resumes it and reads the host atomic credential replacement.
+
+Final focused selection: 28 passed, 0 failed.
+Before projection: 10 failures / 13 tests.
+Before additional overlap/config guards: 4 failures / 21 tests.
+No OAuth refresh or full native Docker lifecycle claim.

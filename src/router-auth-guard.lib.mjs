@@ -39,6 +39,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
 
 /** `solve` exits with this when the guard fires: distinct from 1 (tool failure) and 75 (disk), so a supervisor can tell a security stop from a crash. */
 export const EXIT_CODE_ROUTER_AUTH_VIOLATION = 77;
@@ -57,7 +58,7 @@ const isTruthy = value => value !== undefined && value !== null && String(value)
 const normalizeTool = tool => String(tool || 'claude').toLowerCase();
 
 /** Claude Code settings `env` keys that select a credential or an endpoint; any value that differs from the routed process env is a redirection. */
-export const CLAUDE_SETTINGS_AUTH_ENV_KEYS = Object.freeze(['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'ANTHROPIC_BEDROCK_BASE_URL', 'ANTHROPIC_VERTEX_BASE_URL', 'ANTHROPIC_FOUNDRY_BASE_URL', 'AWS_BEARER_TOKEN_BEDROCK']);
+export const CLAUDE_SETTINGS_AUTH_ENV_KEYS = Object.freeze(['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'ANTHROPIC_BEDROCK_BASE_URL', 'ANTHROPIC_VERTEX_BASE_URL', 'ANTHROPIC_FOUNDRY_BASE_URL', 'AWS_BEARER_TOKEN_BEDROCK', 'CLAUDE_CONFIG_DIR', 'CLAUDE_SECURESTORAGE_CONFIG_DIR', 'CLAUDE_CODE_HOST_CREDS_FILE', 'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR']);
 
 /**
  * Is the guard required for this process?
@@ -103,21 +104,24 @@ export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedi
   const forbidden = (filePath, what) => entries.push({ path: filePath, kind: 'forbidden', check: text => (text === null ? null : `${what} appeared; a routed task authenticates with its router token only`) });
 
   if (CLAUDE_TOOLS.has(normalizedTool)) {
-    forbidden(path.join(homeDir, '.claude', '.credentials.json'), 'a Claude OAuth credential file');
-    entries.push({
-      path: path.join(homeDir, '.claude.json'),
-      kind: 'claude-json',
-      check: text => {
-        if (text === null) return null;
-        const data = parseJson(text);
-        if (!data || typeof data !== 'object') return null;
-        if (isNonEmptyString(data.primaryApiKey)) return 'primaryApiKey was set in ~/.claude.json';
-        if (data.oauthAccount && typeof data.oauthAccount === 'object') return 'an oauthAccount was recorded in ~/.claude.json';
-        if (Array.isArray(data.customApiKeyResponses?.approved) && data.customApiKeyResponses.approved.length > 0) return 'a custom API key was approved in ~/.claude.json';
-        return null;
-      },
-    });
-    for (const settingsPath of [path.join(homeDir, '.claude', 'settings.json'), path.join(homeDir, '.claude', 'settings.local.json'), path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json')]) {
+    const conventional = path.join(homeDir, '.claude');
+    const config = resolveClaudeConfigDirectory(env, homeDir);
+    for (const root of new Set([conventional, config, resolveClaudeCredentialDirectory(env, homeDir)])) forbidden(path.join(root, '.credentials.json'), 'a Claude OAuth credential file');
+    for (const statePath of new Set([path.join(homeDir, '.claude.json'), path.join(config, '.claude.json')]))
+      entries.push({
+        path: statePath,
+        kind: 'claude-json',
+        check: text => {
+          if (text === null) return null;
+          const data = parseJson(text);
+          if (!data || typeof data !== 'object') return null;
+          if (isNonEmptyString(data.primaryApiKey)) return 'primaryApiKey was set in ~/.claude.json';
+          if (data.oauthAccount && typeof data.oauthAccount === 'object') return 'an oauthAccount was recorded in ~/.claude.json';
+          if (Array.isArray(data.customApiKeyResponses?.approved) && data.customApiKeyResponses.approved.length > 0) return 'a custom API key was approved in ~/.claude.json';
+          return null;
+        },
+      });
+    for (const settingsPath of new Set([conventional, config, path.join(cwd, '.claude')].flatMap(root => ['settings.json', 'settings.local.json'].map(file => path.join(root, file))))) {
       entries.push({
         path: settingsPath,
         kind: 'claude-settings',

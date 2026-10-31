@@ -18,7 +18,7 @@ export const resolveRuntimeCodexReasoningEffort = async (argv, { getCatalogue = 
       cacheOnlySourceIds: ['router', 'models-dev'],
       fetchers: options.fetchers ?? {
         ...buildDefaultCatalogueFetchers(),
-        'codex-cli': () => fetchCodexCliCatalogue({ binary }),
+        'codex-cli': () => fetchCodexCliCatalogue({ binary, env }),
       },
     });
   } catch (error) {

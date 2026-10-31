@@ -61,7 +61,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_SIDECAR=0`              | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                                                      |
 | `HIVE_MIND_ROUTER_IMAGE`                  | राउटर image बदलें                                                                                                                                    |
 | `HIVE_MIND_ROUTER_ROUTES`                 | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`                                                |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                                                            |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | केवल sidecar संसाधन सीमाएँ; अनुमत विकल्प और स्थायी वॉल्यूम जाँच [अंग्रेज़ी विन्यास](ROUTER.md#configuration) में हैं                                 |
 | `CODEX_CLIENT_VERSION`                    | Codex क्लाइंट का वह संस्करण जो राउटर ChatGPT बैकएंड को बताता है; न देने पर उसका अपना हालिया डिफ़ॉल्ट चलता है                                         |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`           | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                                                                 |
 | `HIVE_MIND_ROUTER_GH_HOST`                | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                                                       |

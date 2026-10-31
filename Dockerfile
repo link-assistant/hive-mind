@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.15
+ARG FORMAL_AI_VERSION=0.355.27
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -48,7 +48,12 @@ RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 # for validating downloaded attachments. Box 2.10.5 enables Docker live
 # restore in the nested DinD daemon (box#131).
 FROM ghcr.io/link-foundation/box:2.10.5
+# Host-socket task isolation needs an explicitly installed client even when
+# its daemon runs outside this image.
+COPY --from=docker:29.9.2-cli /usr/local/bin/docker /usr/local/bin/docker
+RUN docker --version
 ARG HIVE_MIND_VERSION=latest
+ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
 # Release builds pass the exact published package version here. Bake it as the
@@ -90,6 +95,7 @@ ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=0 \
     CLAUDE_CODE_ENABLE_REMOTE_RECAP=0 \
     CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \
+    ENABLE_CLAUDEAI_MCP_SERVERS=false \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
@@ -233,17 +239,30 @@ RUN mkdir -p /home/box/.local/bin && \
 
 # Install Claude Code through Anthropic's native installer. Bun blocks the
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+ENV DISABLE_AUTOUPDATER=1
+# Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
+ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex,agent,opencode,gemini,qwen
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh 2.1.310 && \
     rm /tmp/claude-code-install.sh && \
-    claude --version
+    test "$(claude --version)" = '2.1.310 (Claude Code)'
 
 # Install AI coding assistant CLIs
-RUN bun install -g @openai/codex && \
-    bun install -g @qwen-code/qwen-code && \
-    bun install -g @google/gemini-cli && \
-    bun install -g @github/copilot && \
-    bun install -g opencode-ai
+# Native storage probes and clean-runtime manifests attest these exact versions.
+# Upgrade them together with the storage adapters and their lifecycle evidence.
+RUN bun install -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN test "$(codex --version)" = 'codex-cli 0.164.0'
+RUN bun install -g @qwen-code/qwen-code@0.26.1 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install -g @github/copilot
+RUN bun install -g opencode-ai@1.19.4 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN test "$(opencode --version)" = '1.19.4'
+
+# Agent must search without executing binaries from its shared data directory.
+# Use the architecture-matched executable supplied by the pinned Codex package.
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    node /tmp/hive-mind-source/scripts/install-image-ripgrep.mjs \
+      /home/box/.bun/install/global/node_modules/@openai/codex /home/box/.local/bin/rg
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -334,8 +353,12 @@ RUN bun install -g @openai/codex && \
 # 0.26.14 reports a failed tool call only on its tool_use event instead of a
 # top-level error event (link-assistant/agent#332), so a missing file read no
 # longer ends the run.
-RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
-    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
+      bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
+    else \
+      bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
+    fi && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
@@ -347,6 +370,10 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
     bun install -g gh-upload-log@latest
+
+# Activate the adapters from the installed Hive Mind artifact after global installs.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
@@ -417,21 +444,13 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# Behavior matrix:
-#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST exist
-#     in the published package and MUST succeed. Build fails otherwise.
-#   - PR builds (HIVE_MIND_VERSION=latest): the currently published package on
-#     npm may pre-date this PR and not yet ship `configure-claude`. In that
-#     case we log and skip — the baseline is re-applied at runtime by solve.
+# Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    elif command -v configure-claude >/dev/null 2>&1; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    else \
-      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
-    fi
+    command -v configure-claude >/dev/null && \
+    configure-claude --settings-path /home/box/.claude/settings.json && \
+    configure-claude --settings-path /home/box/.claude/settings.json --verify
+
+# Required installed-package baseline: no provider access or development source.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 CMD ["/bin/bash"]

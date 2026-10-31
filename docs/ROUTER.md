@@ -61,7 +61,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_SIDECAR=0`              | Never start or stop a sidecar (for operators who manage the router themselves)                                                  |
 | `HIVE_MIND_ROUTER_IMAGE`                  | Override the router image                                                                                                       |
 | `HIVE_MIND_ROUTER_ROUTES`                 | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)                       |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | Extra `docker run` arguments for the sidecar                                                                                    |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | Resource limits for the sidecar; supported options are listed below                                                             |
 | `CODEX_CLIENT_VERSION`                    | Codex client version the router claims to the ChatGPT backend; unset means the router's own recent default                      |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`           | Supply the token signing secret instead of generating one                                                                       |
 | `HIVE_MIND_ROUTER_GH_HOST`                | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router)                   |
@@ -73,6 +73,18 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | Network the bound sidecar is connected to afterwards for upstream access (default `bridge`; an `--internal` network is refused) |
 | `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | Do not stop the task when a credential other than the router token appears inside the container (debugging the guard only)      |
 | `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, minimum `100`)                              |
+
+Only these extra arguments are supported: `--memory`, `--memory-reservation`,
+`--memory-swap`, `--shm-size`, `--pids-limit`, `--cpu-shares`, `--cpu-period`,
+`--cpu-quota`, `--cpus`, and `--cpuset-cpus`. Use positive values and specify each
+option once, for example `--cpus=1.5 --memory 512m --pids-limit=128`. Options that
+change environment variables, mounts, networking, or the entrypoint refuse
+admission. Before issuing a task token, Hive Mind inspects both new and reused
+sidecars and requires `DATA_DIR=/data/router`,
+`AUDIT_LOG=/data/router/audit.jsonl`, and the writable named volume
+`hive-mind-router-data` at `/data/router`, without overlapping mounts. This
+configuration check does not establish complete conversation storage or audit
+contents; the external-router storage contract remains unverified.
 
 ### The signing secret
 

@@ -7,11 +7,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
+import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildCodexTaskScopeNamespace, buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
 const issueText = `
@@ -33,17 +33,20 @@ assert.equal(statePath, '/persistent/.codex/hive-mind/repositories/CEHR2005/GCS-
 assert.deepEqual(applyCodexCapabilityEnv({ PATH: '/bin' }, { codexHome: statePath, baseCodexHome: baseHome }), { PATH: '/bin', CODEX_HOME: statePath, HIVE_MIND_PARENT_CODEX_HOME: baseHome }, 'direct codex execution receives the repository-scoped state');
 
 // Issue #2190: a Docker-isolated task no longer inherits the whole `.codex`
-// directory (nor `.agents`). Only `auth.json` and `sessions/` are shared; the
+// directory (nor `.agents`). Auth, rollouts, archives and writer locks are shared; the
 // repository-scoped capability state is installed per task container from the
 // image defaults, so one task can never enable a plugin for the tasks after it.
 const mounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/persistent',
-  existsSync: candidate => candidate === `${baseHome}/auth.json` || candidate === `${baseHome}/sessions`,
+  existsSync: candidate => ['auth.json', 'sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'].some(entry => candidate === `${baseHome}/${entry}`),
 });
 assert.deepEqual(mounts, [
   { source: `${baseHome}/auth.json`, target: '/home/box/.codex/auth.json' },
   { source: `${baseHome}/sessions`, target: '/home/box/.codex/sessions' },
+  { source: `${baseHome}/archived_sessions`, target: '/home/box/.codex/archived_sessions' },
+  { source: `${baseHome}/thread-writer-locks`, target: '/home/box/.codex/thread-writer-locks' },
+  { source: `${baseHome}/rollout-migrations`, target: '/home/box/.codex/rollout-migrations' },
 ]);
 const everything = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
 assert(!everything.some(mount => mount.source === baseHome || mount.source === '/persistent/.agents'), 'Docker isolation no longer propagates the whole .codex directory or the user Agent Skills folder (issue #2190)');
@@ -81,6 +84,10 @@ const fakeRunCommand = async ({ command, args, env }) => {
   if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
   if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: issueText }), stderr: '', code: 0 };
   if (args[0] === 'plugin' && args[1] === 'list') {
+    if (args.includes('--available')) {
+      await mkdir(path.join(env.CODEX_HOME, '.tmp', 'plugins'), { recursive: true });
+      await writeFile(path.join(env.CODEX_HOME, '.tmp', 'plugins.sha'), 'task-catalog\n');
+    }
     const response = fakePluginInstalled ? { ...catalog, installed: [{ ...catalog.available[0], installed: true, enabled: true }] } : catalog;
     return { stdout: JSON.stringify(response), stderr: '', code: 0 };
   }
@@ -124,7 +131,10 @@ const preflight = await runCodexCapabilityPreflight({
 
 assert.equal(preflight.required, true);
 assert.deepEqual(preflight.plugins, ['superpowers@openai-curated']);
-assert.equal(preflight.codexHome, path.join(scopedBaseHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'));
+assert.equal(path.dirname(preflight.codexHome), buildCodexTaskScopeNamespace({ baseCodexHome: scopedBaseHome, owner: 'CEHR2005', repo: 'GCS-TS' }));
+assert.equal(await readFile(path.join(scopedBaseHome, '.tmp', 'plugins.sha'), 'utf8'), 'fixture-sha\n', 'catalog discovery never updates the root marketplace');
+assert.equal(await readFile(path.join(preflight.codexHome, '.tmp', 'plugins.sha'), 'utf8'), 'task-catalog\n');
+assert.equal((await lstat(path.join(preflight.codexHome, '.tmp', 'plugins'))).isSymbolicLink(), false, 'the task owns its marketplace directory');
 assert(
   commandCalls.some(call => call.args.join(' ') === 'plugin add superpowers@openai-curated --json'),
   'required plugin is installed before execution'
@@ -134,16 +144,18 @@ assert(
   'verbose diagnostics confirm that the selected plugin exists in the authoritative CLI catalog'
 );
 assert(
-  commandCalls.filter(call => call.command === 'codex' && !call.args.includes('--available')).every(call => call.env.CODEX_HOME === preflight.codexHome),
-  'installation and verification use repository-scoped state'
+  commandCalls.filter(call => call.command === 'codex').every(call => call.env.CODEX_HOME === preflight.codexHome),
+  'catalog discovery, installation and verification all use task-owned state'
 );
 
 // A later invocation refreshes runtime settings and rebuilds exactly the
 // selected repository plugin enablement.
 await writeFile(path.join(preflight.codexHome, 'config.toml'), '[features]\nmulti_agent = true\n\n[plugins."superpowers@openai-curated"]\nenabled = true\n');
 await writeFile(path.join(scopedBaseHome, 'config.toml'), 'model = "gpt-updated"\n');
-await runCodexCapabilityPreflight({ owner: 'CEHR2005', repo: 'GCS-TS', issueNumber: 1, baseCodexHome: scopedBaseHome, runCommand: fakeRunCommand });
-const refreshedConfig = await readFile(path.join(preflight.codexHome, 'config.toml'), 'utf8');
+const secondPreflight = await runCodexCapabilityPreflight({ owner: 'CEHR2005', repo: 'GCS-TS', issueNumber: 1, baseCodexHome: scopedBaseHome, runCommand: fakeRunCommand });
+assert.notEqual(secondPreflight.codexHome, preflight.codexHome);
+assert.doesNotMatch(await readFile(path.join(preflight.codexHome, 'config.toml'), 'utf8'), /gpt-updated/u, 'an active task keeps its own configuration');
+const refreshedConfig = await readFile(path.join(secondPreflight.codexHome, 'config.toml'), 'utf8');
 assert.match(refreshedConfig, /model = "gpt-updated"/u, 'operator runtime configuration is refreshed');
 assert.match(refreshedConfig, /\[plugins\."superpowers@openai-curated"\]/u, 'selected repository plugin enablement is rebuilt');
 assert.match(refreshedConfig, /enabled = true/u, 'selected repository plugin settings are rebuilt');

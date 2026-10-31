@@ -44,6 +44,26 @@ four damaged plans 2/3 each, both concurrent-child engines 3/8, child restore 5/
 ACP and third-terminal restore 3/5. All 11 network logs have no errors. Surrounding
 history 69, metadata 54 and shell 28 pass. Python AST (88 files), Prettier,
 actionlint/ShellCheck, secret scanning, file limits and whitespace checks pass.
+
+Exact pushed-head CI investigation at ec03c083d0e01b4f5982669cc16ca708a555e61c:
+
+1. Run 41168944327 starts 04:31:56Z and completes 04:45:08Z. Five Gemini jobs
+   pass. ACP fails at its final surrounding authentication regression step.
+2. Download all 3,874 log lines and read three chunks of at most 1,500 lines.
+   The only error annotation is line 3304. Download all 722 ACP artifacts.
+   The underlying error is gemini-acp-auth-writers.log:5, rejecting an unlisted
+   exact manager hash before any native writer control runs.
+3. Independently reproduce the same pin refusal for writers, requests and reads
+   locally. The plan stage's manager hash is absent from all three allowlists.
+   Add only the verified 80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+   stage; retain all source/version checks and previous controls.
+4. The preceding plan, source-reconstruction and lifecycle checks pass. All 78
+   network logs have no errors. Keep this failure distinct from intentional
+   strict-before assertion files and from the independent partial-proof defect.
+   See evidence/ci-ec03c083-gemini.txt for exact commands and line references.
+5. Re-run all three native authentication probes sequentially against the same
+   package: writers 41, requests 30 and private-config reads 11 assertions pass.
+   Preserve their complete local logs; fresh pushed-head CI remains required.
 All local background commands finish and all native process groups are reaped.
 
 Whole-CLI interruption extension:

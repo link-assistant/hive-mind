@@ -45,6 +45,12 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       upstream package and checks native requests through its selected bin.
       Local workflow security/line-limit failures are repaired; new CI is due
       after the currently running first optimized builds finish.
+- [x] Reproduce native database redirection through private sqlite_home,
+      command-line sqlite_home and separate log_dir configuration using actual
+      metadata requests. Six proposed guard filesystem tests pass.
+- [ ] Integrate and verify final SQLite configuration admission in the compiled
+      package; complete database operation leases and canonical file binding
+      before claiming production full-history isolation.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [ ] Wait for every exact-head CI job and preserve failures before further

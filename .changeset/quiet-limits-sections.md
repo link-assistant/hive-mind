@@ -109,3 +109,5 @@ Read Codex compiled model metadata with the task environment and actual selected
 Refuse existing canonical Codex SQLite database and journal aliases, nonregular entries and independent writers during startup admission. Preserve healthy native files and outside evidence, and require actual symlink/hardlink controls in compiled and installed package checks.
 
 Discard pending usage and profile responses after credentials change, preserve newer limits cache entries when older requests finish last, and revalidate selected Codex storage before publishing a response. Invalidate cached rate-limit errors when accounts change.
+
+Require strict native app-server configuration when canonical Codex history is selected, so rejected storage configuration cannot be swallowed by default-configuration fallback before databases open.

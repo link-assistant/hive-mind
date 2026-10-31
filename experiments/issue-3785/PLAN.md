@@ -1436,3 +1436,10 @@ Latest CI continuation:
       regressions before their repair. Pass all 32 new and 96 related Node
       tests/file targets, preserving newer cache entries and per-caller storage
       admission. Default authority and coordinated refresh remain unfinished.
+- [x] Preserve the exact-head native Codex experiment failure and binary.
+      Reproduce app-server default-config recovery after core SQLite admission
+      fails. Verify all three native strict-policy controls before pinning
+      automatic strict handling for selected canonical history. Reproduce the
+      35-file recipe twice and pass all 36 packaging/Node controls.
+- [ ] Verify the newly compiled automatic strict policy, both optimized native
+      packages and actual installed/image controls in fresh exact-head CI.

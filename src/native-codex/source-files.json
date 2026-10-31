@@ -4,6 +4,11 @@
     "mode": 420,
     "sha256": "bc5f7352658f51deace9dddb4bc404742b06c6402cc825b6d37051c008d989bd"
   },
+  "codex-rs/app-server/src/lib.rs": {
+    "bytes": 67930,
+    "mode": 420,
+    "sha256": "10b348713465bfb40d6b5a84719f2fe6692056cff7f546b0c3c3273518a5d0e7"
+  },
   "codex-rs/core/src/config/canonical_sqlite_authority.rs": {
     "bytes": 4910,
     "mode": 420,

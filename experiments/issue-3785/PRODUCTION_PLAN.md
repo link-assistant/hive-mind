@@ -81,6 +81,11 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [ ] Verify both aliases refuse without changing outside database evidence
       in the actual compiled and installed native CLIs. Complete runtime
       database leases, creation/recovery/cleanup and persisted file binding.
+- [x] Reproduce compiled core-admission errors being swallowed by app-server
+      default-config fallback. Verify the native strict policy prevents all
+      database creation and pin its automatic selection in the 35-file recipe.
+- [ ] Verify automatic strict selection through freshly compiled artifacts;
+      explicit --strict-config controls are evidence for policy behavior only.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
 - [x] Reproduce and repair pending limits credential-generation races in cached

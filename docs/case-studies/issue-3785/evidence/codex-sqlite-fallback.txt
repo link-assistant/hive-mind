@@ -1,0 +1,56 @@
+Native canonical SQLite fallback investigation, 2026-10-31 UTC
+
+Exact failed head: 6282876d2d319bb28a7cece8674e11d45942f365
+Workflow: https://github.com/link-assistant/hive-mind/actions/runs/41185961487
+Created: 2026-10-31T08:46:30Z
+Failed job: native-file-authority, 124492821925
+Runner log: ci-logs/native-codex-41185961487.log, 1724 lines.
+Line 844 records the failing SQLite after probe. Its preserved diagnostic is
+native-sqlite-configuration-after.log in artifact native-codex-auth-build,
+13037850360 (zip SHA256
+663a6c65f20625d28c0a04f4e0d3784c2e3cc2aa6b376596c1012ff8e1d9a3ad).
+
+The actual final CLI compiled successfully. The core configuration guard stops
+redirection, but the app-server ConfigManager catches its admission error and
+loads defaults. It then opens canonical databases and acknowledges metadata
+requests instead of refusing the conflicting configuration. Startup has two
+fallback sites: bootstrap in config_manager.rs and cloud config in lib.rs.
+
+The exact preserved CLI artifact 13036719437 reproduces both configuration and
+log_dir fallback locally. Diagnostic output reports refused=false and fifteen
+canonical SQLite/database-journal files. Command-line sqlite_home already
+refuses because fallback preserves that CLI override. All healthy baselines
+write only canonical databases.
+Reproducer: experiments/issue-3785/probe-codex-native-sqlite-authority.py
+  /absolute/path/to/codex --case configuration --diagnostics
+Logs: /tmp/issue-3785-recovery/codex-sqlite-fallback-{diagnostics,cli,logs}-before.log
+CLI zip SHA256:
+4d57e64289abbd7a021323e8c2ac89f29894744467bee95f43f32910e0cd1d5d
+
+Actual native --strict-config controls pass all three cases with zero database
+creation. Healthy canonical baselines still pass. These controls establish the
+fallback cause and existing native policy behavior; they do not verify a newly
+compiled automatic-selection patch.
+Logs: /tmp/issue-3785-recovery/codex-sqlite-strict-policy-{configuration,cli,logs}.log
+
+The adapter now selects native strict configuration before constructing the
+ConfigManager whenever CODEX_ROLLOUT_HOME is present on Linux. Both fallback
+sites therefore refuse admission errors. Without that selector, upstream
+configuration recovery behavior remains unchanged. The patch pins both core
+configuration and app-server source before mutation.
+
+Two fresh checkouts reproduce and verify the same 35-file source inventory,
+including the four-line app-server change. Changed/extra source, changed recipe
+and repeat preparation all refuse. Nineteen packaging tests and seventeen Node
+release/runtime/command controls pass. No full Rust build runs locally under
+the container memory limit.
+Recipe SHA256:
+43ea7ce3aa65585a60c9b32319d572cb5b4d5658fe3adf81188575f26b26ac8b
+Source inventory digest:
+bcfced32f555cba845ac90993647541df2cf293a7d10cb0d5eedbd2b8ef92d15
+Preparation log: /tmp/issue-3785-recovery/codex-sqlite-strict-policy-preparation.log
+
+Fresh compiled automatic-selection and installed-package verification remain
+required in CI. Runtime SQLite leases, persisted file binding and default
+production authority integration also remain unfinished. No complete A3/A9
+or six-tool lifecycle claim follows from these controls.

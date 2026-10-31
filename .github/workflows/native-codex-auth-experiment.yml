@@ -325,9 +325,9 @@ jobs:
       - name: Reproduce final native database configuration redirection
         run: |
           for scenario in configuration cli logs; do
-            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --expect-redirect > "$RUNNER_TEMP/native-sqlite-$scenario-before.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --expect-redirect --diagnostics > "$RUNNER_TEMP/native-sqlite-$scenario-before.log" 2>&1
           done
-          if python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-regression.log" 2>&1; then
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --diagnostics > "$RUNNER_TEMP/native-sqlite-regression.log" 2>&1; then
             echo "The native SQLite authority regression unexpectedly passed before repair."
             exit 1
           fi
@@ -355,7 +355,7 @@ jobs:
       - name: Verify native database overrides refuse before opening storage
         run: |
           for scenario in configuration cli logs; do
-            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" > "$RUNNER_TEMP/native-sqlite-$scenario-after.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --diagnostics > "$RUNNER_TEMP/native-sqlite-$scenario-after.log" 2>&1
           done
           for alias in symlink hardlink; do
             python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" > "$RUNNER_TEMP/native-sqlite-$alias-after.log" 2>&1

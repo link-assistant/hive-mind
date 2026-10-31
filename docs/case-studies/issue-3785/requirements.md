@@ -458,3 +458,13 @@ admitted again before publication, including coalesced callers. All 96 related
 Node tests/file targets pass; HTTP is mocked and filesystem mutations are real.
 See `evidence/limits-request-generation.txt`. Default canonical selection,
 coordinated refresh and the other open A12/A2 criteria remain unfinished.
+
+The first compiled SQLite configuration after probe at 6282876d fails: native
+core admission refuses, but app-server bootstrap catches that error and loads
+defaults before creating canonical databases. The exact preserved binary
+reproduces both sqlite_home and log_dir fallback locally; its explicit native
+strict-config control refuses all three conflicting cases before creation.
+The adapter now selects that policy automatically for selected canonical
+history. Two fresh checkouts reproduce its 35-file inventory, and 36 related
+packaging/Node controls pass. Compiled automatic-selection verification remains
+due. See `evidence/codex-sqlite-fallback.txt`; A3/A9 remain unfinished.

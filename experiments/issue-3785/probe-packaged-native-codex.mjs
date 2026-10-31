@@ -74,7 +74,7 @@ console.log('PASS: the actual npm-installed stock command selects the checked na
 for (const selection of ['configuration', 'cli', 'logs']) {
   const file = fileURLToPath(new URL('probe-codex-native-sqlite-authority.py', import.meta.url));
   await verifyNativeCodexCommand({ command });
-  const result = await execute('python3', [file, command, '--case', selection], { maxBuffer: 262144 });
+  const result = await execute('python3', [file, command, '--case', selection, '--diagnostics'], { maxBuffer: 262144 });
   process.stdout.write(result.stdout);
 }
 for (const alias of ['symlink', 'hardlink']) {

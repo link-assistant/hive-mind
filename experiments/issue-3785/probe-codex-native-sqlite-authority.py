@@ -17,7 +17,7 @@ class NativeRefusal(Exception):
     """A native response or exit may carry the specific admission error."""
 
 
-def exercise(binary, root, override, prepare=None):
+def exercise(binary, root, override, prepare=None, strict_config=False):
     canonical, configuration, redirected = (root / name for name in ("canonical", "configuration", "redirected"))
     for directory in (root, canonical, configuration, redirected):
         directory.mkdir(mode=0o700, exist_ok=True)
@@ -44,6 +44,8 @@ def exercise(binary, root, override, prepare=None):
             "prlimit", "--data=536870912", "--stack=16777216", "--core=0", "--",
             str(binary), "app-server",
         ]
+        if strict_config:
+            arguments.append("--strict-config")
         if override == "cli":
             arguments.extend(["-c", "sqlite_home=" + json.dumps(str(redirected))])
         child = subprocess.Popen(arguments, cwd=root, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -110,15 +112,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("binary", type=Path)
     parser.add_argument("--expect-redirect", action="store_true")
+    parser.add_argument("--diagnostics", action="store_true", help="Print synthetic fixture database paths and refusal state.")
+    parser.add_argument("--strict-config", action="store_true", help="Control the existing native strict policy independently of the adapter.")
     parser.add_argument("--case", choices=["configuration", "cli", "logs"], default="configuration")
     args = parser.parse_args()
     assert args.binary.is_absolute() and args.binary.is_file()
     with tempfile.TemporaryDirectory(prefix="hive-codex-sqlite-authority-") as temporary:
         root = Path(temporary)
-        baseline, refused = exercise(args.binary, root / "baseline", None)
+        baseline, refused = exercise(args.binary, root / "baseline", None, strict_config=args.strict_config)
         assert not refused and baseline["canonical"] and not baseline["private"] and not baseline["redirected"], "Healthy native SQLite selection must write only canonical databases."
         print("PASS: actual native metadata requests create their databases in CODEX_SQLITE_HOME.", flush=True)
-        redirected, refused = exercise(args.binary, root / "override", args.case)
+        redirected, refused = exercise(args.binary, root / "override", args.case, strict_config=args.strict_config)
+        if args.diagnostics:
+            print(json.dumps({"case": args.case, "databases": redirected, "refused": refused}), flush=True)
         if args.expect_redirect:
             assert not refused and redirected["redirected"], "The negative control must reproduce actual database redirection."
             if args.case != "logs":

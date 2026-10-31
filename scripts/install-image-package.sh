@@ -12,6 +12,8 @@ test -f "$package_archive"
 for package_file in src/hive.mjs src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json src/install-native-codex.mjs src/native-codex/recipe.json src/native-codex/runtime/linux-x64/codex src/native-codex/runtime/linux-x64/manifest.json src/native-codex/runtime/linux-arm64/codex src/native-codex/runtime/linux-arm64/manifest.json; do
   tar -tzf "$package_archive" | grep -Fx "package/$package_file" >/dev/null
 done
-bun install -g "$package_archive"
+# Native byte admission requires independent files, including package metadata;
+# Bun's default hardlinks would alias its writable package cache.
+bun install --backend=copyfile -g "$package_archive"
 package_version=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).version' "$package_source/package.json")
 test "$(hive --version)" = "$package_version"

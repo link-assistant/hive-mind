@@ -55,8 +55,8 @@ assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegE
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const source = read(file);
-  assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
-  assert.match(source, new RegExp(`bun install -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
 }
 
 const formalAiVersionSource = read('src/formal-ai-version.lib.mjs');

@@ -250,12 +250,13 @@ RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
 # Install AI coding assistant CLIs
 # Native storage probes and clean-runtime manifests attest these exact versions.
 # Upgrade them together with the storage adapters and their lifecycle evidence.
-RUN bun install -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
+# Copy package bytes independently of Bun's cache for native runtime admission.
+RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
 RUN test "$(codex --version)" = 'codex-cli 0.164.0'
-RUN bun install -g @qwen-code/qwen-code@0.26.1 # https://github.com/link-assistant/hive-mind/issues/3785
-RUN bun install -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
-RUN bun install -g @github/copilot
-RUN bun install -g opencode-ai@1.19.4 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.26.1 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @github/copilot
+RUN bun install --backend=copyfile -g opencode-ai@1.19.4 # https://github.com/link-assistant/hive-mind/issues/3785
 RUN test "$(opencode --version)" = '1.19.4'
 
 # Agent must search without executing binaries from its shared data directory.
@@ -357,19 +358,19 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
       bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
     else \
-      bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
+      bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
     fi && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
-    bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.27.0 && \
-    bun install -g start-command@0.40.0 && \
-    bun install -g gh-setup-git-identity && \
-    bun install -g gh-pull-all && \
-    bun install -g gh-load-issue && \
-    bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log@latest
+    bun install --backend=copyfile -g @link-assistant/claude-profiles && \
+    bun install --backend=copyfile -g @link-assistant/agent@0.27.0 && \
+    bun install --backend=copyfile -g start-command@0.40.0 && \
+    bun install --backend=copyfile -g gh-setup-git-identity && \
+    bun install --backend=copyfile -g gh-pull-all && \
+    bun install --backend=copyfile -g gh-load-issue && \
+    bun install --backend=copyfile -g gh-load-pull-request && \
+    bun install --backend=copyfile -g gh-upload-log@latest
 
 # Activate the adapters from the installed Hive Mind artifact after global installs.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"

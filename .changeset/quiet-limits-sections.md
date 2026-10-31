@@ -205,3 +205,9 @@ rejections, preserving the first violation and exactly one stop callback.
 Admit and monitor actual version and connection-validation commands for all six
 Router tools. Forward explicit selection into child environments, preserve
 Agent/Codex overlays, and retain security refusals before ordinary fallback.
+
+
+Install global image packages with Bun's copyfile backend so pinned Codex
+metadata and bundled native payloads have independent inodes. Preserve strict
+single-link admission and verify actual Bun installation and native command
+activation in all three image layouts with finite synthetic package controls.

@@ -58,7 +58,7 @@ assertIncludes(dindDockerfile, 'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE
 // for. Guard both directions so the regression cannot silently return.
 assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="fuse-overlayfs"', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'test "$(hive --version)" = "${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json --verify', 'Dockerfile.dind');

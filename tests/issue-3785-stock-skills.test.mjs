@@ -53,7 +53,7 @@ for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']
   test(`${dockerfile} pins the CLI version used to generate the stock baseline`, async () => {
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const version = CODEX_STOCK_SKILLS.cliVersion.replace('codex-cli ', '');
-    assert.ok(content.includes(`bun install -g @openai/codex@${version}`));
+    assert.ok(content.includes(`bun install --backend=copyfile -g @openai/codex@${version}`));
     assert.match(content, /bash \/tmp\/claude-code-install\.sh 2\.1\.310(?:\s|$)/);
   });
 }

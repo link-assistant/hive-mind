@@ -112,7 +112,7 @@ console.log('\n3. Image pins match the runtime floor\n');
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
-  const installs = [...text.matchAll(/bun install -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
+  const installs = [...text.matchAll(/bun install --backend=copyfile -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
   check(installs.length > 0, `${file} installs the Agent CLI`);
   check(asNumber(CURRENT_AGENT_IMAGE_VERSION) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION), `the current Agent image pin satisfies the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor`);
   check(

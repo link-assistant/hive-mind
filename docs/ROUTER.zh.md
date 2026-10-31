@@ -71,8 +71,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_GIT_HOOKS_DIR`                 | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）                     |
 | `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | 仍然允许启用路由器的任务强制推送或删除远端 ref                                              |
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | 已完成绑定的 sidecar 之后为访问上游而接入的网络（默认 `bridge`；`--internal` 网络会被拒绝） |
-| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | 当容器内出现路由器令牌以外的凭据时不终止任务（仅用于调试守卫本身）                          |
-| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | 守卫重新读取凭据文件的间隔，单位毫秒（默认 `1000`，最小 `100`）                             |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | 守卫重新读取凭据文件的间隔，单位毫秒（默认 `1000`，范围 `100`–`1000`）                      |
 
 ### 签名密钥
 
@@ -131,7 +130,9 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 启用路由器的任务只有一份凭据：路由器为它签发的 `la_sk_…` 令牌。两套机制保证这一点不变。
 
 - **退出即吊销。** Hive Mind 在后台对任务容器执行 `docker wait`，容器一停止就立刻吊销令牌，无论原因是正常结束、崩溃、`docker kill` 还是宿主机杀掉了进程。令牌上 24 小时 / 5000 次请求的上限，只是为 `solve` 进程自身在来得及吊销之前就死掉的情形兜底。
-- **凭据守卫。** CLI 运行期间，Hive Mind 每秒重新读取容器内的凭据面：`~/.claude/.credentials.json`、`~/.claude.json`、`~/.claude/settings.json` 与 `settings.local.json`、`~/.codex/auth.json` 与 `config.toml`、仓库自己的 `.codex/config.toml`、`gh` 的 `hosts.yml`、`~/.git-credentials` 和 `.netrc`。第一次检查在 CLI 做任何事情之前完成。只要其中任何一个变成了不是路由器令牌的凭据——OAuth 登录、API 密钥、指向路由器以外任何地方的 `model_provider` 或 `base_url`——任务就会立即以退出码 **77** 终止，并打印指明文件的 `Security violation (issue #2190)` 信息。这被视为安全违规而非可恢复的错误：换掉凭据的任务，是在用路由器从未见过也从未记录的东西同厂商对话。`HIVE_MIND_ROUTER_AUTH_GUARD=0` 可关闭守卫，仅用于调试守卫本身。
+- **凭据守卫。** CLI 运行期间，Hive Mind 每秒重新读取容器内的凭据面：`~/.claude/.credentials.json`、`~/.claude.json`、`~/.claude/settings.json` 与 `settings.local.json`、`~/.codex/auth.json` 与 `config.toml`、仓库自己的 `.codex/config.toml`、`gh` 的 `hosts.yml`、`~/.git-credentials` 和 `.netrc`。Claude 和 Codex 在创建原生命令前检查这些文件，包括恢复会话和连接验证。只要其中任何一个变成了不是路由器令牌的凭据——OAuth 登录、API 密钥、指向路由器以外任何地方的 `model_provider` 或 `base_url`——任务就会立即以退出码 **77** 终止，并打印指明文件的 `Security violation (issue #2190)` 信息。这被视为安全违规而非可恢复的错误：换掉凭据的任务，是在用路由器从未见过也从未记录的东西同厂商对话。选择路由器后必须提供任务令牌，且守卫始终启用，不受 `HIVE_MIND_ROUTER_AUTH_GUARD` 影响。无法读取的凭据路径、格式错误的设置以及无效的提供商 TOML 均会被拒绝。文件必须是非符号链接的普通文件，且不超过 1 MiB；Codex 检查支持带引号的 TOML 键和点分键。
+
+使用路由器的 Codex 命令不会加载 shell 登录配置，防止其替换已检查的环境。文件守卫在启动时检查列出的文件，并轮询持久变更。它尚未建立六种工具的完整凭据权威，也不覆盖仅保存在内存中的凭据。
 
 ## 尚未覆盖的范围
 

@@ -38,7 +38,7 @@ const { executeClaude } = claudeLib;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, exitOnRouterAuthViolation, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 const { notifyIssueAboutPrePullRequestFailure } = await import('./solve.pre-pr-failure-notifier.lib.mjs');
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
@@ -235,6 +235,13 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 }
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
+// Check before model discovery, CLI freshness and connection probes can launch a native tool.
+try {
+  const { assertRouterTaskAuthentication } = await import('./router-auth-guard.lib.mjs');
+  assertRouterTaskAuthentication({ tool, env: { ...process.env, ...(argv.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+} catch (error) {
+  if (!(await exitOnRouterAuthViolation(error, { log, safeExit }))) throw error;
+}
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
 if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
 // Validation accepts `--model Formal-AI`; every tool, the sidecar and the

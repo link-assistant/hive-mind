@@ -16,8 +16,8 @@
     "reason": "yargs parseSync parses an argv array in memory and does no I/O."
   },
   "src/router-auth-guard.lib.mjs": {
-    "count": 1,
-    "reason": "startRouterAuthGuard runs only inside the claude/codex agent runtime of the solve process, never in the bot."
+    "count": 4,
+    "reason": "Synchronous Router admission and its runtime guard execute in solve, not the bot; nonblocking no-follow opens and bounded regular-file reads reject FIFOs and oversized credential surfaces before command creation."
   },
   "src/solve.resource-diagnostics.lib.mjs": {
     "count": 16,

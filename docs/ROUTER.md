@@ -71,8 +71,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_GIT_HOOKS_DIR`                 | Host directory holding the generated `pre-push` guard (default `~/.hive-mind/git-hooks`)                                        |
 | `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | Let a routed task force-push or delete remote refs anyway                                                                       |
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | Network the bound sidecar is connected to afterwards for upstream access (default `bridge`; an `--internal` network is refused) |
-| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | Do not stop the task when a credential other than the router token appears inside the container (debugging the guard only)      |
-| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, minimum `100`)                              |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, range `100`–`1000`)                         |
 
 Only these extra arguments are supported: `--memory`, `--memory-reservation`,
 `--memory-swap`, `--shm-size`, `--pids-limit`, `--cpu-shares`, `--cpu-period`,
@@ -173,10 +172,12 @@ Layer 2 is a speed bump, not a cage: an agent that reads this page can get past 
 
 ## One credential, and only the router's (issue #2190)
 
-A routed task has exactly one credential: the `la_sk_…` token the router issued for it. Two mechanisms keep it that way.
+A routed task receives the `la_sk_…` token the router issued for it. Token revocation and the Claude/Codex file guard protect this authentication path.
 
 - **Revocation on exit.** Hive Mind runs `docker wait` on the task container in the background and revokes the token the instant the container stops, whatever the reason — normal completion, a crash, `docker kill`, or the host killing the process. The 24 h / 5000-request limits on the token exist only for the case where the `solve` process itself dies before it can revoke.
-- **Auth guard.** While the CLI runs, Hive Mind re-reads the credential surfaces inside the container once per second: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` and `settings.local.json`, `~/.codex/auth.json` and `config.toml`, the repository's own `.codex/config.toml`, `gh`'s `hosts.yml`, `~/.git-credentials` and `.netrc`. The first check runs before the CLI is allowed to do anything. If any of them turns into a credential that is not the router token — an OAuth login, an API key, a `model_provider` or `base_url` that points anywhere except the router — the task is stopped at once with exit code **77** and a `Security violation (issue #2190)` message that names the file. This is treated as a security violation, not a recoverable error: a task that switched credentials would be talking to the vendor with something the router never saw and never logged. `HIVE_MIND_ROUTER_AUTH_GUARD=0` disables the guard for debugging the guard itself.
+- **Auth guard.** While the CLI runs, Hive Mind re-reads the credential surfaces inside the container once per second: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` and `settings.local.json`, `~/.codex/auth.json` and `config.toml`, the repository's own `.codex/config.toml`, `gh`'s `hosts.yml`, `~/.git-credentials` and `.netrc`. Claude and Codex check these files before creating the native command, including on resume and during connection validation. If any of them turns into a credential that is not the router token — an OAuth login, an API key, a `model_provider` or `base_url` that points anywhere except the router — the task is stopped at once with exit code **77** and a `Security violation (issue #2190)` message that names the file. This is treated as a security violation, not a recoverable error: a task that switched credentials would be talking to the vendor with something the router never saw and never logged. Router selection requires a task token and enables this guard regardless of `HIVE_MIND_ROUTER_AUTH_GUARD`. Unreadable credential paths, malformed settings and invalid provider TOML are refused. Files must be regular, without symbolic links and at most 1 MiB; Codex provider checks recognize quoted and dotted TOML keys.
+
+Routed Codex commands skip shell login profiles so they cannot replace the admitted environment. The file guard checks admission and polls for persistent changes. It does not establish complete six-tool authority or cover credentials held only in memory.
 
 ## Coverage gaps
 

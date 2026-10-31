@@ -145,3 +145,13 @@ native connection and execution, and require actual pinned root/two-peer
 replacement and logout controls in both daemon image checks. Keep independent
 configuration private; default migration, full history and native refresh
 owner-death coordination remain unfinished.
+
+Require Router credential-file admission before Claude and Codex command
+creation, including resumes, connection probes and fallback commands. Preserve
+security exit 77 through startup and execution error handlers. Ignore the
+legacy guard-disable switch, refuse missing task tokens and bound polling to
+one second. Refuse unreadable, linked, non-regular, oversized and malformed
+configuration inputs without exposing credential contents. Parse Codex provider
+TOML semantically and require its endpoint and credential environment pin.
+Start routed Codex commands without a login profile so it cannot replace the
+admitted environment before the native CLI starts.

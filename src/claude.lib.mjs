@@ -40,7 +40,7 @@ import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeMode
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication, formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
@@ -394,6 +394,8 @@ export const executeClaudeCommand = async params => {
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       await assertAdmittedClaudeAuth({ env: { ...process.env, ...claudeEnv } });
+      const routerGuardEnv = { ...process.env, ...claudeEnv, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) };
+      assertRouterTaskAuthentication({ tool: argv.tool || 'claude', cwd: tempDir, env: routerGuardEnv });
       execCommand = startClaudeNativeCommand({ $, tempDir, claudeEnv, command: toolInvocation.command, resume: argv.resume, streamingInput, effectiveModel, fallbackModelArgs, mcpDisableArgs, disallowedToolsArgs, promptForAttempt, systemPrompt });
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
@@ -426,11 +428,11 @@ export const executeClaudeCommand = async params => {
       // Issue #2190: with --use-router the task may authenticate only with its
       // router token. Any other credential surfacing on disk while Claude runs
       // is a security violation: the process is killed at once and solve exits
-      // with EXIT_CODE_ROUTER_AUTH_VIOLATION. Inert unless HIVE_MIND_USE_ROUTER
-      // and a router token are present in the environment.
+      // with EXIT_CODE_ROUTER_AUTH_VIOLATION whenever Router mode is selected.
       const routerAuthGuard = startRouterAuthGuard({
         tool: argv.tool || 'claude',
         cwd: tempDir,
+        env: routerGuardEnv,
         log,
         onViolation: async violation => {
           await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
@@ -1268,6 +1270,7 @@ export const executeClaudeCommand = async params => {
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     } catch (error) {
+      if (error.routerAuthViolation) return { success: false, sessionId, routerAuthViolation: error.routerAuthViolation, errorInfo: { message: error.message } };
       reportError(error, {
         context: 'execute_claude',
         command: params.command,

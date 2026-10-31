@@ -533,3 +533,31 @@ The preserved executable also passes both controls and the actual root/two-peer
 Docker auth lifecycle locally. This completes development after verification
 for those guards; optimized/installed/image gates and all complete-scope
 requirements remain unfinished. See `evidence/ci-5a52ac0f6-native-codex.txt`.
+
+Router Claude/Codex launch admission now checks credential files before native
+command creation, including Claude resumes, and preserves the exit-77 result.
+Connection probes and their fallback commands recheck admission, and startup/
+execution error handlers retain security exit 77 without ordinary recovery.
+The legacy guard-disable flag and missing task token cannot suppress this check.
+Quoted/dotted TOML provider redirects, removed endpoint/key pins and unreadable
+or malformed settings are refused. Polling cannot be postponed past one second;
+bounded file inspection does not follow links or block on a FIFO. This repairs
+specific admission gaps. Routed Codex commands also skip login-profile loading,
+which otherwise replaces the admitted environment after the guard has passed.
+The complete six-tool Router authority, durable audit,
+native request/refresh coordination and restart/failure contract remain open.
+See `evidence/router-native-admission.txt`.
+
+Fresh native Gemini CI run 41202009296 passes all six jobs at f2e845cb3.
+All six diagnostic artifacts and the complete workflow log are preserved;
+expected strict before-control failures remain available for comparison.
+This verifies the checked opt-in adapter's existing controls at that source;
+default selection, migration and the complete acceptance contract remain open.
+See `evidence/ci-f2e845cb3-native-gemini.txt`.
+
+Fresh native Codex development run 41202009289 also passes all three jobs at
+f2e845cb3. The four preserved artifacts now include the strict usage-generation
+before and after logs. Its compiled executable is byte-identical to the earlier
+5a52ac0f6 executable used in the actual local root/two-peer Docker controls.
+Optimized distribution, installed-image validation and all complete-scope
+requirements remain unfinished. See `evidence/ci-f2e845cb3-native-codex.txt`.

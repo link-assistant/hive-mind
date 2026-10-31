@@ -124,14 +124,16 @@ const withFormalAiCodexFixture = async body => {
   };
 
   /** One Codex iteration. The fake runner records the config Codex would load at exec time. */
-  const runIteration = async ({ events = SUCCESSFUL_TURN, envOverrides = {} } = {}) => {
+  const runIteration = async ({ events = SUCCESSFUL_TURN, envOverrides = {}, argvOverrides = {}, model = 'formal-ai', beforeExecution = async () => {} } = {}) => {
     const capabilityPreflight = await runPreflight();
     Object.assign(capabilityPreflight.codexBaseEnv, envOverrides);
     const logs = [];
     const executions = [];
+    let launches = 0;
     const fakeDollar =
       options =>
       (strings, ...values) => {
+        launches++;
         const command = renderTaggedTemplate(strings, values);
         return {
           async *stream() {
@@ -148,7 +150,7 @@ const withFormalAiCodexFixture = async body => {
       branchName: 'issue-3212-regression',
       prompt: 'Solve the issue.',
       systemPrompt: '',
-      argv: { model: 'formal-ai', resume: null, verbose: false, playwrightMcp: false },
+      argv: { model, resume: null, verbose: false, playwrightMcp: false, ...argvOverrides },
       log: async message => void logs.push(String(message)),
       formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
       getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
@@ -161,10 +163,13 @@ const withFormalAiCodexFixture = async body => {
       prNumber: null,
       capabilityPreflight,
       calculatePricing: async () => null,
-      verifyCapabilityExecutionCatalog: async () => ({}),
+      verifyCapabilityExecutionCatalog: async () => {
+        await beforeExecution();
+        return {};
+      },
       waitForRetryDelay: async () => {},
     });
-    return { result, logs, executions };
+    return { result, logs, executions, launches };
   };
 
   try {
@@ -188,11 +193,50 @@ const assertFormalAiProvider = (config, baseUrl, label) => {
   assert.match(config, /^model_catalog_json = ".*formal-ai-model-catalog\.json"$/mu, `${label}: the formal-ai model metadata is registered\n${config}`);
 };
 
+test('Router Codex refuses a provider changed after capability preflight before command creation', { timeout: 30_000 }, async () =>
+  withFormalAiCodexFixture(async ({ scopedHome, runIteration }) => {
+    const { result, launches } = await runIteration({
+      model: 'gpt-5.4',
+      envOverrides: { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', OPENAI_BASE_URL: 'https://router.invalid/v1' },
+      beforeExecution: async () => writeFile(path.join(scopedHome, 'config.toml'), 'model_provider = "openai"\n'),
+    });
+    assert.equal(launches, 0, 'the command-stream runner must not start before Router admission');
+    assert.equal(result.success, false);
+    assert.ok(result.routerAuthViolation);
+    assert.match(result.errorInfo.message, /Security violation.*router token/u);
+  })
+);
+
+for (const selection of ['environment', 'argv']) {
+  for (const resume of [false, true]) {
+    test(`Router Codex preserves its admitted environment through shell startup: ${selection}, ${resume ? 'resume' : 'new'}`, { timeout: 30_000 }, async () =>
+      withFormalAiCodexFixture(async ({ operatorHome, scopedHome, runIteration }) => {
+        const thread = 'router-session-3785';
+        const { result, executions } = await runIteration({
+          model: 'gpt-5.4',
+          envOverrides: { HOME: path.dirname(operatorHome), HIVE_MIND_USE_ROUTER: selection === 'environment' ? '1' : '0', HIVE_MIND_ROUTER_TOKEN: 'synthetic-router-task', OPENAI_API_KEY: 'synthetic-router-task', OPENAI_BASE_URL: 'https://router.invalid/v1' },
+          argvOverrides: { useRouter: selection === 'argv', resume: resume ? thread : null },
+          beforeExecution: async () => {
+            await writeFile(path.join(scopedHome, 'config.toml'), 'model_provider = "hive-mind-router"\n[model_providers.hive-mind-router]\nbase_url = "https://router.invalid/v1"\nenv_key = "OPENAI_API_KEY"\n');
+            await mkdir(path.join(scopedHome, 'sessions'), { recursive: true });
+            await writeFile(path.join(scopedHome, 'sessions', `rollout-test-${thread}.jsonl`), '{}\n');
+          },
+        });
+        assert.equal(result.success, true);
+        assert.equal(executions.length, 1);
+        assert.match(executions[0].command, /^sh -c /u, 'a Router task must not source a profile after authentication admission');
+        if (resume) assert.ok(executions[0].command.includes(`exec resume "${thread}"`));
+      })
+    );
+  }
+}
+
 test('Issue #3212: the auto-restart iteration still runs Codex against the Formal AI provider', async () =>
   withFormalAiCodexFixture(async ({ baseUrl, scopedHome, runIteration }) => {
     const first = await runIteration();
     assert.equal(first.result.success, true, `first iteration succeeds: ${first.result.result}`);
     assert.equal(first.executions.length, 1);
+    assert.match(first.executions[0].command, /^sh -lc /u, 'ordinary Formal AI runs retain login-profile setup');
     assert.equal(first.executions[0].codexHome, scopedHome, 'Codex runs in the repository-scoped home');
     assertFormalAiProvider(first.executions[0].config, baseUrl, 'first iteration');
 

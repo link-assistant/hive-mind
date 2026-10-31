@@ -1,0 +1,37 @@
+Native Codex development CI preservation, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41202009289
+Source: f2e845cb38cfbdf53e435db1307e0086a4e38d0c
+Created: 2026-10-31 12:38:27 UTC
+Final workflow update: 2026-10-31 13:13:17 UTC
+Conclusion: success; all three jobs pass.
+
+The full native development CLI compiles and passes the required credential
+directory-identity, model request, provider-constructor, refresh owner-death,
+usage-generation, identity-publication, SQLite redirection/alias, transcript,
+compression, migration and native discovery controls. Strict before-controls
+retain their expected failures rather than being reported as after success.
+
+All four artifacts are preserved locally. Their 136 text files contain 6185
+lines, indexed in 137 chunks of at most 1500 lines. Nine files have expected
+before-regression findings, including all three newly retained usage-generation
+failures (logout, replacement and malformed credentials). The healthy and all
+three repaired usage controls pass; all five directory-identity controls pass.
+The actual negative assertions and after-control output were inspected.
+
+The complete workflow log has 1993 lines, indexed in two bounded chunks.
+SHA256: d0da0be19474c88ee3b6c9de6a63f16a54fa58f8f0945320e64f8c8dc13f2c9d
+Its identity unit-test failure is the deliberate strict before-control; the
+paired repaired unit tests pass. No unexpected after-control failure appears.
+
+The preserved executable is 419122384 bytes, byte-identical to the development
+CLI verified locally from the earlier successful 5a52ac0f6 run.
+SHA256: 81eb9e87a53f85b1a67139c07f3df56b4897fcc07eb714c2073bbe709382f12f
+Those earlier actual root/two-peer Docker controls therefore exercise these
+same native executable bytes, not a merely similar version label.
+
+This is a development executable, not an optimized distributed artifact.
+Optimized x64/arm64, actual installed-package and complete image gates remain
+separate required evidence. Default migration, full history, all native writers
+and the complete six-tool acceptance contract remain unfinished. The pull
+request remains draft and unmerged.

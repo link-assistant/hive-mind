@@ -12,8 +12,11 @@ import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
+  const checkRouter = () => assertRouterTaskAuthentication({ tool: 'claude', env: { ...process.env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+  checkRouter();
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
   // Issue #2130: "run claude login" is wrong advice for a Formal-AI-served model.
   const authRemedyLines = buildAuthRemedyLines({ model, vendorRemedy: 'Please run: claude login' });
@@ -53,6 +56,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
         await log(`🔄 Retry attempt ${retryCount} for Claude CLI validation (${transientRetryBudget.describeProgress()})...`);
       }
       try {
+        checkRouter();
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
@@ -62,16 +66,20 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  Claude CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
       }
       let result;
       try {
+        checkRouter();
         result = await $`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
+        if (pipeError.routerAuthViolation) throw pipeError;
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
+          checkRouter();
           result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
@@ -143,6 +151,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       await log('✅ Claude CLI connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       const errorStr = error.message || error.toString();
       if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('API Error: 529') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded'))) {
         if (await retryAfterOverload('during validation')) return await attemptValidation();

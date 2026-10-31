@@ -194,3 +194,44 @@ for (const resumed of [false, true]) {
     await assert.rejects(validateClaudeConnection('haiku'), /Canonical Claude authentication storage/u);
   });
 }
+
+for (const resumed of [false, true])
+  for (const scenario of ['vendor credentials', 'missing token', 'argv Router selection', 'clean']) {
+    test(`Router Claude ${resumed ? 'resume' : 'new execution'} admission: ${scenario}`, { timeout: 30_000 }, async t => {
+      const home = await mkdtemp(path.join(os.tmpdir(), 'claude-router-admission-'));
+      t.after(() => rm(home, { recursive: true, force: true }));
+      const config = path.join(home, '.claude');
+      await mkdir(config);
+      const selection = { HOME: home, CLAUDE_CONFIG_DIR: config, HIVE_MIND_USE_ROUTER: scenario === 'argv Router selection' ? '0' : '1', HIVE_MIND_ROUTER_TOKEN: scenario === 'missing token' ? '' : 'synthetic-router-task', HIVE_MIND_ROUTER_AUTH_GUARD: '0', ANTHROPIC_AUTH_TOKEN: 'synthetic-router-task', ANTHROPIC_API_KEY: 'synthetic-router-task', ANTHROPIC_BASE_URL: 'https://router.invalid' };
+      for (const [name, value] of Object.entries(selection)) {
+        const before = process.env[name];
+        t.after(() => {
+          if (before === undefined) delete process.env[name];
+          else process.env[name] = before;
+        });
+        process.env[name] = value;
+      }
+      let launches = 0;
+      const { result } = await run(
+        t,
+        { model: 'claude-opus-4-8', useRouter: scenario === 'argv Router selection', ...(resumed ? { resume: SESSION } : {}) },
+        {
+          onNative: () => {
+            launches++;
+          },
+          beforeExecution: async () => {
+            if (scenario === 'vendor credentials' || scenario === 'argv Router selection') await writeFile(path.join(config, '.credentials.json'), '{}');
+          },
+        }
+      );
+      if (scenario === 'clean') {
+        assert.equal(launches, 1);
+        assert.equal(result.success, true);
+        return;
+      }
+      assert.equal(launches, 0, 'not even a command-stream command may be created before refusal');
+      assert.equal(result.success, false);
+      assert.ok(result.routerAuthViolation, 'the solver must preserve the security-stop exit code');
+      assert.match(result.errorInfo.message, /Security violation.*router token/u);
+    });
+  }

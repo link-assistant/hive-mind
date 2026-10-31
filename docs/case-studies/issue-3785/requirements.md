@@ -733,3 +733,13 @@ pipe and missing stderr. Actual newly compiled native, optimized, installed and
 final-image after controls remain OPEN; the running `7d09cacbe` workflow predates
 this additional patch. See `evidence/sqlite-startup-fallback.txt`. This finding
 and focused draft do not complete A7 or the wider canonical-storage criteria.
+
+The draft SQLite guard also failed optimized fortified C compilation because
+casting two diagnostic `write` calls to void does not satisfy libc's required
+result handling. The strengthened compile fails before repair and passes
+after explicit local-result handling. All 1,031 optimized-guard component
+controls, four full/missing-stderr controls and 40 real SQLx controls pass.
+The component benchmark still reports material overhead. The experimental gate
+now checks these independent components before compiling the full CLI; actual
+native/release/package/image verification and production activation remain
+OPEN. See `evidence/sqlite-optimized-guard.txt`.

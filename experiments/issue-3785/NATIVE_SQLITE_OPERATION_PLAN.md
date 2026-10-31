@@ -285,3 +285,33 @@ currently running `7d09cacbe` workflow predates this additional patch.
 - [ ] Verify the newly compiled CLI refuses before a model request.
 - [ ] Include this policy in the admitted production inventory and every native
       release, installed-package and final-image control after native verification.
+
+## Optimized guard compilation
+
+The unoptimized component build missed a fortified libc diagnostic: casting
+`write` to void still violates its `warn_unused_result` attribute in an optimized
+build. The strict component compile with `-O2 -D_FORTIFY_SOURCE=2 -Werror` fails
+before repair. The guard now assigns the return value and explicitly discards
+that local result without retrying a failed or full diagnostic pipe.
+
+All 1,031 component controls pass with the optimized fortified guard. Four
+additional controls verify full and missing stderr descriptors with tracing
+both enabled and disabled. All 40 actual SQLx controls pass after rebuilding
+the changed C adapter. The large SQLite amalgamation remains at `-O0` to keep
+local compilation bounded; these results do not validate an optimized full CLI.
+
+The benchmark now uses the optimized guard with the same unoptimized SQLite
+component. Selected 1,000-query runs take 1,142–1,199 ms, compared with ordinary
+4.9–5.4 ms. The overhead remains material. The independent component/SQLx step
+now runs before the first full CLI build in the experimental workflow; the
+configuration-lock test stays after its required source patch.
+
+The updated 45-file prepared draft inventory digest is
+`3cec1b0a4531286ded0bbba58bf1025bebe395088bf970979134107ff294c2ba`.
+See `evidence/sqlite-optimized-guard.txt` in the case study. The production recipe
+and inventory remain unchanged, and the running `7d09cacbe` workflow predates
+this repair and the startup-fallback patch.
+
+- [x] Reproduce optimized fortified compilation failure before changing the guard.
+- [x] Verify optimized component behavior, refusal diagnostics and real SQLx.
+- [ ] Verify the complete native builds and release/package/image controls.

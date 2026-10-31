@@ -33,7 +33,8 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-benchmark-") as tempora
                     "-DSQLITE_ENABLE_FILESTAT", "-DSQLITE_THREADSAFE=1",
                     "-c", str(args.sqlite_source), "-o", str(sqlite_object)],
                    check=True, timeout=30, preexec_fn=compiler_limits)
-    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O0", "-g0",
+    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O2", "-g0",
+                    "-D_FORTIFY_SOURCE=2",
                     "-I", str(args.sqlite_source.parent),
                     str(Path(__file__).with_suffix(".c")),
                     str(Path(__file__).with_name("native-codex") / "canonical_sqlite_vfs.c"),

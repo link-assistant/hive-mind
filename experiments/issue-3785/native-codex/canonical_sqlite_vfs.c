@@ -55,12 +55,16 @@ static _Noreturn void refuse(void) {
   int saved_errno = errno;
   int flags = fcntl(STDERR_FILENO, F_GETFL);
   if (flags >= 0 && fcntl(STDERR_FILENO, F_SETFL, flags | O_NONBLOCK) == 0) {
-    (void)write(STDERR_FILENO, refusal, sizeof(refusal) - 1);
+    ssize_t written = write(STDERR_FILENO, refusal, sizeof(refusal) - 1);
+    (void)written; /* Refusal must not retry a full or failed diagnostic pipe. */
     const char *diagnostics = getenv("HIVE_CODEX_SQLITE_TRACE");
     if (diagnostics && strcmp(diagnostics, "1") == 0) {
       char detail[192];
       int bytes = snprintf(detail, sizeof(detail), "Native SQLite refusal stage=%s errno=%d\n", diagnostic_operation, saved_errno);
-      if (bytes > 0 && bytes < (int)sizeof(detail)) (void)write(STDERR_FILENO, detail, (size_t)bytes);
+      if (bytes > 0 && bytes < (int)sizeof(detail)) {
+        written = write(STDERR_FILENO, detail, (size_t)bytes);
+        (void)written;
+      }
     }
   }
   _exit(78);

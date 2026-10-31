@@ -52,13 +52,73 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
     subprocess.run(["cc", "-std=c11", "-w", "-O0", "-g0", "-pthread",
                     "-DSQLITE_ENABLE_FILESTAT", "-DSQLITE_THREADSAFE=1",
                     "-c", str(args.sqlite_source), "-o", str(sqlite_object)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=compiler_limits)
-    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O0", "-g0",
+                   check=True, timeout=30, preexec_fn=compiler_limits)
+    # Match optimized distribution builds' fortified libc diagnostics without
+    # optimizing the large SQLite amalgamation on memory-limited runners.
+    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O2", "-g0",
+                    "-D_FORTIFY_SOURCE=2",
                     "-I", str(args.sqlite_source.parent), "-DHIVE_CANONICAL_SQLITE_TEST=1",
                     str(Path(__file__).with_suffix(".c")),
                     str(Path(__file__).with_name("native-codex") / "canonical_sqlite_vfs.c"),
                     str(sqlite_object), "-lm", "-ldl", "-pthread", "-o", str(binary)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=limits)
+                   check=True, timeout=30, preexec_fn=limits)
+    # Refusal must finish even when diagnostics cannot be delivered. Keep the
+    # full pipe unread until the child exits, so communicate cannot hide a
+    # blocking diagnostic write by draining it.
+    for descriptor in ("full", "missing"):
+        for trace in ("0", "1"):
+            case = fixture / f"diagnostic-{descriptor}-{trace}"
+            case.mkdir(mode=0o700)
+            read_fd, write_fd = os.pipe2(os.O_NONBLOCK)
+            child = None
+            try:
+                filled = 0
+                for _ in range(256):
+                    try:
+                        filled += os.write(write_fd, b"x" * 4096)
+                    except BlockingIOError:
+                        break
+                else:
+                    raise AssertionError("Diagnostic pipe exceeded the finite fixture capacity")
+                os.set_blocking(write_fd, True)
+
+                def child_limits():
+                    limits()
+                    if descriptor == "missing":
+                        os.close(2)
+
+                child = subprocess.Popen([str(binary), str(case), DATABASES[0], "query"],
+                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                         stderr=write_fd, text=True, preexec_fn=child_limits,
+                                         env=dict(os.environ, HIVE_CODEX_SQLITE_TRACE=trace))
+                os.close(write_fd)
+                write_fd = -1
+                with selectors.DefaultSelector() as ready:
+                    ready.register(child.stdout, selectors.EVENT_READ)
+                    assert ready.select(timeout=5), "Diagnostic fixture did not become ready"
+                assert child.stdout.readline(1024).startswith("READY 3.51.3")
+                case.chmod(0o777)
+                before = snapshot(case)
+                output, _ = child.communicate("\n", timeout=5)
+                assert child.returncode == 78 and output == ""
+                assert snapshot(case) == before
+                drained = b""
+                while len(drained) <= 1024 * 1024:
+                    block = os.read(read_fd, 4096)
+                    if not block:
+                        break
+                    drained += block
+                assert drained == b"x" * filled
+                print(json.dumps({"diagnosticDescriptor": descriptor, "trace": trace == "1",
+                                  "status": "refused", "unsafeFilesUnchanged": True}), flush=True)
+            finally:
+                if child is not None:
+                    if child.poll() is None:
+                        child.kill()
+                    child.communicate(timeout=5)
+                os.close(read_fd)
+                if write_fd >= 0:
+                    os.close(write_fd)
     mutations = ("none", "directory", "database", "database-hardlink",
                  "directory-permissions", "database-permissions", "wal-hardlink", "shm-hardlink",
                  "directory-symlink", "ancestor-symlink", "database-symlink", "wal-replace", "shm-replace",

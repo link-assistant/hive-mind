@@ -10,6 +10,7 @@ export function inspectRouterTaskEnvironment({ tool = 'claude', env = process.en
   if (token !== token.trim()) return [violation('the router task token has invalid surrounding whitespace')];
   if (!String(env?.HIVE_MIND_ROUTER_URL || '').trim()) return [violation('the router task origin is missing')];
   const normalizedTool = String(tool || 'claude').toLowerCase();
+  if (normalizedTool === 'opencode' && env?.OPENCODE_AUTH_CONTENT) return [violation('the native OpenCode inline credential registry is present')];
   const route = resolveRouterTaskRoute({ tool: normalizedTool, env });
   if (route.error) return [violation('the router task route could not be resolved safely')];
   const endpoint = buildRouterToolServiceUrl({ baseUrl: route.baseUrl, dialect: route.dialect, tool: normalizedTool });

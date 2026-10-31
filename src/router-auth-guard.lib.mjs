@@ -43,6 +43,7 @@ import { TextDecoder } from 'node:util';
 import { parse as parseToml } from 'smol-toml';
 import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
 import { inspectRouterTaskEnvironment } from './router-task-auth.lib.mjs';
+import { routerNativeCredentialFiles } from './router-native-auth-paths.lib.mjs';
 
 /** `solve` exits with this when the guard fires: distinct from 1 (tool failure) and 75 (disk), so a supervisor can tell a security stop from a crash. */
 export const EXIT_CODE_ROUTER_AUTH_VIOLATION = 77;
@@ -121,6 +122,7 @@ export const describeRouterAuthSurface = ({ tool = 'claude', env = process.env, 
   const normalizedTool = normalizeTool(tool);
   const entries = [];
   const forbidden = (filePath, what) => entries.push({ path: filePath, kind: 'forbidden', check: text => (text === null ? null : `${what} appeared; a routed task authenticates with its router token only`) });
+  for (const file of routerNativeCredentialFiles({ tool: normalizedTool, env, homeDir, cwd })) forbidden(file, `a native ${normalizedTool} credential store`);
 
   if (CLAUDE_TOOLS.has(normalizedTool)) {
     const conventional = path.join(homeDir, '.claude');

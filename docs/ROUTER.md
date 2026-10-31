@@ -187,6 +187,8 @@ Agent, OpenCode, Gemini and Qwen arm this file monitoring immediately after comm
 
 Claude and Codex use the same retained monitoring before input attachment or command logging. Explicit Router selection reaches the actual native environment. Failed attempts cancel the command before ordinary retry; Claude also stops live-input polling and its attempt timers. Bounded Claude process-group and polling controls cover logging failures, while native request authority and the wider Router lifecycle remain unfinished.
 
+The file guard also refuses Agent/OpenCode `auth.json` under conventional or selected XDG data roots, and Gemini/Qwen `oauth_creds.json` under conventional or selected native configuration/authentication roots. It resolves relative roots against the native working directory and expands Qwen’s `~` selector. OpenCode’s inline `OPENCODE_AUTH_CONTENT` registry is refused. Existing bounded file inspection and retained polling cover these stores; provider settings, other environment selectors and in-memory native credentials still need complete request mediation.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:

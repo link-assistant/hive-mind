@@ -626,3 +626,13 @@ and clearing Claude polling and attempt timers. Existing timeout and result
 handling are preserved. Full native request mediation, every credential store,
 guard diagnostic failures and the wider acceptance inventory remain OPEN.
 See `evidence/router-primary-lifetime.txt` for bounded evidence and limits.
+
+Additional native Router stores: pinned Agent/OpenCode data-root auth.json and
+Gemini/Qwen configuration/auth-root oauth_creds.json join bounded admission and
+runtime polling; OpenCode's inline credential registry also refuses. Isolated
+controls cover relative XDG/config roots against the native cwd, Qwen tilde
+expansion, selected AUTH_HOME experiments, malformed files, removal after a
+runtime violation and ordinary unselected runs. Native model/provider requests
+are not executed by these path controls. Provider settings, all environment
+selectors, native in-memory authority and durable Router audit remain OPEN.
+See `evidence/router-additional-auth-stores.txt` for before/after coverage.

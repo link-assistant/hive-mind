@@ -190,3 +190,9 @@ Apply retained Router monitoring before Claude/Codex input and logging, forward
 explicit selection to their actual native environments, and cancel abandoned
 commands before retry. Stop Claude live-input polling and attempt timers on
 exception paths, retaining existing timeout and result-close behavior.
+
+
+Inspect native Agent/OpenCode credential registries and Gemini/Qwen OAuth
+files at conventional and selected roots before Router launch and while running.
+Resolve relative roots against the native cwd, expand Qwen tilde selection and
+refuse OpenCode's inline registry without exposing credential contents.

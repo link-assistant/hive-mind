@@ -34,6 +34,7 @@ globalThis.use = async name => {
   return import(packageName);
 };
 
+const nativeAuthFile = (tool, home, env) => (['agent', 'opencode'].includes(tool) ? path.join(env.XDG_DATA_HOME, tool === 'agent' ? 'link-assistant-agent' : 'opencode', 'auth.json') : path.join(home, `.${tool}`, 'oauth_creds.json'));
 const adapters = {};
 const { validateToolConnection } = await import('../../src/tool-connection-validation.lib.mjs');
 const { runStartupChecks } = await import('../../src/hive.startup-checks.lib.mjs');
@@ -58,7 +59,12 @@ function fixture(t, tool, scenario, argvSelection) {
   if (scenario === 'missing key') env[key] = '';
   if (scenario === 'changed endpoint') env[endpoint] = 'https://vendor.invalid';
   if (scenario === 'missing token') env.HIVE_MIND_ROUTER_TOKEN = '';
-  assert.equal(inspectRouterTaskEnvironment({ tool, env }).length > 0, !(['clean', 'key changed after version'].includes(scenario) || scenario.startsWith('runtime file')), 'the factory fixture itself must select a valid route and token');
+  assert.equal(inspectRouterTaskEnvironment({ tool, env }).length > 0, !(['clean', 'key changed after version', 'native file'].includes(scenario) || scenario.startsWith('runtime ')), 'the factory fixture itself must select a valid route and token');
+  const nativeFile = nativeAuthFile(tool, home, env);
+  if (scenario === 'native file') {
+    fs.mkdirSync(path.dirname(nativeFile), { recursive: true });
+    fs.writeFileSync(nativeFile, '{"synthetic":"native non-Router authority"}');
+  }
   for (const [name, value] of Object.entries(env)) {
     const before = process.env[name];
     process.env[name] = value;
@@ -67,7 +73,7 @@ function fixture(t, tool, scenario, argvSelection) {
       else process.env[name] = before;
     });
   }
-  return { cwd, key };
+  return { cwd, key, nativeFile };
 }
 
 async function assertSecurityStop(invoke, calls, expectedCalls = 0) {
@@ -85,9 +91,9 @@ async function assertSecurityStop(invoke, calls, expectedCalls = 0) {
 for (const [tool, adapter] of Object.entries(adapters)) {
   for (const resume of [false, true])
     for (const argvSelection of [false, true])
-      for (const scenario of ['clean', 'changed key', 'missing key', 'changed endpoint', 'missing token', 'runtime file', 'runtime file with stream failure', 'runtime file with consumer failure', ...(!resume && !argvSelection ? ['runtime file waiting'] : [])]) {
+      for (const scenario of ['clean', 'native file', 'runtime native file waiting', 'changed key', 'missing key', 'changed endpoint', 'missing token', 'runtime file', 'runtime file with stream failure', 'runtime file with consumer failure', ...(!resume && !argvSelection ? ['runtime file waiting'] : [])]) {
         test(`Router direct ${tool} ${resume ? 'resume' : 'new'} ${argvSelection ? 'argv' : 'env'}: ${scenario}`, { timeout: 10_000 }, async t => {
-          const { cwd } = fixture(t, tool, scenario, argvSelection);
+          const { cwd, nativeFile } = fixture(t, tool, scenario, argvSelection);
           const calls = [];
           let runtimeFileWritten = false;
           const fakeDollar =
@@ -108,12 +114,14 @@ for (const [tool, adapter] of Object.entries(adapters)) {
                 },
                 async *stream() {
                   yield { type: 'stdout', data: Buffer.from(JSON.stringify(start) + '\n') };
-                  if (scenario.startsWith('runtime file')) {
-                    fs.writeFileSync(path.join(path.dirname(cwd), '.git-credentials'), 'synthetic forbidden credential');
+                  if (scenario.startsWith('runtime ')) {
+                    const file = scenario.startsWith('runtime native file') ? nativeFile : path.join(path.dirname(cwd), '.git-credentials');
+                    fs.mkdirSync(path.dirname(file), { recursive: true });
+                    fs.writeFileSync(file, 'synthetic forbidden credential');
                     runtimeFileWritten = true;
                   }
                   if (scenario === 'runtime file with stream failure') throw new Error('synthetic stream failure');
-                  if (scenario === 'runtime file waiting') {
+                  if (['runtime file waiting', 'runtime native file waiting'].includes(scenario)) {
                     let timer;
                     try {
                       await Promise.race([
@@ -152,12 +160,12 @@ for (const [tool, adapter] of Object.entries(adapters)) {
             assert.equal((await invoke()).success, true);
             assert.equal(calls.length, 1);
             if (tool === 'qwen') assert.match(calls[0].command, /^sh -c /, 'Router cannot load a login profile that replaces its credential');
-          } else await assertSecurityStop(invoke, calls, scenario.startsWith('runtime file') ? 1 : 0);
+          } else await assertSecurityStop(invoke, calls, scenario.startsWith('runtime ') ? 1 : 0);
         });
       }
 
   for (const argvSelection of [false, true])
-    for (const scenario of ['clean', 'changed key', 'missing key', 'changed endpoint', 'missing token', 'key changed after version']) {
+    for (const scenario of ['clean', 'native file', 'changed key', 'missing key', 'changed endpoint', 'missing token', 'key changed after version']) {
       test(`Router direct ${tool} connection ${argvSelection ? 'argv' : 'env'}: ${scenario}`, { timeout: 10_000 }, async t => {
         const { key } = fixture(t, tool, scenario, argvSelection);
         const calls = [];

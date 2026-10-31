@@ -63,9 +63,14 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
 - [x] Reproduce Cargo's legitimate executable hardlink and repair the handoff
       to strict distributed-artifact admission through a bounded stable copy.
       All 19 packaging tests and the actual tiny offline Cargo reproducer pass.
-- [ ] Verify the repaired handoff in both full optimized native builds. The
-      first x64 compiler succeeded, then packaging rejected its internal alias;
-      no optimized runtime pass has been established by that failed job.
+- [x] Verify the repaired handoff through both full optimized native compilers
+      at a3ca1a1a8. Preserve both outputs; their subsequent 192 MiB size-bound
+      failure is distinct from the repaired Cargo alias handoff.
+- [x] Reproduce the observed 350950272-byte packaging failure in Python and Node,
+      admit both measured outputs under a finite 384 MiB ceiling, and retain
+      oversize/alias/platform/concurrent-change and raised-ceiling refusals.
+- [ ] Complete optimized artifact and installed-runtime gates after that repair;
+      no complete optimized distribution pass has yet been established.
 - [x] Reproduce native database redirection through private sqlite_home,
       command-line sqlite_home and separate log_dir configuration using actual
       metadata requests. Six proposed guard filesystem tests pass.

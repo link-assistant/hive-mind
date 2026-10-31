@@ -5,7 +5,7 @@
   "version": "0.164.0",
   "rustToolchain": "1.99.1",
   "profile": "release",
-  "maxBinaryBytes": 201326592,
+  "maxBinaryBytes": 402653184,
   "steps": ["adapter", "coordination", "cached_reads", "session_index", "maintenance", "message_history", "refresh_intent", "request_auth", "tui_message_history", "identity_publication", "rollout_paths", "migration_journals", "sqlite_authority", "limits_generation"],
   "inputs": {
     "apply_adapter.py": "26c6bd319b5b54301d6a890e4131286b927823c15b27c1d2857fac9b40bb6f14",

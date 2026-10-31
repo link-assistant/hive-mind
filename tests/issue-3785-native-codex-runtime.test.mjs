@@ -45,6 +45,28 @@ test('complete packaging identities publish one verified idempotent generation',
   assert.equal((await fs.readdir(f.root)).filter(name => name.startsWith('.hive-native-codex-')).length, 1);
 });
 
+test('observed optimized native size installs and verifies with bounded reads', { timeout: 45000, skip: !supported }, async t => {
+  // The optimized x64 output from run 41189998708 is this large. Synthetic
+  // sparse bytes verify actual package installation; they are never executed.
+  const binaryBytes = 350950272;
+  const f = await packagingFixture(t, { binaryBytes });
+  const ready = await f.api.installNativeCodexRuntime({ destination: f.destination });
+  assert.equal((await fs.stat(ready.entrypoint)).size, binaryBytes);
+  assert.equal((await f.api.verifyNativeCodexRuntime(f.destination)).entrypoint, ready.entrypoint);
+  assert.equal((await fs.stat(ready.entrypoint)).nlink, 1);
+  assert.notEqual((await fs.stat(ready.entrypoint)).ino, (await fs.stat(path.join(f.runtime, 'codex'))).ino);
+});
+
+test('an artifact cannot raise the installer binary size ceiling', { timeout: 10000, skip: !supported }, async t => {
+  const f = await packagingFixture(t, { maxBinaryBytes: 402653185 });
+  await assert.rejects(f.api.installNativeCodexRuntime({ destination: f.destination }), /execution were refused/u);
+  await assert.rejects(fs.lstat(f.destination), { code: 'ENOENT' });
+  assert.equal(
+    (await fs.readdir(f.root)).some(name => name.startsWith('.hive-native-codex-')),
+    false
+  );
+});
+
 test('changed native generation and alias payload refuse while source stays healthy', { timeout: 10000, skip: !supported }, async t => {
   const f = await packagingFixture(t);
   const ready = await f.api.installNativeCodexRuntime({ destination: f.destination });

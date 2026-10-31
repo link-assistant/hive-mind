@@ -131,3 +131,7 @@ and substituted backing before execution. Require actual native root/two-peer
 replacement, logout, reauthentication and private-home disposal controls in
 both daemon image checks. Default selection, migration and full history remain
 unfinished.
+
+Admit measured optimized Codex executables within a finite 384 MiB package and
+installer size ceiling, with a full-size packaging regression and preserved
+platform, alias and recipe-ceiling refusals.

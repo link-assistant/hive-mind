@@ -61,7 +61,7 @@ async function recipe(platform) {
   if (process.platform !== 'linux' || !['linux-x64', 'linux-arm64'].includes(selected) || platform !== selected) throw refusal();
   const input = await read(path.join(bundled, 'recipe.json'));
   const data = JSON.parse(input.bytes);
-  if (data.schema !== 1 || data.version !== '0.164.0' || data.profile !== 'release' || !data.targets[platform] || !Number.isSafeInteger(data.maxBinaryBytes) || data.maxBinaryBytes <= 0 || data.maxBinaryBytes > 201326592) throw refusal();
+  if (data.schema !== 1 || data.version !== '0.164.0' || data.profile !== 'release' || !data.targets[platform] || !Number.isSafeInteger(data.maxBinaryBytes) || data.maxBinaryBytes <= 0 || data.maxBinaryBytes > 402653184) throw refusal();
   const files = new Set(['codex', 'manifest.json', 'source.json', 'recipe.json']);
   for (const name of Object.keys(data.licenses)) {
     if (!safeName(name) || !/^[a-f0-9]{64}$/u.test(data.licenses[name])) throw refusal();

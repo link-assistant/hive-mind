@@ -95,6 +95,8 @@ model_provider = "offline"
 chatgpt_base_url = "http://127.0.0.1:{server.server_port}/backend-api"
 approval_policy = "never"
 sandbox_mode = "read-only"
+[analytics]
+enabled = false
 [features]
 remote_plugin = false
 apps = false

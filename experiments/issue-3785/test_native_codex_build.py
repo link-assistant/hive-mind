@@ -161,6 +161,18 @@ class NativeCompilerOutput(unittest.TestCase):
         self.assertEqual(self.executed, [self.output / "codex"])
         BUILD.verify_artifact(self.output, self.recipe, self.digest, "linux-x64", executable=True)
 
+    def test_observed_optimized_size_survives_copy_and_artifact_admission(self):
+        # Exact byte size of the preserved x64 release output from run
+        # 41189998708. Sparse ELF-shaped bytes exercise packaging, not execution.
+        observed_size = 350950272
+        with self.binary.open("r+b") as output:
+            output.truncate(observed_size)
+        self.build()
+        self.assertEqual((self.output / "codex").stat().st_size, observed_size)
+        self.assertEqual(self.binary.stat().st_nlink, 2)
+        self.assertEqual((self.output / "codex").stat().st_nlink, 1)
+        BUILD.verify_artifact(self.output, self.recipe, self.digest, "linux-x64", executable=True)
+
     def test_copy_is_private_before_admission_even_with_permissive_umask(self):
         original_read = os.read
 

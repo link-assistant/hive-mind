@@ -1244,3 +1244,13 @@ Latest CI continuation:
 - [ ] Complete child checkpoints/restores, concurrent children, remaining agent
       definitions, task/plan memory and production lifecycle/installations;
       healthy child recording is insufficient.
+
+- [x] Exercise actual delayed/interrupted history admission with the existing
+      canonical kernel lock: prove the native child waits on that exact inode,
+      then release it or kill/reap the waiting terminal and recover. Distinguish
+      this startup/discovery boundary from interrupted asynchronous resumeChat,
+      checkpoint publication and physical power-loss paths, which remain open.
+
+- [ ] Publish the delayed/interrupted lock admission controls after focused
+      checks; require their strict native before and both fresh-source controls
+      in new exact-head Node 24 CI. Preserve the current compiled CI first.

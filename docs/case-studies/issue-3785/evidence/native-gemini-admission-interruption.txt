@@ -1,0 +1,43 @@
+Actual native Gemini delayed/interrupted history admission
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local runtime: Node 26.12.1. Native production integration remains unfinished.
+
+Every control first completes a healthy actual native headless write_file edit
+and final inference, then deletes the complete private configuration home.
+
+--restorable-terminal-admission-lock release
+  Before, on the exact nineteen-stage package:
+    PASS: actual terminal startup/resume waits on the inspected canonical lock
+      without provider requests or protected project/audit changes.
+    FAIL: A delayed actual terminal resume must preserve original model history.
+  After, on the fresh twenty-two-stage package:
+    PASS: the same real lock wait, with unchanged preceding evidence.
+    PASS: release admits exactly one automatic native terminal request with
+      the original resumed model history and complete preceding audit.
+
+--restorable-terminal-admission-lock kill
+  On the fresh twenty-two-stage package:
+    PASS: actual terminal startup/resume waits on the inspected canonical lock
+      without provider requests or protected project/audit changes.
+    PASS: the waiting actual terminal is stopped and reaped before lock release;
+      its queued typed prompt causes no request. Complete preceding project,
+      checkpoint metadata and audit bytes remain identical.
+    PASS: another fresh actual native CLI recovers the original model history
+      and complete preceding audit. The canonical lock inode remains unchanged.
+
+The probe holds the existing canonical conversation .history.lock with flock.
+Bounded /proc descendant inspection requires the real native flock child to
+wait using fd 3 on that exact device/inode. Its native wait remains five seconds;
+the probe observes/releases or stops the process group within that bound.
+No native exports, SDK methods or source delay hooks are instrumented. Provider
+responses and credentials are synthetic; TLS remains verified and loopback-only.
+Heap/data, stack, diagnostic, request and phase bounds are finite.
+
+The existing terminal resume admission source repair suffices for the delayed
+control. These tests add regression evidence, without another native patch.
+Exact-head Node 24 CI for the newly added controls remains required. This covers
+startup/discovery at the real history lock, not interruption of an already
+pending asynchronous resumeChat, checkpoint publication or physical power loss.
+Those criteria and the broader all-six-tool production contract remain open.

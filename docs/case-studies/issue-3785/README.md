@@ -1181,3 +1181,12 @@ integration suites, packaged Docker verification, six Gemini jobs and three
 compiled Codex jobs. See [complete CI evidence](evidence/ci-b44086a4c.txt).
 That pushed commit precedes the terminal reopen/admission, headless checkpoint
 and child-directory repairs; those newer changes still require fresh CI.
+
+Actual native delayed/interrupted history admission now has separate
+[reproduction and verification evidence](evidence/native-gemini-admission-interruption.txt).
+A real terminal waits on the inspected canonical lock with no provider request
+or protected-state change; releasing it retains resumed history, while killing
+and reaping it permits a healthy fresh recovery with unchanged prior audit.
+The earlier package fails the delayed original-history assertion. This covers
+startup/discovery lock admission; asynchronous resume, publication interruption,
+physical power loss and production integration remain unfinished.

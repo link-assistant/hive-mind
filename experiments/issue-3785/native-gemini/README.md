@@ -1128,3 +1128,38 @@ Fresh reconstruction applies twenty-two checked stages and compares seventeen
 native files. See [child recording evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-subagent-history.txt).
 Child checkpoint/restore, concurrent writers, other native agents, complete
 lifecycle and production integration remain unfinished.
+
+## Delayed and interrupted canonical history admission
+
+`--restorable-terminal-admission-lock release|kill` first completes a healthy
+actual native headless edit. After deleting its entire private home, the probe
+holds the existing canonical conversation `.history.lock` using the same kernel
+lock primitive. The fresh actual terminal starts with `--resume` and an automatic
+prompt. Bounded `/proc` inspection requires its real descendant `flock` to be
+waiting with descriptor 3 on that exact device/inode. While held, no provider
+request or protected project, checkpoint metadata or audit change is allowed.
+
+The `release` control releases the lock before the native five-second wait
+expires, then requires exactly one automatic request with the original resumed
+model history and complete preceding audit. On the preceding nineteen-stage
+package, the healthy edit and blocked-admission assertions pass, then the strict
+original-history assertion fails. The existing terminal resume admission repair
+also repairs this delayed control; no additional native source mutation is used.
+
+The `kill` control queues a typed prompt, stops and reaps the terminal process
+group while its actual native lock operation is blocked, then releases the lock.
+Protected project, metadata and audit bytes must remain identical. Another fresh
+actual native CLI must recover the original model history and audit. Both
+controls pass on the fresh twenty-two-stage package.
+
+```sh
+for mode in release kill; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-terminal-admission-lock "$mode" --diagnostics "/tmp/gemini-admission-$mode.log"
+done
+```
+
+These controls cover delayed/interrupted startup and discovery at the real
+canonical history lock. They do not interrupt an already pending asynchronous
+`resumeChat`, checkpoint publication or physical power loss. Every native
+process retains the existing finite heap, data, stack, phase and output bounds;
+all process groups are reaped. See [admission evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-admission-interruption.txt).

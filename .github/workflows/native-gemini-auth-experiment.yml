@@ -17,6 +17,7 @@ on:
       - 'experiments/issue-3785/gemini_restorable_acp.py'
       - 'experiments/issue-3785/gemini_restorable_headless.py'
       - 'experiments/issue-3785/gemini_resume_refusal.py'
+      - 'experiments/issue-3785/gemini_resume_interruption.py'
       - 'experiments/issue-3785/gemini_subagent_history.py'
       - '.github/workflows/native-gemini-auth-experiment.yml'
   workflow_dispatch:
@@ -376,6 +377,14 @@ jobs:
           fi
           grep -F 'PASS: fresh actual native TUI restores the original project and conversation, then replays its stored native tool after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
           grep -F 'AssertionError: An automatic native terminal prompt must wait for resumed model history.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
+      - name: Reproduce original history loss after delayed native admission
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-admission-lock release --diagnostics "$RUNNER_TEMP/gemini-acp-admission-before.log" > "$RUNNER_TEMP/gemini-acp-admission-before-control.log" 2>&1; then
+            echo 'The delayed native terminal admission regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual terminal startup/resume waits on the inspected canonical lock without provider requests or protected project/audit changes.' "$RUNNER_TEMP/gemini-acp-admission-before-control.log"
+          grep -F 'AssertionError: A delayed actual terminal resume must preserve original model history.' "$RUNNER_TEMP/gemini-acp-admission-before-control.log"
       - name: Await native terminal resume before admitting prompts
         run: |
           python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
@@ -452,6 +461,11 @@ jobs:
           done
       - name: Refuse terminal resume while a real writer lives and recover after owner exit
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics "$RUNNER_TEMP/gemini-acp-resume-refusal.log" > "$RUNNER_TEMP/gemini-acp-resume-refusal-control.log" 2>&1
+      - name: Recover actual delayed and interrupted canonical history admission
+        run: |
+          for mode in release kill; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-admission-lock "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-admission-$mode.log" > "$RUNNER_TEMP/gemini-acp-admission-$mode-control.log" 2>&1
+          done
       - name: Preserve native metadata, terminal and authentication behavior
         run: |
           package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli

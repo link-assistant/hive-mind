@@ -652,6 +652,58 @@ Explicit Router selection reaches both probes; Agent/Codex overlays remain.
 A retained violation cancels once and bypasses ordinary version/Claude pipe
 fallback even after its file disappears. Strict before: 6 pass, 54 fail; paired
 after plus six ordinary credential-preservation controls: 66 pass. All 765
-affected tests pass. Complete native request authority, durable Router audit,
+affected test assertions pass. Complete native request authority, durable Router audit,
 production OAuth availability and six-tool canonical storage/migration remain
 OPEN. See `evidence/router-connection-lifetime.txt` for exact bounded evidence.
+
+Exact f7b1f506d development-byte Docker follow-up: the successful downloaded
+419,122,384-byte Codex binary also passes root plus two concurrent offline
+Docker peers for parent-backed auth replacement, task/root logout, peer/root
+reauthentication, in-place update and private-config disposal. The actual
+single-file-bind negative control retains retired bytes and refuses auth.
+All peers and fixtures are removed. This does not replace optimized, installed
+npm/image gates or default canonical activation. See
+`evidence/ci-f7b1f506d-codex-docker-auth.txt` for exact digest and bounded scope.
+
+Pinned optimized/package follow-up: both native architectures compile, assemble
+into the actual npm artifact and pass installed-command controls at f7b1f506d.
+The exact downloaded runtime artifacts independently pass full pinned
+source/recipe/compiler/license/binary verification. This resolves the prior
+ARM64 first-authentication failure; complete final image verification, SQLite
+operation lifetime and default six-tool canonical activation/migration remain
+OPEN. See `evidence/ci-f7b1f506d-native-release.txt` for exact evidence and scope.
+
+Combined Router verification follow-up: the complete default run finishes all
+765 files with one obsolete Agent command-syntax assertion failure. That
+assertion is replaced with actual child-environment/default-free-model coverage;
+the final Agent and connection-wrapper entrypoints pass 9 and 66 tests. The
+remaining 764 files pass in the full invocation. All final default files are
+verified across those runs; the original full command's nonzero exit is retained.
+See `evidence/router-combined-default-suite.txt` for exact digests and scope.
+
+Actual optimized native SQLite lifetime follow-up: after selected-directory
+rename/recreation or database-file replacement, the same live native CLI still
+lists old sections and writes a new section into the retired database. Both
+required-refusal controls fail before repair; both explicit negative controls
+prove actual native reads and writes. Startup admission does not satisfy this
+criterion. SQLite operation lifetime remains OPEN. See
+`evidence/native-sqlite-operation-before.txt` for exact digest and bounded scope.
+
+The f7b1f506d release image job subsequently fails during native Codex activation
+after Bun installation at Dockerfile:376 (release log lines 75257-75273). Both
+optimized architectures and npm-installed controls pass, but the final Docker
+image gate remains failing and unfinished. Investigate the actual Bun cache
+backend without weakening native package admission.
+
+Bun image-install follow-up: real Bun reproduces nlink=2 aliases for the pinned
+stock metadata and bundled native payload. All three images and the source
+package installer now select the copyfile backend; the actual bounded Bun/native
+activation control passes for every layout without weakening admission. Complete
+release-image CI remains pending. See `evidence/bun-native-install.txt`.
+
+The final Router/Agent/Bun default invocation finishes all 766 selected files.
+765 pass; the existing five-second help smoke test is the sole intermittent
+failure. Three exact-command repeats and the original three-case test then
+pass unchanged. The initial command remains recorded as exit 1. All affected
+Router, Agent and Bun tests pass, as do repository quality checks. See
+evidence/router-combined-default-suite.txt for exact hashes and limits.

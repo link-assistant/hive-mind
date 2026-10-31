@@ -1102,6 +1102,15 @@ Latest CI continuation:
       tracker disposal/resume and real terminal shell recall. Pass full repository
       formatting/ESLint, focused helper lint, secret scan and workflow checks.
 - [ ] Require exact-head Node 24 Git CI and the independent history-job partition.
+- [x] Observe successful Git, tracker and independent history-regression jobs at
+      40db3a6e3c0 in run 41150101913. Keep the still-running credential job and
+      complete workflow result separate from those passing jobs.
+- [x] Trace the actual terminal's missing checkpoint to a second native GitService
+      over startup's initialized private repository. Reproduce that refusal in a
+      focused native service control, then reuse the checked repository seal.
+- [x] Verify all 24 Git scenarios / 28 native process results and fourteen fresh
+      source files after service reuse. Local CI checks remain running before
+      committing; this stage does not persist native terminal restore metadata.
 - [ ] Reproduce actual terminal edit/checkpoint/restore metadata loss after a
       healthy acknowledged edit and private-home disposal, then preserve and
       validate every restorable-tool metadata generation at the native writers,

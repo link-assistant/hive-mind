@@ -804,3 +804,21 @@ Git migration, interrupted object publication, power loss, all backends and
 production installation remain unfinished. The adapter stays opt-in and does
 not complete A1–A12. See the separate Git evidence file for verified controls;
 fresh Node 24 Git CI remains required.
+
+The Git job subsequently passes Node 24 at `40db3a6e3c0acb1dfb19ac9a6f89d36251e0b2d2`
+in run 41150101913. The independent history-regression and tracker jobs also pass;
+the credential job is still running at this observation. The complete terminal
+edit control reveals an additional service-instance gap: the UI constructs its
+own `GitService` over startup's initialized repository. Its first snapshot/read
+refuses because the original binding admits only a fresh private repository.
+`apply_git_services.py` reuses the admitted repository and its configuration seal
+across checked service instances, including native repeated initialization.
+The resulting Git helper is
+`83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35`;
+the configuration helper is
+`3be27b9f5d2aba8b4456397fea5b418cea13a8ed6f5d7a6816191091052272b1`.
+Two added native controls cover the same Storage object and a separately
+initialized Storage object for the same private repository. A third control
+requires a fresh UI service to reject an injected executable Git filter.
+This extends the matrix to 24 scenarios / 28 bounded native processes.
+It does not persist terminal restore metadata or establish live approval safety.

@@ -34,7 +34,7 @@ def hashes():
 
 
 include_tracker = args.tracker or args.git
-stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects') if args.git else ())
+stages = ('history', 'artifacts', 'blobs', 'logger', 'shell_history') + (('tracker', 'tracker_admission', 'tracker_coordination') if include_tracker else ()) + (('git_history', 'git_configuration', 'git_objects', 'git_services') if args.git else ())
 for stage in stages:
     command = [sys.executable, str(here / ('apply_' + stage + '.py')), str(output)]
     before = hashes()

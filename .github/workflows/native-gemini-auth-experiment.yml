@@ -522,6 +522,17 @@ jobs:
         run: |
           python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
           python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce rejection of the actual UI Git service instance
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario same-storage-service --diagnostics "$RUNNER_TEMP/gemini-git-service-before.log" > "$RUNNER_TEMP/gemini-git-service-before-control.log" 2>&1; then
+            echo 'The native UI Git service regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'A native UI GitService must reuse its already initialized private repository.' "$RUNNER_TEMP/gemini-git-service-before-same-storage-service-owner.log"
+      - name: Reuse checked Git repositories across native UI service instances
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_services.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_services.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
       - name: Restore actual native checkpoints across disposal and concurrent private writers
         run: python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-git-after.log" > "$RUNNER_TEMP/gemini-git-after-control.log" 2>&1
       - name: Resume the complete native CLI with the same canonical Git head

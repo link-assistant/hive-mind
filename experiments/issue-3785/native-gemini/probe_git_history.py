@@ -19,7 +19,8 @@ parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 attacks = ('missing', 'missing-blob', 'symlink', 'hardlink', 'unsafe-mode', 'content-change',
            'oversized', 'alternates', 'pack', 'parent-replacement', 'root-replacement')
-scenarios = ('lifetime', 'private-filter', 'peer', 'concurrent', 'generations', 'project-separation',
+scenarios = ('lifetime', 'private-filter', 'same-private-filter', 'peer', 'concurrent', 'generations', 'project-separation',
+             'same-storage-service', 'same-private-service',
              'changed-selector', 'changed-service', 'foreign-repository', 'legacy') + tuple('unsafe-' + attack for attack in attacks)
 parser.add_argument('--scenario', choices=scenarios)
 args = parser.parse_args()
@@ -32,10 +33,13 @@ if manager_pin != '9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9
     helper_pin = hashlib.sha256((package / 'bundle/hive-gemini-git-history.mjs').read_bytes()).hexdigest()
     assert helper_pin in ('7be869f6383b20eb21f944d9665268aa169e22ba6696f32337e9a21d52d94dcd',
                           'f0573a298e7ebf4ced71dba4b3a90a4d2eac1ddf5be011a525b793530cf39e61',
-                          'bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83')
-    if helper_pin != '7be869f6383b20eb21f944d9665268aa169e22ba6696f32337e9a21d52d94dcd':
+                          'bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83',
+                          '83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35')
+    if helper_pin == '83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35':
+        assert hashlib.sha256((package / 'bundle/hive-gemini-git-configuration.mjs').read_bytes()).hexdigest() == '3be27b9f5d2aba8b4456397fea5b418cea13a8ed6f5d7a6816191091052272b1'
+    elif helper_pin != '7be869f6383b20eb21f944d9665268aa169e22ba6696f32337e9a21d52d94dcd':
         assert (package / 'bundle/hive-gemini-git-configuration.mjs').read_bytes() == (Path(__file__).parent / 'git_configuration.mjs').read_bytes()
-    if helper_pin == 'bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83':
+    if helper_pin in ('bad099a4e348abaf08d6f1295af6febc709b2c97a830cd048664a59dbab55e83', '83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35'):
         assert (package / 'bundle/hive-gemini-git-objects.mjs').read_bytes() == (Path(__file__).parent / 'git_objects.mjs').read_bytes()
     assert hashlib.sha256((package / 'bundle/hive-gemini-git-lock.mjs').read_bytes()).hexdigest() == '6271784aa3773fc3a54056bf1ce8fd7b1f2da3a813e01537c47bcbc6d674c568'
 suite_root = Path(tempfile.mkdtemp(prefix='hive-3785-gemini-git-'))
@@ -171,6 +175,26 @@ if (process.argv[2] === 'owner') {
     assert.equal(audit().at(-1), second);
     console.log('PASS: actual native Git separates canonical checkpoint history by real project root.');
   }
+  if (scenario === 'same-storage-service' || scenario === 'same-private-service') {
+    const storage = scenario === 'same-storage-service' ? service.storage : new Storage(workspace, 'SYNTHETIC_GIT_SESSION');
+    if (storage !== service.storage) await storage.initialize();
+    const peer = new GitService(workspace, storage);
+    await assert.doesNotReject(peer.getCurrentCommitHash(),
+      'A native UI GitService must reuse its already initialized private repository.');
+    assert.equal(await peer.getCurrentCommitHash(), second,
+      'A native UI GitService must reuse its already initialized private repository.');
+    await peer.initialize();
+    assert.equal(await peer.getCurrentCommitHash(), second);
+    await peer.restoreProjectFromSnapshot(first);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'SYNTHETIC FIRST 東京\n');
+    await peer.restoreProjectFromSnapshot(second);
+    fs.writeFileSync(file, 'SYNTHETIC UI THIRD\n');
+    const third = await peer.createFileSnapshot('SYNTHETIC UI third checkpoint');
+    assert.notEqual(third, second);
+    assert.equal(await service.getCurrentCommitHash(), third);
+    assert.deepEqual(audit().slice(1), [first, second, third]);
+    console.log('PASS: actual native UI GitService reuses the sealed private repository and extends its canonical history: ' + scenario);
+  }
   if (scenario === 'changed-selector' || scenario === 'changed-service' || scenario === 'foreign-repository') {
     const protectedBefore = fingerprint(process.env.GEMINI_HISTORY_HOME);
     if (scenario === 'changed-selector') process.env.GEMINI_HISTORY_HOME = path.join(root, 'unexpected');
@@ -210,7 +234,7 @@ if (process.argv[2] === 'owner') {
     assert.deepEqual(fingerprint(path.join(root, 'canonical')), protectedBefore);
     console.log('PASS: actual native Git refuses ' + attack + ' without changing canonical data.');
   }
-  if (scenario === 'private-filter') {
+  if (scenario === 'private-filter' || scenario === 'same-private-filter') {
     const protectedBefore = fingerprint(process.env.GEMINI_HISTORY_HOME);
     const witness = path.join(root, 'filter-executed');
     const filter = path.join(root, 'synthetic-filter.sh');
@@ -218,7 +242,8 @@ if (process.argv[2] === 'owner') {
     fs.appendFileSync(service.getHistoryDir() + '/.git/config', '\n[filter "synthetic"]\n\tclean = ' + filter + '\n\trequired = true\n');
     fs.writeFileSync(path.join(workspace, '.gitattributes'), '* filter=synthetic\n');
     fs.writeFileSync(file, 'SYNTHETIC MUST REFUSE\n');
-    await assert.rejects(service.createFileSnapshot('SYNTHETIC unsafe private Git configuration'),
+    const selected = scenario === 'same-private-filter' ? new GitService(workspace, service.storage) : service;
+    await assert.rejects(selected.createFileSnapshot('SYNTHETIC unsafe private Git configuration'),
       /Gemini canonical conversation history is unavailable or unsafe[.]/u,
       'Native Git checkpoint must refuse changed executable configuration before invoking a filter.').catch(error => {
         if (fs.existsSync(witness)) console.log('REPRODUCED: the actual native Git child executed the synthetic private configuration filter.');
@@ -227,7 +252,7 @@ if (process.argv[2] === 'owner') {
     assert.equal(fs.existsSync(witness), false, 'No unapproved Git filter may execute.');
     assert.deepEqual(fingerprint(process.env.GEMINI_HISTORY_HOME), protectedBefore,
       'Refused private executable configuration must preserve canonical history identities and bytes.');
-    console.log('PASS: actual native Git refuses changed executable configuration before invoking a filter.');
+    console.log('PASS: actual native Git refuses changed executable configuration before invoking a filter: ' + scenario);
   }
 } else {
   const { first, second } = JSON.parse(fs.readFileSync(path.join(root, 'handoff.json'), 'utf8'));

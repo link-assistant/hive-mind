@@ -83,6 +83,9 @@ O3/A2. Passing an experiment does not complete the six-tool acceptance inventory
       database leases, creation/recovery/cleanup and persisted file binding.
 - [ ] Complete all other native tools, migration, cleanup, Router and release
       lifecycle requirements in the main acceptance inventory.
+- [x] Reproduce and repair pending limits credential-generation races in cached
+      and direct usage/profile readers. All 32 new and 96 related Node tests/file
+      targets pass. Default canonical selection and native refresh remain open.
 - [ ] Wait for every exact-head CI job and preserve failures before further
       pushes. Keep the PR draft while any required criterion remains unfinished.
 

@@ -1,7 +1,7 @@
 /**
  * Caching for the Claude and Codex usage APIs (issue #2571).
  */
-import { open } from 'node:fs/promises';
+import { lstat, open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -46,7 +46,7 @@ async function credentialsVersion(path) {
     }
     const after = await handle.stat({ bigint: true });
     const identity = info => `${info.dev}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}:${info.size}`;
-    if (identity(before) !== identity(after)) return null;
+    if (identity(before) !== identity(after) || identity(after) !== identity(await lstat(path, { bigint: true }))) return null;
     return `${identity(after)}:${hash.digest('hex')}`;
   } catch {
     return null;
@@ -59,6 +59,15 @@ async function credentialsVersion(path) {
 // still be completing after stop(). Keep coalescing within its cache instance.
 const usageLimitsInFlightByCache = new WeakMap();
 
+export const changedLimitsAuthentication = () => ({ success: false, failureKind: 'auth', error: 'Authentication changed while reading limits. Please retry.' });
+
+// Take this snapshot before reading the bearer credential, then check it before
+// dispatch and after the complete response. Digests stay internal to this module.
+export async function captureLimitsAuthentication(credentialsPath, validateCredentials) {
+  const version = await credentialsVersion(credentialsPath);
+  return async () => version !== null && (!validateCredentials || (await validateCredentials())) && version === (await credentialsVersion(credentialsPath));
+}
+
 /**
  * Shared cache for the Claude and Codex usage APIs.
  *
@@ -67,7 +76,8 @@ const usageLimitsInFlightByCache = new WeakMap();
  * Before, only Claude errors containing "Rate limited" were cached — but the
  * 429 message says "has reached rate limit", so nothing was — and 401s were
  * never cached at all. Now:
- * - a 429 is cached for the longer of the usage TTL and Retry-After;
+ * - a 429 is cached for the longer of the usage TTL and Retry-After, unless
+ *   the credentials change;
  * - an auth failure is cached until the TTL ends or the credentials file
  *   changes (the CLI refreshed the token), whichever comes first;
  * - concurrent callers share one in-flight request.
@@ -79,8 +89,10 @@ const usageLimitsInFlightByCache = new WeakMap();
  * @param {boolean} params.verbose
  * @param {{get: Function, set: Function, delete: Function}} params.cache - The /limits cache
  * @param {number} params.ttlMs - TTL of a successful result
+ * @param {Function} [params.validateCredentials] - Revalidate selected storage before using or publishing a result
  */
-export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, verbose, cache, ttlMs: usageTtlMs }) {
+export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, verbose, cache, ttlMs: usageTtlMs, validateCredentials }) {
+  if (validateCredentials && !(await validateCredentials())) return { success: false, failureKind: 'auth', error: 'Authentication storage is unavailable or unsafe.' };
   let usageLimitsInFlight = usageLimitsInFlightByCache.get(cache);
   if (!usageLimitsInFlight) {
     usageLimitsInFlight = new Map();
@@ -97,22 +109,25 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
   }
   const failure = cache.get(`${key}-failure`);
   if (failure) {
-    if (failure.result.failureKind !== 'auth' || version === failure.credentialsVersion) {
+    if (version === failure.credentialsVersion) {
       if (verbose) console.log(`[VERBOSE] /limits-cache: Using cached ${key} ${failure.result.failureKind} failure (not calling the usage API again until ${new Date(failure.until).toISOString()})`);
       return failure.result;
     }
-    if (verbose) console.log(`[VERBOSE] /limits-cache: ${credentialsPath} changed since the ${key} auth failure, fetching again`);
+    if (verbose) console.log(`[VERBOSE] /limits-cache: ${credentialsPath} changed since the ${key} failure, fetching again`);
     cache.delete(`${key}-failure`);
   }
   const requestKey = `${key}:${version}`;
   if (usageLimitsInFlight.has(requestKey)) {
     if (verbose) console.log(`[VERBOSE] /limits-cache: Joining in-flight ${key} limits request`);
-    return usageLimitsInFlight.get(requestKey);
+    const result = await usageLimitsInFlight.get(requestKey);
+    return validateCredentials && !(await validateCredentials()) ? changedLimitsAuthentication() : result;
   }
   if (verbose) console.log(`[VERBOSE] /limits-cache: Cache miss for ${key} limits, fetching from API...`);
   const request = (async () => {
-    // Read the version before the request so a refresh during it is not missed.
+    // A retired request must neither reach the caller nor overwrite a newer
+    // generation's cache entry, even when its HTTP response was successful.
     const result = await fetchLimits();
+    if ((validateCredentials && !(await validateCredentials())) || version !== (await credentialsVersion(credentialsPath))) return changedLimitsAuthentication();
     if (result.success) {
       cache.set(key, { result, credentialsVersion: version }, usageTtlMs);
     } else if (result.failureKind === 'rate_limited' || result.failureKind === 'auth') {

@@ -9,10 +9,9 @@
  * See `docs/case-studies/issue-1793/`.
  */
 
-import { CACHE_TTL, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials, resolveLimitsCredentialPaths } from './limits.lib.mjs';
-import { selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
+import { CACHE_TTL, codexLimitsAuthAdmission, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials, resolveLimitsCredentialPaths } from './limits.lib.mjs';
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
-import { getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
+import { captureLimitsAuthentication, changedLimitsAuthentication, getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
 import { getSelectedRouterLimits } from './limits-router.lib.mjs';
 
 const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
@@ -98,6 +97,7 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
   try {
+    const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath);
     const credentials = await readCredentials(credentialsPath, verbose);
     if (!credentials) {
       return {
@@ -128,12 +128,14 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
       console.log(`[VERBOSE] /limits subscription: GET ${PROFILE_API_ENDPOINT}`);
     }
 
+    if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
     const response = await fetch(PROFILE_API_ENDPOINT, { method: 'GET', headers: requestHeaders, signal: AbortSignal.timeout(30000) });
     if (!response.ok) {
       if (verbose) {
         console.error(`[VERBOSE] /limits subscription HTTP ${response.status}`);
       }
       await response.body?.cancel();
+      if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
       return {
         success: false,
         error: `Failed to fetch Claude profile: HTTP ${response.status}`,
@@ -141,6 +143,7 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     }
 
     const data = await response.json();
+    if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
     const organization = data?.organization || {};
     const account = data?.account || {};
     // Entitlements from an authenticated profile take precedence over a label
@@ -244,6 +247,5 @@ export async function getCachedClaudeSubscription(verbose = false, { credentials
 export async function getCachedCodexSubscription(verbose = false, { authPath = resolveLimitsCredentialPaths().codex } = {}) {
   const routed = await getSelectedRouterLimits('codex', { verbose });
   if (routed) return routed;
-  if (selectedCodexAuthHome() && !(await readCodexAuth(authPath, verbose))) return { success: false, error: 'Could not read Codex authentication.', failureKind: 'auth' };
-  return getCachedUsageLimits({ key: 'codex-subscription', credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, fetchLimits: () => getCodexSubscriptionInfo({ verbose, authPath }) });
+  return getCachedUsageLimits({ key: 'codex-subscription', credentialsPath: authPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: codexLimitsAuthAdmission(authPath, verbose), fetchLimits: () => getCodexSubscriptionInfo({ verbose, authPath }) });
 }

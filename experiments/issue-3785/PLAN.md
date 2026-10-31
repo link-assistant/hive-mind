@@ -1430,3 +1430,9 @@ Latest CI continuation:
       verify a fresh full preparation plus 19 packaging and 17 Node tests.
 - [ ] Verify actual compiled and installed alias refusal in subsequent CI.
       Finish per-operation leases and all remaining canonical lifecycle work.
+- [x] Reproduce pending limits success/errors after credential deletion or
+      replacement, stale cache overwrite and selected-storage changes. Fail
+      seventeen cache regressions before repair and twelve direct-reader
+      regressions before their repair. Pass all 32 new and 96 related Node
+      tests/file targets, preserving newer cache entries and per-caller storage
+      admission. Default authority and coordinated refresh remain unfinished.

@@ -449,3 +449,12 @@ and Node tests pass after repair. A fresh pinned checkout reproduces the new
 34-file inventory. Both platform and installed-command CI require actual alias
 refusals, pending the next run. This does not establish per-operation leases or
 complete A3/A9. See `evidence/codex-sqlite-binding.txt`.
+
+A12 also has 32 pending-response and cache-generation controls. Seventeen
+initial regressions and twelve later direct-reader regressions fail before
+repair. Both providers now discard retired responses after logout/replacement,
+and old completions preserve newer cache entries. Selected Codex storage is
+admitted again before publication, including coalesced callers. All 96 related
+Node tests/file targets pass; HTTP is mocked and filesystem mutations are real.
+See `evidence/limits-request-generation.txt`. Default canonical selection,
+coordinated refresh and the other open A12/A2 criteria remain unfinished.

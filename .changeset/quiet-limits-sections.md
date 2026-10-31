@@ -107,3 +107,5 @@ Pin native Codex admission of final SQLite and log storage in the compiled relea
 Read Codex compiled model metadata with the task environment and actual selected binary. Admit selected native command bytes before discovery and use bundled metadata without loading account or private configuration.
 
 Refuse existing canonical Codex SQLite database and journal aliases, nonregular entries and independent writers during startup admission. Preserve healthy native files and outside evidence, and require actual symlink/hardlink controls in compiled and installed package checks.
+
+Discard pending usage and profile responses after credentials change, preserve newer limits cache entries when older requests finish last, and revalidate selected Codex storage before publishing a response. Invalidate cached rate-limit errors when accounts change.

@@ -1276,3 +1276,33 @@ guard still needs performance evaluation before production installation.
 Persisted fresh-process rollback authority, interruption/power-loss paths and
 complete native writer/production lifecycle coverage remain unfinished. See
 [streaming evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-stream-admission.txt).
+
+## Child checkpoints through fresh parent sessions
+
+`--history-subagent-restore` extends actual native child execution with a complete
+checkpoint lifecycle. Both `--history-subagent-engine legacy` and `agent` invoke
+the real generalist, execute `write_file`, finish the child and continue the
+parent. The control finds the acknowledged canonical pre-edit metadata and
+original parent model history, then deletes the whole private home.
+
+A fresh actual ACP loads the parent session and first verifies its full child
+result. `/restore` undoes both the edited file and a modified companion, using
+the retained Git snapshot without another inference. Its next real model request
+retains the original parent prompt and excludes the later prompt/child result.
+After deleting that second private home, a third actual native CLI resumes the
+same restored parent history. Both complete preceding audit prefixes remain
+retained through the cycle. Each engine passes five assertions and seven real
+loopback provider requests, with no native CLI/SDK instrumentation.
+
+```sh
+for engine in legacy agent; do
+  python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-restore --history-subagent-engine "$engine" --diagnostics "/tmp/gemini-child-restore-$engine.log"
+done
+```
+
+The fresh-source CI matrix includes both cycles, unselected agent-session child
+behavior and unsafe child-directory refusal in that engine. This adds coverage
+to the existing twenty-four source stages. It does not establish direct child
+continuation or concurrent-child correctness; remaining agent definitions, task
+memory and production lifecycle criteria remain unfinished. See
+[child restore evidence](../../../docs/case-studies/issue-3785/evidence/native-gemini-subagent-restore.txt).

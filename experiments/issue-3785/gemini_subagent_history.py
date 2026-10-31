@@ -22,6 +22,8 @@ def fingerprint(root):
 
 
 def child_tool_call(contents, first_prompt, workspace, phases, *, attack=None, history=None, session=None, root=None):
+    if phases.get('restoring'):
+        return None
     content = json.dumps(contents)
     root_request = first_prompt in content
     if root_request:
@@ -69,9 +71,12 @@ def child_tool_call(contents, first_prompt, workspace, phases, *, attack=None, h
 
 
 def verify_subagent_history(*, invoke, root, home, workspace, history, env, settings,
-                            diagnostics, models, first_prompt, session, phases, attack):
+                            diagnostics, models, first_prompt, session, phases, attack,
+                            restore=False, native=None, second_prompt=None):
     witness = workspace / 'native-child-witness.txt'
     witness.write_text('SYNTHETIC BEFORE CHILD EDIT 東京\n')
+    if restore:
+        (workspace / 'native-child-companion.txt').write_text('SYNTHETIC BEFORE CHILD EDIT 東京\n')
     code, output = invoke(diagnostics, env, ['--approval-mode', 'yolo', '--session-id', session,
                                            '--prompt', first_prompt])
     if attack:
@@ -110,6 +115,13 @@ def verify_subagent_history(*, invoke, root, home, workspace, history, env, sett
         return
     assert not list(home.rglob('*.jsonl')), 'Selected child transcripts must not have a private copy.'
     print('PASS: both actual root and child full conversations, including the native child tool call and final result, reside in canonical history.')
+    if restore:
+        from gemini_subagent_restore import verify_child_restore
+        verify_child_restore(invoke=invoke, native=native, root=root, home=home, workspace=workspace,
+                             history=history, env=env, settings=settings, diagnostics=diagnostics,
+                             models=models, first_prompt=first_prompt, second_prompt=second_prompt,
+                             session=session, phases=phases, records=records)
+        return
     shutil.rmtree(home)
     peer = root / 'subagent-resume-home'
     private = peer / '.gemini'

@@ -308,3 +308,13 @@ See `evidence/native-gemini-stream-admission.txt`. Full process-persistent audit
 authority, every writer and production lifecycle acceptance remain unfinished.
 All eight workflows pass at the preceding pushed head `533cc3a20c01`
 (`evidence/ci-533cc3a20.txt`); these newer stages require fresh exact-head CI.
+
+A9 child-checkpoint coverage now includes actual edits from both native headless
+engines, canonical pre-edit metadata, whole private-home disposal, a fresh ACP
+parent restore of project and model history without inference, and third-process
+resume after deleting the second home. Both complete prior root/child audit
+prefixes remain retained; each control passes five assertions and seven actual
+provider requests. See `evidence/native-gemini-subagent-restore.txt`. This extends
+verification of existing native repairs. Concurrent children, direct child
+continuation, remaining definitions/task memory and production lifecycle remain
+unfinished; the acceptance status is still partial.

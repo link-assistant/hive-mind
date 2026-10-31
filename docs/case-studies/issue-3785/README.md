@@ -1225,3 +1225,12 @@ checks, six Gemini jobs and all three compiled Codex jobs. See
 [complete CI evidence](evidence/ci-533cc3a20.txt). Those runs precede the new
 interruption controls and evidence/streaming repairs; fresh CI remains required
 for them, and the complete production acceptance inventory remains open.
+
+Child checkpoint verification also passes in both actual native headless engines:
+a real generalist edit leaves canonical pre-edit metadata, a fresh ACP parent
+restores project/model history after complete private-home disposal, and a third
+native CLI resumes after deleting the second home. Both complete audit prefixes
+are preserved. This extends lifecycle coverage without another source patch; see
+[child restore evidence](evidence/native-gemini-subagent-restore.txt). Concurrent
+children, direct child continuation and complete production acceptance remain
+unfinished.

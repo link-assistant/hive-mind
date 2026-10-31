@@ -33,6 +33,8 @@ parser.add_argument('package', type=Path)
 parser.add_argument('--diagnostics', type=Path, required=True)
 parser.add_argument('--history', action='store_true')
 parser.add_argument('--history-subagent', action='store_true')
+parser.add_argument('--history-subagent-restore', action='store_true')
+parser.add_argument('--history-subagent-engine', choices=('legacy', 'agent'))
 parser.add_argument('--history-live-rollback', action='store_true')
 parser.add_argument('--history-live-rollback-engine', choices=('legacy', 'agent', 'terminal', 'acp'))
 parser.add_argument('--history-live-summary', action='store_true')
@@ -77,7 +79,9 @@ args = parser.parse_args()
 assert not args.history_live_summary or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_summary'))
 assert not args.history_live_rollback or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_live_rollback', 'history_live_rollback_engine'))
 assert not args.history_live_rollback_engine or args.history_live_rollback
-assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_attack', 'private_history'))
+assert not args.history_subagent or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'history_subagent', 'history_subagent_restore', 'history_subagent_engine', 'history_subagent_attack', 'private_history'))
+assert not args.history_subagent_restore or args.history_subagent and not (args.history_subagent_attack or args.private_history)
+assert not args.history_subagent_engine or args.history_subagent
 assert not args.history_subagent_attack or args.history_subagent and not args.private_history
 assert not args.shell_history or args.history and not any(value for name, value in vars(args).items() if name not in ('package', 'diagnostics', 'history', 'shell_history', 'shell_history_attack'))
 assert not args.shell_history_attack or args.shell_history
@@ -382,6 +386,7 @@ try:
                         models.append({'operation': operation, 'first_prompt': first_prompt in content,
                                        'session_summary': payload['request']['contents'][0].get('parts', [{}])[0].get('text', '').startswith("Summarize the user's primary intent or goal"),
                                        'second_prompt': second_prompt in content,
+                                       'child_result': 'SYNTHETIC-GEMINI-CHILD-EDIT-COMPLETE' in content,
                                        'third_prompt': third_prompt in content,
                                        'prior_response': 'SYNTHETIC-GEMINI-COMPLETE' in content,
                                        'artifact_reference': '/tool-outputs/' in content,
@@ -740,9 +745,10 @@ try:
     if args.history_subagent:
         from gemini_subagent_history import verify_subagent_history
         verify_subagent_history(invoke=invoke, root=root, home=home, workspace=workspace,
-                                history=history, env={**env, 'GEMINI_CLI_EXP_AGENT': 'false'}, settings=settings,
+                                history=history, env={**env, 'GEMINI_CLI_EXP_AGENT': 'true' if args.history_subagent_engine == 'agent' else 'false'}, settings=settings,
                                 diagnostics=args.diagnostics, models=models, first_prompt=first_prompt,
-                                session=session, phases=subagent_phases, attack=args.history_subagent_attack)
+                                session=session, phases=subagent_phases, attack=args.history_subagent_attack,
+                                restore=args.history_subagent_restore, native=native, second_prompt=second_prompt)
         assert json.loads(auth.read_text()) == credentials
         assert (auth.stat().st_dev, auth.stat().st_ino) == auth_identity
         assert not errors, errors

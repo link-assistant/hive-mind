@@ -1306,3 +1306,15 @@ Latest CI continuation:
       locally, require an explicit pinned full-evidence suite at stage 23, and
       verify 65/65/69 checks across all three distinct native helper variants.
 - [ ] Publish the stage-specific suite selection and verify fresh exact-head CI.
+
+- [x] Verify actual child-edit checkpoints through fresh parent sessions in both
+      native headless engines. Each control completes real delegation/editing,
+      deletes its whole private home, restores project and parent model history
+      through ACP without inference, deletes that second home, then resumes in
+      a third real CLI while retaining complete root/child audit prefixes.
+      Both controls pass five assertions and seven actual provider requests.
+- [x] Preserve default legacy child behavior (3), unselected agent-session child
+      recording (2) and agent-session unsafe mode/symlink/parent replacement
+      refusal (1 each). No native source changes were required for this coverage.
+- [ ] Publish child restore and both-engine regression controls, require their
+      fresh-source CI results, and finish concurrent/remaining child lifecycle.

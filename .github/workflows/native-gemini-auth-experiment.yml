@@ -19,6 +19,7 @@ on:
       - 'experiments/issue-3785/gemini_resume_refusal.py'
       - 'experiments/issue-3785/gemini_resume_interruption.py'
       - 'experiments/issue-3785/gemini_subagent_history.py'
+      - 'experiments/issue-3785/gemini_subagent_restore.py'
       - 'experiments/issue-3785/gemini_live_audit.py'
       - 'experiments/issue-3785/gemini_live_audit_interactive.py'
       - 'experiments/issue-3785/gemini_live_summary.py'
@@ -517,6 +518,16 @@ jobs:
           python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh-control.log" 2>&1
           for engine in legacy agent; do
             python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh-control.log" 2>&1
+          done
+      - name: Restore actual child edits across private-home disposal in both native engines
+        run: |
+          package="$RUNNER_TEMP/gemini-acp-fresh-cli"
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-restore --history-subagent-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-child-restore-$engine.log" > "$RUNNER_TEMP/gemini-acp-child-restore-$engine-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-engine agent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-agent-private.log" > "$RUNNER_TEMP/gemini-acp-child-agent-private-control.log" 2>&1
+          for state in unsafe-mode symlink parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-engine agent --history-subagent-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-child-agent-$state.log" > "$RUNNER_TEMP/gemini-acp-child-agent-$state-control.log" 2>&1
           done
       - name: Refuse terminal resume while a real writer lives and recover after owner exit
         run: python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics "$RUNNER_TEMP/gemini-acp-resume-refusal.log" > "$RUNNER_TEMP/gemini-acp-resume-refusal-control.log" 2>&1

@@ -36,6 +36,10 @@ The standalone native guard compiles with rustc 1.99.1 under a finite memory
 limit; all six filesystem unit tests pass, with no skips.
 Logs: /tmp/issue-3785-recovery/codex-sqlite-authority-{apply-check,unit}.log
 
+The native experiment workflow now requires all three actual-CLI negative
+controls, a strict before failure and explicit after refusals. These new CI
+controls have not run yet; they do not change the distributed recipe.
+
 This is final-configuration admission only. The guard has not yet been wired
 into the distributed recipe or verified in the compiled actual CLI. SQLite
 operation leases, database file binding, root replacement during a running

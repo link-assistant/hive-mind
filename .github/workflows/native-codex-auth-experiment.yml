@@ -181,6 +181,10 @@ jobs:
           prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-journal-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-safety-tests.log" 2>&1
           rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_migration_stages.rs -o "$RUNNER_TEMP/canonical-migration-stage-tests"
           prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-stage-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-stage-tests.log" 2>&1
+      - name: Test final canonical SQLite configuration admission
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_sqlite_authority.rs -o "$RUNNER_TEMP/canonical-sqlite-authority-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-sqlite-authority-tests" --test-threads=1 > "$RUNNER_TEMP/native-sqlite-authority-tests.log" 2>&1
       - name: Test durable refresh intent storage and owner death
         run: python3 experiments/issue-3785/native-codex/build_refresh_intent_tests.py > "$RUNNER_TEMP/native-refresh-intent-storage.log" 2>&1
       - name: Install native Linux build prerequisites
@@ -314,6 +318,16 @@ jobs:
           for scenario in replacement logout refresh refresh-login refresh-logout cached-replacement cached-logout cached-malformed cached-permissions; do
             node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-intent-$scenario.log" 2>&1
           done
+      - name: Reproduce final native database configuration redirection
+        run: |
+          for scenario in configuration cli logs; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --expect-redirect > "$RUNNER_TEMP/native-sqlite-$scenario-before.log" 2>&1
+          done
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-regression.log" 2>&1; then
+            echo "The native SQLite authority regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Private configuration redirected acknowledged canonical SQLite storage.' "$RUNNER_TEMP/native-sqlite-regression.log"
       - name: Apply and build canonical request admission
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
@@ -321,8 +335,14 @@ jobs:
           python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_SOURCE"
           python3 experiments/issue-3785/native-codex/apply_rollout_paths.py "$NATIVE_SOURCE"
           python3 experiments/issue-3785/native-codex/apply_migration_journals.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_sqlite_authority.py "$NATIVE_SOURCE"
           cd "$NATIVE_SOURCE/codex-rs"
           cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify native database overrides refuse before opening storage
+        run: |
+          for scenario in configuration cli logs; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" > "$RUNNER_TEMP/native-sqlite-$scenario-after.log" 2>&1
+          done
       - name: Verify actual compression, canonical metadata and resume after disposal
         run: |
           python3 experiments/issue-3785/probe-codex-native-compression.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-compression-after.log" 2>&1
@@ -399,6 +419,7 @@ jobs:
             ${{ runner.temp }}/native-prompt-history-*.log
             ${{ runner.temp }}/native-tui-history-*.log
             ${{ runner.temp }}/native-session-index-tests.log
+            ${{ runner.temp }}/native-sqlite-*.log
             ${{ runner.temp }}/native-index-*.log
           if-no-files-found: ignore
           retention-days: 7

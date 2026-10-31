@@ -200,6 +200,11 @@ const clip = (value, max) => {
   const text = String(value).replace(/\s+/g, ' ').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 };
+// A compound command's exit code is its LAST command's, so shorten in the middle and keep the tail.
+const clipCommand = (value, max = 160) => {
+  const text = String(value).replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, Math.floor(max / 3))} … ${text.slice(text.length - (max - Math.floor(max / 3) - 3))}` : text;
+};
 
 const COUNT_SUMMARY_LINE = /^\d+ (errors?|warnings?|failed|failures?)(,? (and )?\d+ (errors?|warnings?))?\.?$/i;
 const ERROR_LINE = /\b(error|fail(ed|ure)?|fatal|exception|denied|not found|cannot|can't|unable|no such|invalid|refused|timed out)\b/i;
@@ -225,7 +230,7 @@ export const describeFinalToolResultFailure = ({ error, command = null, toolName
   const outputLines = lines.filter(Boolean);
   // Count summaries ("1 error", "2 errors and 1 warning") name no cause; the diagnostic above them does.
   const reasonLine = [...outputLines].reverse().find(line => ERROR_LINE.test(line) && !COUNT_SUMMARY_LINE.test(line)) || outputLines[outputLines.length - 1] || null;
-  const what = command ? `its last command \`${clip(command, 160)}\`` : toolName ? `its last ${toolName} tool call` : 'its last tool call';
+  const what = command ? `its last command \`${clipCommand(command)}\`` : toolName ? `its last ${toolName} tool call` : 'its last tool call';
   const how = exitMatch ? `exited with code ${exitMatch[1]}` : 'failed';
   const detail = reasonLine ? `: ${clip(reasonLine, 240)}` : ' without any output';
   return `Claude reported success, but ${what} ${how}${detail}`;
@@ -235,7 +240,7 @@ export const describeFinalToolResultFailure = ({ error, command = null, toolName
 export const formatFinalToolResultOutput = ({ error, toolUseId = null } = {}) => `   Full output of the failed tool call (${toolUseId || 'unknown id'}):\n${String(error).replace(/^/gm, '   │ ')}`;
 
 /** Issue #3922: why a non-zero final tool result did not fail an otherwise successful session. */
-export const describeBenignFinalToolResult = ({ command = null, category = null } = {}) => `ℹ️ The last tool call ${command ? `(\`${command}\`) ` : ''}exited non-zero (${category}: a status answer or a failure the AI handled itself, not a failed verification), so the successful session result stands.`;
+export const describeBenignFinalToolResult = ({ command = null, category = null } = {}) => `ℹ️ The last tool call ${command ? `(\`${clipCommand(command)}\`) ` : ''}exited non-zero (${category}: a status answer or a failure the AI handled itself, not a failed verification), so the successful session result stands.`;
 
 export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingInput, resultEventReceived }) => {
   return !commandFailed && !streamingInput && !resultEventReceived;

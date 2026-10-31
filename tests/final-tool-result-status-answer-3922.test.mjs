@@ -140,6 +140,8 @@ test('describeFinalToolResultFailure keeps the headline short and never flattens
   assert.equal(describeFinalToolResultFailure({ error: 'Exit code 127', toolName: 'Bash' }), 'Claude reported success, but its last Bash tool call exited with code 127 without any output');
   assert.equal(describeFinalToolResultFailure({ error: 'Permission denied for Write' }), 'Claude reported success, but its last tool call failed: Permission denied for Write');
   assert.ok(describeFinalToolResultFailure({ error: 'Exit code 1\nerror x', command: 'y'.repeat(500) }).length < 260);
+  // A compound command's exit code is its last command's, so a long command is shortened in the middle, keeping the tail.
+  assert.match(describeFinalToolResultFailure({ error: 'Exit code 1\nerror x', command: `${'a'.repeat(300)}; gh pr checks 414` }), /^Claude reported success, but its last command `a+ … a+; gh pr checks 414` exited with code 1: error x$/);
 });
 
 test('the terminal tool result names the command of the matching tool_use id only', () => {

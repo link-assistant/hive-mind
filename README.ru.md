@@ -592,7 +592,7 @@ Examples:
 там мажорные версии. Затем он передаёт issue в
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`. Подробнее см.
 [Автоматическое обновление зависимостей](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md#автоматическое-обновление-зависимостей).
-Перед анализом репозитория он сливает все открытые pull request от Dependabot, не дожидаясь CI/CD, а в issue просит исправить все ошибки, внесённые этими слияниями; `--no-merge-dependabot-prs` отключает этот шаг ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
+Перед анализом репозитория он сливает все открытые pull request от Dependabot, не дожидаясь CI/CD, а в issue просит исправить все ошибки, внесённые этими слияниями. Конфликтующие pull request'ы закрываются, если основная ветка уже содержит их обновления, а иначе пересоздаются через `@dependabot recreate` и вливаются ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)); `--no-merge-dependabot-prs` отключает этот шаг ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
 За один запуск требуется ровно один режим: `/fix` без режима или сразу с двумя отклоняется.
 
 Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` и

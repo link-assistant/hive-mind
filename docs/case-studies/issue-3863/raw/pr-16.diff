@@ -1,0 +1,13 @@
+diff --git a/scripts/unimedvl-requirements.txt b/scripts/unimedvl-requirements.txt
+index 6477c11..7794078 100644
+--- a/scripts/unimedvl-requirements.txt
++++ b/scripts/unimedvl-requirements.txt
+@@ -19,7 +19,7 @@
+ torch==2.6.0
+ torchvision==0.21.0
+ triton==3.2.0
+-transformers==4.49.0
++transformers==5.19.0
+ accelerate==1.7.0
+ safetensors==0.4.5
+ tokenizers==0.21.1

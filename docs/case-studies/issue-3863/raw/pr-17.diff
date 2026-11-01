@@ -1,0 +1,13 @@
+diff --git a/scripts/unimedvl-requirements.txt b/scripts/unimedvl-requirements.txt
+index 6477c11..29d950d 100644
+--- a/scripts/unimedvl-requirements.txt
++++ b/scripts/unimedvl-requirements.txt
+@@ -25,7 +25,7 @@ safetensors==0.4.5
+ tokenizers==0.21.1
+ sentencepiece==0.2.1
+ pillow==12.3.0
+-numpy==1.24.4
++numpy==2.2.6
+ opencv-python==4.8.1.78
+ einops==0.8.1
+ matplotlib==3.7.0

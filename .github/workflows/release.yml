@@ -399,7 +399,9 @@ jobs:
     uses: ./.github/workflows/native-codex-build.yml
   docker-pr-check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Issue #3785: builds take 16-25 min; the installed capability lifecycle
+    # gate adds ~4 min per Docker daemon layout (real CLI updates, Router).
+    timeout-minutes: 45
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits, native-codex-build]
     # Verify changed PR images and every publication candidate before npm release.
     if: |

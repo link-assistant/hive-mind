@@ -13,6 +13,7 @@ import { promisify } from 'node:util';
 import { startDetachedDockerPull } from '../src/docker-pull-detached.lib.mjs';
 import { TASK_IMAGE_PULL_TIMEOUT_MS } from '../src/task-image-refresh.lib.mjs';
 import { waitForPackagedDockerDaemon } from './docker-pr-daemon-ready.lib.mjs';
+import { resolveRouterSidecarImage } from '../src/router-isolation.lib.mjs';
 
 const execute = promisify(execFile);
 const docker = (args, budget = 60_000) => execute('docker', args, { maxBuffer: 1024 * 1024, signal: AbortSignal.timeout(budget) });
@@ -28,6 +29,13 @@ const claudeAuthScript = fileURLToPath(new URL('./verify-mounted-claude-auth.mjs
 const claudeHistoryScript = fileURLToPath(new URL('./verify-mounted-claude-history.mjs', import.meta.url));
 const claudeRefreshScript = fileURLToPath(new URL('./verify-mounted-claude-refresh.mjs', import.meta.url));
 const nativeRuntimeHelper = fileURLToPath(new URL('./mounted-native-runtime.lib.mjs', import.meta.url));
+// Issue #3785 (PR review): installed-tool capability lifecycle gate.
+const lifecycleScripts = ['verify-capability-lifecycle.mjs', 'capability-lifecycle-provider.lib.mjs', 'capability-lifecycle-state.lib.mjs'].map(name => [fileURLToPath(new URL(`./${name}`, import.meta.url)), `/${name}`]);
+const routerImage = resolveRouterSidecarImage(process.env);
+// The host daemon resolves Router bind sources on the host, so the lifecycle
+// fixture lives at the same absolute path on both sides.
+const lifecycleFixture = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-lifecycle-parent-'));
+await fs.chmod(lifecycleFixture, 0o777);
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
 try {
@@ -35,7 +43,7 @@ try {
   for (const directory of historyDirectories) await fs.mkdir(path.join(fixture, 'home/.codex', directory), { recursive: true });
   for (const relative of ['', 'home', 'home/.codex', ...historyDirectories.map(directory => `home/.codex/${directory}`)]) await fs.chmod(path.join(fixture, relative), 0o777);
   await fs.writeFile(path.join(fixture, 'home/.codex/auth.json'), '{"synthetic":"canonical"}', { mode: 0o644 });
-  for (const image of new Set([probeImage, geminiImage])) {
+  for (const image of new Set([probeImage, geminiImage, routerImage])) {
     try {
       await docker(['image', 'inspect', '--format', '{{.Id}}', image]);
     } catch {
@@ -44,6 +52,7 @@ try {
   }
   await docker(['image', 'save', '-o', path.join(fixture, 'probe-image.tar'), probeImage]);
   await docker(['image', 'save', '-o', path.join(fixture, 'gemini-image.tar'), geminiImage]);
+  await docker(['image', 'save', '-o', path.join(fixture, 'router-image.tar'), routerImage], 300_000);
   for (const [variant, image] of [
     ['host', `${process.env.IMAGE_NAME || 'konard/hive-mind'}:test`],
     ['nested', `${process.env.DIND_IMAGE_NAME || 'konard/hive-mind-dind'}:test`],
@@ -59,6 +68,8 @@ try {
       args.push('--mount', `type=bind,source=${claudeRefreshScript},target=/verify-mounted-claude-refresh.mjs,readonly`);
       args.push('--mount', `type=bind,source=${nativeRuntimeHelper},target=/mounted-native-runtime.lib.mjs,readonly`);
       args.push('--mount', `type=bind,source=${geminiFixture},target=/verify-gemini-storage-fixture,readonly`);
+      for (const [source, target] of lifecycleScripts) args.push('--mount', `type=bind,source=${source},target=${target},readonly`);
+      if (variant === 'host') args.push('--mount', `type=bind,source=${lifecycleFixture},target=${lifecycleFixture}`);
       if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
       else args.push('--privileged');
       args.push(image, 'sleep', 'infinity');
@@ -67,6 +78,7 @@ try {
       if (variant === 'nested') {
         await docker(['exec', name, 'docker', 'image', 'load', '-i', '/mount-fixture/probe-image.tar']);
         await docker(['exec', name, 'docker', 'image', 'load', '-i', '/mount-fixture/gemini-image.tar']);
+        await docker(['exec', name, 'docker', 'image', 'load', '-i', '/mount-fixture/router-image.tar'], 300_000);
       }
       const expectedHome = variant === 'host' ? path.join(fixture, 'home') : '/mount-fixture/home';
       const result = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_EXPECTED_HOME=${expectedHome}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-task-backing.mjs "$(command -v hive)"'], 120_000);
@@ -110,10 +122,21 @@ try {
       const geminiResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_GEMINI_IMAGE=${geminiImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, '--env', 'TMPDIR=/mount-fixture', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'HIVE_MOUNT_TEST_DIAGNOSTICS=1', name, 'bash', '-lc', geminiCommand], 360_000);
       process.stdout.write(`${variant}: ${geminiResult.stdout}`);
       for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
+      // Last: it installs previous CLI releases into its own synthetic home and
+      // restarts the Router sidecar on an internal-only upstream network.
+      const lifecycleParent = variant === 'host' ? lifecycleFixture : '/tmp';
+      const lifecycleResult = await docker(['exec', '--env', `HIVE_LIFECYCLE_FIXTURE=${lifecycleParent}`, '--env', 'HIVE_LIFECYCLE_BASELINE_HOME=/home/box', '--env', `HIVE_MIND_ROUTER_IMAGE=${routerImage}`, name, 'bash', '-lc', 'node --max-old-space-size=256 /verify-capability-lifecycle.mjs "$(command -v hive)"'], 1_200_000).catch(error => {
+        process.stdout.write(`${variant}: ${error.stdout ?? ''}`);
+        throw error;
+      });
+      process.stdout.write(`${variant}: ${lifecycleResult.stdout}`);
     } finally {
+      // The lifecycle gate's files belong to the container user.
+      await docker(['exec', name, 'bash', '-c', `rm -rf ${variant === 'host' ? lifecycleFixture : '/tmp'}/hive-capability-lifecycle-*`]).catch(() => {});
       await docker(['rm', '-f', name]).catch(() => {});
     }
   }
 } finally {
   await fs.rm(fixture, { recursive: true, force: true });
+  await fs.rm(lifecycleFixture, { recursive: true, force: true }).catch(error => process.stderr.write(`lifecycle fixture cleanup: ${error.code}\n`));
 }

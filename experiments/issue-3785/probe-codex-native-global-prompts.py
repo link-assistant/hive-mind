@@ -179,6 +179,7 @@ approval_policy = "never"
 sandbox_mode = "read-only"
 [features]
 remote_plugin = false
+plugins = false
 apps = false
 enable_request_compression = false
 [model_providers.offline]

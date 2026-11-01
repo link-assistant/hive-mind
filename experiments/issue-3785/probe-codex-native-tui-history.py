@@ -99,6 +99,7 @@ sandbox_mode = "read-only"
 enabled = false
 [features]
 remote_plugin = false
+plugins = false
 apps = false
 [model_providers.offline]
 name = "Offline"

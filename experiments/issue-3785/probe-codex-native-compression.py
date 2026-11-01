@@ -35,6 +35,7 @@ class Native:
 model_provider = "offline"
 [features]
 remote_plugin = false
+plugins = false
 apps = false
 [model_providers.offline]
 name = "Offline"

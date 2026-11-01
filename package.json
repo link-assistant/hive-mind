@@ -92,7 +92,7 @@
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.4.0",
     "lino-i18n": "^0.5.0",
-    "lino-objects-codec": "^0.9.4",
+    "lino-objects-codec": "^0.9.5",
     "secretlint": "^13.1.0",
     "semver": "^7.8.5",
     "smol-toml": "^1.9.1",

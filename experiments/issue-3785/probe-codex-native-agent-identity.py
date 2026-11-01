@@ -131,6 +131,7 @@ approval_policy = "never"
 sandbox_mode = "read-only"
 [features]
 remote_plugin = false
+plugins = false
 apps = false
 use_agent_identity = true
 [model_providers.offline]

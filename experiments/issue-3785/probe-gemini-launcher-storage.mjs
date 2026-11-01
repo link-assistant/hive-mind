@@ -7,6 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import console from 'node:console';
 import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
 const [moduleFile, executable] = process.argv.slice(2);
 assert.ok(moduleFile && executable);
@@ -37,7 +38,9 @@ globalThis.use = async name => {
   if (packageName === 'os') return { ...os, default: os };
   if (packageName === 'path') return { ...path, default: path };
   if (packageName === 'getenv') return (key, fallback) => process.env[key] ?? fallback;
-  return import(packageName);
+  // Resolve like the tested package does: this probe lives outside it and has
+  // no node_modules of its own (e.g. `links-notation` via lenv-reader).
+  return import(pathToFileURL(createRequire(path.resolve(moduleFile)).resolve(packageName)).href);
 };
 process.env.HIVE_MIND_MODELS_HOT_LOAD = '0';
 const { validateGeminiConnection, executeGeminiCommand } = await import(pathToFileURL(path.resolve(moduleFile)));

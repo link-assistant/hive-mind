@@ -14,7 +14,7 @@ async function fixture(t, scope, server) {
   t.after(() => rm(home, { recursive: true, force: true }));
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await mkdir(path.join(home, '.claude'), { recursive: true });
-  const codex = { features: { remote_plugin: false } };
+  const codex = { features: { remote_plugin: false, plugins: false } };
   if (scope === 'codex') codex.mcp_servers = { playwright: server };
   if (scope === 'profile') codex.profiles = { alternate: { mcp_servers: { playwright: server } } };
   await writeFile(path.join(home, '.codex/config.toml'), stringifyToml(codex));

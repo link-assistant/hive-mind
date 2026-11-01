@@ -110,8 +110,10 @@ export async function auditManagedAgentConfig({ tool = 'all', systemRoots = mana
       // A managed requirement can force remote sync even when user config says
       // false. An absent flag in a system default does not undo the user pin.
       for (const key of ['features', ...(requirements ? ['feature_requirements'] : [])]) {
-        const value = table(scope, key).remote_plugin;
-        if (value !== undefined && value !== false) report('codex', location, 'features.remote_plugin');
+        for (const feature of ['remote_plugin', 'plugins']) {
+          const value = table(scope, key)[feature];
+          if (value !== undefined && value !== false) report('codex', location, `features.${feature}`);
+        }
       }
     }
   };

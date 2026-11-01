@@ -61,6 +61,20 @@ export const AGENT_CONFIG_MINIMAL_ENV = Object.freeze({
 /** Codex `-c` overrides that keep the remote plugin catalog from re-syncing. */
 export const CODEX_REMOTE_PLUGIN_DISABLE_ARGS = Object.freeze(['-c', 'features.remote_plugin=false']);
 
+/**
+ * Issue #3785: `remote_plugin = false` alone is not a quiet baseline. Codex
+ * 0.164+ (`maybe_start_curated_repo_sync_for_config`) starts the local curated
+ * git sync exactly when plugins are enabled and the remote catalog is *not*
+ * active, cloning the whole curated marketplace (hundreds of SKILL.md files)
+ * into `CODEX_HOME/.tmp/plugins` on every model start. Only
+ * `features.plugins = false` prevents that; task scopes that selected plugins
+ * re-enable it inside their private CODEX_HOME.
+ */
+export const CODEX_PLUGIN_SYNC_DISABLE_ARGS = Object.freeze(['-c', 'features.plugins=false']);
+
+/** Native curated-sync artifacts relative to CODEX_HOME (Codex 0.164+). */
+export const CODEX_CURATED_SYNC_PATHS = Object.freeze(['.tmp/plugins', '.tmp/plugins.sha', '.tmp/plugins.sync.lock']);
+
 const LOG_PREFIX = 'agent-config-audit';
 
 const isTruthyFlag = value => value === '1' || value === 'true' || value === 'yes' || value === 'on';
@@ -278,6 +292,14 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
     const location = path.join(codexDir, 'plugins', 'marketplaces', marketplace.name);
     findings.push(makeFinding({ tool: 'codex', kind: 'marketplace', name: marketplace.name, location, detail: 'plugin marketplace checked out globally', repair: { type: 'remove-path', target: location } }));
   }
+  const syncNames = new Set(safeReadDir(fsImpl, path.join(codexDir, '.tmp'), { includeHidden: true }).map(entry => entry.name));
+  for (const relativePath of CODEX_CURATED_SYNC_PATHS) {
+    if (!syncNames.has(path.basename(relativePath))) continue;
+    const location = path.join(codexDir, relativePath);
+    // Cache presence is not enablement: report it as a catalog checkout, never
+    // as an installed plugin, and never read or run anything inside it.
+    findings.push(makeFinding({ tool: 'codex', kind: 'marketplace', name: `curated-sync:${relativePath}`, location, detail: 'curated plugin catalog synced into the global CODEX_HOME', repair: { type: 'remove-path', target: location } }));
+  }
   for (const [label, dir] of [
     ['codex', path.join(codexDir, 'skills')],
     ['agents', path.join(homeDir, '.agents', 'skills')],
@@ -322,6 +344,10 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
         for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {
           if (value && typeof value === 'object') remove('custom-agent', name, ['agents', name]);
         }
+        const pluginsFeature = configTable(scope, 'features').plugins;
+        if (pluginsFeature !== false && (prefix.length === 0 || pluginsFeature !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: pluginsFeature === undefined ? 'not pinned (Codex clones the curated plugin catalog on every model start)' : 'explicitly enabled globally', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'plugins', value: false } }));
+        }
         const remotePlugin = configTable(scope, 'features').remote_plugin;
         if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
           findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
@@ -329,6 +355,7 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
       }
     } else {
       findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
+      findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: 'config.toml missing (Codex clones the curated plugin catalog on every model start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'plugins', value: false } }));
     }
   }
   return findings;

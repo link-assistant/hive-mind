@@ -18,7 +18,7 @@ async function fixture(t) {
   await fs.mkdir(alternate);
   await fs.mkdir(path.join(home, '.claude'));
   for (const directory of [path.join(home, '.claude'), alternate]) await fs.writeFile(path.join(directory, 'settings.json'), JSON.stringify(claudeBaseline));
-  await fs.writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+  await fs.writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   return { root, home, alternate };
 }
 
@@ -32,7 +32,7 @@ for (const [tool, variable, relative] of [
     const bytes = relative.endsWith('.json') ? '{"mcpServers":{"rogue":{"command":"/usr/bin/false"}}}' : 'synthetic instruction';
     const target = path.join(alternate, relative);
     await fs.writeFile(target, bytes);
-    if (tool === 'codex') await fs.writeFile(path.join(alternate, 'config.toml'), '[features]\nremote_plugin = false\n');
+    if (tool === 'codex') await fs.writeFile(path.join(alternate, 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
     await assert.rejects(runAgentConfigAudit({ tool, homeDir: home, env: { [variable]: alternate }, autoRepair: false, requireClean: true }), /not clean/iu);
     assert.equal(await fs.readFile(target, 'utf8'), bytes);
   });
@@ -71,7 +71,7 @@ test('effective repairs preserve auth/history identities and unrelated settings'
   const before = await Promise.all([fs.stat(auth), fs.stat(history)]);
   const settings = path.join(alternate, 'settings.json');
   await fs.writeFile(settings, JSON.stringify({ ...claudeBaseline, model: 'synthetic-model', permissions: { deny: ['Read(secret)'] }, hooks: { SessionStart: [] } }));
-  await fs.writeFile(path.join(home, '.codex/config.toml'), 'notify = ["/usr/bin/false"]\n[features]\nremote_plugin = false\n');
+  await fs.writeFile(path.join(home, '.codex/config.toml'), 'notify = ["/usr/bin/false"]\n[features]\nremote_plugin = false\nplugins = false\n');
   const result = await runAgentConfigAudit({ homeDir: home, env: { CLAUDE_CONFIG_DIR: alternate }, requireClean: true });
   assert.equal(result.repaired.length, 2);
   assert.deepEqual(JSON.parse(await fs.readFile(settings, 'utf8')), { ...claudeBaseline, model: 'synthetic-model', permissions: { deny: ['Read(secret)'] } });
@@ -172,7 +172,7 @@ test('an effective Codex TOML repair preserves approved Playwright and synthetic
   const auth = path.join(alternate, 'auth.json');
   await fs.writeFile(auth, '{"synthetic":"preserve"}');
   const identity = await fs.stat(auth);
-  await fs.writeFile(target, 'model = "synthetic-model"\n[features]\nremote_plugin = false\n[mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
+  await fs.writeFile(target, 'model = "synthetic-model"\n[features]\nremote_plugin = false\nplugins = false\n[mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
   const result = await runAgentConfigAudit({ tool: 'codex', homeDir: home, env: { CODEX_HOME: alternate }, requireClean: true });
   assert.equal(result.repaired.length, 1);
   const content = await fs.readFile(target, 'utf8');

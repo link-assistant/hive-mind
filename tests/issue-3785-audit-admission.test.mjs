@@ -16,7 +16,7 @@ async function fixture(t) {
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await mkdir(path.join(home, '.claude'), { recursive: true });
   await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify(claudeBaseline));
-  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n');
+  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   return home;
 }
 
@@ -109,7 +109,7 @@ test('a clean initial audit is revalidated after yielding to verbose logging', a
 for (const declaration of ['mcp_servers = { rogue = { command = "/usr/bin/false" } }', 'mcp_servers.rogue.command = "/usr/bin/false"', '["mcp_servers"."rogue"]\ncommand = "/usr/bin/false"', '[mcp_servers."rogue.with.dot"]\ncommand = "/usr/bin/false"', '[mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[mcp_servers.rogue.env]\nSYNTHETIC = "remove with parent"', 'plugins = { "rogue@synthetic" = { enabled = true } }']) {
   test(`semantic TOML additions reject admission: ${declaration.split('\n')[0]}`, async t => {
     const home = await fixture(t);
-    const config = `${declaration}\n[features]\nremote_plugin = false\n`;
+    const config = `${declaration}\n[features]\nremote_plugin = false\nplugins = false\n`;
     const target = path.join(home, '.codex', 'config.toml');
     await writeFile(target, config);
     await assert.rejects(runAgentConfigAudit({ tool: 'codex', homeDir: home, autoRepair: false, requireClean: true }), /configuration.*not clean/i);
@@ -119,7 +119,7 @@ for (const declaration of ['mcp_servers = { rogue = { command = "/usr/bin/false"
   test(`semantic TOML additions can be repaired without retaining nested state: ${declaration.split('\n')[0]}`, async t => {
     const home = await fixture(t);
     const target = path.join(home, '.codex', 'config.toml');
-    await writeFile(target, `${declaration}\n[features]\nremote_plugin = false\n`);
+    await writeFile(target, `${declaration}\n[features]\nremote_plugin = false\nplugins = false\n`);
     await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
     const repaired = parseToml(await readFile(target, 'utf8'));
     assert.deepEqual(Object.keys(repaired.mcp_servers ?? {}), []);
@@ -128,7 +128,7 @@ for (const declaration of ['mcp_servers = { rogue = { command = "/usr/bin/false"
   });
 }
 
-for (const config of ['["features"]\nremote_plugin = false\n', '"features"."remote_plugin" = false\n', 'features = { "remote_plugin" = false }\n']) {
+for (const config of ['["features"]\nremote_plugin = false\n"plugins" = false\n', '"features"."remote_plugin" = false\n"features"."plugins" = false\n', 'features = { "remote_plugin" = false, plugins = false }\n']) {
   test(`a clean quoted feature pin needs no repair: ${config.trim()}`, async t => {
     const home = await fixture(t);
     const target = path.join(home, '.codex', 'config.toml');
@@ -142,7 +142,7 @@ for (const config of ['["features"]\nremote_plugin = false\n', '"features"."remo
 test('table-like text inside a multiline string is data and needs no repair', async t => {
   const home = await fixture(t);
   const target = path.join(home, '.codex', 'config.toml');
-  const config = `note = '''\n[plugins."example@synthetic"]\nenabled = true\n'''\n[features]\nremote_plugin = false\n`;
+  const config = `note = '''\n[plugins."example@synthetic"]\nenabled = true\n'''\n[features]\nremote_plugin = false\nplugins = false\n`;
   await writeFile(target, config);
   const result = await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
   assert.equal(result.findings.length, 0);
@@ -157,6 +157,7 @@ test('TOML repair preserves unrelated typed configuration and approved MCP setti
   const expected = parseToml(config, { integersAsBigInt: 'asNeeded' });
   delete expected.mcp_servers.rogue;
   expected.features.remote_plugin = false;
+  expected.features.plugins = false;
   await runAgentConfigAudit({ tool: 'codex', homeDir: home, requireClean: true });
   assert.deepEqual(parseToml(await readFile(target, 'utf8'), { integersAsBigInt: 'asNeeded' }), expected);
 });

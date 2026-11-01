@@ -14,7 +14,7 @@ async function fixture(t) {
   const selected = path.join(root, 'selected');
   for (const directory of [conventional, selected]) {
     await fs.mkdir(directory, { recursive: true });
-    await fs.writeFile(path.join(directory, 'config.toml'), '[features]\nremote_plugin = false\n');
+    await fs.writeFile(path.join(directory, 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   }
   const audit = options => runAgentConfigAudit({ tool: 'codex', homeDir, env: { CODEX_HOME: selected }, systemRoots: { codex: path.join(root, 'managed'), claude: path.join(root, 'unused') }, requireClean: true, ...options });
   return { root, conventional, selected, audit };

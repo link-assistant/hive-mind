@@ -52,7 +52,7 @@ import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
-import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
+import { CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
@@ -797,6 +797,11 @@ export const executeCodexCommand = async params => {
     // into the global ~/.codex, whatever the operator's config.toml says.
     for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
       codexArgs += ` ${shellQuote(arg)}`;
+    }
+    // Issue #3785: with no selected plugins, the plugin loader stays off so a
+    // model start cannot clone the curated marketplace into any CODEX_HOME.
+    if (!(capabilityPreflight?.plugins?.length > 0)) {
+      for (const arg of CODEX_PLUGIN_SYNC_DISABLE_ARGS) codexArgs += ` ${shellQuote(arg)}`;
     }
     if (argv.verbose) {
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });

@@ -14,7 +14,7 @@ async function fixture(t) {
   const home = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-stock-'));
   t.after(() => rm(home, { recursive: true, force: true }));
   await mkdir(path.join(home, '.codex', 'skills', '.system'), { recursive: true });
-  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n');
+  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   const auth = path.join(home, '.codex', 'auth.json');
   await writeFile(auth, 'protected-synthetic-auth', { mode: 0o600 });
   return { home, auth, stock: path.join(home, '.codex', 'skills', '.system') };
@@ -136,7 +136,7 @@ for (const missing of [false, true]) {
     await mkdir(path.join(home, '.codex'));
     await mkdir(path.join(home, '.claude'));
     await writeFile(path.join(home, '.claude/settings.json'), JSON.stringify({ syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } }));
-    await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+    await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
     const claude = path.join(home, 'claude');
     const codex = path.join(home, 'codex.mjs');
     await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.310 (Claude Code)"\n', { mode: 0o700 });

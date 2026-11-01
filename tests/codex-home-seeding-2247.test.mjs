@@ -58,7 +58,7 @@ import { CODEX_SEEDED_FILES, seedFormalAiClientHome, stripCodexMcpServers } from
   const copied = [];
   const written = [];
   const made = [];
-  const operatorConfig = '[mcp_servers.playwright]\ncommand = "npx"\n\n[features]\nremote_plugin = false\n';
+  const operatorConfig = '[mcp_servers.playwright]\ncommand = "npx"\n\n[features]\nremote_plugin = false\nplugins = false\n';
 
   const seeded = await seedFormalAiClientHome({
     client: { id: 'codex', global_configs: [{ format: 'toml', path: '.codex/config.toml' }] },

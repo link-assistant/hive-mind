@@ -685,12 +685,18 @@ export const setTomlTableBoolean = ({ config, table, key, value }) => {
 // local cleanup. Every repository scope therefore disables remote plugin sync;
 // explicitly selected providers are materialized from the inspected local
 // catalog instead (issues #2094 and #2254).
-const configureScopedPluginLoader = async ({ codexHome, plugins, log }) => {
+// Issue #3785: the operator baseline pins `features.plugins = false`, because
+// with plugins enabled and the remote catalog off Codex clones the curated
+// marketplace on every start. Only a scope that must discover or load selected
+// plugins re-enables the loader, and only inside its private CODEX_HOME.
+const configureScopedPluginLoader = async ({ codexHome, plugins, discovery = false, log }) => {
   const configPath = path.join(codexHome, 'config.toml');
   const config = await readIfPresent(configPath);
-  const nextConfig = setTomlTableBoolean({ config, table: 'features', key: 'remote_plugin', value: false });
+  const pluginsEnabled = discovery || plugins.length > 0;
+  let nextConfig = setTomlTableBoolean({ config, table: 'features', key: 'remote_plugin', value: false });
+  nextConfig = setTomlTableBoolean({ config: nextConfig, table: 'features', key: 'plugins', value: pluginsEnabled });
   if (nextConfig !== config) await fs.writeFile(configPath, nextConfig);
-  await log(`   🧭 Scoped Codex loader: remote_plugin=false; selected providers: ${plugins.join(', ') || 'none'}`, { verbose: true });
+  await log(`   🧭 Scoped Codex loader: remote_plugin=false, plugins=${pluginsEnabled}; selected providers: ${plugins.join(', ') || 'none'}`, { verbose: true });
 };
 
 // Runtime settings follow the operator config, but plugin declarations never
@@ -886,7 +892,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // link to its marketplace (issue #3785).
   const codexHome = await createScope({ baseCodexHome, owner, repo });
   await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
-  await configureScopedPluginLoader({ codexHome, plugins: [], log });
+  await configureScopedPluginLoader({ codexHome, plugins: [], discovery: hasRequirements, log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   let plugins = [];
   let providers = new Map();

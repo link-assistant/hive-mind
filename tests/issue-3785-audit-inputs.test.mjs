@@ -11,7 +11,7 @@ async function fixture(t) {
   t.after(() => rm(home, { recursive: true, force: true }));
   await mkdir(path.join(home, '.claude'), { recursive: true });
   await mkdir(path.join(home, '.codex'), { recursive: true });
-  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\n');
+  await writeFile(path.join(home, '.codex', 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   return home;
 }
 

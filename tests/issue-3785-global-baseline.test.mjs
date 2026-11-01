@@ -12,7 +12,7 @@ async function fixture(t) {
   t.after(() => rm(home, { recursive: true, force: true }));
   await mkdir(path.join(home, '.codex'), { recursive: true });
   await mkdir(path.join(home, '.claude'), { recursive: true });
-  await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\n');
+  await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
   return home;
 }
 
@@ -55,7 +55,7 @@ for (const declaration of ['notify = ["/usr/bin/false"]', 'developer_instruction
   test(`Codex inline global behavior is repaired: ${declaration.split('=')[0].trim()}`, async t => {
     const home = await fixture(t);
     const target = path.join(home, '.codex/config.toml');
-    await writeFile(target, `${declaration}\nmodel = "synthetic-model"\n[features]\nremote_plugin = false\n`);
+    await writeFile(target, `${declaration}\nmodel = "synthetic-model"\n[features]\nremote_plugin = false\nplugins = false\n`);
     await runAgentConfigAudit({ homeDir: home, requireClean: true });
     const actual = parseToml(await readFile(target, 'utf8'));
     assert.equal(actual[declaration.split('=')[0].trim()], undefined);
@@ -67,7 +67,7 @@ for (const declaration of ['notify = ["/usr/bin/false"]', 'developer_instruction
 test('Codex profiles cannot hide global registrations and hooks', async t => {
   const home = await fixture(t);
   const target = path.join(home, '.codex/config.toml');
-  await writeFile(target, '[features]\nremote_plugin = false\n[profiles.alternate]\nmodel = "synthetic-model"\nnotify = ["/usr/bin/false"]\n[profiles.alternate.mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[profiles.alternate.plugins.rogue]\nenabled = true\n[profiles.alternate.features]\nremote_plugin = true\n');
+  await writeFile(target, '[features]\nremote_plugin = false\nplugins = false\n[profiles.alternate]\nmodel = "synthetic-model"\nnotify = ["/usr/bin/false"]\n[profiles.alternate.mcp_servers.rogue]\ncommand = "/usr/bin/false"\n[profiles.alternate.plugins.rogue]\nenabled = true\n[profiles.alternate.features]\nremote_plugin = true\n');
   await runAgentConfigAudit({ homeDir: home, requireClean: true });
   const actual = parseToml(await readFile(target, 'utf8')).profiles.alternate;
   assert.equal(actual.model, 'synthetic-model');
@@ -80,7 +80,7 @@ test('Codex profiles cannot hide global registrations and hooks', async t => {
 test('Codex global agent declarations are removed while concurrency limits survive', async t => {
   const home = await fixture(t);
   const target = path.join(home, '.codex/config.toml');
-  await writeFile(target, '[features]\nremote_plugin = false\n[agents]\nmax_threads = 2\n[agents.worker]\ndescription = "synthetic global role"\nconfig_file = "/synthetic/worker.toml"\n');
+  await writeFile(target, '[features]\nremote_plugin = false\nplugins = false\n[agents]\nmax_threads = 2\n[agents.worker]\ndescription = "synthetic global role"\nconfig_file = "/synthetic/worker.toml"\n');
   await runAgentConfigAudit({ homeDir: home, requireClean: true });
   const actual = parseToml(await readFile(target, 'utf8')).agents;
   assert.equal(actual.max_threads, 2);
@@ -110,7 +110,7 @@ test('malformed hook manifest prevents unrelated repairs and keeps diagnostics c
   const target = path.join(home, '.codex/hooks.json');
   const input = '{"private-hook-sentinel":';
   const config = path.join(home, '.codex/config.toml');
-  const configBytes = 'notify = ["/usr/bin/false"]\n[features]\nremote_plugin = false\n';
+  const configBytes = 'notify = ["/usr/bin/false"]\n[features]\nremote_plugin = false\nplugins = false\n';
   await writeFile(target, input);
   await writeFile(config, configBytes);
   await assert.rejects(runAgentConfigAudit({ homeDir: home, requireClean: true }), error => /unsafe/i.test(error.message) && !error.message.includes('sentinel'));
@@ -121,7 +121,7 @@ test('malformed hook manifest prevents unrelated repairs and keeps diagnostics c
 test('clean profiles inherit disabled remote plugins without configuration rewrites', async t => {
   const home = await fixture(t);
   const target = path.join(home, '.codex/config.toml');
-  const input = '# retain operator comment\n[features]\nremote_plugin = false\n[profiles.alternate]\nmodel = "synthetic-model"\n[profiles.alternate.mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n';
+  const input = '# retain operator comment\n[features]\nremote_plugin = false\nplugins = false\n[profiles.alternate]\nmodel = "synthetic-model"\n[profiles.alternate.mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n';
   await writeFile(target, input);
   await runAgentConfigAudit({ homeDir: home, requireClean: true });
   assert.equal(await readFile(target, 'utf8'), input);

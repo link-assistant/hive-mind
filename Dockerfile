@@ -406,14 +406,17 @@ RUN if command -v codex &>/dev/null; then \
 # "openai-curated-remote" plugin catalog (Superpowers and friends) into
 # ~/.codex/plugins/cache on every start unless features.remote_plugin is false;
 # those skills force approval gates and multiply token usage in autonomous runs.
+# Issue #3785: remote_plugin=false alone makes Codex 0.164+ clone the whole
+# curated marketplace into ~/.codex/.tmp/plugins on every model start; only
+# plugins=false stops it. Task scopes that select plugins re-enable it privately.
 RUN if command -v codex &>/dev/null; then \
       mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
       if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
-        sed -i 's/^\[features\]$/[features]\nremote_plugin = false/' "$HOME/.codex/config.toml"; \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false\nplugins = false/' "$HOME/.codex/config.toml"; \
       else \
-        printf '\n[features]\nremote_plugin = false\n' >> "$HOME/.codex/config.toml"; \
+        printf '\n[features]\nremote_plugin = false\nplugins = false\n' >> "$HOME/.codex/config.toml"; \
       fi && \
-      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && grep -q '^plugins = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
     fi
 
 # Fail the image build if MCP registration is merely present but unavailable.

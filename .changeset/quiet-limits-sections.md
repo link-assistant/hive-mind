@@ -253,3 +253,5 @@ deduplicated, a newer or replacement login is adopted, cleared copies are
 superseded privately, and conflicting stores are refused rather than
 silently chosen. Direct tasks and `/limits` follow the same authority. Set
 `HIVE_MIND_CLAUDE_AUTH_AUTHORITY=conventional` to opt out.
+
+Stop the global Codex profile from repopulating with curated capabilities after deployment and model probes. With only `features.remote_plugin = false`, Codex 0.164+ starts its local curated marketplace sync, so every `codex exec` cloned more than 500 curated SKILL.md files into `~/.codex/.tmp/plugins`. The images, the runtime gate and the startup audit now also pin `features.plugins = false`. The audit reports and repairs an unpinned or enabled loader in the base config, profiles and managed layers, and removes the `.tmp/plugins` checkout as a catalog rather than an enabled plugin. Task scopes re-enable the loader only privately, and only when they must discover or load selected plugins.

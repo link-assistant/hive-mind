@@ -121,14 +121,17 @@ export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
+ * @param {string|null} ref - Commit SHA (preferred) or branch to read the workflow files at.
+ *   Issue #3922: pass the PR head SHA — a fork's branch name does not exist in the upstream
+ *   repository and the contents API answers 404, while the head SHA resolves there.
+ * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>, lookupFailed?: boolean, lookupError?: string, ref?: string|null}>}
  */
 export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false, ref = null) {
   try {
     // Issue #1503: Support querying workflow files from a specific branch (ref)
     const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : '';
     // List workflow files in .github/workflows/ (uses ref if provided, otherwise default branch)
-    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --paginate --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --paginate --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]'`);
     const files = JSON.parse(listJson.trim() || '[]');
 
     if (files.length === 0) {
@@ -184,7 +187,33 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error checking workflow PR triggers: ${error.message}`);
     }
-    // On error, assume workflows might have PR triggers (safer: avoids false positives)
-    return { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] };
+    // On error, assume workflows might have PR triggers (safer: avoids false positives).
+    // Issue #3922: say so — callers printed an empty "()" trigger list for this fallback.
+    const lookupError = summarizeLookupError(error);
+    return { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [], lookupFailed: true, lookupError, ref };
   }
 }
+
+const summarizeLookupError = error => {
+  const lines = `${error?.stderr || ''}\n${error?.message || ''}`
+    .split('\n')
+    .map(line => line.replace(/^gh:\s*/, '').trim())
+    .filter(line => line && !/^Command failed:/.test(line));
+  const line = lines[0] || 'unknown error';
+  return line.length > 200 ? `${line.slice(0, 199)}…` : line;
+};
+
+/**
+ * Issue #3922: human-readable list of the workflows that have PR/push triggers, or why the
+ * list is unknown, for the "workflows have PR/push triggers (…)" wait messages.
+ * @param {{workflows?: Array<{name: string}>, lookupFailed?: boolean, lookupError?: string, ref?: string|null}} prTriggers
+ * @returns {string}
+ */
+export const describeWorkflowTriggers = prTriggers => {
+  if (prTriggers?.lookupFailed) {
+    const at = prTriggers.ref ? ` at ${/^[0-9a-f]{40}$/i.test(prTriggers.ref) ? prTriggers.ref.slice(0, 7) : prTriggers.ref}` : '';
+    return `workflow files could not be read${at}: ${prTriggers.lookupError || 'unknown error'}; assuming they do`;
+  }
+  const names = (prTriggers?.workflows || []).map(workflow => workflow.name).filter(Boolean);
+  return names.length > 0 ? names.join(', ') : 'none listed';
+};

@@ -615,8 +615,12 @@ See
 [Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
 for details. Before inspecting the repository it merges every open Dependabot
 pull request without waiting for CI/CD, and the issue asks the solver to fix
-every error those merges introduced; `--no-merge-dependabot-prs` skips this
-step ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
+every error those merges introduced. Conflicting pull requests are closed when
+the default branch already has their updates, and otherwise rebuilt with
+`@dependabot recreate` and merged
+([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863));
+`--no-merge-dependabot-prs` skips this step
+([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
 Exactly one mode is required per run: `/fix` with no mode, or with both, is
 rejected.
 

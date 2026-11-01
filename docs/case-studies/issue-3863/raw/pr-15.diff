@@ -1,0 +1,12 @@
+diff --git a/scripts/unimedvl-requirements.txt b/scripts/unimedvl-requirements.txt
+index 6477c11..1c94a84 100644
+--- a/scripts/unimedvl-requirements.txt
++++ b/scripts/unimedvl-requirements.txt
+@@ -33,6 +33,6 @@ contourpy==1.3.2
+ cycler==0.12.1
+ fonttools==4.60.2
+ kiwisolver==1.4.8
+-packaging==25.0
++packaging==26.3
+ pyparsing==3.2.3
+ python-dateutil==2.9.0.post0

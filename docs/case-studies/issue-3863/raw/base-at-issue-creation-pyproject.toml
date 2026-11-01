@@ -1,0 +1,219 @@
+[build-system]
+requires = ["hatchling>=1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "medical-neural-network-ml"
+version = "0.1.0"
+description = "Medical model benchmarks, resource estimates and research tools"
+readme = "README.md"
+license = "Unlicense"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+requires-python = ">=3.11"
+authors = [
+    {name = "Konard"},
+]
+keywords = ["medical", "benchmark", "mlx", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.17.1,<0.18",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pre-commit>=4.7.0",
+    "scriv[toml]>=1.8.0",
+    "pillow>=13.0.0",
+]
+imaging = [
+    "pillow>=13.0.0",
+]
+mlx = [
+    "mlx-vlm==0.7.9; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+# Sphinx 9.1 needs Python 3.12 or newer, so this extra does too (issue #19);
+# docs.yml builds on 3.15.
+docs = [
+    "sphinx>=9.1.0",
+    "furo>=2025.12.19",
+    "myst-parser>=5.1.0",
+]
+
+[project.scripts]
+medbench = "medbench.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/konard/medical-neural-network-ml"
+Repository = "https://github.com/konard/medical-neural-network-ml"
+Issues = "https://github.com/konard/medical-neural-network-ml/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/my_package", "src/medbench"]
+
+# Hatchling would otherwise put every file Git does not ignore into the sdist
+# (CI logs, experiments, workflows). Keep it to what builds the wheel plus the
+# changelog; pyproject.toml, README.md, .gitignore and the license files are
+# always added. scripts/check_distribution.py enforces the result (issue #8).
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+# ruff 0.16+ also formats Python blocks in Markdown. Captured CI logs and
+# case-study data are evidence, as in .pre-commit-config.yaml's exclude.
+extend-exclude = ["dev/log", "docs/case-studies/**/data"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "T10",    # flake8-debugger
+    "EM",     # flake8-errmsg
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "PIE",    # flake8-pie
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate
+    "PL",     # pylint
+    "PERF",   # perflint
+    "NPY",    # NumPy 2 API (NPY201 is the migration guide's own check)
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "PLR0913", # too many arguments
+    "PLR0917", # too many positional arguments (same policy as PLR0913)
+    "PLR2004", # magic value comparison
+    "ISC001", # conflicts with the formatter's implicit string concatenation
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Optional heavy dependencies (torch, transformers, mlx, PIL, accelerate,
+# huggingface_hub) and Unix-only modules are imported inside the function that
+# needs them, so the package and the scripts import without those extras.
+"{src/medbench/backends.py,src/medbench/cli.py,src/medbench/mlx_backend.py,src/medbench/monitor.py,src/medbench/real_data.py,scripts/measure_training_memory.py,scripts/medbench-mlx-run.py,scripts/unimedvl_server.py,experiments/issue19_unimedvl_cpu_smoke.py,experiments/issue21_unimedvl_cross_stack.py,tests/test_unimedvl_attention.py,tests/test_unimedvl_upstream.py}" = [
+    "PLC0415", # import-outside-top-level
+]
+"tests/**/*.py" = [
+    "S101",    # allow assert in tests
+    "ARG",     # allow unused arguments in tests
+    "PLR2004", # allow magic values in tests
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+# Optional numerical packages can have stubs for newer Python versions than
+# our runtime target. Check our typed adapter boundary without traversing them.
+module = [
+    "torch", "transformers", "mlx.*", "mlx_vlm.*", "numpy", "numpy.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+# pytest 9's native TOML table. `strict` turns on every strictness option
+# (unknown config keys, unregistered markers, non-strict xfail, duplicate
+# parametrize ids), including ones added in later releases.
+[tool.pytest]
+minversion = "9.1"
+addopts = ["-ra", "-q"]
+strict = true
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "model: needs a running model server or downloaded weights (opt-in)",
+    "gpu: needs an NVIDIA GPU (self-hosted runner)",
+    "network: downloads the real sample files (opt-in, MEDBENCH_NETWORK_TESTS=1)",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+# pytest-cov 7 dropped its own subprocess measurement; this replaces it, so
+# `python -m medbench.cli` started by the tests counts too.
+patch = ["subprocess"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+
+# Scriv configuration for changelog management
+# Similar to @changesets/cli but for Python projects
+[tool.scriv]
+# Fragment format (markdown for better GitHub compatibility)
+format = "md"
+# Fragment directory
+fragment_directory = "changelog.d"
+# Changelog file
+output_file = "CHANGELOG.md"
+# Categories for changelog entries
+categories = [
+    "Removed",
+    "Added",
+    "Changed",
+    "Deprecated",
+    "Fixed",
+    "Security",
+]
+# Scriv supplies the Markdown heading marks; keep the title text separate.
+md_header_level = 2
+entry_title_template = "[{{ version }}] - {{ date.strftime('%Y-%m-%d') }}"
+# Insert marker (where new entries go)
+insert_marker = "<!-- scriv-insert-here -->"
+# Main branch name
+main_branches = ["main"]
+# New fragment template
+new_fragment_template = """file:changelog.d/fragment_template.md.j2
+"""

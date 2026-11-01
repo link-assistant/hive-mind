@@ -7,6 +7,7 @@ import { prepareToolDataMount, toolDataMount } from './tool-data-mounts.lib.mjs'
 import { prepareStorageDirectory } from './storage-directory.lib.mjs';
 import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
 import { resolveClaudeConfigDirectory } from './claude-paths.lib.mjs';
+import { ensureClaudeAuthAuthority } from './claude-auth-authority.lib.mjs';
 
 export const DOCKER_CONTAINER_HOME = '/home/box';
 function normalizeTool(tool) {
@@ -146,6 +147,9 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   if (useRouter) return { created, missingAuth };
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
+  // Issue #3785: move a conventional Claude credential file into the shared
+  // authority so the task shares its refresh locks, not only its bytes.
+  if (normalizedTool === 'claude') await ensureClaudeAuthAuthority({ env, homeDir, establish: true, io: fsImpl.promises });
   const nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });
   if (data) return { ...data, missingAuth };

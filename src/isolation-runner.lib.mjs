@@ -421,10 +421,11 @@ export async function executeWithIsolation(command, args, options = {}) {
       effectiveOptions.nativeAuthIdentity = prepared.nativeAuthIdentity;
       for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
       for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
-    } catch {
+    } catch (error) {
       await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
       await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
-      return failLaunch('Shared tool storage preparation failed. Verify persisted authentication/history backing and Docker support for selected native storage before retrying.');
+      // Authority errors name paths and the operator action, never credential contents.
+      return failLaunch(error?.name === 'ClaudeAuthAuthorityError' ? error.message : 'Shared tool storage preparation failed. Verify persisted authentication/history backing and Docker support for selected native storage before retrying.');
     }
   }
   // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still

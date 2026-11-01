@@ -241,3 +241,14 @@ Exercise actual native conversation resume and external credential publication
 with two live Docker peers; require the installed-image control in both daemon
 layouts. Default migration, concurrent native refresh and the complete storage
 lifecycle remain unfinished.
+
+Share Claude's native credential parent and refresh locks by default. Docker
+preparation moves the conventional credential file into a private
+`.hive-mind-auth/claude` authority within the selected configuration root, then
+projects that parent through the native secure-storage selector so root and
+tasks coordinate on the same `.oauth_refresh.lock`, while configuration stays
+private. Existing installations migrate automatically. Identical copies are
+deduplicated, a newer or replacement login is adopted, cleared copies are
+superseded privately, and conflicting stores are refused rather than
+silently chosen. Direct tasks and `/limits` follow the same authority. Set
+`HIVE_MIND_CLAUDE_AUTH_AUTHORITY=conventional` to opt out.

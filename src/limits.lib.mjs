@@ -5,6 +5,7 @@
  */
 
 import { resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { resolveClaudeAuthorityCredentialsPath } from './claude-auth-authority.lib.mjs';
 import { assertAdmittedClaudeAuth, CLAUDE_AUTH_IDENTITY, selectedClaudeAuthHome } from './claude-canonical-auth.lib.mjs';
 import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 import { exec } from 'node:child_process';
@@ -693,9 +694,11 @@ export async function getDiskSpaceInfo(verbose = false) {
  * @param {string} credentialsPath - Optional path to credentials file
  * @returns {Object} Object with success boolean, and either usage data or error message
  */
-export async function getClaudeUsageLimits(verbose = false, credentialsPath = resolveLimitsCredentialPaths().claude) {
+export async function getClaudeUsageLimits(verbose = false, credentialsPath) {
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
+  // Issue #3785: the default follows the shared credential authority once established.
+  credentialsPath ??= await resolveClaudeAuthorityCredentialsPath();
   try {
     const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath, claudeLimitsAuthAdmission(credentialsPath, verbose));
     // Read credentials
@@ -1234,9 +1237,11 @@ export function resetLimitCache() {
   }
 }
 // See: https://github.com/link-assistant/hive-mind/issues/1074, #1446, #1798, #2571
-export async function getCachedClaudeLimits(verbose = false, { credentialsPath = resolveLimitsCredentialPaths().claude, fetchLimits = () => getClaudeUsageLimits(verbose, credentialsPath) } = {}) {
+export async function getCachedClaudeLimits(verbose = false, { credentialsPath, fetchLimits } = {}) {
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
+  credentialsPath ??= await resolveClaudeAuthorityCredentialsPath();
+  fetchLimits ??= () => getClaudeUsageLimits(verbose, credentialsPath);
   return getCachedUsageLimits({ key: 'claude', fetchLimits, credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: claudeLimitsAuthAdmission(credentialsPath, verbose) });
 }
 

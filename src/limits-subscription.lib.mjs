@@ -9,6 +9,7 @@
  * See `docs/case-studies/issue-1793/`.
  */
 
+import { resolveClaudeAuthorityCredentialsPath } from './claude-auth-authority.lib.mjs';
 import { CACHE_TTL, claudeLimitsAuthAdmission, codexLimitsAuthAdmission, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials, resolveLimitsCredentialPaths } from './limits.lib.mjs';
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { captureLimitsAuthentication, changedLimitsAuthentication, getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
@@ -93,9 +94,10 @@ export function formatSubscriptionHeading(provider, subscription, options = {}) 
  * @param {string} opts.credentialsPath - Override Claude credentials path
  * @returns {Object} `{ success, subscription? , error? }`
  */
-export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPath = resolveLimitsCredentialPaths().claude } = {}) {
+export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPath } = {}) {
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
+  credentialsPath ??= await resolveClaudeAuthorityCredentialsPath();
   try {
     const authenticationUnchanged = await captureLimitsAuthentication(credentialsPath, claudeLimitsAuthAdmission(credentialsPath, verbose));
     const credentials = await readCredentials(credentialsPath, verbose);
@@ -234,9 +236,10 @@ export async function getCodexSubscriptionInfo({ verbose = false, authPath = res
  * Cached Claude subscription metadata. Uses the same 20-minute
  * TTL as `/limits` so we don't add traffic to the Anthropic OAuth API.
  */
-export async function getCachedClaudeSubscription(verbose = false, { credentialsPath = resolveLimitsCredentialPaths().claude } = {}) {
+export async function getCachedClaudeSubscription(verbose = false, { credentialsPath } = {}) {
   const routed = await getSelectedRouterLimits('claude', { verbose });
   if (routed) return routed;
+  credentialsPath ??= await resolveClaudeAuthorityCredentialsPath();
   return getCachedUsageLimits({ key: 'claude-subscription', credentialsPath, verbose, cache: getLimitCache(), ttlMs: CACHE_TTL.USAGE_API, validateCredentials: claudeLimitsAuthAdmission(credentialsPath, verbose), fetchLimits: () => getClaudeSubscriptionInfo({ verbose, credentialsPath }) });
 }
 

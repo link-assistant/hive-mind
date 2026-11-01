@@ -136,8 +136,9 @@ Admit measured optimized Codex executables within a finite 384 MiB package and
 installer size ceiling, with a full-size packaging regression and preserved
 platform, alias and recipe-ceiling refusals.
 
-Refresh all image and runtime Formal AI bootstrap pins to published 0.355.27
-after the dependency-freshness gate rejected the previous version.
+Refresh all image and runtime Formal AI bootstrap pins to published 0.355.28,
+and the image start-command pins to 0.41.0 (its new mode is opt-in), after the
+dependency-freshness gate rejected the previous versions.
 
 Project explicitly selected dedicated Claude credential parents into Docker
 tasks, revalidate launch identity in limits/profile/cache readers and before

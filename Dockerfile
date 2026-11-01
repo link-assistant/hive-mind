@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.27
+ARG FORMAL_AI_VERSION=0.355.28
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -271,7 +271,7 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.40.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.41.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -365,7 +365,7 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
     fi && \
     bun install --backend=copyfile -g @link-assistant/claude-profiles && \
     bun install --backend=copyfile -g @link-assistant/agent@0.27.0 && \
-    bun install --backend=copyfile -g start-command@0.40.0 && \
+    bun install --backend=copyfile -g start-command@0.41.0 && \
     bun install --backend=copyfile -g gh-setup-git-identity && \
     bun install --backend=copyfile -g gh-pull-all && \
     bun install --backend=copyfile -g gh-load-issue && \

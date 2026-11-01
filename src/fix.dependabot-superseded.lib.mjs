@@ -152,7 +152,7 @@ export function parseDependencyLine(line) {
     return requirement ? { name: match[1].toLowerCase(), requirement } : null;
   }
 
-  match = /^['"]?([A-Za-z0-9][\w.-]*(?:\[[^\]]*\])?)\s*((?:===|==|>=|<=|~=|!=|>|<)\s*[^'";#\s]+(?:\s*,\s*(?:===|==|>=|<=|~=|!=|>|<)\s*[^'";#\s,]+)*)['"]?\s*,?(?:\s*;.*)?(?:\s+#.*)?$/.exec(text);
+  match = /^['"]?([A-Za-z0-9][\w.-]*(?:\[[^\]]*\])?)\s*((?:===|==|>=|<=|~=|!=|>|<)\s*[^'";#\s,<>=!~][^'";#\s,]*(?:\s*,\s*(?:===|==|>=|<=|~=|!=|>|<)\s*[^'";#\s,<>=!~][^'";#\s,]*)*)['"]?\s*,?(?:\s*;.*)?(?:\s+#.*)?$/.exec(text);
   if (match) {
     const requirement = parseRequirement(match[2]);
     return requirement ? { name: normalizeDependencyName(match[1]), requirement } : null;

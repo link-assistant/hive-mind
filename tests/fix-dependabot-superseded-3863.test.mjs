@@ -91,6 +91,15 @@ test('dependency lines of the common ecosystems are parsed', () => {
   assert.ok(!requirementSatisfies(parseRequirement('>=1.13.0,<2.0'), parseRequirement('>=1.13.0,<3.0')), 'a lower upper bound does not');
 });
 
+test('requirement lines that never match are rejected in linear time (CodeQL js/redos)', () => {
+  // The pip-style pattern used to backtrack exponentially here: 20 repetitions took ~360ms, each extra one doubled it.
+  const started = Date.now();
+  assert.equal(parseDependencyLine(`0>!,${'<=!,'.repeat(60)}"x"`), null);
+  assert.equal(parseDependencyLine(`0>!,${'<=!,'.repeat(60)}#`), null);
+  assert.ok(Date.now() - started < 500, `took ${Date.now() - started}ms`);
+  assert.deepEqual(parseDependencyLine('pkg[extra] >= 1.0 , <2 ; python_version<"3.9"'), { name: 'pkg', requirement: { lower: '1.0', upper: '2' } });
+});
+
 test('all five pull requests of the incident are superseded by main', () => {
   const dependencies = collectDependencies(baseFiles['scripts/unimedvl-requirements.txt']);
   assert.ok(dependencies.has('numpy'));

@@ -16,11 +16,15 @@ function normalizeTool(tool) {
     .toLowerCase();
 }
 const historyUnavailable = tool => new Error(`Canonical ${tool === 'codex' ? 'Codex' : 'Claude'} history storage is unavailable; private fallback is prohibited.`);
+// An unsafe selected Claude root is refused as unavailable history before the credential authority touches it.
+function claudeHistoryRoot(env, homeDir) {
+  const configuration = resolveClaudeConfigDirectory(env, homeDir);
+  if (!path.isAbsolute(configuration) || path.normalize(configuration) !== configuration || /[\0\r\n,:]/u.test(configuration)) throw historyUnavailable('claude');
+  return configuration;
+}
 function toolMountSource(entry, tool, env, homeDir) {
   if (tool !== 'claude' || entry.role !== 'sessions') return path.join(homeDir, entry.relativePath);
-  const configuration = resolveClaudeConfigDirectory(env, homeDir);
-  if (!path.isAbsolute(configuration) || path.normalize(configuration) !== configuration || /[\0\r\n,:]/u.test(configuration)) throw historyUnavailable(tool);
-  return path.join(configuration, path.basename(entry.relativePath));
+  return path.join(claudeHistoryRoot(env, homeDir), path.basename(entry.relativePath));
 }
 const nativeStorageSelectors = new Map([
   ['codex', ['CODEX_AUTH_HOME', 'CODEX_SQLITE_HOME', 'CODEX_ROLLOUT_HOME', 'CODEX_SESSION_INDEX_HOME', 'CODEX_MESSAGE_HISTORY_HOME', 'CODEX_ROLLOUT_MAINTENANCE_HOME']],
@@ -103,6 +107,7 @@ export async function getDockerIsolationAuthMounts({ tool = 'claude', env = proc
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
   admitNativeStorageProjection(normalizedTool, env, useRouter);
+  if (normalizedTool === 'claude' && !useRouter) claudeHistoryRoot(env, homeDir);
   const nativeAuth = !useRouter && (await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir, expectedIdentity: nativeAuthIdentity }));
   const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
   if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
@@ -149,6 +154,7 @@ export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir
   admitNativeStorageProjection(normalizedTool, env, useRouter);
   // Issue #3785: move a conventional Claude credential file into the shared
   // authority so the task shares its refresh locks, not only its bytes.
+  if (normalizedTool === 'claude') claudeHistoryRoot(env, homeDir);
   if (normalizedTool === 'claude') await ensureClaudeAuthAuthority({ env, homeDir, establish: true, io: fsImpl.promises });
   const nativeAuth = await nativeAuthDockerProjection({ tool: normalizedTool, env, homeDir });
   const data = await prepareToolDataMount({ tool: normalizedTool, homeDir, env, io: fsImpl.promises });

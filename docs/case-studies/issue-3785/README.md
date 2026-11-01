@@ -1313,3 +1313,59 @@ reuse after owner death under the strict synthetic provider contract. Both
 pinned and latest native versions fail that criterion; no native repair or
 supported replay guarantee has arrived upstream. See the
 [updated blocker evidence](evidence/claude-2.1.316-owner-death.txt).
+
+### Installed capability lifecycle (PR review 6559288409)
+
+A one-time cleanup was not evidence against recurrence. Three native mechanisms
+repopulated the global profiles after deployment probes:
+
+- Codex 0.164+ with only `features.remote_plugin = false` still runs the local
+  curated marketplace sync. Every model start cloned more than 500 curated
+  `SKILL.md` files into `~/.codex/.tmp/plugins`.
+- The stable, default-on `features.apps` attaches the hosted `codex_apps` MCP
+  server with `POST chatgpt.com/backend-api/ps/mcp` on every start.
+- Claude's account skill/plugin sync downloads account skills into
+  `~/.claude/skills` unless `syncClaudeAiSkills`/`syncClaudeAiPlugins` are
+  `false`.
+
+The global baseline now pins `plugins = false` and `apps = false` beside
+`remote_plugin = false`, alongside the Claude cloud policy. The audit reports
+and repairs each of these. It reports catalogs and caches as catalogs, never
+as enabled plugins. Task scopes re-enable the Codex loader only privately, and
+only for selected plugins.
+
+The new installed-tool gate, `scripts/verify-capability-lifecycle.mjs`, is
+required in both Docker daemon layouts.
+
+- **How it runs:** it drives the real installed `claude`, `codex` and `hive`
+  with synthetic credentials. A loopback provider answers every Anthropic and
+  OpenAI API, OAuth and account host, and only download hosts are tunnelled.
+  The provider deliberately answers Claude's account-sync gates as an enabled
+  Max account.
+- **Phases:**
+  - deployment version, login, MCP and model probes;
+  - a positive control without the pins, which reproduces account sync,
+    the curated clone and hosted connectors;
+  - real CLI updates from the previous stable releases;
+  - task completion with a private Codex capability scope;
+  - root restart;
+  - a Router sidecar restart on an internal-only upstream network;
+  - a restore from the maintenance archive, followed by the next native start.
+- **Checks:** after each phase it requires all of the following:
+  - an empty manifest from an independent scanner;
+  - a clean strict audit;
+  - no capability traffic;
+  - canonical auth and history with unchanged bytes and file identity
+    (appended history is allowed).
+
+Capability configuration and canonical auth/history are therefore checked
+independently. Both local runs pass:
+
+- Run A covered every phase, including the Router restart.
+- Run B updated Claude 2.1.315→2.1.316 and Codex 0.165.0→0.166.0 through the
+  production updater.
+
+See the [lifecycle evidence](evidence/capability-lifecycle-gate.txt). Neither
+`claude install` nor `claude update` changed the canonical credentials under
+the gate. The Claude store that was empty after redeploy still needs an
+operator re-login.

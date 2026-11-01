@@ -255,3 +255,14 @@ silently chosen. Direct tasks and `/limits` follow the same authority. Set
 `HIVE_MIND_CLAUDE_AUTH_AUTHORITY=conventional` to opt out.
 
 Stop the global Codex profile from repopulating with curated capabilities after deployment and model probes. With only `features.remote_plugin = false`, Codex 0.164+ starts its local curated marketplace sync, so every `codex exec` cloned more than 500 curated SKILL.md files into `~/.codex/.tmp/plugins`. The images, the runtime gate and the startup audit now also pin `features.plugins = false`. The audit reports and repairs an unpinned or enabled loader in the base config, profiles and managed layers, and removes the `.tmp/plugins` checkout as a catalog rather than an enabled plugin. Task scopes re-enable the loader only privately, and only when they must discover or load selected plugins.
+
+Also pin `features.apps = false` in the global Codex profile. Otherwise the default-on hosted `codex_apps` connector server attaches on every model start. Docker PR verification now runs an installed capability lifecycle gate in both daemon layouts. It drives the real Claude and Codex CLIs with synthetic credentials behind a loopback provider, covering:
+
+- deployment probes;
+- account and curated sync, through a positive control without the pins;
+- real CLI updates;
+- task completion;
+- root and Router restarts;
+- maintenance-archive restore.
+
+After each phase, the gate requires an empty capability manifest, a clean audit, no capability traffic, and unchanged canonical auth and history.

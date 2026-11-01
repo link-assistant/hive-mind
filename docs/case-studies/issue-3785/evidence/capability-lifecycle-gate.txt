@@ -1,0 +1,78 @@
+Issue #3785 PR review (comment 6559288409): installed capability lifecycle gate
+================================================================================
+Gate: scripts/verify-capability-lifecycle.mjs (+ capability-lifecycle-state.lib.mjs,
+capability-lifecycle-provider.lib.mjs). Required in docker-pr-check for both the
+host-socket and the nested Docker daemon images (scripts/docker-pr-verify-mount-backing.mjs).
+
+Local runs below: 2026-11-01, Linux, installed hive from this branch, real
+installed claude 2.1.316 / codex 0.166.0, synthetic credentials only. Every
+Anthropic/OpenAI API, OAuth and account host is answered by the loopback
+provider with a throwaway CA; only package/binary download hosts are tunnelled.
+The provider answers Claude's account-sync gates as if sync were enabled for a
+Max organization (forceAccountSync), so a clean result proves the local
+configuration alone keeps sync off. Output carries counts and synthetic names only.
+
+Checkpoint after every phase:
+  - capability manifest (independent scanner, names only, never reads contents) is empty
+  - production audit (runAgentConfigAudit, requireClean, no repair) has 0 findings
+  - 0 account-sync / curated-catalog / hosted-connector requests or tunnels
+  - canonical auth + history: same bytes and same inode/device; history journals
+    may only be appended to (restore phase: content only)
+
+Run A (all phases, CLIs already current; P3 updater had nothing to update)
+---------------------------------------------------------------------------
+✅ P0 baseline (Playwright-only, default Claude authority): capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P1 deployment version/login/MCP/model probes with forced account sync: capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P2 positive control (pre-#3785 home): 2 account-sync, 3 curated-catalog and 1 hosted-connector request(s); manifest 13 entries; audit 9 findings (claude:cloud-capabilities, claude:plugin, claude:skill, codex:curated-plugin-sync, codex:hosted-connectors, codex:marketplace), none claims a cached item is enabled
+✅ P2 repaired control: the next native Claude and Codex starts sent 0 capability requests and repopulated nothing (the persisted pins, not the cleanup, prevent recurrence)
+ℹ️  P3 updater: updated [], current [claude 2.1.316, codex 0.166.0]
+✅ P3 idle CLI updater (claude update / bun install -g): capability manifest empty, audit clean, 0 capability requests (0 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 first native start with the updated binaries: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P4 task completion (scoped Codex preflight + exec + dispose, Claude task): capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P5 root restart (startup audit admits unchanged) + native start: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P6 Router start/stop/start/stop: capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P6 native start after Router restart: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+ℹ️  P7 restore brought back 13 capability entries; startup audit repaired 9
+✅ P7 archive restore + startup audit: capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ capability lifecycle gate passed (no phase skipped)
+
+Run B (current gate: stage previous stable releases, then the real updater
+updates both; Router phase skipped locally because Run A covered it)
+---------------------------------------------------------------------------
+✅ P0 baseline (Playwright-only, default Claude authority): capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P1 deployment version/login/MCP/model probes with forced account sync: capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P2 positive control (pre-#3785 home): 2 account-sync, 3 curated-catalog and 1 hosted-connector request(s); manifest 13 entries; audit 9 findings (claude:cloud-capabilities, claude:plugin, claude:skill, codex:curated-plugin-sync, codex:hosted-connectors, codex:marketplace), none claims a cached item is enabled
+✅ P2 repaired control: the next native Claude and Codex starts sent 0 capability requests and repopulated nothing (the persisted pins, not the cleanup, prevent recurrence)
+✅ P3 previous CLI releases installed (claude 2.1.315, codex 0.165.0): capability manifest empty, audit clean, 0 capability requests (7 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 native start with the previous releases: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+ℹ️  P3 updater: updated [claude 2.1.315→2.1.316, codex 0.165.0→0.166.0], current []
+✅ P3 idle CLI updater (claude update / bun install -g): capability manifest empty, audit clean, 0 capability requests (6 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 first native start with the updated binaries: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P4 task completion (scoped Codex preflight + exec + dispose, Claude task): capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P5 root restart (startup audit admits unchanged) + native start: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+⏭️  P6 Router restart: SKIPPED by HIVE_LIFECYCLE_SKIP
+ℹ️  P7 restore brought back 13 capability entries; startup audit repaired 9
+✅ P7 archive restore + startup audit: capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ capability lifecycle gate passed (skipped: router)
+
+Observations
+------------
+- P2 (no Hive pins, same binaries, same provider) reproduces the reported
+  recurrence: Claude downloads the account skill (2 account-sync requests),
+  Codex clones the curated catalog through github.com and requests
+  plugins/featured (3), and features.apps attaches the hosted codex_apps MCP
+  server (POST chatgpt.com/backend-api/ps/mcp). After the audit repair the
+  very next native starts send 0 such requests and repopulate nothing.
+- Audit findings for catalogs/caches (codex:marketplace, codex:curated-plugin-sync,
+  claude:plugin) never describe a cached item as enabled.
+- `claude install <prev>` and `claude update` under the provider left the
+  canonical credentials file byte- and inode-identical. The empty Claude token
+  fields reported after the 2026-11-01 redeploy were already empty before it
+  and were not re-authenticated; this gate shows that neither the CLI installer
+  nor the updater, model/login probes, task completion or Router restart empty
+  them. Such a store needs an operator re-login (Hive reports re-auth required).
+- Unit coverage: tests/issue-3785-capability-lifecycle-state.test.mjs (8 cases:
+  manifest, canonical comparison incl. replaced inode / appended history,
+  traffic classification, provider MITM/refusal behaviour).

@@ -8,7 +8,7 @@
 #                                    into ~/.codex/.tmp/plugins (541 SKILL.md)
 #   remote_plugin=false, plugins=false -> no plugin paths created
 set -u
-for baseline in 'remote_plugin = false' $'remote_plugin = false\nplugins = false'; do
+for baseline in 'remote_plugin = false' $'remote_plugin = false\nplugins = false' $'remote_plugin = false\nplugins = false\napps = false'; do
   fixture=$(mktemp -d /tmp/hive-cap-probe.XXXXXX)
   home="$fixture/home"; mkdir -p "$home/.claude" "$home/.codex" "$fixture/work"
   printf '[features]\n%s\n' "$baseline" > "$home/.codex/config.toml"

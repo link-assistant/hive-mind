@@ -72,6 +72,15 @@ export const CODEX_REMOTE_PLUGIN_DISABLE_ARGS = Object.freeze(['-c', 'features.r
  */
 export const CODEX_PLUGIN_SYNC_DISABLE_ARGS = Object.freeze(['-c', 'features.plugins=false']);
 
+/**
+ * Issue #3785: `features.apps` is a stable, default-on Codex feature that adds
+ * the hosted ChatGPT connectors MCP server (`codex_apps`, POST
+ * chatgpt.com/backend-api/ps/mcp) to every start, so an operator account's
+ * connectors would reach tasks (the #2247 leak) despite the Playwright-only
+ * baseline. Only a task scope that selected plugins re-enables it privately.
+ */
+export const CODEX_HOSTED_APPS_DISABLE_ARGS = Object.freeze(['-c', 'features.apps=false']);
+
 /** Native curated-sync artifacts relative to CODEX_HOME (Codex 0.164+). */
 export const CODEX_CURATED_SYNC_PATHS = Object.freeze(['.tmp/plugins', '.tmp/plugins.sha', '.tmp/plugins.sync.lock']);
 
@@ -348,6 +357,10 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
         if (pluginsFeature !== false && (prefix.length === 0 || pluginsFeature !== undefined)) {
           findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: pluginsFeature === undefined ? 'not pinned (Codex clones the curated plugin catalog on every model start)' : 'explicitly enabled globally', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'plugins', value: false } }));
         }
+        const hostedApps = configTable(scope, 'features').apps;
+        if (hostedApps !== false && (prefix.length === 0 || hostedApps !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'hosted-connectors', name: 'features.apps', location: configPath, detail: hostedApps === undefined ? 'not pinned (Codex adds the hosted ChatGPT connectors MCP server on every start)' : 'explicitly enabled globally', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'apps', value: false } }));
+        }
         const remotePlugin = configTable(scope, 'features').remote_plugin;
         if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
           findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
@@ -356,6 +369,7 @@ const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers })
     } else {
       findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
       findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: 'config.toml missing (Codex clones the curated plugin catalog on every model start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'plugins', value: false } }));
+      findings.push(makeFinding({ tool: 'codex', kind: 'hosted-connectors', name: 'features.apps', location: configPath, detail: 'config.toml missing (Codex adds the hosted ChatGPT connectors MCP server on every start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'apps', value: false } }));
     }
   }
   return findings;

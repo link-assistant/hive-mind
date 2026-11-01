@@ -16,7 +16,7 @@ async function fixture(t, selected = false) {
   const configDir = selected ? path.join(root, 'selected') : conventional;
   for (const directory of new Set([conventional, configDir])) {
     await fs.mkdir(directory, { recursive: true });
-    await fs.writeFile(path.join(directory, 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
+    await fs.writeFile(path.join(directory, 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
   }
   const systemRoots = { claude: path.join(root, 'system-claude'), codex: path.join(root, 'system-codex') };
   const profile = path.join(configDir, 'work.config.toml');
@@ -54,7 +54,7 @@ test('native profile repair preserves runtime settings and canonical auth/histor
   assert.equal(config.model, 'synthetic-model');
   assert.equal(config.large, 9223372036854775807n);
   assert.equal(config.mcp_servers?.unapproved, undefined);
-  assert.deepEqual({ ...config.features }, { remote_plugin: false, multi_agent: true, plugins: false });
+  assert.deepEqual({ ...config.features }, { remote_plugin: false, multi_agent: true, plugins: false, apps: false });
   const after = await Promise.all([fs.stat(auth), fs.stat(history)]);
   assert.deepEqual(
     after.map(info => `${info.dev}:${info.ino}`),
@@ -86,14 +86,14 @@ test('a concurrent native profile edit invalidates the pending base repair', asy
   const base = path.join(f.configDir, 'config.toml');
   const bytes = 'notify = ["/bin/false"]\n[features]\nremote_plugin = false\n';
   await fs.writeFile(base, bytes);
-  await fs.writeFile(f.profile, 'model = "synthetic-original"\n[features]\nremote_plugin = false\nplugins = false\n');
+  await fs.writeFile(f.profile, 'model = "synthetic-original"\n[features]\nremote_plugin = false\nplugins = false\napps = false\n');
   let changed = false;
   await assert.rejects(
     f.audit({
       log: async () => {
         if (!changed) {
           changed = true;
-          await fs.writeFile(f.profile, 'model = "synthetic-concurrent"\n[features]\nremote_plugin = false\nplugins = false\n');
+          await fs.writeFile(f.profile, 'model = "synthetic-concurrent"\n[features]\nremote_plugin = false\nplugins = false\napps = false\n');
         }
       },
     }),

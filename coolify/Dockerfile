@@ -306,14 +306,16 @@ RUN if command -v claude &>/dev/null; then \
 # Issue #3785: remote_plugin=false alone makes Codex 0.164+ clone the whole
 # curated marketplace into ~/.codex/.tmp/plugins on every model start; only
 # plugins=false stops it. Task scopes that select plugins re-enable it privately.
+# features.apps (default on) attaches the hosted ChatGPT connectors MCP server
+# to every start; apps=false keeps the global baseline Playwright-only.
 RUN if command -v codex &>/dev/null; then \
       mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
       if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
-        sed -i 's/^\[features\]$/[features]\nremote_plugin = false\nplugins = false/' "$HOME/.codex/config.toml"; \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false\nplugins = false\napps = false/' "$HOME/.codex/config.toml"; \
       else \
-        printf '\n[features]\nremote_plugin = false\nplugins = false\n' >> "$HOME/.codex/config.toml"; \
+        printf '\n[features]\nremote_plugin = false\nplugins = false\napps = false\n' >> "$HOME/.codex/config.toml"; \
       fi && \
-      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && grep -q '^plugins = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && grep -q '^plugins = false' "$HOME/.codex/config.toml" && grep -q '^apps = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
     fi
 
 # Configure Playwright MCP for Codex CLI with the same server settings

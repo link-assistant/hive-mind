@@ -51,6 +51,8 @@ test('task config preserves header-looking string data and typed runtime setting
   expected.features.remote_plugin = false;
   // Issue #3785: a scope without selected plugins keeps the loader off.
   expected.features.plugins = false;
+  // ...and the hosted ChatGPT connectors MCP server off.
+  expected.features.apps = false;
   assert.deepEqual(parseConfig(await fs.readFile(path.join(result.codexHome, 'config.toml'), 'utf8')), expected);
 });
 

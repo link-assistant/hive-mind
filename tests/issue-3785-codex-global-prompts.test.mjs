@@ -11,7 +11,7 @@ import { runAgentConfigAudit } from '../src/agent-config-audit.lib.mjs';
 // covered developer_instructions and model_instructions_file registrations.
 const promptKeys = ['instructions', 'compact_prompt', 'experimental_compact_prompt_file', 'experimental_realtime_ws_backend_prompt', 'experimental_realtime_ws_startup_context', 'experimental_realtime_start_instructions', 'model_catalog_json'];
 const runtime = 'model = "synthetic-model"\napproval_policy = "never"\nsandbox_mode = "read-only"\n';
-const baseline = '[features]\nremote_plugin = false\nplugins = false\n';
+const baseline = '[features]\nremote_plugin = false\nplugins = false\napps = false\n';
 
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-global-prompts-'));

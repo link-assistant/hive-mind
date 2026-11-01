@@ -98,7 +98,7 @@ const home = makeDriftedHome();
 const { findings, repairable, warnOnly } = auditAgentConfig({ homeDir: home });
 const keyOf = f => `${f.tool}:${f.kind}:${f.name}`;
 const keys = findings.map(keyOf).sort();
-assertDeepEqual(keys, ['claude:cloud-capabilities:account-sync-and-connectors', 'claude:custom-command:review.md', 'claude:marketplace:claude-plugins-official', 'claude:mcp-server:github', 'claude:plugin-enable:superpowers@claude-plugins-official', 'claude:plugin-state:installed_plugins.json', 'claude:plugin-state:known_marketplaces.json', 'claude:plugin:claude-plugins-official/superpowers', 'claude:skill:leftover-skill', 'codex:curated-plugin-sync:features.plugins', 'codex:mcp-server:github', 'codex:plugin-enable:openai-curated-remote/superpowers', 'codex:plugin:openai-curated-remote/superpowers', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:skill:my-global-skill', 'codex:skill:shared-skill'], 'every non-minimal item is a finding and playwright MCP is not');
+assertDeepEqual(keys, ['claude:cloud-capabilities:account-sync-and-connectors', 'claude:custom-command:review.md', 'claude:marketplace:claude-plugins-official', 'claude:mcp-server:github', 'claude:plugin-enable:superpowers@claude-plugins-official', 'claude:plugin-state:installed_plugins.json', 'claude:plugin-state:known_marketplaces.json', 'claude:plugin:claude-plugins-official/superpowers', 'claude:skill:leftover-skill', 'codex:curated-plugin-sync:features.plugins', 'codex:hosted-connectors:features.apps', 'codex:mcp-server:github', 'codex:plugin-enable:openai-curated-remote/superpowers', 'codex:plugin:openai-curated-remote/superpowers', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:skill:my-global-skill', 'codex:skill:shared-skill'], 'every non-minimal item is a finding and playwright MCP is not');
 assertEqual(warnOnly.length, 1, 'only the custom command is warn-only');
 assertEqual(warnOnly[0].kind, 'custom-command', 'custom commands are reported but never removed');
 assertEqual(repairable.length, findings.length - 1, 'everything else carries a repair');
@@ -153,13 +153,13 @@ assertDeepEqual(after.findings.map(keyOf), ['claude:custom-command:review.md'], 
 
 console.log('\n5. A fresh Docker-image home is clean');
 const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-fresh-'));
-write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\n\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
+write(path.join(fresh, '.codex', 'config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n\n[mcp_servers.playwright]\ncommand = "npx"\nargs = ["-y", "@playwright/mcp@latest"]\n');
 write(path.join(fresh, '.claude.json'), JSON.stringify({ mcpServers: { playwright: { command: 'npx', args: ['-y', '@playwright/mcp@latest'] } } }));
 write(path.join(fresh, '.claude/settings.json'), JSON.stringify(claudeBaseline));
 assertEqual(auditAgentConfig({ homeDir: fresh }).findings.length, 0, 'the minimal configuration has no findings');
 const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-2190-empty-'));
 const emptyFindings = auditAgentConfig({ homeDir: empty }).findings;
-assertDeepEqual(emptyFindings.map(keyOf), ['claude:cloud-capabilities:account-sync-and-connectors', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:curated-plugin-sync:features.plugins'], 'an empty home needs explicit cloud, curated-sync and remote plugin pins');
+assertDeepEqual(emptyFindings.map(keyOf), ['claude:cloud-capabilities:account-sync-and-connectors', 'codex:remote-plugin-sync:features.remote_plugin', 'codex:curated-plugin-sync:features.plugins', 'codex:hosted-connectors:features.apps'], 'an empty home needs explicit cloud, curated-sync, hosted-connector and remote plugin pins');
 repairAgentConfig(emptyFindings);
 assertEqual(fs.readFileSync(path.join(empty, '.codex', 'config.toml'), 'utf8').includes('remote_plugin = false'), true, 'the pin creates config.toml when missing');
 

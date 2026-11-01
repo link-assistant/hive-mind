@@ -63,7 +63,7 @@ test('relative PATH entries cannot select a command for native activation', { ti
 test('installed runtime admission rejects an unverified Codex before executing any CLI', { timeout: 10000 }, async t => {
   const f = await fixture(t);
   await fs.mkdir(path.join(f.root, '.codex'));
-  await fs.writeFile(path.join(f.root, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
+  await fs.writeFile(path.join(f.root, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
   await fs.mkdir(path.join(f.root, '.claude'));
   await fs.writeFile(path.join(f.root, '.claude/settings.json'), JSON.stringify({ syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } }));
   await assert.rejects(verifyAgentRuntime({ homeDir: f.root, codexCommand: f.command, claudeCommand: f.command }), /installed native Codex command could not be verified/u);

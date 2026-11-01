@@ -23,7 +23,7 @@ for (const variant of ['admin', 'user', 'repo', 'outside-stock', 'duplicate', 'm
     const root = await mkdtemp(path.join(os.tmpdir(), 'hive-3785-catalog-'));
     t.after(() => rm(root, { recursive: true, force: true }));
     await mkdir(path.join(root, '.codex'));
-    await writeFile(path.join(root, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
+    await writeFile(path.join(root, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
     await mkdir(path.join(root, '.claude'));
     await writeFile(path.join(root, '.claude/settings.json'), JSON.stringify({ syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } }));
     const auth = path.join(root, '.codex/auth.json');

@@ -695,8 +695,11 @@ const configureScopedPluginLoader = async ({ codexHome, plugins, discovery = fal
   const pluginsEnabled = discovery || plugins.length > 0;
   let nextConfig = setTomlTableBoolean({ config, table: 'features', key: 'remote_plugin', value: false });
   nextConfig = setTomlTableBoolean({ config: nextConfig, table: 'features', key: 'plugins', value: pluginsEnabled });
+  // Hosted ChatGPT connectors stay off unless selected plugins may bundle them.
+  const appsEnabled = plugins.length > 0;
+  nextConfig = setTomlTableBoolean({ config: nextConfig, table: 'features', key: 'apps', value: appsEnabled });
   if (nextConfig !== config) await fs.writeFile(configPath, nextConfig);
-  await log(`   🧭 Scoped Codex loader: remote_plugin=false, plugins=${pluginsEnabled}; selected providers: ${plugins.join(', ') || 'none'}`, { verbose: true });
+  await log(`   🧭 Scoped Codex loader: remote_plugin=false, plugins=${pluginsEnabled}, apps=${appsEnabled}; selected providers: ${plugins.join(', ') || 'none'}`, { verbose: true });
 };
 
 // Runtime settings follow the operator config, but plugin declarations never

@@ -120,7 +120,7 @@ const probeEnvironment = home => ({
 
 async function materializeStock(command, home, cwd, env) {
   const grouped = process.platform !== 'win32';
-  const child = spawn(command, ['-c', 'features.remote_plugin=false', '-c', 'features.plugins=false', '-c', 'cli_auth_credentials_store="file"', 'app-server'], {
+  const child = spawn(command, ['-c', 'features.remote_plugin=false', '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'cli_auth_credentials_store="file"', 'app-server'], {
     cwd,
     env,
     detached: grouped,
@@ -181,7 +181,7 @@ async function materializeStock(command, home, cwd, env) {
         const stock = path.join(home, '.codex/skills/.system');
         const snapshot = await validateCodexStockSkills({ directory: stock });
         assert.notEqual(snapshot.get(stock), 'missing', 'Stock CLI did not materialize its pinned runtime.');
-        await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\n');
+        await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
         await runAgentConfigAudit({ tool: 'codex', homeDir: home, autoRepair: false, requireClean: true });
       })(),
     ]);

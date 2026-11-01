@@ -46,7 +46,7 @@ const REJECTED_TURN = ['{"type":"thread.started","thread_id":"issue-3212"}', '{"
 
 /** What the capability preflight writes into the scoped home on every iteration. */
 const OPERATOR_CONFIG = 'model = "gpt-5.5"\n';
-const PREFLIGHT_SCOPED_CONFIG = `${OPERATOR_CONFIG}\n[features]\nremote_plugin = false\nplugins = false\n`;
+const PREFLIGHT_SCOPED_CONFIG = `${OPERATOR_CONFIG}\n[features]\nremote_plugin = false\nplugins = false\napps = false\n`;
 
 // `formal-ai with --global … codex` merges its provider block and model
 // catalog into $HOME/.codex, keeping the rest of the seeded config.

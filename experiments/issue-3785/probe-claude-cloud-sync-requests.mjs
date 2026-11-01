@@ -112,7 +112,13 @@ for (const [label, settings] of [
   const { stdout: tree } = await run('find', ['.', '-mindepth', '1', '-path', './work', '-prune', '-o', '-print'], { cwd: home });
   console.log(`\n### ${label}: exit ${result.code ?? 0}`);
   console.log([...new Set(requests)].sort().join('\n'));
-  console.log('-- capability paths:', tree.split('\n').filter(line => /skills|plugins|marketplace/u.test(line)).join(' ') || 'none');
+  console.log(
+    '-- capability paths:',
+    tree
+      .split('\n')
+      .filter(line => /skills|plugins|marketplace/u.test(line))
+      .join(' ') || 'none'
+  );
 }
 server.close();
 await fs.rm(root, { recursive: true, force: true });

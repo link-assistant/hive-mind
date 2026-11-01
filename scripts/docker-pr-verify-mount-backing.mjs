@@ -1,7 +1,7 @@
 // Required integration gate after both release-shaped PR images are built.
 // This checks the installed launcher against the host and nested daemons;
-// Native controls cover credential publication and selected Claude history;
-// full rotation and history lifecycle coverage remains a separate requirement.
+// Native controls cover credential publication, selected Claude history and
+// default-authority concurrent Claude refresh against a strict rotating provider.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -26,6 +26,7 @@ const dataScript = fileURLToPath(new URL('./verify-mounted-tool-data.mjs', impor
 const codexAuthScript = fileURLToPath(new URL('./verify-mounted-codex-auth.mjs', import.meta.url));
 const claudeAuthScript = fileURLToPath(new URL('./verify-mounted-claude-auth.mjs', import.meta.url));
 const claudeHistoryScript = fileURLToPath(new URL('./verify-mounted-claude-history.mjs', import.meta.url));
+const claudeRefreshScript = fileURLToPath(new URL('./verify-mounted-claude-refresh.mjs', import.meta.url));
 const nativeRuntimeHelper = fileURLToPath(new URL('./mounted-native-runtime.lib.mjs', import.meta.url));
 const socket = '/var/run/docker.sock';
 const socketGroup = String((await fs.stat(socket)).gid);
@@ -55,6 +56,7 @@ try {
       args.push('--mount', `type=bind,source=${codexAuthScript},target=/verify-mounted-codex-auth.mjs,readonly`);
       args.push('--mount', `type=bind,source=${claudeAuthScript},target=/verify-mounted-claude-auth.mjs,readonly`);
       args.push('--mount', `type=bind,source=${claudeHistoryScript},target=/verify-mounted-claude-history.mjs,readonly`);
+      args.push('--mount', `type=bind,source=${claudeRefreshScript},target=/verify-mounted-claude-refresh.mjs,readonly`);
       args.push('--mount', `type=bind,source=${nativeRuntimeHelper},target=/mounted-native-runtime.lib.mjs,readonly`);
       args.push('--mount', `type=bind,source=${geminiFixture},target=/verify-gemini-storage-fixture,readonly`);
       if (variant === 'host') args.push('--group-add', socketGroup, '--mount', `type=bind,source=${socket},target=${socket}`);
@@ -96,6 +98,10 @@ try {
         const historyResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, '--env', 'HIVE_MOUNT_TEST_DIAGNOSTICS=1', name, 'bash', '-lc', historyCommand], 120_000);
         process.stdout.write(`${variant}: ${historyResult.stdout}`);
       }
+      // Issue #3785: default (migrated) authority, concurrent root/two-peer native
+      // refresh against a strict rotating provider, with a file-only control.
+      const refreshResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_IMAGE=${probeImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, name, 'bash', '-lc', 'node --max-old-space-size=128 /verify-mounted-claude-refresh.mjs "$(command -v hive)"'], 360_000);
+      process.stdout.write(`${variant}: ${refreshResult.stdout}`);
       const geminiCommand = `set -euo pipefail
         launcher=$(command -v hive)
         hive_source=$(dirname "$(readlink -f "$launcher")")

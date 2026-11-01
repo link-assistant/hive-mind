@@ -77,6 +77,10 @@ if(args[0]==='run'){
       assert.ok(!history[1].at(-1).includes('--expect-legacy-history-gap'));
       for (const control of history) assert.ok(control.includes(`HIVE_MOUNT_TEST_NETWORK=${index === 0 ? `container:${name}` : 'host'}`), 'native peers must reach the synthetic provider in the root namespace');
       assert.ok(launch.some(arg => arg.endsWith('target=/verify-mounted-claude-history.mjs,readonly')));
+      const refresh = commands.filter(command => command[0] === 'exec' && command.includes(name) && command.at(-1).includes('/verify-mounted-claude-refresh.mjs'));
+      assert.equal(refresh.length, 1, 'each daemon requires the default-authority concurrent native refresh control');
+      assert.ok(refresh[0].includes(`HIVE_MOUNT_TEST_NETWORK=${index === 0 ? `container:${name}` : 'host'}`), 'refresh peers must reach the synthetic provider in the root namespace');
+      assert.ok(launch.some(arg => arg.endsWith('target=/verify-mounted-claude-refresh.mjs,readonly')));
       assert.ok(
         launch.some(arg => arg.endsWith('target=/mounted-native-runtime.lib.mjs,readonly')),
         'the native probes require their exact runtime-copy helper inside each image'

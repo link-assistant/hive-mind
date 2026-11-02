@@ -38,9 +38,29 @@ export async function verifyMountedGeminiStorage(options) {
   // does not load them and must not duplicate/hash hundreds of unrelated MiB.
   const copiedSource = filename => filename !== 'native-codex/runtime' && !filename.startsWith('native-codex/runtime/');
   await fs.mkdir(peerRuntime, { mode: 0o700 });
-  await fs.cp(source, path.join(peerRuntime, 'src'), { recursive: true, verbatimSymlinks: true, filter: filename => copiedSource(path.relative(source, filename)) });
-  await fs.copyFile(path.join(path.dirname(source), 'package.json'), path.join(peerRuntime, 'package.json'));
-  await fs.cp(await fs.realpath(path.join(path.dirname(source), 'node_modules')), path.join(peerRuntime, 'node_modules'), { recursive: true, verbatimSymlinks: true });
+  // A Bun global install hoists dependencies beside the package instead of
+  // nesting node_modules. Copy exactly the packages Node resolves for the
+  // peer's admission entry and keep their layout relative to a shared base.
+  const packageRoot = path.dirname(source);
+  const loaded = await execute(process.execPath, ['--max-old-space-size=128', '--input-type=module', '-e', 'import {registerHooks} from "node:module";const seen=new Set();registerHooks({resolve(s,c,n){const r=n(s,c);if(r.url.startsWith("file:"))seen.add(r.url);return r;}});await import(process.argv[1]);process.stdout.write(JSON.stringify([...seen]));', pathToFileURL(path.join(source, 'gemini-storage-admission.lib.mjs')).href], { cwd: packageRoot, maxBuffer: 262144, signal: AbortSignal.timeout(45_000), killSignal: 'SIGKILL' });
+  const dependencies = new Set();
+  for (const url of JSON.parse(loaded.stdout)) {
+    const filename = fileURLToPath(url);
+    if (!path.relative(source, filename).startsWith('..')) continue;
+    const match = /^(.*\/node_modules\/(?:@[^/]+\/)?[^/]+)\//u.exec(filename);
+    assert.ok(match, 'Peer admission loaded code outside the package and its dependencies.');
+    dependencies.add(match[1]);
+  }
+  let base = packageRoot;
+  for (const directory of dependencies) while (path.relative(base, directory).startsWith('..')) base = path.dirname(base);
+  // Node only resolves packages inside a node_modules directory.
+  const hoisted = base.split(path.sep).indexOf('node_modules');
+  if (hoisted !== -1) base = base.split(path.sep).slice(0, hoisted).join(path.sep) || path.sep;
+  const runtimeSource = path.join(peerRuntime, path.relative(base, source));
+  await fs.cp(source, runtimeSource, { recursive: true, verbatimSymlinks: true, filter: filename => copiedSource(path.relative(source, filename)) });
+  await fs.copyFile(path.join(packageRoot, 'package.json'), path.join(path.dirname(runtimeSource), 'package.json'));
+  for (const directory of dependencies) await fs.cp(directory, path.join(peerRuntime, path.relative(base, directory)), { recursive: true, verbatimSymlinks: true });
+  const peerSource = path.posix.join('/__hive_runtime', ...path.relative(base, source).split(path.sep));
   const digest = async filename =>
     createHash('sha256')
       .update(await fs.readFile(filename))
@@ -50,7 +70,7 @@ export async function verifyMountedGeminiStorage(options) {
     const original = path.join(source, filename);
     const info = await fs.lstat(original);
     assert.ok(!info.isSymbolicLink(), 'Installed launcher source must not be symlinked.');
-    if (info.isFile()) assert.equal(await digest(path.join(peerRuntime, 'src', filename)), await digest(original), 'Peer runtime changed installed launcher bytes.');
+    if (info.isFile()) assert.equal(await digest(path.join(runtimeSource, filename)), await digest(original), 'Peer runtime changed installed launcher bytes.');
   }
   const { prepareDockerIsolationHostPaths, buildDockerIsolationStartArgs, resolveDockerIsolationMountSources } = await import(pathToFileURL(path.join(source, 'isolation-runner.lib.mjs')));
   const { admitNativeGeminiStorage } = await import(pathToFileURL(path.join(source, 'gemini-storage-admission.lib.mjs')));
@@ -89,7 +109,7 @@ export async function verifyMountedGeminiStorage(options) {
   if (process.env.HIVE_MOUNT_TEST_DIAGNOSTICS === '1') childEnv.GEMINI_HISTORY_DEBUG = '1';
   delete childEnv.GEMINI_AUTH_HOME;
   delete childEnv.GEMINI_HISTORY_HOME;
-  const admissionCode = 'import {admitNativeGeminiStorage} from "/__hive_runtime/src/gemini-storage-admission.lib.mjs";const a=await admitNativeGeminiStorage({command:"/__gemini_runtime/bundle/gemini.js"});process.stdout.write(a.command);';
+  const admissionCode = `import {admitNativeGeminiStorage} from ${JSON.stringify(`${peerSource}/gemini-storage-admission.lib.mjs`)};const a=await admitNativeGeminiStorage({command:"/__gemini_runtime/bundle/gemini.js"});process.stdout.write(a.command);`;
   const childScript = 'set -eu; mkdir -p -m 700 /home/box/.gemini; printf "%s" "$SYNTHETIC_GEMINI_SETTINGS" > /home/box/.gemini/settings.json; cd "$SYNTHETIC_GEMINI_WORKSPACE"; admitted=$(node --max-old-space-size=128 --input-type=module -e "$SYNTHETIC_GEMINI_ADMISSION"); exec node --max-old-space-size=256 "$admitted" "$@"';
   const childInvoke = (index, flags, overrides = {}) => docker(['exec', '-i', ...Object.entries({ ...childEnv, SYNTHETIC_GEMINI_SETTINGS: JSON.stringify(settings), SYNTHETIC_GEMINI_WORKSPACE: workspace, SYNTHETIC_GEMINI_ADMISSION: admissionCode, ...overrides }).flatMap(([key, value]) => ['--env', `${key}=${value}`]), names[index], 'sh', '-c', childScript, 'sh', ...nativeArgs(flags)]);
   const common = ['run', '--detach', '--pull', 'never', '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...(experimental ? ['--cgroup-parent', '/'] : ['--memory', '536870912']), '--ulimit', 'data=2147483648:2147483648', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=33554432`, '--entrypoint', 'sh'];

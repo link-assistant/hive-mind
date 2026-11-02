@@ -119,7 +119,13 @@ try {
         hive_source=$(dirname "$(readlink -f "$launcher")")
         native_root=$(node --max-old-space-size=128 --input-type=module -e 'import {pathToFileURL} from "node:url";const {verifyNativeGeminiCommand}=await import(pathToFileURL(process.argv[1]+"/native-gemini-command.lib.mjs"));process.stdout.write((await verifyNativeGeminiCommand()).root)' "$hive_source")
         python3 /verify-gemini-storage-fixture/probe-gemini-native-cli.py "$native_root" --history --docker-storage --docker-launcher "$launcher" --docker-network "$HIVE_MOUNT_TEST_NETWORK" --diagnostics /mount-fixture/gemini-native-storage.log`;
-      const geminiResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_GEMINI_IMAGE=${geminiImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, '--env', 'TMPDIR=/mount-fixture', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'HIVE_MOUNT_TEST_DIAGNOSTICS=1', name, 'bash', '-lc', geminiCommand], 360_000);
+      const geminiResult = await docker(['exec', '--env', `HIVE_MOUNT_TEST_GEMINI_IMAGE=${geminiImage}`, '--env', `HIVE_MOUNT_TEST_NETWORK=${historyNetwork}`, '--env', 'TMPDIR=/mount-fixture', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'HIVE_MOUNT_TEST_DIAGNOSTICS=1', name, 'bash', '-lc', geminiCommand], 360_000).catch(async error => {
+        // Synthetic fixture only; omit native conversation payloads and bound each line.
+        const tail = await docker(['exec', name, 'tail', '-c', '16384', '/mount-fixture/gemini-native-storage.log']).catch(() => ({ stdout: '' }));
+        const lines = tail.stdout.split('\n').filter(line => !line.includes('native-gemini-output'));
+        process.stdout.write(`${variant}: ${error.stdout ?? ''}${lines.map(line => `${variant}: gemini diagnostics: ${line.slice(0, 400)}`).join('\n')}\n`);
+        throw error;
+      });
       process.stdout.write(`${variant}: ${geminiResult.stdout}`);
       for (const directory of historyDirectories) for (const index of [0, 1]) assert.equal(await fs.readFile(path.join(fixture, `home/.codex/${directory}/task-${index}`), 'utf8'), 'persisted');
       // Last: it installs previous CLI releases into its own synthetic home and

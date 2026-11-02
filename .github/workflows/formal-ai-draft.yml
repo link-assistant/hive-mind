@@ -160,10 +160,10 @@ jobs:
       issue_number: ${{ steps.decide.outputs.issue_number }}
       attempt_id: ${{ steps.select.outputs.attempt_id }}
       mode: ${{ steps.select.outputs.mode }}
-      formal_ai_sha: ${{ steps.select.outputs.formal_ai_sha }}
+      formal_ai_revision: ${{ steps.select.outputs.formal_ai_revision }}
       formal_ai_binary_source: ${{ steps.select.outputs.formal_ai_binary_source }}
       formal_ai_release_tag: ${{ steps.select.outputs.formal_ai_release_tag }}
-      hive_sha: ${{ steps.select.outputs.hive_sha }}
+      hive_revision: ${{ steps.select.outputs.hive_revision }}
       hive_repository: ${{ steps.select.outputs.hive_repository }}
       identity_json: ${{ steps.select.outputs.identity_json }}
     steps:
@@ -232,6 +232,14 @@ jobs:
   # Actions cache: an entry written by one attempt would be trusted by the
   # next, and making that reuse fast and safe is formal-ai#1486's latency work.
   # Freshness does not depend on it.
+  #
+  # What this job executes is trusted by construction, not by its name: the
+  # Hive Mind revision is the commit this workflow itself runs (or a caller's
+  # pinned one, in the caller's cache scope), and the Formal AI revision is the
+  # main head, the source a release receipt names (downloaded, not built), or a
+  # replay that select verified is reachable from main. The outputs are named
+  # `*_revision`, not `*_sha`, because CodeQL's cache-poisoning query
+  # heuristic treats any `*sha*` checkout ref as an untrusted pull request head.
   binary:
     needs: select
     if: needs.select.outputs.formal_ai_binary_source == 'release' || needs.select.outputs.formal_ai_binary_source == 'build'
@@ -248,7 +256,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ needs.select.outputs.hive_repository }}
-          ref: ${{ needs.select.outputs.hive_sha }}
+          ref: ${{ needs.select.outputs.hive_revision }}
           persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -268,7 +276,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: link-assistant/formal-ai
-          ref: ${{ needs.select.outputs.formal_ai_sha }}
+          ref: ${{ needs.select.outputs.formal_ai_revision }}
           path: .formal-ai-source
           persist-credentials: false
       - name: Build the selected Formal AI commit
@@ -323,7 +331,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ inputs.hive_mind_repository || github.repository }}
-          ref: ${{ needs.select.outputs.hive_sha }}
+          ref: ${{ needs.select.outputs.hive_revision }}
           persist-credentials: false
 
       - name: Setup Node.js

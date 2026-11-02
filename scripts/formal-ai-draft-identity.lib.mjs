@@ -449,7 +449,7 @@ export function buildAttemptEnv({ identity, binarySha256 }) {
  * across retries.
  */
 export function formatIdentityOutputs(identity) {
-  return [`attempt_id=${identity.id}`, `mode=${identity.mode}`, `formal_ai_sha=${identity.formalAi.sourceSha || ''}`, `formal_ai_version=${identity.formalAi.version || ''}`, `formal_ai_binary_source=${identity.formalAi.binarySource}`, `formal_ai_release_tag=${identity.formalAi.release?.tag || ''}`, `hive_sha=${identity.hive.sourceSha}`, `hive_image=${identity.hive.image}`, `identity_json=${JSON.stringify(identity)}`, ''].join('\n');
+  return [`attempt_id=${identity.id}`, `mode=${identity.mode}`, `formal_ai_revision=${identity.formalAi.sourceSha || ''}`, `formal_ai_version=${identity.formalAi.version || ''}`, `formal_ai_binary_source=${identity.formalAi.binarySource}`, `formal_ai_release_tag=${identity.formalAi.release?.tag || ''}`, `hive_revision=${identity.hive.sourceSha}`, `hive_image=${identity.hive.image}`, `identity_json=${JSON.stringify(identity)}`, ''].join('\n');
 }
 
 /** One line describing the attempt, for logs, annotations and the step summary. */

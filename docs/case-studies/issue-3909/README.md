@@ -54,6 +54,13 @@ CodeQL flagged the first version of the `binary` job with `actions/cache-poisoni
 - The build no longer uses `actions/cache`. Every attempt that needs a build builds the selected commit fresh. Making that reuse fast and safe is formal-ai#1486's latency work. Freshness does not depend on it, as the issue requires.
 - A pinned replay ref must be reachable from Formal AI `main`. The check is GitHub compare `<sha>...main`, which must be `identical` or `ahead`. Anything else is an identity mismatch.
 
+Even after both changes, CodeQL raised the alert again (316). The query does not look at whether a cache is used, since any non-privileged job's runtime token can write cache entries. It also does not look at where a checkout ref comes from: it treats every `actions/checkout` ref whose name contains `sha`, `head` or `commit` as a pull request head. The code the `binary` job runs is trusted by construction:
+
+- the Hive Mind revision is the commit the workflow itself runs, or a caller's pinned commit in the caller's cache scope;
+- the Formal AI revision is the `main` head, a release's source (downloaded, not built), or a replay checked to be reachable from `main`.
+
+The select outputs were therefore renamed `hive_revision` and `formal_ai_revision`. The workflow comment above the job explains why, so a reviewer can check the reasoning rather than the name.
+
 ## Evidence
 
 The new admission was run against live GitHub on 2026-11-02 (`raw/select-live-2026-11-02.txt`). Formal AI `main` moved during the work, and each run selected the new head with a new identity:

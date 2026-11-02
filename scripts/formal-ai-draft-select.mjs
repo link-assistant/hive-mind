@@ -5,8 +5,8 @@
  * sources once and record the attempt identity (issue #3909).
  *
  * Run by the `select` job of `.github/workflows/formal-ai-draft.yml`, after
- * `--decide`. Its `$GITHUB_OUTPUT` (`attempt_id`, `formal_ai_sha`,
- * `hive_sha`, `identity_json`, …) is what the `binary` and `draft` jobs act
+ * `--decide`. Its `$GITHUB_OUTPUT` (`attempt_id`, `formal_ai_revision`,
+ * `hive_revision`, `identity_json`, …) is what the `binary` and `draft` jobs act
  * on; "Re-run failed jobs" reuses those outputs, so a retry keeps the
  * identity, while a new run re-resolves and a new source yields a new id.
  *

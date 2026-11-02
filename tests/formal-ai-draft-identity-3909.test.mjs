@@ -122,8 +122,8 @@ test('the outputs a later job reads carry the identity on one line', async () =>
   const identity = await select();
   const outputs = formatIdentityOutputs(identity);
   assert.match(outputs, new RegExp(`^attempt_id=${identity.id}$`, 'm'));
-  assert.match(outputs, new RegExp(`^formal_ai_sha=${OLD_MAIN}$`, 'm'));
-  assert.match(outputs, new RegExp(`^hive_sha=${HIVE}$`, 'm'));
+  assert.match(outputs, new RegExp(`^formal_ai_revision=${OLD_MAIN}$`, 'm'));
+  assert.match(outputs, new RegExp(`^hive_revision=${HIVE}$`, 'm'));
   const json = /^identity_json=(.*)$/m.exec(outputs)[1];
   assert.equal(parseAttemptIdentity(json).id, identity.id);
 });
@@ -391,19 +391,19 @@ test('the workflow selects once, obtains the binary, then verifies before the dr
   const select = job('select');
   assert.match(select, /node scripts\/formal-ai-draft\.mjs --decide/);
   assert.match(select, /node scripts\/formal-ai-draft-select\.mjs/);
-  for (const output of ['attempt_id', 'formal_ai_sha', 'formal_ai_binary_source', 'hive_sha', 'identity_json']) assert.match(select, new RegExp(`^ {6}${output}: \\$\\{\\{ steps\\.select\\.outputs\\.${output} \\}\\}$`, 'm'));
+  for (const output of ['attempt_id', 'formal_ai_revision', 'formal_ai_binary_source', 'hive_revision', 'identity_json']) assert.match(select, new RegExp(`^ {6}${output}: \\$\\{\\{ steps\\.select\\.outputs\\.${output} \\}\\}$`, 'm'));
 
   const binary = job('binary');
   assert.match(binary, /needs: select/);
-  assert.match(binary, /ref: \$\{\{ needs\.select\.outputs\.hive_sha \}\}/);
-  assert.match(binary, /ref: \$\{\{ needs\.select\.outputs\.formal_ai_sha \}\}/, 'the build is of the selected commit, not a branch');
+  assert.match(binary, /ref: \$\{\{ needs\.select\.outputs\.hive_revision \}\}/);
+  assert.match(binary, /ref: \$\{\{ needs\.select\.outputs\.formal_ai_revision \}\}/, 'the build is of the selected commit, not a branch');
   assert.match(binary, /cargo build --manifest-path rust\/Cargo\.toml --target-dir target --release --locked --bin formal-ai/);
   assert.match(binary, /formal-ai-draft-binary\.mjs verify/);
-  assert.doesNotMatch(workflow, /actions\/cache/, 'no attempt trusts a build cached by another run (CodeQL actions/cache-poisoning)');
+  assert.doesNotMatch(workflow, /uses: actions\/cache/, 'no attempt trusts a build cached by another run (CodeQL actions/cache-poisoning)');
 
   const draft = job('draft');
   assert.match(draft, /needs: \[select, binary\]/);
-  assert.match(draft, /ref: \$\{\{ needs\.select\.outputs\.hive_sha \}\}/, 'the draft runs the Hive Mind commit admission selected');
+  assert.match(draft, /ref: \$\{\{ needs\.select\.outputs\.hive_revision \}\}/, 'the draft runs the Hive Mind commit admission selected');
   assert.match(draft, /FORMAL_AI_DRAFT_ATTEMPT_IDENTITY: \$\{\{ needs\.select\.outputs\.identity_json \}\}/);
   assert.match(draft, /FORMAL_AI_DRAFT_BINARY_JOB_RESULT: \$\{\{ needs\.binary\.result \}\}/);
   assert.match(draft, /name: formal-ai-binary-\$\{\{ needs\.select\.outputs\.attempt_id \}\}/);

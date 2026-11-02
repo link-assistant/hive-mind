@@ -1426,3 +1426,14 @@ skipped. The nested variant announced the memory fallback and reproduced the
 scenario E race once: one expired G60 request was refused, zero were served,
 and re-authentication was required everywhere. The host variant refused none.
 These results close P1b and P2a–P2d in the [requirements](requirements.md).
+
+Two later CI failures were fixture defects, not product results. At
+`882d9140f` the optimized linux-arm64 Codex package's SQLite recovery probe saw
+the native app-server exit before `initialize`. The next run passed the whole
+step, and the step now captures bounded native stderr if it recurs (see the
+[arm64 recovery evidence](evidence/native-codex-arm64-sqlite-recovery-deadline.txt)).
+At `942062ecb` the native Codex owner-death probe's synthetic proxy crashed on an
+unhandled `ECONNRESET` from a refused CONNECT tunnel. Every synthetic proxy,
+including those in the required Claude history and refresh gates, now handles
+tunnel socket errors. A reset regression test and a static guard cover this
+(see the [CONNECT reset evidence](evidence/connect-socket-reset.txt)).

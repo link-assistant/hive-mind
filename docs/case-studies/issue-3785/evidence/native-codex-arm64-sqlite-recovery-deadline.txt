@@ -1,0 +1,34 @@
+Issue #3785 — optimized native Codex package, linux-arm64 SQLite recovery probe
+==============================================================================
+
+CI run 41449370859 at 882d9140f, job 125291161265 ("Verified native Codex
+package / Build and exercise linux-arm64"), step "Exercise guarded SQLite
+operations in the optimized native package":
+
+  native-release-sqlite-lifetime-directory.log  PASS
+  native-release-sqlite-lifetime-database.log   PASS
+  native-release-sqlite-recovery-selected.log
+    {"binarySha256": "ca40a9c4…"}
+    after.initialize()
+    AssertionError: Native protocol deadline exceeded; exit=1; reader_failed=False.
+
+The probe writes synthetic sections, replaces state_5.sqlite with synthetic
+invalid bytes and starts a second app-server, which must back up the corrupt
+file and rebuild. Here the second app-server exited with status 1 before it
+answered `initialize`. The step stopped, so the peers, startup and performance
+probes did not run on arm64 in this job.
+
+The same commit's linux-x64 job passed this step, and the arm64 job at 078d2338e
+(run 41425746071, binary ddc98b07…) passed the same probe:
+  {"selected": true, "actualNativeRecovery": true, "corruptBytesBackedUp": true, "unrelatedDatabasePreserved": true}
+The commits between those runs changed documentation, an opt-in refresh-gate
+diagnostic and JavaScript/Docker dependency pins. None changed the native
+source, its Cargo lockfile or the probe. The release build is not
+byte-reproducible, so the binary hashes differ.
+
+CI did not set CODEX_PROBE_DIAGNOSTICS for this release-build step, so the
+native stderr explaining the exit was not captured. The step now sets it. On a
+protocol deadline the probe prints the bounded native stderr (synthetic
+temporary homes and an offline provider only) into the uploaded log artifact.
+The cause is not yet established: an intermittent native exit and an
+arm64-specific defect are both still possible. The next run records which.

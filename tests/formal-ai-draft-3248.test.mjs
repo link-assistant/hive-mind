@@ -92,14 +92,17 @@ test('a missing selected tag fails without pulling another image or retrying it'
   const calls = [];
   const sleeps = [];
   const warnings = [];
-  await assert.rejects(pullDraftImage({
-    version: '2.36.0',
-    run: async args => (calls.push(args), { code: 1, output: 'manifest unknown' }),
-    sleep: async ms => sleeps.push(ms),
-    delays: [1, 1],
-    log: () => {},
-    warn: message => warnings.push(message),
-  }), /Could not pull konard\/hive-mind:2\.36\.0 after 1 attempt: manifest unknown/);
+  await assert.rejects(
+    pullDraftImage({
+      version: '2.36.0',
+      run: async args => (calls.push(args), { code: 1, output: 'manifest unknown' }),
+      sleep: async ms => sleeps.push(ms),
+      delays: [1, 1],
+      log: () => {},
+      warn: message => warnings.push(message),
+    }),
+    /Could not pull konard\/hive-mind:2\.36\.0 after 1 attempt: manifest unknown/
+  );
   assert.deepEqual(calls, [['pull', 'konard/hive-mind:2.36.0']], 'no fallback image or container start is requested');
   assert.deepEqual(sleeps, [], 'a missing tag is not retried');
   assert.deepEqual(warnings, [], 'no fallback warning conceals the refusal');
@@ -115,12 +118,15 @@ test('missing or invalid versions refuse before any run or sleep callback', asyn
   for (const options of [{}, { version: '' }, { version: 'latest' }, { override: '  ', version: 'not-a-version' }]) {
     const calls = [];
     const sleeps = [];
-    await assert.rejects(pullDraftImage({
-      ...options,
-      run: async args => (calls.push(args), { code: 0, output: '' }),
-      sleep: async ms => sleeps.push(ms),
-      log: () => {},
-    }), { code: 'DRAFT_IMAGE_SELECTION_UNAVAILABLE' });
+    await assert.rejects(
+      pullDraftImage({
+        ...options,
+        run: async args => (calls.push(args), { code: 0, output: '' }),
+        sleep: async ms => sleeps.push(ms),
+        log: () => {},
+      }),
+      { code: 'DRAFT_IMAGE_SELECTION_UNAVAILABLE' }
+    );
     assert.deepEqual(calls, []);
     assert.deepEqual(sleeps, []);
   }
@@ -141,12 +147,15 @@ test('explicit overrides route as selected without authenticating them or choosi
   }
   const override = 'example/hive@sha256:' + 'b'.repeat(64);
   const calls = [];
-  await assert.rejects(pullDraftImage({
-    override,
-    run: async args => (calls.push(args), { code: 1, output: 'pull access denied' }),
-    sleep: async () => assert.fail('a missing explicit image is not retried'),
-    log: () => {},
-  }), /after 1 attempt: pull access denied/);
+  await assert.rejects(
+    pullDraftImage({
+      override,
+      run: async args => (calls.push(args), { code: 1, output: 'pull access denied' }),
+      sleep: async () => assert.fail('a missing explicit image is not retried'),
+      log: () => {},
+    }),
+    /after 1 attempt: pull access denied/
+  );
   assert.deepEqual(calls, [['pull', override]]);
 });
 
@@ -156,17 +165,22 @@ test('failed pulls retain the selected image and expose distinct bounded infrast
     { output: 'context deadline exceeded', code: 'DRAFT_IMAGE_PULL_FAILED', attempts: 2 },
   ]) {
     const calls = [];
-    await assert.rejects(pullDraftImage({
-      version: '2.36.0',
-      run: async args => (calls.push(args), { code: 1, output: failure.output }),
-      sleep: async () => {}, delays: [1], log: () => {},
-    }), error => {
-      assert.equal(error.code, failure.code);
-      assert.equal(error.image, 'konard/hive-mind:2.36.0');
-      assert.equal(error.attempts, failure.attempts);
-      assert.match(error.message, new RegExp('^\\[' + failure.code + '\\]'));
-      return true;
-    });
+    await assert.rejects(
+      pullDraftImage({
+        version: '2.36.0',
+        run: async args => (calls.push(args), { code: 1, output: failure.output }),
+        sleep: async () => {},
+        delays: [1],
+        log: () => {},
+      }),
+      error => {
+        assert.equal(error.code, failure.code);
+        assert.equal(error.image, 'konard/hive-mind:2.36.0');
+        assert.equal(error.attempts, failure.attempts);
+        assert.match(error.message, new RegExp('^\\[' + failure.code + '\\]'));
+        return true;
+      }
+    );
     assert.equal(calls.length, failure.attempts);
     assert(calls.every(args => args[1] === 'konard/hive-mind:2.36.0'));
   }
@@ -175,13 +189,19 @@ test('failed pulls retain the selected image and expose distinct bounded infrast
 test('default transient retry budget keeps every attempt on the same selected image', async () => {
   const calls = [];
   const sleeps = [];
-  await assert.rejects(pullDraftImage({
-    version: '42.8.1-rc.2',
-    run: async args => (calls.push(args), { code: 1, output: 'TLS handshake timeout' }),
-    sleep: async ms => sleeps.push(ms),
-    log: () => {},
-  }), /after 5 attempts: TLS handshake timeout/);
-  assert.deepEqual(calls, Array.from({ length: 5 }, () => ['pull', 'konard/hive-mind:42.8.1-rc.2']));
+  await assert.rejects(
+    pullDraftImage({
+      version: '42.8.1-rc.2',
+      run: async args => (calls.push(args), { code: 1, output: 'TLS handshake timeout' }),
+      sleep: async ms => sleeps.push(ms),
+      log: () => {},
+    }),
+    /after 5 attempts: TLS handshake timeout/
+  );
+  assert.deepEqual(
+    calls,
+    Array.from({ length: 5 }, () => ['pull', 'konard/hive-mind:42.8.1-rc.2'])
+  );
   assert.deepEqual(sleeps, [15000, 30000, 60000, 120000]);
 });
 

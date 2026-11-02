@@ -139,7 +139,7 @@ platform, alias and recipe-ceiling refusals.
 Refresh all image and runtime Formal AI bootstrap pins to published 0.355.29,
 and the image start-command pins to 0.41.0 (its new mode is opt-in), after the
 dependency-freshness gate rejected the previous versions. Pin links-notation
-0.28.0, semver ^7.8.6, and refresh the @babel lockfile entries to 8.1.0 for
+0.30.0, semver ^7.8.6, and refresh the @babel lockfile entries to 8.1.0 for
 the same reason.
 
 Project explicitly selected dedicated Claude credential parents into Docker

@@ -55,3 +55,20 @@ Local reproduction (development workspace daemon)
   $ node experiments/issue-3785/probe-peer-memory-args.mjs
   INFO: this daemon has no delegated cgroup v2 memory domain (nested box-dind); peers keep their finite data ulimit instead of --memory.
   []
+
+Local end-to-end gates on the same threaded daemon (normal mode, not the
+experimental --cgroup-parent path), pinned native Claude 2.1.310, synthetic
+proxy refusing every external origin:
+
+  verify-mounted-claude-history.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: actual Claude root and two disposable Docker peers resume selected history with the original message; three model requests, private settings and unchanged credential identity.
+  verify-mounted-claude-refresh.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: default Claude authority (migrated, no new flags) with pinned native root and two Docker peers; shared-parent: 1 exchange, 3 model requests; file-only control: 3 exchanges, 2 rejected duplicates; newer login: preserved, 3 model requests on it; logout/re-login: not resurrected, re-login visible to root and both peers; revoked: 1 exchange attempt(s), 0 model requests, stored refresh cleared, re-authentication required by native status and /limits.
+  verify-mounted-claude-auth.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: pinned native Claude root and two Docker peers retain parent-backed replacement, task/root logout, synthetic reauthentication and private-config disposal; the file-bind control continues to read retired credentials.
+
+The Codex auth gate needs the verified native Codex build, which exists only in
+the CI images; its nested result is pending CI at 74100c40c.

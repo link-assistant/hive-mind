@@ -95,7 +95,7 @@ Formal AI pin fixture retried at the same file. Full lint, formatting, secret
 scanning, changeset, file-limit and duplication checks pass. Newest-head CI is
 still required. Local Docker execution fails before
 container startup because runc cannot enter the available cgroup. See the
-[CI investigation](../../../ci-logs/issue-3785-investigation.md) and
+[CI investigation](evidence/ci-logs/issue-3785-investigation.md) and
 [acceptance inventory](requirements.md) for the exact remaining scope.
 
 ## Evidence and incident sequence

@@ -105,6 +105,24 @@ skipped locally because Run A covered it):
 ✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
 ✅ capability lifecycle gate passed (skipped: router)
 
+CI run 41425746071 at 078d2338e (docker-pr-check job 125265324264, both daemons)
+-------------------------------------------------------------------------------
+https://github.com/link-assistant/hive-mind/actions/runs/41425746071
+The host and the nested box-dind variant produced the same phase results (nested
+shown; the host is identical):
+  ✅ P0 baseline (Playwright-only, default Claude authority): manifest empty, audit clean, 0 capability requests; 6 canonical auth/history files unchanged
+  ✅ P1 deployment version/login/MCP/model probes with forced account sync: 0 capability requests (23 answered, 1 download tunnel)
+  ✅ P2 positive control (pre-#3785 home): 2 account-sync, 3 curated-catalog and 1 hosted-connector request(s); manifest 13 entries; audit 9 findings, none claims a cached item is enabled
+  ✅ P2 repaired control: next native Claude and Codex starts sent 0 capability requests and repopulated nothing
+  ✅ P3 previous CLI releases installed (claude 2.1.309, codex 0.163.0); native start refused on the unpinned Codex 0.163.0 stock runtime (typed fail-closed)
+  ℹ️  P3 updater: updated [claude 2.1.309→2.1.316, codex 0.163.0→0.166.0]
+  ✅ P3 idle CLI updater and first native start with the updated binaries: 0 capability requests
+  ✅ P4 task completion, ✅ P5 root restart, ✅ P6 Router start/stop/start/stop and native start after it: 0 capability requests
+  ℹ️  P7 restore brought back 13 capability entries; startup audit repaired 9
+  ✅ P7 archive restore + startup audit, and native start after restore: manifest empty, audit clean, 0 capability requests
+  ✅ capability lifecycle gate passed (no phase skipped)
+Every checkpoint kept the 6 canonical auth/history files unchanged.
+
 Observations
 ------------
 - P2 (no Hive pins, same binaries, same provider) reproduces the reported

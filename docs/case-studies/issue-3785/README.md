@@ -1417,3 +1417,12 @@ served requests and re-authentication everywhere. All 10 local runs pass. In the
 three that reproduced the race, the attempt was refused, and the root and both
 peers reported "OAuth session expired and could not be refreshed". See the
 [revoked-refresh evidence](evidence/claude-revoked-refresh-stale-request.txt).
+
+[CI run 41425746071](https://github.com/link-assistant/hive-mind/actions/runs/41425746071) at `078d2338e` (docker-pr-check job 125265324264)
+passed every gate on both daemon layouts: Codex auth, Claude auth, Claude
+history (with its negative control), Claude refresh, Gemini, and the full
+capability lifecycle gate P0–P7 including the Router restart, with no phase
+skipped. The nested variant announced the memory fallback and reproduced the
+scenario E race once: one expired G60 request was refused, zero were served,
+and re-authentication was required everywhere. The host variant refused none.
+These results close P1b and P2a–P2d in the [requirements](requirements.md).

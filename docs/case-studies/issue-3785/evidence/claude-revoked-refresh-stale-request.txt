@@ -99,3 +99,17 @@ HIVE_MOUNT_TEST_DIAGNOSTICS=1, 10 consecutive runs:
 Remaining limit: an expired-token request is still sent once in rare
 concurrent orderings. This is a native Claude behaviour and is recorded here,
 not repaired. Its consequence is one refused request.
+
+CI verification
+---------------
+CI run 41425746071 at 078d2338e, docker-pr-check job 125265324264, passed both
+daemon layouts (https://github.com/link-assistant/hive-mind/actions/runs/41425746071):
+  host:   "... file-only control: 3 exchanges, 2 rejected duplicates; ...
+           revoked: 1 exchange attempt(s), 0 served model requests,
+           0 expired-token request(s) refused, stored refresh cleared,
+           re-authentication required by native status and /limits."
+  nested: "... file-only control: 2 exchanges, 1 rejected duplicates; ...
+           revoked: 1 exchange attempt(s), 0 served model requests,
+           1 expired-token request(s) refused, stored refresh cleared,
+           re-authentication required by native status and /limits."
+The nested variant reproduced the race in CI as well, and the attempt was refused.

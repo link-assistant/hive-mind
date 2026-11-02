@@ -71,4 +71,9 @@ proxy refusing every external origin:
     PASS: pinned native Claude root and two Docker peers retain parent-backed replacement, task/root logout, synthetic reauthentication and private-config disposal; the file-bind control continues to read retired credentials.
 
 The Codex auth gate needs the verified native Codex build, which exists only in
-the CI images; its nested result is pending CI at 74100c40c.
+the CI images. CI run 41425746071 at 078d2338e (job 125265324264,
+https://github.com/link-assistant/hive-mind/actions/runs/41425746071) ran the full nested variant. It printed the
+INFO fallback line for each peer-launching gate and passed the Codex auth,
+Claude auth, Claude history, Claude refresh and Gemini gates and the capability
+lifecycle gate P0–P7, with no phase skipped. Its final line was "All system,
+development, and nested Docker verification checks passed!"

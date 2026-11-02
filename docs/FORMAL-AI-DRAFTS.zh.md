@@ -43,9 +43,42 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 | `--no-auto-restart-on-uncommitted-changes` | 默认是开启的。若保持开启，模型留下的每个未提交文件都会让它重启，一次运行中最多再多五个会话。失败策略同样适用：重试是下一次运行。                 |
 | `--log-dir`                                | 会话日志通过 bind mount 带出容器，并作为工作流产物上传，因此即使根本没有开出 pull request 也能读到它。                                           |
 
+## 尝试身份
+
+一次尝试运行的是它被接纳时的 Formal AI 源码和 Hive Mind 源码，而不是镜像里恰好内置的东西（[#3909](https://github.com/link-assistant/hive-mind/issues/3909)）。在 #3909 之前，每个由 issue 触发的草稿都运行 `konard/hive-mind:<version>` 里的 `formal-ai` 二进制文件，它要落后于 Formal AI 的 `main`，直到 Hive Mind 下一次发布。
+
+在 solve 开始之前，工作流有三个作业：
+
+| 作业     | 做什么                                                                                                                                                                                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `select` | 决定是否尝试，然后一次性解析两个源码（`scripts/formal-ai-draft-select.mjs`）：Formal AI 提交、从该提交的 `rust/Cargo.toml` 读出的版本、Hive Mind 提交及其镜像。结果就是尝试身份，其 id 是这一选择的哈希。                                                                                                                            |
+| `binary` | 通过 Formal AI 自己的产物获取所选 Formal AI 提交的二进制文件：若某个发布的原生回执（receipt）指名的正是这个提交，就下载它；否则在这里构建该提交（`cargo build --locked`，按提交缓存）并生成同样的回执。由其他提交构建的同一 _版本_ 的发布不会被复用；身份把它记录为 `releaseCandidate`。                                             |
+| `draft`  | 检出所选的 Hive Mind 提交，并依次校验二进制文件（digest、回执、`--version`）、镜像（精确拉取、按 digest 固定、其 `org.opencontainers.image.revision` 为所选提交或运行时未变的提交）以及将要服务该任务的进程（在该镜像 digest 中真正启动的 `formal-ai serve`，其 `/proc/<pid>/exe` 的哈希必须等于所选二进制文件）。之后才启动 solve。 |
+
+solve 对它自己启动的服务器再做一次同样的检查：草稿传入 `HIVE_MIND_FORMAL_AI_EXPECTED_SHA256` 和 `HIVE_MIND_FORMAL_AI_EXPECTED_VERSION`，`src/formal-ai-attempt-identity.lib.mjs` 会拒绝不是该可执行文件的包装器或 `/health`。
+
+solve 之前的失败只有两种结果，两种都不会运行模型：
+
+- **Formal AI draft deferred**（`deferred-infrastructure`）：缺少某个产物——没有发布回执、构建失败、镜像标签尚未发布、镜像运行时落后于所选提交、探针无法启动服务器。运行为红色，证据在 `attempt-outcome.json` 中，不会回退到更旧的镜像或 `latest`。
+- **Formal AI draft identity mismatch**（`identity-mismatch`）：产物存在但不是所选的那个——回执属于另一个提交、digest 不同、版本不同、服务器运行的是另一个可执行文件。
+
+每日健康检查把这两种都算作在 solve 之前结束的尝试，而不是已执行的草稿或模型失败。
+
+"Re-run failed jobs" 复用 `select` 作业的输出，因此重试保持同一身份。新的运行会重新解析：如果 Formal AI 的 `main` 前进了，尝试就会得到新的源码和新的身份。
+
+### 模式
+
+| `mode`                 | Formal AI 源码                                                                   | 标签                                                                |
+| ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `live-current`（默认） | 接纳时 Formal AI 的 `main` 头。拒绝 ref。                                        | 只有 `formal-ai-draft`；这是当前源码的证据。                        |
+| `published-release`    | `formal_ai_ref` 指定的发布（为空时为最新发布），位于其回执记录的提交。           | `formal-ai-release-qualification`                                   |
+| `historical-replay`    | 固定的 `formal_ai_ref`，或者——仅在此模式下——ref 为空时使用镜像内置的二进制文件。 | `formal-ai-historical-replay`，并标注 "not current-source evidence" |
+
+`attempt_identity` 原样重新运行一个已记录的身份，不管现在的 `main` 是什么。`preflight_only` 在校验之后、solve 之前停止。由 issue 触发的尝试总是 `live-current`。
+
 ### 镜像、二进制文件与 Formal AI 自身的状态
 
-- 脚本显式拉取 `konard/hive-mind:<version>`，遇到镜像仓库超时会在 15 秒、30 秒、1 分钟和 2 分钟后重试，因此容器运行的 hive-mind 与旁边的脚本是同一版本。尚未发布的标签（版本已在 `main` 上提升但发布尚未完成）会回退到 `konard/hive-mind:latest` 并给出警告。`image` 输入或 `FORMAL_AI_DRAFT_IMAGE` 变量按原样使用。
+- 脚本只拉取本次尝试所选定的镜像——`konard/hive-mind:<version>`，其中 `<version>` 是所选 Hive Mind 提交的 `package.json` 版本——遇到镜像仓库超时会在 15 秒、30 秒、1 分钟和 2 分钟后重试，然后按 digest 运行它。尚未发布的标签（版本已在 `main` 上提升但发布尚未完成）会成为一次被推迟的尝试，而不会回退到其他标签或 `latest`（[#3909](https://github.com/link-assistant/hive-mind/issues/3909)）。`image` 输入或 `FORMAL_AI_DRAFT_IMAGE` 变量按原样使用，并以同样方式校验。
 - 会话启动的 Formal AI 服务器会在其自己的主目录下获得 `FORMAL_AI_CACHE_DIR`。Formal AI 仍会在克隆中写入 `data/cache/derivations/`，因此该目录与 `.formal-ai/` 一样，被排除在未提交更改检查之外，也不会被保存到 `recovery/<branch>` 分支：那是工具的状态，不是用户的工作。
 - 容器以 `--rm` 启动，因此失败评论从不指向容器内的路径，而是链接到工作流运行，其产物中保存着会话日志。
 
@@ -93,10 +126,14 @@ jobs:
 | `issue_number`              | 调用方仓库中要起草的 issue。若调用方本身在 `issues: opened` 上运行则省略。                                          |
 | `image`                     | 用来替代 `konard/hive-mind:<version>` 的 hive-mind 镜像。                                                           |
 | `formal_ai_binary_artifact` | 调用运行中某个产物的名称，其中包含名为 `formal-ai` 的文件。它以只读方式挂载到镜像的 `/usr/local/bin/formal-ai` 上。 |
+| `formal_ai_source_sha`      | 构建该产物的完整提交。它被绑定进尝试身份；没有它时，二进制文件只按 digest 绑定。                                    |
 | `hive_mind_repository`      | 检出其草稿脚本的仓库（默认 `link-assistant/hive-mind`）。                                                           |
 | `hive_mind_ref`             | 该仓库要检出的 ref（默认：其默认分支）。                                                                            |
+| `mode`、`formal_ai_ref`     | 与手动运行相同（见[模式](#模式)）。给出 `formal_ai_binary_artifact` 时，产物就是源码，`mode` 只用于标记。           |
+| `attempt_identity`          | 一个已记录的身份，原样重新运行。                                                                                    |
+| `preflight_only`            | 校验源码、二进制文件、镜像和服务进程，然后在 solve 之前停止。                                                       |
 
-该二进制文件必须能在镜像的 Ubuntu 基础（glibc）上运行。被调用时，工作流不会派发本仓库的检查，也不会运行其健康检查；本仓库的 `issues: opened` 照常工作。
+调用方的二进制文件就是受信任的匹配构建：接纳时计算它的哈希，服务任务的必须正是这个 digest。该二进制文件必须能在镜像的 Ubuntu 基础（glibc）上运行。被调用时，工作流不会派发本仓库的检查，也不会运行其健康检查；本仓库的 `issues: opened` 照常工作。
 
 ## 如何退出与重跑
 
@@ -107,8 +144,9 @@ jobs:
 ## 如何读一个失败的草稿
 
 1. 会话日志由 `--attach-logs` 附加到 pull request 上。
-2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。
-3. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
+2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>-<attempt id>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误，或在 solve 之前结束的尝试的 deferred / mismatch 结果。
+3. 同一产物中还有 `attempt-identity.json`（选了什么）、`serving-probe.json` 和 `attempt-record.json`（校验了什么），以及在 solve 之前结束的尝试的 `attempt-outcome.json`。
+4. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
 
 ## 当 formal-ai 发布其 composite action 之后
 

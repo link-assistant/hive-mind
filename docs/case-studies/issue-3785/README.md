@@ -1377,3 +1377,18 @@ dependency beside the package. The fixture now copies exactly the dependency
 packages Node resolves for the peer entry. Both the Bun-installed and
 source-checkout launchers pass the actual native Gemini root/two-peer control
 locally. See the [installed-runtime evidence](evidence/gemini-docker-installed-runtime.txt).
+
+The next CI attempt at `e1082e83a` reached this gate and stopped in the update
+phase. The image pins Codex 0.164.0, so the gate staged 0.163.0 as the previous
+release. Codex rewrites `~/.codex/skills/.system` on every version change, and
+the 0.163.0 stock skills differ from the pinned 0.164.0 manifest. The
+production audit therefore refused launch with the typed stock-baseline error,
+which is the intended fail-closed behaviour. The local runs had used 0.166.0,
+whose previous release (0.165.0) matches the pin, so they did not hit this.
+
+The gate now accepts only that typed refusal, and only while the staged
+release's skills are still materialized and that release differs from the pin.
+Every other check still runs, and every later checkpoint requires a clean audit.
+Local Run C reproduces the CI versions and passes. One production consequence
+remains: the idle updater installs `@openai/codex@latest`. If a future release
+changes its stock skills, Hive refuses Codex launches until the pin is updated.

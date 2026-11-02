@@ -57,6 +57,7 @@ const launcher = process.argv[2] || fileURLToPath(new URL('../src/hive.mjs', imp
 const source = path.dirname(await fs.realpath(launcher));
 const lib = name => import(pathToFileURL(path.join(source, name)));
 const { parse: parseToml } = await import(pathToFileURL(createRequire(path.join(source, 'anchor.js')).resolve('smol-toml')));
+const { CODEX_STOCK_SKILLS, CodexStockBaselineError } = await lib('codex-stock-skills.lib.mjs');
 const { runAgentConfigAudit, auditAgentConfig, AGENT_CONFIG_MINIMAL_ENV, CODEX_REMOTE_PLUGIN_DISABLE_ARGS, CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_HOSTED_APPS_DISABLE_ARGS } = await lib('agent-config-audit.lib.mjs');
 const { CLAUDE_CLOUD_DISABLE_SETTINGS, CLAUDE_CLOUD_DISABLE_ENV } = await lib('claude-cloud-policy.lib.mjs');
 const { ensureClaudeAuthAuthority, defaultClaudeAuthorityHome } = await lib('claude-auth-authority.lib.mjs');
@@ -216,16 +217,24 @@ const beginPhase = () => {
 };
 
 /** Two independent checks: capability state, then canonical auth/history. */
-async function checkpoint(phase, { contentOnly = [] } = {}) {
+// A Codex release other than the pinned one rewrites `.system` with its own
+// stock skills; production must then refuse launch with the typed error.
+async function checkpoint(phase, { contentOnly = [], unpinnedCodex = null } = {}) {
   const manifest = await scanCapabilityManifest(home, { parseToml });
   assert.deepEqual(manifest, [], `${phase}: global capability state appeared: ${manifest.join(', ')}`);
-  const { findings } = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: false, requireClean: true });
-  assert.equal(findings.length, 0, `${phase}: production audit reported ${findings.map(finding => `${finding.tool}:${finding.kind}`).join(', ')}`);
+  let audit = 'audit clean';
+  try {
+    const { findings } = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: false, requireClean: true });
+    assert.equal(findings.length, 0, `${phase}: production audit reported ${findings.map(finding => `${finding.tool}:${finding.kind}`).join(', ')}`);
+  } catch (error) {
+    if (!(unpinnedCodex && unpinnedCodex !== CODEX_STOCK_SKILLS.cliVersion && error instanceof CodexStockBaselineError)) throw error;
+    audit = `launch refused on the unpinned Codex ${unpinnedCodex} stock runtime (typed fail-closed, no repair)`;
+  }
   const traffic = classifyCapabilityTraffic(provider.requests.slice(phaseStart), provider.tunnels);
   assertNoCapabilityTraffic(traffic, phase);
   const changed = compareCanonicalState(canonicalBefore, await captureCanonicalState(home, canonicalPaths), { appendOnly: APPEND_ONLY, contentOnly });
   assert.deepEqual(changed, [], `${phase}: canonical auth/history changed: ${changed.join(', ')}`);
-  say(`✅ ${phase}: capability manifest empty, audit clean, 0 capability requests (${provider.requests.length - phaseStart} answered, ${provider.tunnels.size} download tunnel(s), ${provider.refused.size} refused origin(s)); ${canonicalPaths.length} canonical auth/history files unchanged`);
+  say(`✅ ${phase}: capability manifest empty, ${audit}, 0 capability requests (${provider.requests.length - phaseStart} answered, ${provider.tunnels.size} download tunnel(s), ${provider.refused.size} refused origin(s)); ${canonicalPaths.length} canonical auth/history files unchanged`);
 }
 
 const codexTaskArgs = [...CODEX_REMOTE_PLUGIN_DISABLE_ARGS, ...CODEX_PLUGIN_SYNC_DISABLE_ARGS, ...CODEX_HOSTED_APPS_DISABLE_ARGS];
@@ -332,7 +341,7 @@ try {
     await checkpoint(`P3 previous CLI releases installed (claude ${previous.claude}, codex ${previous.codex})`);
     beginPhase();
     await nativeStartup('P3 previous', home, updaterEnv);
-    await checkpoint('P3 native start with the previous releases');
+    await checkpoint('P3 native start with the previous releases', { unpinnedCodex: previous.codex });
     beginPhase();
     const program = `const { updateAgenticClisWhenIdle } = await import(process.argv[1]);
       const result = await updateAgenticClisWhenIdle({ force: true, only: ['claude', 'codex'], getActiveTasksImpl: async () => [] });
@@ -343,7 +352,8 @@ try {
     assert.deepEqual(updated.failed, [], `P3: updater failures ${JSON.stringify(updated.failed)}`);
     assert.deepEqual(updated.updated.map(entry => entry.id).sort(), ['claude', 'codex'], 'P3: the updater must replace both staged CLIs');
     say(`ℹ️  P3 updater: updated [${updated.updated.map(entry => `${entry.id} ${entry.from}→${entry.to}`).join(', ')}], current [${updated.upToDate.map(entry => `${entry.id} ${entry.version}`).join(', ')}]`);
-    await checkpoint('P3 idle CLI updater (claude update / bun install -g)');
+    // The updated binary has not started yet, so `.system` still holds the staged release's skills.
+    await checkpoint('P3 idle CLI updater (claude update / bun install -g)', { unpinnedCodex: previous.codex });
     beginPhase();
     await nativeStartup('P3 updated', home, updaterEnv);
     await checkpoint('P3 first native start with the updated binaries');

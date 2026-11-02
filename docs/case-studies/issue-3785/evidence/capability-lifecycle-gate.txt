@@ -57,6 +57,54 @@ updates both; Router phase skipped locally because Run A covered it)
 ✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
 ✅ capability lifecycle gate passed (skipped: router)
 
+CI run at e1082e83a and Run C (previous Codex release with different stock skills)
+-------------------------------------------------------------------------------
+docker-pr-check (run 41373932435, job 125080102833, host-socket image with
+codex 0.164.0) passed P0-P2 and the first P3 checkpoint, then failed:
+  ✅ P3 previous CLI releases installed (claude 2.1.309, codex 0.163.0): ...
+  ❌ Codex stock runtime differs from the pristine pinned CLI 0.164.0 baseline.
+     Restore verified stock content before launch; no repair is permitted.
+Root cause: Codex rewrites ~/.codex/skills/.system on every version change, and
+0.163.0 ships different stock skills from the 0.164.0 manifest that Hive pins
+(src/codex-stock-skills.lib.mjs). Local separate BUN_INSTALL roots, first
+start of each release (marker, file count, content sum):
+  0.164.0: a49d0ab9dc3eb676 files=49 sum=cec178a965ad
+  0.163.0: 3eadc798bef12c4a files=49 sum=b54e1acf48cc
+  0.166.0: a49d0ab9dc3eb676 files=49 sum=cec178a965ad
+  0.164.0: a49d0ab9dc3eb676 files=49 sum=cec178a965ad   (rewritten back)
+Local Runs A/B used codex 0.166.0, so their "previous" release was 0.165.0,
+which matches the pin; the CI image pins 0.164.0, so its previous is 0.163.0.
+The refusal is the intended production behaviour (fail closed, no repair). The
+gate now accepts exactly that typed CodexStockBaselineError, and only on the
+two checkpoints where the staged release's skills are still materialized and
+only when the staged release differs from the pin. The manifest, traffic and
+canonical checks still run there, and every later checkpoint requires a fully
+clean audit. Any other audit error or finding still fails the gate.
+
+Production consequence: the idle updater installs @openai/codex@latest. A
+future release whose stock skills differ from the pinned manifest makes Hive
+refuse Codex launches until the pin/manifest is updated (fail closed, visible
+error), rather than running unverified stock content.
+
+Run C (local, 2026-11-02, PATH codex 0.164.0 as in the CI image, Router phase
+skipped locally because Run A covered it):
+✅ P0 baseline (Playwright-only, default Claude authority): capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P1 deployment version/login/MCP/model probes with forced account sync: capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P2 positive control (pre-#3785 home): 2 account-sync, 3 curated-catalog and 1 hosted-connector request(s); manifest 13 entries; audit 9 findings (claude:cloud-capabilities, claude:plugin, claude:skill, codex:curated-plugin-sync, codex:hosted-connectors, codex:marketplace), none claims a cached item is enabled
+✅ P2 repaired control: the next native Claude and Codex starts sent 0 capability requests and repopulated nothing (the persisted pins, not the cleanup, prevent recurrence)
+✅ P3 previous CLI releases installed (claude 2.1.315, codex 0.163.0): capability manifest empty, audit clean, 0 capability requests (7 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 native start with the previous releases: capability manifest empty, launch refused on the unpinned Codex 0.163.0 stock runtime (typed fail-closed, no repair), 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+ℹ️  P3 updater: updated [claude 2.1.315→2.1.316, codex 0.163.0→0.166.0], current []
+✅ P3 idle CLI updater (claude update / bun install -g): capability manifest empty, launch refused on the unpinned Codex 0.163.0 stock runtime (typed fail-closed, no repair), 0 capability requests (6 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 first native start with the updated binaries: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P4 task completion (scoped Codex preflight + exec + dispose, Claude task): capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P5 root restart (startup audit admits unchanged) + native start: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+⏭️  P6 Router restart: SKIPPED by HIVE_LIFECYCLE_SKIP
+ℹ️  P7 restore brought back 13 capability entries; startup audit repaired 9
+✅ P7 archive restore + startup audit: capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ capability lifecycle gate passed (skipped: router)
+
 Observations
 ------------
 - P2 (no Hive pins, same binaries, same provider) reproduces the reported

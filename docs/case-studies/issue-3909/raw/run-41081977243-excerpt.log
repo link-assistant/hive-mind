@@ -1,0 +1,7 @@
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:40:09.7201122Z Status: Downloaded newer image for konard/hive-mind:2.39.9
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:40:09.7218400Z docker.io/konard/hive-mind:2.39.9
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:40:09.7276046Z $ docker run --rm --user box -e GH_TOKEN -e FORMAL_AI_INSTALL_GRANT -e GIT_CONFIG_COUNT=3 -e GIT_CONFIG_KEY_0=init.defaultBranch -e GIT_CONFIG_VALUE_0=main -e GIT_CONFIG_KEY_1=user.name -e GIT_CONFIG_VALUE_1=github-actions[bot] -e GIT_CONFIG_KEY_2=user.email -e GIT_CONFIG_VALUE_2=41898282+github-actions[bot]@users.noreply.github.com -e HIVE_MIND_EPHEMERAL_CONTAINER=1 -e HIVE_MIND_CI_RUN_URL=https://github.com/link-assistant/hive-mind/actions/runs/41081977243 -e GITHUB_ACTIONS=true -v /home/runner/work/_temp/formal-ai-draft-logs:/home/box/logs konard/hive-mind:2.39.9 solve https://github.com/link-assistant/hive-mind/issues/3863 --tool agent --model formal-ai --attach-logs --development-log --verbose --attribution formal-ai --no-auto-restart-until-mergeable --no-auto-restart-on-uncommitted-changes --log-dir /home/box/logs
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:40:23.3896268Z 📦 Formal AI wrapper version: 0.355.15
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:41:24.7295869Z 🧾 Formal AI attribution enabled (formal-ai/0.355.15)
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:41:24.7427845Z 🧠 Formal AI: local wrapper version 0.355.15 (minimum 0.336.0)
+Formal AI draft	UNKNOWN STEP	2026-10-30T15:41:25.3061527Z 🧠 Formal AI: serving backend 0.355.15 at http://127.0.0.1:36581

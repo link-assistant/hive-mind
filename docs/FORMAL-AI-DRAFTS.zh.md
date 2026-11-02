@@ -52,7 +52,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 | 作业     | 做什么                                                                                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `select` | 决定是否尝试，然后一次性解析两个源码（`scripts/formal-ai-draft-select.mjs`）：Formal AI 提交、从该提交的 `rust/Cargo.toml` 读出的版本、Hive Mind 提交及其镜像。结果就是尝试身份，其 id 是这一选择的哈希。                                                                                                                            |
-| `binary` | 通过 Formal AI 自己的产物获取所选 Formal AI 提交的二进制文件：若某个发布的原生回执（receipt）指名的正是这个提交，就下载它；否则在这里构建该提交（`cargo build --locked`，按提交缓存）并生成同样的回执。由其他提交构建的同一 _版本_ 的发布不会被复用；身份把它记录为 `releaseCandidate`。                                             |
+| `binary` | 通过 Formal AI 自己的产物获取所选 Formal AI 提交的二进制文件：若某个发布的原生回执（receipt）指名的正是这个提交，就下载它；否则在这里构建该提交（`cargo build --locked`，每次尝试都重新构建；不使用其他运行可能写入的缓存）并生成同样的回执。由其他提交构建的同一 _版本_ 的发布不会被复用；身份把它记录为 `releaseCandidate`。       |
 | `draft`  | 检出所选的 Hive Mind 提交，并依次校验二进制文件（digest、回执、`--version`）、镜像（精确拉取、按 digest 固定、其 `org.opencontainers.image.revision` 为所选提交或运行时未变的提交）以及将要服务该任务的进程（在该镜像 digest 中真正启动的 `formal-ai serve`，其 `/proc/<pid>/exe` 的哈希必须等于所选二进制文件）。之后才启动 solve。 |
 
 solve 对它自己启动的服务器再做一次同样的检查：草稿传入 `HIVE_MIND_FORMAL_AI_EXPECTED_SHA256` 和 `HIVE_MIND_FORMAL_AI_EXPECTED_VERSION`，`src/formal-ai-attempt-identity.lib.mjs` 会拒绝不是该可执行文件的包装器或 `/health`。
@@ -68,11 +68,11 @@ solve 之前的失败只有两种结果，两种都不会运行模型：
 
 ### 模式
 
-| `mode`                 | Formal AI 源码                                                                   | 标签                                                                |
-| ---------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `live-current`（默认） | 接纳时 Formal AI 的 `main` 头。拒绝 ref。                                        | 只有 `formal-ai-draft`；这是当前源码的证据。                        |
-| `published-release`    | `formal_ai_ref` 指定的发布（为空时为最新发布），位于其回执记录的提交。           | `formal-ai-release-qualification`                                   |
-| `historical-replay`    | 固定的 `formal_ai_ref`，或者——仅在此模式下——ref 为空时使用镜像内置的二进制文件。 | `formal-ai-historical-replay`，并标注 "not current-source evidence" |
+| `mode`                 | Formal AI 源码                                                                                                                                       | 标签                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `live-current`（默认） | 接纳时 Formal AI 的 `main` 头。拒绝 ref。                                                                                                            | 只有 `formal-ai-draft`；这是当前源码的证据。                        |
+| `published-release`    | `formal_ai_ref` 指定的发布（为空时为最新发布），位于其回执记录的提交。                                                                               | `formal-ai-release-qualification`                                   |
+| `historical-replay`    | 固定的、位于 Formal AI `main` 上的 `formal_ai_ref`（来自分叉或未合并的提交属于身份不匹配），或者——仅在此模式下——ref 为空时使用镜像内置的二进制文件。 | `formal-ai-historical-replay`，并标注 "not current-source evidence" |
 
 `attempt_identity` 原样重新运行一个已记录的身份，不管现在的 `main` 是什么。`preflight_only` 在校验之后、solve 之前停止。由 issue 触发的尝试总是 `live-current`。
 

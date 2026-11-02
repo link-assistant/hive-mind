@@ -20,6 +20,7 @@ const SHA1 = /^[0-9a-f]{40}$/i;
  * @property {(sha: string) => Promise<string|null>} readVersion the `rust/Cargo.toml` package version at a commit
  * @property {(version: string) => Promise<{tag: string, version: string, sourceSha: string|null}|null>} releaseForVersion the release `v<version>` and the source its receipt names, or null
  * @property {(tag: string|null) => Promise<{tag: string, version: string, sourceSha: string|null}|null>} release a named release, or the latest when `tag` is null
+ * @property {(sha: string) => Promise<boolean>} onDefaultBranch whether a commit is reachable from the Formal AI default branch
  * @property {(path: string) => Promise<string>} hashFile
  * @property {(path: string) => Promise<string>} binaryVersion `<binary> --version` output
  */
@@ -33,7 +34,10 @@ const SHA1 = /^[0-9a-f]{40}$/i;
  * - published-release: a release (latest unless named) and the source its
  *   receipt names.
  * - historical-replay: a pinned ref, built or matched to its release; with no
- *   ref, the binary baked into the image, labelled as such.
+ *   ref, the binary baked into the image, labelled as such. The pinned commit
+ *   must be reachable from the default branch: a commit that only exists in a
+ *   fork or an unmerged pull request is never built in this repository's
+ *   context.
  * - a caller's binary (`workflow_call` artifact, or Formal AI's own workflow)
  *   is bound by its digest and, when given, its source commit.
  */
@@ -57,13 +61,14 @@ export async function selectFormalAi({ mode, ref, callerBinary = null, callerSou
     return { ref: release.tag, sourceSha: release.sourceSha.toLowerCase(), version: release.version, binarySource: BINARY_SOURCES.release, release };
   }
   if (!pinned) return { ref: BINARY_SOURCES.imageBaked, sourceSha: null, version: null, binarySource: BINARY_SOURCES.imageBaked };
-  return await selectSource({ ref: pinned, deps });
+  return await selectSource({ ref: pinned, deps, requireDefaultBranch: true });
 }
 
 /** A ref resolved to a commit, its version, and how to obtain its binary. */
-const selectSource = async ({ ref, deps }) => {
+const selectSource = async ({ ref, deps, requireDefaultBranch = false }) => {
   const sourceSha = String(await deps.resolveCommit(ref)).toLowerCase();
   if (!SHA1.test(sourceSha)) throw new AttemptIdentityError(ATTEMPT_OUTCOMES.deferred, `could not resolve Formal AI ${ref} to a commit`);
+  if (requireDefaultBranch && !(await deps.onDefaultBranch(sourceSha))) throw new AttemptIdentityError(ATTEMPT_OUTCOMES.mismatch, `Formal AI ${ref} (${sourceSha}) is not on ${FORMAL_AI_DEFAULT_BRANCH}; only merged history is replayed`, { ref, sourceSha });
   const version = await deps.readVersion(sourceSha);
   if (!version) throw new AttemptIdentityError(ATTEMPT_OUTCOMES.deferred, `could not read the Formal AI version at ${sourceSha}`);
   const candidate = await deps.releaseForVersion(version);
@@ -135,6 +140,8 @@ export function createGitHubSelectDeps({ gh, hashFile, binaryVersion, repository
     readVersion: async sha => readCargoPackageVersion(await api(`repos/${repository}/contents/rust/Cargo.toml?ref=${sha}`, ['-H', 'Accept: application/vnd.github.raw'])),
     releaseForVersion: version => releaseByEndpoint(`repos/${repository}/releases/tags/v${version}`),
     release: tag => releaseByEndpoint(tag ? `repos/${repository}/releases/tags/${encodeURIComponent(tag)}` : `repos/${repository}/releases/latest`),
+    // `<sha>...<default>` is identical or ahead exactly when the default branch contains the commit.
+    onDefaultBranch: async sha => ['identical', 'ahead'].includes((await api(`repos/${repository}/compare/${sha}...${FORMAL_AI_DEFAULT_BRANCH}`, ['--jq', '.status'])).trim()),
     hashFile,
     binaryVersion,
   };

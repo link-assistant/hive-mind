@@ -45,7 +45,7 @@ const REPOSITORY = 'link-assistant/hive-mind';
 const hive = { repository: REPOSITORY, sourceSha: HIVE, version: '2.39.11', image: 'konard/hive-mind:2.39.11' };
 
 /** Formal AI as GitHub would answer: a main head, a version per commit, releases with receipts. */
-const formalAiDeps = ({ main = OLD_MAIN, versions = { [OLD_MAIN]: '0.355.29', [NEW_MAIN]: '0.355.29' }, releases = { 'v0.355.29': OLD_MAIN }, latest = 'v0.355.29' } = {}) => ({
+const formalAiDeps = ({ main = OLD_MAIN, versions = { [OLD_MAIN]: '0.355.29', [NEW_MAIN]: '0.355.29' }, releases = { 'v0.355.29': OLD_MAIN }, latest = 'v0.355.29', merged = [OLD_MAIN, NEW_MAIN] } = {}) => ({
   resolveCommit: async ref => (ref === 'main' ? main : /^[0-9a-f]{40}$/.test(ref) ? ref : (releases[ref] ?? 'unknown')),
   readVersion: async sha => versions[sha] ?? null,
   releaseForVersion: async version => (releases[`v${version}`] !== undefined ? { tag: `v${version}`, version, sourceSha: releases[`v${version}`] } : null),
@@ -53,6 +53,7 @@ const formalAiDeps = ({ main = OLD_MAIN, versions = { [OLD_MAIN]: '0.355.29', [N
     const name = tag || latest;
     return releases[name] !== undefined ? { tag: name, version: name.slice(1), sourceSha: releases[name] } : null;
   },
+  onDefaultBranch: async sha => merged.includes(sha),
   hashFile: async () => sha256('e'),
   binaryVersion: async () => 'formal-ai 0.355.29',
 });
@@ -156,6 +157,11 @@ test('live-current, published-release and historical-replay are separate and lab
   assert.equal(live.currentSource, true);
   assert.equal(ATTEMPT_MODE_LABELS[live.mode], undefined, 'a live attempt carries only the ordinary draft label');
   assert.equal(new Set([live.id, release.id, replay.id, pinned.id]).size, 4);
+});
+
+test('a historical replay only builds merged history: a fork or unmerged commit is refused', async () => {
+  const forkCommit = sha1('f');
+  await assert.rejects(select({ mode: ATTEMPT_MODES.historicalReplay, ref: forkCommit }, formalAiDeps({ versions: { [forkCommit]: '0.355.29' } })), error => error instanceof AttemptIdentityError && error.outcome === ATTEMPT_OUTCOMES.mismatch && /not on main/.test(error.message) && error.evidence.sourceSha === forkCommit);
 });
 
 test('only a historical replay may run the binary baked into the image, and never :latest', () => {
@@ -334,6 +340,8 @@ test('admission reads the release receipt, and a missing release is null rather 
     if (endpoint.endsWith('/releases/tags/v0.355.29')) return JSON.stringify({ tag_name: 'v0.355.29', assets: [{ id: 5, name: 'formal-ai-native-x86_64-unknown-linux-musl-0.355.29.json', digest: `sha256:${sha256('7')}` }] });
     if (endpoint.endsWith('/releases/assets/5')) return JSON.stringify({ version: 1, identity: { source_commit: OLD_MAIN.toUpperCase() } });
     if (endpoint.includes('/commits/main')) return `${NEW_MAIN}\n`;
+    if (endpoint.endsWith(`/compare/${OLD_MAIN}...main`)) return 'ahead\n';
+    if (endpoint.endsWith(`/compare/${HIVE}...main`)) return 'diverged\n';
     if (endpoint.includes('/contents/rust/Cargo.toml')) return '[package]\nversion = "0.355.29"\n';
     const error = new Error('gh: Not Found (HTTP 404)');
     error.stderr = 'gh: Not Found (HTTP 404)';
@@ -344,6 +352,8 @@ test('admission reads the release receipt, and a missing release is null rather 
   assert.equal(await deps.releaseForVersion('9.9.9'), null);
   assert.equal(await deps.resolveCommit('main'), `${NEW_MAIN}`);
   assert.equal(await deps.readVersion(NEW_MAIN), '0.355.29');
+  assert.equal(await deps.onDefaultBranch(OLD_MAIN), true);
+  assert.equal(await deps.onDefaultBranch(HIVE), false, 'a diverged commit is not on the default branch');
   const identity = await select({}, deps);
   assert.equal(identity.formalAi.binarySource, BINARY_SOURCES.build, 'end to end: same version, other commit → build');
   assert.ok(
@@ -389,7 +399,7 @@ test('the workflow selects once, obtains the binary, then verifies before the dr
   assert.match(binary, /ref: \$\{\{ needs\.select\.outputs\.formal_ai_sha \}\}/, 'the build is of the selected commit, not a branch');
   assert.match(binary, /cargo build --manifest-path rust\/Cargo\.toml --target-dir target --release --locked --bin formal-ai/);
   assert.match(binary, /formal-ai-draft-binary\.mjs verify/);
-  assert.match(binary, /key: formal-ai-binary-v1-\$\{\{ needs\.select\.outputs\.formal_ai_sha \}\}/);
+  assert.doesNotMatch(workflow, /actions\/cache/, 'no attempt trusts a build cached by another run (CodeQL actions/cache-poisoning)');
 
   const draft = job('draft');
   assert.match(draft, /needs: \[select, binary\]/);

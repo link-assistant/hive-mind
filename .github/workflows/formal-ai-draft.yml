@@ -226,9 +226,12 @@ jobs:
           node scripts/formal-ai-draft-select.mjs
 
   # The Formal AI binary of the selected commit: the release whose published
-  # receipt names that exact commit, or a build of the commit here (cached by
-  # commit). Either way it is verified against the identity and handed to the
-  # draft job as an artifact of this run.
+  # receipt names that exact commit, or a fresh build of the commit here.
+  # Either way it is verified against the identity and handed to the draft job
+  # as an artifact of this run. The build is deliberately not kept in a shared
+  # Actions cache: an entry written by one attempt would be trusted by the
+  # next, and making that reuse fast and safe is formal-ai#1486's latency work.
+  # Freshness does not depend on it.
   binary:
     needs: select
     if: needs.select.outputs.formal_ai_binary_source == 'release' || needs.select.outputs.formal_ai_binary_source == 'build'
@@ -260,15 +263,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/formal-ai-draft-binary.mjs release "$RUNNER_TEMP/formal-ai-attempt"
 
-      - name: Restore an earlier build of the selected commit
-        id: cache
-        if: needs.select.outputs.formal_ai_binary_source == 'build'
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/formal-ai-attempt
-          key: formal-ai-binary-v1-${{ needs.select.outputs.formal_ai_sha }}-x86_64-unknown-linux-gnu
       - name: Checkout the selected Formal AI commit
-        if: needs.select.outputs.formal_ai_binary_source == 'build' && steps.cache.outputs.cache-hit != 'true'
+        if: needs.select.outputs.formal_ai_binary_source == 'build'
         uses: actions/checkout@v7
         with:
           repository: link-assistant/formal-ai
@@ -276,7 +272,7 @@ jobs:
           path: .formal-ai-source
           persist-credentials: false
       - name: Build the selected Formal AI commit
-        if: needs.select.outputs.formal_ai_binary_source == 'build' && steps.cache.outputs.cache-hit != 'true'
+        if: needs.select.outputs.formal_ai_binary_source == 'build'
         working-directory: .formal-ai-source
         run: |
           rustup toolchain install stable --profile minimal
@@ -286,12 +282,6 @@ jobs:
       - name: Verify the binary against the attempt identity
         run: node scripts/formal-ai-draft-binary.mjs verify "$RUNNER_TEMP/formal-ai-attempt"
 
-      - name: Save the build of the selected commit
-        if: needs.select.outputs.formal_ai_binary_source == 'build' && steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/formal-ai-attempt
-          key: formal-ai-binary-v1-${{ needs.select.outputs.formal_ai_sha }}-x86_64-unknown-linux-gnu
       - name: Hand the binary to the draft job
         uses: actions/upload-artifact@v7
         with:

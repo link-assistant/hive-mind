@@ -1369,3 +1369,11 @@ See the [lifecycle evidence](evidence/capability-lifecycle-gate.txt). Neither
 `claude install` nor `claude update` changed the canonical credentials under
 the gate. The Claude store that was empty after redeploy still needs an
 operator re-login.
+
+The first CI attempt at `ffd3c8a4b` stopped before this gate. The preceding
+packaged Gemini Docker storage fixture copied `<package>/node_modules` for its
+peers, but the release images install the package with Bun, which hoists every
+dependency beside the package. The fixture now copies exactly the dependency
+packages Node resolves for the peer entry. Both the Bun-installed and
+source-checkout launchers pass the actual native Gemini root/two-peer control
+locally. See the [installed-runtime evidence](evidence/gemini-docker-installed-runtime.txt).

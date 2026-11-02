@@ -1,0 +1,89 @@
+Pinned actual Gemini CLI: 0.65.0.
+Checked stage 23 follows the complete child-history stage.
+Manager remains 13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769.
+History helper before:
+  216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed
+History helper after:
+  4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd
+Production packages, launchers and images are unchanged.
+
+Root cause:
+  Existing schema and per-read identity checks did not retain complete audit
+  identity/content across operations. readNativeGeminiConversation overwrote
+  its observed digest with an older valid generation; append admitted any
+  schema-valid existing content. Identical complete bytes on another inode
+  also silently changed the previously observed audit identity.
+
+Strict reproductions before repair:
+  probe-gemini-native-history-storage.py --scenario evidence-rollback
+  probe-gemini-native-history-storage.py --scenario evidence-read-rollback
+  probe-gemini-native-history-storage.py --scenario evidence-replacement
+  Each fails with Missing expected exception: Previously observed complete
+  conversation evidence must not be silently replaced or rolled back.
+  Inputs first complete healthy append/read and a Unicode tool result.
+
+  probe-gemini-native-cli.py --history --history-live-rollback
+  PASS: actual native CLI completes its healthy write_file and records its real
+  tool call/result before an older valid audit generation is atomically
+  substituted.
+  REPRODUCED: actual native inference completes after valid audit rollback,
+  silently losing its previously recorded tool call/result from the selected
+  conversation.
+  AssertionError: Actual native recording must refuse a valid rollback of its
+  previously observed complete conversation.
+
+Repair and local verification:
+  A bounded process-local map retains inode, UTF-8 byte length and prefix digest.
+  Read/pre-append/pre-rewrite/pre-archive/pre-restore check prior evidence.
+  Complete acknowledged appends update their witness; deliberate native rewrite
+  preserves the previous generation before publication and resets its witness.
+  Archive retires its witness; exclusive restore publication binds the new one.
+  Existing append-only metadata on the same inode remains valid.
+
+  All three strict helper controls pass; positive append-only metadata passes.
+  Full storage suite: 69 assertions pass, including archive/restore, import,
+  Unicode, artifacts, stale generations and four independent writer peers.
+  Actual live rollback: two assertions pass independently in both native
+  noninteractive engines. The agent-session engine also first reproduces the
+  same strict audit loss on the preceding stage. Select that path with
+  --history-live-rollback-engine agent; the default control uses legacy.
+  Native recording refuses with the
+  canonical history error, without another model request. The completed healthy
+  project edit and protected complete audit remain intact; substituted audit
+  bytes and identity remain unchanged.
+  Actual discovery-peer positive control: two assertions pass both before
+  repair and on the reconstructed package. A native terminal retains its writer
+  claim while a separate native --list-sessions process appends its existing
+  generated summary. The original terminal then completes its second inference
+  with original model history and complete preceding audit plus peer summary.
+
+  Fresh twenty-three-stage reconstruction passes all applicability checks
+  without mutation, then produces seventeen byte-identical native files.
+  Fresh actual rollback, child recording/discovery/resume, ACP restore,
+  automatic terminal restore/resume and both headless restore cycles pass.
+  The native executable, SDK and schedulers are not replaced by test doubles.
+  Only loopback TLS provider responses and synthetic credentials are supplied.
+  Surrounding reconstructed-package controls also pass: metadata 54, shell 28,
+  authentication writers 41/request boundaries 30/private-config reads 11,
+  child mode/symlink/replaced-parent refusal 1 each/private behavior 2,
+  terminal live/startup refusal 1/2, owner refusal/recovery 5,
+  delayed lock release 2 and interrupted lock recovery 3 assertions.
+
+Retained local diagnostics:
+  /tmp/issue-3785-recovery/gemini-evidence-before-control.log
+  /tmp/issue-3785-recovery/gemini-evidence-read-rollback-before-control.log
+  /tmp/issue-3785-recovery/gemini-evidence-replacement-before-control.log
+  /tmp/issue-3785-recovery/gemini-live-audit-before-control.log
+  /tmp/issue-3785-recovery/gemini-evidence-full-storage-control.log
+  /tmp/issue-3785-recovery/gemini-evidence-fresh-source-control.log
+  /tmp/issue-3785-recovery/gemini-evidence-fresh-*-control.log
+  /tmp/issue-3785-recovery/gemini-live-summary-{before,fresh}-control.log
+  CI uploads raw .log, source, network and control diagnostics separately.
+
+Limits and open requirements:
+  This witness exists within a process and cannot identify a valid rollback
+  already present before a fresh process starts. Persisted rollback authority,
+  interrupted publication, physical power loss, remaining writers, child
+  checkpoint/restore and production integration remain unfinished.
+  Fresh exact-head Node 24 CI is required. Earlier successful run 41160834587
+  verifies only the preceding twenty-two-stage package at 533cc3a20c01.

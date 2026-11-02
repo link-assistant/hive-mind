@@ -1,0 +1,145 @@
+✖ malformed global JSON stops repair without exposing input or changing other state (24.020048ms)
+✖ symlink from settings into credentials is rejected before repair (12.761245ms)
+✖ hardlink from settings into credentials is rejected before repair (18.273848ms)
+✖ a linked plugin ancestor cannot redirect cleanup into conversation storage (9.95486ms)
+✖ unreadable audit surfaces stop repair rather than becoming an empty catalog (9.042609ms)
+✖ unreadable Codex configuration stops every repair (11.419373ms)
+✖ a concurrent configuration edit invalidates the repair plan (8.49134ms)
+✖ a concurrent file creation prevents empty-parent pruning (12.719667ms)
+✖ removing an unapproved skill preserves hidden stock runtime files (24.254645ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 0
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.457542
+
+✖ failing tests:
+
+test at <synthetic-test-module>:18:1
+✖ malformed global JSON stops repair without exposing input or changing other state (24.020048ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (<synthetic-test-module>:26:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Function (anonymous)],
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:32:3
+✖ symlink from settings into credentials is rejected before repair (12.761245ms)
+  AssertionError [ERR_ASSERTION]: protected credential bytes must remain unchanged
+      at TestContext.<anonymous> (<synthetic-test-module>:43:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:32:3
+✖ hardlink from settings into credentials is rejected before repair (18.273848ms)
+  AssertionError [ERR_ASSERTION]: protected credential bytes must remain unchanged
+      at TestContext.<anonymous> (<synthetic-test-module>:43:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:49:1
+✖ a linked plugin ancestor cannot redirect cleanup into conversation storage (9.95486ms)
+  AssertionError [ERR_ASSERTION]: protected conversation must survive cleanup
+      at TestContext.<anonymous> (<synthetic-test-module>:60:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:71:1
+✖ unreadable audit surfaces stop repair rather than becoming an empty catalog (9.042609ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (<synthetic-test-module>:83:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Function (anonymous)],
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:87:1
+✖ unreadable Codex configuration stops every repair (11.419373ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (<synthetic-test-module>:109:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Function (anonymous)],
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:113:1
+✖ a concurrent configuration edit invalidates the repair plan (8.49134ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (<synthetic-test-module>:119:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:133:1
+✖ a concurrent file creation prevents empty-parent pruning (12.719667ms)
+  AssertionError [ERR_ASSERTION]: a directory populated after inspection must survive pruning
+      at TestContext.<anonymous> (<synthetic-test-module>:155:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at <synthetic-test-module>:165:1
+✖ removing an unapproved skill preserves hidden stock runtime files (24.254645ms)
+  AssertionError [ERR_ASSERTION]: stock runtime files must survive removal of an unrelated skill
+      at TestContext.<anonymous> (<synthetic-test-module>:175:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

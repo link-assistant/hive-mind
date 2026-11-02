@@ -15,7 +15,6 @@ import crypto from 'crypto';
 import { spawn } from 'node:child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { lookup as lookupHost } from 'node:dns/promises';
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
@@ -27,7 +26,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 // Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
 import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
-import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
+import { buildRouterGitConfigEntries, buildRouterTaskEnv, hasUseRouterFlag, isRouterEnabled, resolveRouterGitHubRouting, resolveRouterTaskRoute } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
@@ -50,6 +49,10 @@ import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
+import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
+import { toolDataContainerEnv, toolDataPrivateMounts } from './tool-data-mounts.lib.mjs';
+import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
+export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
@@ -61,7 +64,8 @@ export { inspectDockerTaskLaunch, pruneStoppedContainerCaches, removeReplacedRes
 export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const DOCKER_CONTAINER_HOME = '/home/box';
+import { DOCKER_CONTAINER_HOME, getDockerIsolationAuthMounts, pathExists, prepareDockerIsolationHostPaths } from './isolation-runner.mounts.lib.mjs';
+export { DOCKER_ISOLATION_TOOL_MOUNTS, getDockerIsolationAuthMounts, prepareDockerIsolationHostPaths } from './isolation-runner.mounts.lib.mjs';
 // Issue #3278: the bot's `docker inspect/info/exec/rm` queries are bounded; a hung
 // daemon fails them (each is already handled as a failed query) instead of
 // leaving the awaiting monitor or command waiting forever.
@@ -93,17 +97,6 @@ function buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed = fal
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
 }
-/** Whether a host path exists, without blocking the bot's event loop on a stat (issue #3278). */
-const pathExists = target =>
-  fs.promises.access(target).then(
-    () => true,
-    () => false
-  );
-async function maybeAddMount(mounts, source, target, exists) {
-  if (!source) return;
-  if (!(await exists(source))) return;
-  mounts.push({ source, target });
-}
 /**
  * Resolve the path where the host Docker socket is expected to be mounted inside
  * a DinD container. box's entrypoint reads this socket to copy host images into
@@ -114,110 +107,6 @@ async function maybeAddMount(mounts, source, target, exists) {
 export function resolveHostDockerSock({ env = process.env } = {}) {
   const explicit = String(env.DIND_HOST_DOCKER_SOCK || '').trim();
   return explicit || DEFAULT_HOST_DOCKER_SOCK;
-}
-/**
- * Per-tool host paths that a Docker-isolated task receives (issue #2190).
- *
- * Only the credential *file* and the session/transcript *directories* are
- * mounted — never the whole `~/.claude` / `~/.codex` application directory and
- * never `~/.claude.json` or `~/.agents`:
- *
- *   - the credential file is shared by every task, so a token refreshed by one
- *     task (or by the host) is immediately visible to all of them;
- *   - `projects/` and `sessions/` stay on the host for audit and discovery;
- *   - everything else (config, plugins, marketplaces, skills, MCP registrations,
- *     settings) comes from the image, so a task can neither inherit a globally
- *     synced plugin such as Superpowers nor reconfigure the global state for the
- *     tasks that follow it.
- *
- * `kind: 'file'` entries are only mounted when the host file exists (Docker
- * would otherwise create a directory in its place); `kind: 'dir'` entries are
- * created on the host by {@link prepareDockerIsolationHostPaths}.
- */
-export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
-  claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' })]),
-});
-/**
- * Is `relativePath` covered by one of the router-suppressed credential paths?
- * Suppression is by prefix so that `.claude` withholds `.claude/.credentials.json`
- * and `.claude/projects` alike: a routed task gets no vendor state at all.
- */
-function isSuppressedPath(relativePath, suppressed) {
-  for (const prefix of suppressed) {
-    if (relativePath === prefix || relativePath.startsWith(`${prefix}${path.sep}`)) return true;
-  }
-  return false;
-}
-/**
- * Build host auth mounts for a Docker-isolated task.
- *
- * GitHub auth is mounted for every task because solve/hive/task need gh. Git
- * identity (`~/.gitconfig` and the XDG `~/.config/git` directory) is mounted for
- * every task too: it is tool-agnostic and `solve` aborts early with "Git
- * identity not configured" when `user.name`/`user.email` are absent, so a child
- * container that authenticates with gh but inherits no git identity still cannot
- * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
- * sessions do not receive Claude files and Claude sessions do not receive Codex
- * files, and (issue #2190) only the entries in {@link DOCKER_ISOLATION_TOOL_MOUNTS}
- * are shared — the application directories themselves stay per container.
- *
- * Issue #2164 (EXPERIMENTAL): with `useRouter` the vendor credential mounts are
- * withheld entirely, so the task never holds the subscription — it reaches the
- * `hive-mind-router` sidecar with its own scoped token instead. Git identity is
- * still mounted, because it carries no secret and `solve` aborts without it
- * (issue #1939). The gh config is only withheld when `ghRouted` says gh has
- * somewhere else to go; otherwise the task would lose GitHub access entirely.
- */
-export async function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, ghRouted = false } = {}) {
-  const mounts = [];
-  const normalizedTool = normalizeTool(tool);
-  const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
-  if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
-    await maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), exists);
-  }
-  // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
-  await maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), exists);
-  await maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), exists);
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
-    if (isSuppressedPath(entry.relativePath, suppressed)) continue;
-    await maybeAddMount(mounts, path.join(homeDir, entry.relativePath), path.join(DOCKER_CONTAINER_HOME, entry.relativePath), exists);
-  }
-  return mounts;
-}
-/**
- * Create the host-side session directories a Docker-isolated task mounts and
- * report a missing credential file, so a first run on a fresh host does not
- * silently launch a task with no `projects/` to write to or no credentials.
- *
- * Kept separate from {@link getDockerIsolationAuthMounts} because that function
- * is pure and is exercised in tests with paths that must not be created.
- *
- * @returns {Promise<{ created: string[], missingAuth: string[] }>}
- */
-export async function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir = os.homedir(), fsImpl = fs, useRouter = false } = {}) {
-  const created = [];
-  const missingAuth = [];
-  if (useRouter) return { created, missingAuth };
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizeTool(tool)] || []) {
-    const hostPath = path.join(homeDir, entry.relativePath);
-    const exists = await fsImpl.promises.access(hostPath).then(
-      () => true,
-      () => false
-    );
-    if (entry.kind === 'dir') {
-      if (exists) continue;
-      try {
-        await fsImpl.promises.mkdir(hostPath, { recursive: true });
-        created.push(hostPath);
-      } catch {
-        // A read-only or foreign home is not fatal: the mount is simply skipped.
-      }
-    } else if (entry.role === 'auth' && !exists) {
-      missingAuth.push(hostPath);
-    }
-  }
-  return { created, missingAuth };
 }
 /**
  * Resolve the image-variant marker recorded inside the isolated container.
@@ -279,16 +168,15 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  */
 export async function buildDockerIsolationStartArgs(command, args = [], options = {}) {
   const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync: exists = pathExists, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null } = options;
-  // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
-  // with a scoped token pointing at the `hive-mind-router` sidecar. It only
-  // engages when a token was actually issued; without one the task would have
-  // neither credentials nor a route, so we fail open to the default mounts
-  // rather than launching an agent that cannot reach any model.
-  const routerActive = isRouterEnabled({ useRouter, env }) && Boolean(routerToken);
-  const routerEndpoint = routerActive ? resolveRouterBaseUrl({ env }) : { baseUrl: null, external: false };
+  // Explicit authority selection cannot fall back to native credential mounts
+  // when token provisioning fails, including callers of this builder directly.
+  const routerActive = isRouterEnabled({ useRouter, env });
+  if (routerActive && !routerToken) throw new Error('Router isolation requires an issued task token; native credential fallback is prohibited.');
+  const routerEndpoint = routerActive ? resolveRouterTaskRoute({ tool, env }) : { baseUrl: null, external: false };
+  if (routerEndpoint.error) throw new Error(routerEndpoint.error);
   const routerBaseUrl = routerEndpoint.baseUrl;
   const routerGitHub = routerActive ? resolveRouterGitHubRouting({ env, external: Boolean(routerEndpoint.external) }) : { mode: 'off', ghHost: null };
-  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME }) : {};
+  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME, dialect: routerEndpoint.dialect }) : {};
   const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
   const startArgs = ['--isolated', 'docker', '--image', image];
@@ -316,7 +204,12 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   for (const [name, value] of Object.entries(routerEnv)) {
     startArgs.push('-e', `${name}=${value}`);
   }
-  const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
+  for (const [name, value] of Object.entries(toolDataContainerEnv({ tool: normalizeTool(tool), identity: options.sharedDataIdentity, useRouter: routerWired }))) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
+  const nativeAuth = !routerWired && (await nativeAuthDockerProjection({ tool: normalizeTool(tool), env, homeDir, expectedIdentity: options.nativeAuthIdentity }));
+  const mounts = await getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync: exists, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off', nativeAuthIdentity: nativeAuth?.identity });
+  if (nativeAuth) for (const [name, value] of Object.entries(nativeAuth.env)) startArgs.push('-e', `${name}=${value}`);
   // Issue #2164 (R13): a routed task also loses the ability to destroy remote
   // history by accident. The hook lives on the host and is mounted read-only, so
   // the task cannot edit the rule it is being held to; git is pointed at it with
@@ -327,7 +220,7 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
     // One `GIT_CONFIG_COUNT` covers both the hook and the router's git
     // transport: git shares the counter across all of them, so they have to be
     // built together or the second would silently replace the first.
-    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode });
+    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, dialect: routerEndpoint.dialect });
     const guard = await installGuard({ env, homeDir });
     if (guard.installed) {
       mounts.push({ source: guard.dir, target: GIT_PUSH_GUARD_CONTAINER_DIR, readOnly: true });
@@ -338,9 +231,14 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
       startArgs.push('-e', `${name}=${value}`);
     }
   }
-  for (const mount of mounts) {
+  // This builder also formats synthetic commands in unit tests. The production
+  // launcher always supplies the backing-store resolver before execution.
+  const resolvedMounts = options.resolveMountSources ? await options.resolveMountSources({ mounts, image, env }) : mounts;
+  if (nativeAuth) await nativeAuthDockerProjection({ tool: normalizeTool(tool), env, homeDir, expectedIdentity: nativeAuth.identity });
+  for (const mount of resolvedMounts) {
     startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
+  for (const mount of toolDataPrivateMounts({ tool: normalizeTool(tool), useRouter: routerWired })) startArgs.push('--mount', mount);
   const taskCommand = buildShellCommand(command, args);
   const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
   startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
@@ -517,9 +415,18 @@ export async function executeWithIsolation(command, args, options = {}) {
     // Issue #2190: only the credential file and the session directories are
     // shared with the task; make sure the directories exist on the host and say
     // so when the credential file does not.
-    const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), useRouter: Boolean(router) });
-    for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
-    for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
+    try {
+      const prepared = await prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), env: effectiveOptions.env, useRouter: Boolean(router) });
+      effectiveOptions.sharedDataIdentity = prepared.identity;
+      effectiveOptions.nativeAuthIdentity = prepared.nativeAuthIdentity;
+      for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
+      for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
+    } catch (error) {
+      await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+      await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+      // Authority errors name paths and the operator action, never credential contents.
+      return failLaunch(error?.name === 'ClaudeAuthAuthorityError' ? error.message : 'Shared tool storage preparation failed. Verify persisted authentication/history backing and Docker support for selected native storage before retrying.');
+    }
   }
   // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still
   // "present", so Docker's default pull policy reused it and every task on
@@ -535,7 +442,14 @@ export async function executeWithIsolation(command, args, options = {}) {
       log: verbose ? message => console.log(`[VERBOSE] isolation-runner: ${message}`) : null,
     });
   }
-  const startCommandArgs = await buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance });
+  let startCommandArgs;
+  try {
+    startCommandArgs = await buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance, resolveMountSources: resolveDockerIsolationMountSources });
+  } catch {
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch('Task mount preparation failed. Verify persisted source mounts and local Docker daemon connectivity before retrying.');
+  }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {

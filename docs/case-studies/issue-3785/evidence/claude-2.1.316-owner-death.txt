@@ -1,0 +1,47 @@
+Native Claude owner-death acceptance criterion, refreshed 2026-10-31.
+Status: BLOCKED on the native all-writer crash contract; not repaired locally.
+
+The official latest release is 2.1.316, published 2026-10-31T01:01:35Z:
+https://github.com/anthropics/claude-code/releases/tag/v2.1.316
+Its independently downloaded Linux x64 native executable has 328,262,000 bytes
+and matches the official manifest SHA256:
+  fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824
+The production pin remains 2.1.310; no unverified upgrade is activated.
+
+The existing finite native refresh fixture runs two real process groups with
+independent disposable private configuration roots and one canonical credential
+directory. A loopback-only synthetic rotating provider consumes G0 and holds
+the response. The fixture kills and reaps the entire original owner before
+starting the peer. The peer sends the consumed G0 again; the provider rejects
+the duplicate. Exactly two refresh POSTs and zero model requests occur. No
+private credential file is created. All processes and servers are reaped.
+
+Reproduction:
+  python3 experiments/issue-3785/probe-claude-native-refresh.py /path/to/claude \
+    --owner-death --expect-predecessor-reuse --diagnostics /tmp/synthetic.log
+Remove --expect-predecessor-reuse to require the actual acceptance criterion.
+The negative control passes; the strict regression fails with:
+  A peer must refuse the consumed predecessor after owner death.
+
+Preserved control logs:
+  claude-2.1.316-owner-death.log
+    SHA256 03cba2bd0a817f1322a392162f7d29c57ac5e8bec3c8149ba243ad7d220c6790
+  claude-2.1.316-owner-death-strict.log
+    SHA256 db6ae1c4b4285881a07d8f0b83cc15186cd5c9a04bbdb3c4418fdd80d628057b
+
+The same strict synthetic contract fails in pinned 2.1.310. A version update
+alone therefore cannot resolve the requested native crash criterion. This is
+host-process evidence, not both Docker daemon layouts, and does not establish
+Anthropic's real token replay/grace-window policy. The fixture uses no real
+account, production credentials or live provider.
+
+The upstream report remains open, last updated 2026-10-30T17:04:50Z:
+https://github.com/anthropics/claude-code/issues/106218
+Its one existing comment has no native repair or supported replay guarantee:
+https://github.com/anthropics/claude-code/issues/106218#issuecomment-6528599854
+No new upstream message is sent in this refresh.
+
+A launcher-only lock cannot durably record intent for uninstrumented native
+writers or identify a lost consumed response after owner death. Durable native
+intent or a documented idempotent/replay provider contract remains required.
+This evidence does not complete A1-A12/B1-B12 or justify merging the draft PR.

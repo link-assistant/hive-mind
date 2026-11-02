@@ -1,0 +1,11 @@
+{
+  "name": "hive-native-qwen-experiment",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@qwen-code/qwen-code": "0.26.1"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
+  }
+}

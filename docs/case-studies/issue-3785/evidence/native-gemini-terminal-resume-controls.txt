@@ -1,0 +1,64 @@
+Native Gemini 0.65.0 automatic terminal prompt admission after resume
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local runtime: Node 26.12.1. Production installation remains unfinished.
+
+Strict before repair, on the nineteen-stage checkpoint-repaired package:
+  --history --restorable-history --restorable-terminal-reopen
+  --restorable-terminal-startup-prompt
+  PASS: actual terminal acknowledges its native checkpoint before approval.
+  PASS: a fresh actual terminal restores the original project and conversation
+        after the complete first private home is deleted, then replays its tool.
+  FAIL: after deleting the second private home, a third actual terminal starts
+        with --resume and --prompt-interactive. Its real provider request omits
+        the restored original prompt:
+          An automatic native terminal prompt must wait for resumed model history.
+  The provider reports no fixture errors. The final request has
+    first_prompt=false and second_prompt=false.
+
+Root cause:
+  Native useSessionResume starts asynchronous resumeChat from a React effect.
+  The initial-prompt effect in the same render still sees the preceding state,
+  admits the prompt before resume finishes and can subsequently refuse recording.
+
+Repair:
+  apply_terminal_resume_admission.py starts selected prompt admission closed
+  when resumed data exists, and opens it only after actual resumeChat resolves.
+  It guards both interactive input and the automatic initial-prompt effect.
+  A failed resume leaves admission closed; native error feedback remains.
+  Unselected native sessions retain their existing behavior.
+  Exact package version, prerequisite hashes and unique contexts are required.
+
+Verified after repair, including a fresh twenty-stage reconstruction:
+  PASS: the same actual automatic-prompt three-terminal control.
+  PASS: both preceding private homes are deleted completely.
+  PASS: exactly one final request includes the restored original prompt and
+        excludes the later prompt; no history-recording refusal occurs.
+  PASS: prior conversation audit remains an unchanged byte prefix and the
+        acknowledged checkpoint survives; native tool replay is preserved.
+  PASS: manual terminal prompt after resume, actual three-process ACP restore,
+        terminal live/startup metadata refusals and 28 shell-history assertions.
+  PASS: all twenty applicability checks leave source bytes unchanged; applying
+        the stages reconstructs seventeen byte-identical tested native files.
+
+Native terminal bundle, interactiveCli-AVD3AKNJ.js:
+  Before:
+    1092664e6803b78047a74c8115d8f432c48ef459f121b57ac33c5543efe81a40
+  After:
+    80b096b4fbbe0c92bb3dff50b84dfd54a133a2443cc05b721f76d6acdaf99a1c
+The other sixteen files match the preceding nineteen-stage package.
+  Native manager:
+    ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07
+  ACP bundle:
+    ca5c9f85fa66d0a71acba63e3bac8faaae42167cacc719e99d590cda2d684654
+
+No native exports, SDK methods or server methods are instrumented. The actual
+CLI entry, PTY, Git/checkpoint services, chat, recorder, session loader and model
+dispatch execute against a loopback-only synthetic TLS provider. Data/heap/stack,
+phase, request and diagnostics limits are finite; process groups are reaped.
+
+Fresh Node 24 CI remains required for both terminal stages. Failed/interrupted
+resume admission needs further actual lifecycle coverage. Native remaining
+writers, plan/task memory, migration, power-loss durability, all-backend lifecycle
+and production package/image/launcher installation remain unfinished.

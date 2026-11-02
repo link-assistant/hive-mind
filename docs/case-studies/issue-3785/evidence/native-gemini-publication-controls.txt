@@ -1,0 +1,57 @@
+Gemini CLI 0.65.0; locally verified 2026-10-30, Node 26.12.1.
+Only disposable native packages, synthetic data and bounded process groups.
+Manager 439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b
+History 8102dc907fd4c61e91cef33daa6debd291a5620a24cd3f53bd355350706fca41
+Publication 2e55f93d5075a6c9cc9d5b3c7e71f243accc8f72e955e038d0341cb8fed0bc00
+Exact preceding helper b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab
+
+REPRODUCED: first publication leaves complete canonical bytes with two hardlinks
+            when the owner dies between exclusive link and staging unlink.
+            Fresh checked native readers then refuse the canonical history.
+            All five families fail the strict preceding-helper control:
+            project registry, prompts, checkpoints, tool outputs and blobs.
+            The probe reconstructs and verifies that exact preceding helper
+            only inside its disposable native package copy.
+PASS: 15 recovery controls kill/reap the actual native owner before linking,
+      after linking or after removing the staging link. After private-home
+      disposal, a fresh process reads the original data with identical bytes,
+      device and inode, one data link and no completed journal/staging residue.
+PASS: 20 unsafe-evidence controls refuse without modifying any publication or
+      protected file. These cover symlink/hardlink/permissive/malformed/schema/
+      invalid-UTF-8/oversized/traversal/identity/digest journals; unsafe, changed
+      or missing staging; and unsafe, changed or competing destinations.
+REPRODUCED: a live journal replacement in the first draft is deleted and allows
+            canonical publication instead of the required refusal.
+PASS: journal generation is revalidated before canonical publication and before
+      unlinking evidence. The live replacement control retains the original
+      staging bytes/inode, protected journal bytes/inode and peer replacement;
+      no canonical project registry is published.
+These 36 passing results use 71 bounded native processes. Every owner is killed
+and reaped before its private state is disposed; every descendant is reaped
+before successful fixture cleanup. Failed synthetic fixtures are retained.
+
+Recovery uses the existing stable kernel lock, allowlisted data destinations,
+4096-byte intent records and 32-MiB data limits. Hashing uses a 64-KiB buffer.
+Directory scans are limited to 16,384 entries and 128 pending journals. Every
+native worker has a 192-MiB JavaScript heap, 16-MiB stack, 20-second deadline
+and 64-KiB diagnostic cap. No live credentials or provider are involved.
+
+PASS: applying history/artifact/blob/Logger stages from the pinned constructor
+      package produces the exact same seven manager/CLI/helper files as the
+      tested recovery package. Its fresh native registry crash/read control
+      also passes after source application.
+PASS: surrounding final-helper regressions: 36 native Logger, 65 storage,
+      nine tool-output writer/legacy and 31 native blob controls; complete CLI
+      artifact/blob disposal/resume positives and all eight artifact/seven blob
+      refusals; 41 writer/account, 30 request and 11 canonical-read auth controls.
+PASS: full repository formatting, ESLint, focused secret scanning, actionlint,
+      Node/Python syntax and git whitespace checks.
+
+Actual exported Storage and Logger execute for registry/prompt/checkpoint
+controls; artifact/blob crash reads use the installed adapter's public helpers.
+These are not complete CLI crash controls or physical power-loss proof.
+Malformed/incomplete intent creation, unjournaled staging, append interruption,
+interactive admission, prior-private-state migration, other history surfaces,
+child/subagent lifecycle, all backends and production integration remain open.
+PASS: Node 24 CI run 41137763744 at 8f2ec5c8e5118f4a135681810108048519cea19c.
+The full log and all 586 diagnostic files are preserved. A1-A12 remain unfinished.

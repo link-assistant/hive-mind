@@ -1,0 +1,3 @@
+REPRODUCED: file bind mount retains the old inode after host atomic replacement.
+REPRODUCED: replacing the mounted file from the task is rejected by the kernel.
+REPRODUCED: delete/recreate of a file symlink creates independent credentials.

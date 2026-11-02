@@ -1,0 +1,121 @@
+✔ disabled repair cannot admit known global contamination (133.880523ms)
+✔ unrepaired global commands reject admission even when repair is enabled (37.916762ms)
+✔ a failed removal rejects admission instead of logging and continuing (16.625293ms)
+✔ successful repair must be followed by another audit before admission (30.83486ms)
+✔ a clean re-audit admits safe repair and preserves protected state (26.019908ms)
+✔ read-only audit keeps reporting findings without enforcing admission (12.312478ms)
+✔ a clean initial audit is revalidated after yielding to verbose logging (16.575761ms)
+✔ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (8.064222ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (18.995315ms)
+✔ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (6.335599ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (10.017096ms)
+✔ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (7.759826ms)
+✔ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (11.558572ms)
+✔ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (6.26674ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (25.14667ms)
+✔ semantic TOML additions reject admission: [mcp_servers.rogue] (10.147139ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (18.733256ms)
+✔ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (9.951704ms)
+✔ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (10.651259ms)
+✔ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (6.928545ms)
+✔ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (9.852759ms)
+✔ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (18.1886ms)
+✔ table-like text inside a multiline string is data and needs no repair (18.093152ms)
+✔ TOML repair preserves unrelated typed configuration and approved MCP settings (35.329815ms)
+✔ malformed global JSON stops repair without exposing input or changing other state (70.228576ms)
+✔ symlink from settings into credentials is rejected before repair (26.188662ms)
+✔ hardlink from settings into credentials is rejected before repair (17.138982ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (17.608707ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (8.890334ms)
+✔ unreadable Codex configuration stops every repair (30.567121ms)
+✔ a concurrent configuration edit invalidates the repair plan (30.933113ms)
+✔ a concurrent file creation prevents empty-parent pruning (34.615883ms)
+✔ removing an unapproved skill preserves hidden stock runtime files (41.550559ms)
+✔ malformed TOML stops repair without exposing configuration or changing other state (26.201377ms)
+✔ configuration growth after the size check cannot trigger an unbounded read (39.838717ms)
+
+1. The drifted configuration is fully reported
+  PASS: every non-minimal item is a finding and playwright MCP is not
+  PASS: only the custom command is warn-only
+  PASS: custom commands are reported but never removed
+  PASS: everything else carries a repair
+  PASS: the codex plugin repair targets the whole <marketplace>/<plugin> directory
+
+2. Scoping by tool
+  PASS: tool=claude only inspects claude
+  PASS: tool=codex only inspects codex
+  PASS: unknown tools produce no findings
+
+3. Repair leaves exactly the minimal configuration
+  PASS: no repair failed
+  PASS: every repair was applied
+  PASS: superpowers cache is gone
+  PASS: global codex skills are gone
+  PASS: global ~/.agents skills are gone
+  PASS: codex auth is untouched
+  PASS: codex sessions are untouched
+  PASS: playwright MCP survives in config.toml
+  PASS: the extra MCP table is removed
+  PASS: the plugin table is removed
+  PASS: unrelated top-level keys survive
+  PASS: existing feature pins survive
+  PASS: features.remote_plugin is pinned to false
+  PASS: claude marketplaces are gone
+  PASS: installed_plugins.json is gone
+  PASS: known_marketplaces.json is gone
+  PASS: global claude skill is gone
+  PASS: custom command is kept
+  PASS: claude credentials are untouched
+  PASS: claude projects are untouched
+  PASS: only the plugin enable entry left settings.json
+  PASS: only playwright MCP remains in ~/.claude.json
+  PASS: auth state in ~/.claude.json survives
+
+4. A repaired home is clean
+  PASS: second audit reports only the warn-only item
+
+5. A fresh Docker-image home is clean
+  PASS: the minimal configuration has no findings
+  PASS: an empty home only needs the remote plugin pin
+  PASS: the pin creates config.toml when missing
+
+6. runAgentConfigAudit honours auto-repair and logs warnings
+  PASS: nothing is repaired when auto-repair is off
+  PASS: the skipped repairs are reported
+  PASS: superpowers stays when auto-repair is off
+  PASS: a warning is logged
+  PASS: the opt-out flag is named in the warning
+  PASS: auto-repair removes everything repairable
+  PASS: superpowers is removed by auto-repair
+  PASS: a clean home logs nothing
+
+7. Auto-repair resolution
+  PASS: auto-repair is on by default
+  PASS: --no-agent-config-auto-repair turns it off
+  PASS: raw argv from the Docker launcher is honoured
+  PASS: HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0 turns it off
+  PASS: argv wins over the environment
+
+8. Prevention: the environment and flags that keep the configuration minimal
+  PASS: claude quiet env stops the official marketplace auto-install
+  PASS: the minimal env is exported for other launchers
+  PASS: codex exec pins remote_plugin off per run
+  PASS: playwright is the only MCP server in the minimal set
+
+9. removeTomlTable
+  PASS: a middle table is removed
+  PASS: a lone table leaves an empty file
+  PASS: quoted dotted keys are matched exactly
+  PASS: a missing table is a no-op
+
+Result: 56 passed, 0 failed
+✔ tests/test-issue-2190-agent-config-audit.mjs (577.017849ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 773.609134

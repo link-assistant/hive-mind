@@ -1,0 +1,58 @@
+Router monitoring across command startup and logging, 2026-10-31 UTC
+
+Root cause: monitoring in the four additional adapters started when the output
+iterator was consumed. Agent streaming input can start the native process while
+attaching stdin, before logging and output consumption. Logging failure could
+therefore abandon a running command. A violation detected during logging could
+also disappear before ordinary error recovery rechecked the filesystem.
+
+The strict reproduction imports the actual Agent, OpenCode, Gemini and Qwen
+adapters with isolated synthetic environments. Forty-eight bounded mocked
+commands cover new/resumed execution, environment/argv selection, persistent
+and subsequently removed credentials, and ordinary logging failure. Two actual
+Agent streaming-input controls use command-stream 2.6.0 and a finite Node parent
+and child with 32 MiB heaps. Both processes must stop during pending logging
+after a security violation, or before an ordinary failed attempt returns.
+Fixture cleanup always kills and verifies termination. No provider or live
+credential is involved. Each test has a ten-second deadline.
+
+Before: all 50 controls fail. Complete before log SHA256:
+f867ac5b342219dfd2a11499c3b748e1d694e671775931e9d0386f0fc26e4495
+
+After: all 50 controls pass. The shared iterator arms its guard immediately
+after command creation, before stdin attachment or logging. Its explicit close
+operation retains the first security decision, stops an abandoned command once
+and closes monitoring even when output was never consumed. Adapters consult
+that retained decision before ordinary error handling and retry.
+
+Focused invocation (sequential files):
+node --test --test-concurrency=1
+  tests/issue-3785-router-extra-native-admission.test.mjs
+  tests/issue-3785-router-post-spawn-monitoring.test.mjs
+  tests/issue-3785-router-native-lifetime.test.mjs
+  tests/provider-transient-recovery-3831.test.mjs
+  tests/formal-ai-tool-parity-3279.test.mjs
+  tests/agent-recoverable-tool-error-3213.test.mjs
+  tests/test-agent-stream-json-2119.mjs
+  tests/test-gemini-support.mjs
+  tests/test-qwen-support.mjs
+  tests/hive-extracted-modules-2175.test.mjs
+All 345 tests pass. Focused log SHA256:
+b3536ff5ef8142bddeca965dbce89436b87bc62cf2f963ca0df61944cce067e1
+
+All 760 selected default test files pass. Complete suite log (23,188 lines)
+reviewed in chunks of at most 1,500 lines; SHA256:
+a6abb8db649c65ca557e148f4b18296efabf0b2866118816c331b40c3e3fc8d0
+Repository ESLint (zero warnings), GitHub retry-shell checks, Secretlint,
+file limits and duplication (10.03%) pass. Quality logs SHA256:
+lint: 1cbdd4663d15ab3449fdd43e49ad9a10f1285afc9fd94ea3beee81727d5fc81f
+secrets: 06b0c16a72b88aec65ef3e739e70b5efdbe9a4764f6bb808aaddb14e88fa1864
+duplication: 466d1fcbf2f57f36caf30f3b30fa195bbd82bbb5cd78a9573ead8140579bf859
+file limits: a925106c1a180da9c897dee3c4273386059ac50a4b24c99aedc24a20d4bd418f
+
+Limits: the real native controls establish cancellation of one bounded Agent
+parent/child group. The other tools use mocked commands. This does not prove
+every native process lifetime, every credential store or request authority.
+Claude/Codex post-spawn failure handling, diagnostic logger failures, complete
+Router audit and restart behavior, canonical storage and migration remain OPEN.
+Keep the PR draft and the complete issue inventory unfinished.

@@ -1,0 +1,39 @@
+Bun image-package native activation repair, 2026-10-31 UTC
+
+Failed run: https://github.com/link-assistant/hive-mind/actions/runs/41211781231
+Head: f7b1f506d3b44cada82957ba3c010cb3f82cdb22, created 14:47:46 UTC.
+Complete log: 75725 lines, reviewed in 51 chunks of at most 1500 lines.
+SHA256: 8d4e1e39e640edc5e18c5680a97c916b4ddde758f85d71800f8b75fd46f948a0
+Actual error at lines 75257-75273: native Codex installation refused during
+Dockerfile:376 after Bun package installation. Both optimized architectures,
+actual npm assembly and npm-installed native controls passed in this same run.
+
+Bun 1.4.4's local help identifies hardlink as the default installation backend.
+An isolated real-Bun reproduction installs tiny synthetic stock/native packages
+through the actual image source-package script. Before the repair, stock
+package.json and the bundled native payload each have nlink=2. Strict native
+admission requires nlink=1; the required-independent-files assertion fails.
+
+The repair selects --backend=copyfile for every global Bun installation in
+Dockerfile, Dockerfile.dind, coolify/Dockerfile and the source-package installer.
+Native runtime verification, independent installed generations and the guarded
+command-link publication contract are unchanged.
+
+The real-Bun control passes for all three layouts. It checks actual installed
+metadata/payload links, native byte/provenance verification, command activation,
+idempotence, preserved stock launcher bytes and a later global installation.
+All package/cache/global roots are temporary, inputs are finite, child commands
+are limited to 20 seconds and output to 256 KiB. The parent heap is 64 MiB.
+ELF-shaped synthetic fixture bytes are never executed. A default-suite wrapper
+runs both the installation policy contract and this actual-Bun control when
+Bun and a supported native Linux platform are present.
+
+This validates the specific repair locally. A subsequent complete release-image
+CI run is still required; it does not repair SQLite operation lifetime, default
+canonical storage/migration or any other unfinished acceptance criterion.
+
+Preserved logs, SHA256:
+bun-native-package-before.log (19 lines):
+5d30d60105aeb473d59f9cdfe9a95c69a6bab22fa4f57f77c6f5149ffbf5ba7e
+bun-native-package-wrapper-after.log (10 lines):
+3310c1b0c0af88ddd93cb6fefa962094359b4d12a061fa0ada39df58affd5796

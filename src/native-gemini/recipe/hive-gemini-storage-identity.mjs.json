@@ -1,0 +1,21 @@
+{
+  "lines": [
+    "// Compare native authorities with identities admitted before container launch.\nimport fs from 'node:fs';\n",
+    "import path from 'node:path';\nimport process from 'node:process';\n",
+    "\nconst selections = new Map();\n",
+    "const names = new Map([\n  ['auth', ['GEMINI_AUTH_HOME', 'HIVE_MIND_GEMINI_AUTH_IDENTITY', 'authentication']],\n",
+    "  ['history', ['GEMINI_HISTORY_HOME', 'HIVE_MIND_GEMINI_HISTORY_IDENTITY', 'conversation history']],\n]);\n",
+    "\nexport function nativeGeminiStorageSelected(kind) {\n",
+    "  const [selector, marker] = names.get(kind);\n  return selections.has(kind) || process.env[selector] !== undefined || process.env[marker] !== undefined;\n",
+    "}\n\n",
+    "export function assertNativeGeminiStorageIdentity(kind) {\n  const [selector, marker, label] = names.get(kind);\n",
+    "  const refused = () => new Error(`Gemini canonical ${label} is unavailable or unsafe.`);\n  try {\n",
+    "    const directory = process.env[selector];\n    const expected = process.env[marker];\n",
+    "    if (process.platform !== 'linux' || typeof directory !== 'string' || !path.isAbsolute(directory) || directory === path.parse(directory).root || path.normalize(directory) !== directory || /[\\0\\r\\n]/u.test(directory) || fs.realpathSync(directory) !== directory) throw refused();\n    const info = fs.lstatSync(directory, { bigint: true });\n",
+    "    if (!info.isDirectory() || info.uid !== BigInt(process.getuid()) || (info.mode & 0o077n) !== 0n) throw refused();\n    const identity = `${info.dev}:${info.ino}`;\n",
+    "    if (expected !== undefined && (!/^[0-9]{1,20}:[0-9]{1,20}$/u.test(expected) || expected !== identity)) throw refused();\n    const retained = selections.get(kind);\n",
+    "    if (retained && (retained.directory !== directory || retained.expected !== expected || retained.identity !== identity)) throw refused();\n    if (!retained) selections.set(kind, { directory, expected, identity });\n",
+    "  } catch {\n    throw refused();\n",
+    "  }\n}\n"
+  ]
+}

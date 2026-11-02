@@ -1,0 +1,11 @@
+Actual pre-repair CLI: symlink journal
+REPRODUCED: actual native migration truncates unrelated synthetic evidence through a symlink pending journal.
+
+Actual pre-repair CLI: hard-link journal
+REPRODUCED: actual native migration truncates unrelated synthetic evidence through a hardlink pending journal.
+
+Rebuilt path adapter from run 41076013002: interrupted migration and fresh resume
+PASS: an actual killed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
+
+Standalone canonical journal safety:
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s

@@ -61,6 +61,9 @@ ci-logs/
 # Generated duplication reports
 reports/
 
+# Generated native build outputs retain their checked provenance bytes.
+src/native-codex/runtime/
+
 # Collected CI/CD investigation evidence: verbatim upstream copies must not be reformatted
 dev/log/
 

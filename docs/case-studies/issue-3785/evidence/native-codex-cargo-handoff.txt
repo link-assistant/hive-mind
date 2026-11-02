@@ -1,0 +1,52 @@
+Native Codex Cargo-to-artifact handoff, 2026-10-31 UTC
+
+Failing head: 484591c54293ba1acbcfc93eae9aa75b48663bc9
+Checks: https://github.com/link-assistant/hive-mind/actions/runs/41178521287
+x64 job: 124471313521; completed 2026-10-31T08:10:58Z.
+Runner log: ci-logs/native-codex-x64-124471313521.log (379 lines).
+Preserved artifact: 13036100208, native-codex-build-logs-linux-x64.
+ZIP SHA256: 27764e442083742af48c8a1bd8ea4b503d98759f852e616baa7a6ddf5d71d7b0
+Extracted build log (3515 lines) reviewed in three chunks:
+  /tmp/issue-3785-recovery/native-release-x64-failure/native-release-build.log
+Line 3501: optimized compilation completes in 72m 50s.
+Lines 3507-3515: inspect_binary -> regular rejects the Cargo executable because
+it has more than one hardlink. No compiled artifact was uploaded by that old
+workflow after its packaging failure; optimized runtime admission is unverified.
+
+ARM job 124471313431 completes with the same failure at 08:43:11 UTC.
+Runner log: ci-logs/native-codex-arm64-124471313431.log (374 lines).
+Artifact 13036738682, native-codex-build-logs-linux-arm64, is preserved locally;
+ZIP SHA256: 1ddf1777f86f05420a39e0835464467b42da32041d6c08c3e6e6ae136c437953
+Its 3507-line native-release-build.log was reviewed in three bounded chunks.
+Line 3493: optimized compilation finishes in 104m 52s, inside the job limit.
+Lines 3499-3507: the same inspect_binary -> regular hardlink refusal.
+Both platforms prepared identical 31-file source inventories and recipe hashes.
+No timeout or Rust compiler failure occurred on either architecture.
+
+Root cause: Cargo legitimately hardlinks target/release/codex to its internal
+deps executable. The unaliased-file rule belongs to distributed artifacts,
+not this compiler-owned intermediate output.
+
+Before repair: two reproducing tests fail at the same unaliased-file guard.
+Log: /tmp/issue-3785-recovery/codex-cargo-output-before.log
+After repair: all 19 build/artifact controls pass. These include source growth,
+path replacement, symlink, FIFO and size refusals before execution; a linked
+distributed executable still refuses admission.
+Log: /tmp/issue-3785-recovery/codex-cargo-output-final.log
+A permissive-umask reproducer also fails before explicit 0600 copy creation;
+the copy stays private until source stability has been admitted.
+
+Actual bounded offline Cargo reproducer:
+  python3 experiments/issue-3785/probe-cargo-executable-hardlink.py
+A tiny dependency-free synthetic crate produces a 336760-byte executable with
+two hardlinks using the pinned compiler. The copy has one link, identical bytes
+and a distinct inode; source aliases stay intact. Only the copy executes.
+Log: /tmp/issue-3785-recovery/codex-cargo-hardlink-native-final.log
+This establishes the Cargo handoff, not native Codex runtime acceptance.
+
+The new copy holds a no-follow, nonblocking source descriptor, bounds reads,
+checks ownership/type/mode and public/held revisions, syncs an exclusive copy,
+then runs unchanged strict artifact ELF/hash/size and version admission.
+The workflow retains compiler output on future failures under a diagnostic-only
+artifact name excluded from assembly. Actual repaired optimized builds on both
+architectures, installed command controls and image verification remain due.

@@ -157,7 +157,7 @@ const loadOneSource = async (source, { tool, env, cache, refresh, now, fetchers,
   }
 
   const fetcher = fetchers[source.id];
-  const result = fetcher ? await fetcher({ tool, env, routerContext }) : { status: 'skipped', models: [], meta: {}, error: 'no reader for this source' };
+  const result = fetcher ? await fetcher({ tool, env, routerContext, codexBinary }) : { status: 'skipped', models: [], meta: {}, error: 'no reader for this source' };
 
   if (result.status !== 'ok' && cached?.status === 'ok') {
     return { ...cached, id: source.id, label: source.label, kind: source.kind, cached: true, stale: true, ageMs: modelCatalogueEntryAgeMs(cached, now), error: result.error ?? null };
@@ -235,7 +235,7 @@ export const buildDefaultCatalogueFetchers = ({ fetchImpl = globalThis.fetch, ru
     if (!routerContext?.available) return { status: 'skipped', models: [], meta: {}, error: routerContext?.reason ?? 'router unavailable' };
     return fetchRouterCatalogue({ baseUrl: routerContext.baseUrl, dialect: routerContext.dialect, token: routerContext.token, transport: routerContext.transport, tool, fetchImpl, ...(run ? { run } : {}) });
   },
-  'codex-cli': async () => fetchCodexCliCatalogue(run ? { run } : {}),
+  'codex-cli': async ({ env, codexBinary } = {}) => fetchCodexCliCatalogue({ env, binary: codexBinary ?? 'codex', ...(run ? { run } : {}) }),
   'anthropic-api': async ({ env }) => fetchAnthropicCatalogue({ env, fetchImpl }),
   'openai-api': async ({ env }) => fetchOpenAiCatalogue({ env, fetchImpl }),
   'models-dev': async () => fetchModelsDevMetadata({ fetchImpl }),

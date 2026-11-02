@@ -167,3 +167,6 @@ tests/.test-*
 .nb-gradle/
 .gradle/
 .playwright-mcp/
+
+# Generated from verified same-run native build outputs before npm packing.
+src/native-codex/runtime/

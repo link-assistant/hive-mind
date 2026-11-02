@@ -1,0 +1,232 @@
+Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
+Constructor-stage manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+Conversation-stage manager: 463cf8af6e9a06f2a1ff7ae2a484fcfa5d8d53f77c604f3e51344e71f3b1ed61
+Locally verified 2026-10-30, Node 26.12.1.
+Preceding 6cb363864dca9a4756e66142b3e30244d59a0702a258c2e5279b87b07ff609b3
+stage passes Node 24 CI 41111156696 on 37bcddb6ebed4bf9331ba425ea62739fec397691.
+Parsed-record admission and retirement pass Node 24 CI 41116035148 on
+4a6be5dfb30e1ae122a183ef744400f6af41cab2. Archive controls still need fresh CI.
+Only synthetic credentials/provider responses; loopback TLS never forwards traffic.
+The complete native CLI and SDK execute without export or transport instrumentation.
+
+Before canonical conversations:
+PASS: actual CLI completes a TLS-verified OAuth model request, separate auth/config.
+REPRODUCED: private-home disposal loses native conversation discovery and resume.
+The strict regression fails: A fresh native CLI must discover canonical conversation history.
+Successful first inference and a real persisted native transcript are prerequisites.
+
+After canonical conversations:
+PASS: fresh CLI discovers the session after the entire prior process group exits
+      and its private home is removed.
+PASS: resumed model request includes prior user content, prior model response
+      and the new user prompt; both turns remain in canonical native JSONL.
+PASS: native summary generation during listing uses the same transcript authority.
+PASS: symlink, hardlink, malformed, truncated, missing-schema, foreign-project
+      and invalid-session transcript attacks refuse before
+      another inference; canonical transcript and protected outside bytes/inodes,
+      plus canonical credential bytes/inode stay unchanged.
+PASS: no private credential/account/transcript files appear with selected history.
+PASS: unselected history retains original private discovery/disposal behavior.
+
+Bounded independent-process storage controls:
+PASS: healthy append/read/rewrite retains a preceding generation.
+PASS: changed/unset selector; root/child directory replacement.
+PASS: symlink/hardlink; unsafe mode; oversized file; traversal; lock symlink.
+PASS: four independent writers retain all 40 distinct records and one project map.
+PASS: stale rewrite refuses after peer append, preserving all 50 records and
+      the stable kernel-lock inode.
+PASS: malformed, truncated, scalar and empty records refuse without modification;
+      invalid append/rewrite payloads preserve the preceding generation.
+
+Additional reproduction before validation:
+The full CLI silently ignores malformed/transcript trailing JSON and exits zero.
+A read-only refusal still permits native retention cleanup to unlink the rejected
+record before later admission fails. The fixed cleanup catch rechecks authority,
+and all 19 storage plus seven full native unsafe-history controls pass locally.
+All 41 native writer/account, 30 request and 11 canonical-reader controls also
+pass after the conversation stage.
+
+Open: other history surfaces, imports, complete archive/artifact and subagent lifecycle,
+interrupted-write/power-loss recovery, full CLI refresh/owner death, alternate
+backends, production installation and the remaining six-tool requirements.
+This is an experimental native conversation adapter, not full-history completion.
+
+Additional semantic reproduction before parsed-record admission:
+Syntactically valid JSONL with missing project metadata or a foreign project hash
+is silently discarded or accepted by the prior native loader. The fixed loader
+requires a session UUID, the selected project hash and a message array. The
+strict full CLI schema control and healthy disposal/resume control pass locally.
+
+Additional native retirement reproductions and repair:
+REPRODUCED: automatic retention unlinks valid startup-only and expired records.
+REPRODUCED: explicit deletion reports success against the old private directory,
+            leaving the canonical active session untouched.
+REPRODUCED: a peer archives the owner's canonical file while its model response
+            is pending, before per-conversation writer ownership is added.
+PASS: selected native retention and explicit deletion preserve the original bytes
+      and inode in canonical .archive while removing the active listing entry.
+PASS: native peer retention skips a live writer; explicit deletion refuses busy.
+      The existing transcript prefix/inode survive legitimate concurrent appends.
+PASS: 29 bounded storage controls, including stale archive refusal after a peer
+      append, archive/lease path attacks and kernel lease release on owner death.
+      Independent conversations can write while another conversation is owned.
+Additional canonical archive reproductions and repair:
+REPRODUCED: a fresh CLI cannot resume a preserved archived conversation by UUID.
+REPRODUCED: the CLI cannot discover preserved archive generations.
+REPRODUCED: a file created between admission and publication receives an unwanted
+            append or is overwritten by archive restoration.
+PASS: the CLI lists archive generations without reactivation or model inference.
+PASS: fresh exact-UUID resume includes prior user content, prior model response
+      and the next prompt; archive bytes and inode remain unchanged.
+PASS: a concurrent native resume refuses while the restored writer is live,
+      without extra inference or loss of the existing transcript prefix/inode.
+PASS: after another delete/private-home disposal, discovery lists all archive
+      generations (including startup-only records), and the third inference
+      includes both preceding prompts and the prior response. All archived
+      bytes and inodes remain unchanged.
+PASS: seven native archived-record attacks preserve canonical/protected bytes
+      and inodes, with no additional inference.
+PASS: 41 bounded storage controls, including non-replacing publication, exclusive
+      creation, existing/stale/linked/malformed archives and bounded enumeration.
+Complete archive indexing, child/artifact handling and crash recovery remain open.
+
+Archive-stage output hashes (manager alone is shared with retirement):
+chunk-XHQ6TTKH.js a79093dce4affd444a4d97b3134b09fb72530b3639a9c5b792c95f8ced638d15
+gemini-GLQ4MVLB.js a574516fde30cdd5a41dfaa403bce8e27a0e9a1be40db93e6a23702f0f096423
+hive-gemini-history.mjs f50eb70195a1bf4954eb2e1b6abe7ebf424aa6e77addb0cf589ef61f064a753f
+
+Native identifier compatibility:
+REPRODUCED: actual --session-id accepts SYNTHETIC_NATIVE_SESSION-3785; the
+            UUID-only canonical loader then rejects its healthy transcript.
+PASS: native discovery/deletion/archive discovery/resume with that identifier,
+      including prior user/model content after private-home disposal.
+Canonical validation and exact archive lookup preserve the native identifier
+alphabet, while non-string session metadata remains invalid.
+Native-ID-stage output hashes:
+chunk-XHQ6TTKH.js 6bb7d4725650029c2d776aa62d36ed47ad12f02998874c0fcbce8b20105f16a7
+hive-gemini-history.mjs 153eb084116e7d575ca91f53c36d34734852e6bb9d23f7c26f436affca15c795
+
+Explicit native session import:
+REPRODUCED: after a successful native canonical inference, --session-file
+            refuses its persisted transcript before another inference.
+PASS: actual native imports from canonical JSONL, private foreign-project JSONL
+      and legacy JSON exports assign a new ID/current project hash and publish
+      one canonical 0600 single-link transcript without changing source bytes/inode.
+PASS: fresh discovery/resume after private-home disposal includes both preceding
+      prompts, the new prompt and prior model content in the third inference.
+PASS: nine unsafe import controls (symlink, hardlink, malformed, truncated,
+      missing schema, invalid session type, invalid project hash, unsafe mode
+      and unsafe parent) refuse before destination publication or inference,
+      preserving source/protected and all existing canonical transcript bytes.
+PASS: 45 bounded storage controls, including import-source mutation, same-byte
+      file replacement and parent replacement between reading and native admission.
+Private explicit sources require an owned 0700 parent, a private regular file
+with one link and a 32 MiB input bound. The actual native parser still performs
+import filtering; canonical publication uses the conversation lease/transaction.
+Import-stage manager 0c70897032c0ad76419b3149d783567280dfd972ef2c04e258cbebccc9575c42
+Import-stage CLI 9fc3e4e924a0a9ecd8f595e009dad0b4ff53ec8ed3c6171cb0e8d7418793999e
+Import-stage helper 9e3b66e069eaf929795283c273ea37793781c33f340685791e8e4603d756a9a4
+PASS: final 41 writer/account, 30 request and 11 canonical read controls.
+PASS: strict import/archive refusals and live archive peer observe no additional
+      model request; second-cycle archive resume retains all earlier content.
+Fresh Node 24 CI and complete remaining history/lifecycle/production work are open.
+
+Strict UTF-8 storage validation:
+REPRODUCED: active reads, explicit imports and read-before-archive accept an
+            invalid 0xff byte inside a JSON string. Each strict before control
+            fails with Missing expected exception, after a healthy initial read.
+PASS: snapshot validates UTF-8 before decoding; all three paths refuse without
+      changing source bytes or inode. The archive test rereads the changed
+      generation first, so stale-generation refusal cannot satisfy the control.
+PASS: Japanese text, accents, emoji and a literal U+FFFD survive rewrite, read,
+      archive and explicit import. All 49 bounded storage controls pass locally.
+UTF-8-stage helper 0ffcd97e104cd9bf4bcbf2df69c43ab8a8cf95d68734e3cd96e78a7953413aed
+Native CI verification and complete remaining history/lifecycle work remain open.
+
+Import/archive/native-ID stage verified in Node 24 CI 41121912110 on
+946ed6e82e07426dbe6ebd224c7675796dcbe339. Full log preserved in
+ci-logs/native-gemini-41121912110.log; synthetic native artifacts downloaded.
+
+Native offloaded tool-output preservation:
+REPRODUCED: real shell execution offloads about 25 KiB, completes inference and
+            records the private artifact path. Private-home disposal loses the
+            referenced full output; the strict lifetime assertion fails.
+PASS: selected native truncation and both masking writers publish separate
+      immutable private canonical files, synchronizing file and directory.
+PASS: fresh full CLI resume reads the old artifact with native read_file and
+      sends its middle marker to the local synthetic provider. Original bytes
+      and inode survive private-home disposal. No native export instrumentation
+      is used in the full CLI transport control.
+PASS: eight actual CLI unsafe-artifact controls (symlink, hardlink, unsafe mode,
+      invalid UTF-8, changed content, oversized, missing and replaced parent)
+      refuse before any further model request, preserving post-attack evidence.
+PASS: all 65 bounded storage controls, including descriptor replacement during
+      reads, exclusive publication collisions, foreign projects, traversal,
+      absent parents and unregistered private temporary directories.
+PASS: nine export-only actual native writer controls cover truncation and both
+      masking implementations, unsafe-storage refusal and unselected behavior.
+      Native 2000-character per-line formatting, selected line ranges and
+      ordinary multilingual text reads retain their original behavior.
+PASS: all 41 writer/account, 30 request and 11 canonical read controls on the
+      artifact manager. All 739 default test files pass locally.
+Artifact-stage manager ce32eec6ab27f4d9fbf1449a5bdc70ad9b06fde0aff84b560ac1540a9106a9fa
+Artifact-stage helper 851475c859fdb9fb545dbd8f1b9cdf5eedc670ea11e935efa488b93dc8c6838d
+Strict-decoding and artifact stages still require fresh Node 24 CI. Degraded
+blobs, complete artifact/subagent lifecycle, other history writers, interrupted
+publication, alternate backends and production installation remain open.
+
+Native degraded multimodal blob preservation:
+REPRODUCED: the actual native degradation processor writes a one-pixel PNG and
+            the native file-content reader returns its original data/MIME.
+            Removing the private home then fails the strict lifetime assertion.
+PASS: 24 finite native writer/reader controls, plus seven fresh native-process
+      reads after private-home disposal. Bytes, device and inode remain intact.
+PASS: valid uppercase MIME and unpadded base64 retain native image read behavior;
+      external file references retain their URI without a local copy.
+REPRODUCED: the earlier selected reader loses native JSON/text behavior;
+            padding-only base64 also fails to produce the required refusal.
+PASS: checked-buffer native classification and BOM decoding retain JSON, SVG,
+      UTF-16 and text under an audio MIME, including fresh-process reads.
+PASS: invalid base64/padding/MIME, non-ASCII MIME, unsafe directories, symlinks, hardlinks,
+      permissive files, changed content, missing/replaced parents, oversized
+      files, foreign projects, traversal and publication collisions refuse.
+      Protected data and a competing publication remain unchanged; no fallback.
+PASS: unselected native private-storage behavior remains available.
+Blob-stage manager 236c3faf39cbe2a022409be5ee3ee3147ac1686d146336d0126f6e23f0b465b2
+Blob-stage helper 15b3033f4290446e78f84e2a412d2113e32abc4cfc0335d4a329f8cd1c2cf6a5
+The blob controls use export-only instrumentation of the actual native module.
+The separate complete CLI uses no native export instrumentation. Its strict
+before control completes native image execution, context degradation and
+inference, then fails the precise private-home-disposal lifetime assertion.
+PASS: fresh CLI resume/read_file sends the retained PNG in its new tool response,
+      with the workspace image removed and bytes/device/inode unchanged.
+      Earlier transcript image data cannot satisfy the new-response assertion.
+PASS: seven full CLI unsafe-blob controls (symlink, hardlink, permissive mode,
+      changed content, oversized, missing and replaced parent) refuse before
+      another model request and preserve protected bytes/device/inode/size.
+The full native CLI tool-output positive and eight refusal controls also run.
+All 65 storage, nine native tool-output writer/legacy and 41/30/11 native
+authentication controls also pass on the final blob manager.
+Node 24 CI 41132983002 passes the complete artifact/blob stage at
+d0b4f6b4701f018b2f0d2d577dd8183bed3f12e3. All 433 native diagnostic files
+and the complete log are preserved locally. Remaining full-history/lifecycle/
+production criteria stay open.
+
+Native Logger prompt and named-checkpoint storage:
+REPRODUCED: a healthy actual native Logger writes and reads prompt/checkpoint
+            data, then a new native process loses it after private-home disposal.
+REPRODUCED: an initialized Logger returns cached prompts after a peer writes.
+PASS: 30 scenarios / 36 bounded native process results, including four writers
+      retaining all 40 prompts and unique session message IDs. Both prompt and
+      named-checkpoint discovery/read survive private-home disposal.
+PASS: checkpoint save/delete/recreation retains all prior audit generations;
+      unselected private native prompt/checkpoint behavior remains available.
+REPRODUCED: replacement during staging flush is overwritten by an earlier draft.
+PASS: pre-publication generation admission refuses the replacement without
+      changing either original or peer data. The actual native method propagates
+      errors for 24 unsafe-storage and publication controls without fallback.
+Logger-stage manager 439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b
+Logger-stage helper b3d5662d58bec0036c7350bdb8b498f1edec892942131beaf7189eab3680a8ab
+These are actual exported Logger/Storage API controls; interactive UI admission,
+prior private-state migration and other full-history/lifecycle/production criteria
+remain open. Fresh exact-head Node 24 CI remains required.

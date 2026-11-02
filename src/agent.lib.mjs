@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Agent-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -42,6 +44,7 @@ import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalH
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
+import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 export { detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText };
@@ -283,6 +286,10 @@ export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SN
 
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log });
+  const guardEnv = () => ({ ...process.env, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
+  await assertSharedToolData({ tool: 'agent' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const requireLiveInput = !!options.requireLiveInput;
@@ -302,7 +309,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       // Check if Agent CLI is installed and get version
       let agentVersion = null;
       try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
+        assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           agentVersion = getAgentCliVersion(version);
@@ -311,6 +319,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  Agent CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
@@ -361,7 +370,10 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
       const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
-      const testResult = await $({ env: validationEnv })`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      await assertSharedToolData({ tool: 'agent', env: validationEnv });
+      assertRouterTaskAuthentication({ tool: 'agent', env: { ...validationEnv, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+      const runValidation = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log, env: () => validationEnv });
+      const testResult = await runValidation`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -383,6 +395,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       await log('✅ Agent connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       await log(`❌ Failed to validate Agent connection: ${error.message}`, { level: 'error' });
       await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', {
         level: 'error',
@@ -551,6 +564,7 @@ export const executeAgentCommand = async params => {
     // Issue #1521: Build environment for agent process.
     // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
     const agentEnv = { ...process.env };
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
     if (argv.verbose) {
       agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
     }
@@ -568,6 +582,7 @@ export const executeAgentCommand = async params => {
 
     // Build Agent command
     let execCommand;
+    let routerStream;
     let bidirectionalHandler = null;
     let bidirectionalHandlerFinalized = false;
     let queuedFeedback = [];
@@ -583,6 +598,7 @@ export const executeAgentCommand = async params => {
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
     Object.assign(agentEnv, toolInvocation.env);
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
     // Issue #2625: the default free model is on Kilo, reachable only with the provider entry Hive Mind supplies.
     const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });
     if (modelOverlayEnv.LINK_ASSISTANT_AGENT_CONFIG_CONTENT) await log(`   Agent provider entry supplied for ${mappedModel} (LINK_ASSISTANT_AGENT_CONFIG_CONTENT)`, { verbose: true });
@@ -634,6 +650,9 @@ export const executeAgentCommand = async params => {
       const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
       if (preparedResult) return preparedResult;
 
+      await assertSharedToolData({ tool: 'agent', env: agentEnv });
+      if (argv.useRouter === true) agentEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'agent', cwd: tempDir, env: agentEnv });
       if (streamingInput) {
         const commandRunner = $({
           cwd: tempDir,
@@ -642,6 +661,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
         const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
         if (!attached) {
           throw new Error('Agent live stream-json input requested, but stdin attachment failed');
@@ -654,6 +674,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -824,7 +845,7 @@ export const executeAgentCommand = async params => {
         }
       };
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await handleAgentStreamEvents(stdoutScanner.write(output));
@@ -1159,6 +1180,11 @@ export const executeAgentCommand = async params => {
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'agent', cwd: tempDir, env: agentEnv });
+      if (authenticationError) {
+        await finalizeAgentBidirectionalHandler();
+        return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
+      }
       reportError(error, {
         context: 'execute_agent',
         command: params.command,

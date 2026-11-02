@@ -1,0 +1,47 @@
+Native package integration CI investigation, 2026-10-31 UTC
+
+Head: 484591c54293ba1acbcfc93eae9aa75b48663bc9
+All listed runs were created at 2026-10-31T06:55:20Z, after its push.
+This is a failure investigation, not a passing-CI claim.
+
+Workflows: https://github.com/link-assistant/hive-mind/actions/runs/41178521237
+Preserved runner log: ci-logs/workflows-41178521237.log (597 lines).
+Line 295: native-codex-build.yml:141, ad-hoc installation of packages.
+Line 296: zizmor exits 12. The step deliberately installs the actual archive
+built and byte-verified in the same run; a committed dependency would not test
+that artifact. A step-local adhoc-packages exception documents this boundary.
+Local zizmor 1.31.1 accepts the changed workflows and assembly action.
+
+Checks: https://github.com/link-assistant/hive-mind/actions/runs/41178521287
+Completed failing job: test-suites, 124471567510.
+Downloaded via actions/jobs/124471567510/logs while native builds were active.
+Preserved job log: ci-logs/test-suites-124471567510.log (1376 lines).
+Lines 1297-1308: extracted-modules-2198.test.mjs rejects release.yml's
+1376 lines against the existing 1350-line warning threshold. The separate
+1500-line job passed and did not catch this stricter default-suite assertion.
+The existing test reproduces locally before changes. Repeated same-run native
+artifact assembly now lives in one composite action; redundant syntax-check
+echo wrappers were removed. release.yml is 1347 lines and the reproducing test
+passes. Six release/dependency/order controls and actionlint also pass.
+
+The subsequent full local default-suite run reached the release image gate
+and reproduced a second regression: its expression-evaluation fixture omitted
+the new native-codex-build dependency. All five existing assertions therefore
+failed with "Cannot read properties of undefined (reading 'result')".
+Log: /tmp/issue-3785-recovery/codex-command-default-suite.log.
+The fixture now supplies that dependency explicitly. Three additional controls
+verify Docker, normal release and instant release each reject failed, cancelled
+or skipped native builds. All eight release image gate assertions pass.
+Log: /tmp/issue-3785-recovery/codex-release-image-gate-final.log.
+
+Both native optimized compiles subsequently finish: x64 in 72m 50s and ARM
+in 104m 52s. Both fail the same Cargo hardlink packaging check before native
+runtime admission. The bounded copy repair is committed with nineteen tests
+and an actual tiny Cargo control; see native-codex-cargo-handoff.txt.
+Complete checks log: ci-logs/checks-release-41178521287.log, 48335 lines,
+reviewed in 33 chunks of at most 1500 lines. Native failures are at 41173
+and 41552; the release.yml assertion is at 43332. Pipeline status 48301
+lists only test-suites and native-codex-build. All eight workflow outcomes
+are now final; six succeed, checks and Workflows fail. The exact repaired
+head still needs fresh CI; no optimized installed-runtime or image pass
+is claimed here.

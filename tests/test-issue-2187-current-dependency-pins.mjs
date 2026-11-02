@@ -23,7 +23,7 @@ const expected = {
   box: '2.10.5',
   bun: '1.4.4',
   eslint: '10.14.0',
-  formalAi: '0.355.27',
+  formalAi: '0.355.28',
   jscpd: '5.4.2',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
@@ -31,7 +31,7 @@ const expected = {
   prettier: '3.9.10',
   sentry: '11.10.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.40.0',
+  startCommand: '0.41.0',
   useM: '8.16.4',
 };
 
@@ -55,8 +55,8 @@ assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegE
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const source = read(file);
-  assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
-  assert.match(source, new RegExp(`bun install -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
 }
 
 const formalAiVersionSource = read('src/formal-ai-version.lib.mjs');

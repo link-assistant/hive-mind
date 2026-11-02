@@ -1,0 +1,94 @@
+--- a/codex-rs/login/src/auth/manager.rs
++++ b/codex-rs/login/src/auth/manager.rs
+@@ -2523 +2523,2 @@
+-    /// Current cached auth (clone) without attempting a refresh.
++    /// Current auth without refresh or network I/O. Canonical mode reads the
++    /// selected file on every call, including synchronous request-header paths.
+@@ -2524,0 +2526,21 @@
++        if canonical_transaction::selected() {
++            for _ in 0..2 {
++                let generation = self.auth_change_state_tx.borrow().generation;
++                let auth = self.load_canonical_auth();
++                if self
++                    .publish_reloaded_auth(generation, auth.clone())
++                    .is_some()
++                {
++                    return auth;
++                }
++            }
++            // Concurrent in-process changes must not resurrect an older snapshot.
++            return None;
++        }
++        self.auth_cached_unchecked()
++    }
++
++    // Refresh compares the generation loaded before acquiring the cross-process
++    // guard with the one read under it. A public read here would overwrite the
++    // predecessor and make a waiter consume the already-rotated token again.
++    fn auth_cached_unchecked(&self) -> Option<CodexAuth> {
+@@ -2893,0 +2916,57 @@
++    // API-key and managed ChatGPT file credentials require no async work to
++    // reconstruct. Other auth modes are explicitly unsupported by this adapter,
++    // rather than permitting a request-path fallback or nested Tokio runtime.
++    fn load_canonical_auth(&self) -> Option<CodexAuth> {
++        if self.has_external_auth()
++            || [
++                OPENAI_API_KEY_ENV_VAR,
++                CODEX_API_KEY_ENV_VAR,
++                CODEX_ACCESS_TOKEN_ENV_VAR,
++            ]
++            .iter()
++            .any(|key| std::env::var_os(key).is_some())
++        {
++            return None;
++        }
++        let stored = load_auth_dot_json(
++            &self.codex_home,
++            self.auth_credentials_store_mode,
++            self.keyring_backend_kind,
++        )
++        .ok()??;
++        let auth = match stored.resolved_mode() {
++            AuthMode::ApiKey => CodexAuth::from_api_key(stored.openai_api_key.as_deref()?),
++            AuthMode::Chatgpt => {
++                let provenance = stored
++                    .tokens
++                    .as_ref()
++                    .and_then(|tokens| tokens.oauth_provenance.as_ref());
++                let client = create_default_auth_client(
++                    &refresh_token_endpoint(provenance),
++                    &self.auth_route_config,
++                )
++                .ok()?;
++                let storage = create_auth_storage(
++                    self.codex_home.clone(),
++                    self.auth_credentials_store_mode,
++                    self.keyring_backend_kind,
++                );
++                CodexAuth::Chatgpt(ChatgptAuth {
++                    state: ChatgptAuthState {
++                        auth_dot_json: Arc::new(Mutex::new(Some(stored))),
++                        client,
++                    },
++                    storage,
++                })
++            }
++            _ => return None,
++        };
++        validate_auth_restrictions(
++            Some(&self.allowed_login_methods()),
++            self.effective_chatgpt_workspaces().as_deref(),
++            &auth,
++        )
++        .ok()?;
++        Some(auth)
++    }
++
+@@ -2895,2 +2974,2 @@
+-        if canonical_transaction::selected() && self.has_external_auth() {
+-            return None;
++        if canonical_transaction::selected() {
++            return self.load_canonical_auth();
+@@ -3236 +3315 @@
+-        let auth_before_reload = self.auth_cached();
++        let auth_before_reload = self.auth_cached_unchecked();

@@ -81,6 +81,7 @@ const ENGLISH_LIMITS = {
   seven_day_sonnet_only: '7d Sonnet only',
   session: 'session',
   start: 'Start',
+  stored_metadata: 'stored metadata',
   subscription_ends: 'Subscription ends {{time}}',
   subscription_ends_in: 'Subscription ends in {{duration}} ({{time}})',
   subscription_detail_ends: 'ends {{time}}',

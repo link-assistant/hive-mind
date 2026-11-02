@@ -1,0 +1,129 @@
+Draft SQLite recovery and operation component evidence
+Date: 2026-10-31 UTC
+Production recipe/source inventory unchanged; full native draft verification OPEN.
+
+sqlite-selected-vfs-recovery-relative-all-databases.log
+1031 controls: 64 healthy, 966 explicit byte-preserving refusals, one recovery-peer/local-handle summary.
+sha256: f65f38b2b0313328f39cf08b48d8cfc27c1a5b15ea3f66ed9b69d927d816313e
+lines: 1031
+
+sqlite-vfs-actual-sqlx-recovery-relative.log
+40 actual SQLx controls: four healthy, 36 explicit byte-preserving refusals.
+sha256: 7fbc939076e6cfd1583dbbf4945dc9f2c49e29105b01ae11ae4369f27ab1db28
+lines: 40
+
+sqlite-vfs-sqlx-recovery-relative-build.log
+Bounded isolated SQLx build passes; not the full native CLI.
+sha256: 8a2482af0f386c9b0817fd9a0441b10fef33a1da68173172399092fdd0e50454
+lines: 2
+
+sqlite-config-lock-recovery.log
+The actual prepared core admission preserves a pre-existing POSIX database lock.
+sha256: ca2a95712d4fb04bee4644f3c0514efd259f4e20a1062c94ba8925b7923d592a
+lines: 1
+
+sqlite-selected-vfs-benchmark.log
+Before lookup optimization: three ordinary/selected component benchmark pairs.
+sha256: 9cc96fa9c0c897a1bde4ea07a88ec3365c1f5c3de0d4ec1a2602bd6debe9c7ba
+lines: 6
+
+sqlite-selected-vfs-benchmark-relative.log
+After lookup optimization: three ordinary/selected component benchmark pairs. Material overhead remains.
+sha256: 29d102d2e801af7d4c9caf5844af32651dd0dcca8be809b7f0c5d230d05b5594
+lines: 6
+
+native-sqlite-recovery-compatible-before.log
+Initial fixture failure: exact row assertion excluded normal built-in native sections.
+sha256: 96086263278e54e35b61c97da3966cd9a2e8b8b7137663498fb09214577a8e4a
+lines: 12
+
+native-sqlite-recovery-compatible-before-fixed.log
+Preceding optimized CLI: selected corruption recovery preserves exact backup and unrelated database.
+sha256: 5498be3362e0c9fab5a4f615308ced1c3267ff6e91ce3540379c4dbf840c5cdd
+lines: 2
+
+native-sqlite-recovery-compatible-ordinary-before.log
+Preceding optimized CLI: ordinary unselected corruption recovery compatibility.
+sha256: e2796de7d4ae49ad253636e3fa481f6d78673ca0d660f5708d9816ba593543f3
+lines: 2
+
+native-probe-cleanup-strict-before.log
+Strict probe cleanup regression fails with BrokenPipeError after the peer exits.
+sha256: fcfea87e9fc9634500152ec25b2d8ec63059aaf90602a8d7d00468929d23e006
+lines: 21
+
+native-probe-cleanup-after.log
+All three process-group/cleanup tests pass after the fix.
+sha256: 3f30fc2f81fea870294c45e1912ec2126b1d43df3bd43dcedb76fec745afa524
+lines: 5
+
+experiments/issue-3785/native-codex/canonical_sqlite_vfs.c
+sha256: f66fee56f4685b0bd766d06c8f215b0bbe63ace0cf5a6345b657bc68a7887dc0
+
+experiments/issue-3785/native-codex/canonical_sqlite_vfs.rs
+sha256: 8f859355946d01e54211d90441f4a780ce64eac146744f9caba52ef3a0a664c4
+
+experiments/issue-3785/native-codex/apply_sqlite_vfs.py
+sha256: 9d5e7cfc1fc82b4e13db78049b2d7eb09e5d75d3e00bfe0da4a7cc56afa0f681
+
+Preceding optimized CLI SHA256:
+23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+Its recovery results establish existing behavior to preserve, not that the new
+adapter has passed a full native build. The new experimental gates are pending.
+Before/after metadata checks do not establish atomic exclusion against an
+uncoordinated external rename or protect against fresh-process rollback.
+
+native-sqlite-lifetime-snapshot-directory-before.log
+Initial snapshot fixture used the C control size bound; native startup migrations exceed it.
+sha256: acdcca14f8c5603d55bd9cbbbcb44334480b5d4ce05cb19337e3f891ff212499
+lines: 14
+
+native-sqlite-lifetime-snapshot-directory-before-fixed.log
+Actual optimized CLI reproduces retired-directory reads/writes; strict snapshots are now bounded to 16 MiB per file and streamed.
+sha256: 204b5a575cb1f573433290baeed03e0113d7bff0177a2c3df08ba58f602944e4
+lines: 3
+
+native-sqlite-lifetime-snapshot-database-before.log
+Actual optimized CLI reproduces retired-database reads/writes with byte snapshots.
+sha256: 2d57e54d71b5a5202699214c735a7d6844444e6eb1baa27a9d1159602263efae
+lines: 3
+
+sqlite-recovery-verified-prepare.log
+Fresh pinned source preparation passes the unchanged production inventory.
+sha256: e7b540d0435b18b003706cca4f68e5d9d0275401841863c683abaa969846732a
+lines: 15
+
+sqlite-recovery-verified-check.log
+Final draft applier applicability passes before mutation.
+sha256: 52ca906f419acbfd0f2c8b9e3372bba96beb683e35c445570159494172f68a92
+lines: 1
+
+sqlite-recovery-verified-apply.log
+The final draft applies successfully; copied C/Rust/build inputs equal the locally tested bytes.
+sha256: f538fbed398b98c32cb7e3d4c76598ce8f3334945965fba69c03c3089b87dfcc
+lines: 1
+
+sqlite-recovery-native-build-tests.log
+All 21 native build/admission tests pass; production recipe remains unchanged.
+sha256: 39f243215cfe55b878e9832e5a608b06413b317b02d184a6ec142a742afef7ac
+lines: 11
+
+native-sqlite-performance-before.log
+Actual preceding optimized CLI: four alternating healthy selector-mode runs, 25 reads and ten writes each.
+sha256: c855cec64f054ebf3bea353079d420964ccbcdbc121a6a2dc795ad89d7bb9261
+lines: 5
+
+Fresh prepared experimental source: 44 files
+sourceInventorySha256: b6cef2e679e7f563c25a8b1e359816cf5ffd81109988894e47568dac127032a0
+Production recipe and source inventory remain unchanged.
+
+Three concurrent actual native app-server peers, preceding optimized CLI
+Binary sha256: 23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+Both modes retain 18 acknowledged sections through overlapping writes,
+private-configuration disposal, survivor writes and fresh-peer admission.
+native-sqlite-peers-compatible-before.log
+sha256: 0ed31465a15461b03a9569cd9eea70725c5ef6589fbec34dc529c8d4c6ec4633
+native-sqlite-peers-compatible-ordinary-before.log
+sha256: 2c14f5ad886318355feac903061947a8d49ae428d6adba7d4d6048c798790ca3
+The newly guarded CLI still requires the experimental CI controls.
+This is a host SQLite control, not the full Docker or conversation matrix.

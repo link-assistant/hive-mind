@@ -1,0 +1,118 @@
+✖ claude rejects a linked history/data parent without touching its target (21.182764ms)
+✖ claude parent replacement during directory creation cannot write through the replacement (20.87503ms)
+✖ codex rejects a linked history/data parent without touching its target (14.738312ms)
+✖ codex parent replacement during directory creation cannot write through the replacement (12.605995ms)
+✔ agent rejects a linked history/data parent without touching its target (17.216645ms)
+✖ agent parent replacement during directory creation cannot write through the replacement (14.348715ms)
+✔ opencode rejects a linked history/data parent without touching its target (18.171546ms)
+✖ opencode parent replacement during directory creation cannot write through the replacement (18.048596ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 2
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 276.138905
+
+✖ failing tests:
+
+test at tests/issue-3785-history-path-safety.test.mjs:33:3
+✖ claude rejects a linked history/data parent without touching its target (21.182764ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:37:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /(?:history|data).*unavailable|shared tool data/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-history-path-safety.test.mjs:41:3
+✖ claude parent replacement during directory creation cannot write through the replacement (20.87503ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:57:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /(?:history|data).*unavailable|shared tool data/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-history-path-safety.test.mjs:33:3
+✖ codex rejects a linked history/data parent without touching its target (14.738312ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:37:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /(?:history|data).*unavailable|shared tool data/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-history-path-safety.test.mjs:41:3
+✖ codex parent replacement during directory creation cannot write through the replacement (12.605995ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:57:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /(?:history|data).*unavailable|shared tool data/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-history-path-safety.test.mjs:41:3
+✖ agent parent replacement during directory creation cannot write through the replacement (14.348715ms)
+  AssertionError [ERR_ASSERTION]: preparation must not create directories through a replaced parent
+  + actual - expected
+  
+    [
+      'auth-and-history-sentinel',
+  +   'link-assistant-agent'
+    ]
+  
+      at unchanged (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:23:12)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:59:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'auth-and-history-sentinel', 'link-assistant-agent' ],
+    expected: [ 'auth-and-history-sentinel' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-history-path-safety.test.mjs:41:3
+✖ opencode parent replacement during directory creation cannot write through the replacement (18.048596ms)
+  AssertionError [ERR_ASSERTION]: preparation must not create directories through a replaced parent
+  + actual - expected
+  
+    [
+      'auth-and-history-sentinel',
+  +   'opencode'
+    ]
+  
+      at unchanged (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:23:12)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793358310378/tests/issue-3785-history-path-safety.test.mjs:59:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'auth-and-history-sentinel', 'opencode' ],
+    expected: [ 'auth-and-history-sentinel' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

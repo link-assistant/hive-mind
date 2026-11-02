@@ -1,0 +1,18 @@
+Native package: @qwen-code/qwen-code 0.26.1
+Module SHA-256: 76d55ad14363fa0ceb0ce4ef0f24c85096a93c1b93a25e311273838b746b95b8
+Source: packages/core/src/qwen/sharedTokenManager.ts, v0.26.1
+Same cleanup observed on main commit 2a6f777edfd3fc805b1761f4eff971458225d7a5.
+All credentials and OAuth responses are disposable synthetic fixtures.
+
+node experiments/issue-3785/probe-qwen-lock-ownership.mjs
+  REPRODUCED: an exiting non-owner deletes the live native Qwen refresh lock; a peer exchanges the same synthetic G0 before the owner finishes.
+
+node experiments/issue-3785/probe-qwen-lock-ownership.mjs --without-observer-manager
+  CONTROL: without constructing the exiting observer manager, the lock survives and the peer uses persisted G1 without an exchange.
+
+The installed native token-manager class is exercised directly, with OAuth
+mocked at its existing client interface. No CLI turn, real provider exchange,
+cross-container behavior or production fix is claimed. Three workers have
+128 MiB JS heaps, 1.5 GiB per-process data limits and a 20-second probe deadline.
+All workers are awaited before fixture removal; native diagnostics are bounded
+and suppressed. QWEN_PROBE_MODULE can select the installed version's module.

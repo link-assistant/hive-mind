@@ -1,0 +1,73 @@
+Unreleased native SQLite recipe candidate, 2026-10-31 UTC
+
+Pinned upstream: 6aaac694803004a63c6f393d153c96d22521a6b9
+Prepared changed/new source files: 45; adapter steps: 16.
+sourceInventorySha256: 3cec1b0a4531286ded0bbba58bf1025bebe395088bf970979134107ff294c2ba
+Checked bundled flag: LIBSQLITE3_FLAGS=SQLITE_ENABLE_FILESTAT
+
+Two independent fresh source preparations pass. Repeat preparation, changed
+source, extra source and changed recipe identity all refuse. The probe full-
+inventory SHA256 includes modes/JSON formatting and is intentionally a
+different representation from recipe sourceInventorySha256:
+15e9a93bbe6aa6734922cd436dd6c762a9ccaaede0e84aa996d666324f0c02de
+
+All 22 build/admission units pass after removing inherited C compiler and
+SQLite library selectors. All 19 native release/runtime/command assertions pass.
+Fortified C and exact native startup-function before/after evidence is kept in
+sqlite-optimized-guard.txt and sqlite-startup-fallback.txt.
+
+Both native optimized architectures, both installed npm platforms and both
+final images require nine actual CLI probes: strict retired directory/database
+refusal; selected and ordinary corruption recovery, three-peer persistence and
+startup behavior; and alternating ordinary/selected performance measurements.
+The final image controls run against command -v codex with networking disabled.
+No successful full compiled candidate or final-image result is asserted here.
+
+sqlite-release-preparation-control.log
+sha256: 4ac3d3eff77d887d00d90b27d5310d7c55b44e7c0283204a2f1072917ed71a85
+lines: 35
+
+sqlite-native-build-overrides-before.log
+sha256: 10e74fe71e542df489d3c6fd5ec4d6cab21f8f1996b3d3ccbed3a6748275e1c1
+lines: 14
+
+sqlite-native-build-overrides-final.log
+sha256: 887e4859f5c43d03939561daeae53c909133efe40eea6fce25d560ea7ca5a888
+lines: 11
+
+sqlite-release-native-js-tests.log
+sha256: 02a4d1350df2cd0f9f35f6ad5d542d24464c9ecf19f2b5d9aadb2c7aac98aa4c
+lines: 43
+
+sqlite-release-gates-shell-lint.log
+sha256: e99b17d91fe2e5c9d84cf7da98281f95f55ef543cde16d54c2f1371ebfc28a55
+lines: 1
+
+Full CI remains required for the candidate, including the later native
+startup-fallback and optimized compiler fixes. Atomic external rename exclusion,
+fresh-process rollback, complete Docker/daemon lifecycles and the wider six-
+tool storage requirements remain OPEN. PR #3786 remains draft and unmerged.
+
+Final local checks before candidate commit: repository lint and shell retry
+check, changed-file secrets, formatting, file limits, YAML parse, bash/node
+syntax and git diff whitespace all pass.
+
+sqlite-release-candidate-lint.log
+sha256: 1cbdd4663d15ab3449fdd43e49ad9a10f1285afc9fd94ea3beee81727d5fc81f
+lines: 5
+
+sqlite-release-candidate-secrets.log
+sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+lines: 0
+
+sqlite-release-candidate-format-check.log
+sha256: 17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20
+lines: 2
+
+sqlite-release-candidate-line-limits-fixed.log
+sha256: b948b3636cba994d084a598394b6b88723d50b9e051b38e59345cd542bd1a45f
+lines: 2454
+
+sqlite-release-candidate-yaml-fixed.log
+sha256: 78de92ad2376499c88f70f10b0ecef57ffffbf0a8b7ec9996ba40dba7797b14b
+lines: 1

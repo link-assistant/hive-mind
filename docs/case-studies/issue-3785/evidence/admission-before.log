@@ -1,0 +1,72 @@
+✖ disabled repair cannot admit known global contamination (48.099005ms)
+✖ unrepaired global commands reject admission even when repair is enabled (46.189803ms)
+✖ a failed removal rejects admission instead of logging and continuing (27.344829ms)
+✖ successful repair must be followed by another audit before admission (40.657002ms)
+✔ a clean re-audit admits safe repair and preserves protected state (33.909596ms)
+✔ read-only audit keeps reporting findings without enforcing admission (19.857683ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 2
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 369.83737
+
+✖ failing tests:
+
+test at tests/issue-3785-audit-admission.test.mjs:26:1
+✖ disabled repair cannot admit known global contamination (48.099005ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:29:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:33:1
+✖ unrepaired global commands reject admission even when repair is enabled (46.189803ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:36:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:39:1
+✖ a failed removal rejects admission instead of logging and continuing (27.344829ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:43:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:47:1
+✖ successful repair must be followed by another audit before admission (40.657002ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:56:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }

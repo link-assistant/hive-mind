@@ -98,6 +98,16 @@ export function resolveRouterDialect({ env = process.env } = {}) {
   return resolveRouterRouteDialect({ image: resolveRouterSidecarImage(env), env });
 }
 
+/** Validate routing before minting a lease or inspecting native credentials. */
+export function resolveRouterTaskRoute({ tool = 'claude', env = process.env } = {}) {
+  const endpoint = resolveRouterBaseUrl({ env });
+  if (endpoint.error || !endpoint.baseUrl) return { error: 'Router isolation requires a valid HTTP(S) origin; check HIVE_MIND_ROUTER_URL.' };
+  const routes = resolveRouterDialect({ env });
+  if (routes.error) return { error: 'Router isolation requires a valid route dialect; check HIVE_MIND_ROUTER_ROUTES.' };
+  if (!buildRouterToolServiceUrl({ baseUrl: endpoint.baseUrl, dialect: routes.dialect, tool })) return { error: `Router isolation has no provider route for ${tool}; select a backend dialect supporting this tool.` };
+  return { ...endpoint, dialect: routes.dialect, error: null };
+}
+
 /** The one GitHub name the router impersonates; see the module header. */
 export const ROUTER_GITHUB_API_HOST = 'api.github.com';
 /** SANs the sidecar's self-signed certificate must carry. */
@@ -347,6 +357,7 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode
     HIVE_MIND_USE_ROUTER: '1',
     HIVE_MIND_ROUTER_URL: baseUrl,
     HIVE_MIND_ROUTER_TOKEN: token,
+    HIVE_MIND_ROUTER_ROUTES: routes.id,
     // Trust the router's CA without losing the public roots.
     NODE_EXTRA_CA_CERTS: ROUTER_CA_CONTAINER_PATH,
     SSL_CERT_FILE: ROUTER_CA_BUNDLE_CONTAINER_PATH,
@@ -517,6 +528,8 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
     suppressed.push('.codex', '.agents');
   } else if (normalizedTool === 'claude') {
     suppressed.push('.claude', '.claude.json');
+  } else if (normalizedTool === 'agent' || normalizedTool === 'opencode') {
+    suppressed.push(`.local/share/${normalizedTool === 'agent' ? 'link-assistant-agent' : normalizedTool}`);
   }
   // gh config is only withheld when gh actually has somewhere else to go;
   // otherwise the task would lose GitHub access entirely (see resolveRouterGitHubRouting).

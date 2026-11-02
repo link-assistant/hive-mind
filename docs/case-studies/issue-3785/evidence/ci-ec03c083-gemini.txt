@@ -1,0 +1,39 @@
+Native Gemini CI at ec03c083d0e01b4f5982669cc16ca708a555e61c.
+Run https://github.com/link-assistant/hive-mind/actions/runs/41168944327
+Created 2026-10-31T04:31:56Z; completed 04:45:08Z. Five jobs pass; ACP fails.
+This run follows the latest pushed commit and includes both native plan stages.
+It does not include the subsequent whole-CLI interruption controls.
+
+Preserved full log: ci-logs/native-gemini-41168944327.log, 3,874 lines,
+reviewed in three chunks of at most 1,500 lines. Only error annotation is
+line 3304, in Preserve native metadata, terminal and authentication behavior.
+The exact failed command is printed at line 3296:
+  node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs
+The artifact gemini-acp-auth-writers.log has the actual error at line 5:
+  AssertionError [ERR_ASSERTION]: Only an exact inspected native manager stage may run.
+The assertion is probe-gemini-native-writers.mjs:249.
+
+Root cause: stage 25 changes the manager hash to
+80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733,
+but the writer/read/request authentication regression allowlists still end at
+the preceding native manager stage. All three exact commands independently
+reproduce their pin refusal locally before the fix. Add only this exact verified
+hash; retain package/version/source admission and every earlier pin/control.
+No native source or authentication logic changes in this CI repair.
+
+All plan publication, reconstructed source and surrounding lifecycle steps
+precede the failed final authentication check and pass. ACP artifact collection
+contains 722 files, 116 control logs and 78 network diagnostics. All network
+diagnostics have errors []. The only unexpected assertion file is the exact
+authentication pin refusal; the other assertion files are strict before controls.
+Full-generation API publication recovery/refusal and full storage controls pass.
+The five successful jobs are credential reads, restorable tools, history
+regressions, Git checkpoints and tracker history.
+
+Artifacts and fresh post-repair authentication verification are retained locally
+under /tmp/issue-3785-recovery/gemini-ec03-* and gemini-auth-plan-pin-*.
+All three native regressions now pass against the same stage-26 package:
+writers 41 assertions, request authentication 30 and private-config reads 11.
+Each was run sequentially with the native package and bounded Node heap.
+Fresh exact-head CI is still required. No full issue acceptance is claimed;
+the PR remains draft and unmerged.

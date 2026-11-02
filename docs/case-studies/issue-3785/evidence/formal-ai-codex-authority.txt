@@ -1,0 +1,46 @@
+Selected Codex authentication in Formal AI configuration, 2026-10-31 UTC
+
+Reproduction:
+  node --test tests/issue-3785-formal-ai-codex-authority.test.mjs
+Seven strict seed controls fail before repair: the canonical credential is
+copied into private configuration, independent source/destination credentials
+and missing/public/relative selected storage are accepted, and an injected
+credential is admitted. Three additional writer regressions fail before its
+repair: the writer receives the source CODEX_HOME, admits logout and accepts a
+new independent private credential after writing configuration.
+Before logs: /tmp/issue-3785-recovery/formal-ai-codex-authority-before.log
+             /tmp/issue-3785-recovery/formal-ai-codex-authority-writer-before.log
+
+With CODEX_AUTH_HOME selected, seeding now admits the source and destination
+against canonical storage before creating configuration. It skips credential
+copying and repeats admission after writing. The configuration writer admits
+both sides before and after invocation and explicitly selects private CODEX_HOME
+while preserving CODEX_AUTH_HOME. Conflicts refuse without replacing protected
+credentials. Unselected legacy behavior remains covered by existing tests.
+All 53 assertions across five related files pass without skips. ESLint passes.
+Log: /tmp/issue-3785-recovery/formal-ai-codex-authority-related-final.log
+
+Actual native control:
+  node experiments/issue-3785/probe-formal-ai-codex-auth.mjs /absolute/formal-ai
+The real installed Formal AI 0.355.7 writer passes with synthetic credentials,
+two private task homes, atomic replacement, private-home disposal and logout
+refusal. The original canonical config and credentials remain unchanged except
+for the intentional synthetic replacement. Both task homes contain no auth.json.
+Against the preceding production module, the same native control fails because
+the first private task contains a credential snapshot. An earlier control with
+an auth-free source also reproduces the missing logout refusal.
+Native before: /tmp/issue-3785-recovery/formal-ai-codex-authority-native-copy-before.log
+Native after:  /tmp/issue-3785-recovery/formal-ai-codex-authority-native-final.log
+
+Every real writer invocation has a 512 MiB data/16 MiB stack limit, bounded
+output, a finite abort signal and process-group cleanup. Only isolated synthetic
+environment reaches it; all proxy routes refuse external traffic. This control
+configures a loopback endpoint without inference or a running backend.
+
+Required image verification now runs this same probe with network disabled,
+importing the actual installed Hive Mind module and invoking the installed
+Formal AI writer in each standard/DinD image. A reproducing detector regression
+ensures probe-only changes require fresh image checks. This new image control
+has not executed in CI yet. Full backend request/history lifecycle, default
+canonical selection, migration and unselected credential-copy removal remain
+unfinished; this selected-mode repair does not complete A2 or A12.

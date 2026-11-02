@@ -1,0 +1,51 @@
+Verified pushed commit:
+  5abb937c55b2573a9baef37a4ca4f87c5c51cf06
+All eight workflows complete successfully. Seven were created at
+2026-10-31T01:07:20Z; the Claude workflow was created one second earlier.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41153756956
+  Preserved full log: ci-logs/checks-41153756956.log (72208 lines).
+  Line 71684: all 739 default test files pass.
+  Line 71746: both integration test files pass.
+  Lines 49002-49005: nested daemon restart and committed-container restart.
+  Lines 49007-49012: actual installed-package host/nested task backing,
+    Agent/OpenCode atomic replacement, deletion/recreation, two-task writes
+    and private-redirection refusal controls pass.
+  Line 49014: all Docker verification checks pass at 01:31:58Z.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41153757171
+  Preserved full log: ci-logs/native-codex-41153757171.log (1791 lines).
+  All three jobs pass: native-history, refresh-intent-modules and
+    native-file-authority. The last job completes at 01:42:17Z.
+  Line 718: seven canonical storage tests pass, with one worker ignored.
+  Line 739: five canonical session-index tests pass, with one worker ignored.
+  Line 1075: actual native status/logout share canonical authority across
+    private configuration homes and replacement without credential copies.
+  The full native CLI build and actual request, migration, compression,
+    refresh-owner-death, identity-generation and prompt-history controls pass.
+  Expected before-repair failures remain strict negative controls; for example
+    line 1734 records four expected stale identity-publication failures.
+
+Native Gemini:
+  https://github.com/link-assistant/hive-mind/actions/runs/41153757108
+  Preserved full log: ci-logs/native-gemini-41153757108.log (2933 lines).
+  All five Node 24 jobs pass, including native-restorable-tools. All 275
+    terminal-restore artifact files were downloaded for investigation.
+  Line 391: strict missing-terminal-checkpoint reproduction is required.
+  Line 423: strict live-corruption edit-admission reproduction is required.
+  Lines 471-487: surrounding history, Git/tracker and authentication controls.
+
+Other successful workflows at this exact commit:
+  Workflows: 41153756829
+  Links: 41153757700
+  Qwen: 41153757303
+  Claude: 41153756549
+  Security: 41153757931
+
+These results verify terminal restore metadata/edit admission and GitService
+reuse, preceding the four subsequent ACP repairs. They do not verify those
+later changes. Claude's green job includes reproduction of its still-unfixed
+refresh uncertainty. Production integration, all-six-tool canonical authority
+and the complete lifecycle requirements remain unfinished.

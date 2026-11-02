@@ -1,0 +1,156 @@
+✔ disabled repair cannot admit known global contamination (57.547672ms)
+✔ unrepaired global commands reject admission even when repair is enabled (56.132941ms)
+✔ a failed removal rejects admission instead of logging and continuing (27.676118ms)
+✔ successful repair must be followed by another audit before admission (42.23947ms)
+✔ a clean re-audit admits safe repair and preserves protected state (92.028961ms)
+✔ read-only audit keeps reporting findings without enforcing admission (39.96621ms)
+✔ a clean initial audit is revalidated after yielding to verbose logging (55.16627ms)
+✔ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (14.881935ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (58.378039ms)
+✔ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (20.295923ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (55.003155ms)
+✔ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (23.30192ms)
+✔ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (40.710287ms)
+✔ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (21.606807ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (52.865567ms)
+✔ semantic TOML additions reject admission: [mcp_servers.rogue] (14.744119ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (46.495347ms)
+✔ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (33.34477ms)
+✔ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (37.549202ms)
+✔ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (43.563148ms)
+✔ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (45.330685ms)
+✔ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (54.926071ms)
+✔ table-like text inside a multiline string is data and needs no repair (34.644705ms)
+✔ TOML repair preserves unrelated typed configuration and approved MCP settings (93.038974ms)
+✔ malformed global JSON stops repair without exposing input or changing other state (37.033961ms)
+✔ symlink from settings into credentials is rejected before repair (12.631469ms)
+✔ hardlink from settings into credentials is rejected before repair (10.020358ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (17.062242ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (6.291614ms)
+✔ unreadable Codex configuration stops every repair (12.089228ms)
+✔ a concurrent configuration edit invalidates the repair plan (32.074551ms)
+✔ a concurrent file creation prevents empty-parent pruning (22.017184ms)
+✔ unattested hidden stock stops repair before any extension or protected file changes (16.528928ms)
+✔ malformed TOML stops repair without exposing configuration or changing other state (20.314437ms)
+✔ configuration growth after the size check cannot trigger an unbounded read (34.024217ms)
+✔ global instruction or command payload blocks admission: .claude/CLAUDE.md (96.169083ms)
+✔ global instruction or command payload blocks admission: .claude/rules/operator.md (42.232928ms)
+✔ global instruction or command payload blocks admission: .codex/AGENTS.md (40.179428ms)
+✔ global instruction or command payload blocks admission: .codex/AGENTS.override.md (131.270038ms)
+✔ global instruction or command payload blocks admission: .codex/prompts/operator.md (75.271717ms)
+✔ Claude inline hooks are repaired without changing provider, permissions or auth metadata (88.105894ms)
+✔ Codex hook manifests block admission without executing or deleting payloads (94.364666ms)
+✔ Codex inline global behavior is repaired: notify (83.008487ms)
+✔ Codex inline global behavior is repaired: developer_instructions (60.117042ms)
+✔ Codex inline global behavior is repaired: model_instructions_file (69.677193ms)
+✔ Codex inline global behavior is repaired: hooks (89.381443ms)
+✔ Codex profiles cannot hide global registrations and hooks (80.160254ms)
+✔ Codex global agent declarations are removed while concurrency limits survive (108.584758ms)
+✔ symlink on .claude/CLAUDE.md cannot redirect inspection or repair into credentials (22.846449ms)
+✔ hardlink on .claude/CLAUDE.md cannot redirect inspection or repair into credentials (40.138783ms)
+✔ symlink on .claude/rules/operator.md cannot redirect inspection or repair into credentials (27.498426ms)
+✔ hardlink on .claude/rules/operator.md cannot redirect inspection or repair into credentials (22.080672ms)
+✔ symlink on .codex/AGENTS.md cannot redirect inspection or repair into credentials (30.188063ms)
+✔ hardlink on .codex/AGENTS.md cannot redirect inspection or repair into credentials (24.580535ms)
+✔ symlink on .codex/hooks.json cannot redirect inspection or repair into credentials (21.698318ms)
+✔ hardlink on .codex/hooks.json cannot redirect inspection or repair into credentials (16.532163ms)
+✔ malformed hook manifest prevents unrelated repairs and keeps diagnostics constant (20.740813ms)
+✔ clean profiles inherit disabled remote plugins without configuration rewrites (67.392341ms)
+✔ unattested stock content blocks admission: operator/SKILL.md (58.399861ms)
+✔ unattested stock content blocks admission: .operator/SKILL.md (23.38283ms)
+✔ unattested stock content blocks admission: imagegen/SKILL.md (23.883144ms)
+✔ unattested stock content blocks admission: .codex-system-skills.marker (11.67757ms)
+✔ nested stock credential symlink blocks admission (14.17057ms)
+✔ nested stock credential hard link blocks admission (54.359655ms)
+✔ an empty stock directory is not a pristine CLI baseline (12.325508ms)
+✔ Dockerfile pins the CLI version used to generate the stock baseline (3.034459ms)
+✔ Dockerfile.dind pins the CLI version used to generate the stock baseline (4.018975ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (21.299234ms)
+✔ stock verification rejects an oversized file before opening it (50.38407ms)
+✔ concurrent stock edits reject verification without exposing content (25.586211ms)
+
+1. The drifted configuration is fully reported
+  PASS: every non-minimal item is a finding and playwright MCP is not
+  PASS: only the custom command is warn-only
+  PASS: custom commands are reported but never removed
+  PASS: everything else carries a repair
+  PASS: the codex plugin repair targets the whole <marketplace>/<plugin> directory
+
+2. Scoping by tool
+  PASS: tool=claude only inspects claude
+  PASS: tool=codex only inspects codex
+  PASS: unknown tools produce no findings
+
+3. Repair leaves exactly the minimal configuration
+  PASS: no repair failed
+  PASS: every repair was applied
+  PASS: superpowers cache is gone
+  PASS: global codex skills are gone
+  PASS: global ~/.agents skills are gone
+  PASS: codex auth is untouched
+  PASS: codex sessions are untouched
+  PASS: playwright MCP survives in config.toml
+  PASS: the extra MCP table is removed
+  PASS: the plugin table is removed
+  PASS: unrelated top-level keys survive
+  PASS: existing feature pins survive
+  PASS: features.remote_plugin is pinned to false
+  PASS: claude marketplaces are gone
+  PASS: installed_plugins.json is gone
+  PASS: known_marketplaces.json is gone
+  PASS: global claude skill is gone
+  PASS: custom command is kept
+  PASS: claude credentials are untouched
+  PASS: claude projects are untouched
+  PASS: only the plugin enable entry left settings.json
+  PASS: only playwright MCP remains in ~/.claude.json
+  PASS: auth state in ~/.claude.json survives
+
+4. A repaired home is clean
+  PASS: second audit reports only the warn-only item
+
+5. A fresh Docker-image home is clean
+  PASS: the minimal configuration has no findings
+  PASS: an empty home only needs the remote plugin pin
+  PASS: the pin creates config.toml when missing
+
+6. runAgentConfigAudit honours auto-repair and logs warnings
+  PASS: nothing is repaired when auto-repair is off
+  PASS: the skipped repairs are reported
+  PASS: superpowers stays when auto-repair is off
+  PASS: a warning is logged
+  PASS: the opt-out flag is named in the warning
+  PASS: auto-repair removes everything repairable
+  PASS: superpowers is removed by auto-repair
+  PASS: a clean home logs nothing
+
+7. Auto-repair resolution
+  PASS: auto-repair is on by default
+  PASS: --no-agent-config-auto-repair turns it off
+  PASS: raw argv from the Docker launcher is honoured
+  PASS: HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0 turns it off
+  PASS: argv wins over the environment
+
+8. Prevention: the environment and flags that keep the configuration minimal
+  PASS: claude quiet env stops the official marketplace auto-install
+  PASS: the minimal env is exported for other launchers
+  PASS: codex exec pins remote_plugin off per run
+  PASS: playwright is the only MCP server in the minimal set
+
+9. removeTomlTable
+  PASS: a middle table is removed
+  PASS: a lone table leaves an empty file
+  PASS: quoted dotted keys are matched exactly
+  PASS: a missing table is a no-op
+
+Result: 56 passed, 0 failed
+✔ tests/test-issue-2190-agent-config-audit.mjs (341.086882ms)
+ℹ tests 71
+ℹ suites 0
+ℹ pass 71
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1603.287597

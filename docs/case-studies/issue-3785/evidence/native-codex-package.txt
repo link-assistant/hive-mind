@@ -1,0 +1,57 @@
+Native Codex artifact assembly (compiled platform CI still required)
+
+The actual repository npm package is packed before generated runtime assembly.
+The package verifier fails specifically because its file allowlist contains no
+native platform payload. probe_native_codex_package.py --expect-missing passes
+only for that reproduced missing-payload error, not for arbitrary failures.
+
+Eleven local controls pass in test_native_codex_build.py, including six new
+artifact/packaging controls:
+- Admit both complete platform identities and restore only the known CLI's
+  executable permission after artifact download. Original inputs stay unchanged.
+- Reject changed binary bytes before creating an assembled runtime directory.
+- Reject missing license files and unexpected extra payloads.
+- Reject relabeled recipe, source inventory and platform provenance.
+- Preserve an existing destination and its original contents.
+- Use the repository's actual package.json file allowlist with a generated
+  gitignored runtime directory. Real npm pack retains both complete platforms;
+  deleting the arm64 payload makes the same verifier reject the next npm pack.
+
+These six unit controls use explicitly synthetic ELF identity/metadata fixtures
+and a synthetic license. They never execute those files and establish packaging
+behavior only. They do not establish actual native runtime behavior.
+
+The assembler validates every expected file, manifest/recipe identity, the exact
+31-file source content fingerprint, native compiler host/version, profile flags,
+bounded ELF machine/size/hash and all pinned upstream license/notice hashes.
+It rechecks the copied output before publication. Actual npm archive admission
+allows only the exact native paths, refuses missing/duplicate/aliased/oversized
+payloads and revalidates both extracted platform identities and executable modes.
+
+The native build workflow now has a dependent assembly job: both native compiler
+jobs and actual native authentication/request controls must succeed first. Only
+those same-run artifacts are assembled into a real npm package and checked.
+The actual resulting artifact and verification logs are retained for review.
+
+Six additional Node controls verify installed-package admission using explicitly
+synthetic, never-executed native identity fixtures. Complete identities publish
+one idempotent generation; changed bytes, missing bundle bytes, unsupported
+platforms, payload aliases and a bundled directory alias refuse without creating
+an admitted runtime. File hashing/copying uses 64 KiB chunks. The package's own
+manifest remains the admission authority for an installed generation.
+
+Dependent CI jobs install the actual npm archive on native x64 and arm64 runners,
+exercise its module's generation installer and mutation/collision refusals, then
+run the actual native authentication and model-request probes through that
+installed generation. This optimized compiler/assembly/installed-package workflow
+has not yet run. Production release publication, image/host command activation
+and removal of the production auth.json copy remain open. O3/A2 and the six-tool
+lifecycle contract remain unfinished; the pull request remains draft.
+
+2026-10-31 follow-up: the first optimized x64 compiler succeeds, then packaging
+rejects Cargo's internal hardlink. See native-codex-cargo-handoff.txt for the
+reproducer and bounded-copy repair. The recipe now also pins final SQLite
+configuration admission, producing a complete 34-file prepared inventory in two
+fresh checkouts; see codex-sqlite-authority.txt. Both new compiled platform and
+actual installed-command checks still require CI. These updates supersede the
+31-file count above without claiming optimized installation or full lifecycle.

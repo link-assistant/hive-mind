@@ -1,0 +1,67 @@
+Combined Router default-suite verification, 2026-10-31 UTC
+
+Command: node scripts/run-tests.mjs --suite default --continue-on-failure
+Production source: eef2d0088bb6dd7c2cd104f9c5f7383d7216aded
+All 765 selected default-suite files finished against frozen sources.
+Result: 764 passing files; one failing file, not a passing full invocation.
+
+The only failure is tests/agent-default-free-model-2625.test.mjs:74, whose
+connection assertion requires the former direct command-tag spelling. The new
+shared connection runner passes custom environments, but that assertion cannot
+observe it. The actual failure is preserved at log lines 14, 27 and 29.
+The complete 23796-line log was reviewed in 16 chunks of at most 1500 lines.
+SHA256:
+8aad79c8b3e3832c920059b181ae24cdf05a4848f4e60c2e32a525472e1b528c
+The HTTP 408 diagnostics at lines 2132-2265 are deliberate log-upload retry
+fixtures in the passing issue-2301 test, not additional failed test files.
+
+The obsolete connection source assertion is replaced with a bounded isolated
+production-validator control. It requests the actual default Agent free model
+and checks the paid child command's mapped model argument, native provider id,
+zero costs and preservation of existing MCP/provider/model configuration. The
+version child preserves the original inline configuration. Task-execution
+overlay coverage is retained. Preloading all validators before registering tests
+also fixes the fixture's premature cleanup under an isolated test-name filter.
+No production behavior was changed to satisfy the obsolete assertion.
+
+Final affected entrypoint reruns after formatting:
+- tests/agent-default-free-model-2625.test.mjs: 9 pass, 0 fail (17 log lines).
+  SHA256: 95b8c8aedc15b6e12332de7ffe2edd001255b0bf27f4aa276276ddb76d2b5c94
+- tests/issue-3785-router-connection-lifetime.test.mjs: 66 pass, 0 fail
+  (200 log lines).
+  SHA256: 72934c4bfe8221285aa11599e5330b3e92d43de52e7214489743ec77f12001fa
+
+All final 765 default-suite files are therefore verified across the complete
+run and these affected-entrypoint reruns. The full runner's original exit is
+still 1 and is preserved honestly. The separately marked needs-triage and
+external integration suites are not reclassified as default tests.
+
+These controls verify the Router repairs and ordinary free-model compatibility.
+They do not establish full native request authority, default six-tool canonical
+storage, migration, final image behavior or the complete issue acceptance set.
+
+Final Router/Agent/Bun combined default invocation, 2026-10-31 17:00-17:26 UTC:
+All 766 selected files finish against unchanged production/probe dependencies.
+765 pass. The sole failing file is tests/test-hive-no-silent-failure.mjs, whose
+existing five-second help smoke check reports "No output from --help" at line
+11175. The actual runner exits 1 and reports only that file at lines 23598-23599.
+Every affected Router, Agent, image installation and compatibility test passes.
+The 23599-line log is reviewed in 16 chunks of at most 1500 lines. The npm retry
+failures at lines 19057-19079 are intentional passing retry fixtures. SHA256:
+598c515d5e90406df0462ac844197d6d90e0e83e7ab375d8979bf293b05c2011
+
+Three repetitions of the exact help command with its existing five-second bound
+pass in 1409, 1436 and 1912 ms, producing Usage each time. No timeout is raised.
+Then the original three-case silent-failure test passes unchanged after the full
+suite finishes: help, version and dry-run all pass. No unrelated production code
+or test timeout is changed. The initial failure is intermittent; its root cause
+is not proven, and the complete invocation is not relabeled as passing.
+hive-help-duration-during-suite.log, 3 lines, SHA256:
+ba90edc3e651e960f1d9717b7e7f52e7d1395f46b9bc9a607892a0c836546fef
+hive-no-silent-failure-after-suite.log, 14 lines, SHA256:
+9f6ac865959cca610ecb7ebf69ff4d6b341a51aee83a847feae9c6b01b6aa497
+
+Final repository lint, secrets, formatting, duplication and file limits pass.
+There are no killed test/build processes or cgroup OOM events in this run.
+The separately bounded SQLite research probes are not production dependencies
+and are not counted as repaired native lifetime acceptance.

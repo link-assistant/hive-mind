@@ -1,0 +1,38 @@
+Dependency freshness repair, 2026-10-31 UTC
+
+PR source: 5a52ac0f65e7920a1ccdcfdeef2cfd18c8295f52
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41198752723
+Created: 2026-10-31T11:54:01Z, after the source commit was pushed.
+Job: detect-changes, 124530160651.
+The failed freshness step prevented optimized builds from starting.
+
+Preserved complete logs, read in chunks of at most 1500 lines:
+ci-logs/detect-changes-41198752723.log: 3898 lines, SHA256 b1ddb06b5d910d4bb5b021fcc415f49f7eaa80657c24f9ef9d7f0690bc1e78fe
+ci-logs/checks-release-41198752723.log: 4600 lines, SHA256 9b25c4941ab883e437d1700a8ae948d8694566f3832510ddc3a9c41a60d658b1
+
+Root cause: detect-changes log lines 3855-3862 report eight Formal AI
+image declarations stale at 0.355.26; crates.io reports 0.355.27.
+Lines 3863-3864 report eight stale, zero unresolved, and exit status 1.
+No test/compiler failure occurred in this run; those jobs were skipped.
+
+Reproduction: change the existing current-pin assertion to 0.355.27 and
+run tests/test-issue-2187-current-dependency-pins.mjs before changing
+production: exit 1, Dockerfile should pin Formal AI 0.355.27.
+
+Repair: update four Dockerfile ARGs plus the shared runtime bootstrap pin,
+then require their current-pin assertion to agree. Preserve strict freshness
+policy and the existing six-tool native CLI version exceptions.
+
+Verification:
+- Actual crates.io response, using the production checker's User-Agent,
+  reports max_stable_version 0.355.27.
+- Actual production collectDependencyRecords/checkDependencyRecords:
+  all eight Formal AI declarations current, zero stale, zero unresolved;
+  all agree with FORMAL_AI_BOOTSTRAP_VERSION 0.355.27.
+- Six focused files: dependency-freshness-2264, dependency-freshness-3282,
+  dependency-freshness-main-push-2625, current-dependency-pins,
+  e2e-matrix-harness-3332, formal-ai-uniform-tools-2119:
+  21 tests passed, zero failed or skipped.
+
+A new complete CI run is required after pushing this repair. This evidence
+does not claim new optimized executables have been built or admitted.

@@ -63,6 +63,7 @@ test('host credential probes resolve asynchronously and only mount what exists',
   await withDir(async homeDir => {
     fs.mkdirSync(path.join(homeDir, '.claude'));
     fs.writeFileSync(path.join(homeDir, '.gitconfig'), '[user]\n\tname = t\n');
+    await prepareDockerIsolationHostPaths({ tool: 'claude', env: {}, homeDir });
     const routerMounts = getRouterCredentialMounts({ homeDir });
     assert.ok(routerMounts instanceof Promise, 'the router credential probe is asynchronous');
     assert.deepEqual(

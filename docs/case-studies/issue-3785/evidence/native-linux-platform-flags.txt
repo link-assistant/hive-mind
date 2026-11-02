@@ -1,0 +1,72 @@
+Native Linux architecture flags, 2026-10-31 UTC
+
+Fresh checked source: f2e845cb38cfbdf53e435db1307e0086a4e38d0c
+Run created: 12:38:27 UTC; completed: 14:30:10 UTC, FAILURE.
+https://github.com/link-assistant/hive-mind/actions/runs/41202009317
+The complete 71831-line workflow log is preserved and reviewed in 48 chunks.
+SHA256: 3d4ca690361c45133e90b858d530c287914da054e9135499a36954e4bb04e862
+Line 43294: ARM's first native authentication probe exits 1.
+Lines 71797-71798: required pipeline gate reports the failed native package.
+
+Both optimized compilations succeed: x64 100m55s; ARM 107m34s.
+x64 additionally passes all packaged authentication/request/provider-constructor,
+SQLite redirect/alias, native identity and usage-generation controls.
+Preserved x64 executable SHA256:
+34cf3d5dec35370c14688daf4cbfd7d3e540efd5056e9f95730fdde7e6f8bf90
+It is 350992512 bytes. All 19 x64 text artifacts are reviewed (3824 lines).
+ARM's native-release-auth.log:6 fails canonical authentication-root admission
+(actual status 1, expected 0; probe-codex-native-auth-root.mjs:41).
+That 19-line log SHA256:
+bd846cc2f3dc328260c7e8236f3c5ba883e47cca125b4d6e0a96e94c53724dd6
+The ARM compiler diagnostic executable is preserved, not admitted for runtime.
+Its 304921536 bytes have SHA256:
+f95b1722a8ef0f88cf69fb5c24992e87ab6a350074c62da04bc2fff8c923af1d
+Downstream npm assembly/installed commands and Docker image gates were skipped.
+
+Root cause: all eight canonical storage modules hard-coded x86 Linux
+O_DIRECTORY=0x10000 and O_NOFOLLOW=0x20000. ARM64 Linux instead declares
+1<<14 (0x4000) and 1<<15 (0x8000), respectively:
+https://github.com/torvalds/linux/blob/master/arch/arm64/include/uapi/asm/fcntl.h
+The wrong directory flags produce EINVAL for a healthy real directory, while
+the wrong no-follow bit allows opening a final file symlink. Authentication,
+history/index/maintenance, migration and SQLite modules all contain this defect.
+
+Reproducer: experiments/issue-3785/probe-codex-native-platform-flags.py copies
+the exact eight implementation modules and their test dependencies. For each,
+it checks real-directory admission/non-directory refusal and final file/directory
+symlink refusal, using the module's actual constants. Cross execution uses
+Rust 1.99.1 aarch64-unknown-linux-musl and QEMU 7.2.0-1; x64 runs natively.
+Compilers and probes run serially with finite CPU deadlines, stack/data limits,
+synthetic temporary fixtures and deterministic cleanup. No provider is contacted.
+Before repair: ARM 0 PASS, 16 FAIL.
+After architecture-specific constants: ARM 16 PASS, x64 16 PASS.
+Preserved logs and SHA256:
+- codex-arm-platform-flags-before.log:
+  205316995244cc42be48b7a32833d6285b0085167aed0cfef6c902396dc22662
+- codex-arm-platform-flags-after.log:
+  3fc365821797caaa7e235655fd9e02487783f7372b3e9edc30b7b787c2af8e4e
+- codex-x64-platform-flags-after.log:
+  1219697bb69f8b794f01a8363bcc77fd1c3a0d1f6c8dde846b4d75d41504d268
+
+The pinned recipe updates all eight input hashes. Exactly those eight prepared
+files change relative to the previously admitted 36-file inventory; the auth
+module retains its later refresh-intent declaration. Two fresh local upstream
+clones reproduce identical complete prepared sources, refusing repeated prepare,
+modified/extra source and modified recipe identity. Complete source digest:
+042b24389cdbf2babe4a436392cbf9252baf8119702b569d76a70afcfb0bd067
+Preparation log SHA256:
+7b7db3734e566042b6cfb2dffdf54571d39758a133a1b57d848711e550d432fc
+Unexpected preparation diagnostics now survive assertion failures on disk.
+The checked source-files.json inventory is updated from that actual preparation;
+the build test now verifies its digest against the recipe to prevent stale
+packaging fixtures. All 21 build/admission tests and 19 related Node tests pass.
+Repository ESLint, 42 GitHub retry checks, secrets and file limits pass;
+duplication is 10.04%, below 12%. Changed-file formatting and diff checks pass.
+Nine final diagnostic logs contain 12394 lines in 16 bounded review chunks.
+There are zero cgroup OOM/kill events; no full CLI compilation ran locally.
+
+Both native CI runners now require these small controls before the full build
+and retain their logs. New-source optimized ARM/x64 execution, actual npm
+assembly, installed-command and both image-layout gates remain OPEN until CI
+completes. These primitive controls alone do not complete canonical lifecycle,
+default activation, migration or the all-six issue acceptance inventory.

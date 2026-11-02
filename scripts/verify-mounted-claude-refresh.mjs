@@ -18,9 +18,13 @@ const PINNED = '2.1.310 (Claude Code)';
 const OAUTH_ORIGINS = new Set(['platform.claude.com:443', 'api.anthropic.com:443']);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Strict rotating provider: generation n's refresh token is accepted once and yields n + 1. */
+/**
+ * Strict rotating provider: generation n's refresh token is accepted once and yields n + 1.
+ * Like the real API, an access generation published as expired is refused with 401 and counted
+ * in `rejected`; only `models` records requests the provider actually served.
+ */
 export function createRotatingProvider({ key, cert }) {
-  const state = { current: null, consumed: new Set(), revoked: new Set(), exchanges: [], duplicates: [], models: [], failures: [], hold: null, entered: null };
+  const state = { current: null, consumed: new Set(), revoked: new Set(), exchanges: [], duplicates: [], models: [], rejected: [], expiredAccess: new Set(), failures: [], hold: null, entered: null };
   const send = (response, status, value) => {
     const body = JSON.stringify(value);
     response.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Connection: 'close' });
@@ -55,6 +59,10 @@ export function createRotatingProvider({ key, cert }) {
       if (request.method === 'POST' && endpoint === '/v1/messages' && !request.socket.encrypted) {
         const match = /^Bearer SYNTHETIC-ACCESS-G([0-9]{1,4})$/u.exec(request.headers.authorization || '');
         assert.ok(match, 'Model request without a synthetic access generation.');
+        if (state.expiredAccess.has(Number(match[1]))) {
+          state.rejected.push(Number(match[1]));
+          return send(response, 401, { type: 'error', error: { type: 'authentication_error', message: 'Synthetic OAuth access token has expired.' } });
+        }
         state.models.push(Number(match[1]));
         const message = { id: `synthetic-${state.models.length}`, type: 'message', role: 'assistant', content: [], model: 'synthetic-model', stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 0 } };
         const events = [
@@ -92,8 +100,11 @@ export function createRotatingProvider({ key, cert }) {
     state.exchanges = [];
     state.duplicates = [];
     state.models = [];
+    state.rejected = [];
     if (revoked) state.revoked.add(generation);
   };
+  /** Record that access generation `n` was published already expired. */
+  state.expireAccess = generation => state.expiredAccess.add(generation);
   /** Hold the first accepted exchange until released; resolves `entered` when it arrives. */
   state.pause = () => {
     let release;
@@ -216,6 +227,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     };
     const loggedIn = async side => JSON.parse((await invoke(side, ['auth', 'status', '--json'])).stdout).loggedIn;
     const publish = async (generation, expired) => {
+      if (expired) provider.expireAccess(generation);
       await fs.writeFile(`${auth}.next`, credential(generation, expired), { mode: 0o600 });
       await fs.rename(`${auth}.next`, auth);
     };
@@ -223,7 +235,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     const diagnose = (phase, outputs = []) => {
       if (process.env.HIVE_MOUNT_TEST_DIAGNOSTICS !== '1') return;
       // Synthetic generations and bounded native output only; no real credentials exist here.
-      console.error(JSON.stringify({ phase, exchanges: provider.exchanges, duplicates: provider.duplicates, models: provider.models, outputs: outputs.map(output => `${output?.stdout || ''}${output?.stderr || ''}`.slice(0, 2048)) }));
+      console.error(JSON.stringify({ phase, exchanges: provider.exchanges, duplicates: provider.duplicates, models: provider.models, rejected: provider.rejected, outputs: outputs.map(output => `${output?.stdout || ''}${output?.stderr || ''}`.slice(0, 2048)) }));
     };
     const [peer0, peer1] = names.shared;
     const results = [];
@@ -240,6 +252,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     diagnose('shared', await Promise.all(pending));
     assert.deepEqual(provider.exchanges, [0], 'Shared-parent peers must exchange each generation exactly once.');
     assert.deepEqual(provider.models, [1, 1, 1], 'All three processes must use the single rotated generation.');
+    assert.deepEqual(provider.rejected, [], 'No shared-parent process may send the expired predecessor.');
     assert.equal((await stored()).refreshToken, 'SYNTHETIC-REFRESH-G1');
     results.push('shared-parent: 1 exchange, 3 model requests');
 
@@ -273,6 +286,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     assert.equal((await stored()).refreshToken, 'SYNTHETIC-REFRESH-G30', 'A late refresh response must not replace a newer login.');
     assert.deepEqual(provider.exchanges, [20]);
     assert.ok(provider.models.length >= 2 && provider.models.every(generation => generation === 30), 'Waiters must execute with the newer login only.');
+    assert.deepEqual(provider.rejected, [], 'No waiter may send the replaced expired generation.');
     results.push(`newer login: preserved, ${provider.models.length} model requests on it`);
 
     // D. Logout during a pending refresh is not undone; a new login is then shared by every peer.
@@ -288,6 +302,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     await Promise.all([loggingOut, ...blocked]);
     await assert.rejects(fs.lstat(auth), { code: 'ENOENT' }, 'A pending refresh must not recreate logged-out credentials.');
     assert.deepEqual(provider.models, [], 'No process may execute after logout.');
+    assert.deepEqual(provider.rejected, [], 'No process may send the logged-out generation.');
     for (const side of ['root', peer0, peer1]) assert.equal(await loggedIn(side), false);
     await publish(50, false);
     provider.expect(50);
@@ -299,8 +314,16 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     // E. A rejected (revoked) refresh is exchanged once and leaves every process requiring re-auth.
     await publish(60, true);
     provider.expect(60, { revoked: true });
-    await Promise.all(['root', peer0, peer1].map(side => invoke(side, nativeArgs('REVOKED'))));
+    diagnose('revoked', await Promise.all(['root', peer0, peer1].map(side => invoke(side, nativeArgs('REVOKED')))));
+    if (process.env.HIVE_MOUNT_TEST_DIAGNOSTICS === '1') {
+      // Synthetic generations only: the shape native Claude leaves after a rejected grant.
+      const shape = await stored().catch(() => null);
+      console.error(JSON.stringify({ phase: 'revoked-stored', keys: shape ? Object.keys(shape) : null, accessToken: shape?.accessToken ?? null, refreshToken: shape?.refreshToken ?? null, expiresInMs: shape?.expiresAt ? shape.expiresAt - Date.now() : null }));
+    }
     assert.deepEqual(provider.models, [], 'A rejected refresh must not execute with stale credentials.');
+    // Native Claude 2.1.310 can still send its in-memory expired G60 once after a peer's rejected
+    // grant clears the shared store; the provider refuses it exactly as the real API would.
+    assert.ok(provider.rejected.every(generation => generation === 60) && provider.rejected.length <= 3, 'Only the expired G60 predecessor may be attempted, and it must be refused.');
     assert.ok(provider.exchanges.filter(generation => generation === 60).length >= 1);
     assert.deepEqual(
       provider.duplicates.filter(generation => generation !== 60),
@@ -315,7 +338,7 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     const limits = await getClaudeUsageLimits(false, auth);
     assert.equal(limits.success, false);
     assert.equal(limits.failureKind, 'auth', '/limits must classify the cleared authority as re-authentication required.');
-    results.push(`revoked: ${provider.exchanges.length} exchange attempt(s), 0 model requests, stored refresh ${after?.refreshToken ? 'retained' : 'cleared'}, re-authentication required by native status and /limits`);
+    results.push(`revoked: ${provider.exchanges.length} exchange attempt(s), 0 served model requests, ${provider.rejected.length} expired-token request(s) refused, stored refresh ${after?.refreshToken ? 'retained' : 'cleared'}, re-authentication required by native status and /limits`);
 
     assert.deepEqual(provider.failures, []);
     assert.equal(await fs.readFile(path.join(configHome, 'settings.json'), 'utf8'), '{"env":{"SYNTHETIC_OPERATOR_ONLY":"retained"}}', 'Private configuration must stay untouched.');

@@ -1402,3 +1402,18 @@ only the gates were affected. The gates now probe the selected daemon once.
 They keep `--memory` where it is accepted and otherwise announce a fallback to
 the finite data ulimit that every peer already has; any other failure stays
 fatal. See the [nested-daemon evidence](evidence/nested-daemon-cgroup-memory.txt).
+
+The rerun of the run at `4ac2e5ff8` passed the host-daemon Codex auth, Claude
+auth and Claude history gates. It then failed refresh scenario E (a revoked
+grant): the provider served one model request with the expired G60 access token.
+On the nested development daemon it happened in 1 of 6 runs before the change
+and 3 of 10 after it. Each time, a native process reused its in-memory expired
+token after a peer's rejected grant had cleared the shared store. The pinned binary treats a cleared `expiresAt: null` as
+unexpired. The exact internal path has not been isolated. The real API refuses
+expired OAuth access tokens with 401, but the synthetic provider served them.
+It now refuses them in the same way and counts the attempts separately. The
+other scenarios must contain no such attempt. Scenario E still requires zero
+served requests and re-authentication everywhere. All 10 local runs pass. In the
+three that reproduced the race, the attempt was refused, and the root and both
+peers reported "OAuth session expired and could not be refreshed". See the
+[revoked-refresh evidence](evidence/claude-revoked-refresh-stale-request.txt).

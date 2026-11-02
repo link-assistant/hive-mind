@@ -99,5 +99,8 @@ export async function pullDraftImage({ override, version, run, sleep, delays = P
   const { image } = resolveDraftImages({ override, version });
   const pulled = await pullImageWithRetry({ image, run, sleep, delays, log });
   if (pulled.ok) return image;
-  throw new Error(`Could not pull ${image} after ${pulled.attempts} attempt${pulled.attempts === 1 ? '' : 's'}: ${pulled.error}`);
+  const code = pulled.missing ? 'DRAFT_IMAGE_UNAVAILABLE' : 'DRAFT_IMAGE_PULL_FAILED';
+  const error = new Error(`[${code}] Could not pull ${image} after ${pulled.attempts} attempt${pulled.attempts === 1 ? '' : 's'}: ${pulled.error}`);
+  Object.assign(error, { code, image, attempts: pulled.attempts });
+  throw error;
 }

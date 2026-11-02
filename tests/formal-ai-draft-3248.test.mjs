@@ -150,6 +150,28 @@ test('explicit overrides route as selected without authenticating them or choosi
   assert.deepEqual(calls, [['pull', override]]);
 });
 
+test('failed pulls retain the selected image and expose distinct bounded infrastructure errors', async () => {
+  for (const failure of [
+    { output: 'manifest unknown', code: 'DRAFT_IMAGE_UNAVAILABLE', attempts: 1 },
+    { output: 'context deadline exceeded', code: 'DRAFT_IMAGE_PULL_FAILED', attempts: 2 },
+  ]) {
+    const calls = [];
+    await assert.rejects(pullDraftImage({
+      version: '2.36.0',
+      run: async args => (calls.push(args), { code: 1, output: failure.output }),
+      sleep: async () => {}, delays: [1], log: () => {},
+    }), error => {
+      assert.equal(error.code, failure.code);
+      assert.equal(error.image, 'konard/hive-mind:2.36.0');
+      assert.equal(error.attempts, failure.attempts);
+      assert.match(error.message, new RegExp('^\\[' + failure.code + '\\]'));
+      return true;
+    });
+    assert.equal(calls.length, failure.attempts);
+    assert(calls.every(args => args[1] === 'konard/hive-mind:2.36.0'));
+  }
+});
+
 test('default transient retry budget keeps every attempt on the same selected image', async () => {
   const calls = [];
   const sleeps = [];

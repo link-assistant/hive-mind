@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
+import { peerMemoryArgs, prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
 
 export async function verifyMountedClaudeHistory({ launcher = fileURLToPath(new URL('../src/hive.mjs', import.meta.url)), nativeBinary, legacy = false, experimental = false, fixtureParent = process.env.HIVE_MOUNT_TEST_FIXTURE || '/mount-fixture', image = process.env.HIVE_MOUNT_TEST_IMAGE || 'node:24-alpine', network = process.env.HIVE_MOUNT_TEST_NETWORK || 'host' } = {}) {
   const exec = promisify(execFile);
@@ -127,8 +127,9 @@ export async function verifyMountedClaudeHistory({ launcher = fileURLToPath(new 
       },
     });
     const flags = args.flatMap((arg, index) => (['--volume', '-e'].includes(arg) ? [arg, args[index + 1]] : []));
+    const memoryArgs = await peerMemoryArgs({ docker, image, bytes: 402653184, experimental });
     for (const [index, name] of names.entries()) {
-      await docker(['run', '--detach', '--pull', 'never', '--name', name, '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...(experimental ? ['--cgroup-parent', '/'] : ['--memory', '402653184']), '--ulimit', 'data=1610612736:1610612736', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--tmpfs', `/home/box/.claude:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, ...flags, '--entrypoint', 'sh', image, '-c', 'exec sleep 120']);
+      await docker(['run', '--detach', '--pull', 'never', '--name', name, '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...memoryArgs, '--ulimit', 'data=1610612736:1610612736', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--tmpfs', `/home/box/.claude:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, ...flags, '--entrypoint', 'sh', image, '-c', 'exec sleep 120']);
       const privateEnv = { HOME: '/home/box', CLAUDE_CONFIG_DIR: '/home/box/.claude', ...traffic };
       await docker(['exec', name, 'sh', '-c', 'test ! -e /home/box/.claude/settings.json']);
       const script = `printf '%s' "$SYNTHETIC_ONBOARDING" > /home/box/.claude/.claude.json; cd "$SYNTHETIC_WORKSPACE"; exec ${command} "$@"`;

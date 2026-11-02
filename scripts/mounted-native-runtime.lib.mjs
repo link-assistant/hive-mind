@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -34,4 +34,31 @@ export async function prepareMountedNativeRuntime(entrypoint, runtime, basename)
     await fs.chmod(path.join(runtime, 'lib', name), 0o500);
   }
   return `/__native_runtime/lib/${path.basename(loader)} --library-path /__native_runtime/lib /__native_runtime/${basename}`;
+}
+
+const DELEGATED_CGROUP_REFUSAL = /cannot enter cgroupv2 "[^"]*" with domain controllers -- it is in (?:threaded|domain threaded|an invalid state)/u;
+
+/**
+ * Memory bound for disposable gate peers on the selected daemon. Docker-in-Docker
+ * images built on box-dind start the nested dockerd without moving the
+ * container's root cgroup processes into a leaf, so runc leaves the nested
+ * `docker` parent threaded and refuses every launch-time memory controller
+ * (also recorded for --cpus in issue #2801). Production applies configured
+ * limits after launch with `docker update` and reports failures, so peers on
+ * such a daemon keep only their finite data ulimit, and the gate says so. Any
+ * other probe failure stays fatal.
+ */
+export async function peerMemoryArgs({ docker, image, bytes, experimental = false, log = message => console.log(message) }) {
+  if (experimental) return ['--cgroup-parent', '/'];
+  const name = `hive-memory-probe-${randomUUID()}`;
+  try {
+    await docker(['run', '--pull', 'never', '--name', name, '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', String(bytes), '--entrypoint', 'sh', image, '-c', 'exit 0']);
+    return ['--memory', String(bytes)];
+  } catch (error) {
+    if (!DELEGATED_CGROUP_REFUSAL.test(String(error.stderr ?? ''))) throw error;
+    log('INFO: this daemon has no delegated cgroup v2 memory domain (nested box-dind); peers keep their finite data ulimit instead of --memory.');
+    return [];
+  } finally {
+    await docker(['rm', '--force', name]).catch(() => {});
+  }
 }

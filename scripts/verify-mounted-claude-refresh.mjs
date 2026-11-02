@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
+import { peerMemoryArgs, prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
 
 const PINNED = '2.1.310 (Claude Code)';
 const OAUTH_ORIGINS = new Set(['platform.claude.com:443', 'api.anthropic.com:443']);
@@ -196,11 +196,12 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
       },
     });
     const flags = args.flatMap((arg, index) => (['--volume', '-e'].includes(arg) ? [arg, args[index + 1]] : []));
+    const memoryArgs = await peerMemoryArgs({ docker, image, bytes: 402653184, experimental, log });
     const parentVolume = flags.find((arg, index) => flags[index - 1] === '--volume' && arg.endsWith(':/home/box/.hive-mind/canonical/claude-authority'));
     assert.ok(parentVolume, 'The production builder must share the lock-bearing credential parent.');
     assert.ok(!flags.some((arg, index) => flags[index - 1] === '--volume' && arg.includes('.credentials.json')), 'The default projection must not bind the credential file alone.');
     const daemonAuthority = `${parentVolume.slice(0, parentVolume.indexOf(':'))}/claude`;
-    const common = ['run', '--detach', '--pull', 'never', '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...(experimental ? ['--cgroup-parent', '/'] : ['--memory', '402653184']), '--ulimit', 'data=1610612736:1610612736', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--tmpfs', `/home/box/.claude:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--entrypoint', 'sh'];
+    const common = ['run', '--detach', '--pull', 'never', '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...memoryArgs, '--ulimit', 'data=1610612736:1610612736', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--tmpfs', `/home/box/.claude:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=16777216`, '--entrypoint', 'sh'];
     for (const name of names.shared) await docker([...common, '--name', name, ...flags, image, '-c', 'exec sleep 600']);
     for (const name of names.shared) assert.equal((await docker(['exec', name, 'sh', '-c', 'stat -c %d:%i "$CLAUDE_SECURESTORAGE_CONFIG_DIR"'])).stdout.trim(), prepared.nativeAuthIdentity, 'Peers must see the admitted authority directory.');
     // Negative control: the legacy file-only bind shares bytes but not the refresh locks.

@@ -1392,3 +1392,13 @@ Every other check still runs, and every later checkpoint requires a clean audit.
 Local Run C reproduces the CI versions and passes. One production consequence
 remains: the idle updater installs `@openai/codex@latest`. If a future release
 changes its stock skills, Hive refuses Codex launches until the pin is updated.
+
+The CI run at `24d6198f3` passed every host-daemon gate, including the full
+capability lifecycle gate. Its nested box-dind variant stopped at the first
+peer that requested `--memory`: the nested daemon's cgroup v2 parent is in
+threaded mode, so runc refuses the memory controller. Production never passes
+`--memory` at launch (it applies configured limits with `docker update`), so
+only the gates were affected. The gates now probe the selected daemon once.
+They keep `--memory` where it is accepted and otherwise announce a fallback to
+the finite data ulimit that every peer already has; any other failure stays
+fatal. See the [nested-daemon evidence](evidence/nested-daemon-cgroup-memory.txt).

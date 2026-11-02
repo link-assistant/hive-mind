@@ -112,7 +112,21 @@ export async function verifyMountedGeminiStorage(options) {
   const admissionCode = `import {admitNativeGeminiStorage} from ${JSON.stringify(`${peerSource}/gemini-storage-admission.lib.mjs`)};const a=await admitNativeGeminiStorage({command:"/__gemini_runtime/bundle/gemini.js"});process.stdout.write(a.command);`;
   const childScript = 'set -eu; mkdir -p -m 700 /home/box/.gemini; printf "%s" "$SYNTHETIC_GEMINI_SETTINGS" > /home/box/.gemini/settings.json; cd "$SYNTHETIC_GEMINI_WORKSPACE"; admitted=$(node --max-old-space-size=128 --input-type=module -e "$SYNTHETIC_GEMINI_ADMISSION"); exec node --max-old-space-size=256 "$admitted" "$@"';
   const childInvoke = (index, flags, overrides = {}) => docker(['exec', '-i', ...Object.entries({ ...childEnv, SYNTHETIC_GEMINI_SETTINGS: JSON.stringify(settings), SYNTHETIC_GEMINI_WORKSPACE: workspace, SYNTHETIC_GEMINI_ADMISSION: admissionCode, ...overrides }).flatMap(([key, value]) => ['--env', `${key}=${value}`]), names[index], 'sh', '-c', childScript, 'sh', ...nativeArgs(flags)]);
-  const common = ['run', '--detach', '--pull', 'never', '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...(experimental ? ['--cgroup-parent', '/'] : ['--memory', '536870912']), '--ulimit', 'data=2147483648:2147483648', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=33554432`, '--entrypoint', 'sh'];
+  // A nested box-dind daemon's delegated cgroup v2 parent is threaded and refuses
+  // every launch-time memory controller (same probe as scripts/mounted-native-runtime.lib.mjs).
+  // Peers then keep only their finite data ulimit; any other refusal is fatal.
+  let memoryArgs = experimental ? ['--cgroup-parent', '/'] : ['--memory', '536870912'];
+  if (!experimental) {
+    const probe = `hive-memory-probe-${randomUUID()}`;
+    await docker(['run', '--pull', 'never', '--name', probe, '--network', 'none', '--read-only', '--memory', '536870912', '--entrypoint', 'sh', image, '-c', 'exit 0'])
+      .catch(error => {
+        if (!/cannot enter cgroupv2 "[^"]*" with domain controllers -- it is in (?:threaded|domain threaded|an invalid state)/u.test(String(error.stderr ?? ''))) throw error;
+        console.log('INFO: this daemon has no delegated cgroup v2 memory domain (nested box-dind); peers keep their finite data ulimit instead of --memory.');
+        memoryArgs = [];
+      })
+      .finally(() => docker(['rm', '--force', probe]).catch(() => {}));
+  }
+  const common = ['run', '--detach', '--pull', 'never', '--network', network, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '64', ...memoryArgs, '--ulimit', 'data=2147483648:2147483648', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--tmpfs', `/home/box:rw,uid=${process.getuid()},gid=${process.getgid()},mode=700,size=33554432`, '--entrypoint', 'sh'];
   let resolved;
   try {
     const initial = response(await rootInvoke(['--prompt', firstPrompt]));

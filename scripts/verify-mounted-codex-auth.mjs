@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
+import { peerMemoryArgs, prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
 
 const execute = promisify(execFile);
 const entry = await fs.realpath(process.argv[2]);
@@ -91,11 +91,9 @@ try {
   });
   const flags = args.flatMap((arg, index) => (['--volume', '-e'].includes(arg) ? [arg, args[index + 1]] : []));
   const common = ['run', '--detach', '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '32', '--ulimit', 'data=536870912:536870912', '--ulimit', 'stack=16777216:16777216', '--ulimit', 'core=0:0', '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,exec,size=33554432,mode=1777', '--entrypoint', 'sh'];
-  // This workspace's delegated cgroup is threaded. Experimental peers still
-  // use a finite 512 MiB data limit; this delegated hierarchy has no memory
-  // domain for a per-container controller. Release image peers use both bounds.
-  if (experimental) common.push('--cgroup-parent', '/');
-  else common.push('--memory', '134217728');
+  // A threaded delegated cgroup (local workspace or nested box-dind daemon)
+  // cannot host a memory domain; peers then keep the finite data ulimit above.
+  common.push(...(await peerMemoryArgs({ docker, image, bytes: 134217728, experimental })));
   for (const name of names.slice(0, 2)) await docker([...common, '--name', name, ...flags, image, '-c', 'exec sleep 240']);
   for (const name of names.slice(0, 2)) assert.equal((await docker(['exec', name, 'stat', '-c', '%d:%i', '/home/box/.hive-mind/canonical/codex-auth'])).stdout.trim(), prepared.nativeAuthIdentity, 'Docker mounted a different admitted authentication directory.');
   const authVolume = flags.find((arg, index) => flags[index - 1] === '--volume' && arg.endsWith(':/home/box/.hive-mind/canonical/codex-auth'));

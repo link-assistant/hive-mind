@@ -316,9 +316,11 @@ export async function verifyMountedClaudeRefresh({ launcher = fileURLToPath(new 
     provider.expect(60, { revoked: true });
     diagnose('revoked', await Promise.all(['root', peer0, peer1].map(side => invoke(side, nativeArgs('REVOKED')))));
     if (process.env.HIVE_MOUNT_TEST_DIAGNOSTICS === '1') {
-      // Synthetic generations only: the shape native Claude leaves after a rejected grant.
+      // The shape native Claude leaves after a rejected grant. Token values are never logged,
+      // not even synthetic ones: only whether each field is missing, empty or present.
       const shape = await stored().catch(() => null);
-      console.error(JSON.stringify({ phase: 'revoked-stored', keys: shape ? Object.keys(shape) : null, accessToken: shape?.accessToken ?? null, refreshToken: shape?.refreshToken ?? null, expiresInMs: shape?.expiresAt ? shape.expiresAt - Date.now() : null }));
+      const presence = field => (shape === null || !(field in shape) ? 'missing' : shape[field] === '' ? 'empty' : shape[field] === null ? 'null' : 'present');
+      console.error(JSON.stringify({ phase: 'revoked-stored', keys: shape ? Object.keys(shape) : null, accessToken: presence('accessToken'), refreshToken: presence('refreshToken'), expiresAt: presence('expiresAt') }));
     }
     assert.deepEqual(provider.models, [], 'A rejected refresh must not execute with stale credentials.');
     // Native Claude 2.1.310 can still send its in-memory expired G60 once after a peer's rejected

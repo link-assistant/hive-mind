@@ -113,3 +113,8 @@ daemon layouts (https://github.com/link-assistant/hive-mind/actions/runs/4142574
            1 expired-token request(s) refused, stored refresh cleared,
            re-authentication required by native status and /limits."
 The nested variant reproduced the race in CI as well, and the attempt was refused.
+
+The opt-in `revoked-stored` diagnostic (HIVE_MOUNT_TEST_DIAGNOSTICS=1, off by
+default) now reports only whether each of accessToken, refreshToken and
+expiresAt is missing, empty, null or present. It never prints token values, not
+even synthetic ones (CodeQL alert 313 on f90afda10).

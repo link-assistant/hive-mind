@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { buildDockerArgv, buildRunContextEnv, buildSolveArgv, DRAFT_SOLVE_FLAGS, FORMAL_AI_BINARY_CONTAINER_PATH, firstErrorLine, formatWorkflowAnnotation } from '../scripts/formal-ai-draft.lib.mjs';
-import { classifyPullFailure, HIVE_MIND_IMAGE_REPOSITORY, pullDraftImage, pullImageWithRetry, resolveDraftImages } from '../scripts/formal-ai-draft-image.lib.mjs';
+import { classifyPullFailure, DraftImageUnavailableError, HIVE_MIND_IMAGE_REPOSITORY, pullDraftImage, pullImageWithRetry, resolveDraftImages } from '../scripts/formal-ai-draft-image.lib.mjs';
 
 const ISSUE_URL = 'https://github.com/link-assistant/hive-mind/issues/3248';
 const workflowText = readFileSync('.github/workflows/formal-ai-draft.yml', 'utf8');
@@ -42,12 +42,12 @@ test('a draft does not restart the model over uncommitted files', () => {
 
 // --- 5. Pinned image, pulled with retries -----------------------------------
 
-test('the image follows the checked-out package.json version, with :latest only as a fallback', () => {
+test('the image follows the checked-out package.json version and never falls back to :latest (#3909)', () => {
   assert.equal(HIVE_MIND_IMAGE_REPOSITORY, 'konard/hive-mind');
-  assert.deepEqual(resolveDraftImages({ version: '2.35.9' }), { image: 'konard/hive-mind:2.35.9', fallback: 'konard/hive-mind:latest' });
+  assert.deepEqual(resolveDraftImages({ version: '2.35.9' }), { image: 'konard/hive-mind:2.35.9', fallback: null });
   assert.deepEqual(resolveDraftImages({ override: 'example/hive:candidate', version: '2.35.9' }), { image: 'example/hive:candidate', fallback: null }, 'an explicit image is used as given');
-  assert.deepEqual(resolveDraftImages({ override: '  ', version: 'not-a-version' }), { image: 'konard/hive-mind:latest', fallback: null });
-  assert.deepEqual(resolveDraftImages({}), { image: 'konard/hive-mind:latest', fallback: null });
+  assert.throws(() => resolveDraftImages({ override: '  ', version: 'not-a-version' }), DraftImageUnavailableError, 'no release version means no exact image, not :latest');
+  assert.throws(() => resolveDraftImages({}), /never runs konard\/hive-mind:latest/);
 });
 
 test('pull failures are classified: a missing tag is not retried, a registry timeout is', () => {
@@ -86,26 +86,25 @@ test('a registry that never answers fails the pull after the last retry, naming 
   assert.deepEqual(sleeps, [10, 20]);
 });
 
-test('a pinned tag that is not published yet falls back to :latest with a warning', async () => {
+test('a pinned tag that is not published yet is a missing artefact, never :latest (#3909)', async () => {
   const pulled = [];
-  const warnings = [];
-  const image = await pullDraftImage({
+  const error = await pullDraftImage({
     version: '2.36.0',
     run: async ([, image]) => (pulled.push(image), image.endsWith(':2.36.0') ? { code: 1, output: 'manifest unknown' } : { code: 0, output: '' }),
     sleep: async () => {},
     delays: [1, 1],
     log: () => {},
-    warn: message => warnings.push(message),
-  });
-  assert.equal(image, 'konard/hive-mind:latest');
-  assert.deepEqual(pulled, ['konard/hive-mind:2.36.0', 'konard/hive-mind:latest'], 'a missing tag is not retried');
-  assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /konard\/hive-mind:2\.36\.0 is not published/);
+  }).catch(caught => caught);
+  assert.ok(error instanceof DraftImageUnavailableError, String(error));
+  assert.equal(error.missing, true);
+  assert.equal(error.image, 'konard/hive-mind:2.36.0');
+  assert.match(error.message, /konard\/hive-mind:2\.36\.0 is not published; the attempt is deferred/);
+  assert.deepEqual(pulled, ['konard/hive-mind:2.36.0'], 'a missing tag is neither retried nor replaced');
 });
 
 test('a transient failure of the pinned tag does not silently switch images', async () => {
   const pulled = [];
-  await assert.rejects(pullDraftImage({ version: '2.35.9', run: async ([, image]) => (pulled.push(image), { code: 1, output: 'context deadline exceeded' }), sleep: async () => {}, delays: [1], log: () => {}, warn: () => {} }), /Could not pull konard\/hive-mind:2\.35\.9 after 2 attempts: context deadline exceeded/);
+  await assert.rejects(pullDraftImage({ version: '2.35.9', run: async ([, image]) => (pulled.push(image), { code: 1, output: 'context deadline exceeded' }), sleep: async () => {}, delays: [1], log: () => {} }), /Could not pull konard\/hive-mind:2\.35\.9 after 2 attempts: context deadline exceeded/);
   assert.deepEqual(pulled, ['konard/hive-mind:2.35.9', 'konard/hive-mind:2.35.9']);
 });
 

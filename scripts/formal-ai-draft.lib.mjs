@@ -53,8 +53,9 @@ export const FORMAL_AI_DRAFT_OPT_OUT_LABEL = 'no-formal-ai-draft';
 
 /**
  * The published image that bakes formal-ai, the Agent CLI and hive-mind together.
- * The draft workflow pins the tag of the checked-out version instead
- * (`scripts/formal-ai-draft-image.lib.mjs`); this is the fallback.
+ * Only `buildDockerArgv`'s default for direct callers: the draft workflow always
+ * passes the exact image its attempt selected and never falls back to this
+ * (`scripts/formal-ai-draft-image.lib.mjs`, issue #3909).
  */
 export const DEFAULT_HIVE_MIND_IMAGE = 'konard/hive-mind:latest';
 
@@ -347,8 +348,8 @@ export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRA
  * @param {{repository: string, label?: string}} params
  * @returns {string[]}
  */
-export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL }) {
-  return ['label', 'create', label, '--color', 'C5DEF5', '--description', 'Pull request drafted by the Formal AI draft workflow', '--repo', repository];
+export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL, description = 'Pull request drafted by the Formal AI draft workflow' }) {
+  return ['label', 'create', label, '--color', 'C5DEF5', '--description', description, '--repo', repository];
 }
 
 /**
@@ -356,16 +357,21 @@ export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL
  * the repository never had it, so `gh pr edit --add-label` failed with
  * "'formal-ai-draft' not found" and no draft was ever labelled).
  *
- * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
+ * `label` defaults to the draft label; a release-qualification or historical
+ * replay attempt also gets its mode label (#3909), so it is never read as a
+ * current-source draft.
+ *
+ * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string, label?: string, description?: string}} params
  */
-export async function labelDraftPullRequest({ gh, repository, number }) {
-  const args = labelPullRequestArgs({ repository, number });
+export async function labelDraftPullRequest({ gh, repository, number, label = FORMAL_AI_DRAFT_LABEL, description }) {
+  const args = labelPullRequestArgs({ repository, number, label });
+  const missing = new RegExp(`label.*not found|not found.*label|${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*not found`, 'i');
   try {
     await gh(args);
   } catch (error) {
-    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
+    if (!missing.test(`${error.message}\n${error.stderr || ''}`)) throw error;
     try {
-      await gh(createDraftLabelArgs({ repository }));
+      await gh(createDraftLabelArgs({ repository, label, ...(description ? { description } : {}) }));
     } catch (creationError) {
       // Another issue's simultaneous run may have created it first.
       if (!/already[ _]exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;

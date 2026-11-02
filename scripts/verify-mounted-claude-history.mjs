@@ -73,7 +73,11 @@ export async function verifyMountedClaudeHistory({ launcher = fileURLToPath(new 
       response.writeHead(400).end('{}');
     }
   });
-  server.on('connect', (_request, socket) => socket.end('HTTP/1.1 502 Synthetic proxy refuses external origin\r\nConnection: close\r\n\r\n'));
+  server.on('connect', (_request, socket) => {
+    // A CONNECT socket has no HTTP error handler; a reaped native peer may reset it.
+    socket.on('error', () => socket.destroy());
+    socket.end('HTTP/1.1 502 Synthetic proxy refuses external origin\r\nConnection: close\r\n\r\n');
+  });
   server.requestTimeout = 5000;
   server.headersTimeout = 5000;
   server.timeout = 5000;

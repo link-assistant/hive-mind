@@ -81,6 +81,7 @@ const server = http.createServer(async (request, response) => {
   response.end('{"error":"synthetic"}');
 });
 server.on('connect', (request, socket, head) => {
+  socket.on('error', () => socket.destroy());
   const [host] = request.url.split(':');
   if (!hosts.includes(host)) return socket.end('HTTP/1.1 502 Synthetic proxy refuses origin\r\n\r\n');
   socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');

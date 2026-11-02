@@ -12,6 +12,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { setTimeout as delay } from 'node:timers/promises';
+import { refuseNativeProxyTunnel } from './native-request-proxy.mjs';
 
 const binary = process.argv[2];
 const negative = process.argv.includes('--expect-reused-predecessor');
@@ -76,8 +77,10 @@ const server = http.createServer(async (request, response) => {
 server.requestTimeout = 3000;
 server.headersTimeout = 3000;
 server.on('connect', (request, socket) => {
-  if (!['github.com:443', 'api.github.com:443', 'chatgpt.com:443', 'raw.githubusercontent.com:443'].includes(request.url)) invalidRequest = true;
-  socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+  // The killed owner or a reaped peer may reset its refused tunnel; only other socket errors are invalid.
+  refuseNativeProxyTunnel(request, socket, new Set(), () => {
+    invalidRequest = true;
+  });
 });
 
 async function start(index, canonical) {

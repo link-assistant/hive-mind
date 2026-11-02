@@ -32,3 +32,12 @@ protocol deadline the probe prints the bounded native stderr (synthetic
 temporary homes and an offline provider only) into the uploaded log artifact.
 The cause is not yet established: an intermittent native exit and an
 arm64-specific defect are both still possible. The next run records which.
+
+Next run
+--------
+CI run 41465683094 at 942062ecb (diagnostics enabled) passed the whole step on
+linux-arm64: recovery (selected and ordinary), peers, startup and performance.
+  {"selected": true, "actualNativeRecovery": true, "corruptBytesBackedUp": true, "unrelatedDatabasePreserved": true}
+docker-pr-check and the full "Checks and release" run passed as well. The
+earlier exit was therefore intermittent. Its cause remains unknown because no
+stderr was captured at the time; any recurrence will now include it.

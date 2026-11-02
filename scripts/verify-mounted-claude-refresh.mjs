@@ -83,6 +83,8 @@ export function createRotatingProvider({ key, cert }) {
     }
   });
   server.on('connect', (request, socket, head) => {
+    // A CONNECT socket has no HTTP error handler; a reaped native peer may reset it.
+    socket.on('error', () => socket.destroy());
     if (!OAUTH_ORIGINS.has(request.url)) return socket.end('HTTP/1.1 502 Synthetic proxy refuses external origin\r\nConnection: close\r\n\r\n');
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
     if (head?.length) socket.unshift(head);

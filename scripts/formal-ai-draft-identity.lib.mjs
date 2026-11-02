@@ -83,6 +83,20 @@ export const ATTEMPT_OUTCOMES = Object.freeze({
   mismatch: 'identity-mismatch',
 });
 
+/**
+ * Annotation titles. The scheduled health check reads them back: a deferred or
+ * mismatched attempt is an infrastructure outcome, never a model failure, and
+ * earns no capability credit.
+ */
+export const ATTEMPT_ANNOTATION_TITLE = 'Formal AI draft attempt';
+export const ATTEMPT_OUTCOME_ANNOTATION_TITLES = Object.freeze({
+  [ATTEMPT_OUTCOMES.deferred]: 'Formal AI draft deferred',
+  [ATTEMPT_OUTCOMES.mismatch]: 'Formal AI draft identity mismatch',
+});
+
+/** The target a build in this workflow produces: glibc, which the Ubuntu 24.04 image and runner share. */
+export const BUILD_TARGET = 'x86_64-unknown-linux-gnu';
+
 /** The release asset and receipt a published Formal AI release carries for Linux x64. */
 export const RELEASE_CLI_ASSET = 'formal-ai-cli-x86_64-unknown-linux-musl.tar.gz';
 export const RELEASE_CLI_BINARY_PATH = 'formal-ai-cli-x86_64-unknown-linux-musl/formal-ai';
@@ -167,11 +181,15 @@ const selectionOf = identity => ({
   mode: identity.mode,
   repository: identity.repository,
   issue: identity.issue,
-  formalAi: { repository: identity.formalAi.repository, sourceSha: identity.formalAi.sourceSha, ref: identity.formalAi.ref, version: identity.formalAi.version, binarySource: identity.formalAi.binarySource, callerBinarySha256: identity.formalAi.callerBinarySha256 ?? null },
+  formalAi: { repository: identity.formalAi.repository, sourceSha: identity.formalAi.sourceSha, ref: identity.formalAi.ref, version: identity.formalAi.version, binarySource: identity.formalAi.binarySource, releaseTag: identity.formalAi.release?.tag ?? null, callerBinarySha256: identity.formalAi.callerBinarySha256 ?? null },
   hive: { repository: identity.hive.repository, sourceSha: identity.hive.sourceSha, version: identity.hive.version, image: identity.hive.image },
 });
 
-export const attemptIdentityId = identity => createHash('sha256').update(canonicalJson(selectionOf(identity))).digest('hex').slice(0, 32);
+export const attemptIdentityId = identity =>
+  createHash('sha256')
+    .update(canonicalJson(selectionOf(identity)))
+    .digest('hex')
+    .slice(0, 32);
 
 /**
  * Build the identity at admission. Every field the attempt is later checked
@@ -204,7 +222,9 @@ export function buildAttemptIdentity({ mode, repository, issue, formalAi, hive, 
     schema: ATTEMPT_IDENTITY_SCHEMA,
     id: null,
     mode: resolvedMode,
-    currentSource: resolvedMode === ATTEMPT_MODES.liveCurrent,
+    // Current-source evidence needs a live attempt *and* a known source: a
+    // caller's binary without a source commit is bound by digest only.
+    currentSource: resolvedMode === ATTEMPT_MODES.liveCurrent && Boolean(sourceSha),
     repository,
     issue: Number(issue),
     formalAi: {
@@ -290,6 +310,41 @@ export function verifyNativeReceipt({ receipt, actualSha256, actualBytes = null,
   const recordedSource = String(receipt.identity?.source_commit || '').toLowerCase();
   if (selected && recordedSource !== selected) throw mismatch(`the Formal AI receipt was built from ${recordedSource || 'an unrecorded source'}, but this attempt selected ${selected}`, { selected, recordedSource });
   return { sha256: actual, bytes: actualBytes ?? receipt.executable?.bytes ?? null, target: receipt.identity?.target || null };
+}
+
+/**
+ * Accept the binary an attempt will mount, before any container starts.
+ *
+ * A release or build binary must carry a receipt naming the selected source
+ * and its own bytes; a caller's binary must be the one hashed at admission.
+ * Either way `formal-ai --version` must answer the selected version. A missing
+ * binary is deferred (an artefact to produce), a different one is a mismatch.
+ *
+ * @param {object} params
+ * @param {object} params.identity
+ * @param {object|null} [params.receipt]
+ * @param {string|null} params.actualSha256 null when there is no file
+ * @param {number|null} [params.actualBytes]
+ * @param {string|null} [params.reportedVersion] `formal-ai --version` output
+ * @returns {{sha256: string, bytes: number|null, target: string|null, version: string|null, source: string}|null} null for the image-baked binary
+ */
+export function verifyAttemptBinary({ identity, receipt = null, actualSha256, actualBytes = null, reportedVersion = null }) {
+  const source = identity.formalAi.binarySource;
+  if (source === BINARY_SOURCES.imageBaked) return null;
+  const actual = normalizeSha256(actualSha256);
+  if (!actual) throw deferred(`no Formal AI binary is available for attempt ${identity.id} (${source}); the attempt is deferred rather than run on another backend`, { source });
+  let verified;
+  if (source === BINARY_SOURCES.caller) {
+    const expected = identity.formalAi.callerBinarySha256;
+    if (expected && actual !== expected) throw mismatch(`the caller's Formal AI binary hashes to ${actual}, but the attempt was admitted with ${expected}`, { expected, actual });
+    verified = receipt ? verifyNativeReceipt({ receipt, actualSha256: actual, actualBytes, identity }) : { sha256: actual, bytes: actualBytes, target: null };
+  } else {
+    if (!receipt) throw deferred(`the ${source} Formal AI binary for attempt ${identity.id} has no receipt, so it cannot be bound to ${identity.formalAi.sourceSha}`, { source });
+    verified = verifyNativeReceipt({ receipt, actualSha256: actual, actualBytes, identity });
+  }
+  const version = versionOf(reportedVersion);
+  if (identity.formalAi.version && version !== identity.formalAi.version) throw mismatch(`formal-ai --version reports ${version ?? 'nothing'}, but this attempt selected Formal AI ${identity.formalAi.version}`, { version });
+  return { ...verified, version, source };
 }
 
 /** The GitHub compare statuses under which the image's revision is the checked-out source or an ancestor of it. */
@@ -394,18 +449,7 @@ export function buildAttemptEnv({ identity, binarySha256 }) {
  * across retries.
  */
 export function formatIdentityOutputs(identity) {
-  return [
-    `attempt_id=${identity.id}`,
-    `mode=${identity.mode}`,
-    `formal_ai_sha=${identity.formalAi.sourceSha || ''}`,
-    `formal_ai_version=${identity.formalAi.version || ''}`,
-    `formal_ai_binary_source=${identity.formalAi.binarySource}`,
-    `formal_ai_release_tag=${identity.formalAi.release?.tag || ''}`,
-    `hive_sha=${identity.hive.sourceSha}`,
-    `hive_image=${identity.hive.image}`,
-    `identity_json=${JSON.stringify(identity)}`,
-    '',
-  ].join('\n');
+  return [`attempt_id=${identity.id}`, `mode=${identity.mode}`, `formal_ai_sha=${identity.formalAi.sourceSha || ''}`, `formal_ai_version=${identity.formalAi.version || ''}`, `formal_ai_binary_source=${identity.formalAi.binarySource}`, `formal_ai_release_tag=${identity.formalAi.release?.tag || ''}`, `hive_sha=${identity.hive.sourceSha}`, `hive_image=${identity.hive.image}`, `identity_json=${JSON.stringify(identity)}`, ''].join('\n');
 }
 
 /** One line describing the attempt, for logs, annotations and the step summary. */
@@ -428,6 +472,9 @@ export function buildOutcomeRecord({ identity, error, at = new Date().toISOStrin
  * @param {string} sourceSha
  */
 export const findReleaseForSource = (releases, sourceSha) => (Array.isArray(releases) ? releases : []).find(release => String(release?.sourceSha || '').toLowerCase() === String(sourceSha || '').toLowerCase()) || null;
+
+/** The first `x.y.z` in a `--version` answer (`formal-ai 0.355.29`). */
+export const versionOf = text => /\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/.exec(String(text || ''))?.[0] || null;
 
 /** The Cargo package version declared by a `rust/Cargo.toml` text, or null. */
 export const readCargoPackageVersion = text => {

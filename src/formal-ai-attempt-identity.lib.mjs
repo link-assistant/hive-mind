@@ -37,7 +37,10 @@ const SHA256 = /^[0-9a-f]{64}$/;
 /** The attempt's expectation, or null when this run carries none. */
 export const readFormalAiAttemptExpectation = (env = process.env) => {
   const read = name => String(env[name] || '').trim() || null;
-  const sha256 = read(FORMAL_AI_ATTEMPT_ENV.expectedSha256)?.toLowerCase().replace(/^sha256:/, '') || null;
+  const sha256 =
+    read(FORMAL_AI_ATTEMPT_ENV.expectedSha256)
+      ?.toLowerCase()
+      .replace(/^sha256:/, '') || null;
   const version = read(FORMAL_AI_ATTEMPT_ENV.expectedVersion);
   const id = read(FORMAL_AI_ATTEMPT_ENV.id);
   if (!sha256 && !version) return null;

@@ -119,7 +119,7 @@ for (const newline of [true, false]) {
   test(`failed terminal verification still overrides genuine success (newline=${newline})`, { timeout: 10000 }, async () => {
     const { result } = await replay({ type: 'result', subtype: 'success', is_error: false, result: 'Complete.' }, { newline, exitCode: 0 });
     assert.equal(result.success, false);
-    assert.match(result.errorInfo.message, /Final tool result failed: Exit code 127/);
+    assert.equal(result.errorInfo.message, 'Claude reported success, but its last tool call exited with code 127: /bin/bash: line 1: file: command not found');
   });
 
   test(`provider execution and disk errors survive an earlier tool failure (newline=${newline})`, { timeout: 10000 }, async () => {
@@ -127,7 +127,7 @@ for (const newline of [true, false]) {
     assert.equal(result.success, false);
     assert.equal(result.errorDuringExecution, true);
     assert.match(result.errorInfo.message, /ENOSPC/);
-    assert.doesNotMatch(result.errorInfo.message, /Final tool result failed/);
+    assert.doesNotMatch(result.errorInfo.message, /Claude reported success, but its last/);
   });
 
   test(`a machine-readable usage limit needs no English wording (newline=${newline})`, { timeout: 10000 }, async () => {
@@ -151,7 +151,7 @@ test('a nonzero CLI exit takes precedence over an earlier tool failure', { timeo
   const { result } = await replay({ type: 'result', subtype: 'success', is_error: false, result: 'Complete.' });
   assert.equal(result.success, false);
   assert.equal(result.errorInfo.exitCode, 1);
-  assert.doesNotMatch(result.errorInfo.message, /Final tool result failed/);
+  assert.doesNotMatch(result.errorInfo.message, /Claude reported success, but its last/);
 });
 
 test('a missing Claude executable retains its installation guidance', { timeout: 10000 }, async () => {

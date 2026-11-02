@@ -92,8 +92,9 @@ export const STOP_REASONS = {
   },
   tool_failure: {
     title: 'the AI session failed',
-    detail: 'The AI tool exited with an error that is not a usage limit, so restarting it automatically would most likely fail the same way.',
-    nextSteps: [REVIEW_ATTACHED_LOG_STEP],
+    // Issue #3922: state what the loop did, not a guess about what a restart would do.
+    detail: 'The AI tool reported an error that is not a usage limit. The loop restarts the AI to address pull request feedback, CI results and merge state, not to repeat a failed session, so it stopped and reports the error here instead of retrying it blindly.',
+    nextSteps: [REVIEW_ATTACHED_LOG_STEP, 'If the work is actually complete (the error came from a status command such as `gh pr checks` on a pull request without CI), re-run the command to resume the loop.'],
   },
   tool_failure_after_resume: {
     title: 'the AI session failed after resuming from a usage limit',

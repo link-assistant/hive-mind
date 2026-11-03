@@ -137,10 +137,11 @@ installer size ceiling, with a full-size packaging regression and preserved
 platform, alias and recipe-ceiling refusals.
 
 Refresh all image and runtime Formal AI bootstrap pins to published 0.355.29,
-and the image start-command pins to 0.41.0 (its new mode is opt-in), after the
-dependency-freshness gate rejected the previous versions. Pin links-notation
-0.30.0, semver ^7.8.6, and refresh the @babel lockfile entries to 8.1.0 for
-the same reason.
+and the image start-command pins to 0.42.0 (its changes are confined to the
+opt-in Formal AI mode), after the dependency-freshness gate rejected the
+previous versions. Pin links-notation 0.30.0, semver ^7.8.6 and lino-i18n
+^0.5.1, move zizmor-action to v0.8.1, and refresh the @babel lockfile entries
+to 8.1.0 for the same reason.
 
 Project explicitly selected dedicated Claude credential parents into Docker
 tasks, revalidate launch identity in limits/profile/cache readers and before

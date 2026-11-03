@@ -1,0 +1,51 @@
+Verified pushed commit: 6c422b57d723df4f7a5c3f46a288e0f4ca0a288e
+All eight workflows start 2026-10-31T06:16:31Z and pass on this exact head.
+These runs cover production Gemini packaging/image activation and precede the
+optimized Codex distribution and release integration changes.
+
+Checks/release https://github.com/link-assistant/hive-mind/actions/runs/41175919877
+  Completes 06:44:39Z. Full ci-logs/checks-41175919877.log preserved:
+  72,476 lines, reviewed in 49 chunks of at most 1,500; no error annotations.
+  Line 67475: all 741 default test files pass.
+  Line 67537: both GitHub integration test files pass.
+  Lines 44332-44337: installed-package host/nested mount backing, Agent/OpenCode
+  atomic replacement, deletion/recreation, two tasks and redirection refusal pass.
+  Line 44339: all system/development/nested Docker verification checks pass.
+  Both image builds install the native Gemini command from the actual branch npm
+  artifact and require complete native-byte admission in the network-disabled
+  final installed verifier. The integration fixture branch cleanup reports two
+  existing repository-rule warnings; the actual integration checks pass.
+
+Gemini https://github.com/link-assistant/hive-mind/actions/runs/41175919766
+  All six jobs pass; completes 06:39:02Z. Full runner log preserved:
+  ci-logs/native-gemini-41175919766.log, 3,920 lines in three bounded chunks.
+  Six downloaded collections contain 2,761 files and 2,497 review chunks.
+  198 of 200 network diagnostics have errors []; the two explicit tracker
+  before controls have the expected ["AssertionError"]. All 80 assertion-bearing
+  files belong to before/regression controls. No unexpected positive assertion,
+  network failure or runner error annotation occurs.
+  The actual installed npm module's generated native package passes all 96
+  complete native controls: 41 writer/account, 30 request authority, 11 private
+  configuration reads, three ACP, four terminal, five child and two interrupted
+  plan controls. The plan/manager proof pins remain unchanged.
+
+Codex https://github.com/link-assistant/hive-mind/actions/runs/41175919850
+  All three jobs pass; completes 06:51:49Z. Full runner log preserved:
+  ci-logs/native-codex-41175919850.log, 1,795 lines in two bounded chunks.
+  All 109 diagnostic files across three collections reviewed in 110 bounded
+  chunks. Four auth-build assertion files are strict before controls; no
+  unexpected positive assertion or runner error annotation occurs.
+  The complete native CLI artifact is preserved with all diagnostics:
+  artifact 13033483496, archive 114,239,444 bytes, archive SHA-256
+  991a68dd1b962bd5ba7288cb5bd422c8a3ef4accb00e116a1b0c04a3f3a3bc32.
+  Executable 419,096,400 bytes, SHA-256
+  61e786a8bb7fee18e8e1fe349ee1821786124ce0bf3c4f416e33ab5ec5b34bc3.
+  This is the verified development CLI, not the new optimized release build.
+
+Other passing runs on this head: Workflows 41175919784, Links 41175919759,
+Qwen 41175919772, Claude 41175919780 and Security 41175919747.
+
+The Claude reproduction continues to demonstrate the unresolved native refresh
+owner-death defect. Codex production activation/auth-copy removal, selected
+canonical storage, migration/cleanup and broad six-tool lifecycle remain open.
+Passing this head does not complete those criteria. Keep PR 3786 draft/unmerged.

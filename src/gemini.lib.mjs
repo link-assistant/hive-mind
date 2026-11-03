@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
+import { admitNativeGeminiStorage } from './gemini-storage-admission.lib.mjs';
 // Google Gemini CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -39,6 +42,7 @@ import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } fr
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+const nativeStorageAdmission = Symbol('nativeGeminiStorageAdmission');
 
 // Patterns gemini-cli prints to stdout/stderr when no JSONL event can be emitted.
 // Issue #1809: validateNonInteractiveAuth in gemini-cli bypasses the structured
@@ -265,24 +269,39 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null, { onEv
 };
 
 // Function to validate Gemini CLI connection
-export const validateGeminiConnection = async (model = defaultModels.gemini) => {
+export const validateGeminiConnection = async (model = defaultModels.gemini, { useRouter = false } = {}) => {
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  let connectionEnv = guardEnv();
+  assertRouterTaskAuthentication({ tool: 'gemini', env: connectionEnv });
   const mappedModel = mapModelToId(model);
   const geminiPath = process.env.GEMINI_PATH || 'gemini';
+  const initialStorage = await admitNativeGeminiStorage({ env: connectionEnv, command: geminiPath, useRouter });
+  const runConnection = createRouterConnectionRunner({ $, tool: 'gemini', useRouter, log, ...(initialStorage ? { env: () => connectionEnv } : {}) });
+  const admittedCommand = async () => {
+    const env = guardEnv();
+    assertRouterTaskAuthentication({ tool: 'gemini', env });
+    const current = await admitNativeGeminiStorage({ env, command: geminiPath, useRouter, expected: initialStorage });
+    connectionEnv = { ...env, ...current?.env };
+    return current?.command || geminiPath;
+  };
 
   try {
     await log('🔍 Validating Gemini CLI connection...');
 
     try {
-      const versionResult = await $`timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --version`;
+      const command = await admittedCommand();
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.geminiCli / 1000)} ${command} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Gemini CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation || versionError.code === 'NATIVE_GEMINI_STORAGE_VIOLATION') throw versionError;
       await log(`⚠️  Gemini CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
 
-    const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
+    const command = await admittedCommand();
+    const testResult = await runConnection`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${command} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
     const stdout = testResult.stdout?.toString() || '';
     const stderr = testResult.stderr?.toString() || '';
     const combinedOutput = `${stdout}\n${stderr}`;
@@ -309,6 +328,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini) => 
     await log('✅ Gemini CLI connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation || error.code === 'NATIVE_GEMINI_STORAGE_VIOLATION') throw error;
     await log(`❌ Failed to validate Gemini CLI connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Gemini CLI is installed, authenticated, and accessible', { level: 'error' });
     return false;
@@ -326,6 +346,7 @@ export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailabil
 // Main function to execute Gemini with prompts and settings
 export const executeGemini = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, geminiPath = 'gemini', $ } = params;
+  const initialStorage = await admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter });
 
   const { buildUserPrompt, buildSystemPrompt } = await import('./gemini.prompts.lib.mjs');
 
@@ -396,11 +417,14 @@ export const executeGemini = async params => {
     feedbackLines,
     geminiPath,
     $,
+    [nativeStorageAdmission]: initialStorage,
   });
 };
 
 export const executeGeminiCommand = async params => {
   const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const initialStorage = await admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter, expected: params[nativeStorageAdmission] });
+  const recheckStorage = () => admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter, expected: initialStorage });
 
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -417,6 +441,7 @@ export const executeGeminiCommand = async params => {
   });
 
   const executeWithRetry = async () => {
+    await recheckStorage();
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Gemini:', argv.model.toUpperCase())}`);
     } else {
@@ -450,8 +475,12 @@ export const executeGeminiCommand = async params => {
     // cliff, honouring --sub-session-size.
     await applyGeminiFamilyPricingTier({ tool: 'gemini', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
-    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: initialStorage?.command || geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const geminiEnv = { ...process.env, ...toolInvocation.env };
+    if (argv.useRouter === true) geminiEnv.HIVE_MIND_USE_ROUTER = '1';
+    const finalStorage = await admitNativeGeminiStorage({ env: geminiEnv, command: toolInvocation.command, useRouter: argv.useRouter, expected: initialStorage });
+    Object.assign(geminiEnv, finalStorage?.env);
+    const geminiCommand = finalStorage?.command || toolInvocation.command;
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
     if (argv.resume) {
@@ -464,6 +493,7 @@ export const executeGeminiCommand = async params => {
     const fullCommand = `(cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    await recheckStorage();
     if (preparedResult) return preparedResult;
 
     let geminiJsonState = {};
@@ -474,17 +504,20 @@ export const executeGeminiCommand = async params => {
     let limitResetTime = null;
     let lastMessage = '';
     let plainTextError = null;
+    let routerStream;
 
     try {
       // Issue #1809: feed the prompt directly to gemini-cli stdin via command-stream
       // instead of "cat <file> | gemini" — the pipeline form swallowed the upstream
       // non-zero exit code (no pipefail) and yielded false success: true reports.
+      assertRouterTaskAuthentication({ tool: 'gemini', cwd: tempDir, env: geminiEnv });
       const execCommand = $({
         cwd: tempDir,
         stdin: combinedPrompt,
         mirror: false,
         env: geminiEnv,
-      })`${toolInvocation.command} ${geminiArgList}`;
+      })`${geminiCommand} ${geminiArgList}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'gemini', env: geminiEnv, cwd: tempDir, log });
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -497,7 +530,7 @@ export const executeGeminiCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -698,6 +731,9 @@ export const executeGeminiCommand = async params => {
         resultSummary: geminiJsonState.resultSummary || null,
       };
     } catch (error) {
+      if (error.code === 'NATIVE_GEMINI_STORAGE_VIOLATION') throw error;
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'gemini', cwd: tempDir, env: geminiEnv });
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_gemini',
         command: params.command,

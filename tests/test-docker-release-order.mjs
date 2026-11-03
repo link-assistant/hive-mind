@@ -15,14 +15,13 @@ for (const file of dockerfiles) {
 
   assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the exact published hive-mind version as a build arg`);
   assert.ok(content.includes('ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"'), `${file} should bake the published version as the default Docker isolation image tag`);
-  assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
+  assert.ok(content.includes('bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
   assert.ok(content.includes('test "$(hive --version)" = "${HIVE_MIND_VERSION}"'), `${file} should verify the installed hive-mind version when a release version is supplied`);
   assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);
   assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the Docker baseline after applying configure-claude`);
-  // PR builds (HIVE_MIND_VERSION=latest) must tolerate a configure-claude that
-  // has not been published yet; release builds (pinned version) must not.
-  assert.ok(/if \[ "\$\{HIVE_MIND_VERSION\}" != "latest" \]/.test(content), `${file} should branch on HIVE_MIND_VERSION so release builds enforce configure-claude strictly`);
-  assert.ok(content.includes('command -v configure-claude'), `${file} should gracefully skip configure-claude when the bin is not yet published (PR builds only)`);
+  assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'), `${file} should support packing the PR branch`);
+  assert.ok(content.includes('command -v configure-claude >/dev/null &&'), `${file} must require the installed configuration command`);
+  assert.ok(!content.includes('skipping baseline'), `${file} must not skip its baseline check`);
   assert.ok(!content.includes('/workspace/.hive-mind-bake'), `${file} should not copy repo source into a bake directory`);
   assert.ok(!content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should not invoke the old repo-local wrapper script`);
   assert.ok(!content.includes('src/claude-quiet-config.lib.mjs'), `${file} should rely on the published package instead of copying source libs`);
@@ -34,7 +33,7 @@ const helmPrStart = releaseYml.indexOf('  # === HELM PR CHECK', dockerPrStart);
 const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
 
 // PR docker-pr-check must (1) run the release-order contract test AND
-// (2) actually build the Docker image using @link-assistant/hive-mind@latest
+// (2) actually build the Docker image using a packed copy of the PR branch
 // and run the container verification script.
 // The build and verification commands live in scripts/ rather than inline in the
 // workflow, to keep release.yml under the 1500-line limit (issue #2082). The

@@ -1,0 +1,85 @@
+Pinned actual Gemini CLI: 0.65.0.
+Stage 24 follows complete observed conversation evidence.
+Manager before:
+  13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769
+Manager after:
+  91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28
+Retained-evidence helper remains:
+  4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd
+Production packages, launchers and images remain unfinished.
+
+Root cause and strict reproductions:
+  Actual native GeminiChat.processStreamResponse yields each model response
+  chunk before its final chatRecordingService.recordMessage call. The stage-23
+  recorder correctly refuses a valid rolled-back audit, but both the terminal
+  and ACP clients already received SYNTHETIC-GEMINI-COMPLETE by then.
+  ACP subsequently returns a canonical-history protocol error. The terminal
+  displays recording errors after displaying the answer. Native stream cleanup
+  can itself reject history rollback before settling its serialization promise.
+
+  probe-gemini-native-cli.py --history --history-live-rollback
+    --history-live-rollback-engine terminal|acp
+  Both strict controls first complete an approved real write_file and include
+  its actual tool call/result in the canonical audit and next provider request.
+  The loopback provider preserves that complete audit on its original inode,
+  substitutes the older valid initial generation, then returns the final answer.
+  Both stage-23 controls fail the strict assertion:
+    Actual native recording must refuse a valid rollback of its previously
+    observed complete conversation.
+  The reproduction checks delivered content, including ACP content preceding
+  its eventual error response. It does not count that error as safe delivery.
+  ACP may create a separate empty initial session. The fixture identifies the
+  actual prompted conversation by its first native recorded prompt.
+
+Repair:
+  apply_stream_admission.py validates exact prerequisites/context and modifies
+  only the manager. Native chat dispatch checks selected retained recording
+  before and after awaiting serialization, immediately before model dispatch,
+  and before processing/yielding each chunk. After-model hooks precede another
+  check. Error cleanup always settles dispatch serialization in a finally.
+  The no-selector path retains existing native behavior.
+
+Actual local verification:
+  Both stage-23 terminal/ACP strict before controls fail as specified.
+  Both repaired controls pass three assertions each: healthy native edit,
+  refusal before answer delivery with complete protected audit intact, and
+  prompt refusal of a second typed/ACP request without a third inference.
+  Both substituted bytes/inode and protected complete bytes/inode remain
+  unchanged; the completed healthy project edit is retained through refusal.
+  The CLI, SDK, scheduler and transport implementations are uninstrumented.
+  Synthetic credentials and loopback TLS provider replies are the only mocks.
+
+  Fresh reconstruction applies twenty-four pinned stages, verifies every
+  applicability check makes no mutation and compares seventeen native files.
+  The fresh package independently passes terminal/ACP (3 each), legacy/agent
+  headless audit refusal (2 each), legitimate live discovery-peer summary (2),
+  complete root/child recording/discovery/resume (3), ACP restore/resume (3),
+  automatic terminal restore/resume (4) and both headless restore cycles
+  (4 each) across complete private-home disposal.
+
+  The same freshly reconstructed package also passes restore metadata 54,
+  shell history 28 and authentication writers/requests/reads 41/30/11.
+  Actual delayed lock admission passes 2 assertions; interruption, process-group
+  reaping and fresh-process recovery pass 3. Every subprocess exits successfully.
+  Python parsing (81 files), formatting, actionlint with ShellCheck, secret
+  scanning, file-size limits and whitespace checks pass locally.
+
+Retained local diagnostics:
+  /tmp/issue-3785-recovery/gemini-live-audit-terminal-stream-before-control.log
+  /tmp/issue-3785-recovery/gemini-live-audit-acp-stream-before-control.log
+  /tmp/issue-3785-recovery/gemini-live-audit-terminal-stream-after-control.log
+  /tmp/issue-3785-recovery/gemini-live-audit-acp-stream-after-control.log
+  /tmp/issue-3785-recovery/gemini-stream-fresh-source-control.log
+  /tmp/issue-3785-recovery/gemini-stream-fresh-*-control.log
+  /tmp/issue-3785-recovery/gemini-stream-regression-*-control.log
+  CI retains strict before, after and fresh-source diagnostics and protocol/
+  network transcripts in the independent native ACP job.
+
+Limits:
+  Complete audit reads per selected response chunk are bounded but need
+  performance evaluation before production installation. This process-local
+  witness does not detect valid rollback predating a fresh process. Persisted
+  authority, every writer, child restore/concurrency, interrupted publication,
+  physical power loss and production lifecycle criteria remain unfinished.
+  Exact-head Node 24 CI is required. Successful runs at 533cc3a20c01 precede
+  the evidence and streaming stages and do not verify them.

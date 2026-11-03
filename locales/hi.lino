@@ -183,6 +183,8 @@ hi
   time
     current "वर्तमान समय: {{time}}"
   limits
+    stored
+      metadata "संग्रहीत मेटाडेटा"
     additional
       codex
         limits "अतिरिक्त Codex सीमाएँ"

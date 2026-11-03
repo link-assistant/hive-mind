@@ -1,0 +1,117 @@
+{
+  "edits": [
+    {
+      "at": 0,
+      "remove": [],
+      "insert": ["import { assertNativeGeminiHistoryCurrent, archiveNativeGeminiConversation, nativeGeminiHistorySelected, listNativeGeminiArchivedConversations, restoreNativeGeminiConversation } from \"./hive-gemini-history.mjs\";\n"]
+    },
+    {
+      "at": 10015,
+      "remove": [],
+      "insert": ["          assertNativeGeminiHistoryCurrent();\n"]
+    },
+    {
+      "at": 10059,
+      "remove": ["    const chatsDir = path.join(this.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10081,
+      "remove": ["    const chatsDir = path.join(this.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10091,
+      "remove": [],
+      "insert": [
+        "  async listArchivedSessions() {\n",
+        "    const files = listNativeGeminiArchivedConversations(this.storage.getProjectChatsDir());\n",
+        "    if (!files) throw new Error(\"Canonical Gemini history must be selected to list archived sessions.\");\n",
+        "    const sessions = [];\n",
+        "    for (const filePath of files) {\n",
+        "      const record = await loadConversationRecord(filePath, { metadataOnly: true });\n",
+        "      sessions.push({\n",
+        "        id: record.sessionId,\n",
+        "        fileName: path.basename(filePath),\n",
+        "        startTime: record.startTime,\n",
+        "        lastUpdated: record.lastUpdated || record.startTime,\n",
+        "        displayName: cleanMessage(record.summary || record.firstUserMessage || \"Empty conversation\"),\n",
+        "        messageCount: record.messageCount ?? record.messages.length,\n",
+        "        isCurrentSession: false,\n",
+        "        index: sessions.length + 1\n",
+        "      });\n",
+        "    }\n",
+        "    return sessions;\n",
+        "  }\n",
+        "  async findArchivedSession(identifier) {\n",
+        "    if (!nativeGeminiHistorySelected() || !/^[a-zA-Z0-9_-]+$/.test(identifier)) return null;\n",
+        "    const chatsDir = this.storage.getProjectChatsDir();\n",
+        "    const matches = [];\n",
+        "    for (const filePath of listNativeGeminiArchivedConversations(chatsDir)) {\n",
+        "      const sessionData = await loadConversationRecord(filePath);\n",
+        "      if (sessionData?.sessionId === identifier && sessionData.kind !== \"subagent\") matches.push({ filePath, sessionData });\n",
+        "    }\n",
+        "    if (!matches.length) return null;\n",
+        "    const updated = (record) => Date.parse(record.lastUpdated || record.startTime) || 0;\n",
+        "    matches.sort((a, b) => updated(b.sessionData) - updated(a.sessionData));\n",
+        "    const { filePath, sessionData } = matches[0];\n",
+        "    const restored = restoreNativeGeminiConversation(chatsDir, filePath, sessionData);\n",
+        "    return {\n",
+        "      id: sessionData.sessionId,\n",
+        "      fileName: path.basename(restored),\n",
+        "      startTime: sessionData.startTime,\n",
+        "      lastUpdated: sessionData.lastUpdated || sessionData.startTime,\n",
+        "      firstUserMessage: extractFirstUserMessage(sessionData.messages),\n",
+        "      messageCount: sessionData.messages.length,\n",
+        "      index: 0\n",
+        "    };\n",
+        "  }\n"
+      ]
+    },
+    {
+      "at": 10094,
+      "remove": [],
+      "insert": ["    if (!sessions.some(session => session.id === trimmedIdentifier)) {\n", "      const archived = await this.findArchivedSession(trimmedIdentifier);\n", "      if (archived) return archived;\n", "    }\n"]
+    },
+    {
+      "at": 10110,
+      "remove": ["    const chatsDir = path.join(this.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10123,
+      "remove": ["    const chatsDir = path.join(this.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10141,
+      "remove": [],
+      "insert": ["      const archived = await this.findArchivedSession(trimmedId);\n", "      if (archived) return this.selectSession(archived);\n"]
+    },
+    {
+      "at": 10210,
+      "remove": ["    const chatsDir = path.join(this.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10339,
+      "remove": ["  const chatsDir = path2.join(tempDir, \"chats\");\n"],
+      "insert": ["  const chatsDir = config.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10356,
+      "remove": ["    const chatsDir = path2.join(config.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = config.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 10388,
+      "remove": [],
+      "insert": ["            if (nativeGeminiHistorySelected()) {\n", "              const conversation = await loadConversationRecord(filePath, { metadataOnly: true });\n", "              if (conversation?.sessionId === config.getSessionId()) {\n", "                result.skipped++;\n", "                continue;\n", "              }\n", "              if (archiveNativeGeminiConversation(filePath) === \"busy\") {\n", "                result.skipped++;\n", "                continue;\n", "              }\n", "              result.deleted++;\n", "              continue;\n", "            }\n"]
+    },
+    {
+      "at": 10444,
+      "remove": ["          await fs2.unlink(sessionPath);\n", "          const sessionId = sessionToDelete.sessionInfo?.id;\n"],
+      "insert": ["          const archived = archiveNativeGeminiConversation(sessionPath);\n", "          if (archived === \"busy\") {\n", "            result.skipped++;\n", "            continue;\n", "          }\n", "          if (!archived) await fs2.unlink(sessionPath);\n", "          const sessionId = archived ? undefined : sessionToDelete.sessionInfo?.id;\n"]
+    }
+  ]
+}

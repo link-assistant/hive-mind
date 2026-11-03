@@ -1,0 +1,28 @@
+✔ explicit Router limits use its provider-neutral API and shared metadata result (54.346443ms)
+✔ an unsupported Router usage API reports selected authority failure without a local fallback (30.050082ms)
+✔ missing Router token fails before sending any usage request (4.241681ms)
+✖ Router Codex maps a weekly primary window and preserves additional metered limits (17.960071ms)
+✔ Router Claude uses the same authority for usage, entitlement and paid expiration (9.438516ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":2,"subscriptions":[]} (9.937576ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"unverified","windows":[]}]} (33.009834ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"available"}]} (21.796448ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1273.358827
+
+✖ failing tests:
+
+test at tests/issue-3785-router-limits.test.mjs:69:1
+✖ Router Codex maps a weekly primary window and preserves additional metered limits (17.960071ms)
+  TypeError [Error]: Cannot read properties of undefined (reading '0')
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:77:45
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async withRouter (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:32:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-limits.test.mjs:72:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

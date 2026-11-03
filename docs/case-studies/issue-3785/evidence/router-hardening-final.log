@@ -1,0 +1,123 @@
+
+=== issue #2190: the router binds the internal network only ===
+  PASS: the sidecar is created on the internal network, so that is the only address it has at start-up
+  PASS: with the alias tasks use, which the bind script resolves to find that address
+  PASS: the router image is entered through sh, because router serve has no bind-to-network option yet
+  PASS: sh is handed the bind script as its command
+  PASS: and that script is the constant the real-Docker probe validates
+  PASS: no port is published to the host
+  PASS: the script looks up its own internal address by alias
+  PASS: and binds that address alone on the port gh expects api.github.com on
+  PASS: when the alias does not resolve the script refuses rather than fall back to every interface
+  PASS: so no branch of it ever asks for 0.0.0.0
+  PASS: and that refusal ends the container, which acquire reports as unhealthy
+  PASS: the upstream network defaults to the docker bridge
+  PASS: which is the network with a route to the vendor APIs
+  PASS: an operator may name another network with egress
+  PASS: but naming the internal network is ignored: it has no egress and would leave the router with no upstream at all
+  PASS: a fresh sidecar comes up against a healthy fake docker
+  PASS: the upstream bridge is connected after the container was created on the internal network
+  PASS: and before health is probed, so an unhealthy verdict is never caused by a missing upstream
+  PASS: health is probed through the internal alias, the only address the router now answers on
+  PASS: loopback is never probed: the router does not bind it any more
+  PASS: a router created on the internal network is kept
+  PASS: a bridge that is already attached counts as attached, so re-acquires against a running router succeed
+  PASS: a router that cannot reach its upstream is reported rather than handed to a task
+  PASS: and no token is issued on it
+  PASS: the routeless container is removed, so the next acquire starts clean
+  PASS: the primary network of a legacy container reads as the bridge
+  PASS: acquiring against a legacy router succeeds
+  PASS: by replacing it: the legacy container is removed and a new one created on the internal network
+  PASS: and the operator is told why the router restarted
+  PASS: first task takes a lease (this recreates the legacy router)
+  PASS: a second task still gets a token
+  PASS: but a legacy router with a live lease is not restarted under the task holding it
+  PASS: the restart is deferred and announced instead
+  PASS: reading the primary network of a missing container yields null rather than throwing into acquire
+
+=== issue #2190: the token dies with the container ===
+  PASS: the watcher waits on the task container itself, not on the solve process
+  PASS: nothing is revoked while the container runs
+  PASS: the token is released the moment the container exits
+  PASS: for the session that owned it
+  PASS: against the router that issued it
+  PASS: and the exit status is recorded, killed or not
+  PASS: a container docker cannot wait on is not running either, so its token is released too
+  PASS: with the daemon message as the reason
+  PASS: stopping the watcher ends its docker wait
+  PASS: and a stopped watcher does not revoke: the caller took over the lease
+  PASS: which is what it reports
+  PASS: a docker wait that could not run says nothing about the container, so the maintenance tick keeps the job
+  PASS: and the watcher reports that it did not release
+  PASS: an external router issues no per-task token, so there is nothing to watch
+  PASS: and without a container name there is nothing to wait on
+[router-isolation] Could not start 'docker wait task-f', the token will be revoked by the next maintenance tick instead: docker missing
+  PASS: a spawn that throws is reported and leaves the token to the maintenance tick
+
+=== issue #2190: a routed task authenticates with its router token only ===
+  PASS: a security violation has its own exit code
+  PASS: distinct from the disk-space code, so operators can tell them apart
+  PASS: the guard is off for a task run without the router
+  PASS: and off when no router token was handed to the task
+  PASS: on for a task that holds a router token
+  PASS: and an operator may switch it off with HIVE_MIND_ROUTER_AUTH_GUARD=0
+  PASS: the check interval defaults to one second
+  PASS: and can be tuned
+  PASS: but a value below 100 ms, which would just burn CPU, falls back to the default
+  PASS: starting the guard without the router yields an inactive handle
+  PASS: whose check never finds anything
+  PASS: a clean routed Claude home passes
+  PASS: and the guard did look at something
+  PASS: the Claude OAuth credential file is on the watch list
+  PASS: a Claude OAuth credential appearing is a violation, however it got there
+  PASS: an ordinary ~/.claude.json with onboarding state is fine
+  PASS: an API key stored in ~/.claude.json is a violation
+  PASS: and so is a recorded OAuth account: the task logged in as someone
+  PASS: and an approved custom API key
+  PASS: a half-written ~/.claude.json is not a violation on its own (the CLI writes it non-atomically)
+  PASS: a settings file that repeats the router base URL changes nothing and passes
+  PASS: pointing Claude away from the router through settings is a violation
+  PASS: and so is smuggling an API key in through settings
+  PASS: and an apiKeyHelper, which would replace the token on every request
+  PASS: a project-level settings file in the workspace is watched too
+  PASS: every env key Claude accepts a credential through is on the list
+  PASS: a git credential store appearing is a violation: GitHub goes through the router too
+  PASS: and so is a .netrc dropped into the workspace
+  PASS: a gh hosts.yml without a token (what transparent mode leaves) passes
+  PASS: a gh login inside the task is a violation
+  PASS: and GH_CONFIG_DIR is honoured when looking for it
+  PASS: a Codex home pinned to the router passes
+  PASS: the config that pins the provider is on the watch list
+  PASS: the trust table Codex appends for the workspace does not trip the guard
+  PASS: switching Codex back to the openai provider is a violation
+  PASS: and so is repointing the router provider's base_url
+  PASS: and reading the key from another variable
+  PASS: and pinning a bearer token into the provider entry
+  PASS: removing the pin altogether is a violation: Codex would fall back to its default provider
+  PASS: an API key stored through codex login is a violation
+  PASS: and so is a ChatGPT login
+  PASS: an auth.json the guard cannot read is treated as a violation, not ignored
+  PASS: a project-level Codex config that redirects the provider is a violation
+  PASS: while one that only tunes approvals is allowed
+  PASS: the pin reader finds the top-level provider
+  PASS: and the router provider's own base_url, not another provider's
+  PASS: and its env_key
+  PASS: an empty config has no provider pinned
+  PASS: the guard arms for a routed task
+  PASS: its first check ran at once and found the clean home clean
+  PASS: the periodic check uses the configured interval
+  PASS: arming is logged (verbose only)
+  PASS: a tick against a clean home finds nothing
+  PASS: the tick after a credential file appears records the violation
+  PASS: and the handler fires once
+  PASS: and the interval is cleared, so it cannot fire again
+  PASS: later ticks and explicit checks do not fire the handler a second time
+  PASS: the violation names the tool
+  PASS: the operator-facing message calls it what it is
+  PASS: and names the path that tripped it
+  PASS: and states the rule that was broken
+  PASS: a credential already present when the guard arms is caught before the CLI does any work
+  PASS: stopping the guard clears its interval
+  PASS: and stopping twice clears it once
+
+Result: 114 passed, 0 failed

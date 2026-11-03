@@ -1,0 +1,41 @@
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (2.990018ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.759887ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.715104ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (0.708351ms)
+✔ task routing uses the selected image dialect from the launch environment (2.492992ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (0.73988ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (0.77216ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.343672ms)
+✔ the launch dialect follows the lease through container attachment (0.766029ms)
+✖ launch diagnostics describe the selected dialect (4.662367ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (1.766656ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 262.407187
+
+✖ failing tests:
+
+test at tests/issue-3785-router-admission.test.mjs:49:1
+✖ launch diagnostics describe the selected dialect (4.662367ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /serves no endpoint for 'gemini'/. Input:
+
+  "🔀 [EXPERIMENTAL] Task 'router-admission' routed through the router; vendor credentials stay in the sidecar (issue #2164)\n" +
+    "⚠️ This router (router < 1.0 (root, /v1/*, /api/v3)) serves no endpoint for 'gemini', so its model traffic is NOT routed: the CLI keeps its own credential and calls the vendor directly. Pin HIVE_MIND_ROUTER_IMAGE to a router that serves this tool, or run it without --use-router rather than assuming it is mediated.\n" +
+    '⚠️ Destructive GitHub API calls are blocked by method, not by effect: DELETE, forced ref updates and destructive GraphQL are refused, but `PUT /repos/{o}/{r}/branches/{b}/protection`, `PUT .../rulesets/{id}`, `POST .../transfer` and `PATCH /repos/{o}/{r}` with visibility/archived/default_branch are not (upstream link-assistant/router#329). Branch protection is reachable this way, so it is not a control the task cannot touch — keep the repository owner outside the token scope for anything that must not change.\n' +
+    "⚠️ Routing for 'gemini' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/."
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:59:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "🔀 [EXPERIMENTAL] Task 'router-admission' routed through the router; vendor credentials stay in the sidecar (issue #2164)\n⚠️ This router (router < 1.0 (root, /v1/*, /api/v3)) serves no endpoint for 'gemini', so its model traffic is NOT routed: the CLI keeps its own credential and calls the vendor directly. Pin HIVE_MIND_ROUTER_IMAGE to a router that serves this tool, or run it without --use-router rather than assuming it is mediated.\n⚠️ Destructive GitHub API calls are blocked by method, not by effect: DELETE, forced ref updates and destructive GraphQL are refused, but `PUT /repos/{o}/{r}/branches/{b}/protection`, `PUT .../rulesets/{id}`, `POST .../transfer` and `PATCH /repos/{o}/{r}` with visibility/archived/default_branch are not (upstream link-assistant/router#329). Branch protection is reachable this way, so it is not a control the task cannot touch — keep the repository owner outside the token scope for anything that must not change.\n⚠️ Routing for 'gemini' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/.",
+    expected: /serves no endpoint for 'gemini'/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

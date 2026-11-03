@@ -16,8 +16,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { AGENT_PROVIDER_MODEL_OVERLAYS, getAgentModelOverlayEnv, mergeAgentModelOverlayConfigContent } from '../src/agent-model-overlay.lib.mjs';
 import { defaultModels } from '../src/models/catalog.mjs';
@@ -71,9 +73,16 @@ test('models Agent already knows need no overlay', () => {
   }
 });
 
-test('both the task run and the connection check hand the overlay to Agent', () => {
+test('the task run hands the overlay to Agent', () => {
   const agentLib = source('src/agent.lib.mjs');
-  assert.match(agentLib, /const validationEnv = \{ \.\.\.process\.env, \.\.\.getAgentModelOverlayEnv\(\{ mappedModel \}\) \};/);
-  assert.match(agentLib, /\$\(\{ env: validationEnv \}\)`printf %s \$\{promptText\('prompt\.templates\.connection\.greeting'/);
   assert.match(agentLib, /getAgentModelOverlayEnv\(\{ env: agentEnv, mappedModel \}\)/);
+});
+
+test('connection validation hands the free-model overlay and existing settings to the actual child', { timeout: 20_000 }, () => {
+  const result = spawnSync(process.execPath, ['--max-old-space-size=64', '--test', '--test-reporter=spec', '--test-name-pattern=Ordinary agent env connection lifetime: healthy', fileURLToPath(new URL('../experiments/issue-3785/probe-router-connection-lifetime.mjs', import.meta.url))], { encoding: 'utf8', timeout: 15_000, maxBuffer: 256 * 1024 });
+  assert.equal(result.error, undefined, 'the finite production-validator fixture completes');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /Ordinary agent env connection lifetime: healthy/);
+  assert.match(result.stdout, /pass 1(?:\s|$)/);
+  assert.match(result.stdout, /fail 0(?:\s|$)/);
 });

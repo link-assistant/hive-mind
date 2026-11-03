@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { resolveClaudeSettingsPath } from './claude-quiet-config.lib.mjs';
 // Useless Claude Code tools and MCP servers for autonomous headless workflows.
 //
 // Hive-mind runs `claude` inside Docker with `--print --dangerously-skip-permissions`
@@ -152,7 +153,7 @@ export const resolveClaudeSessionToolFlags = async ({ argv, log, fallbackBuildMc
  * newly added.
  */
 export const ensureDisallowedToolsInSettings = async ({ settingsPath, log } = {}) => {
-  const resolvedPath = settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
+  const resolvedPath = resolveClaudeSettingsPath(settingsPath);
   const toBlock = buildDisallowedToolsList();
   let settings;
   try {

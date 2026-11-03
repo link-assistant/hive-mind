@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Turn timeout cancellations into visible failures on the release branch.
+# Turn timeout cancellations into visible failures on every branch.
 set -euo pipefail
 
 : "${NEEDS_JSON:?NEEDS_JSON is required (pass toJSON(needs))}"
@@ -29,12 +29,12 @@ if [ -n "$failed" ]; then
 fi
 
 if [ -n "$cancelled" ]; then
+  branch_context=""
   if [ "$IS_MAIN" = "true" ]; then
-    echo "::error::Pipeline has cancelled jobs on main: ${cancelled}. A job killed by 'timeout-minutes' is reported as cancelled, which would otherwise hide the failure."
-    status=1
-  else
-    echo "::warning::Cancelled jobs: ${cancelled}. On a non-default ref this is usually a superseded run."
+    branch_context=" on main"
   fi
+  echo "::error::Pipeline has cancelled jobs${branch_context}: ${cancelled}. A job killed by 'timeout-minutes' is reported as cancelled; a replacement run must pass before this pipeline is considered successful."
+  status=1
 fi
 
 if [ "$status" -eq 0 ]; then

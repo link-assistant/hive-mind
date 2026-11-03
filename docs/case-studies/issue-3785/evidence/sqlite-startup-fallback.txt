@@ -1,0 +1,48 @@
+Selected native SQLite startup fallback, 2026-10-31
+
+Pinned source: 6aaac694803004a63c6f393d153c96d22521a6b9
+Actual optimized before binary sha256:
+23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+
+Fixture: valid state_5.sqlite containing only a version column in
+_sqlx_migrations. Native migration reports no such column: checksum.
+Native codex exec still sends one request to the confined synthetic provider.
+
+Root cause: codex-rollout::state_db::init logs a failed runtime and returns
+None. The selected Linux patch refuses this branch with constant nonblocking
+stderr and _exit(78), preserving ordinary fallback and healthy behavior.
+
+native-sqlite-startup-before-fixed.log
+Actual optimized CLI: both selected healthy and unusable-schema controls send one model request; native migration failure is confirmed.
+sha256: 67174b2cbc11d4c2dc8a5ef1c40fb3fb55d18581375cce7a49e78180ba9cbf44
+lines: 3
+
+native-sqlite-startup-strict-before-final.log
+Strict actual-native selected refusal fails before repair.
+sha256: f1acbcfc14efee4f823290b0baa6c61eab61061a7bde52894f3789d394ccc99a
+lines: 16
+
+native-sqlite-startup-ordinary-before.log
+Actual ordinary CLI retains its existing fallback and confirms the migration failure.
+sha256: eb69c22b0fb9e1d1129dbe3cb80323a5ac57cf622122dbe8850c363cf4e06108
+lines: 3
+
+sqlite-startup-function-before.log
+Exact native init constructor-fixture strict refusal fails before repair.
+sha256: 2a0a41f0a7d640b39241e04996b6e8d6a249b98b0e003540dca3384ac0e4061f
+lines: 8
+
+sqlite-startup-function-after.log
+All six exact native init controls pass after repair, including full/missing diagnostic descriptors.
+sha256: 507f25a8fc5ae30dc1778499ad57f6468fc485388526f1cd20befe667fa4c99d
+lines: 6
+
+New prepared experimental inventory: 45 files
+sourceInventorySha256: 01d9435d5cf248a960dd8107b2411873997095aad10872d378d4ba8bc63c3dff
+The exact-function fixture replaces the runtime constructor and libc
+declarations; it exercises the actual error branch and real descriptor calls.
+It does not establish a compiled native CLI after result.
+
+Full native development, optimized x64/ARM64, installed-command and final
+image verification remain required. The running 7d09cacbe CI predates this
+additional draft. Production recipe/source inventory remain unchanged.

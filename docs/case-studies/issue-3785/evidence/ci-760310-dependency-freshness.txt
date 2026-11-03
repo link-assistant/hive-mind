@@ -1,0 +1,25 @@
+Current-head release prerequisite, 2026-10-31
+
+Head: 7603104630521cfd680ab8d44d93f83db507d7da
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41229719324
+Created: 2026-10-31T18:30:12Z
+Preserved log: ci-logs/release-760310-41229719324.log
+
+The detect-changes job fails before native compilation or image verification.
+Line 3861: STALE .github/workflows/e2e-hello-world-matrix.yml:112:
+  nektos/act 0.2.92 -> v0.2.93 (exact)
+Line 3862: Dependency freshness failed: 1 stale, 0 unresolved.
+Line 3869: Process completed with exit code 1.
+The downstream skipped jobs do not constitute verification.
+
+Repair: advance the existing ACT_VERSION pin to v0.2.93. The download still
+requires the release's checksums.txt and checks the Linux archive before use.
+Primary release: https://github.com/nektos/act/releases/tag/v0.2.93
+Actual downloaded archive: sha256sum --check --ignore-missing checksums.txt PASS.
+Actual extracted command, bounded data/stack/core: act version 0.2.93.
+Local check-dependency-freshness.mjs PASS: 228/241 declarations current,
+13 documented exceptions, 0 lockfile entries behind their allowed range.
+All tracked dependency declarations are current.
+
+New-head CI must verify the complete release and both final images. This
+prerequisite repair does not complete any unfinished canonical-storage criterion.

@@ -1,0 +1,21 @@
+# Small real-dependency graph for checking the exact native transaction modules.
+[package]
+name = "hive-native-transaction-dependencies"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+serde_json = "=1.0.149"
+sha2 = "=0.10.9"
+tokio = { version = "=1.52.3", features = ["time", "rt"] }
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.dev-small]
+inherits = "dev"

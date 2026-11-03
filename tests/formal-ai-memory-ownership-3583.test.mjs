@@ -244,7 +244,7 @@ test('a sidecar that cannot write its logs is reported in the bot log, every lea
   const taskEnv = buildFormalAiTaskEnv({ sidecar: again, env: { [FORMAL_AI_SIDECAR_WARNING_ENV]: 'stale' } });
   assert.equal(taskEnv[FORMAL_AI_SIDECAR_WARNING_ENV], first.loggingWarning);
   assert.equal(buildFormalAiTaskEnv({ sidecar: { ...again, loggingWarning: null }, env: { [FORMAL_AI_SIDECAR_WARNING_ENV]: 'stale' } })[FORMAL_AI_SIDECAR_WARNING_ENV], undefined, 'a healthy lease never inherits an old warning');
-  const startArgs = await buildDockerIsolationStartArgs('solve', ['https://example.test/issues/3583'], { sessionId: 's-3583', tool: 'claude', env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind:latest', ...taskEnv }, homeDir: '/home/box', existsSync: () => false, installGuard: () => null });
+  const startArgs = await buildDockerIsolationStartArgs('solve', ['https://example.test/issues/3583'], { sessionId: 's-3583', tool: 'claude', env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind:latest', ...taskEnv }, homeDir: '/home/box', existsSync: target => ['/home/box/.claude/projects', '/home/box/.claude/sessions'].includes(target), installGuard: () => null });
   const envFlags = startArgs.filter((value, index) => startArgs[index - 1] === '-e');
   assert.ok(envFlags.includes(`${FORMAL_AI_SIDECAR_WARNING_ENV}=${first.loggingWarning}`), 'start-command passes it as one argv entry');
 

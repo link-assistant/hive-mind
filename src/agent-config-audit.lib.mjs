@@ -2,7 +2,7 @@
  * Global Claude / Codex configuration audit and auto-repair (issue #2190).
  *
  * Hive-mind's default agent configuration must be minimalistic: no globally
- * installed plugins, marketplaces, or skills, and no MCP servers beyond the
+ * installed plugins, marketplaces, skills, hooks or global instructions, and no MCP servers beyond the
  * Playwright server the Docker image ships with. Anything else that shows up in
  * the *global* configuration (`~/.claude`, `~/.claude.json`, `~/.codex`,
  * `~/.agents`) was not put there by hive-mind and is treated as drift:
@@ -21,8 +21,9 @@
  * ships a skill wants it, and hive-mind only ever activates skills that the
  * repository itself contains.
  *
- * The audit is pure with respect to its inputs (an injectable `fs`, `homeDir`)
- * so it can be tested against a temporary home directory. Repair is opt-out via
+ * The audit is pure with respect to its inputs (an injectable `fs`, `homeDir`,
+ * and explicit `env` path selectors). Production callers supply process.env;
+ * fixture callers do not inherit operator directories. Repair is opt-out via
  * `--no-agent-config-auto-repair` (or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` for
  * processes that have no argv, such as the Telegram bot's Docker launcher).
  */
@@ -30,7 +31,13 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { setTomlTableBoolean } from './codex-capability-preflight.lib.mjs';
+import { stringify as stringifyToml } from 'smol-toml';
+import { parseAgentConfigToml, validateAgentConfigAuditInputs } from './agent-config-audit-inputs.lib.mjs';
+import { assertApprovedPlaywrightRegistration } from './agent-mcp-baseline.lib.mjs';
+import { agentConfigAuditScopes, codexProfileConfigPaths } from './agent-config-audit-paths.lib.mjs';
+import { auditManagedAgentConfig, managedAgentConfigRoots } from './agent-config-audit-managed.lib.mjs';
+import { CODEX_GLOBAL_INSTRUCTION_KEYS } from './agent-config-audit-codex.lib.mjs';
+import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
 
 /** MCP servers that belong to the minimal hive-mind configuration. */
 export const MINIMAL_MCP_SERVERS = Object.freeze(['playwright']);
@@ -48,11 +55,34 @@ export const AGENT_CONFIG_AUTO_REPAIR_ENV = 'HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR'
  * re-adding the official marketplace the audit just removed.
  */
 export const AGENT_CONFIG_MINIMAL_ENV = Object.freeze({
-  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+  ...CLAUDE_CLOUD_DISABLE_ENV,
 });
 
 /** Codex `-c` overrides that keep the remote plugin catalog from re-syncing. */
 export const CODEX_REMOTE_PLUGIN_DISABLE_ARGS = Object.freeze(['-c', 'features.remote_plugin=false']);
+
+/**
+ * Issue #3785: `remote_plugin = false` alone is not a quiet baseline. Codex
+ * 0.164+ (`maybe_start_curated_repo_sync_for_config`) starts the local curated
+ * git sync exactly when plugins are enabled and the remote catalog is *not*
+ * active, cloning the whole curated marketplace (hundreds of SKILL.md files)
+ * into `CODEX_HOME/.tmp/plugins` on every model start. Only
+ * `features.plugins = false` prevents that; task scopes that selected plugins
+ * re-enable it inside their private CODEX_HOME.
+ */
+export const CODEX_PLUGIN_SYNC_DISABLE_ARGS = Object.freeze(['-c', 'features.plugins=false']);
+
+/**
+ * Issue #3785: `features.apps` is a stable, default-on Codex feature that adds
+ * the hosted ChatGPT connectors MCP server (`codex_apps`, POST
+ * chatgpt.com/backend-api/ps/mcp) to every start, so an operator account's
+ * connectors would reach tasks (the #2247 leak) despite the Playwright-only
+ * baseline. Only a task scope that selected plugins re-enables it privately.
+ */
+export const CODEX_HOSTED_APPS_DISABLE_ARGS = Object.freeze(['-c', 'features.apps=false']);
+
+/** Native curated-sync artifacts relative to CODEX_HOME (Codex 0.164+). */
+export const CODEX_CURATED_SYNC_PATHS = Object.freeze(['.tmp/plugins', '.tmp/plugins.sha', '.tmp/plugins.sync.lock']);
 
 const LOG_PREFIX = 'agent-config-audit';
 
@@ -78,10 +108,11 @@ export const isAgentConfigAutoRepairEnabled = ({ argv, env = process.env, args =
   return true;
 };
 
-const safeReadDir = (fsImpl, dir) => {
+const safeReadDir = (fsImpl, dir, { includeHidden = false, strict = false } = {}) => {
   try {
-    return fsImpl.readdirSync(dir, { withFileTypes: true }).filter(entry => !entry.name.startsWith('.'));
-  } catch {
+    return fsImpl.readdirSync(dir, { withFileTypes: true }).filter(entry => includeHidden || !entry.name.startsWith('.'));
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 };
@@ -134,42 +165,36 @@ export const removeTomlTable = (config, table) => {
   return out.join('\n').replace(/\n{3,}/gu, '\n\n');
 };
 
-const parseTomlTableHeaders = config => {
-  const headers = [];
-  const pattern = /^\s*\[\[?([^\]]+)\]\]?\s*(?:#.*)?$/gmu;
-  let match;
-  while ((match = pattern.exec(config)) !== null) headers.push(match[1].trim());
-  return headers;
+const configTable = (config, key) => {
+  const value = config[key];
+  if (value === undefined) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value instanceof Date) throw new Error('Global agent configuration contains an invalid table; no repair is permitted.');
+  return value;
 };
 
-const readTomlFeatureValue = (config, key) => {
-  const sections = config.split(/^(?=\s*\[)/mu);
-  for (const section of sections) {
-    const headerMatch = section.match(/^\s*\[([^\]]+)\]/u);
-    const header = headerMatch ? headerMatch[1].trim() : '';
-    if (header === 'features') {
-      const line = section.match(new RegExp(`^\\s*${key}\\s*=\\s*(true|false)`, 'mu'));
-      if (line) return line[1] === 'true';
-    }
-    if (header === '') {
-      const dotted = section.match(new RegExp(`^\\s*features\\.${key}\\s*=\\s*(true|false)`, 'mu'));
-      if (dotted) return dotted[1] === 'true';
-      const inline = section.match(/^\s*features\s*=\s*\{([^}]*)\}/mu);
-      if (inline) {
-        const pair = inline[1].match(new RegExp(`(?:^|,)\\s*${key}\\s*=\\s*(true|false)`, 'u'));
-        if (pair) return pair[1] === 'true';
-      }
-    }
-  }
-  return undefined;
-};
-
-const unquoteTomlKey = key => key.trim().replace(/^"(.*)"$/u, '$1');
-
-const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
+// Global instruction/command files need explicit removal or quarantine. Never
+// read their contents or run installed code to decide whether a home is clean.
+const auditGlobalInstructions = ({ tool, root, fsImpl, files = [], directories = [], kind = 'global-instructions', detail = 'global instructions or commands require explicit removal or quarantine' }) => {
   const findings = [];
-  const claudeDir = path.join(homeDir, '.claude');
+  const report = (name, location) => findings.push(makeFinding({ tool, kind, name, location, detail, repair: null }));
+  for (const entry of safeReadDir(fsImpl, root, { includeHidden: true })) {
+    if (files.includes(entry.name)) report(entry.name, path.join(root, entry.name));
+  }
+  for (const directory of directories) {
+    for (const entry of safeReadDir(fsImpl, path.join(root, directory), { includeHidden: true })) report(`${directory}/${entry.name}`, path.join(root, directory, entry.name));
+  }
+  return findings;
+};
+
+const auditClaude = ({ homeDir, configDir: claudeDir, fsImpl, allowedMcpServers }) => {
+  const findings = [];
   const pluginsDir = path.join(claudeDir, 'plugins');
+  findings.push(...auditGlobalInstructions({ tool: 'claude', root: claudeDir, fsImpl, files: ['CLAUDE.md'], directories: ['rules', 'output-styles'] }));
+
+  for (const plugin of safeReadDir(fsImpl, path.join(pluginsDir, 'synced'), { includeHidden: true })) {
+    const location = path.join(pluginsDir, 'synced', plugin.name);
+    findings.push(makeFinding({ tool: 'claude', kind: 'plugin', name: `synced/${plugin.name}`, location, detail: 'account-synced plugin persisted globally', repair: { type: 'remove-path', target: location } }));
+  }
 
   for (const marketplace of safeReadDir(fsImpl, path.join(pluginsDir, 'marketplaces'))) {
     const location = path.join(pluginsDir, 'marketplaces', marketplace.name);
@@ -212,7 +237,17 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
 
   const settingsPath = path.join(claudeDir, 'settings.json');
   const settings = safeReadJson(fsImpl, settingsPath);
+  const settingsEnv = configTable(settings || {}, 'env');
+  if (Object.entries(CLAUDE_CLOUD_DISABLE_SETTINGS).some(([key, value]) => settings?.[key] !== value) || Object.entries(CLAUDE_CLOUD_DISABLE_ENV).some(([key, value]) => settingsEnv[key] !== value)) {
+    findings.push(makeFinding({ tool: 'claude', kind: 'cloud-capabilities', name: 'account-sync-and-connectors', location: settingsPath, detail: 'account skill/plugin sync, connectors and marketplace auto-install must be disabled explicitly', repair: { type: 'set-claude-cloud-policy', target: settingsPath } }));
+  }
   if (settings) {
+    if (settings.outputStyle !== undefined) {
+      findings.push(makeFinding({ tool: 'claude', kind: 'global-instructions', name: 'outputStyle', location: settingsPath, detail: 'global output-style instructions in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['outputStyle'] } }));
+    }
+    if (Object.keys(configTable(settings, 'hooks')).length) {
+      findings.push(makeFinding({ tool: 'claude', kind: 'global-hooks', name: 'hooks', location: settingsPath, detail: 'inline global hooks in settings.json', repair: { type: 'delete-json-key', target: settingsPath, keyPath: ['hooks'] } }));
+    }
     for (const key of ['enabledPlugins', 'extraKnownMarketplaces']) {
       const value = settings[key];
       if (!value || typeof value !== 'object') continue;
@@ -222,20 +257,33 @@ const auditClaude = ({ homeDir, fsImpl, allowedMcpServers }) => {
     }
   }
 
-  const claudeJsonPath = path.join(homeDir, '.claude.json');
-  const claudeJson = safeReadJson(fsImpl, claudeJsonPath);
-  if (claudeJson?.mcpServers && typeof claudeJson.mcpServers === 'object') {
-    for (const name of Object.keys(claudeJson.mcpServers)) {
-      if (allowedMcpServers.includes(name)) continue;
-      findings.push(makeFinding({ tool: 'claude', kind: 'mcp-server', name, location: claudeJsonPath, detail: 'user-scope MCP server outside the minimal set', repair: { type: 'delete-json-key', target: claudeJsonPath, keyPath: ['mcpServers', name] } }));
+  // CLAUDE_CONFIG_DIR=$HOME/.claude relocates the native user-state file into
+  // that directory. Check both conventional locations, including restored state.
+  for (const claudeJsonPath of [path.join(homeDir, '.claude.json'), path.join(claudeDir, '.claude.json')]) {
+    const claudeJson = safeReadJson(fsImpl, claudeJsonPath);
+    if (claudeJson?.mcpServers !== undefined) {
+      for (const name of Object.keys(configTable(claudeJson, 'mcpServers'))) {
+        if (allowedMcpServers.includes(name)) {
+          if (name === 'playwright') assertApprovedPlaywrightRegistration(claudeJson.mcpServers[name], 'claude');
+          continue;
+        }
+        findings.push(makeFinding({ tool: 'claude', kind: 'mcp-server', name, location: claudeJsonPath, detail: 'user-scope MCP server outside the minimal set', repair: { type: 'delete-json-key', target: claudeJsonPath, keyPath: ['mcpServers', name] } }));
+      }
     }
   }
   return findings;
 };
 
-const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
+const auditCodex = ({ homeDir, configDir: codexDir, fsImpl, allowedMcpServers }) => {
   const findings = [];
-  const codexDir = path.join(homeDir, '.codex');
+  findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['AGENTS.md', 'AGENTS.override.md'], directories: ['prompts'] }));
+  // Native arg0 loads this before configuration, overriding HOME and provider
+  // variables. Never parse, execute or delete potentially credential-bearing
+  // environment data while admitting a supposedly audited discovery root.
+  findings.push(...auditGlobalInstructions({ tool: 'codex', root: codexDir, fsImpl, files: ['.env'], kind: 'global-environment', detail: 'native startup environment requires explicit reconciliation outside global discovery' }));
+  const hooksPath = path.join(codexDir, 'hooks.json');
+  const hooks = safeReadJson(fsImpl, hooksPath);
+  if (hooks && Object.keys(configTable(hooks, 'hooks')).length) findings.push(makeFinding({ tool: 'codex', kind: 'global-hooks', name: 'hooks.json', location: hooksPath, detail: 'global hook manifest requires explicit removal or quarantine', repair: null }));
   const cacheDir = path.join(codexDir, 'plugins', 'cache');
   for (const marketplace of safeReadDir(fsImpl, cacheDir)) {
     const marketplaceDir = path.join(cacheDir, marketplace.name);
@@ -253,6 +301,14 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
     const location = path.join(codexDir, 'plugins', 'marketplaces', marketplace.name);
     findings.push(makeFinding({ tool: 'codex', kind: 'marketplace', name: marketplace.name, location, detail: 'plugin marketplace checked out globally', repair: { type: 'remove-path', target: location } }));
   }
+  const syncNames = new Set(safeReadDir(fsImpl, path.join(codexDir, '.tmp'), { includeHidden: true }).map(entry => entry.name));
+  for (const relativePath of CODEX_CURATED_SYNC_PATHS) {
+    if (!syncNames.has(path.basename(relativePath))) continue;
+    const location = path.join(codexDir, relativePath);
+    // Cache presence is not enablement: report it as a catalog checkout, never
+    // as an installed plugin, and never read or run anything inside it.
+    findings.push(makeFinding({ tool: 'codex', kind: 'marketplace', name: `curated-sync:${relativePath}`, location, detail: 'curated plugin catalog synced into the global CODEX_HOME', repair: { type: 'remove-path', target: location } }));
+  }
   for (const [label, dir] of [
     ['codex', path.join(codexDir, 'skills')],
     ['agents', path.join(homeDir, '.agents', 'skills')],
@@ -263,55 +319,100 @@ const auditCodex = ({ homeDir, fsImpl, allowedMcpServers }) => {
     }
   }
 
-  const configPath = path.join(codexDir, 'config.toml');
-  const config = safeReadText(fsImpl, configPath);
-  if (config !== null) {
-    for (const header of parseTomlTableHeaders(config)) {
-      const pluginMatch = header.match(/^plugins\.(.+)$/u);
-      if (pluginMatch) {
-        findings.push(makeFinding({ tool: 'codex', kind: 'plugin-enable', name: unquoteTomlKey(pluginMatch[1]), location: configPath, detail: `[${header}] in config.toml`, repair: { type: 'remove-toml-table', target: configPath, table: header } }));
-        continue;
+  for (const configPath of [path.join(codexDir, 'config.toml'), ...codexProfileConfigPaths({ configDir: codexDir, fsImpl })]) {
+    const config = safeReadText(fsImpl, configPath);
+    if (config !== null) {
+      const parsed = parseAgentConfigToml(config);
+      const profiles = configTable(parsed, 'profiles');
+      const scopes = [[parsed, []], ...Object.keys(profiles).map(name => [configTable(profiles, name), ['profiles', name]])];
+      for (const [scope, prefix] of scopes) {
+        // TOML table, dotted-key and inline-table encodings have identical meaning.
+        // Profiles must not hide global additions from the baseline check.
+        const remove = (kind, name, keyPath) => findings.push(makeFinding({ tool: 'codex', kind, name, location: configPath, detail: 'global configuration registration', repair: { type: 'delete-toml-key', target: configPath, keyPath: [...prefix, ...keyPath] } }));
+        for (const [table, kind] of [
+          ['plugins', 'plugin-enable'],
+          ['mcp_servers', 'mcp-server'],
+        ]) {
+          for (const name of Object.keys(configTable(scope, table))) {
+            if (table === 'mcp_servers' && allowedMcpServers.includes(name)) {
+              if (name === 'playwright') assertApprovedPlaywrightRegistration(scope[table][name], 'codex');
+              continue;
+            }
+            remove(kind, name, [table, name]);
+          }
+        }
+        for (const key of ['notify', ...CODEX_GLOBAL_INSTRUCTION_KEYS]) {
+          if (scope[key] === undefined) continue;
+          // A catalog can also carry model and security metadata. Refuse its
+          // global instruction authority without deleting unrelated settings or
+          // following the selected file; reconcile it explicitly in task scope.
+          if (key === 'model_catalog_json') findings.push(makeFinding({ tool: 'codex', kind: 'global-instructions', name: key, location: configPath, detail: 'custom global model catalog requires explicit reconciliation', repair: null }));
+          else remove(key === 'notify' ? 'global-hooks' : 'global-instructions', key, [key]);
+        }
+        if (Object.keys(configTable(scope, 'hooks')).length) remove('global-hooks', 'hooks', ['hooks']);
+        for (const [name, value] of Object.entries(configTable(scope, 'agents'))) {
+          if (value && typeof value === 'object') remove('custom-agent', name, ['agents', name]);
+        }
+        const pluginsFeature = configTable(scope, 'features').plugins;
+        if (pluginsFeature !== false && (prefix.length === 0 || pluginsFeature !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: pluginsFeature === undefined ? 'not pinned (Codex clones the curated plugin catalog on every model start)' : 'explicitly enabled globally', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'plugins', value: false } }));
+        }
+        const hostedApps = configTable(scope, 'features').apps;
+        if (hostedApps !== false && (prefix.length === 0 || hostedApps !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'hosted-connectors', name: 'features.apps', location: configPath, detail: hostedApps === undefined ? 'not pinned (Codex adds the hosted ChatGPT connectors MCP server on every start)' : 'explicitly enabled globally', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'apps', value: false } }));
+        }
+        const remotePlugin = configTable(scope, 'features').remote_plugin;
+        if (remotePlugin !== false && (prefix.length === 0 || remotePlugin !== undefined)) {
+          findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', tablePath: [...prefix, 'features'], key: 'remote_plugin', value: false } }));
+        }
       }
-      const mcpMatch = header.match(/^mcp_servers\.([^.]+)$/u);
-      if (mcpMatch) {
-        const name = unquoteTomlKey(mcpMatch[1]);
-        if (allowedMcpServers.includes(name)) continue;
-        findings.push(makeFinding({ tool: 'codex', kind: 'mcp-server', name, location: configPath, detail: `[${header}] in config.toml`, repair: { type: 'remove-toml-table', target: configPath, table: header } }));
-      }
+    } else {
+      findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
+      findings.push(makeFinding({ tool: 'codex', kind: 'curated-plugin-sync', name: 'features.plugins', location: configPath, detail: 'config.toml missing (Codex clones the curated plugin catalog on every model start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'plugins', value: false } }));
+      findings.push(makeFinding({ tool: 'codex', kind: 'hosted-connectors', name: 'features.apps', location: configPath, detail: 'config.toml missing (Codex adds the hosted ChatGPT connectors MCP server on every start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'apps', value: false } }));
     }
-    const remotePlugin = readTomlFeatureValue(config, 'remote_plugin');
-    if (remotePlugin !== false) {
-      findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: remotePlugin === undefined ? 'not pinned (Codex syncs the remote plugin catalog on start)' : 'explicitly enabled', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
-    }
-  } else {
-    findings.push(makeFinding({ tool: 'codex', kind: 'remote-plugin-sync', name: 'features.remote_plugin', location: configPath, detail: 'config.toml missing (Codex syncs the remote plugin catalog on start)', repair: { type: 'set-toml-boolean', target: configPath, table: 'features', key: 'remote_plugin', value: false } }));
   }
   return findings;
 };
 
 /**
- * Inspect the global configuration of one or both tools.
+ * Synchronously inspect conventional/selected user configuration. Use
+ * runAgentConfigAudit({ autoRepair: false }) for validated managed layers too.
  *
- * @param {{ tool?: 'claude'|'codex'|'all', homeDir?: string, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * @param {{ tool?: 'claude'|'codex'|'all', homeDir?: string, env?: object, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {{ findings: object[], repairable: object[], warnOnly: object[] }}
  */
-export const auditAgentConfig = ({ tool = 'all', homeDir = os.homedir(), fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
-  const tools = tool === 'all' ? AUDITABLE_TOOLS : AUDITABLE_TOOLS.includes(tool) ? [tool] : [];
+export const auditAgentConfig = ({ tool = 'all', homeDir = os.homedir(), env = {}, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const findings = [];
-  for (const name of tools) {
-    if (name === 'claude') findings.push(...auditClaude({ homeDir, fsImpl, allowedMcpServers }));
-    if (name === 'codex') findings.push(...auditCodex({ homeDir, fsImpl, allowedMcpServers }));
+  for (const scope of agentConfigAuditScopes({ tool, homeDir, env })) {
+    if (scope.tool === 'claude') findings.push(...auditClaude({ ...scope, homeDir, fsImpl, allowedMcpServers }));
+    if (scope.tool === 'codex') findings.push(...auditCodex({ ...scope, homeDir, fsImpl, allowedMcpServers }));
   }
-  return { findings, repairable: findings.filter(f => f.repair), warnOnly: findings.filter(f => !f.repair) };
+  // Conventional account state and .agents are shared discovery surfaces;
+  // an effective-root override must not schedule their repair twice.
+  const unique = [...new Map(findings.map(finding => [JSON.stringify(finding), finding])).values()];
+  return { findings: unique, repairable: unique.filter(f => f.repair), warnOnly: unique.filter(f => !f.repair) };
 };
 
 const applyRepair = (repair, fsImpl) => {
   switch (repair.type) {
+    case 'set-claude-cloud-policy': {
+      const data = safeReadJson(fsImpl, repair.target) || {};
+      Object.assign(data, CLAUDE_CLOUD_DISABLE_SETTINGS);
+      data.env = { ...configTable(data, 'env'), ...CLAUDE_CLOUD_DISABLE_ENV };
+      // hive-sync-ok: startup admission repair must not yield after validating the pending repair snapshot.
+      fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
+      // hive-sync-ok: startup admission repair must not yield between validated directory creation and the configuration write.
+      fsImpl.writeFileSync(repair.target, `${JSON.stringify(data, null, 2)}\n`);
+      return;
+    }
     case 'remove-path': {
       fsImpl.rmSync(repair.target, { recursive: true, force: true });
       if (repair.pruneEmptyParent) {
         const parent = path.dirname(repair.target);
-        if (safeReadDir(fsImpl, parent).length === 0) fsImpl.rmSync(parent, { recursive: true, force: true });
+        // Account for hidden runtime files, and let the kernel reject pruning
+        // if another writer adds an entry after the check.
+        if (safeReadDir(fsImpl, parent, { includeHidden: true, strict: true }).length === 0) fsImpl.rmdirSync(parent);
       }
       return;
     }
@@ -333,10 +434,26 @@ const applyRepair = (repair, fsImpl) => {
       fsImpl.writeFileSync(repair.target, removeTomlTable(config, repair.table));
       return;
     }
+    case 'delete-toml-key':
     case 'set-toml-boolean': {
-      const config = safeReadText(fsImpl, repair.target) ?? '';
-      fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
-      fsImpl.writeFileSync(repair.target, setTomlTableBoolean({ config, table: repair.table, key: repair.key, value: repair.value }));
+      const config = safeReadText(fsImpl, repair.target);
+      if (config === null && repair.type === 'delete-toml-key') throw new Error('Global agent configuration is unreadable; no repair is permitted.');
+      const data = parseAgentConfigToml(config ?? '');
+      if (repair.type === 'delete-toml-key') {
+        let parent = data;
+        for (const key of repair.keyPath.slice(0, -1)) parent = configTable(parent, key);
+        delete parent[repair.keyPath.at(-1)];
+      } else {
+        let table = data;
+        for (const key of repair.tablePath || [repair.table]) {
+          const child = configTable(table, key);
+          table[key] = child;
+          table = child;
+        }
+        table[repair.key] = repair.value;
+        fsImpl.mkdirSync(path.dirname(repair.target), { recursive: true });
+      }
+      fsImpl.writeFileSync(repair.target, stringifyToml(data));
       return;
     }
     default:
@@ -370,33 +487,76 @@ export const repairAgentConfig = (findings, { fsImpl = fs } = {}) => {
 /** One-line human summary of a finding. */
 export const formatAgentConfigFinding = finding => `${finding.tool} ${finding.kind} "${finding.name}" at ${finding.location} (${finding.detail})`;
 
+const requireCleanAuditedConfig = async options => {
+  const snapshot = await validateAgentConfigAuditInputs(options);
+  const { findings } = auditAgentConfig(options);
+  findings.push(...(await auditManagedAgentConfig(options)).findings);
+  await validateAgentConfigAuditInputs({ ...options, previous: snapshot });
+  if (findings.length) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the remaining additions before launching tasks.');
+};
+
 /**
  * Audit, log, and (optionally) repair. This is the entry point solve/hive/the
  * Docker launcher use.
  *
- * @param {{ tool?: string, homeDir?: string, autoRepair?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
+ * `requireClean` rejects findings that remain after repair (including items
+ * the legacy repair deliberately leaves in place). This enforces the audited
+ * surfaces only; it is not a full native CLI discovery/baseline attestation.
+ *
+ * @param {{ tool?: string, homeDir?: string, env?: object, systemRoots?: object, autoRepair?: boolean, requireClean?: boolean, log?: Function, verbose?: boolean, fsImpl?: typeof fs, allowedMcpServers?: string[] }} [options]
  * @returns {Promise<{ findings: object[], repaired: object[], failed: object[], skipped: object[] }>}
  */
-export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), autoRepair = true, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
+export const runAgentConfigAudit = async ({ tool = 'all', homeDir = os.homedir(), env = {}, systemRoots = managedAgentConfigRoots(), autoRepair = true, requireClean = false, log = async () => {}, verbose = false, fsImpl = fs, allowedMcpServers = MINIMAL_MCP_SERVERS } = {}) => {
   const scope = AUDITABLE_TOOLS.includes(tool) ? tool : 'all';
-  const { findings, repairable, warnOnly } = auditAgentConfig({ tool: scope, homeDir, fsImpl, allowedMcpServers });
+  // Capture only path selectors. Do not retain or inspect provider credentials.
+  const selectedEnv = env;
+  const selectedSystemRoots = systemRoots;
+  systemRoots = { claude: systemRoots.claude, codex: systemRoots.codex };
+  env = { CLAUDE_CONFIG_DIR: env.CLAUDE_CONFIG_DIR, CODEX_HOME: env.CODEX_HOME };
+  const requireSamePaths = () => {
+    if (selectedEnv.CLAUDE_CONFIG_DIR !== env.CLAUDE_CONFIG_DIR || selectedEnv.CODEX_HOME !== env.CODEX_HOME) throw new Error('Global agent configuration has unsafe effective path changes; no repair or admission is permitted.');
+    if (selectedSystemRoots.claude !== systemRoots.claude || selectedSystemRoots.codex !== systemRoots.codex) throw new Error('Managed agent configuration has unsafe effective path changes; no repair or admission is permitted.');
+  };
+  const auditOptions = { tool: scope, homeDir, env, systemRoots, fsImpl, allowedMcpServers };
+  const auditInputs = await validateAgentConfigAuditInputs(auditOptions);
+  const { findings, repairable, warnOnly } = auditAgentConfig(auditOptions);
+  const managed = (await auditManagedAgentConfig(auditOptions)).findings;
+  findings.push(...managed);
+  warnOnly.push(...managed);
   if (verbose) await log(`🔍 ${LOG_PREFIX}: inspected global ${scope === 'all' ? 'claude/codex' : scope} configuration under ${homeDir} (${findings.length} finding${findings.length === 1 ? '' : 's'})`, { verbose: true });
-  if (findings.length === 0) return { findings, repaired: [], failed: [], skipped: [] };
+  if (findings.length === 0) {
+    // Verbose logging yields; do not admit a now-contaminated home on the
+    // strength of an earlier clean snapshot.
+    if (requireClean) await requireCleanAuditedConfig(auditOptions);
+    requireSamePaths();
+    return { findings, repaired: [], failed: [], skipped: [] };
+  }
 
   await log(`⚠️  Global agent configuration is not minimal (issue #2190): ${findings.length} finding${findings.length === 1 ? '' : 's'}`, { level: 'warn' });
   for (const finding of findings) await log(`   • ${formatAgentConfigFinding(finding)}`, { level: 'warn' });
   for (const finding of warnOnly) {
     if (verbose) await log(`   ℹ️  ${finding.kind} "${finding.name}" is reported only; remove it manually if it is not wanted`, { verbose: true });
   }
+  if (requireClean && findings.some(finding => finding.kind === 'managed-capability')) throw new Error('Managed agent configuration is not clean. Reconcile the reported capabilities with the administrator before launching tasks; managed security policy was left intact.');
   if (!autoRepair) {
     await log('   Auto-repair is disabled (--no-agent-config-auto-repair); nothing was changed. Non-minimal skills and plugins may change agent behaviour and token usage.', { level: 'warn' });
+    if (requireClean) throw new Error('Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.');
     return { findings, repaired: [], failed: [], skipped: repairable };
   }
+  // Logging may yield to another editor. Reject changed state before the
+  // synchronous legacy repairs rather than applying an obsolete repair plan.
+  await validateAgentConfigAuditInputs({ ...auditOptions, previous: auditInputs });
+  requireSamePaths();
   const { repaired, failed } = repairAgentConfig(repairable, { fsImpl });
   if (repaired.length) await log(`🧹 Auto-repaired ${repaired.length} global agent configuration item${repaired.length === 1 ? '' : 's'} (disable with --no-agent-config-auto-repair)`);
   for (const finding of repaired) {
     if (verbose) await log(`   ✓ ${finding.repair.type}: ${finding.repair.target}${finding.repair.table ? ` [${finding.repair.table}]` : ''}${finding.repair.keyPath ? ` ${finding.repair.keyPath.join('.')}` : ''}`, { verbose: true });
   }
   for (const { finding, error } of failed) await log(`   ✗ could not repair ${formatAgentConfigFinding(finding)}: ${error}`, { level: 'warn' });
+  if (requireClean) {
+    if (failed.length) throw new Error('Global agent configuration is not clean after repair. Resolve repair failures before launching tasks.');
+    await requireCleanAuditedConfig(auditOptions);
+    requireSamePaths();
+  }
   return { findings, repaired, failed, skipped: [] };
 };

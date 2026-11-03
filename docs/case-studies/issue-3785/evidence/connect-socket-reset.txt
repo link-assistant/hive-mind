@@ -1,0 +1,41 @@
+Issue #3785 — unhandled reset of a refused CONNECT tunnel in synthetic providers
+================================================================================
+
+CI run 41465682937 at 942062ecb, "Native Codex auth adapter experiment", job
+125345813855 (native-file-authority), step "Verify actual native peer refuses
+uncertain predecessor after owner death". native-refresh-crash-after.log:
+
+  node:events:505
+      throw er; // Unhandled 'error' event
+  Error: read ECONNRESET
+  Emitted 'error' event on Socket instance at: ...
+
+The same workflow passed at 882d9140f, and no native or probe source changed
+in between. Root cause: once an HTTP server emits `connect`, the raw socket
+is outside the server's request and clientError handling. The probe answered
+refused tunnels with `socket.end('HTTP/1.1 403 ...')` but registered no `error`
+listener. The probe deliberately SIGKILLs the refresh owner, and reaped native
+processes may reset their refused background tunnels (catalog/update origins).
+When that reset reached the socket, Node threw the unhandled `error` event and
+killed the provider, which is a fixture failure rather than a native result.
+The repository already had the fix: experiments/issue-3785/native-request-proxy.mjs
+`refuseNativeProxyTunnel` (472cf7d7e) ignores ECONNRESET/EPIPE and still fails
+on any other error or unexpected origin. probe-codex-native-request-auth.mjs
+used it; the owner-death probe did not.
+
+Same latent defect: the required Claude history and refresh gates
+(scripts/verify-mounted-claude-history.mjs, scripts/verify-mounted-claude-refresh.mjs)
+and probe-claude-cloud-sync-requests.mjs refused tunnels without a socket error
+handler. scripts/capability-lifecycle-provider.lib.mjs already had one.
+
+Repair
+------
+- probe-codex-native-refresh-crash.mjs uses refuseNativeProxyTunnel.
+- The two gates and the cloud-sync probe destroy a tunnel socket on error.
+- tests/issue-3785-rotating-provider.test.mjs resets 20 refused CONNECT
+  tunnels against the refresh gate's provider. Before the repair it fails with
+  "Error: read ECONNRESET"; after, it passes.
+- tests/issue-3785-connect-socket-errors.test.mjs requires every `connect`
+  handler in scripts/ and experiments/issue-3785/ to register a socket error
+  handler before writing. Before the repair it lists the four unguarded
+  handlers; after, it passes.

@@ -1,0 +1,26 @@
+✔ managed claude managed-settings.json cannot bypass a clean home or lose its policy (89.435436ms)
+✔ managed claude managed-settings.d/10-team.json cannot bypass a clean home or lose its policy (118.806952ms)
+✔ managed claude managed-mcp.json cannot bypass a clean home or lose its policy (96.909532ms)
+✔ managed codex config.toml cannot bypass a clean home or lose its policy (103.490272ms)
+✔ managed codex managed_config.toml cannot bypass a clean home or lose its policy (81.529676ms)
+✔ managed codex requirements.toml cannot bypass a clean home or lose its policy (79.364931ms)
+✔ clean managed security constraints and approved Playwright remain byte-for-byte intact (222.211313ms)
+✔ malformed managed input blocks unrelated home repair without exposing parser input (10.233091ms)
+✔ managed symlink cannot redirect validation into credentials (33.180898ms)
+✔ managed hardlink cannot redirect validation into credentials (39.787726ms)
+✔ managed admin .system payloads are not trusted as native user stock (71.955004ms)
+✔ a managed edit while logging invalidates all pending user repairs (118.522852ms)
+✔ linked managed ancestors reject admission without traversing policy (28.107999ms)
+✔ oversized managed documents reject before opening or parsing (26.051485ms)
+✔ a changed managed path selector cannot turn a clean audit into admission (133.758028ms)
+✔ audit-only reports managed findings without modifying administrator policy (77.691489ms)
+✔ unattested claude dynamic managed settings block native startup without executing a helper (84.356957ms)
+✔ unattested codex dynamic managed settings block native startup without executing a helper (70.789221ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1659.364184

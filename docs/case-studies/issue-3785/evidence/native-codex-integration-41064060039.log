@@ -1,0 +1,126 @@
+Native Codex run 41064060039, native-file-authority job 124091033595.
+Head: 69b1e8a464adcfef8c00223652924870de178ce0.
+This job passed; the separate native-history job failed its corrected stock control.
+Experimental source only; production integration remains unfinished.
+
+native-identity-before.log
+PASS: healthy: preserves canonical rotation; model_requests=1
+PASS: rotation: preserves canonical rotation; model_requests=1
+PASS: account-switch: reproduces stale native identity publication; model_requests=0
+PASS: api-key-login: reproduces stale native identity publication; model_requests=0
+PASS: api-key-with-stale-tokens: reproduces stale native identity publication; model_requests=0
+PASS: logout: refuses stale identity publication; model_requests=0
+PASS: owned-account-switch: refuses stale identity publication; model_requests=0
+PASS: legacy-fresh-owned-login: reproduces stale native identity publication; model_requests=0
+PASS: owned-fresh-login: refuses stale identity publication; model_requests=0
+
+native-identity-after.log
+PASS: healthy: preserves canonical rotation; model_requests=1
+PASS: rotation: preserves canonical rotation; model_requests=1
+PASS: account-switch: refuses stale identity publication; model_requests=0
+PASS: api-key-login: refuses stale identity publication; model_requests=0
+PASS: api-key-with-stale-tokens: refuses stale identity publication; model_requests=0
+PASS: logout: refuses stale identity publication; model_requests=0
+PASS: owned-account-switch: refuses stale identity publication; model_requests=0
+PASS: legacy-fresh-owned-login: refuses stale identity publication; model_requests=0
+PASS: owned-fresh-login: refuses stale identity publication; model_requests=0
+
+native-refresh-crash-after.log
+PASS: actual native CLI peer preserves unresolved intent and refuses a second G0 exchange or model request after owner death.
+
+native-refresh-repair-after.log
+PASS: actual native explicit login repairs safe malformed credentials after owner death without reusing G0 or creating a private copy.
+PASS: actual native CLI peer preserves unresolved intent and refuses a second G0 exchange or model request after owner death.
+
+native-tui-history-after.log
+PASS: healthy native TUI persists history and reaches the synthetic model
+PASS: unsafe native prompt history refuses model execution
+
+native-tui-history-legacy.log
+PASS: healthy native TUI persists history and reaches the synthetic model
+PASS: unsafe native prompt history reproduces model execution
+
+native-prompt-history-tests.log
+   Compiling codex-message-history v0.164.0 (/home/runner/work/_temp/codex-native-source/codex-rs/message-history)
+    Finished `dev-small` profile [unoptimized] target(s) in 3.06s
+     Running unittests src/lib.rs (target/dev-small/deps/codex_message_history-0612e466d2fa09ce)
+
+running 12 tests
+test batch_tests::search_batch_defers_oversized_row_during_backward_scan ... ok
+test batch_tests::search_batch_enforces_byte_cap_and_oversized_row_progress ... ok
+test batch_tests::search_batch_invalidates_byte_cursor_after_in_place_rewrite ... ok
+test batch_tests::search_batch_preserves_identity_append_trim_and_short_file_semantics ... ok
+test batch_tests::search_batch_rescans_capped_history_after_same_size_rewrite ... ok
+test batch_tests::search_batch_returns_bounded_newest_first_absolute_offsets ... ok
+test batch_tests::search_batch_stitches_chunks_and_keeps_malformed_offsets ... ok
+test tests::append_entry_trims_history_to_soft_cap ... ok
+test tests::append_entry_trims_history_when_beyond_max_bytes ... ok
+test tests::history_metadata_counts_newlines_across_read_boundaries ... ok
+test tests::lookup_reads_history_entries ... ok
+test tests::lookup_uses_stable_log_id_after_appends ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/bin/hive-message-history-probe.rs (target/dev-small/deps/hive_message_history_probe-4655968db61658dd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+native-prompt-history-after.log
+PASS: private-configuration disposal preserves canonical native TUI prompt history.
+PASS: eight concurrent native appends preserve all prompts and stable TUI lookup identity; wrong identifiers refuse.
+PASS: a waiting native append completes after forced owner death without replacing the canonical lock.
+PASS: native newest-first batch continuation recalls 141 rows across atomic publications.
+PASS: atomic replacement and deletion/recreation remain visible to native prompt-history peers.
+PASS: unsafe history permissions refuses native prompt-history writes.
+PASS: hard-linked prompt history refuses native prompt-history writes.
+PASS: symlinked prompt history refuses native prompt-history writes.
+PASS: unsafe canonical prompt lock refuses native prompt-history writes.
+PASS: unsafe canonical prompt directory refuses native prompt-history writes.
+PASS: private competing prompt history refuses native prompt-history writes.
+PASS: missing canonical prompt directory refuses native prompt-history writes.
+PASS: aliased/overlapping/relative authority and disabled/capped persistence refuse native prompt writes.
+PASS: absent selector retains both independent legacy native prompt histories.
+
+native-request-after.log
+CHECK: api-key both live clients made their initial G0 model request.
+CHECK: api-key both live clients completed replacement requests.
+CHECK: api-key both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: api-key both live clients completed logout requests.
+PASS: api-key actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+CHECK: chatgpt both live clients made their initial G0 model request.
+CHECK: chatgpt both live clients completed replacement requests.
+CHECK: chatgpt both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: chatgpt both live clients completed logout requests.
+PASS: chatgpt actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+native-request-overrides-after.log
+PASS: provider-env refuses an alternate native authority before model execution.
+PASS: provider-bearer refuses an alternate native authority before model execution.
+PASS: provider-no-auth refuses an alternate native authority before model execution.
+PASS: provider-header refuses an alternate native authority before model execution.
+PASS: provider-extra-header refuses an alternate native authority before model execution.
+PASS: provider-env-header refuses an alternate native authority before model execution.
+PASS: provider-organization refuses an alternate native authority before model execution.
+PASS: provider-project refuses an alternate native authority before model execution.
+PASS: stock-version-header preserves canonical model execution.
+PASS: stock-unset-identity-headers preserves canonical model execution.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+native-request-constructors-after.log
+PASS: Amazon Bedrock, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: fixture forwarded zero external tunnels; blocked 2 declared background origins.
+
+native-index-history.log
+Native history Docker cgroup driver: systemd.
+PASS: native named-thread metadata and peer updates survive disposed configuration scopes.

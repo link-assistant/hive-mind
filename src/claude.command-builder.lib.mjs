@@ -2,6 +2,18 @@
 import { promptText } from './prompt-text.lib.mjs';
 import { shellQuote } from './shell-command.lib.mjs';
 
+/** Start the admitted CLI without awaiting command-stream's streaming result. */
+export function startClaudeNativeCommand({ $, tempDir, claudeEnv, command, resume, streamingInput, effectiveModel, fallbackModelArgs, mcpDisableArgs, disallowedToolsArgs, promptForAttempt, systemPrompt }) {
+  // Command-stream quotes each value. Extra wrapping quotes reach Claude verbatim.
+  if (resume) return $({ cwd: tempDir, mirror: false, env: claudeEnv })`${command} --resume ${resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p ${promptForAttempt} --append-system-prompt ${systemPrompt}`;
+  if (streamingInput) {
+    // The initial prompt and later comments are NDJSON frames on the same pipe.
+    const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
+    return $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt ${systemPrompt}`;
+  }
+  return $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt ${systemPrompt}`;
+}
+
 /**
  * Claude CLI Command Builder Library
  *

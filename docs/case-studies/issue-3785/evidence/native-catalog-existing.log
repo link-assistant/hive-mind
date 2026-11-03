@@ -1,0 +1,50 @@
+✔ disabled repair cannot admit known global contamination (91.480586ms)
+✔ unrepaired global commands reject admission even when repair is enabled (94.048823ms)
+✔ a failed removal rejects admission instead of logging and continuing (45.516041ms)
+✔ successful repair must be followed by another audit before admission (95.195973ms)
+✔ a clean re-audit admits safe repair and preserves protected state (99.79248ms)
+✔ read-only audit keeps reporting findings without enforcing admission (34.80024ms)
+✔ a clean initial audit is revalidated after yielding to verbose logging (72.439652ms)
+✔ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (22.175824ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (75.460702ms)
+✔ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (24.448465ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (93.014975ms)
+✔ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (39.200822ms)
+✔ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (44.322103ms)
+✔ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (44.189547ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (161.260467ms)
+✔ semantic TOML additions reject admission: [mcp_servers.rogue] (62.474356ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (59.00966ms)
+✔ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (38.41867ms)
+✔ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (39.223926ms)
+✔ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (47.399459ms)
+✔ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (37.080775ms)
+✔ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (48.044256ms)
+✔ table-like text inside a multiline string is data and needs no repair (44.351929ms)
+✔ TOML repair preserves unrelated typed configuration and approved MCP settings (71.882208ms)
+✔ unattested stock content blocks admission: operator/SKILL.md (78.03316ms)
+✔ unattested stock content blocks admission: .operator/SKILL.md (44.366817ms)
+✔ unattested stock content blocks admission: imagegen/SKILL.md (42.395535ms)
+✔ unattested stock content blocks admission: .codex-system-skills.marker (25.078335ms)
+✔ nested stock credential symlink blocks admission (52.473242ms)
+✔ nested stock credential hard link blocks admission (24.314906ms)
+✔ an empty stock directory is not a pristine CLI baseline (18.58726ms)
+✔ Dockerfile pins the CLI version used to generate the stock baseline (2.337841ms)
+✔ Dockerfile.dind pins the CLI version used to generate the stock baseline (1.23278ms)
+✔ coolify/Dockerfile pins the CLI version used to generate the stock baseline (1.632341ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (54.629986ms)
+✔ stock verification rejects an oversized file before opening it (27.301634ms)
+✔ concurrent stock edits reject verification without exposing content (15.592198ms)
+✔ PR image builds install this branch as a package in both images (4.459482ms)
+✔ both packaged images require a network-disabled stock-runtime gate (2.004031ms)
+✔ packaged runtime rejects a native CLI that materializes unapproved stock (288.165991ms)
+✔ packaged runtime rejects a native CLI that does not materialize stock (349.410332ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1699.23644

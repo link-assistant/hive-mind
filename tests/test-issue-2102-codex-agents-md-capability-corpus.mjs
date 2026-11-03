@@ -365,7 +365,7 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
 
   assert.equal(result.required, true, 'an AGENTS.md requirement provisions Codex before exec');
   assert.deepEqual(result.plugins, ['superpowers@openai-curated']);
-  assert.equal(result.codexHome, path.join(fixture.baseCodexHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'));
+  assert.equal(path.dirname(result.codexHome), path.join(path.dirname(fixture.baseCodexHome), '.hive-mind', 'codex-tasks', 'CEHR2005', 'GCS-TS'));
   const scopedConfig = await readFile(path.join(result.codexHome, 'config.toml'), 'utf8');
   assert.match(scopedConfig, /^remote_plugin\s*=\s*false\s*$/mu, 'issue #2094: the scoped loader override engages on the AGENTS.md path');
   assert.match(scopedConfig, /\[plugins\."superpowers@openai-curated"\]/u);

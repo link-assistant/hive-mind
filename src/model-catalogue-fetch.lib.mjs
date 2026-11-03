@@ -24,6 +24,8 @@ import { assertTokenFreeUrl } from './model-catalogue-sources.lib.mjs';
 import { normalizeCodexReasoningCapabilities, normalizeReasoningCapabilities } from './model-reasoning.lib.mjs';
 import { ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_PORT } from './router-isolation.lib.mjs';
 import { buildRouterCatalogueEndpoints, ROUTER_TOOL_SERVICE } from './router-routes.lib.mjs';
+import { selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
+import { verifyNativeCodexCommand } from './native-codex-command.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -255,9 +257,12 @@ const redactRouterToken = (text, token) => {
  * No network, no account, no cost — the binary answers from what it was built
  * with, which is also precisely the set it will accept as `--model`.
  */
-export const fetchCodexCliCatalogue = async ({ run = execFileAsync, timeoutMs = DEFAULT_CATALOGUE_TIMEOUT_MS, binary = 'codex' } = {}) => {
+export const fetchCodexCliCatalogue = async ({ run = execFileAsync, timeoutMs = DEFAULT_CATALOGUE_TIMEOUT_MS, binary = 'codex', env = process.env } = {}) => {
   try {
-    const { stdout } = await run(binary, ['debug', 'models'], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
+    // Compiled metadata remains usable without account credentials, but an
+    // explicitly selected native contract must never execute an unchecked CLI.
+    const command = selectedCodexAuthHome(env) ? (await verifyNativeCodexCommand({ command: binary, searchPath: env.PATH })).entrypoint : binary;
+    const { stdout } = await run(command, ['debug', 'models', '--bundled'], { env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
     const payload = JSON.parse(stdout);
     return ok(normalizeCataloguePayload({ shape: 'codex-cli', payload }), { binary });
   } catch (error) {

@@ -52,11 +52,12 @@ import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
-import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
+import { CODEX_HOSTED_APPS_DISABLE_ARGS, CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
@@ -449,27 +450,35 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   }
 };
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
+export const validateCodexConnection = async (model = defaultModels.codex, verbose = false, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log });
+  const checkRouter = env => assertRouterTaskAuthentication({ tool: 'codex', env: { ...env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+  checkRouter(process.env);
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex', useRouter }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   try {
     await log('🔍 Validating Codex CLI connection...');
     // Check if Codex CLI is installed and get version
     try {
-      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      checkRouter(process.env);
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Codex CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
     // Test basic Codex functionality with a simple "echo hi" command
     // Using exec mode with JSON output for validation
-    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    const connectionEnv = getCodexExecEnv(verbose);
+    checkRouter(connectionEnv);
+    const runValidation = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log, env: () => connectionEnv });
+    const testResult = await runValidation`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
     if (testResult.code !== 0) {
       const stderr = testResult.stderr?.toString() || '';
       const stdout = testResult.stdout?.toString() || '';
@@ -492,6 +501,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     await log('✅ Codex CLI connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
     return false;
@@ -588,6 +598,9 @@ export const executeCodex = async params => {
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
   const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
+  // Retain the execution home until native history metadata/SQLite also have a
+  // verified canonical projection (issue #3785). A later task always allocates
+  // fresh configuration; deleting this home would discard unprojected data.
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -666,13 +679,14 @@ export const executeCodexCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
+    let routerStream;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log, env: codexEnv });
+    let isResumeMode = !!argv.resume;
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
@@ -680,13 +694,14 @@ export const executeCodexCommand = async params => {
     // Formal AI writes its provider block into an isolated Codex home; the preflight rewrites the
     // scoped config every iteration, so copy the block in again and pin that verified home (#2254).
     await pinFormalAiCodexHome({ toolInvocation, capabilityPreflight, log });
-    // `sh -lc` sources the operator profile. Re-export the verified scope in
+    // Ordinary `sh -lc` runs source the operator profile. Re-export the verified scope in
     // the command itself as well as the process environment so a stale profile
     // assignment cannot swap CODEX_HOME after the final probe.
     if (capabilityPreflight?.codexHome) {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    if (argv.useRouter === true) codexEnv.HIVE_MIND_USE_ROUTER = '1';
     await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
@@ -783,13 +798,19 @@ export const executeCodexCommand = async params => {
     for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #3785: with no selected plugins, the plugin loader stays off so a
+    // model start cannot clone the curated marketplace into any CODEX_HOME,
+    // and the hosted ChatGPT connectors MCP server is not attached.
+    if (!(capabilityPreflight?.plugins?.length > 0)) {
+      for (const arg of [...CODEX_PLUGIN_SYNC_DISABLE_ARGS, ...CODEX_HOSTED_APPS_DISABLE_ARGS]) codexArgs += ` ${shellQuote(arg)}`;
+    }
     if (argv.verbose) {
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });
       if (auxiliaryDisableArgs.length) await log(`🔕 Codex non-essential model calls disabled: ${auxiliaryDisableArgs.join(' ')} (issue #2236)`, { verbose: true });
     }
-    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // Issue #2130: re-export the Formal AI environment inside the shell script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.
     // Issue #2324: a pipe inside the quoted script makes command-stream take its
     // unowned Node pipeline path, so kill() cannot stop the actual shell. Redirect
@@ -817,29 +838,16 @@ export const executeCodexCommand = async params => {
         await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
       }
       const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log });
-
-      execCommand = $({
+      const routerGuardEnv = codexEnv;
+      assertRouterTaskAuthentication({ tool: 'codex', cwd: tempDir, env: routerGuardEnv });
+      const launch = $({
         cwd: tempDir,
         mirror: false,
         env: codexEnv,
-      })`sh -lc ${fullCommand}`;
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token; see router-auth-guard.lib.mjs. Inert unless
-      // HIVE_MIND_USE_ROUTER and a router token are in the environment.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: 'codex',
-        cwd: tempDir,
-        env: codexEnv,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          try {
-            if (execCommand?.kill) execCommand.kill('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
       });
+      // A login profile must not replace the Router environment after admission.
+      execCommand = isRouterAuthGuardRequired(routerGuardEnv) ? launch`sh -c ${fullCommand}` : launch`sh -lc ${fullCommand}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'codex', env: routerGuardEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -901,7 +909,7 @@ export const executeCodexCommand = async params => {
       const codexStderrLines = createLineBuffer();
       const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const raw = chunk.data.toString();
           if (argv.verbose) {
@@ -975,13 +983,6 @@ export const executeCodexCommand = async params => {
       if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
         sessionId = codexJsonState.sessionId;
         await log(`📌 Session ID: ${sessionId}`);
-      }
-      // Issue #2190: final read after the stream closed; a violation ends the
-      // run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, codexJsonDetails: codexJsonState, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) }, result: formatRouterAuthViolation(routerAuthGuard.violation), resultSummary: null };
       }
       if (codexJsonState.resultSummary) {
         lastTextContent = codexJsonState.resultSummary;
@@ -1176,6 +1177,8 @@ export const executeCodexCommand = async params => {
       }
       return buildRunResult({ success: true, pluginProvisioning });
     } catch (error) {
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'codex', env: codexEnv, cwd: tempDir });
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { hasError: true, message: routerError.message }, result: routerError.message };
       // Don't report auth errors to Sentry as they are user configuration issues
       if (!error.isAuthError) {
         reportError(error, {

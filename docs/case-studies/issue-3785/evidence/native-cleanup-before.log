@@ -1,0 +1,17 @@
+F.
+======================================================================
+FAIL: test_descendant_stops_after_leader_already_exited (__main__.NativeProcessGroupTests.test_descendant_stops_after_leader_already_exited)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/gh-issue-solver-1793358310378/experiments/issue-3785/test_native_process_group.py", line 35, in test_descendant_stops_after_leader_already_exited
+    self.assertEqual(state.read_text().rsplit(")", 1)[1].split()[0], "Z")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'S' != 'Z'
+- S
++ Z
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.092s
+
+FAILED (failures=1)

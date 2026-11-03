@@ -1,0 +1,2 @@
+PASS: healthy native TUI persists history and reaches the synthetic model
+PASS: unsafe native prompt history refuses model execution

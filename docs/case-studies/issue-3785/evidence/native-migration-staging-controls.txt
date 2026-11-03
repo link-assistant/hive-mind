@@ -1,0 +1,39 @@
+Pinned native CLI: 6aaac694803004a63c6f393d153c96d22521a6b9 / 0.164.0
+Experimental adapter CLI: run 41082125240, head c7a6e20aa7217f6a114e14eab674128f6cc334aa
+Synthetic, bounded controls. The staging repair is not compiled in this binary.
+
+native-stage-symlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a symlink staged rollout.
+
+native-stage-hardlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
+
+native-stage-decompressed-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a symlink staged rollout.
+
+native-stage-compressed-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a symlink staged rollout.
+
+native-stage-decompressed-hardlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
+
+native-stage-compressed-hardlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
+
+native-stage-head-symlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a symlink staged rollout.
+
+native-stage-head-hardlink-before.log
+REPRODUCED: actual native migration overwrites unrelated synthetic evidence through a hardlink staged rollout.
+
+native-stage-subagent-healthy.log
+PASS: an actual killed subagent plain native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume preserves the inherited-prefix boundary.
+
+native-stage-compressed-healthy-control.log
+PASS: an actual killed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
+
+native-stage-unit-after.log
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+native-journal-cleanup-after.log
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s

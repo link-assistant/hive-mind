@@ -712,7 +712,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'agent-config-auto-repair': {
     type: 'boolean',
-    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn.',
+    description: 'Automatically repair audited global Claude/Codex configuration before a task starts (enabled by default). Unrepaired findings stop execution. Use --no-agent-config-auto-repair to inspect without changing configuration; a contaminated configuration still blocks tasks.',
     default: true,
   },
   'auto-gh-configuration-repair': {

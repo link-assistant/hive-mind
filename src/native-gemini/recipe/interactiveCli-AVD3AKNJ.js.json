@@ -1,0 +1,129 @@
+{
+  "edits": [
+    {
+      "at": 0,
+      "remove": [],
+      "insert": ["import { registerNativeGeminiRestorableWriter } from \"./hive-gemini-restorable-admission.mjs\";\n", "import { nativeGeminiHistorySelected } from \"./hive-gemini-history.mjs\";\n", "import { registerNativeGeminiShellHistory, readNativeGeminiShellHistory, appendNativeGeminiShellHistory, refuseNativeGeminiShellRewrite } from \"./hive-gemini-shell-history.mjs\";\n"]
+    },
+    {
+      "at": 16305,
+      "remove": ["        const chatsDir = path6.join(config.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["        const chatsDir = config.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 18568,
+      "remove": ["  return storage.getHistoryFilePath();\n"],
+      "insert": ["  return registerNativeGeminiShellHistory(storage.getProjectTempDir(), storage.getHistoryFilePath());\n"]
+    },
+    {
+      "at": 18571,
+      "remove": [],
+      "insert": ["  const canonical = readNativeGeminiShellHistory(filePath);\n", "  if (canonical !== undefined) return canonical;\n"]
+    },
+    {
+      "at": 18595,
+      "remove": [],
+      "insert": ["  if (nativeGeminiHistorySelected()) refuseNativeGeminiShellRewrite();\n"]
+    },
+    {
+      "at": 18606,
+      "remove": [],
+      "insert": ["  const [historyFailure, setHistoryFailure] = (0, import_react61.useState)(null);\n", "  if (historyFailure && nativeGeminiHistorySelected()) throw historyFailure;\n"]
+    },
+    {
+      "at": 18613,
+      "remove": ["    loadHistory();\n"],
+      "insert": ["    loadHistory().catch((error) => {\n", "      if (nativeGeminiHistorySelected()) setHistoryFailure(new Error(\"Gemini canonical conversation history is unavailable or unsafe.\"));\n", "      else debugLogger.error(\"Error loading shell history:\", error);\n", "    });\n"]
+    },
+    {
+      "at": 18617,
+      "remove": [],
+      "insert": ["      if (nativeGeminiHistorySelected()) {\n", "        const canonical = appendNativeGeminiShellHistory(historyFilePath, command);\n", "        setHistory(canonical.reverse());\n", "        setHistoryIndex(-1);\n", "        return;\n", "      }\n"]
+    },
+    {
+      "at": 18628,
+      "remove": ["    if (history.length === 0) {\n"],
+      "insert": ["    const selected = readNativeGeminiShellHistory(historyFilePath);\n", "    const current = selected === undefined ? history : selected.reverse();\n", "    if (selected !== undefined) setHistory(current);\n", "    if (current.length === 0) {\n"]
+    },
+    {
+      "at": 18631,
+      "remove": ["    const newIndex = Math.min(historyIndex + 1, history.length - 1);\n"],
+      "insert": ["    const newIndex = Math.min(historyIndex + 1, current.length - 1);\n"]
+    },
+    {
+      "at": 18633,
+      "remove": ["    return history[newIndex] ?? null;\n", "  }, [history, historyIndex]);\n"],
+      "insert": ["    return current[newIndex] ?? null;\n", "  }, [history, historyIndex, historyFilePath]);\n"]
+    },
+    {
+      "at": 18636,
+      "remove": [],
+      "insert": ["    const selected = readNativeGeminiShellHistory(historyFilePath);\n", "    const current = selected === undefined ? history : selected.reverse();\n", "    if (selected !== undefined) setHistory(current);\n"]
+    },
+    {
+      "at": 18644,
+      "remove": ["    return history[newIndex] ?? null;\n", "  }, [history, historyIndex]);\n"],
+      "insert": ["    return current[newIndex] ?? null;\n", "  }, [history, historyIndex, historyFilePath]);\n"]
+    },
+    {
+      "at": 27794,
+      "remove": [],
+      "insert": ["  registerNativeGeminiRestorableWriter(config, async (request) => {\n", "    if (!gitService) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "    // Preserve the actual context/user boundaries before native serialization.\n", "    // The native loader filters a whole turn beginning with session context.\n", "    const client = { getHistory: () => geminiClient.getChat().agentHistory.get().map((turn) => turn.content) };\n", "    const result = await processRestorableToolCalls([request], gitService, client, history);\n", "    if (result.errors.length || result.checkpointsToWrite.size !== 1) {\n", "      throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "    }\n", "  });\n"]
+    },
+    {
+      "at": 29390,
+      "remove": ["      if (!config.getCheckpointingEnabled()) {\n"],
+      "insert": ["      if (nativeGeminiHistorySelected() || !config.getCheckpointingEnabled()) {\n"]
+    },
+    {
+      "at": 29412,
+      "remove": ["        if (checkpointsToWrite.size > 0) {\n"],
+      "insert": ["        if (checkpointsToWrite.size > 0 && !nativeGeminiHistorySelected()) {\n"]
+    },
+    {
+      "at": 32026,
+      "remove": [],
+      "insert": ["  const [initialResumeReady, setInitialResumeReady] = (0, import_react108.useState)(!nativeGeminiHistorySelected() || !resumedSessionData);\n"]
+    },
+    {
+      "at": 32037,
+      "remove": [],
+      "insert": ["      if (nativeGeminiHistorySelected()) setInitialResumeReady(false);\n"]
+    },
+    {
+      "at": 32050,
+      "remove": [],
+      "insert": ["        if (nativeGeminiHistorySelected()) setInitialResumeReady(true);\n"]
+    },
+    {
+      "at": 32081,
+      "remove": ["  return { loadHistoryForResume, isResuming };\n"],
+      "insert": ["  return { loadHistoryForResume, isResuming, initialResumeReady };\n"]
+    },
+    {
+      "at": 33510,
+      "remove": ["  const { loadHistoryForResume, isResuming } = useSessionResume({\n"],
+      "insert": ["  const { loadHistoryForResume, isResuming, initialResumeReady } = useSessionResume({\n"]
+    },
+    {
+      "at": 34138,
+      "remove": ["  const isInputActive = !initError && !isProcessing && !isResuming && (streamingState === \"idle\" /* Idle */ || streamingState === \"responding\" /* Responding */ || streamingState === \"waiting_for_confirmation\" /* WaitingForConfirmation */) && !proQuotaRequest;\n"],
+      "insert": ["  const isInputActive = initialResumeReady && !initError && !isProcessing && !isResuming && (streamingState === \"idle\" /* Idle */ || streamingState === \"responding\" /* Responding */ || streamingState === \"waiting_for_confirmation\" /* WaitingForConfirmation */) && !proQuotaRequest;\n"]
+    },
+    {
+      "at": 34197,
+      "remove": ["    if (initialPrompt && isConfigInitialized && !initialPromptSubmitted.current && !isAuthenticating && !isAuthDialogOpen && !isThemeDialogOpen && !isEditorDialogOpen && !showPrivacyNotice && geminiClient?.isInitialized?.()) {\n"],
+      "insert": ["    if (initialPrompt && initialResumeReady && isConfigInitialized && !initialPromptSubmitted.current && !isAuthenticating && !isAuthDialogOpen && !isThemeDialogOpen && !isEditorDialogOpen && !showPrivacyNotice && geminiClient?.isInitialized?.()) {\n"]
+    },
+    {
+      "at": 34203,
+      "remove": [],
+      "insert": ["    initialResumeReady,\n"]
+    },
+    {
+      "at": 35329,
+      "remove": [],
+      "insert": ["  if (nativeGeminiHistorySelected()) {\n", "    readNativeGeminiShellHistory(await getHistoryFilePath(config.getProjectRoot(), config.storage));\n", "  }\n"]
+    }
+  ]
+}

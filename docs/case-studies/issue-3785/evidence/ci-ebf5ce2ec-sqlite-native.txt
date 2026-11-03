@@ -1,0 +1,87 @@
+Codex native development CI at ebf5ce2ec, 2026-10-31 UTC.
+https://github.com/link-assistant/hive-mind/actions/runs/41233514606
+All three jobs pass. Full native-file-authority job:
+https://github.com/link-assistant/hive-mind/actions/runs/41233514606/job/124632406382
+Its preserved complete job log has 1,377 lines:
+  ci-logs/native-sqlite-ebf5-124632406382.log
+The native-codex-auth-build artifact contains actual bounded control results;
+these results are not inferred from shell commands in the job log.
+
+Lines 694-699 run 40 real SQLx controls and 1,031 native guard component
+controls plus four bounded/missing diagnostic controls before full compilation.
+Artifact SHA256:
+  native-sqlite-sqlx.log
+    7fbc939076e6cfd1583dbbf4945dc9f2c49e29105b01ae11ae4369f27ab1db28
+  native-sqlite-components.log
+    1cff3149ef3c00a75d3d0467f843e638e6357c3be86e43ea21433a92f8bdf976
+The fortified optimized C component build succeeds with the repaired diagnostic
+write handling. This does not replace the separate optimized whole-CLI gates.
+
+The actual preceding CLI reproduces directory/database retirement and selected
+startup fallback. Its binary SHA256 is:
+  de066350705cd7564947e7958f5f17c34143629729f770b80a7270dd204cbd7d
+An unusable selected migration schema still permits one model request and exits
+1 in the synthetic provider fixture. The strict startup regression fails at
+lines 996-997. The separate exact native init-function strict regression also
+fails (998-999). These are required negative controls, not failing CI checks.
+
+The actual final guarded CLI builds from 19:47:26 to 19:52:51 UTC, then passes
+the new SQLite controls at 19:53:25 UTC. Its binary SHA256 is:
+  95dc3a9bc9191282ef478418cb0ab900eec76edd8d5c08e323c2512e123c67c0
+Selected unusable migration schema: ZERO model requests, explicit exit 78.
+Healthy selected startup: one actual model request reaches the synthetic
+provider. Ordinary healthy and unusable-schema controls each preserve the
+existing one-request behavior. Provider fixtures intentionally exit 1 after
+their bounded request; these are startup-admission controls, not completed
+conversation evidence. All six exact-function controls pass, including full
+diagnostic pipe and missing stderr.
+  native-sqlite-startup-before.log
+    ba965a584a0e009e22aa4be5ee1c45a6d4de7d056160fea8cf17cdf864ae5ff0
+  native-sqlite-startup-after.log
+    b43554862d99212c5ab891a6ec89a89a4a18f395d003458327a42128d3be59fa
+  native-sqlite-startup-ordinary.log
+    38c10b0a5f7c467c4ea1664a4932be858a7dd185c356b005353a21fac07d0266
+
+Directory and database replacement each refuse with exit 78, no native read
+of either retired/replacement section, no writes to either database, and exact
+unsafe-file fingerprints unchanged. Both strict before controls reproduce the
+defect (973-974).
+  native-sqlite-lifetime-directory-after.log
+    dcd2054ea61192025065e2444972067a3ba94eb21d5491584f83c67644dd30ce
+  native-sqlite-lifetime-database-after.log
+    8cf269bf5940bab91c9153ce0c34198eb4e913bd6411d4c01a0cfff6bb15c1ea
+
+Selected and ordinary actual native corruption recovery both back up corrupt
+bytes, rebuild successfully and preserve an unrelated database. Three live
+native peers each exercise real database sections: all 18 acknowledgements
+remain after private configuration disposal, a fresh peer retains them and
+SQLite quick_check returns ok. These database section controls are separate
+from the complete-conversation controls elsewhere in the workflow.
+  native-sqlite-recovery-after.log
+    048d6118acef358b7fa9126cfbb7f513d77903ceea4d939829cef9ffe7a347f3
+  native-sqlite-recovery-ordinary.log
+    e585f7a510a87d4ae30bf516d8741b0cabb8cd3b2021b3a931f05e434ef7b9a8
+  native-sqlite-peers-after.log
+    fd166a86aca716aa095b23183606ee75e562483928e33bc43915e5cbafb3ec38
+  native-sqlite-peers-ordinary.log
+    cc876962448bdb633bc099172a9ad59b796f0169c788813fc317770a93821ed9
+
+Current-run measured development overhead remains material:
+  ordinary startup 165.441-172.683 ms; selected 870.588-873.391 ms
+  25 reads: ordinary 34.162-34.588 ms; selected 68.303-70.498 ms
+  10 writes: ordinary 11.870-12.355 ms; selected 49.729-49.789 ms
+  native-sqlite-performance-after.log
+    c8efdc57f9c0a95891a5f286ac293e59fae93a564de22c6773008215beedf3f9
+Do not substitute component or older-run measurements for these actual native
+measurements or claim negligible overhead. Optimized measurements are pending.
+
+The remaining auth/history, compression, migration, identity, owner-death,
+ordinary TUI/history, request/provider and installed native execution controls
+all complete successfully. The current release run also passes all 766 default
+tests and both GitHub integration tests; optimized x64/ARM64 builds, their
+installed npm command gates and both final-image gates remain pending.
+
+This evidence verifies the development startup/fortified-guard follow-up that
+the earlier 7d09cacbe run could not cover. Atomic external rename exclusion,
+fresh-process rollback, complete root plus two task daemon lifecycle matrices
+and every remaining A1-A12/B1-B12 criterion remain OPEN. The PR stays draft.

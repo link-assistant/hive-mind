@@ -1,0 +1,12 @@
+✔ Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (10.488717ms)
+✔ Dockerfile.dind keeps pinned runtimes out of automatic and command-triggered updates (4.67525ms)
+✔ coolify/Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (1.315308ms)
+✔ outside pinned images the existing CLI update defaults remain available (0.32636ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 192.26659

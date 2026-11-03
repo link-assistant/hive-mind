@@ -1,0 +1,374 @@
+✖ native stock discovery rejects admin before trusting its file tree (351.106995ms)
+✖ native stock discovery rejects user before trusting its file tree (222.67024ms)
+✖ native stock discovery rejects repo before trusting its file tree (278.090215ms)
+✖ native stock discovery rejects outside-stock before trusting its file tree (214.005416ms)
+✖ native stock discovery rejects duplicate before trusting its file tree (199.075531ms)
+✖ native stock discovery rejects missing before trusting its file tree (246.591871ms)
+✖ native stock discovery rejects disabled before trusting its file tree (250.431751ms)
+✖ native stock discovery rejects plugin before trusting its file tree (298.559207ms)
+✖ native stock discovery rejects name before trusting its file tree (330.625858ms)
+✖ native stock discovery rejects errors before trusting its file tree (244.44289ms)
+✖ native stock discovery rejects wrong-cwd before trusting its file tree (235.208337ms)
+✖ native stock discovery rejects missing-errors before trusting its file tree (281.731799ms)
+✖ native stock discovery rejects malformed-skills before trusting its file tree (298.936421ms)
+✖ native stock discovery rejects extra-result before trusting its file tree (234.313932ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 0
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3846.932944
+
+✖ failing tests:
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects admin before trusting its file tree (351.106995ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects user before trusting its file tree (222.67024ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects repo before trusting its file tree (278.090215ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects outside-stock before trusting its file tree (214.005416ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects duplicate before trusting its file tree (199.075531ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects missing before trusting its file tree (246.591871ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects disabled before trusting its file tree (250.431751ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects plugin before trusting its file tree (298.559207ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects name before trusting its file tree (330.625858ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects errors before trusting its file tree (244.44289ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects wrong-cwd before trusting its file tree (235.208337ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects missing-errors before trusting its file tree (281.731799ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects malformed-skills before trusting its file tree (298.936421ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-runtime-catalog.test.mjs:11:3
+✖ native stock discovery rejects extra-result before trusting its file tree (234.313932ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+
+  Caught error:
+
+  AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: Stock CLI did not materialize its pinned runtime.
+        at file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:95:16
+        at async materializeStock (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:83:5)
+        at async verifyAgentRuntime (file:///tmp/gh-issue-solver-1792986793513/src/verify-agent-runtime.mjs:128:5)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-runtime-catalog.test.mjs:50:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }

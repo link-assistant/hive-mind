@@ -6,11 +6,12 @@ Issue: [link-assistant/hive-mind#3909](https://github.com/link-assistant/hive-mi
 
 Everything is in [`raw/`](raw/):
 
-| File                          | Content                                                                                                         |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `issue-3909.json`             | The issue as it was when the fix was made                                                                       |
-| `run-41081977243-excerpt.log` | The lines of the reproduction run that show the image it pulled and the Formal AI version that served the draft |
-| `select-live-2026-11-02.txt`  | The new admission run against live GitHub in all three modes (`experiments/issue-3909/select-live.mjs`)         |
+| File                          | Content                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `issue-3909.json`             | The issue as it was when the fix was made                                                                         |
+| `run-41081977243-excerpt.log` | The lines of the reproduction run that show the image it pulled and the Formal AI version that served the draft   |
+| `select-live-2026-11-02.txt`  | The new admission run against live GitHub in all three modes (`experiments/issue-3909/select-live.mjs`)           |
+| `run-41547700367-excerpt.log` | The hosted attempt of this branch: selection, fresh build and receipt, artifact digests and the preflight outcome |
 
 ## Timeline
 
@@ -74,6 +75,12 @@ published-release: published-release qualification ce2868dd…: link-assistant/f
 historical-replay: HISTORICAL REPLAY (not current-source evidence) 02f0c56b…: the image-baked Formal AI via image-baked, …
 ```
 
+The same selection ran hosted in [run 41547700367](https://github.com/link-assistant/hive-mind/actions/runs/41547700367), a `preflight_only` dispatch of this branch for issue #3909 (`raw/run-41547700367-excerpt.log`):
+
+1. `select` admitted live-current attempt `61dd525d…`, the same identity as the local run.
+2. `binary` built `link-assistant/formal-ai@94e26f09` fresh with `cargo build --locked` in 4m 54s. It recorded the receipt and verified binary `sha256 8a6bc8ea…` (0.355.29) against the identity. The artifact uploaded as `7fb8ff54…` was downloaded by `draft` with the same digest.
+3. The `draft` preflight verified the binary digest. It then pulled exactly `konard/hive-mind:2.39.11` and found that the image was built from `d0e8a610`, which does not contain this branch's `src/formal-ai-attempt-identity.lib.mjs` and `src/formal-ai-runtime.lib.mjs`. The attempt ended `deferred-infrastructure` with that evidence, before solve and without trying another image or `latest`. This is the expected outcome for an unreleased Hive Mind source; see the first remaining item below.
+
 An earlier run, at Formal AI `main` `6764c142`, produced live-current identity `cbe22ef0…`. Advancing Formal AI produced a new source and a new identity, with no Hive Mind image rebuild. `live-current` builds `main` because the `v0.355.29` release of the same version was built from `658cd102`. The identity records that release as `releaseCandidate` and does not run it.
 
 The fast tests in `tests/formal-ai-draft-identity-3909.test.mjs` cover:
@@ -94,4 +101,4 @@ The fast tests in `tests/formal-ai-draft-identity-3909.test.mjs` cover:
 ## Remaining cross-repository work
 
 - An issue-created attempt on a pull request branch is correctly deferred whenever the branch's Hive Mind source has no published image yet. The image `konard/hive-mind:<version>` is published only after a release. So the hosted `live-current` contract can be demonstrated end to end only after this change is merged and released.
-- Formal AI's issue workflow already passes its own binary. It should also pass `formal_ai_source_sha`, so its attempts bind the binary to a commit as well as a digest. That is tracked on formal-ai#1484. Links to the hosted attempts in both repositories go there.
+- Formal AI's issue workflow (`hive-mind-draft.yml`) already mounts its own binary through `FORMAL_AI_DRAFT_BINARY` and runs `scripts/formal-ai-draft.mjs` from the Hive Mind commit it checked out. That path is admitted unchanged as a `caller` attempt bound to the binary digest. Setting `FORMAL_AI_DRAFT_SOURCE_SHA` to the commit it built (the `formal_ai_source_sha` input when the reusable workflow is called) binds it to that commit as well. That change belongs to Formal AI and is tracked on formal-ai#1484, where the links to the hosted attempts in both repositories go.

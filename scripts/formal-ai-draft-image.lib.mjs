@@ -5,10 +5,15 @@
  * Hub timeout (`context deadline exceeded`) then failed the draft before solve
  * started, and `:latest` meant the container could run a different hive-mind
  * than the scripts checked out next to it. The image is now the tag of the
- * checked-out `package.json` version, pulled explicitly with retries. A tag
- * that is not published yet (a version bumped on `main` before its release
- * finished) falls back to `:latest` with a warning; a registry timeout does not,
- * because silently switching images would hide the outage.
+ * checked-out `package.json` version, pulled explicitly with retries.
+ *
+ * There is no fallback (issue #3909). A tag that is not published yet — a
+ * version bumped on `main` before its release finished — used to fall back to
+ * `:latest`, which silently ran an older Hive Mind (and its baked Formal AI)
+ * than the attempt selected. A missing exact image is now a
+ * {@link DraftImageUnavailableError}, which the runner reports as a deferred
+ * infrastructure outcome; a registry timeout fails the same way after its
+ * retries.
  *
  * @module formal-ai-draft-image
  */
@@ -20,21 +25,32 @@ export const PULL_RETRY_DELAYS_MS = Object.freeze([15_000, 30_000, 60_000, 120_0
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
+/** The exact image an attempt selected cannot be obtained; `missing` when the registry says it does not exist. */
+export class DraftImageUnavailableError extends Error {
+  constructor(message, { missing = true, image = null } = {}) {
+    super(message);
+    this.name = 'DraftImageUnavailableError';
+    this.missing = missing;
+    this.image = image;
+  }
+}
+
 /**
- * The image to run, and the image to fall back to when it is not published.
+ * The image to run. `fallback` is always null and kept only so existing callers
+ * (Formal AI's issue workflow reads `.image`) keep their shape.
  *
  * @param {object} params
  * @param {string} [params.override] an explicit image (workflow input or `vars.FORMAL_AI_DRAFT_IMAGE`), used as given
  * @param {string} [params.version] the checked-out `package.json` version
- * @returns {{image: string, fallback: (string|null)}}
+ * @returns {{image: string, fallback: null}}
+ * @throws {Error} when neither an override nor a release version names an exact image
  */
 export function resolveDraftImages({ override, version } = {}) {
   const explicit = String(override || '').trim();
   if (explicit) return { image: explicit, fallback: null };
-  const latest = `${HIVE_MIND_IMAGE_REPOSITORY}:latest`;
   const pinned = String(version || '').trim();
-  if (!SEMVER.test(pinned)) return { image: latest, fallback: null };
-  return { image: `${HIVE_MIND_IMAGE_REPOSITORY}:${pinned}`, fallback: latest };
+  if (!SEMVER.test(pinned)) throw new DraftImageUnavailableError(`no exact hive-mind image: the checked-out version ${JSON.stringify(pinned)} is not a release version, and an attempt never runs ${HIVE_MIND_IMAGE_REPOSITORY}:latest`);
+  return { image: `${HIVE_MIND_IMAGE_REPOSITORY}:${pinned}`, fallback: null };
 }
 
 /**
@@ -80,27 +96,24 @@ export async function pullImageWithRetry({ image, run, sleep, delays = PULL_RETR
 }
 
 /**
- * Pull the image a draft runs and return its name.
+ * Pull the exact image a draft runs and return its name. Never substitutes
+ * another image.
  *
  * @param {object} params
+ * @param {string} [params.image] the exact image, when already resolved (the attempt identity's)
  * @param {string} [params.override]
  * @param {string} [params.version]
  * @param {(args: string[]) => Promise<{code: number, output: string}>} params.run
  * @param {(ms: number) => Promise<void>} params.sleep
  * @param {number[]} [params.delays]
  * @param {(message: string) => void} [params.log]
- * @param {(message: string) => void} [params.warn]
  * @returns {Promise<string>} the image that was pulled
+ * @throws {DraftImageUnavailableError}
  */
-export async function pullDraftImage({ override, version, run, sleep, delays = PULL_RETRY_DELAYS_MS, log = console.log, warn = console.warn }) {
-  const { image, fallback } = resolveDraftImages({ override, version });
+export async function pullDraftImage({ image: exact, override, version, run, sleep, delays = PULL_RETRY_DELAYS_MS, log = console.log }) {
+  const image = String(exact || '').trim() || resolveDraftImages({ override, version }).image;
   const pulled = await pullImageWithRetry({ image, run, sleep, delays, log });
   if (pulled.ok) return image;
-  if (pulled.missing && fallback) {
-    warn(`${image} is not published; running ${fallback} instead, which may be a different hive-mind version than the checked-out scripts.`);
-    const latest = await pullImageWithRetry({ image: fallback, run, sleep, delays, log });
-    if (latest.ok) return fallback;
-    throw new Error(`Could not pull ${fallback} after ${latest.attempts} attempt${latest.attempts === 1 ? '' : 's'}: ${latest.error}`);
-  }
-  throw new Error(`Could not pull ${image} after ${pulled.attempts} attempt${pulled.attempts === 1 ? '' : 's'}: ${pulled.error}`);
+  const reason = pulled.missing ? `${image} is not published` : `Could not pull ${image} after ${pulled.attempts} attempt${pulled.attempts === 1 ? '' : 's'}: ${pulled.error}`;
+  throw new DraftImageUnavailableError(`${reason}; the attempt is deferred rather than run on another image (issue #3909)`, { missing: pulled.missing, image });
 }

@@ -53,6 +53,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { describeFormalAiAttemptBinding, readFormalAiAttemptExpectation, verifyFormalAiServingBinding, verifyFormalAiWrapperBinding } from './formal-ai-attempt-identity.lib.mjs';
 import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion, readRequiredHiveMindVersion } from './formal-ai-version.lib.mjs';
 import { keepProcessAcrossSessions, releaseKeptProcess } from './session-survivors.lib.mjs';
 import { prepareToolGhAuth } from './tool-env-gh-auth.lib.mjs';
@@ -717,6 +718,8 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     } else {
       await log(`🧠 Formal AI: reusing the ${tool} runtime prepared for this workspace; serving backend ${describeFormalAiBackend(backend)}`);
     }
+    // The same task-owned server keeps the attempt binding it was verified with.
+    if (cached.runtime.backend?.attempt) backend.attempt = cached.runtime.backend.attempt;
     cached.runtime.backend = backend;
     cached.runtime.formalAiVersion = backend.version;
     if (tool === 'codex') {
@@ -745,6 +748,10 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
   const formalAiWrapperVersion = await (deps.readVersionImpl || readFormalAiBinaryVersion)({ formalAiPath: resolvedFormalAiPath, env });
   assertSupportedFormalAiVersion(formalAiWrapperVersion);
   await log(`🧠 Formal AI: local wrapper version ${formalAiWrapperVersion} (minimum ${FORMAL_AI_MINIMUM_VERSION})`);
+  // Issue #3909: an attempt that selected an exact Formal AI binary refuses any
+  // other one, before the wrapper starts a server or writes a configuration.
+  const attemptExpectation = readFormalAiAttemptExpectation(env);
+  await verifyFormalAiWrapperBinding({ expectation: attemptExpectation, formalAiPath: resolvedFormalAiPath, env, deps });
 
   const apiKey = resolveFormalAiApiKey(env);
   const externalBaseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL?.trim() || null;
@@ -771,6 +778,11 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     // Before any client configuration is written, ask the endpoint who it is.
     const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, startedLocally: !!server });
     await log(`🧠 Formal AI: serving backend ${describeFormalAiBackend(backend)}`);
+    const attemptBinding = await verifyFormalAiServingBinding({ expectation: attemptExpectation, serverPid: server?.pid ?? null, servingVersion: backend.version, deps });
+    if (attemptBinding) {
+      backend.attempt = attemptBinding;
+      await log(`🧠 Formal AI: ${describeFormalAiAttemptBinding(attemptBinding)}`);
+    }
     const sidecarWarning = readFormalAiSidecarWarning(env);
     if (sidecarWarning) await log(`⚠️ ${sidecarWarning}`, { level: 'warn' });
     if (backend.version !== formalAiWrapperVersion) {

@@ -1,4 +1,5 @@
 /** Pure health decision for the scheduled Formal AI draft check (issues #2323, #2324). */
+import { ATTEMPT_OUTCOME_ANNOTATION_TITLES } from './formal-ai-draft-identity.lib.mjs';
 import { decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_DECISION_CODES, DRAFT_FAILURE_ANNOTATION_TITLE } from './formal-ai-draft.lib.mjs';
 
 export const DRAFT_STEP = 'Open the Formal AI draft';
@@ -6,8 +7,16 @@ export const DRAFT_STEP = 'Open the Formal AI draft';
 /** Issues opened since `since` that the draft workflow would attempt. */
 export const eligibleIssues = (issues, since) => issues.filter(issue => issue.created_at >= since && decideDraft({ action: 'opened', issue: { ...issue, labels: (issue.labels || []).filter(label => label.name !== 'formal-ai-draft') } }).run);
 
-/** A run counts only when its model step actually started; a green run with a skipped step is not an attempt. */
-export const isExecutedAttempt = (run, jobs) => ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
+/** The jobs whose annotations describe a run (#3909): select, binary and draft each record theirs. */
+export const DRAFT_JOB_NAMES = Object.freeze(['Select the Formal AI draft attempt', 'Formal AI binary of the attempt', 'Formal AI draft']);
+export const isRecordingJob = job => DRAFT_JOB_NAMES.includes(job.name) || job.steps?.some(step => step.name === DRAFT_STEP);
+
+/**
+ * A run counts only when its model step actually started; a green run with a
+ * skipped step is not an attempt, and neither is one that ended before solve
+ * as deferred or mismatched (#3909) — no model ran on the issue.
+ */
+export const isExecutedAttempt = (run, jobs, outcome = null) => ['issues', 'workflow_dispatch'].includes(run.event) && !outcome?.attemptOutcome && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
 
 export function evaluateDraftHealth({ eligible, attempts }) {
   return {
@@ -44,11 +53,16 @@ export const normalizeErrorKey = message =>
  * What one draft run recorded about itself.
  *
  * @param {object} run a workflow run
- * @param {object[]} annotations the draft job's check-run annotations
+ * @param {object[]} annotations the check-run annotations of the run's draft jobs
  */
 export function runOutcomeFromAnnotations(run, annotations) {
   const titled = title => (annotations || []).find(annotation => annotation.title === title)?.message ?? null;
-  return { url: run.html_url, createdAt: run.created_at, status: run.status, conclusion: run.conclusion, decisionCode: titled(DRAFT_DECISION_ANNOTATION_TITLE), firstError: titled(DRAFT_FAILURE_ANNOTATION_TITLE) };
+  // An attempt that ended before solve (#3909) is an infrastructure outcome, not a model failure.
+  const [attemptOutcome = null, attemptError = null] =
+    Object.entries(ATTEMPT_OUTCOME_ANNOTATION_TITLES)
+      .map(([outcome, title]) => [outcome, titled(title)])
+      .find(([, message]) => message !== null) || [];
+  return { url: run.html_url, createdAt: run.created_at, status: run.status, conclusion: run.conclusion, decisionCode: titled(DRAFT_DECISION_ANNOTATION_TITLE), firstError: titled(DRAFT_FAILURE_ANNOTATION_TITLE), attemptOutcome, attemptError };
 }
 
 /** `undefined`: neutral; `null`: healthy; a string: the fault this run repeats. */
@@ -58,6 +72,7 @@ const faultKey = outcome => {
   if (outcome.conclusion === 'success' || outcome.conclusion === 'skipped' || outcome.conclusion === 'neutral') {
     return outcome.decisionCode && outcome.decisionCode !== DRAFT_DECISION_CODES.run ? `${DECISION_PREFIX}${outcome.decisionCode}` : null;
   }
+  if (outcome.attemptOutcome) return `${outcome.attemptOutcome}: ${normalizeErrorKey(outcome.attemptError)}`;
   return outcome.firstError ? normalizeErrorKey(outcome.firstError) : NO_RECORDED_ERROR;
 };
 
@@ -85,6 +100,8 @@ export function findRepeatedFailure(outcomes, { threshold = REPEATED_FAILURE_THR
 /** The text to look for in open issues: the decision code, or the longest literal part of the error. */
 export const trackingIssueSearchPhrase = key => {
   if (key.startsWith(DECISION_PREFIX)) return key.slice(DECISION_PREFIX.length);
+  const attempt = Object.keys(ATTEMPT_OUTCOME_ANNOTATION_TITLES).find(outcome => key.startsWith(`${outcome}: `));
+  if (attempt) key = key.slice(attempt.length + 2);
   if (key === NO_RECORDED_ERROR) return null;
   return (
     key
@@ -99,7 +116,8 @@ export const trackingIssueSearchPhrase = key => {
  * @param {{number: number, title: string, html_url: string}|null} issue an open issue that mentions it
  */
 export function formatRepeatedFailureReport(streak, issue) {
-  const what = streak.key.startsWith(DECISION_PREFIX) ? `ended with the same ${streak.key}` : `failed with the same first error: ${streak.key}`;
+  const attempt = Object.keys(ATTEMPT_OUTCOME_ANNOTATION_TITLES).find(outcome => streak.key.startsWith(`${outcome}: `));
+  const what = streak.key.startsWith(DECISION_PREFIX) ? `ended with the same ${streak.key}` : attempt ? `ended before solve as ${attempt} (no model ran): ${streak.key.slice(attempt.length + 2)}` : `failed with the same first error: ${streak.key}`;
   const tracking = issue ? `Tracking issue: #${issue.number} ${issue.title} (${issue.html_url})` : 'No open issue mentions it; open one so the failure is tracked.';
   return [`The last ${streak.count} draft runs ${what}`, tracking, 'Runs, newest first:', ...streak.runs.map(url => `- ${url}`)].join('\n');
 }

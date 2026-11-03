@@ -1,0 +1,16 @@
+# https://github.com/link-assistant/hive-mind/actions/runs/41547700367 (workflow_dispatch, preflight_only, issue 3909, Hive Mind ab8db017)
+# select job 125627240311
+2026-11-02T23:48:46.4015914Z ##[notice]live current-source attempt 61dd525dd0d0ccbca75f9162b7ee85ce: link-assistant/formal-ai@94e26f09a4b6 (0.355.29) via build, Hive Mind 2.39.11@ab8db017b6fe in konard/hive-mind:2.39.11
+# binary job 125629067789
+2026-11-03T00:01:28.4899703Z     Finished `release` profile [optimized] target(s) in 4m 54s
+2026-11-03T00:01:30.9842199Z Recorded the receipt for link-assistant/formal-ai@94e26f09a4b6c367a680d4a0793300b8cbe50f49: 8a6bc8ea30049b5bbe79c74c92de77cd79790710f40814bdb9c8a17316c907e8
+2026-11-03T00:01:31.5800118Z Verified the Formal AI binary for attempt 61dd525dd0d0ccbca75f9162b7ee85ce: {"sha256":"8a6bc8ea30049b5bbe79c74c92de77cd79790710f40814bdb9c8a17316c907e8","bytes":263495760,"target":"x86_64-unknown-linux-gnu","version":"0.355.29","source":"build"}
+2026-11-03T00:01:32.0598030Z Uploading artifact: formal-ai-binary-61dd525dd0d0ccbca75f9162b7ee85ce.zip
+2026-11-03T00:01:36.3609101Z SHA256 digest of uploaded artifact is 7fb8ff54b45a2e4b5c7843d5fafde5205111d633f077ee9765a798b08ff717f3
+# draft job 125634333104
+2026-11-03T00:04:14.2983179Z SHA256 digest of downloaded artifact is 7fb8ff54b45a2e4b5c7843d5fafde5205111d633f077ee9765a798b08ff717f3
+2026-11-03T00:04:15.9504976Z ##[notice]live current-source attempt 61dd525dd0d0ccbca75f9162b7ee85ce: link-assistant/formal-ai@94e26f09a4b6 (0.355.29) via build, Hive Mind 2.39.11@ab8db017b6fe in konard/hive-mind:2.39.11
+2026-11-03T00:04:16.3235019Z Formal AI draft preflight — binary: 8a6bc8ea30049b5bbe79c74c92de77cd79790710f40814bdb9c8a17316c907e8 (build, Formal AI 0.355.29)
+2026-11-03T00:09:39.5693544Z ##[error]attempt 61dd525dd0d0ccbca75f9162b7ee85ce: konard/hive-mind:2.39.11 (built from d0e8a610962bc056f066f23c283a1ffcc0db08ee) does not contain the selected Hive Mind source ab8db017b6fea261d741f1a449a36cfcd10a8686: src/formal-ai-attempt-identity.lib.mjs, src/formal-ai-runtime.lib.mjs changed since; its image is not published yet
+2026-11-03T00:09:39.5698225Z attempt_outcome=deferred-infrastructure
+2026-11-03T00:09:39.5769429Z ##[error]Process completed with exit code 1.

@@ -14,6 +14,18 @@
 # an attempt. `scripts/formal-ai-draft.lib.mjs` holds every decision this
 # workflow makes, and tests/formal-ai-draft-2233.test.mjs parses the command it
 # builds through solve's own strict argument parser.
+#
+# What an attempt runs is decided once, at admission (issue #3909): the
+# `select` job resolves the Formal AI commit (live-current: its main head now)
+# and this Hive Mind commit into one attempt identity. The `binary` job reuses
+# the release whose receipt names that exact commit, or builds the commit here,
+# and verifies it; the `draft` job verifies the binary, the exact Hive Mind
+# image (by digest) and the process that would serve the task before solve
+# starts. Nothing falls back to the image's own Formal AI or to `latest`: a
+# missing artefact ends the attempt as "Formal AI draft deferred", a wrong one
+# as "Formal AI draft identity mismatch", with the evidence uploaded.
+# "Re-run failed jobs" reuses the select job's outputs, so a retry keeps the
+# identity; a new run re-resolves, and a new source yields a new identity.
 name: Formal AI Draft
 
 on:
@@ -27,6 +39,27 @@ on:
         description: 'Issue number to re-attempt a draft for'
         required: true
         type: string
+      mode:
+        description: 'live-current runs the Formal AI main head; published-release a release; historical-replay a pinned ref or the image-baked binary, labelled as such'
+        required: false
+        type: choice
+        options: [live-current, published-release, historical-replay]
+        default: live-current
+      formal_ai_ref:
+        description: 'Release tag (published-release) or pinned ref (historical-replay); empty for live-current'
+        required: false
+        type: string
+        default: ''
+      attempt_identity:
+        description: 'A recorded attempt identity (JSON) to run again unchanged'
+        required: false
+        type: string
+        default: ''
+      preflight_only:
+        description: 'Verify source, binary, image and serving process, then stop before solve'
+        required: false
+        type: boolean
+        default: false
   # Another repository (formal-ai's CI) runs a draft with its own image or a
   # Formal AI binary it just built. `inputs` is empty on every other event.
   workflow_call:
@@ -54,6 +87,31 @@ on:
         required: false
         type: string
         default: ''
+      formal_ai_source_sha:
+        description: 'Full commit SHA formal_ai_binary_artifact was built from, bound into the attempt identity'
+        required: false
+        type: string
+        default: ''
+      mode:
+        description: 'live-current, published-release or historical-replay'
+        required: false
+        type: string
+        default: ''
+      formal_ai_ref:
+        description: 'Release tag (published-release) or pinned ref (historical-replay)'
+        required: false
+        type: string
+        default: ''
+      attempt_identity:
+        description: 'A recorded attempt identity (JSON) to run again unchanged'
+        required: false
+        type: string
+        default: ''
+      preflight_only:
+        description: 'Verify source, binary, image and serving process, then stop before solve'
+        required: false
+        type: boolean
+        default: false
     secrets:
       AUTOMATION_APP_PRIVATE_KEY:
         required: false
@@ -87,47 +145,43 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/formal-ai-draft-health.mjs
-  draft:
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      actions: write
+  # Admission (#3909): decide, then resolve both sources once into the attempt
+  # identity every later job acts on. No model runs here.
+  select:
     if: github.event_name != 'schedule' || inputs.issue_number
-    name: Formal AI draft
+    name: Select the Formal AI draft attempt
     runs-on: ubuntu-24.04
-    # One attempt is a full working session. 90 minutes is the ceiling at which
-    # a hung session is cheaper to kill and re-attempt than to wait out. solve's
-    # restart loops (until mergeable, and on uncommitted changes) are both
-    # disabled by DRAFT_SOLVE_FLAGS, so nothing legitimately runs longer.
-    timeout-minutes: 90
-    # Per-issue, and never cancelling: two attempts on the same issue must not
-    # race for the same branch, and an attempt already writing to a branch must
-    # not be killed halfway through by a manual replay.
-    concurrency:
-      group: formal-ai-draft-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number || github.event.inputs.issue_number }}
-      cancel-in-progress: false
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
     outputs:
-      head_branch: ${{ steps.attempt.outputs.head_branch }}
-      checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
-
+      should_run: ${{ steps.decide.outputs.should_run }}
+      issue_number: ${{ steps.decide.outputs.issue_number }}
+      attempt_id: ${{ steps.select.outputs.attempt_id }}
+      mode: ${{ steps.select.outputs.mode }}
+      formal_ai_revision: ${{ steps.select.outputs.formal_ai_revision }}
+      formal_ai_binary_source: ${{ steps.select.outputs.formal_ai_binary_source }}
+      formal_ai_release_tag: ${{ steps.select.outputs.formal_ai_release_tag }}
+      hive_revision: ${{ steps.select.outputs.hive_revision }}
+      hive_repository: ${{ steps.select.outputs.hive_repository }}
+      identity_json: ${{ steps.select.outputs.identity_json }}
     steps:
       # A caller runs Hive Mind's draft scripts, so it checks out this
-      # repository rather than its own.
+      # repository rather than its own. The commit checked out here is the
+      # Hive Mind source of the attempt; later jobs check out exactly it.
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           repository: ${{ inputs.hive_mind_repository || github.repository }}
           ref: ${{ inputs.hive_mind_ref }}
           persist-credentials: false
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Install automation dependencies
         run: npm ci --omit=dev --ignore-scripts
-
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -147,8 +201,156 @@ jobs:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
         run: node scripts/formal-ai-draft.mjs --decide
 
-      - name: Free disk space for the hive-mind image
+      - name: Download the caller's Formal AI binary
+        if: ${{ steps.decide.outputs.should_run == 'true' && inputs.formal_ai_binary_artifact != '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.formal_ai_binary_artifact }}
+          path: ${{ runner.temp }}/formal-ai-binary
+
+      - name: Resolve the attempt identity
+        id: select
         if: steps.decide.outputs.should_run == 'true'
+        env:
+          FORMAL_AI_DRAFT_ISSUE_NUMBER: ${{ steps.decide.outputs.issue_number }}
+          FORMAL_AI_DRAFT_MODE: ${{ inputs.mode || github.event.inputs.mode || 'live-current' }}
+          FORMAL_AI_DRAFT_FORMAL_AI_REF: ${{ inputs.formal_ai_ref || github.event.inputs.formal_ai_ref }}
+          FORMAL_AI_DRAFT_REPLAY_IDENTITY: ${{ inputs.attempt_identity || github.event.inputs.attempt_identity }}
+          FORMAL_AI_DRAFT_IMAGE: ${{ inputs.image || vars.FORMAL_AI_DRAFT_IMAGE }}
+          FORMAL_AI_DRAFT_BINARY: ${{ inputs.formal_ai_binary_artifact != '' && format('{0}/formal-ai-binary/formal-ai', runner.temp) || '' }}
+          FORMAL_AI_DRAFT_SOURCE_SHA: ${{ inputs.formal_ai_source_sha }}
+          FORMAL_AI_DRAFT_HIVE_REPOSITORY: ${{ inputs.hive_mind_repository || github.repository }}
+          GH_TOKEN: ${{ steps.gh.outputs.token }}
+        run: |
+          [ -z "$FORMAL_AI_DRAFT_BINARY" ] || chmod +x "$FORMAL_AI_DRAFT_BINARY"
+          node scripts/formal-ai-draft-select.mjs
+
+  # The Formal AI binary of the selected commit: the release whose published
+  # receipt names that exact commit, or a fresh build of the commit here.
+  # Either way it is verified against the identity and handed to the draft job
+  # as an artifact of this run. The build is deliberately not kept in a shared
+  # Actions cache: an entry written by one attempt would be trusted by the
+  # next, and making that reuse fast and safe is formal-ai#1486's latency work.
+  # Freshness does not depend on it.
+  #
+  # What this job executes is trusted by construction, not by its name: the
+  # Hive Mind revision is the commit this workflow itself runs (or a caller's
+  # pinned one, in the caller's cache scope), and the Formal AI revision is the
+  # main head, the source a release receipt names (downloaded, not built), or a
+  # replay that select verified is reachable from main. The outputs are named
+  # `*_revision`, not `*_sha`, because CodeQL's cache-poisoning query
+  # heuristic treats any `*sha*` checkout ref as an untrusted pull request head.
+  binary:
+    needs: select
+    if: needs.select.outputs.formal_ai_binary_source == 'release' || needs.select.outputs.formal_ai_binary_source == 'build'
+    name: Formal AI binary of the attempt
+    runs-on: ubuntu-24.04
+    # A cold release build of formal-ai is the long pole.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      FORMAL_AI_DRAFT_ATTEMPT_IDENTITY: ${{ needs.select.outputs.identity_json }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ needs.select.outputs.hive_repository }}
+          ref: ${{ needs.select.outputs.hive_revision }}
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Download the release build of the selected commit
+        if: needs.select.outputs.formal_ai_binary_source == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/formal-ai-draft-binary.mjs release "$RUNNER_TEMP/formal-ai-attempt"
+
+      - name: Checkout the selected Formal AI commit
+        if: needs.select.outputs.formal_ai_binary_source == 'build'
+        uses: actions/checkout@v7
+        with:
+          repository: link-assistant/formal-ai
+          ref: ${{ needs.select.outputs.formal_ai_revision }}
+          path: .formal-ai-source
+          persist-credentials: false
+      - name: Build the selected Formal AI commit
+        if: needs.select.outputs.formal_ai_binary_source == 'build'
+        working-directory: .formal-ai-source
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo build --manifest-path rust/Cargo.toml --target-dir target --release --locked --bin formal-ai
+          node "$GITHUB_WORKSPACE/scripts/formal-ai-draft-binary.mjs" receipt . target/release/formal-ai "$RUNNER_TEMP/formal-ai-attempt"
+
+      - name: Verify the binary against the attempt identity
+        run: node scripts/formal-ai-draft-binary.mjs verify "$RUNNER_TEMP/formal-ai-attempt"
+
+      - name: Hand the binary to the draft job
+        uses: actions/upload-artifact@v7
+        with:
+          name: formal-ai-binary-${{ needs.select.outputs.attempt_id }}
+          path: ${{ runner.temp }}/formal-ai-attempt
+          if-no-files-found: error
+          retention-days: 7
+
+  draft:
+    needs: [select, binary]
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    # Runs even when the binary job failed or was skipped: the script then ends
+    # the attempt as deferred with the evidence, instead of running anything else.
+    if: ${{ !cancelled() && needs.select.outputs.should_run == 'true' && needs.select.result == 'success' }}
+    name: Formal AI draft
+    runs-on: ubuntu-24.04
+    # One attempt is a full working session. 90 minutes is the ceiling at which
+    # a hung session is cheaper to kill and re-attempt than to wait out. solve's
+    # restart loops (until mergeable, and on uncommitted changes) are both
+    # disabled by DRAFT_SOLVE_FLAGS, so nothing legitimately runs longer.
+    timeout-minutes: 90
+    # Per-issue, and never cancelling: two attempts on the same issue must not
+    # race for the same branch, and an attempt already writing to a branch must
+    # not be killed halfway through by a manual replay.
+    concurrency:
+      group: formal-ai-draft-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number || github.event.inputs.issue_number }}
+      cancel-in-progress: false
+    outputs:
+      head_branch: ${{ steps.attempt.outputs.head_branch }}
+      checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
+
+    steps:
+      # Exactly the Hive Mind commit the attempt selected.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.hive_mind_repository || github.repository }}
+          ref: ${{ needs.select.outputs.hive_revision }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install automation dependencies
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Resolve GitHub credentials
+        id: gh
+        uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          app-private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          default-token: ${{ github.token }}
+
+      - name: Free disk space for the hive-mind image
         run: node scripts/free-disk-space.mjs
 
       - name: Download the caller's Formal AI binary
@@ -158,13 +360,26 @@ jobs:
           name: ${{ inputs.formal_ai_binary_artifact }}
           path: ${{ runner.temp }}/formal-ai-binary
 
-      # Without an image input or variable the script runs the tag of the
-      # checked-out version (konard/hive-mind:<version>), pulled with retries.
+      # Missing when the binary job failed: the attempt is then deferred.
+      - name: Download the attempt's Formal AI binary
+        if: needs.binary.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: formal-ai-binary-${{ needs.select.outputs.attempt_id }}
+          path: ${{ runner.temp }}/formal-ai-attempt
+
+      # The image is the exact tag of the selected Hive Mind version
+      # (konard/hive-mind:<version>) or an explicit image, pinned by digest
+      # after it is bound to the selected source; never `latest`.
       - name: Open the Formal AI draft
         id: attempt
-        if: steps.decide.outputs.should_run == 'true'
         env:
-          FORMAL_AI_DRAFT_ISSUE: ${{ inputs.issue_number || github.event.inputs.issue_number }}
+          FORMAL_AI_DRAFT_ISSUE: ${{ needs.select.outputs.issue_number }}
+          FORMAL_AI_DRAFT_ATTEMPT_IDENTITY: ${{ needs.select.outputs.identity_json }}
+          FORMAL_AI_DRAFT_BINARY_DIR: ${{ runner.temp }}/formal-ai-attempt
+          FORMAL_AI_DRAFT_BINARY_JOB_RESULT: ${{ needs.binary.result }}
+          FORMAL_AI_DRAFT_PREFLIGHT_ONLY: ${{ inputs.preflight_only || github.event.inputs.preflight_only }}
           FORMAL_AI_DRAFT_IMAGE: ${{ inputs.image || vars.FORMAL_AI_DRAFT_IMAGE }}
           FORMAL_AI_DRAFT_BINARY: ${{ inputs.formal_ai_binary_artifact != '' && format('{0}/formal-ai-binary/formal-ai', runner.temp) || '' }}
           FORMAL_AI_INSTALL_GRANT: workspace
@@ -185,13 +400,15 @@ jobs:
 
       # `--attach-logs` already puts the session log on the pull request. This
       # is the copy for the case where no pull request was opened at all, which
-      # is exactly the failure mode worth reading. `!cancelled()` rather than
-      # `always()`: see tests/ci-workflow-cancellation-2082.test.mjs.
+      # is exactly the failure mode worth reading — and it carries the attempt
+      # identity, the serving probe and any deferred/mismatch outcome record.
+      # `!cancelled()` rather than `always()`: see
+      # tests/ci-workflow-cancellation-2082.test.mjs.
       - name: Upload the session log
-        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' }}
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: formal-ai-draft-session-${{ steps.decide.outputs.issue_number }}
+          name: formal-ai-draft-session-${{ needs.select.outputs.issue_number }}-${{ needs.select.outputs.attempt_id }}
           path: ${{ runner.temp }}/formal-ai-draft-logs
           if-no-files-found: warn
           retention-days: 30

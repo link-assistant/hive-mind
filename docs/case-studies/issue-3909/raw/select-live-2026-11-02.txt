@@ -1,0 +1,12 @@
+Hive Mind 2.39.11 at ab8db017b6fea261d741f1a449a36cfcd10a8686; its image konard/hive-mind:2.39.11 bakes Formal AI 0.355.27
+
+live-current: live current-source attempt 61dd525dd0d0ccbca75f9162b7ee85ce: link-assistant/formal-ai@94e26f09a4b6 (0.355.29) via build, Hive Mind 2.39.11@ab8db017b6fe in konard/hive-mind:2.39.11
+  formalAi: {"repository":"link-assistant/formal-ai","ref":"main","sourceSha":"94e26f09a4b6c367a680d4a0793300b8cbe50f49","version":"0.355.29","binarySource":"build","release":null,"callerBinarySha256":null,"releaseCandidate":{"tag":"v0.355.29","sourceSha":"658cd102a54728fea5c9d2133365e7f184d89167"}}
+  drift: the image-baked binary (0.355.27) is not what this attempt runs (0.355.29)
+
+published-release: published-release qualification ce2868dd13a05988d6cc2fe8acea528f: link-assistant/formal-ai@658cd102a547 (0.355.29) via release, Hive Mind 2.39.11@ab8db017b6fe in konard/hive-mind:2.39.11
+  formalAi: {"repository":"link-assistant/formal-ai","ref":"v0.355.29","sourceSha":"658cd102a54728fea5c9d2133365e7f184d89167","version":"0.355.29","binarySource":"release","release":{"tag":"v0.355.29","version":"0.355.29","sourceSha":"658cd102a54728fea5c9d2133365e7f184d89167","receiptDigest":"sha256:cd7c43d94b9c1dc6c966cd674bd40618a6c4d85d1ae15e86de1b2cd1991b9ada"},"callerBinarySha256":null}
+  drift: the image-baked binary (0.355.27) is not what this attempt runs (0.355.29)
+
+historical-replay: HISTORICAL REPLAY (not current-source evidence) 02f0c56ba00e537ecadcccaf57f6b79c: the image-baked Formal AI via image-baked, Hive Mind 2.39.11@ab8db017b6fe in konard/hive-mind:2.39.11
+  formalAi: {"repository":"link-assistant/formal-ai","ref":"image-baked","sourceSha":null,"version":null,"binarySource":"image-baked","release":null,"callerBinarySha256":null}

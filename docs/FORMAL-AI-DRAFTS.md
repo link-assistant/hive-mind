@@ -43,9 +43,42 @@ Four flags are chosen rather than inherited:
 | `--no-auto-restart-on-uncommitted-changes` | Defaults to on. Left on, every file the model leaves uncommitted restarts it, up to five more sessions in one run. The failure policy applies here too: the next run is the retry.          |
 | `--log-dir`                                | The session log is bind-mounted out of the container and uploaded as a workflow artifact, so it is readable even when no pull request was opened at all.                                    |
 
+## The attempt identity
+
+An attempt runs the Formal AI source and the Hive Mind source it was admitted with, not whatever happens to be baked into the image ([#3909](https://github.com/link-assistant/hive-mind/issues/3909)). Before #3909 every issue-created draft ran the `formal-ai` binary inside `konard/hive-mind:<version>`, which lags Formal AI's `main` by however long the next Hive Mind release takes; advancing Formal AI changed nothing until the next Hive Mind release.
+
+The workflow now has three jobs before solve starts:
+
+| Job      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `select` | Decides whether to attempt, then resolves both sources once (`scripts/formal-ai-draft-select.mjs`): the Formal AI commit, its version read from that commit's `rust/Cargo.toml`, the Hive Mind commit and its image. The result is the attempt identity, whose id is a hash of that selection.                                                                                                                                                  |
+| `binary` | Obtains the binary of the selected Formal AI commit through Formal AI's own artefacts: the release whose native receipt names that exact commit is downloaded, otherwise the commit is built here (`cargo build --locked`, fresh for each attempt; no cache another run could have written) and given the same receipt. A release of the same _version_ built from another commit is not reused; the identity records it as `releaseCandidate`. |
+| `draft`  | Checks out the selected Hive Mind commit and verifies, in order, the binary (digest, receipt, `--version`), the image (pulled exactly, pinned by digest, its `org.opencontainers.image.revision` the selected commit or one whose runtime is unchanged) and the process that would serve the task (a real `formal-ai serve` inside that image digest, whose `/proc/<pid>/exe` must hash to the selected binary). Only then does solve start.    |
+
+Solve re-checks the same thing for the server it starts itself: the draft passes `HIVE_MIND_FORMAL_AI_EXPECTED_SHA256` and `HIVE_MIND_FORMAL_AI_EXPECTED_VERSION`, and `src/formal-ai-attempt-identity.lib.mjs` refuses a wrapper or a `/health` that is not that executable.
+
+A failure before solve has one of two outcomes, and neither runs a model:
+
+- **Formal AI draft deferred** (`deferred-infrastructure`): an artefact is missing — no release receipt, the build failed, the image tag is not published, the image runtime is behind the selected commit, the probe could not start the server. The run is red, the evidence is in `attempt-outcome.json`, and nothing falls back to an older image or `latest`.
+- **Formal AI draft identity mismatch** (`identity-mismatch`): an artefact exists but is not the selected one — a receipt for another commit, a digest that differs, a version that differs, a server running another executable.
+
+The daily health job counts both as attempts that ended before solve, not as executed drafts or model failures.
+
+"Re-run failed jobs" reuses the `select` job's outputs, so a retry keeps its identity. A new run re-resolves: if Formal AI's `main` moved, the attempt gets the new source and a new identity.
+
+### Modes
+
+| `mode`                   | Formal AI source                                                                                                                                                                  | Labelled                                                         |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `live-current` (default) | Formal AI's `main` head at admission. A ref is refused.                                                                                                                           | `formal-ai-draft` only; this is the current-source evidence.     |
+| `published-release`      | The release `formal_ai_ref` names (the latest when empty), at the commit its receipt records.                                                                                     | `formal-ai-release-qualification`                                |
+| `historical-replay`      | A pinned `formal_ai_ref` that is on Formal AI `main` (a fork or unmerged commit is an identity mismatch), or — only here — the binary baked into the image when the ref is empty. | `formal-ai-historical-replay`, and "not current-source evidence" |
+
+`attempt_identity` runs a recorded identity again unchanged, whatever `main` is now. `preflight_only` stops after the verification, before solve. Issue-created attempts are always `live-current`.
+
 ### Image, binary and Formal AI's own state
 
-- The script pulls `konard/hive-mind:<version>` explicitly, retrying a registry timeout after 15 s, 30 s, 1 min and 2 min, so the container runs the same hive-mind as the scripts beside it. A tag that is not published yet (a version bumped on `main` before its release finished) falls back to `konard/hive-mind:latest` with a warning. An `image` input or the `FORMAL_AI_DRAFT_IMAGE` variable is used as given.
+- The script pulls exactly the image the attempt selected — `konard/hive-mind:<version>`, where `<version>` is the `package.json` version of the selected Hive Mind commit — retrying a registry timeout after 15 s, 30 s, 1 min and 2 min, and then runs it by digest. A tag that is not published yet (a version bumped on `main` before its release finished) is a deferred attempt, not a fallback to another tag or to `latest` ([#3909](https://github.com/link-assistant/hive-mind/issues/3909)). An `image` input or the `FORMAL_AI_DRAFT_IMAGE` variable is used as given, and is verified the same way.
 - The Formal AI server the session starts gets `FORMAL_AI_CACHE_DIR` under its own home. Formal AI still writes `data/cache/derivations/` in the clone, so that directory, like `.formal-ai/`, is excluded from the uncommitted-changes check and from the work preserved on `recovery/<branch>` branches: it is the tool's state, not the user's work.
 - The container is started with `--rm`, so a failure comment never points at a path inside it. It links the workflow run, whose artifact holds the session log.
 
@@ -101,22 +134,27 @@ jobs:
 | `issue_number`              | Issue in the caller's repository to draft. Omit it when the caller itself runs on `issues: opened`.                                           |
 | `image`                     | hive-mind image to run instead of `konard/hive-mind:<version>`.                                                                               |
 | `formal_ai_binary_artifact` | Name of an artifact of the calling run holding a file named `formal-ai`. It is mounted read-only over the image's `/usr/local/bin/formal-ai`. |
+| `formal_ai_source_sha`      | The full commit the artifact was built from. It is bound into the attempt identity; without it the binary is bound by digest only.            |
 | `hive_mind_repository`      | Repository whose draft scripts are checked out (default `link-assistant/hive-mind`).                                                          |
 | `hive_mind_ref`             | Ref of that repository to check out (default: its default branch).                                                                            |
+| `mode`, `formal_ai_ref`     | As for a manual run (see [Modes](#modes)). With `formal_ai_binary_artifact` the artifact is the source, and `mode` only labels it.            |
+| `attempt_identity`          | A recorded identity to run again unchanged.                                                                                                   |
+| `preflight_only`            | Verify source, binary, image and serving process, then stop before solve.                                                                     |
 
-The binary must run on the image's Ubuntu base (glibc). When called, the workflow does not dispatch this repository's checks and does not run its health job; `issues: opened` here works as before.
+The caller's binary is the trusted matching build: it is hashed at admission and the same digest must be what serves the task. It must run on the image's Ubuntu base (glibc). When called, the workflow does not dispatch this repository's checks and does not run its health job; `issues: opened` here works as before.
 
 ## Opting out, and re-running
 
 - Add the `no-formal-ai-draft` label to an issue template, or to the issue before opening it, to suppress the attempt.
 - Issues opened by a bot are skipped: two automations feeding each other produces noise, not evidence.
-- To re-attempt an issue, run the workflow manually (`Actions → Formal AI Draft → Run workflow`) with the issue number. A manual replay is treated as a fresh `opened` event.
+- To re-attempt an issue, run the workflow manually (`Actions → Formal AI Draft → Run workflow`) with the issue number. A manual run is treated as a fresh `opened` event and admits a new attempt (`live-current` unless another mode is chosen).
 
 ## Reading a failed draft
 
 1. The session log is attached to the pull request by `--attach-logs`.
-2. If no pull request was opened, the same log is the `formal-ai-draft-session-<issue>` artifact on the workflow run, retained for 30 days. The run's annotations name the first error the session logged.
-3. `dev/log/self-authored/issue-<n>/evidence` on the branch holds `agent-stream.jsonl` and `session-id.txt` — the model's own record of what it did, not Hive Mind's summary of it.
+2. If no pull request was opened, the same log is the `formal-ai-draft-session-<issue>-<attempt id>` artifact on the workflow run, retained for 30 days. The run's annotations name the first error the session logged, or the deferred / mismatch outcome of an attempt that ended before solve.
+3. The same artifact holds `attempt-identity.json` (what was selected), `serving-probe.json` and `attempt-record.json` (what was verified) and, for an attempt that ended before solve, `attempt-outcome.json`.
+4. `dev/log/self-authored/issue-<n>/evidence` on the branch holds `agent-stream.jsonl` and `session-id.txt` — the model's own record of what it did, not Hive Mind's summary of it.
 
 ## When formal-ai publishes its composite action
 

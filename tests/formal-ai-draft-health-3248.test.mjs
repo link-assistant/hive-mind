@@ -32,8 +32,8 @@ test('a run outcome is read from the annotations the draft job writes', () => {
     { annotation_level: 'failure', title: DRAFT_FAILURE_ANNOTATION_TITLE, message: E_G('1') },
     { annotation_level: 'failure', title: '', message: 'Process completed with exit code 1.' },
   ];
-  assert.deepEqual(runOutcomeFromAnnotations(run, annotations), { url: run.html_url, createdAt: run.created_at, status: 'completed', conclusion: 'failure', decisionCode: 'run', firstError: E_G('1') });
-  assert.deepEqual(runOutcomeFromAnnotations(run, []), { url: run.html_url, createdAt: run.created_at, status: 'completed', conclusion: 'failure', decisionCode: null, firstError: null });
+  assert.deepEqual(runOutcomeFromAnnotations(run, annotations), { url: run.html_url, createdAt: run.created_at, status: 'completed', conclusion: 'failure', decisionCode: 'run', firstError: E_G('1'), attemptOutcome: null, attemptError: null });
+  assert.deepEqual(runOutcomeFromAnnotations(run, []), { url: run.html_url, createdAt: run.created_at, status: 'completed', conclusion: 'failure', decisionCode: null, firstError: null, attemptOutcome: null, attemptError: null });
 });
 
 test('five consecutive runs failing with the same first error fail the health check, naming it', () => {

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 3,
+  "collectedAt": "2026-11-04T05:19:38.034Z",
+  "issueNumber": "4013",
+  "prNumber": "4015",
+  "branchName": "issue-4013-d0641259f9ed",
+  "tool": null,
+  "sessionId": "ses_e5b0087e7ffeN0TaTWwc1Dkbya",
+  "rawCommand": null,
+  "developmentLogDirectory": "./dev/log/issues/4013/pulls/4015",
+  "caseStudyDirectory": "./docs/case-studies/issue-4013",
+  "artifacts": {
+    "solveLog": "./dev/log/issues/4013/pulls/4015/sessions/ses_e5b0087e7ffeN0TaTWwc1Dkbya/solve.log",
+    "solveLogRange": {
+      "startByte": 0,
+      "endByte": 453860
+    },
+    "sessionFiles": []
+  }
+}

@@ -1,3 +1,4 @@
+// @hive-mind-test-suite default,pr-essential
 /** @hive-mind-test-suite default */
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';

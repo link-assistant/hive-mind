@@ -29,6 +29,7 @@ permissions:
 
 jobs:
   prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_REAL_GITHUB_E2E == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -82,7 +83,7 @@ jobs:
           - tool: codex
             model: formal-ai
           - tool: agent
-            model: nemotron-3-super-free
+            model: kilo/nemotron-3.5-lightning-free
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -145,7 +146,7 @@ jobs:
           FORMAL_AI_INSTALL_GRANT: workspace
           ANTHROPIC_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
-          OPENAI_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.model != 'nemotron-3-super-free' && matrix.tool != 'claude' && secrets.OPENAI_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.model != 'kilo/nemotron-3.5-lightning-free' && matrix.tool != 'claude' && secrets.OPENAI_API_KEY || '' }}
         run: |
           set -- --tool "$E2E_TOOL" --model "$E2E_MODEL" --isolation "$E2E_ISOLATION"
           if [ -n "$E2E_ISSUE_URL" ]; then set -- "$@" --issue "$E2E_ISSUE_URL"; fi

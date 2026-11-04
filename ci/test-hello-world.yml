@@ -1,0 +1,32 @@
+# actions/checkout v7.0.1: (version resolved from the shipped baseline measured 2026-09-30)
+# actions/setup-java v6.0.1: (version resolved from the shipped baseline measured 2026-09-30)
+# fwilhe2/setup-kotlin v2.0: (version resolved from the shipped baseline measured 2026-09-30)
+# actions/setup-python v7.0.0: (version resolved from the shipped baseline measured 2026-09-30)
+# python 3.14.7: (version resolved from the shipped baseline measured 2026-09-30)
+# kotlin v2.4.20: (version resolved from the shipped baseline measured 2026-09-30)
+# java 25: (version resolved from the shipped baseline measured 2026-09-30)
+# coursier/setup-action v3.0.4: (version resolved from the shipped baseline measured 2026-10-07)
+# scala 3.10.0: (version resolved from the shipped baseline measured 2026-10-19)
+# Runs Main.scala on every push and pull request with the commands the
+# change was verified with.
+name: Run Main.scala
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: coursier/setup-action@648df969f41ef15fda2baba8b37f9fa3d16390a3  # v3.0.4
+        with:
+          jvm: temurin:25
+          apps: scala:3.10.0 scalac:3.10.0
+      - run: |
+          sh tests/verify-output.sh

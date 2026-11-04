@@ -276,30 +276,9 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
-      - name: Select source test profile
-        id: test-profile
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          CURRENT_REF: ${{ github.ref }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          : "${DEFAULT_BRANCH:?missing repository default branch}"
-          suite=default
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            suite=pr-essential
-          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$CURRENT_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
-            case "$CURRENT_REF" in refs/heads/*) suite=pr-essential ;; esac
-          fi
-          echo "suite=$suite" >> "$GITHUB_OUTPUT"
       - name: Run selected source test suite
-        env:
-          TEST_SUITE: ${{ steps.test-profile.outputs.suite }}
-        run: |
-          if [ "$TEST_SUITE" = "default" ]; then
-            npm test
-          else
-            node scripts/run-tests.mjs --suite "$TEST_SUITE"
-          fi
+        id: test-profile
+        run: node scripts/source-test-profile.mjs
       - name: Resolve GitHub credentials
         if: steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'
         id: gh

@@ -132,11 +132,7 @@ test('the E2E candidate image stages every catalogue used by literal prompt refe
   const path = await import('node:path');
   const { loadLocaleTree } = await import('../src/locale-catalogs.lib.mjs');
   const dockerfile = await readFile(new URL('../Dockerfile.e2e', import.meta.url), 'utf8');
-  assert.equal(
-    dockerfile.split('\n').filter(line => line === 'COPY --chown=box:box locales /opt/hive-e2e/locales').length,
-    1,
-    'The candidate solve source must carry its complete runtime locale tree'
-  );
+  assert.equal(dockerfile.split('\n').filter(line => line === 'COPY --chown=box:box locales /opt/hive-e2e/locales').length, 1, 'The candidate solve source must carry its complete runtime locale tree');
   const staged = await mkdtemp(path.join(tmpdir(), 'hive-e2e-catalogues-'));
   try {
     const directory = path.join(staged, 'opt/hive-e2e/locales');

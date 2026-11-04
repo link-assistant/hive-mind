@@ -186,6 +186,21 @@ test('report cells escape backslashes before pipes and stay on one line', () => 
   assert.equal(row, '| x | ❌ | C:\\\\tmp \\| "a b" |');
 });
 
+const { execFileSync } = await import('node:child_process');
+// Ask Git for its protocol object ID. This is not a credential/security hash;
+// --stdin without -w computes the ID without writing an object or invoking a shell.
+const fixtureGitBlobId = data => {
+  const id = execFileSync('git', ['hash-object', '--stdin'], {
+    input: Buffer.from(data),
+    encoding: 'utf8',
+    timeout: 2000,
+    maxBuffer: 128,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1' },
+  }).trim();
+  assert.match(id, /^[a-f0-9]{40}$/);
+  return id;
+};
+
 test('E2E actual act raw-output framing is decoded without accepting diagnostic messages', () => {
   const records = ['{"dryrun":false,"job":"Run Main.kt/run","jobID":"run","level":"info","matrix":{},"msg":"Hello, World!\\n","raw_output":true,"stage":"Main","step":"sh tests/verify-output.sh\\n","stepID":["3"],"time":"2026-11-04T05:20:22Z"}', '{"dryrun":false,"job":"Run Main.scala/run","jobID":"run","level":"info","matrix":{},"msg":"Hello, World!\\n","raw_output":true,"stage":"Main","step":"sh tests/verify-output.sh\\n","stepID":["2"],"time":"2026-11-04T05:20:35Z"}', '{"dryrun":false,"job":"Run main.rs/run","jobID":"run","level":"info","matrix":{},"msg":"Hello, World!\\n","raw_output":true,"stage":"Main","step":"sh tests/verify-output.sh\\n","stepID":["2"],"time":"2026-11-04T05:22:29Z"}'];
   for (const line of records) {
@@ -197,7 +212,6 @@ test('E2E actual act raw-output framing is decoded without accepting diagnostic 
 });
 
 test('E2E generated evidence exemption binds exact session blobs and rejects foreign or copied authority', async () => {
-  const { createHash } = await import('node:crypto');
   const { collectGeneratedEvidence } = await import('../scripts/e2e-generated-evidence.lib.mjs');
   const issueNumber = 4010,
     pullRequest = { number: 4012, headRefName: 'issue-4010-test', headRefOid: 'a'.repeat(40) },
@@ -211,10 +225,7 @@ test('E2E generated evidence exemption binds exact session blobs and rejects for
   const blob = content => {
     const data = Buffer.from(content);
     return {
-      sha: createHash('sha1')
-        .update('blob ' + data.length + '\0')
-        .update(data)
-        .digest('hex'),
+      sha: fixtureGitBlobId(data),
       size: data.length,
       encoding: 'base64',
       content: data.toString('base64'),
@@ -249,7 +260,6 @@ test('E2E generated evidence exemption binds exact session blobs and rejects for
 
 test('E2E actual PR4012 metadata uses a canonical string issue id and explicit null tool', async () => {
   const { collectGeneratedEvidence } = await import('../scripts/e2e-generated-evidence.lib.mjs');
-  const { createHash } = await import('node:crypto');
   // Captured from source333/run41776642750, immutable PR4012 head0a20517c.
   // Original snapshot SHA2569ece98d5; metadata592B/session84B. Data provenance
   // admits a four-file diff exemption only, never model or source authority.
@@ -313,10 +323,7 @@ test('E2E actual PR4012 metadata uses a canonical string issue id and explicit n
   const original = JSON.parse(Buffer.from(actual.blobs[metadataRow.sha].content, 'base64').toString());
   for (const delta of [{ issueNumber: '04010' }, { issueNumber: '4011' }, { tool: undefined }, { tool: 'claude' }]) {
     const data = Buffer.from(JSON.stringify({ ...original, ...delta }));
-    const sha = createHash('sha1')
-      .update('blob ' + data.length + '\0')
-      .update(data)
-      .digest('hex');
+    const sha = fixtureGitBlobId(data);
     const changes = actual.changes.map(row => (row === metadataRow ? { ...row, sha } : row));
     const tree = { ...actual.tree, tree: actual.tree.tree.map(row => (row.path === metadataRow.filename ? { ...row, sha } : row)) };
     const blob = { sha, size: data.length, encoding: 'base64', content: data.toString('base64') };

@@ -7,6 +7,7 @@ ENTRYPOINT []
 USER root
 COPY --chown=box:box package.json package-lock.json /opt/hive-e2e/
 COPY --chown=box:box src /opt/hive-e2e/src
+COPY --chown=box:box locales /opt/hive-e2e/locales
 RUN chmod +x /opt/hive-e2e/src/solve.mjs && \
     ln -sf /opt/hive-e2e/src/solve.mjs /usr/local/bin/solve
 USER box

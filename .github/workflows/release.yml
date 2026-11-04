@@ -404,6 +404,7 @@ jobs:
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
     if: |
+      vars.ENABLE_DOCKER_PR_BUILDS == 'true' &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       github.event_name == 'pull_request' &&

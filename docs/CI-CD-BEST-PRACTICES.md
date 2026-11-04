@@ -571,3 +571,5 @@ fix owner/repo --ci-cd --no-wait-for-ci
 - [Best Practices](./BEST-PRACTICES.md)
 
 Real GitHub Hello World E2E runs create issues, pull requests and fixture branches. Keep `ENABLE_REAL_GITHUB_E2E` unset by default: schedule and `workflow_run` execution are opt-in through the optional repository variable `ENABLE_REAL_GITHUB_E2E=true`, while manual dispatch remains available. Default unit tests replay captured Agent, Claude and Codex output and verify run-bound evidence. Real runs still require physical fixture cleanup; protected branches keep the run red. Captured regression passes do not establish full #1483 or cross-client delivery acceptance.
+
+Pull requests run essential source, dependency and captured-regression checks by default. Real Docker image builds and container integration in `docker-pr-check` require the optional `ENABLE_DOCKER_PR_BUILDS=true` repository variable; their scripts and assertions remain available. Default-branch Docker publication still builds the actual release images after npm publication. An opt-in PR build is additional coverage, not a replacement for default-branch production qualification.

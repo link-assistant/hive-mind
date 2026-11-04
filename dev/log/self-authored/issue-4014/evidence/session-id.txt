@@ -1,0 +1,2 @@
+formal-ai session 01a1a500-2916-7b93-8bcf-b93a2957d1cb
+formal-ai model formal-ai/0.355.30

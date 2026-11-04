@@ -568,3 +568,7 @@ fix owner/repo --ci-cd --no-wait-for-ci
 - [代码架构原则](https://github.com/link-foundation/code-architecture-principles)
 - [贡献指南](./CONTRIBUTING.md)
 - [最佳实践](./BEST-PRACTICES.md)
+
+真实的 GitHub Hello World 端到端（E2E）运行会创建议题、拉取请求和测试分支。默认情况下，请保持 `ENABLE_REAL_GITHUB_E2E` 未设置：定时运行和 `workflow_run` 只有在可选仓库变量 `ENABLE_REAL_GITHUB_E2E=true` 启用后才会执行，手动触发仍然可用。默认单元测试重放已捕获的 Agent、Claude 和 Codex 输出，并验证与具体运行绑定的证据。真实运行仍须实际清理测试资源；受保护分支会使运行保持失败。捕获数据的回归测试通过并不代表完整满足 #1483 或已完成跨客户端交付验收。
+
+拉取请求默认运行必要的源码、依赖和捕获证据回归检查。`docker-pr-check` 中的实际 Docker 镜像构建和容器集成需要可选仓库变量 `ENABLE_DOCKER_PR_BUILDS=true`；相应脚本及断言仍予保留。默认分支的 Docker 发布仍在 npm 发布后构建实际发行镜像。可选的 PR 构建只提供额外覆盖，不能替代默认分支的生产发布验证。

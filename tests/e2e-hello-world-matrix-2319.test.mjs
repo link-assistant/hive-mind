@@ -328,10 +328,10 @@ test('E2E actual PR4012 metadata uses a canonical string issue id and explicit n
 test('E2E real GitHub resources are opt-in while default captured regressions and strict cleanup remain', () => {
   const workflow = readFileSync('.github/workflows/e2e-hello-world-matrix.yml', 'utf8');
   assert.ok(workflow.includes('  prepare:\n    if: $' + "{{ github.event_name == 'workflow_dispatch' || vars.ENABLE_REAL_GITHUB_E2E == 'true' }}\n"));
-  assert.match(workflow, /^  workflow_dispatch:/m);
-  assert.match(workflow, /^  workflow_run:/m);
-  assert.match(workflow, /^  schedule:/m);
-  assert.match(workflow, /    needs: prepare\n    if: needs\.prepare\.outputs\.should_run == 'true'/);
+  assert.match(workflow, /^ {2}workflow_dispatch:/m);
+  assert.match(workflow, /^ {2}workflow_run:/m);
+  assert.match(workflow, /^ {2}schedule:/m);
+  assert.match(workflow, / {4}needs: prepare\n {4}if: needs\.prepare\.outputs\.should_run == 'true'/);
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/);
   const runner = readFileSync('scripts/e2e-hello-world.mjs', 'utf8');
   assert.ok(runner.includes('if (cleanup.errors.length || cleanup.retainedBranches.length) evidence.passed = false;'));

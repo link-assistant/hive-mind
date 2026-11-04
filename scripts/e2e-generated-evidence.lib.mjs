@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { TextDecoder } from 'node:util';
 import { ATTRIBUTION_CLIENTS, buildEvidenceDirectory, buildSessionEvidence, describeAttributionClient } from '../src/formal-ai-attribution.lib.mjs';
 
 const admitted = new WeakMap();

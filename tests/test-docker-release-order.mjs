@@ -33,7 +33,7 @@ const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
 const helmPrStart = releaseYml.indexOf('  helm-pr-check:', dockerPrStart);
 assert.ok(dockerPrStart >= 0 && helmPrStart > dockerPrStart, 'the Docker PR contract must inspect exactly its named job');
 const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
-assert.match(dockerPrSection, /^    if: \|\n      vars\.ENABLE_DOCKER_PR_BUILDS == 'true' &&\n      !cancelled\(\) &&/m, 'real PR Docker builds require an explicit repository opt-in before all existing checks');
+assert.match(dockerPrSection, /^ {4}if: \|\n {6}vars\.ENABLE_DOCKER_PR_BUILDS == 'true' &&\n {6}!cancelled\(\) &&/m, 'real PR Docker builds require an explicit repository opt-in before all existing checks');
 assert.ok(dockerPrSection.includes("      github.event_name == 'pull_request' &&"), 'the opt-in must not broaden the existing event predicate');
 assert.ok(dockerPrSection.includes('    timeout-minutes: 30'), 'the retained real build keeps its finite job budget');
 

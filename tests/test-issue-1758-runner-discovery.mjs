@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 /**
  * Regression tests for the folder-based test discovery introduced in #1758.
  *
@@ -15,7 +16,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -124,6 +125,77 @@ try {
   const ghTests = listTests(work, 'github-integration');
   assert(ghTests.includes('tests/test-other-suite.mjs'), 'github-integration suite finds matching test');
   assert(!ghTests.includes('tests/test-plain.mjs'), 'plain test is not selected for github-integration suite');
+
+  // The reviewed PR profile is metadata owned by each existing test file.
+  // Exercise the actual selection CLI against only these files plus the old
+  // synthetic cases; no selected test body is executed by --list.
+  const profileFiles = ['tests/e2e-hello-world-matrix-2319.test.mjs', 'tests/agent-default-free-model-2625.test.mjs', 'tests/test-issue-2187-current-dependency-pins.mjs', 'tests/test-docker-release-order.mjs', 'tests/prompt-catalogues-3837.test.mjs', 'tests/formal-ai-tool-parity-3279.test.mjs', 'tests/formal-ai-attribution-generation-identity-2317.test.mjs', 'tests/formal-ai-draft-3248.test.mjs', 'tests/formal-ai-draft-checks-3248.test.mjs', 'tests/formal-ai-no-change-ready-3330.test.mjs', 'tests/test-issue-1758-runner-discovery.mjs', 'tests/test-test-runner-1698.test.mjs'];
+  assert(profileFiles.length <= 32 && new Set(profileFiles).size === profileFiles.length, 'the reviewed PR profile is bounded and has no duplicate paths');
+  for (const file of profileFiles) cpSync(join(repoRoot, file), join(work, file));
+  const essentialTests = listTests(work, 'pr-essential');
+  const expectedEssential = [...profileFiles].sort();
+  assert(JSON.stringify(essentialTests) === JSON.stringify(expectedEssential), 'the real named selector returns exactly the reviewed PR files');
+  const fullAfterProfile = listTests(work, 'default');
+  assert(
+    expectedEssential.every(file => fullAfterProfile.includes(file)),
+    'every PR-essential test remains in the full default suite'
+  );
+  assert(JSON.stringify(fullAfterProfile.filter(file => !expectedEssential.includes(file))) === JSON.stringify(defaultTests), 'all pre-existing default fixture members remain selected');
+
+  const releaseWorkflow = readFileSync(join(repoRoot, '.github/workflows/release.yml'), 'utf8');
+  const jobStart = releaseWorkflow.indexOf('  test-suites:\n');
+  const nextJob = /\n {2}[A-Za-z0-9_-]+:\n/.exec(releaseWorkflow.slice(jobStart + 1));
+  assert(jobStart >= 0, 'the source test job exists');
+  const jobSource = releaseWorkflow.slice(jobStart, nextJob ? jobStart + 1 + nextJob.index : undefined);
+  const stepSource = name => {
+    const header = '      - name: ' + name + '\n';
+    const start = jobSource.indexOf(header);
+    if (start < 0) throw new Error('Missing workflow step: ' + name);
+    const end = jobSource.indexOf('\n      - ', start + header.length);
+    return jobSource.slice(start, end < 0 ? undefined : end);
+  };
+  const selectorStep = stepSource('Select source test profile');
+  const expression = value => '$' + '{{ ' + value + ' }}';
+  for (const [name, value] of [
+    ['EVENT_NAME', 'github.event_name'],
+    ['CURRENT_REF', 'github.ref'],
+    ['DEFAULT_BRANCH', 'github.event.repository.default_branch'],
+  ])
+    assert(selectorStep.includes('          ' + name + ': ' + expression(value)), 'profile selection binds trusted workflow context: ' + name);
+  assert(!selectorStep.includes('REQUESTED_PR') && !selectorStep.includes('inputs'), 'profile selection adds no PR-number source-admission shortcut');
+  const commandMarker = '        run: |\n';
+  const commandStart = selectorStep.indexOf(commandMarker);
+  if (commandStart < 0) throw new Error('Missing source profile command');
+  const selectorScript =
+    selectorStep
+      .slice(commandStart + commandMarker.length)
+      .split('\n')
+      .filter(Boolean)
+      .map(line => {
+        if (!line.startsWith(' '.repeat(10))) throw new Error('Profile command escaped its YAML block');
+        return line.slice(10);
+      })
+      .join('\n') + '\n';
+  const outputPath = join(work, 'profile-output');
+  const contexts = [
+    ['pull_request', 'refs/pull/17/merge', 'main', 'pr-essential'],
+    ['workflow_dispatch', 'refs/heads/feature/example', 'main', 'pr-essential'],
+    ['push', 'refs/heads/main', 'main', 'default'],
+    ['workflow_dispatch', 'refs/heads/main', 'main', 'default'],
+    ['push', 'refs/heads/trunk', 'trunk', 'default'],
+    ['workflow_dispatch', 'refs/heads/trunk', 'trunk', 'default'],
+    ['pull_request_target', 'refs/heads/main', 'main', 'default'],
+    ['workflow_dispatch', 'refs/tags/v1.0.0', 'main', 'default'],
+  ];
+  for (const [event, ref, defaultBranch, expected] of contexts) {
+    rmSync(outputPath, { force: true });
+    const selected = spawnSync('bash', ['-eu'], { input: selectorScript, cwd: work, encoding: 'utf8', timeout: 2000, maxBuffer: 65536, env: { ...process.env, EVENT_NAME: event, CURRENT_REF: ref, DEFAULT_BRANCH: defaultBranch, GITHUB_OUTPUT: outputPath } });
+    assert(selected.status === 0 && existsSync(outputPath) && readFileSync(outputPath, 'utf8') === 'suite=' + expected + '\n', 'actual workflow selector chooses ' + expected + ' for ' + event + ' ' + ref);
+  }
+  const gate = "steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'";
+  for (const name of ['Resolve GitHub credentials', 'Run GitHub integration test suite', 'Upload integration evidence']) assert(stepSource(name).includes(gate), 'real integration remains full-branch and explicitly opt-in: ' + name);
+  const runSource = stepSource('Run selected source test suite');
+  assert(runSource.includes('npm test') && runSource.includes('node scripts/run-tests.mjs --suite "$TEST_SUITE"'), 'both lanes retain the existing shared test entrypoints');
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 
 /**
  * Issue #2187 follow-up: once box#119 repaired multi-architecture publishing,

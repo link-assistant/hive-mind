@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 /**
  * Issue #3248 item 6: make a draft's checks visible on its pull request.
  *

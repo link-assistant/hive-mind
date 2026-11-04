@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 /**
  * Issue #3248: the Formal AI Draft workflow failed on 53 of 60 new issues.
  *

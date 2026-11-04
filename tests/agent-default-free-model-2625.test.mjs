@@ -1,3 +1,4 @@
+// @hive-mind-test-suite default,pr-essential
 /**
  * Regression coverage for issue #2625 (E2E Hello World Matrix run 37616874265,
  * row `agent / nemotron-3-super-free`).

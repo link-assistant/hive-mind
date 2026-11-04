@@ -276,9 +276,32 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
-      - name: Run default test suite
-        run: npm test
+      - name: Select source test profile
+        id: test-profile
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          : "${DEFAULT_BRANCH:?missing repository default branch}"
+          suite=default
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            suite=pr-essential
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$CURRENT_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            case "$CURRENT_REF" in refs/heads/*) suite=pr-essential ;; esac
+          fi
+          echo "suite=$suite" >> "$GITHUB_OUTPUT"
+      - name: Run selected source test suite
+        env:
+          TEST_SUITE: ${{ steps.test-profile.outputs.suite }}
+        run: |
+          if [ "$TEST_SUITE" = "default" ]; then
+            npm test
+          else
+            node scripts/run-tests.mjs --suite "$TEST_SUITE"
+          fi
       - name: Resolve GitHub credentials
+        if: steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
         with:
@@ -287,13 +310,14 @@ jobs:
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
       - name: Run GitHub integration test suite
+        if: steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
           AUTOMATION_CAN_DELETE_REPOSITORIES: ${{ steps.gh.outputs.can-delete-repositories }}
         run: node scripts/run-tests.mjs --suite github-integration
       - name: Upload integration evidence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: feedback-lines-integration

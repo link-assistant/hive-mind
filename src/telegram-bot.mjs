@@ -711,6 +711,7 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, t('telegram.url_status_active', { statusText: 'being processed', url: escapeMarkdown(normalizedUrl), status: 'starting' }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
+  let releaseStartReservation;
   try {
     // Issue #1567: Prevent concurrent sessions on the same PR/issue
     const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
@@ -720,7 +721,8 @@ async function handleSolveCommand(ctx) {
     }
     const queueStats = solveQueue.getStats();
     const hasPendingQueueItems = queueStats.queued > 0;
-    const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale }); // Skip Claude limits for agent (#1159)
+    const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale, url: normalizedUrl }); // Skip Claude limits for agent (#1159)
+    releaseStartReservation = check.releaseStartReservation;
     // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
     if (check.rejected) {
       await safeReply(ctx, t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
@@ -754,6 +756,7 @@ async function handleSolveCommand(ctx) {
       };
     }
   } finally {
+    releaseStartReservation?.();
     releaseLaunchClaim();
   }
 }

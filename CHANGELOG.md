@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.39.14
+
+### Patch Changes
+
+- faf2833: Count active executions and foreground CLI task trees for queue display and throttling. Exclude idle Codex app-server/updater services and vendor helpers, deduplicate wrappers and tracked jobs, and retain Docker and detached task counts.
+
 ## 2.39.13
 
 ### Patch Changes

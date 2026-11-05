@@ -7,9 +7,17 @@ import { readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
 const TOOLS = ['claude', 'codex', 'agent', 'qwen', 'gemini'];
-const SERVICES = new Set(['app-server', 'daemon', 'server', 'serve', 'mcp', 'mcp-server', 'completion', 'completions', 'login', 'logout', 'auth', 'update', 'upgrade', 'install', 'uninstall', 'doctor', 'status', 'config', 'features', 'debug']);
-const HELPER_FLAGS = new Set(['--chrome-native-host', '--claude-in-chrome-mcp', '--mcp-server', '--version', '-v', '-V', '--help', '-h']);
-const VALUE_FLAGS = new Set(['--model', '-m', '--config', '-c', '--profile', '--cd', '-C', '--sandbox', '--ask-for-approval', '-a', '--session-id', '--output-format', '--input-format', '--permission-mode', '--log-level']);
+// Use actual subcommands per tool: e.g. `claude status` and `gemini login`
+// are prompts, whereas `claude auth` and `codex login` are administration.
+const SERVICES = {
+  claude: new Set(['agents', 'attach', 'auth', 'auto-mode', 'doctor', 'gateway', 'import', 'install', 'logs', 'mcp', 'plugin', 'plugins', 'purge', 'respawn', 'rm', 'setup-token', 'stop', 'kill', 'update', 'upgrade']),
+  codex: new Set(['agents', 'app-server', 'exec-server', 'remote-control', 'mcp', 'mcp-server', 'login', 'logout', 'plugin', 'completion', 'update', 'doctor', 'sandbox', 'debug', 'apply', 'a', 'queue', 'archive', 'delete', 'migrate-rollouts', 'migrate-nfs-db', 'unarchive', 'cloud', 'features', 'help']),
+  agent: new Set(['auth', 'mcp', 'models']),
+  qwen: new Set(['agents', 'attach', 'auth', 'autofix-pr', 'board', 'channel', 'extensions', 'hooks', 'mcp', 'memory', 'serve', 'daemon', 'sessions', 'update', 'managed-runtime-bootstrap', 'managed-runtime-bootstrap-worker']),
+  gemini: new Set(['mcp', 'extensions', 'hooks', 'skills', 'policies']),
+};
+const HELPER_FLAGS = new Set(['--chrome-native-host', '--claude-in-chrome-mcp', '--mcp-server', '--experimental-acp', '--acp', '--version', '-v', '-V', '--help', '-h']);
+const VALUE_FLAGS = new Set(['--model', '-m', '--config', '-c', '--profile', '--enable', '--disable', '--cd', '-C', '--sandbox', '--ask-for-approval', '-a', '--session-id', '--output-format', '--input-format', '--permission-mode', '--log-level', '--log-file']);
 
 function invocation(record) {
   const argv = record.argv || [];
@@ -26,7 +34,7 @@ function invocation(record) {
     executable = basename(script).replace(/\.[cm]?js$/, '');
     if (/\/@anthropic-ai\/claude-code\/.*cli\.js$/.test(script)) executable = 'claude';
     if (/\/@google\/gemini-cli\/.*(?:index|gemini)\.js$/.test(script)) executable = 'gemini';
-    if (/\/@qwen-code\/qwen-code\/.*cli\.js$/.test(script)) executable = 'qwen';
+    if (/\/@qwen-code\/qwen-code\/.*cli(?:-entry)?\.js$/.test(script)) executable = 'qwen';
     if (/\/@link-assistant\/agent\/.*(?:index|cli)\.[cm]?js$/.test(script)) executable = 'agent';
     offset++;
   } else if (TOOLS.includes(record.commandName)) {
@@ -36,7 +44,7 @@ function invocation(record) {
   return TOOLS.includes(executable) ? { tool: executable, args: argv.slice(offset) } : null;
 }
 
-function isForeground(args) {
+function isForeground(tool, args) {
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (HELPER_FLAGS.has(arg)) return false;
@@ -47,7 +55,7 @@ function isForeground(args) {
       continue;
     }
     if (arg.startsWith('-')) continue;
-    return !SERVICES.has(arg);
+    return !SERVICES[tool].has(arg);
   }
   return true; // interactive CLI, possibly waiting for a response
 }
@@ -74,7 +82,7 @@ export function classifyToolProcesses(records) {
   const candidates = new Map();
   for (const record of byPid.values()) {
     const cli = invocation(record);
-    if (cli && !/^[ZX]/.test(record.state || '') && isForeground(cli.args)) candidates.set(record.pid, { ...record, tool: cli.tool });
+    if (cli && !/^[ZX]/.test(record.state || '') && isForeground(cli.tool, cli.args)) candidates.set(record.pid, { ...record, tool: cli.tool });
   }
   const jobs = new Map();
   for (const record of candidates.values()) {

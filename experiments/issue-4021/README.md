@@ -14,7 +14,9 @@ Before: 2 idle services counted; 98% weekly usage blocks dispatch.
 After: 0 active jobs; 98% weekly usage admits one task.
 ```
 
-The permanent regression suite covers foreground classification for all five supported tools, service/helper exclusion, wrapper/native trees, process disappearance and zombies, active app-server-backed executions, Docker PID namespaces, detached screen identities, stale tracked records, resource throttling, and consistent compact/detailed counts. Real work blocks at 98% and remains parallel at 50%. Direct starts and the consumer share an admission reservation; one-at-a-time remains atomic with a zero startup interval, and the caller releases a reservation after a successful or failed launch.
+The 23 permanent regression cases cover foreground classification for all five supported tools, service/helper exclusion, wrapper/native trees, process disappearance and zombies, active app-server-backed executions, Docker PID namespaces, detached screen identities, stale tracked records, resource throttling, and consistent compact/detailed counts. Real work blocks at 98% and remains parallel at 50%. Direct starts and the consumer share an admission reservation; one-at-a-time remains atomic with a zero startup interval, and the caller releases a reservation after a successful or failed launch.
+
+Installed CLI entrypoints and help were checked during review: Qwen uses `cli-entry.js`, can import its CLI in the same process, and exposes `serve`, `daemon` and managed-runtime bootstrap modes. Its wrapper counts as foreground work only for work invocations. Service/administrative subcommands are tool-specific, so a positional prompt such as `claude status` is still counted.
 
 Classification uses NUL-separated argv from Linux procfs and the same process/session identity fields already used by repository diagnostics. It never searches arbitrary prompt text for a vendor name, kills services, calls a provider, or logs command lines/environment values. Verbose work-count diagnostics are off by default.
 

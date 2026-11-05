@@ -37,13 +37,37 @@ test('managed services and Claude browser helpers are not work', { timeout: 1000
   assert.deepEqual(classifyToolProcesses(services), []);
 });
 
-test('each supported tool excludes server/auth/update/help modes and counts foreground jobs', { timeout: 10000 }, () => {
+test('each supported tool excludes its service/administrative modes and counts foreground jobs', { timeout: 10000 }, () => {
+  const modes = { claude: ['auth', 'gateway', 'update'], codex: ['app-server', 'exec-server', 'login'], agent: ['mcp', 'auth', 'models'], qwen: ['serve', 'daemon', 'managed-runtime-bootstrap-worker'], gemini: ['mcp', 'extensions', 'skills'] };
   for (const tool of ['claude', 'codex', 'agent', 'qwen', 'gemini']) {
-    for (const args of [['serve'], ['login'], ['update'], ['--version'], ['--help'], ['--config', 'model=x', 'mcp', 'list']]) {
+    for (const args of [...modes[tool].map(mode => [mode]), ['--version'], ['--help'], ['--config', 'model=x', 'mcp', 'list']]) {
       assert.equal(classifyToolProcesses([record(10, 1, [tool, ...args])]).length, 0, `${tool} ${args}`);
     }
     assert.equal(classifyToolProcesses([record(10, 1, [tool, '-p', 'app-server --help'])]).length, 1, `${tool} prompt is not a service command`);
     assert.equal(classifyToolProcesses([record(10, 1, [tool])]).length, 1, `${tool} interactive CLI`);
+  }
+});
+
+test("bare prompt words are not mistaken for another tool's subcommands", { timeout: 10000 }, () => {
+  for (const [tool, prompt] of [
+    ['claude', 'status'],
+    ['gemini', 'login'],
+    ['qwen', 'config'],
+    ['codex', 'server'],
+  ]) {
+    assert.equal(classifyToolProcesses([record(10, 1, [tool, prompt])]).length, 1, `${tool} ${prompt}`);
+  }
+  assert.deepEqual(classifyToolProcesses([record(10, 1, ['codex', '--enable', 'feature', 'app-server']), record(20, 1, ['gemini', '--experimental-acp'])]), []);
+});
+
+test('installed Qwen entry wrappers and vendor-specific background runtimes are classified', { timeout: 10000 }, () => {
+  const entry = '/opt/node_modules/@qwen-code/qwen-code/cli-entry.js';
+  assert.equal(classifyToolProcesses([record(10, 1, ['node', entry, '-p', 'work'])]).length, 1);
+  const jobs = classifyToolProcesses([record(10, 1, ['node', entry, '-p', 'work']), record(20, 10, ['node', '--expose-gc', '/opt/node_modules/@qwen-code/qwen-code/cli.js', '-p', 'work'])]);
+  assert.equal(jobs.length, 1);
+  assert.deepEqual(jobs[0].pids, [10, 20]);
+  for (const mode of ['serve', 'daemon', 'managed-runtime-bootstrap', 'managed-runtime-bootstrap-worker']) {
+    assert.equal(classifyToolProcesses([record(10, 1, ['node', entry, mode])]).length, 0, mode);
   }
 });
 

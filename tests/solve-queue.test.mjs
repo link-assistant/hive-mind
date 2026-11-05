@@ -403,7 +403,7 @@ await asyncTest('formatStatus returns correct string for non-empty queue', async
 
 await asyncTest('formatDetailedStatus includes all sections', async () => {
   beforeEach();
-  const queue = new SolveQueue();
+  const queue = new SolveQueue({ autoStart: false, getToolProcessSnapshot: async () => [], getRunningSessionItems: async () => [] });
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',

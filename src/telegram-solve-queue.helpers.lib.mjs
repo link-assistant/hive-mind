@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { processesForTool, readToolProcessSnapshot } from './queue-work.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
-
-const execAsync = promisify(exec);
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
@@ -110,9 +107,10 @@ export function normalizeQueueUrl(url) {
  * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, rootStartTime, recoveries, status}`).
  * @param {string} opts.tool - Tool key to filter by.
  * @param {number} [opts.now] - Current epoch ms (injectable for tests).
+ * @param {boolean} [opts.byExecution] - Preserve already-reconciled execution identities.
  * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number, recoveries?: number}>}
  */
-export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
+export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now(), byExecution = false }) {
   const byKey = new Map();
 
   for (const item of processingItems) {
@@ -127,14 +125,15 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
 
   for (const session of sessionItems) {
     if ((session.tool || 'claude') !== tool) continue;
-    if (!session.url) continue; // can't render a clickable link without a URL
-    const key = normalizeQueueUrl(session.url);
+    if (!session.url && !session.pid && !(byExecution && session.sessionName)) continue;
+    const identity = session.sessionName || session.id || (session.pid ? `pid:${session.pid}` : null);
+    const key = (byExecution && identity) || normalizeQueueUrl(session.url) || identity;
     if (key && byKey.has(key)) continue; // already represented by an in-memory item
     // Issue #2408: a recovery session counts from when the work started.
-    const since = session.rootStartTime || session.startTime;
+    const since = session.rootStartTime || session.startTime || session.startedAt || session.createdAt;
     const startMs = since ? new Date(since).getTime() : null;
     byKey.set(key || session.sessionName, {
-      url: session.url,
+      url: session.url || `${tool} (${session.pid ? `PID ${session.pid}` : session.sessionName})`,
       // Tracked sessions report a backend status (e.g. 'executing'); fall back to
       // the generic "processing" label rendered by formatQueueProcessingItems.
       queueStatus: null,
@@ -373,46 +372,13 @@ export async function getRunningSessionItems(verbose = false) {
 }
 
 /**
- * Count running processes by name.
+ * Count foreground CLI jobs, collapsing wrappers and excluding idle services.
  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
-export async function getRunningProcesses(processName, verbose = false) {
-  try {
-    const { stdout } = await execAsync(`pgrep -l -x ${processName} 2>/dev/null || true`);
-    const lines = stdout
-      .trim()
-      .split('\n')
-      .filter(line => line.trim());
-
-    const processes = lines
-      .map(line => {
-        const parts = line.trim().split(/\s+/);
-        return {
-          pid: parts[0],
-          name: parts.slice(1).join(' ') || processName,
-        };
-      })
-      .filter(p => p.pid);
-
-    if (verbose) {
-      console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);
-      if (processes.length > 0) {
-        console.log(`[VERBOSE] /queue processes: ${JSON.stringify(processes)}`);
-      }
-    }
-
-    return {
-      count: processes.length,
-      processes: processes.map(p => `${p.pid}:${p.name}`),
-    };
-  } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] /queue error counting ${processName} processes:`, error.message);
-    }
-    return { count: 0, processes: [] };
-  }
+export async function getRunningProcesses(processName, verbose = false, options = {}) {
+  return processesForTool(await readToolProcessSnapshot(verbose, options), processName);
 }
 
 /**

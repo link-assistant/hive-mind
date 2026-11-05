@@ -1,5 +1,5 @@
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  * Offline regressions for #4021: idle vendor services must not block dispatch.
  */
 import assert from 'node:assert/strict';

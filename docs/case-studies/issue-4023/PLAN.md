@@ -14,7 +14,7 @@ no required sub-issues and no review requests in the captured data.
 
 Verification order: draft implementation, then focused regression tests and a
 local mock-server Codex experiment (no upstream requests), formatting and lint
-on changed files, then existing CI for full suites and image builds. Avoid
+on changed files, then existing CI for its selected PR suite and build checks. Avoid
 local full builds because this container has a 2.92 GiB memory limit.
 
 CI investigation: compare recent run timestamps and SHAs with the PR head;

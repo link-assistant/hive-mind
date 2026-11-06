@@ -1,5 +1,5 @@
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  * Issue #3831: retries bound a continuous outage, not productive task lifetime.
  */
 import assert from 'node:assert/strict';

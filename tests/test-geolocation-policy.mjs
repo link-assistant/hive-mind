@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

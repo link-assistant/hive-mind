@@ -143,7 +143,7 @@ native hints. The negative experiment provides a reproducing regression case.
 The original head had four passing dispatched workflows and one older
 approval-required Security run with no downloadable log. Final CI must be
 checked against the implementation SHA; the original successes are not evidence
-for this change. See the PR checks for current-head full-suite, lint, formatting,
+for this change. See the PR checks for current-head PR-suite, lint, formatting,
 security, link, and workflow validation.
 
 The first implementation run, [42308272102](https://github.com/link-assistant/hive-mind/actions/runs/42308272102),
@@ -157,6 +157,9 @@ remains enforced; this is release maintenance needed to validate the privacy
 change, rather than an additional privacy mechanism.
 The follow-up run found that `links-notation` 0.31.3 had been published after
 the local inventory; the runtime pin and lock were refreshed together again.
+The four privacy/adapter/planner/runtime regression files are tagged for both
+`default` and `pr-essential`, so the existing PR workflow executes them as well
+as retaining them in the full default suite.
 
 ## Scope and limits
 

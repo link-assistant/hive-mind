@@ -161,12 +161,9 @@ export const executeClaude = async params => {
     })
   );
 };
-// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
-// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+// Separate cost/session accounting keeps this runner within the file-size cap (issues #1710, #2175).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
-// Issue #2175: session token accounting lives in claude.session-tokens.lib.mjs
-// so this file stays under the 1350-line early-warning threshold (issue #1593).
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)

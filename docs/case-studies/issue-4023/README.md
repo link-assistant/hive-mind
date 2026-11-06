@@ -121,6 +121,10 @@ execution harness also checks private/opt-in prompts and child environments at
 the actual execution boundary of all six native runners (12 additional cases).
 Without the change, private instructions, UTC, and native location overrides
 are absent. No source build or live model calls are needed for these tests.
+The existing English corpus regression verifies and removes only the appended
+location-policy suffix before comparing with its historical snapshot. This
+preserves the prior prompt-content check without rewriting collected evidence;
+the new policy and both modes have separate regression coverage.
 
 Native request experiment (requires a locally installed Codex CLI):
 

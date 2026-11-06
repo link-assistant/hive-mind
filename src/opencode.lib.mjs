@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // OpenCode-related utility functions
@@ -80,7 +81,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
-      const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+      const testResult = await $({ env: { ...process.env, ...buildGeolocationEnv() } })`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -199,7 +200,8 @@ export const executeOpenCode = async params => {
 };
 
 export const executeOpenCodeCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   // Retry configuration
   let retryCount = 0;
@@ -243,7 +245,7 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
-    const opencodeEnv = { ...process.env };
+    const opencodeEnv = { ...process.env, ...buildGeolocationEnv(argv) };
 
     // Apply Playwright MCP session state before launching OpenCode.
     if (argv.playwrightMcp === false) {
@@ -258,7 +260,7 @@ export const executeOpenCodeCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'opencode', model: argv.model, toolPath: opencodePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: opencodeEnv });
-    Object.assign(opencodeEnv, toolInvocation.env);
+    Object.assign(opencodeEnv, toolInvocation.env, buildGeolocationEnv(argv));
     const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments

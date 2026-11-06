@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 
 import crypto from 'crypto';
@@ -47,6 +48,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar');
   console.log('  --no-tool-update   Skip the agentic CLI version check before starting');
   console.log('  --dry-run          Print split output without creating GitHub issues');
+  console.log(`  --share-geolocation ${SHARE_GEOLOCATION_OPTION.description}`);
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');
   process.exit(earlyArgs.length === 0 ? 1 : 0);
@@ -119,6 +121,7 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
     isolation: argv.isolation,
     screenName: argv.isolation === 'screen' ? argv.screenName || buildScreenName(issue) : null,
     verbose: argv.verbose,
+    shareGeolocation: argv.shareGeolocation,
   });
 
   await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });

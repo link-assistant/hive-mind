@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 /**
  * Experimental agent-commander execution adapter.
@@ -102,7 +103,7 @@ const buildCodexToolOptions = (argv = {}) => {
   if (rolloutTokenBudget) {
     reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   }
-  appendExtraArgs(options, reasoningArgs);
+  appendExtraArgs(options, [...reasoningArgs, ...buildCodexGeolocationConfigArgs(argv)]);
 
   // Issue #2771: standard service tier and the 272K short-context window by default.
   const tier = resolveAgentCommanderPricingTier('codex', argv);
@@ -167,6 +168,7 @@ const resolveAgentCommanderModel = (tool, model, argv = { model }) => {
 export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
   const options = tool === 'claude' ? buildClaudeToolOptions(argv) : tool === 'codex' ? buildCodexToolOptions(argv) : {};
 
+  appendExtraEnv(options, buildGeolocationEnv(argv));
   const executable = getConfiguredExecutable(argv, tool);
   if (executable) {
     options.executable = executable;
@@ -181,7 +183,7 @@ export const buildAgentCommanderControllerOptions = ({ tool, tempDir, prompt, sy
   tool,
   workingDirectory: tempDir,
   prompt,
-  systemPrompt,
+  systemPrompt: withGeolocationPolicy(systemPrompt, argv),
   model: resolveAgentCommanderModel(tool, argv.model, argv),
   json: tool !== 'agent',
   resume: argv.resume,

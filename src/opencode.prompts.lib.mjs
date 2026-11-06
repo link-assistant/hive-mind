@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * OpenCode prompts module
@@ -113,7 +114,7 @@ export const buildSystemPrompt = params => {
     ciExamples = promptText('prompt.system.templates.opencode-prompts.buildSystemPrompt.text4', { owner: String(owner), repo: String(repo), workspaceTmpDir: String(workspaceTmpDir), branchName: String(branchName), prNumber: String(prNumber), issueNumber: String(issueNumber) });
   }
 
-  return promptText('prompt.system.templates.opencode-prompts.buildSystemPrompt.text9', {
+  const systemPrompt = promptText('prompt.system.templates.opencode-prompts.buildSystemPrompt.text9', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     value2: String(getExperimentsExamplesSubPrompt(argv)),
     workspaceInstructions: String(workspaceInstructions),
@@ -134,6 +135,7 @@ export const buildSystemPrompt = params => {
     value41: String(getIssueCompletionSubPrompt(params)),
     value42: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 // Export all functions as default object too

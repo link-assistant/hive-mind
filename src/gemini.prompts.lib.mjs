@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Gemini prompts module
@@ -99,7 +100,7 @@ export const buildSystemPrompt = params => {
     ciExamples = promptText('prompt.system.templates.gemini-prompts.buildSystemPrompt.text4', { owner: String(owner), repo: String(repo), workspaceTmpDir: String(workspaceTmpDir), branchName: String(branchName), prNumber: String(prNumber), issueNumber: String(issueNumber) });
   }
 
-  return promptText('prompt.system.templates.gemini-prompts.buildSystemPrompt.text10', {
+  const systemPrompt = promptText('prompt.system.templates.gemini-prompts.buildSystemPrompt.text10', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     workspaceInstructions: String(workspaceInstructions),
     owner: String(owner),
@@ -121,6 +122,7 @@ export const buildSystemPrompt = params => {
     value53: String(getIssueCompletionSubPrompt(params)),
     value54: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 export default {

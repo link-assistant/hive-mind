@@ -146,6 +146,16 @@ checked against the implementation SHA; the original successes are not evidence
 for this change. See the PR checks for current-head full-suite, lint, formatting,
 security, link, and workflow validation.
 
+The first implementation run, [42308272102](https://github.com/link-assistant/hive-mind/actions/runs/42308272102),
+stopped before testing because the existing freshness gate found 21 stale
+declarations/lock entries. The retained `dependency-freshness-before.log`
+identifies the exact error and source-log lines 3951–3975. To satisfy the required
+CI gate, the PR also refreshes Formal AI to 0.355.34, Agent to 0.27.1,
+`lino-arguments` to 0.4.1, runtime `links-notation` to 0.31.2, and transitive
+lockfile entries using npm's existing update mechanism. The freshness gate
+remains enforced; this is release maintenance needed to validate the privacy
+change, rather than an additional privacy mechanism.
+
 ## Scope and limits
 
 These are client privacy defaults, not a guarantee that a network peer cannot

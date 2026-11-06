@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Codex prompts module
@@ -114,7 +115,7 @@ export const buildSystemPrompt = params => {
     ciExamples = promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text4', { owner: String(owner), repo: String(repo), workspaceTmpDir: String(workspaceTmpDir), branchName: String(branchName), prNumber: String(prNumber), issueNumber: String(issueNumber) });
   }
 
-  return promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text15', {
+  const systemPrompt = promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text15', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     workspaceInstructions: String(workspaceInstructions),
     value3: String(argv && argv.promptIssueReporting ? promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text5', { owner: String(owner), repo: String(repo) }) : ''),
@@ -142,6 +143,7 @@ export const buildSystemPrompt = params => {
     value49: String(getIssueCompletionSubPrompt(params)),
     value50: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 // Export all functions as default object too

@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Claude prompts module
@@ -131,7 +132,7 @@ export const buildSystemPrompt = params => {
   }
 
   // Use backticks for jq commands to avoid quote escaping issues
-  return promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text17', {
+  const systemPrompt = promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text17', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     workspaceInstructions: String(workspaceInstructions),
     value3: String(argv && argv.promptIssueReporting ? promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text7', { owner: String(owner), repo: String(repo) }) : ''),
@@ -159,6 +160,7 @@ export const buildSystemPrompt = params => {
     value49: String(getIssueCompletionSubPrompt(params)),
     value50: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 // Export all functions as default object too

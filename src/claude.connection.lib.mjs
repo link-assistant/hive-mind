@@ -1,3 +1,4 @@
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
@@ -66,11 +67,11 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       }
       let result;
       try {
-        result = await $`printf hi | claude --model ${mappedModel} -p`;
+        result = await $({ env: { ...process.env, ...buildGeolocationEnv() } })`printf hi | claude --model ${mappedModel} -p --append-system-prompt ${withGeolocationPolicy('')}`;
       } catch (pipeError) {
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
-          result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
+          result = await $({ env: { ...process.env, ...buildGeolocationEnv() } })`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} --append-system-prompt ${withGeolocationPolicy('')}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
             await log(`❌ Claude CLI timed out after ${Math.floor(timeouts.claudeCli / 1000)} seconds`, {

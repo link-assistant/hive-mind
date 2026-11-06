@@ -1,0 +1,60 @@
+{
+  "mode": "baseline",
+  "tool": {
+    "type": "web_search",
+    "external_web_access": true,
+    "filters": {
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    "user_location": {
+      "type": "approximate",
+      "country": "ZZ",
+      "region": "Synthetic Region",
+      "city": "Synthetic City",
+      "timezone": "Etc/UTC"
+    },
+    "search_context_size": "low"
+  }
+}
+{
+  "mode": "private",
+  "tool": {
+    "type": "web_search",
+    "external_web_access": true,
+    "filters": {
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    "user_location": {
+      "type": "approximate",
+      "country": "",
+      "region": "",
+      "city": "",
+      "timezone": ""
+    },
+    "search_context_size": "low"
+  }
+}
+{
+  "mode": "opt-in",
+  "tool": {
+    "type": "web_search",
+    "external_web_access": true,
+    "filters": {
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    "user_location": {
+      "type": "approximate",
+      "country": "ZZ",
+      "region": "Synthetic Region",
+      "city": "Synthetic City",
+      "timezone": "Etc/UTC"
+    },
+    "search_context_size": "low"
+  }
+}

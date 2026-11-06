@@ -1,0 +1,13 @@
+✔ location sharing requires an explicit boolean opt-in (2.270556ms)
+✔ all six system prompt builders apply the selected policy (43.278671ms)
+✔ every work locale supplies both policies (0.49854ms)
+✔ hive forwarding and solve relaunches preserve both choices (168.518255ms)
+✔ agent-commander and task planning preserve privacy and opt-in (3.842067ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1309.142337

@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-06",
+  "codexVersion": "0.167.0",
+  "claudeVersion": "2.1.316",
+  "sources": [
+    {
+      "file": "codex-rs/protocol/src/config_types.rs",
+      "revision": "09bd19a0deb54cce82439c23373b07b84d3e5d04",
+      "sha256": "ce9b26223db7cc4b5cf474e571e4509e8cc52536e159510f153f94de0fcd37e8",
+      "examinedLines": [
+        417,
+        525
+      ]
+    },
+    {
+      "file": "codex-rs/config/src/config_toml.rs",
+      "revision": "09bd19a0deb54cce82439c23373b07b84d3e5d04",
+      "sha256": "97273400bacd35789248e487ce5b3e9d63757c48120e7619aab7ce969829f56c",
+      "examinedLines": [
+        706,
+        759
+      ]
+    },
+    {
+      "file": "schemas/settings.schema.json",
+      "revision": "62bab5b232c15b925d31e655ce844ab939c882b7",
+      "sha256": "76a9a09dd97faa1f25a9b1f6fa5b98af14f1656dd4296eae9b692f66ea9bda07",
+      "examinedLines": "schema searched for geolocation, user_location/userLocation and timezone"
+    },
+    {
+      "file": "packages/cli/src/config/settingsSchema.ts",
+      "revision": "11c83aa21efc2c103927bdb34e321f3382c61308",
+      "sha256": "f0b15e6701e8e58a47a1e96fcf10de8b0b7009f5c3be0f8d45583da5b9997f14",
+      "examinedLines": "schema searched for geolocation, user_location/userLocation and timezone"
+    },
+    {
+      "file": "packages/cli/src/config/schema.ts",
+      "revision": "0f090704c746864c54091f6423fd22c1acd59a1d",
+      "sha256": "1c0b3eba21a8f5174cb75c807ab2c8eabaaaafef56afd4764c1762a490072064",
+      "examinedLines": "schema searched for geolocation, user_location/userLocation and timezone"
+    },
+    {
+      "file": "js/src/config/config.ts",
+      "revision": "5ac9aa7f9da07754a66744aec5a5ff0d21eb5739",
+      "sha256": "b69049b564bbae13733074c92f6bc53e628118763fce2ab0ce883cafba7100e9",
+      "examinedLines": "schema searched for geolocation, user_location/userLocation and timezone"
+    }
+  ]
+}

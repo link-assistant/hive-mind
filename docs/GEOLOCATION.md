@@ -24,7 +24,7 @@ Codex additionally receives a per-invocation configuration override that replace
 the four optional search location fields with empty strings. This redacts
 inherited country, region, city, and timezone hints without changing search
 availability, domain filters, or search context size. Codex still serializes an
-empty `user_location` object; this carries no user or host location. An empty
+`user_location` object with empty location strings; this carries no user or host location. An empty
 TOML table alone would retain inherited values because Codex merges tables.
 
 `--share-geolocation` removes these restrictions for that run. The instruction

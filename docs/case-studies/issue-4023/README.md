@@ -151,10 +151,12 @@ stopped before testing because the existing freshness gate found 21 stale
 declarations/lock entries. The retained `dependency-freshness-before.log`
 identifies the exact error and source-log lines 3951–3975. To satisfy the required
 CI gate, the PR also refreshes Formal AI to 0.355.34, Agent to 0.27.1,
-`lino-arguments` to 0.4.1, runtime `links-notation` to 0.31.2, and transitive
+`lino-arguments` to 0.4.1, runtime `links-notation` to 0.31.3, and transitive
 lockfile entries using npm's existing update mechanism. The freshness gate
 remains enforced; this is release maintenance needed to validate the privacy
 change, rather than an additional privacy mechanism.
+The follow-up run found that `links-notation` 0.31.3 had been published after
+the local inventory; the runtime pin and lock were refreshed together again.
 
 ## Scope and limits
 

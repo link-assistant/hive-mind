@@ -46,6 +46,24 @@ assert.match(gate, / {4}if: always\(\)/, 'terminal status gate must run after fa
 assert.match(gate, /NEEDS_JSON: \$\{\{ toJSON\(needs\) \}\}/, 'terminal gate receives every dependency result');
 assert.deepEqual(listNeededJobs(gate).sort(), jobs.filter(job => job !== 'pipeline-status').sort(), 'terminal gate observes every other release job');
 
+// Issue #4025: Links, Security and Workflows had no status gate, so a job
+// killed by timeout-minutes left the run grey. Their jobs cancel superseded
+// runs on every ref, main included, so they rely on the supersede check
+// rather than IS_MAIN.
+for (const file of ['links.yml', 'security.yml', 'workflows.yml']) {
+  const source = readFileSync(`.github/workflows/${file}`, 'utf8').replaceAll('\r\n', '\n');
+  const block = getJobBlock(source, 'pipeline-status');
+  assert.ok(block, `${file} has a pipeline-status gate`);
+  assert.match(block, / {4}if: always\(\)/, `${file} gate runs after failures and cancellations`);
+  assert.match(block, /NEEDS_JSON: \$\{\{ toJSON\(needs\) \}\}/, `${file} gate receives every dependency result`);
+  assert.match(block, /RUN_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/, `${file} gate compares the PR head`);
+  assert.match(block, /HEAD_REF: /, `${file} gate knows which ref to compare`);
+  assert.doesNotMatch(block, /IS_MAIN/, `${file} cancels superseded main runs, so it must not apply the main-only policy`);
+  assert.match(block, /run: bash scripts\/check-pipeline-status\.sh/, `${file} gate uses the shared script`);
+  const others = listWorkflowJobs(source).filter(job => job !== 'pipeline-status');
+  assert.deepEqual(listNeededJobs(block).sort(), others.sort(), `${file} gate observes every other job`);
+}
+
 // Issue #2198: the top-level default used to be `read-all`, which zizmor
 // flags as excessive-permissions -- it also grants read access to actions,
 // packages and security events. Every workflow now declares the narrowest

@@ -195,3 +195,25 @@ jobs:
           echo ""
           echo "Report: the lychee-report artifact of this run, and the job summary."
           exit 1
+
+  # GitHub reports a job killed by timeout-minutes as cancelled, which leaves
+  # the run grey instead of red. Fail on any failure, and on any cancellation
+  # that a newer commit on the same ref does not explain (issue #4025; the
+  # jobs above cancel superseded runs on every ref, main included).
+  pipeline-status:
+    name: Links Status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - link-checker
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fail the run when a job failed or timed out
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REF: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+        run: bash scripts/check-pipeline-status.sh

@@ -106,5 +106,8 @@
   "allowScripts": {
     "@sentry/node-cpu-profiler@2.4.4": true,
     "node-pty@1.1.0": false
+  },
+  "overrides": {
+    "minimatch": "^11.0.5"
   }
 }

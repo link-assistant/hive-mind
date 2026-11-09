@@ -282,5 +282,6 @@ Refresh dependencies to their latest releases:
 - OpenCode 1.19.5.
 - Qwen 0.27.0, which contains the upstream lock-ownership fix QwenLM/qwen-code#15661. The native Qwen workflow now requires that fix to hold.
 - jscpd 5.4.3.
+- minimatch 11.0.5 for development linting through an npm override (Dependabot GHSA-g3hv-75wg-m249). Remove it once eslint releases its minimatch 11 upgrade.
 
 Gemini 0.67.0 and Codex 0.167.0 stay pinned at 0.65.0 and 0.164.0. Their native adapter recipe and stock-skill manifest are hash-locked to the inspected versions.

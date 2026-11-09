@@ -32,7 +32,7 @@ const extractUrlAfter = (reason, label) => {
 
 const isPushRejectionFailure = reason => {
   const normalizedReason = String(reason || '').toLowerCase();
-  return normalizedReason.includes('push rejected for ') || (normalizedReason.includes('failed to push') && normalizedReason.includes('github.com'));
+  return normalizedReason.includes('push rejected for ') || (normalizedReason.includes('failed to push') && /\bgithub\.com\b/.test(normalizedReason));
 };
 
 export function buildPrePullRequestFailureActionSection(reason = '') {

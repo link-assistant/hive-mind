@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { buildDockerArgv, buildRunContextEnv, buildSolveArgv, DRAFT_SOLVE_FLAGS, FORMAL_AI_BINARY_CONTAINER_PATH, firstErrorLine, formatWorkflowAnnotation } from '../scripts/formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildRunContextEnv, buildSolveArgv, DRAFT_SOLVE_FLAGS, FORMAL_AI_BINARY_CONTAINER_PATH, draftFailureReason, firstErrorLine, formatWorkflowAnnotation } from '../scripts/formal-ai-draft.lib.mjs';
 import { classifyPullFailure, HIVE_MIND_IMAGE_REPOSITORY, pullDraftImage, pullImageWithRetry, resolveDraftImages } from '../scripts/formal-ai-draft-image.lib.mjs';
 
 const ISSUE_URL = 'https://github.com/link-assistant/hive-mind/issues/3248';
@@ -241,6 +241,15 @@ test('the first error is read from the session log without its timestamp and lev
   assert.equal(firstErrorLine('[2026-10-14T05:24:00.000Z] [ERROR] Something broke\n'), 'Something broke', 'without a ❌ line the first [ERROR] line is used');
   assert.equal(firstErrorLine('[2026-10-14T05:24:00.000Z] [INFO] fine\n'), null);
   assert.equal(firstErrorLine(''), null);
+});
+
+test('a run that changed nothing is reported as such, not by the log-upload 403 it recovered from (issue #4025)', () => {
+  // Lines from run 42599900381 (issue #4025), the shape of every red draft since #3211.
+  const log = ['[2026-11-09T10:27:52.908Z] [WARNING] ⚠️  Finished without changes: Formal AI produced no change (terminal state: planned_not_executed)', '[2026-11-09T10:27:59.481Z] [INFO] X Failed to create gist: HTTP 403: Resource not accessible by integration (https://api.github.com/gists). Falling back to repository mode...', '[2026-11-09T10:27:59.481Z] [INFO] ❌ Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)', '[2026-11-09T10:28:03.676Z] [WARNING] ⚠️  Finished without changes'].join('\n');
+  assert.equal(firstErrorLine(log), 'Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integration (HTTP 403)', 'the old reader picked the recovered upload error');
+  assert.equal(draftFailureReason(log), 'Finished without changes: Formal AI produced no change (terminal state: planned_not_executed)');
+  assert.equal(draftFailureReason('[2026-10-14T05:25:00.000Z] [ERROR] ❌ Auto-restart limit reached\n'), 'Auto-restart limit reached', 'any other failure still reports its first error');
+  assert.equal(draftFailureReason(''), null);
 });
 
 test('annotations are escaped so a message cannot inject another workflow command', () => {

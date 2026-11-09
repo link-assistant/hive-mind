@@ -87,8 +87,7 @@ jobs:
       helm-changed: ${{ steps.changes.outputs.helm }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { persist-credentials: false, fetch-depth: 0 }
       # Issue #2625: freshness blocks pull requests only (#2264). On a push to
       # main it warns, so a release published after a merge cannot skip the
       # tests and the release of code that already passed the gate.
@@ -118,8 +117,7 @@ jobs:
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { persist-credentials: false, fetch-depth: 0 }
       - name: Check for version changes in package.json
         env:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
@@ -133,8 +131,7 @@ jobs:
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { persist-credentials: false, fetch-depth: 0 }
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -162,6 +159,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -181,6 +179,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
       - name: Simulate fresh merge with base branch (PR only)
@@ -233,6 +232,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
       - name: Simulate fresh merge with base branch (PR only)
@@ -242,7 +242,7 @@ jobs:
         run: bash scripts/simulate-fresh-merge.sh
       - name: Check file line limits (.mjs files and release.yml)
         run: bash scripts/check-file-line-limits.sh
-  # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
+  # The full unit suite (~10 min on PRs and main, issue #4025) runs only after all fast checks pass
   test-suites:
     permissions:
       contents: write
@@ -359,6 +359,7 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Use Node.js 24.x
         uses: actions/setup-node@v7
         with:
@@ -380,8 +381,7 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { persist-credentials: false, fetch-depth: 0 }
       - name: Use Node.js 24.x
         uses: actions/setup-node@v7
         with:
@@ -427,6 +427,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -453,8 +454,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { persist-credentials: false, fetch-depth: 0 }
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -506,8 +506,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -616,6 +615,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -682,6 +682,7 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -744,6 +745,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -805,6 +807,7 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -855,8 +858,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -893,8 +895,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -979,6 +980,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1045,6 +1047,7 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -1107,6 +1110,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1168,6 +1172,7 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -1218,8 +1223,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -1250,8 +1254,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - name: Resolve GitHub credentials
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
@@ -1336,12 +1339,11 @@ jobs:
       - changeset-pr
     steps:
       - uses: actions/checkout@v7
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24.x'
+        with: { persist-credentials: false }
       - name: Fail the run when a required job was cancelled or failed
-        env:
+        env: # The script uses the runner's Node; see its header for the policy (#4025).
           NEEDS_JSON: ${{ toJSON(needs) }}
-          IS_MAIN: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }} # every event; main runs queue
+          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REF: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
         run: bash scripts/check-pipeline-status.sh

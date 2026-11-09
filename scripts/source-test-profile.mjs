@@ -3,17 +3,27 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-/** Select only existing suites from the trusted Actions event context. */
+/**
+ * Select only existing profiles from the trusted Actions event context.
+ *
+ * Both profiles run the whole default unit suite. Issue #4025: pull requests
+ * used to run a 13-file `pr-essential` subset, so regressions in the other
+ * ~690 files were first seen on main (runs 41801786544 and 42570340658), and
+ * main stopped at the first failing file, hiding the rest. The profiles now
+ * differ only in what follows the unit suite: real GitHub integration runs in
+ * the `default` (default-branch) lane alone.
+ */
 export function selectSourceTestProfile({ eventName, currentRef, defaultBranch }) {
   if (typeof defaultBranch !== 'string' || !defaultBranch || /\s|\p{Cc}/u.test(defaultBranch)) throw new Error('Missing or invalid repository default branch');
-  if (eventName === 'pull_request') return 'pr-essential';
-  if (eventName === 'workflow_dispatch' && typeof currentRef === 'string' && currentRef.startsWith('refs/heads/') && currentRef !== 'refs/heads/' + defaultBranch) return 'pr-essential';
+  if (eventName === 'pull_request') return 'pull-request';
+  if (eventName === 'workflow_dispatch' && typeof currentRef === 'string' && currentRef.startsWith('refs/heads/') && currentRef !== 'refs/heads/' + defaultBranch) return 'pull-request';
   return 'default';
 }
 
+/** Every failing file is reported in one run, not just the first. */
 export function sourceTestCommand(suite) {
-  if (suite === 'default') return { command: 'npm', args: ['test'] };
-  if (suite === 'pr-essential') return { command: process.execPath, args: ['scripts/run-tests.mjs', '--suite', 'pr-essential'] };
+  if (suite === 'default') return { command: 'npm', args: ['test', '--', '--continue-on-failure'] };
+  if (suite === 'pull-request') return { command: process.execPath, args: ['scripts/run-tests.mjs', '--suite', 'default', '--continue-on-failure'] };
   throw new Error('Unsupported source test suite');
 }
 

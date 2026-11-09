@@ -36,7 +36,6 @@ rules:
         github/*: ref-pin
         docker/*: ref-pin
         astral-sh/*: ref-pin
-        lycheeverse/*: ref-pin
         zizmorcore/*: ref-pin
         changesets/*: ref-pin
         '*': hash-pin

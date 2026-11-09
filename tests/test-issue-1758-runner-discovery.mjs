@@ -162,8 +162,8 @@ try {
     envPath = join(work, 'profile-env'),
     eventPath = join(work, 'profile-event.json');
   const contexts = [
-    ['pull_request', 'refs/pull/17/merge', 'main', 'pr-essential'],
-    ['workflow_dispatch', 'refs/heads/feature/example', 'main', 'pr-essential'],
+    ['pull_request', 'refs/pull/17/merge', 'main', 'pull-request'],
+    ['workflow_dispatch', 'refs/heads/feature/example', 'main', 'pull-request'],
     ['push', 'refs/heads/main', 'main', 'default'],
     ['workflow_dispatch', 'refs/heads/main', 'main', 'default'],
     ['push', 'refs/heads/trunk', 'trunk', 'default'],
@@ -218,6 +218,10 @@ try {
   for (const name of ['Resolve GitHub credentials', 'Run GitHub integration test suite', 'Upload integration evidence']) assert(stepSource(name).includes(gate), 'real integration remains full-branch and explicitly opt-in: ' + name);
   const runSource = stepSource('Run selected source test suite');
   assert(runSource.includes('node scripts/source-test-profile.mjs') && sourceTestCommand('default').command === 'npm' && sourceTestCommand('default').args[0] === 'test', 'both lanes retain the existing shared test entrypoints');
+  // Issue #4025: a pull request runs the same unit suite as main, and neither
+  // lane stops at the first failing file.
+  assert(JSON.stringify(sourceTestCommand('pull-request').args) === JSON.stringify(['scripts/run-tests.mjs', '--suite', 'default', '--continue-on-failure']), 'pull requests run the full default suite');
+  assert(sourceTestCommand('default').args.includes('--continue-on-failure'), 'main reports every failing file');
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

@@ -46,6 +46,24 @@ assert.match(gate, / {4}if: always\(\)/, 'terminal status gate must run after fa
 assert.match(gate, /NEEDS_JSON: \$\{\{ toJSON\(needs\) \}\}/, 'terminal gate receives every dependency result');
 assert.deepEqual(listNeededJobs(gate).sort(), jobs.filter(job => job !== 'pipeline-status').sort(), 'terminal gate observes every other release job');
 
+// Issue #4025: Links, Security and Workflows had no status gate, so a job
+// killed by timeout-minutes left the run grey. Their jobs cancel superseded
+// runs on every ref, main included, so they rely on the supersede check
+// rather than IS_MAIN.
+for (const file of ['links.yml', 'security.yml', 'workflows.yml']) {
+  const source = readFileSync(`.github/workflows/${file}`, 'utf8').replaceAll('\r\n', '\n');
+  const block = getJobBlock(source, 'pipeline-status');
+  assert.ok(block, `${file} has a pipeline-status gate`);
+  assert.match(block, / {4}if: always\(\)/, `${file} gate runs after failures and cancellations`);
+  assert.match(block, /NEEDS_JSON: \$\{\{ toJSON\(needs\) \}\}/, `${file} gate receives every dependency result`);
+  assert.match(block, /RUN_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/, `${file} gate compares the PR head`);
+  assert.match(block, /HEAD_REF: /, `${file} gate knows which ref to compare`);
+  assert.doesNotMatch(block, /IS_MAIN/, `${file} cancels superseded main runs, so it must not apply the main-only policy`);
+  assert.match(block, /run: bash scripts\/check-pipeline-status\.sh/, `${file} gate uses the shared script`);
+  const others = listWorkflowJobs(source).filter(job => job !== 'pipeline-status');
+  assert.deepEqual(listNeededJobs(block).sort(), others.sort(), `${file} gate observes every other job`);
+}
+
 // Issue #2198: the top-level default used to be `read-all`, which zizmor
 // flags as excessive-permissions -- it also grants read access to actions,
 // packages and security events. Every workflow now declares the narrowest
@@ -73,10 +91,10 @@ assert.match(verifyLogScript, /SOLVE_STATUS" -ne 1/, "log smoke test requires th
 assert.match(verifyLogScript, /Not a GitHub URL/, 'log smoke test requires the expected terminal validation reason');
 assert.doesNotMatch(verifyLogScript, /SOLVE_STATUS" -ne 124/, 'log smoke test cannot accept a timeout as success');
 
-const runGate = (needs, isMain = false) =>
+const runGate = (needs, isMain = false, extraEnv = {}) =>
   spawnSync('bash', ['scripts/check-pipeline-status.sh'], {
     encoding: 'utf8',
-    env: { ...process.env, NEEDS_JSON: JSON.stringify(needs), IS_MAIN: String(isMain) },
+    env: { ...process.env, NEEDS_JSON: JSON.stringify(needs), IS_MAIN: String(isMain), RUN_SHA: '', HEAD_REF: '', BRANCH_HEAD_SHA: '', ...extraEnv },
   });
 
 let result = runGate({ lint: { result: 'success' }, release: { result: 'skipped' } });
@@ -90,8 +108,25 @@ result = runGate({ release: { result: 'cancelled' } }, true);
 assert.equal(result.status, 1, 'timeout cancellation fails the terminal gate on main');
 assert.match(result.stdout, /cancelled jobs on main: release/i);
 
+// Issue #4025: a cancellation off main passes only when a newer commit
+// superseded the run; a timeout with nothing newer is a failure.
+result = runGate({ test: { result: 'cancelled' } }, false, { RUN_SHA: 'aaa', HEAD_REF: 'refs/pull/1/head', BRANCH_HEAD_SHA: 'bbb' });
+assert.equal(result.status, 0, 'superseded PR cancellations remain non-fatal');
+assert.match(result.stdout, /::warning::Cancelled jobs: test\. A newer commit superseded this run/);
+
+result = runGate({ test: { result: 'cancelled' } }, false, { RUN_SHA: 'aaa', HEAD_REF: 'refs/pull/1/head', BRANCH_HEAD_SHA: 'aaa' });
+assert.equal(result.status, 1, 'a PR job cancelled by its timeout fails the gate');
+assert.match(result.stdout, /::error::Pipeline has cancelled jobs: test, but no newer commit superseded this run/);
+
+// Issue #3785: a checkout timeout once passed as a superseded PR run.
 result = runGate({ test: { result: 'cancelled' } });
 assert.equal(result.status, 1, 'a PR job timeout must fail the terminal gate, including without a replacement run');
 assert.match(result.stdout, /::error::Pipeline has cancelled jobs.*test/);
+assert.match(result.stdout, /cannot tell whether a newer commit superseded this run/, 'an unknown run head fails closed');
+
+const gateStep = workflow.slice(workflow.indexOf('  pipeline-status:'));
+assert.match(gateStep, /IS_MAIN: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/, 'workflow_dispatch runs on main are held to the main policy');
+assert.match(gateStep, /RUN_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/, 'the gate compares the PR head, not the merge commit');
+assert.match(gateStep, /HEAD_REF: .*refs\/pull\/\{0\}\/head.*github\.ref \}\}/, 'the gate reads the PR head ref');
 
 console.log('ci-integrity-2150.test.mjs: all assertions passed');

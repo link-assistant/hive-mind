@@ -292,7 +292,7 @@ if [ "$ROCQ_VERIFIED" = false ]; then
   if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
     echo "rocq-prover package is installed in opam"
     echo "Opam bin directory contents:"
-    ls -la "$HOME/.opam/default/bin/" 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq binaries found in opam bin"
+    find "$HOME/.opam/default/bin/" -maxdepth 1 \( -iname '*rocq*' -o -iname '*coq*' \) -exec ls -la {} + 2>/dev/null | grep . || echo "No rocq/coq binaries found in opam bin"
     echo "Installed opam packages:"
     opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq packages found"
   else # shell-lint: allow-nonfatal — diagnostics for the ERROR raised below.

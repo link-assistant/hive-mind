@@ -29,7 +29,7 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFile
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, FORMAL_AI_BINARY_CONTAINER_PATH, firstErrorLine, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureReason, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
 import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
 import { gh } from './github-actions.lib.mjs';
 
@@ -157,7 +157,7 @@ const status = await new Promise((resolve, reject) => {
   child.on('close', code => resolve(code ?? 1));
 });
 
-/** The first error of the newest session log, so the run's summary says why it is red. */
+/** Why the newest session log says the run is red, so the run's summary says it too. */
 const reportFirstError = () => {
   let text = '';
   try {
@@ -169,7 +169,7 @@ const reportFirstError = () => {
   } catch {
     // No log is itself the finding; the fallback message says so.
   }
-  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, firstErrorLine(text) || `docker run exited ${status} without a session log error`));
+  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureReason(text) || `docker run exited ${status} without a session log error`));
 };
 if (status !== 0) reportFirstError();
 

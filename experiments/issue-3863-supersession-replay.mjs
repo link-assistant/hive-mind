@@ -6,7 +6,7 @@ import { evaluateSupersession, parseUnifiedDiff } from '../src/fix.dependabot-su
 
 const raw = new URL('../docs/case-studies/issue-3863/raw/', import.meta.url);
 const base = {
-  'scripts/unimedvl-requirements.txt': await readFile(new URL('base-at-issue-creation-unimedvl-requirements.txt', raw), 'utf8'),
+  'scripts/unimedvl-requirements.txt': await readFile(new URL('base-at-issue-creation-unimedvl-requirements.txt.snapshot', raw), 'utf8'),
   'pyproject.toml': await readFile(new URL('base-at-issue-creation-pyproject.toml', raw), 'utf8'),
 };
 for (const number of [13, 14, 15, 16, 17]) {

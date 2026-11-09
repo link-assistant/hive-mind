@@ -37,8 +37,8 @@ describe('issue #1698 stable test entrypoints', () => {
 
     assert.ok(testSuitesJob, 'release.yml should define the test-suites job');
     assert.ok(testSuitesJob.includes('node scripts/source-test-profile.mjs'), 'test-suites should use the cohesive profile runner');
-    assert.ok(profileRunner.includes("command: 'npm', args: ['test']"), 'the default profile still executes npm test');
-    assert.ok(profileRunner.includes("['scripts/run-tests.mjs', '--suite', 'pr-essential']"), 'the essential profile still executes the shared runner');
+    assert.ok(profileRunner.includes("command: 'npm', args: ['test', '--', '--continue-on-failure']"), 'the default profile still executes npm test');
+    assert.ok(profileRunner.includes("['scripts/run-tests.mjs', '--suite', 'default', '--continue-on-failure']"), 'the pull-request profile runs the full default suite through the shared runner');
     assert.ok(!/node\s+tests\//.test(testSuitesJob), 'test-suites should not enumerate individual test files');
   });
 });

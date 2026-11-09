@@ -39,7 +39,6 @@ import { assert as check, printSummary, getFailCount } from './test-helpers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
-const CURRENT_AGENT_IMAGE_VERSION = '0.27.0';
 
 const { agentCliPrunesOrphanSnapshots, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 
@@ -110,16 +109,21 @@ await withFakeAgentCli(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, async ({ requested })
 // ---------------------------------------------------------------------------
 console.log('\n3. Image pins match the runtime floor\n');
 
+// The exact current version is owned by test-issue-2187-current-dependency-pins
+// (updated with every pin refresh). A second hard-coded copy here went stale
+// at the 0.27.1 refresh and failed main (issue #4025), so this only checks what
+// #2186 needs: one exact pin per image, the same in both, at or above the floor.
+const imagePins = new Set();
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
   const installs = [...text.matchAll(/bun install -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
   check(installs.length > 0, `${file} installs the Agent CLI`);
-  check(asNumber(CURRENT_AGENT_IMAGE_VERSION) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION), `the current Agent image pin satisfies the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor`);
-  check(
-    installs.every(pin => pin === `@${CURRENT_AGENT_IMAGE_VERSION}`),
-    `${file} pins current @link-assistant/agent@${CURRENT_AGENT_IMAGE_VERSION} (found ${JSON.stringify(installs)})`
-  );
+  const exact = installs.every(pin => /^@\d+\.\d+\.\d+$/.test(pin ?? ''));
+  check(exact, `${file} pins an exact @link-assistant/agent version (found ${JSON.stringify(installs)})`);
+  for (const pin of installs) imagePins.add(pin?.slice(1));
+  check(exact && installs.every(pin => asNumber(pin.slice(1)) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION)), `${file} pins an Agent CLI at or above the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor (found ${JSON.stringify(installs)})`);
 }
+check(imagePins.size === 1, `Dockerfile and Dockerfile.dind pin the same Agent CLI (found ${JSON.stringify([...imagePins])})`);
 
 console.log('\nIssue #2186 — Agent snapshot store hygiene');
 printSummary();

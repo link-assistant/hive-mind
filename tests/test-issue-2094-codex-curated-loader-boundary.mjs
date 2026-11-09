@@ -18,10 +18,13 @@ import path from 'node:path';
 import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from '../src/codex-capability-preflight.lib.mjs';
 import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
+import { buildGeolocationEnv } from '../src/geolocation-policy.lib.mjs';
 
 const VERSION = '5.1.3';
 const SKILLS = ['brainstorming', 'dispatching-parallel-agents', 'executing-plans', 'finishing-a-development-branch', 'receiving-code-review', 'requesting-code-review', 'subagent-driven-development', 'systematic-debugging', 'test-driven-development', 'using-git-worktrees', 'using-superpowers', 'verification-before-completion', 'writing-plans', 'writing-skills'];
-const CODEX_BASE_ENV = { PATH: '/bin', RUST_LOG: 'codex_core_plugins=trace,codex_core_skills=trace' };
+// Built like `codexBaseEnv` in executeCodex: the location-privacy env (TZ=UTC,
+// PR #4024) is part of the base, so preflight and exec see the same values.
+const CODEX_BASE_ENV = { PATH: '/bin', RUST_LOG: 'codex_core_plugins=trace,codex_core_skills=trace', ...buildGeolocationEnv() };
 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 

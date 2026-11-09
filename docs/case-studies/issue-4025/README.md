@@ -253,9 +253,10 @@ keys and requires a single patched minimatch. It fails on the ranged key.
 - Links, Security and Workflows had no status gate at all, so a timed-out job
   left those runs grey rather than red.
 - actionlint only reads inline `run:` blocks. Nothing linted the 27 standalone
-  shell scripts and hooks. ShellCheck finds 4 errors (missing shebangs in
-  `.husky/pre-commit` and the two `gitpod-*-auth.sh` files) and an `ls | grep`
-  in `scripts/verify-docker-image.sh` (`shellcheck-before.txt`).
+  shell scripts and hooks. `shellcheck-before.txt` has 35 findings; the 4
+  outside evidence folders are missing shebangs in `.husky/pre-commit` and the
+  two `gitpod-*-auth.sh` files, and an `ls | grep` in
+  `scripts/verify-docker-image.sh`.
 - Jobs that never push kept the `GITHUB_TOKEN` in `.git/config` (zizmor
   `artipacked`).
 

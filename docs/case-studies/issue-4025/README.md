@@ -280,6 +280,9 @@ keys and requires a single patched minimatch. It fails on the ranged key.
   The lookup runs under the shared retry loop (`scripts/github-retry.mjs`,
   issue #3552), so a transient fault does not fail the gate
   (`checks-42613833285-lint-retry-bypass.log`).
+  In run 42615367731 the gate failed on `test-suites` and excused the 14 jobs
+  that a newer push cancelled, because `refs/pull/4026/head` had moved to
+  07506d628 (`checks-42615367731-pipeline-status-superseded.log`).
   `PIPELINE_STATUS_VERBOSE=1` prints its reasoning; this is off by default.
 - PR #3786 (issue #3785) independently made every cancellation fail after a
   checkout timeout passed as "superseded". The merge keeps that behaviour for

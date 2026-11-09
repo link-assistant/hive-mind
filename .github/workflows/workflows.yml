@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - '.github/workflows/**'
+      - '.github/actions/**'
       - '.github/zizmor.yml'
   pull_request:
     branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/**'
+      - '.github/actions/**'
       - '.github/zizmor.yml'
   workflow_dispatch:
     inputs:

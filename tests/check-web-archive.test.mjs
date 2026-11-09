@@ -133,4 +133,21 @@ describe('check-web-archive.mjs end to end', () => {
     assert.match(readFileSync(outputPath, 'utf-8'), /all_archived=false/);
     rmSync(workDir, { recursive: true, force: true });
   });
+
+  // Issue #4025: the step runs only after lychee reported broken links, so a
+  // missing report used to turn "cannot tell" into all_archived=true.
+  it('fails closed when the lychee report is missing', () => {
+    const scriptPath = join(here, '..', 'scripts', 'check-web-archive.mjs');
+    const workDir = mkdtempSync(join(tmpdir(), 'web-archive-'));
+    const outputPath = join(workDir, 'github-output.txt');
+    writeFileSync(outputPath, '');
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: 'utf-8',
+      env: { ...process.env, LYCHEE_OUTPUT: join(workDir, 'missing.md'), GITHUB_OUTPUT: outputPath },
+    });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /::error title=Web Archive check::No lychee report/);
+    assert.match(readFileSync(outputPath, 'utf-8'), /all_archived=false/);
+    rmSync(workDir, { recursive: true, force: true });
+  });
 });

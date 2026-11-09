@@ -46,8 +46,8 @@ jobs:
   link-checker:
     name: Check Links
     runs-on: ubuntu-24.04
-    # Typical run: <1min with lychee cache. 10min prevents slow
-    # external hosts or Wayback Machine probes from hanging the workflow.
+    # Typical run: about a minute with a warm lychee cache. 10min prevents
+    # slow external hosts or Wayback Machine probes from hanging the workflow.
     timeout-minutes: 10
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-link-checker
@@ -56,6 +56,21 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # `--cache` alone writes .lycheecache into a workspace that is thrown
+      # away, so every run re-checked every link (issue #4025). Results stay
+      # valid for a day (`--max-cache-age 1d`); a new key per run saves the
+      # updated cache, and the restore prefix picks up the newest one. Only
+      # successes are cached (`--cache-exclude-status '400..'`), so a broken
+      # link is asked again on every run.
+      - name: Restore lychee cache
+        uses: actions/cache@v6
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: lychee-
 
       - name: Install lychee
         # Not lycheeverse/lychee-action: it downloads lychee with one
@@ -98,6 +113,7 @@ jobs:
             --no-progress \
             --cache \
             --max-cache-age 1d \
+            --cache-exclude-status '400..' \
             --max-retries 3 \
             --timeout 30 \
             --exclude-path docs/case-studies \
@@ -123,6 +139,14 @@ jobs:
             echo "::error title=lychee failed::lychee exited with code $exit_code (2 means broken links); see the output above."
             exit 1
           fi
+
+      - name: Upload lychee report
+        if: ${{ !cancelled() && hashFiles('lychee/out.md') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lychee-report
+          path: lychee/out.md
+          retention-days: 14
 
       - name: Re-check links that failed transiently
         # A 429, a 5xx or a connection failure is "not now", not "broken":
@@ -169,5 +193,5 @@ jobs:
           echo "     b. Remove the link if the content is no longer relevant."
           echo "     c. Add the URL to .lycheeignore if it is a known false positive."
           echo ""
-          echo "Report location: lychee/out.md (available as a workflow artifact if configured)."
+          echo "Report: the lychee-report artifact of this run, and the job summary."
           exit 1

@@ -129,6 +129,16 @@ check('zero links checked fails the step (replaces lychee-action failIfEmpty)', 
   assert.match(r.stdout, /::error title=No links checked::/);
 });
 
+check('the lychee cache survives between runs and caches only successes', () => {
+  assert.match(workflow, /uses: actions\/cache@v\d+\n {8}with:\n {10}path: \.lycheecache\n {10}key: lychee-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}\n {10}restore-keys: lychee-\n/);
+  assert.match(stepScript, /--cache \\\n\s+--max-cache-age 1d \\\n\s+--cache-exclude-status '400\.\.' \\/);
+});
+
+check('the report is kept as an artifact and the checkout holds no credentials', () => {
+  assert.match(workflow, /- name: Upload lychee report\n {8}if: \$\{\{ !cancelled\(\) && hashFiles\('lychee\/out\.md'\) != '' \}\}\n {8}uses: actions\/upload-artifact@v\d+\n {8}with:\n {10}name: lychee-report\n {10}path: lychee\/out\.md\n/);
+  assert.match(workflow, /- uses: actions\/checkout@v\d+\n {8}with:\n {10}persist-credentials: false\n/);
+});
+
 // --- the installer ---------------------------------------------------------
 
 /** Build a fake release directory with a lychee archive and its checksum. */

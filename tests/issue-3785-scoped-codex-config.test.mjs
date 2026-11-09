@@ -53,7 +53,12 @@ test('task config preserves header-looking string data and typed runtime setting
   expected.features.plugins = false;
   // ...and the hosted ChatGPT connectors MCP server off.
   expected.features.apps = false;
-  assert.deepEqual(parseConfig(await fs.readFile(path.join(result.codexHome, 'config.toml'), 'utf8')), expected);
+  const actual = parseConfig(await fs.readFile(path.join(result.codexHome, 'config.toml'), 'utf8'));
+  const { skills } = actual;
+  delete actual.skills;
+  // Issue #3785: bundled system skills are disabled inside the task scope only.
+  assert.ok(skills.config.length > 0 && skills.config.every(entry => entry.enabled === false && entry.path.includes(path.join('skills', '.system'))));
+  assert.deepEqual(actual, expected);
 });
 
 test('malformed operator TOML fails before native discovery without exposing input', async t => {

@@ -33,6 +33,7 @@ import { ensureClaudeAuthAuthority } from './claude-auth-authority.lib.mjs'; // 
 import { shellQuote } from './shell-command.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
+import { resolveRepositoryClaudePluginArgs } from './claude-repository-config.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -367,8 +368,10 @@ export const executeClaudeCommand = async params => {
     }
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
-    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
+    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
+    const { args: repositoryPluginArgs } = await resolveRepositoryClaudePluginArgs({ projectDir: tempDir, log }); // Issue #3785: repository plugins, this session only
+    for (let i = 1; i < repositoryPluginArgs.length; i += 2) claudeArgs += ` --plugin-dir "${repositoryPluginArgs[i]}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
     if (streamingInput) {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
@@ -415,7 +418,7 @@ export const executeClaudeCommand = async params => {
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
       // Issue #3282: command-stream quotes each value itself. Extra "..." around one reached Claude as \" (and older command-stream let /bin/sh expand it).
-      const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
+      const mcpDisableArgs = [...(mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : []), ...repositoryPluginArgs];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });

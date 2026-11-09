@@ -244,12 +244,12 @@ RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
 # Install AI coding assistant CLIs
 # Native storage probes and clean-runtime manifests attest these exact versions.
 # Upgrade them together with the storage adapters and their lifecycle evidence.
-RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/4027
 RUN test "$(codex --version)" = 'codex-cli 0.164.0'
-RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.27.0 # https://github.com/link-assistant/hive-mind/issues/3785
-RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.27.0 # https://github.com/link-assistant/hive-mind/issues/4027
+RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/4027
 RUN bun install --backend=copyfile -g @github/copilot
-RUN bun install --backend=copyfile -g opencode-ai@1.19.5 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g opencode-ai@1.19.5 # https://github.com/link-assistant/hive-mind/issues/4027
 RUN test "$(opencode --version)" = '1.19.5'
 
 # Agent must search without executing binaries from its shared data directory.

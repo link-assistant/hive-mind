@@ -8,6 +8,8 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
       - '.github/zizmor.yml'
+      - '**.sh'
+      - '.husky/**'
   pull_request:
     branches-ignore: ['e2e/**']
     types: [opened, synchronize, reopened]
@@ -15,6 +17,8 @@ on:
       - '.github/workflows/**'
       - '.github/actions/**'
       - '.github/zizmor.yml'
+      - '**.sh'
+      - '.husky/**'
   workflow_dispatch:
     inputs:
       mode:
@@ -55,6 +59,27 @@ jobs:
       - uses: docker://rhysd/actionlint:1.7.12
         with:
           args: -color
+
+  # actionlint only checks the shell inside `run:` blocks. The scripts those
+  # blocks call (and the git hooks) went unchecked; four warnings and errors
+  # had accumulated there (issue #4025). experiments/, docs/case-studies/ and
+  # dev/ hold archived research scripts that are not run by CI or users.
+  # Notes and style hints (-S warning) are left to the author.
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-shellcheck
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check standalone shell scripts and hooks
+        run: |
+          git ls-files -z '*.sh' '.husky/*' ':!:experiments/**' ':!:docs/case-studies/**' ':!:dev/**' \
+            | xargs -0 pipx run --spec shellcheck-py==0.11.0.1 shellcheck -S warning
 
   zizmor:
     name: zizmor

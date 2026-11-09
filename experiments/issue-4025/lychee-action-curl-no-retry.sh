@@ -24,7 +24,7 @@ port=$((20000 + RANDOM % 20000))
 python3 -I "$dir/server.py" "$dir" "$port" & pid=$!
 sleep 1
 url="http://127.0.0.1:$port/lychee.tar.gz"
-mkdir "$dir/download"; cd "$dir/download"
+mkdir "$dir/download"; cd "$dir/download" || exit 1
 echo "--- lychee-action v2.9.0 (action.yml): curl -sfLO"
 curl -sfLO "$url"; echo "exit=$?"
 rm -f lychee.tar.gz

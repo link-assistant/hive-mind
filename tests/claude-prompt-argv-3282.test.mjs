@@ -48,6 +48,11 @@ globalThis.use = async name => {
 const { executeClaudeCommand } = await import('../src/claude.lib.mjs');
 const { USE_M_PACKAGE_VERSIONS } = await import('../src/use-with-retry.lib.mjs');
 const { resetCumulativeAnthropicCost } = await import('../src/anthropic-cost-accumulator.lib.mjs');
+// Issue #4023 appends the location-privacy policy to every system prompt; the
+// prompt must still arrive verbatim, with that policy (its apostrophes
+// included) after it. Issue #4025: this file only runs in the full suite on
+// main, so the change slipped past the PR's checks.
+const { withGeolocationPolicy } = await import('../src/geolocation-policy.lib.mjs');
 
 const SESSION = '3282aaaa-0000-4000-8000-000000000000';
 const STREAM = [
@@ -112,7 +117,7 @@ async function run(t, argv) {
   });
   const received = async () => JSON.parse(await readFile(argvFile, 'utf8'));
   const flag = (args, name) => args[args.indexOf(name) + 1];
-  return { result, logs, template, systemPrompt, prompt, marker, fakeClaude, received, flag, dir };
+  return { result, logs, template, systemPrompt: withGeolocationPolicy(systemPrompt, argv), prompt, marker, fakeClaude, received, flag, dir };
 }
 
 test('the spawned claude gets the system prompt verbatim, with nothing executed', { timeout: 30_000 }, async t => {

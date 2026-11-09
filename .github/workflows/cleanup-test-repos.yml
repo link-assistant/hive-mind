@@ -22,7 +22,15 @@ jobs:
       pull-requests: write
       actions: read
     runs-on: ubuntu-24.04
+    # The fixture cleanup stops itself after CLEANUP_TIME_BUDGET_MINUTES and
+    # leaves the rest for the next run, so the timeout is a backstop, not the
+    # normal way the job ends (issue #4025: cancelled every day at 15 minutes).
     timeout-minutes: 15
+    # Two cleanups at once would close and delete the same fixtures; a manual
+    # run waits for the scheduled one instead of killing it halfway.
+    concurrency:
+      group: cleanup-${{ github.repository }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
         with:
@@ -45,6 +53,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           CLEANUP_DRY_RUN: ${{ inputs.dry_run }}
+          CLEANUP_TIME_BUDGET_MINUTES: '10'
+          # 'true' logs every API call with its duration.
+          CLEANUP_VERBOSE: ${{ vars.CLEANUP_VERBOSE || 'false' }}
         run: node scripts/cleanup-task-fixtures.mjs
       - name: Delete disposable test repositories when authorized
         if: ${{ !cancelled() && steps.gh.outputs.can-delete-repositories == 'true' }}

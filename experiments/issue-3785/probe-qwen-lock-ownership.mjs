@@ -1,4 +1,5 @@
-// Exercise the installed Qwen 0.26.1 token-manager class with mocked OAuth.
+// Exercise the installed Qwen token-manager class (0.26.1 reproduces the
+// upstream defect, 0.27.0 carries the upstream fix) with mocked OAuth.
 // This neither starts a model turn nor changes any real account state.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -43,14 +44,16 @@ if (process.argv[2] === '--worker') {
     }
   }
 } else {
-  const moduleFile = process.env.QWEN_PROBE_MODULE || '/home/box/.bun/install/global/node_modules/@qwen-code/qwen-code/chunks/chunk-KZQDCUQR.js';
+  const moduleFile = process.env.QWEN_PROBE_MODULE || '/home/box/.bun/install/global/node_modules/@qwen-code/qwen-code/chunks/chunk-EQYRRLXR.js';
   const metadata = JSON.parse(await fs.readFile(path.join(path.dirname(moduleFile), '..', 'package.json'), 'utf8'));
-  assert.equal(metadata.version, '0.26.1', 'The probe requires the inspected native package version.');
+  assert.ok(['0.26.1', '0.27.0'].includes(metadata.version), 'The probe requires an inspected native package version.');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-3785-qwen-lock-'));
   const home = path.join(root, 'home');
   const qwen = path.join(home, '.qwen');
   const control = process.argv.includes('--without-observer-manager');
   const coordinated = process.argv.includes('--expect-coordinated');
+  // Qwen 0.27.0 deletes oauth_creds.lock only when it owns it (QwenLM/qwen-code#15661).
+  const upstreamFixed = process.argv.includes('--expect-upstream-fix');
   const privateConfigs = process.argv.includes('--private-configs');
   const children = [];
   let timer;
@@ -101,7 +104,7 @@ if (process.argv[2] === '--worker') {
         const observer = start(control ? 'control-observer' : 'observer');
         assert.equal(await observer.closed, 0);
         assert.equal(owner.child.exitCode, null, 'The original lock owner is still refreshing.');
-        if (control || coordinated) {
+        if (control || coordinated || upstreamFixed) {
           const after = await fs.stat(lock, { bigint: true });
           assert.equal(`${after.dev}:${after.ino}`, `${before.dev}:${before.ino}`);
           const peer = start('peer');
@@ -125,7 +128,8 @@ if (process.argv[2] === '--worker') {
             peer.events.some(event => event.type === 'exchange'),
             false
           );
-          console.log(coordinated ? 'PASS: constructing and exiting a non-owner preserves the live stable native lock; the peer reads committed G1 without another exchange.' : 'CONTROL: without constructing the exiting observer manager, the lock survives and the peer uses persisted G1 without an exchange.');
+          if (upstreamFixed && !control) console.log('FIXED: constructing and exiting a non-owner preserves the live native Qwen refresh lock; the peer reads committed G1 without another exchange.');
+          else console.log(coordinated ? 'PASS: constructing and exiting a non-owner preserves the live stable native lock; the peer reads committed G1 without another exchange.' : 'CONTROL: without constructing the exiting observer manager, the lock survives and the peer uses persisted G1 without an exchange.');
         } else {
           await assert.rejects(fs.stat(lock), { code: 'ENOENT' });
           const peer = start('peer');

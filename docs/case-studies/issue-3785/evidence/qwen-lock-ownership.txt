@@ -16,3 +16,17 @@ cross-container behavior or production fix is claimed. Three workers have
 128 MiB JS heaps, 1.5 GiB per-process data limits and a 20-second probe deadline.
 All workers are awaited before fixture removal; native diagnostics are bounded
 and suppressed. QWEN_PROBE_MODULE can select the installed version's module.
+
+Upstream fix verification (2026-11-09)
+Native package: @qwen-code/qwen-code 0.27.0 (contains QwenLM/qwen-code#15661,
+merge commit 34d8042988029f270f8059a05f1ccaa79bd5a692, which closed #15653)
+Module SHA-256: 97cefaa4495e4b11315d4a2a74df0e85c80f3a852745ea9ab2625a4b673025f6 (chunks/chunk-EQYRRLXR.js)
+
+QWEN_PROBE_MODULE=<0.27.0>/chunks/chunk-EQYRRLXR.js node experiments/issue-3785/probe-qwen-lock-ownership.mjs --expect-upstream-fix
+  FIXED: constructing and exiting a non-owner preserves the live native Qwen refresh lock; the peer reads committed G1 without another exchange.
+
+QWEN_PROBE_MODULE=<0.27.0>/chunks/chunk-EQYRRLXR.js node experiments/issue-3785/probe-qwen-lock-ownership.mjs
+  (reproduction mode now fails: the lock is no longer deleted by a non-owner)
+
+QWEN_PROBE_MODULE=<0.26.1>/chunks/chunk-KZQDCUQR.js node experiments/issue-3785/probe-qwen-lock-ownership.mjs --expect-upstream-fix
+  (fails on 0.26.1; the default mode still prints REPRODUCED)

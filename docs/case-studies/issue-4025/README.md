@@ -90,6 +90,8 @@ Run 41801786544 (line-limit test) and run 42570340658 (prompt tests broken by
 PR #4024's location-privacy suffix) both show this. Main then stopped at the
 first failing file, which hid the rest: `--continue-on-failure` found seven
 broken tests, not three.
+Main's run 42609000121, after PR #3786, still fails on the Codex cancellation
+probe (`main-42609000121-test-suites.log`); this branch's version passes.
 
 **Fix.**
 

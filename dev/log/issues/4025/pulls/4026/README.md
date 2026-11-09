@@ -26,6 +26,7 @@ The analysis is in [`docs/case-studies/issue-4025/README.md`](../../../../../doc
 | `ci-logs/checks-42613833285-lint-retry-bypass.log` | Lint rejecting the gate's unretried `git ls-remote` (F10) |
 | `ci-logs/checks-42615367731-test-suites.log` | Excerpt: two tests the main merge left inconsistent with this branch (F8, F9) |
 | `ci-logs/checks-42615367731-pipeline-status-superseded.log` | The gate failing on `test-suites` and excusing jobs a newer push cancelled (F10) |
+| `ci-logs/main-42609000121-test-suites.log` | Main still failing the Codex cancellation probe after PR #3786 (F2) |
 | `sessions/`                                         | Solver session log and metadata                                                             |
 
 Reproduction: `bash experiments/issue-4025/lychee-action-curl-no-retry.sh`.

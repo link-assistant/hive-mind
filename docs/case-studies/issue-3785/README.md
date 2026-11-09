@@ -130,6 +130,17 @@ now passes the complete Claude experiment, including the expected crash-defect
 reproduction and both history controls. This verifies the TLS fixture repair;
 the native crash defect remains unresolved. Qwen run 41064059810 also passes.
 
+Native run 42584312775 (Claude 2.1.319) failed the ordinary concurrency control
+once: the probe expected exactly two model requests, but the synthetic `503` was
+retried over a new connection, which produced a third request that also used G1.
+The probe's `MAX_RETRIES=0` is not read by the CLI. Its real variable,
+`CLAUDE_CODE_MAX_RETRIES=0`, removed the retry but then failed 3 of 5 local runs
+on tunnel resets. The control now waits for two distinct
+`X-Claude-Code-Session-Id` peers and requires every model request to carry the
+single refreshed G1, with exactly one refresh exchange. The old version passes
+6 of 6 runs locally and the new one passes 6 of 6. The security property is
+unchanged.
+
 The pinned Claude binary additionally loads global `output-styles/*.md` into
 a system message when selected by user settings. The previous audit admitted
 that configuration. Nine reproducing regressions failed before repair; they

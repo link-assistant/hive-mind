@@ -46,6 +46,7 @@ owner_response_finished = threading.Event()
 second_refresh = threading.Event()
 release_refresh = threading.Event()
 model_auth = []
+model_sessions = []
 model_requests = []
 children = []
 assert not args.expect_predecessor_reuse or args.owner_death
@@ -143,6 +144,7 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                     assert self.headers.get('Authorization') in (
                         'Bearer SYNTHETIC-ACCESS-G0', 'Bearer SYNTHETIC-ACCESS-G1', 'Bearer SYNTHETIC-ACCESS-G2')
                     model_auth.append(self.headers.get('Authorization'))
+                    model_sessions.append(self.headers.get('X-Claude-Code-Session-Id'))
                     model_requests.append(payload)
                     model_entered.set()
                     if args.history:
@@ -274,10 +276,12 @@ with tempfile.TemporaryDirectory(prefix='hive-3785-claude-refresh-') as temporar
                 assert os.fstat(diagnostics.fileno()).st_size <= 256 * 1024
             if args.concurrent:
                 assert observed == ['SYNTHETIC-REFRESH-G0'], 'Distinct private configurations must coordinate the same credential authority.'
-                while len(model_auth) < 2:
+                # Both peers must reach the model with the single refreshed G1. The native client
+                # may retry the synthetic 503, so count distinct sessions instead of requests.
+                while len(set(model_sessions)) < 2:
                     assert time.monotonic() - started < 20
                     time.sleep(0.05)
-                assert model_auth == ['Bearer SYNTHETIC-ACCESS-G1'] * 2
+                assert None not in model_sessions and set(model_auth) == {'Bearer SYNTHETIC-ACCESS-G1'}, model_auth
             elif not args.owner_death:
                 assert observed == (['SYNTHETIC-REFRESH-G0'] if expired else [])
                 if not (args.logout or args.replace_login):

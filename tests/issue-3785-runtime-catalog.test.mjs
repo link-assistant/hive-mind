@@ -30,7 +30,7 @@ for (const variant of ['admin', 'user', 'repo', 'outside-stock', 'duplicate', 'm
     await writeFile(auth, 'protected-synthetic-state');
     const before = await stat(auth);
     const claude = path.join(root, 'claude');
-    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.310 (Claude Code)"\n', { mode: 0o700 });
+    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.319 (Claude Code)"\n', { mode: 0o700 });
     const codex = path.join(root, 'codex.mjs');
     const entries = Object.keys(CODEX_STOCK_SKILLS.files).filter(file => file.endsWith('/SKILL.md'));
     await writeFile(

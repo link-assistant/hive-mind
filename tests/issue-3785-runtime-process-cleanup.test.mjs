@@ -40,7 +40,7 @@ for (const outcome of ['leader-exit', 'invalid-json', 'catalog-refusal']) {
     await writeFile(auth, 'protected-synthetic-state');
     const before = await stat(auth);
     const claude = path.join(root, 'claude');
-    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.310 (Claude Code)"\n', { mode: 0o700 });
+    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.319 (Claude Code)"\n', { mode: 0o700 });
     const helper = path.join(root, 'helper.mjs');
     await writeFile(helper, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(trace)}, String(process.pid)); process.send('ready'); setInterval(() => {}, 100); setTimeout(() => process.exit(0), 5000);`);
     const codex = path.join(root, 'codex.mjs');

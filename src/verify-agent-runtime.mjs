@@ -197,10 +197,10 @@ async function materializeStock(command, home, cwd, env) {
 
 export async function verifyToolDataRuntimeVersions({ homeDir, cwd, agentCommand = 'agent', opencodeCommand = 'opencode', geminiCommand = 'gemini', qwenCommand = 'qwen', rgCommand = 'rg' }) {
   for (const [command, expected] of [
-    [agentCommand, '0.27.0'],
-    [opencodeCommand, '1.19.4'],
+    [agentCommand, '0.27.2'],
+    [opencodeCommand, '1.19.5'],
     [geminiCommand, '0.65.0'],
-    [qwenCommand, '0.26.1'],
+    [qwenCommand, '0.27.0'],
   ]) {
     const { stdout } = await executeVersionProbe(command, { env: probeEnvironment(homeDir), cwd, maxBuffer: 64 * 1024 });
     assert.equal(stdout.trim(), expected, 'Installed data-storage CLI version differs from the pinned runtime.');
@@ -224,7 +224,7 @@ export async function verifyAgentRuntimeBaseline({ homeDir = os.homedir(), env =
     await mkdir(cwd);
     const probeEnv = probeEnvironment(home);
     for (const [command, expected] of [
-      [claudeCommand, '2.1.310 (Claude Code)'],
+      [claudeCommand, '2.1.319 (Claude Code)'],
       [codexCommand, CODEX_STOCK_SKILLS.cliVersion],
     ]) {
       const { stdout } = await executeVersionProbe(command, { env: probeEnv, cwd, maxBuffer: 64 * 1024 });

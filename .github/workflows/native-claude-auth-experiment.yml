@@ -31,15 +31,15 @@ jobs:
       - name: Install the same pinned native version used by the release image
         run: |
           curl -fsSL https://claude.ai/install.sh -o "$RUNNER_TEMP/claude-install.sh"
-          bash "$RUNNER_TEMP/claude-install.sh" 2.1.310 > "$RUNNER_TEMP/claude-install.log" 2>&1 &
+          bash "$RUNNER_TEMP/claude-install.sh" 2.1.319 > "$RUNNER_TEMP/claude-install.log" 2>&1 &
           wait "$!"
           native_binary="$HOME/.local/bin/claude"
           echo "NATIVE_CLAUDE=$native_binary" >> "$GITHUB_ENV"
           version_home="$RUNNER_TEMP/claude-version-home"
           mkdir -m 700 "$version_home"
-          test "$(env -i PATH="$PATH" HOME="$version_home" "$native_binary" --version)" = '2.1.310 (Claude Code)'
+          test "$(env -i PATH="$PATH" HOME="$version_home" "$native_binary" --version)" = '2.1.319 (Claude Code)'
           sha256sum "$native_binary" > "$RUNNER_TEMP/claude-native-digest.log"
-          printf '%s  %s\n' b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56 "$native_binary" | sha256sum --check
+          printf '%s  %s\n' dabafec82ca1319fa43d8be36a10fc61b1d11821cb98ad5df04ad95e199b8eed "$native_binary" | sha256sum --check
       - name: Verify independent native credential storage and logout
         run: node experiments/issue-3785/probe-claude-secure-storage.mjs "$NATIVE_CLAUDE" > "$RUNNER_TEMP/claude-storage.log" 2>&1
       - name: Verify native healthy, refresh, concurrency and pending writer controls

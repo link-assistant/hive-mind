@@ -8,6 +8,13 @@ Qwen remains 0.26.1 and its inspected bundle bytes are unchanged.
 The version and exact bytes must match before any file is changed. Production
 images and launchers do not install or select this experiment.
 
+The images now pin Qwen 0.27.0. It contains the upstream lock-ownership fix
+(QwenLM/qwen-code#15661, closing QwenLM/qwen-code#15653): an exiting non-owner
+no longer deletes the live `oauth_creds.lock`. The workflow keeps reproducing
+the defect on this 0.26.1 copy and separately requires
+`probe-qwen-lock-ownership.mjs --expect-upstream-fix` to print `FIXED` against
+the integrity-checked 0.27.0 tarball.
+
 The actual manager's forced read checks only whether `mtime` increased.
 It retains G0 after an atomic G1 replacement with the same timestamp. Its
 missing-file handler resets the timestamp while retaining both manager and

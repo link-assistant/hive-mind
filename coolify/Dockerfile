@@ -237,20 +237,20 @@ ENV DISABLE_AUTOUPDATER=1
 # Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
 ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex,agent,opencode,gemini,qwen
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh 2.1.310 && \
+    bash /tmp/claude-code-install.sh 2.1.319 && \
     rm /tmp/claude-code-install.sh && \
-    test "$(claude --version)" = '2.1.310 (Claude Code)'
+    test "$(claude --version)" = '2.1.319 (Claude Code)'
 
 # Install AI coding assistant CLIs
 # Native storage probes and clean-runtime manifests attest these exact versions.
 # Upgrade them together with the storage adapters and their lifecycle evidence.
 RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/3785
 RUN test "$(codex --version)" = 'codex-cli 0.164.0'
-RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.26.1 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.27.0 # https://github.com/link-assistant/hive-mind/issues/3785
 RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/3785
 RUN bun install --backend=copyfile -g @github/copilot
-RUN bun install --backend=copyfile -g opencode-ai@1.19.4 # https://github.com/link-assistant/hive-mind/issues/3785
-RUN test "$(opencode --version)" = '1.19.4'
+RUN bun install --backend=copyfile -g opencode-ai@1.19.5 # https://github.com/link-assistant/hive-mind/issues/3785
+RUN test "$(opencode --version)" = '1.19.5'
 
 # Agent must search without executing binaries from its shared data directory.
 # Use the architecture-matched executable supplied by the pinned Codex package.
@@ -276,7 +276,7 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install --backend=copyfile -g @link-assistant/claude-profiles && \
-    bun install --backend=copyfile -g @link-assistant/agent@0.27.1 && \
+    bun install --backend=copyfile -g @link-assistant/agent@0.27.2 && \
     bun install --backend=copyfile -g start-command@0.43.0 && \
     bun install --backend=copyfile -g gh-setup-git-identity && \
     bun install --backend=copyfile -g gh-pull-all && \

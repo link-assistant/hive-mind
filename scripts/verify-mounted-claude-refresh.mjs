@@ -14,7 +14,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { peerMemoryArgs, prepareMountedNativeRuntime } from './mounted-native-runtime.lib.mjs';
 
-const PINNED = '2.1.310 (Claude Code)';
+const PINNED = '2.1.319 (Claude Code)';
 const OAUTH_ORIGINS = new Set(['platform.claude.com:443', 'api.anthropic.com:443']);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 

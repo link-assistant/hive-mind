@@ -1,4 +1,4 @@
-/** Native Linux Claude 2.1.310 configuration and credential-root selection. */
+/** Native Linux Claude 2.1.319 configuration and credential-root selection. */
 import path from 'node:path';
 
 export const resolveClaudeConfigDirectory = (env, homeDir) => (env.CLAUDE_CONFIG_DIR || path.join(homeDir, '.claude')).normalize('NFC');

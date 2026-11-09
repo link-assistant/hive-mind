@@ -71,7 +71,7 @@ try {
   const selectedEnv = { ...baseEnv, CLAUDE_SECURESTORAGE_CONFIG_DIR: canonical };
   const prepared = await prepareDockerIsolationHostPaths({ tool: 'claude', homeDir, env: selectedEnv });
   rootEnv = { PATH: process.env.PATH, HOME: homeDir, CLAUDE_CONFIG_DIR: rootConfig, CLAUDE_SECURESTORAGE_CONFIG_DIR: canonical, HIVE_MIND_CLAUDE_AUTH_IDENTITY: prepared.nativeAuthIdentity, ...traffic };
-  assert.equal((await invoke('root', ['--version'])).stdout.trim(), '2.1.310 (Claude Code)', 'Installed Claude differs from the pinned runtime.');
+  assert.equal((await invoke('root', ['--version'])).stdout.trim(), '2.1.319 (Claude Code)', 'Installed Claude differs from the pinned runtime.');
   const args = await buildDockerIsolationStartArgs('solve', [], {
     tool: 'claude',
     homeDir,

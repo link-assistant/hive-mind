@@ -49,7 +49,7 @@ const helper = spawn(process.execPath, [${JSON.stringify(helper)}], {stdio: ['ig
 helper.once('message', () => {
   helper.disconnect(); helper.unref();
   if (${JSON.stringify(outcome)} === 'exit-error') process.exit(7);
-  const output = ${JSON.stringify(outcome)} === 'output-overflow' ? 'x'.repeat(128 * 1024) : '0.27.0';
+  const output = ${JSON.stringify(outcome)} === 'output-overflow' ? 'x'.repeat(128 * 1024) : '0.27.2';
   process.stdout.write(output + '\\n', () => process.exit(0));
 });
 `,
@@ -57,9 +57,9 @@ helper.once('message', () => {
     );
     const commands = { homeDir, cwd, agentCommand };
     for (const [name, version] of [
-      ['opencode', '1.19.4'],
+      ['opencode', '1.19.5'],
       ['gemini', '0.65.0'],
-      ['qwen', '0.26.1'],
+      ['qwen', '0.27.0'],
       ['rg', 'ripgrep 15.1.0'],
     ]) {
       const command = path.join(root, name);

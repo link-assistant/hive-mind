@@ -11,7 +11,7 @@ import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-claude-secure-'));
-const binary = process.argv[2] || '/home/box/.local/share/claude/versions/2.1.310';
+const binary = process.argv[2] || '/home/box/.local/share/claude/versions/2.1.319';
 const credential = plan => JSON.stringify({ claudeAiOauth: { accessToken: 'SYNTHETIC_NOT_A_PROVIDER_TOKEN', refreshToken: 'SYNTHETIC_NOT_A_REFRESH_TOKEN', expiresAt: Date.now() + 3600000, scopes: ['user:inference', 'user:profile'], subscriptionType: plan, rateLimitTier: 'default_claude_max_5x' } });
 try {
   const canonical = path.join(root, 'canonical');
@@ -40,7 +40,7 @@ try {
   await assert.rejects(fs.access(auth), { code: 'ENOENT' });
   assert.equal(await fs.readFile(privateAuth, 'utf8'), untouched);
   assert.equal(await fs.readFile(defaultAuth, 'utf8'), untouched);
-  console.log('PASS: Claude 2.1.310 Linux status and native logout use the independent secure-storage directory; private configuration credentials remain unchanged.');
+  console.log('PASS: Claude Linux status and native logout use the independent secure-storage directory; private configuration credentials remain unchanged.');
   console.log('PASS: an explicitly empty selector uses HOME/.claude despite a relocated configuration directory.');
 } catch (error) {
   await fs.writeFile('/tmp/issue-3785-claude-secure-private.log', `${error.stack || error}\n${error.stdout || ''}\n${error.stderr || ''}`, { mode: 0o600 });

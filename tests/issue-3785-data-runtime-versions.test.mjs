@@ -13,10 +13,10 @@ for (const mismatch of [false, true]) {
     const capture = path.join(root, 'children.jsonl');
     const commands = {};
     for (const [tool, version] of [
-      ['agent', '0.27.0'],
-      ['opencode', mismatch ? '1.19.5' : '1.19.4'],
+      ['agent', '0.27.2'],
+      ['opencode', mismatch ? '1.19.6' : '1.19.5'],
       ['gemini', '0.65.0'],
-      ['qwen', '0.26.1'],
+      ['qwen', '0.27.0'],
       ['rg', 'ripgrep 14.1.1'],
     ]) {
       const command = path.join(root, `${tool}.mjs`);
@@ -46,10 +46,10 @@ for (const search of ['missing', 'broken', 'working']) {
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     const commands = {};
     for (const [name, version] of [
-      ['agent', '0.27.0'],
-      ['opencode', '1.19.4'],
+      ['agent', '0.27.2'],
+      ['opencode', '1.19.5'],
       ['gemini', '0.65.0'],
-      ['qwen', '0.26.1'],
+      ['qwen', '0.27.0'],
       ['rg', search === 'working' ? 'ripgrep 14.1.1' : ''],
     ]) {
       const command = path.join(root, name);
@@ -68,10 +68,10 @@ for (const changed of ['gemini', 'qwen']) {
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     const commands = {};
     for (const [name, version] of [
-      ['agent', '0.27.0'],
-      ['opencode', '1.19.4'],
+      ['agent', '0.27.2'],
+      ['opencode', '1.19.5'],
       ['gemini', '0.65.0'],
-      ['qwen', '0.26.1'],
+      ['qwen', '0.27.0'],
       ['rg', 'ripgrep 14.1.1'],
     ]) {
       const command = path.join(root, name);

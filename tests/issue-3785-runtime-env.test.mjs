@@ -26,7 +26,7 @@ fs.appendFileSync(${JSON.stringify(capture)}, JSON.stringify({
   inherited: Object.hasOwn(process.env, 'HIVE_MIND_GATE_ENV_SENTINEL'),
   privateHome: (process.env.HOME || '').startsWith(${JSON.stringify(path.join(os.tmpdir(), 'hive-stock-gate-'))}),
 }) + '\\n');
-if (version) { console.log(claude ? '2.1.310 (Claude Code)' : 'codex-cli 0.164.0'); process.exit(0); }
+if (version) { console.log(claude ? '2.1.319 (Claude Code)' : 'codex-cli 0.164.0'); process.exit(0); }
 readline.createInterface({input: process.stdin}).on('line', line => {
   const message = JSON.parse(line);
   if (message.id) console.log(JSON.stringify({id: message.id, result: message.method === 'skills/list' ? {data: [{}]} : {}}));

@@ -110,7 +110,7 @@ export async function verifyMountedClaudeHistory({ launcher = fileURLToPath(new 
     const selected = { ...dockerEnv, HIVE_MIND_DOCKER_ISOLATION_IMAGE: image, CLAUDE_CONFIG_DIR: configuration, CLAUDE_SECURESTORAGE_CONFIG_DIR: canonical };
     const prepared = await prepareDockerIsolationHostPaths({ tool: 'claude', homeDir, env: selected });
     const environment = { PATH: process.env.PATH, HOME: homeDir, CLAUDE_CONFIG_DIR: configuration, CLAUDE_SECURESTORAGE_CONFIG_DIR: canonical, HIVE_MIND_CLAUDE_AUTH_IDENTITY: prepared.nativeAuthIdentity, ...traffic };
-    assert.equal((await execute(binary, ['--version'], { env: environment, maxBuffer: 4096, signal: AbortSignal.timeout(10_000) })).stdout.trim(), '2.1.310 (Claude Code)');
+    assert.equal((await execute(binary, ['--version'], { env: environment, maxBuffer: 4096, signal: AbortSignal.timeout(10_000) })).stdout.trim(), '2.1.319 (Claude Code)');
     const nativeArgs = prompt => ['-p', prompt, '--output-format', 'json', '--max-turns', '1', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'];
     const first = await execute('prlimit', ['--data=1610612736', '--stack=16777216', '--core=0', '--', binary, ...nativeArgs(firstPrompt)], { env: environment, cwd: workspace, maxBuffer: 262144, signal: AbortSignal.timeout(25_000), killSignal: 'SIGKILL' });
     const initial = nativeResult(first);

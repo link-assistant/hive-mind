@@ -51,6 +51,16 @@ jobs:
         run: |
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs --without-observer-manager > "$RUNNER_TEMP/qwen-ownership-control.log" 2>&1
           node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs > "$RUNNER_TEMP/qwen-ownership-before.log" 2>&1
+      - name: Verify the upstream lock-ownership fix in the image-pinned Qwen 0.27.0
+        run: |
+          fixed="$RUNNER_TEMP/qwen-0.27.0"
+          mkdir -p "$fixed"
+          npm pack @qwen-code/qwen-code@0.27.0 --pack-destination "$fixed" --json > "$fixed/pack.json"
+          grep -F '"integrity": "sha512-efZt0LUm/raGUjR/SNN6pp8cpuNHnmE0hQvcvXzWHtVX9oVtDDgukq2IZNwYDErFYqHRj1xq2NQ5Jjt2SHUr/Q=="' "$fixed/pack.json"
+          tar -xzf "$fixed"/qwen-code-qwen-code-0.27.0.tgz -C "$fixed"
+          printf '%s  %s\n' 97cefaa4495e4b11315d4a2a74df0e85c80f3a852745ea9ab2625a4b673025f6 "$fixed/package/chunks/chunk-EQYRRLXR.js" | sha256sum --check
+          QWEN_PROBE_MODULE="$fixed/package/chunks/chunk-EQYRRLXR.js" node --max-old-space-size=128 experiments/issue-3785/probe-qwen-lock-ownership.mjs --expect-upstream-fix > "$RUNNER_TEMP/qwen-ownership-upstream-fixed.log" 2>&1
+          grep -F 'FIXED:' "$RUNNER_TEMP/qwen-ownership-upstream-fixed.log"
       - name: Apply the exact pinned native read experiment
         run: |
           python3 experiments/issue-3785/native-qwen/apply_reads.py experiments/issue-3785/native-qwen/stock-cli/node_modules/@qwen-code/qwen-code --check

@@ -54,7 +54,7 @@ for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']
     const content = await readFile(new URL(`../${dockerfile}`, import.meta.url), 'utf8');
     const version = CODEX_STOCK_SKILLS.cliVersion.replace('codex-cli ', '');
     assert.ok(content.includes(`bun install --backend=copyfile -g @openai/codex@${version}`));
-    assert.match(content, /bash \/tmp\/claude-code-install\.sh 2\.1\.310(?:\s|$)/);
+    assert.match(content, /bash \/tmp\/claude-code-install\.sh 2\.1\.319(?:\s|$)/);
   });
 }
 
@@ -139,7 +139,7 @@ for (const missing of [false, true]) {
     await writeFile(path.join(home, '.codex/config.toml'), '[features]\nremote_plugin = false\nplugins = false\napps = false\n');
     const claude = path.join(home, 'claude');
     const codex = path.join(home, 'codex.mjs');
-    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.310 (Claude Code)"\n', { mode: 0o700 });
+    await writeFile(claude, '#!/bin/sh\nprintf "%s\\n" "2.1.319 (Claude Code)"\n', { mode: 0o700 });
     const code = `#!${process.execPath}
 import fs from 'node:fs';
 import readline from 'node:readline';

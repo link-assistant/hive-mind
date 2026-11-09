@@ -1,4 +1,4 @@
-/** Native data/config separation for agent 0.27.0 and OpenCode 1.19.4.
+/** Native data/config separation for agent 0.27.2 and OpenCode 1.19.5.
  *
  * Share the parent of auth.json, not its initial inode: native rename, unlink
  * and reauthentication must reach the same directory. Conversation databases,

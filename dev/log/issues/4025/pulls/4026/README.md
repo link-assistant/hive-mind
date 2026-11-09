@@ -24,6 +24,7 @@ The analysis is in [`docs/case-studies/issue-4025/README.md`](../../../../../doc
 | `ci-logs/checks-42611647973-closed-exception-issue.log` | `detect-changes` failing on 12 exceptions linked to closed #3785 (F12) |
 | `ci-logs/freshness-closing-issue-guard-local.txt` | The new guard rejecting exceptions that link an issue the PR closes (F12) |
 | `ci-logs/checks-42613833285-lint-retry-bypass.log` | Lint rejecting the gate's unretried `git ls-remote` (F10) |
+| `ci-logs/checks-42615367731-test-suites.log` | Excerpt: two tests the main merge left inconsistent with this branch (F8, F9) |
 | `sessions/`                                         | Solver session log and metadata                                                             |
 
 Reproduction: `bash experiments/issue-4025/lychee-action-curl-no-retry.sh`.

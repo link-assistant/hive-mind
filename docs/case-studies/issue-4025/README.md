@@ -37,6 +37,7 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 | 2026-11-09 11:24   | PR run 42608795713: `detect-changes` fails with `STALE package-lock.json#minimatch: minimatch 11.0.5 -> 10.2.6, 11.0.5` under the runner's npm 10.9.4 (F9).                                                               |
 | 2026-11-09 11:25   | PR #3786 merges and closes #3785. Main now has its own "fail every cancellation" gate and the same minimatch override (F10), plus 12 Dockerfile pin exceptions that link #3785 (F12).                                     |
 | 2026-11-09 11:42   | This branch merges main (4a63c23d0). The next PR run, 42611647973, fails `detect-changes` on those 12 exceptions (F12).                                                                                                   |
+| 2026-11-09 12:27   | Run 42615367731 fails `test-suites` on two tests that the merge left inconsistent with this branch (F8, F9).                                                                                                              |
 
 ## Findings, root causes and fixes
 
@@ -203,6 +204,12 @@ Some of them were real bugs:
 - Verbose `/limits` logged the last 8 characters of the OAuth tokens. Main's
   PR #3786 fixed the same lines while this PR was open, and the merge keeps
   main's version.
+- The second `js/clear-text-logging` alert, in
+  `tests/test-issue-1706-sub-session-size.mjs`, was fixed on main too
+  (6f2f00a66), and main added `tests/sub-session-size-diagnostics.test.mjs`,
+  which needs the inherited environment to make that test fail. This branch's
+  fix cleared that environment, so run 42615367731 failed it; the branch now
+  keeps main's version.
 
 **Fix.** Each alert is fixed in code: 89239d21f for `src/` and 6bddbb1f5 for
 `tests/`. `security.yml` writes the SARIF reports and gates on them with
@@ -238,6 +245,10 @@ reports as an artifact and reports every result on pull requests
   `experiments/issue-4025/minimatch-11-eslint-globs.mjs` checks ESLint's glob
   matching with 11.x.
 - The copied manifest is renamed to `.txt.snapshot` (c81723999).
+  `tests/fix-dependabot-superseded-3863.test.mjs` and
+  `experiments/issue-3863-supersession-replay.mjs` read it under the new name;
+  run 42615367731 failed with ENOENT before they did
+  (`checks-42615367731-test-suites.log`).
 
 **Test.** `tests/dependency-overrides-4025.test.mjs` rejects ranged override
 keys and requires a single patched minimatch. It fails on the ranged key.

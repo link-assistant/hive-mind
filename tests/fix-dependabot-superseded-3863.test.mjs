@@ -23,7 +23,7 @@ const incidentNumbers = [13, 14, 15, 16, 17];
 const CONFLICT = 'X Pull request konard/medical-neural-network-ml#{n} is not mergeable: the merge commit cannot be cleanly created.\n';
 
 const baseFiles = {
-  'scripts/unimedvl-requirements.txt': await readRaw('base-at-issue-creation-unimedvl-requirements.txt'),
+  'scripts/unimedvl-requirements.txt': await readRaw('base-at-issue-creation-unimedvl-requirements.txt.snapshot'),
   'pyproject.toml': await readRaw('base-at-issue-creation-pyproject.toml'),
 };
 const diffs = Object.fromEntries(await Promise.all(incidentNumbers.map(async number => [number, await readRaw(`pr-${number}.diff`)])));

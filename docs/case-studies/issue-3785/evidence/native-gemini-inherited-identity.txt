@@ -1,0 +1,124 @@
+Native Gemini 0.65.0 inherited authentication/history identity admission.
+Scope: partial A1/A7/A9 evidence; selected Docker projection and the complete
+six-tool/default canonical lifecycle remain OPEN.
+
+Reproduction uses the complete pinned native CLI, independent private homes,
+synthetic canonical credentials and a bounded loopback TLS provider. No native
+exports or provider transports are replaced. Each native child has a 256 MiB
+Node heap, 2 GiB data/16 MiB stack limits, bounded diagnostics and a finite
+deadline; process groups are killed/reaped and loopback servers shut down.
+
+Before the final adapter stage, both strict controls fail with:
+  Native CLI must refuse a mismatched inherited storage identity before inference.
+Both actually send one model request, with no loopback validation errors:
+  gemini-inherited-auth-before.log
+    SHA256 a657d1259bda3a280ac88521a540ff82b3a4e924d8157edf1dde5629b1fe37cc
+  gemini-inherited-history-before.log
+    SHA256 ae2ee20c3d29a98db90b65acb6c05ff50789e666f3146f3f87471b1efbe428fa
+Native helpers had retained their first observed root but had ignored the
+launcher-admitted device/inode marker before native initialization.
+
+Stage 28 pins five preceding helpers and installs one shared identity helper.
+Auth constructors, account-path reads, history initialization and request
+admission compare optional inherited markers with the selected owned private
+directory. Retain initial selector, marker and device/inode for the process
+lifetime. Marker-only selection cannot restore ordinary private fallback.
+
+Complete native after controls pass:
+  gemini-inherited-auth-mismatch-final.log
+    SHA256 5263d54fc65563d36dcaee6ced3a6b1059ece37c5172483e770296663943d7f5
+  gemini-inherited-history-mismatch-final.log
+    SHA256 75a57d0dc9895e48fd3be0c6908b72771ff13af2a271842e39a586571a1e8449
+Both refuse before any provider request, preserve exact canonical credential
+bytes/inode and create neither private credentials nor private account files.
+The healthy marked control discovers/resumes complete prior user/model content
+after whole private-home disposal:
+  gemini-inherited-correct-final.log
+    SHA256 ed5bacbc1a270a6bbaced8fd7c4a2147fff450ad41ff21b4f30aa6cf12c99ef0
+    conversation_requests=2; loopback validation errors=[]
+
+38 isolated native constructor/account/history controls also pass. Each of auth
+and history covers ordinary unselected, matching and unmarked selection, seven
+malformed/wrong markers, marker-only selection, marker addition/removal/change,
+selector removal/change, removal of both selector and marker, root replacement
+and unsafe permissions. The same strict fixture fails against the preceding
+adapter at invalid inherited identity admission.
+  gemini-inherited-components-complete.log
+    SHA256 d304d40bb583275e03d6f6989837b26071045a02f3605141346037b12aaeb34d
+Initial 512 MiB data limits prevented Node's virtual CodeRange reservation
+before code execution. The repeated controls use the established 2 GiB data
+limit with a 64 MiB heap and 10-second per-worker deadline. This infrastructure
+failure is preserved separately; it is not an admission result.
+
+Fresh reconstruction independently applies all 31 checked auth/history stages,
+verifies applicability does not mutate source, and compares 20 resulting files.
+  gemini-inherited-fresh-v2-source.log
+    SHA256 9b634c423b2d9c59770537d33205708cc21c39b7ca62e30fbb14791f1cb4e317
+The recipe generator checks all 449 locked upstream files and 24 exact outputs
+(five bundles and nineteen helpers). Recipe manifest SHA256:
+  cb2d06c5b52bed36b14f5b40c5ff245b093801343876b4b4207edfc805651122
+
+Exact output SHA256:
+  hive-gemini-storage-identity.mjs
+    72d5757195df3120eb60083efddf892df194328938e75ce64c4aa7bd0001ca00
+  hive-gemini-reads.mjs
+    12823c530218bdd1d1bfd322451bc79ed8fcd8c25dd1d66807909a720ac91ce1
+  hive-gemini-accounts.mjs
+    7ff53a502b0e8e7e6be48ddd8ecb9341a20307d3266b69834a20a7a5329793c0
+  hive-gemini-history.mjs
+    4e8997989bd15779ea8e663fe7cd88cc9bebee1cffabe39d8f394dafedf771fb
+  hive-gemini-admission.mjs
+    4295266680ab563e571e7af3d72be762b91948b940ec0abea766583f905737ef
+The manager and complete-publication helper remain unchanged from stage 27.
+
+Actual npm-artifact controls run from a fresh owned fixture parent. A first
+attempt correctly refused an existing generation from the preceding recipe;
+the installer collision rule remains strict. No package upgrade path is
+claimed. The repeated artifact install checks exact generated/original bytes,
+rejects changed and extra executable files and stock-command admission, then
+activates the verified native command and preserves its bin inode on reinstall.
+The complete actual-artifact driver exits 0 and is reaped. Its installed
+generation passes all 38 identity controls, both zero-request wrong-identity
+controls, and complete healthy marked history/resume. Existing controls pass:
+41 auth/account writers; 30 request-admission controls; 11 credential-read
+controls; three ACP restore/reopen; four terminal/automatic-startup resume;
+five child-edit restore; and two killed-owner plan replacement/recovery.
+All seven complete-CLI network logs have errors=[]. The killed plan owner is
+reaped before private-home disposal and fresh native recovery. No native
+writer or provider exports are replaced in these complete-CLI controls.
+
+Actual artifact verification logs under gemini-inherited-package-control/:
+  verification-install.log
+    SHA256 670582669659fd5f6de8511f4d92c953eb7966f1b9f5470618b39fa7f5b4037d
+  verification-identities.log
+    SHA256 d304d40bb583275e03d6f6989837b26071045a02f3605141346037b12aaeb34d
+  verification-writers.log
+    SHA256 3e1d4d5edab0fe2081816165c72fcede2727c75529c378ac384d080952bd6442
+  verification-requests.log
+    SHA256 281ac992a29329ea7cb65b3bedcd26ba37ae0910474bb68835b70119dc1868c4
+  verification-reads.log
+    SHA256 4cb35a7c24d173403992384f3f539fef0de3d5a8c03926995a6a4413f2795d14
+  verification-acp-control.log
+    SHA256 eeb85bb0e62eff2c55bd8907067cc9bb35bd95ecd700364324a537f2f20fa897
+  verification-terminal-control.log
+    SHA256 7c1692f387a0f1997faf1ef16ae594ff8d6bf8f661fdc750f1d09d6507dacdaa
+  verification-child-control.log
+    SHA256 9ab778d673ab15e21f5cd26f532ac287a036a93792d24dfe84ccf4016b562198
+  verification-plan-control.log
+    SHA256 c40e0d8f75de95b6ca707f1b997502e7c63989ace2c9386ae4a01186a63dd1d2
+
+Affected package/command unit tests pass (8/8), as do repository ESLint and
+GitHub shell retry checks, secret scanning, file-size checks, duplication
+(10.02% under the 12% limit), all candidate formatting, shell syntax and Python
+AST syntax. The two new native fixture modules also pass explicit ESLint.
+Whole-repository formatting exceeds a deliberately bounded 192 MiB Node heap,
+both in one invocation and a batch containing an unrelated 2.7 MiB archived
+provider catalog. Preserve those infrastructure failures; do not claim that
+local whole-repository invocation passed. All changed files pass formatting;
+the next pushed-head CI must run the full formatter on its provisioned runner.
+
+The dedicated workflow requires strict before controls, fresh reconstruction
+and the same actual npm-artifact controls. Exact pushed-head CI remains
+required. Selected Docker mounts, default selection/migration, all daemon
+lifecycles, fresh-process rollback and every remaining six-tool criterion stay
+unfinished; native admission alone does not complete them.

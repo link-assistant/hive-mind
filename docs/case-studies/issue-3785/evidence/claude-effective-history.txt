@@ -1,0 +1,70 @@
+Claude effective configuration history, 2026-10-31 UTC
+
+Strict before invocation:
+node experiments/issue-3785/probe-claude-effective-history.mjs
+The original five controls all fail against the unmodified production mount
+builder: preparation creates conventional history, both mount sources use the
+conventional root and both linked selected history directories are ignored.
+All input files contain synthetic, disposable state; no provider is contacted.
+
+Production repair:
+- Resolve projects/ and sessions/ through the same native CLAUDE_CONFIG_DIR
+  selector in host preparation and Docker mount construction.
+- Keep private /home/box/.claude mount targets and independent credential-parent
+  admission. Do not mount the operator's configuration directory.
+- Preserve competing conventional history and refuse selected missing storage
+  rather than use conventional evidence as a fallback.
+- Reject relative, non-normalized and control-character/Docker-delimiter paths;
+  existing anchored directory preparation refuses linked storage.
+- Suppress selected vendor history in Router mode before creating directories.
+
+Focused history invocation:
+node --test tests/issue-3785-claude-effective-history.test.mjs
+  tests/issue-3785-claude-history-mounts.test.mjs
+All 23 controls pass, including the original five regressions, private settings,
+missing/unsafe selected storage, idempotence and preserved credential identity.
+The default suite imports the reusable standalone production reproducer.
+All 132 related mount/isolation test targets also pass sequentially, including
+existing Claude/Codex projections, Router isolation and asynchronous launch.
+
+Actual native Docker control:
+HIVE_MOUNT_TEST_DIAGNOSTICS=1 node
+  experiments/issue-3785/probe-claude-docker-history.mjs
+  /home/box/.local/share/claude/versions/2.1.310
+Run first with --expect-legacy-history-gap, then without it, sequentially.
+The unchanged pinned executable first creates a conversation through a bounded,
+synthetic loopback-only Messages provider. With only the two history sources
+replaced by healthy conventional directories, both fresh Docker peers report
+that the session is missing; only the root's model request occurs. Production
+selected sources let both fresh peers resume the same session with its original
+message; all three model requests reach the stub. The operator's settings remain
+private, credential bytes/inode are unchanged, and all peers are removed/reaped
+before deleting the fixture. No real provider or credential is used.
+Binary SHA256:
+b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56
+Before log SHA256:
+9521e3126b3b0f794c8903daa9bc963f2b987137364f4184563dcc6d050fe695
+After log SHA256:
+3abf513e0067437f725ff321832996e7cbf2a623c158f6bbef6d3c5dd0c95f14
+
+The reusable scripts/verify-mounted-claude-history.mjs is now required by the
+existing release-shaped installed-image gate in both daemon layouts. It runs
+both native controls and selects the root's network namespace for the stub.
+All five gate wiring regressions pass. Actual image checks at the new source
+remain pending CI; the local native probe covers this daemon only.
+
+The complete default suite passes all 756 selected files without NODE_OPTIONS.
+Log SHA256:
+52076b45fcc697c4a1ceacb5c0e37f045133b9b640e6b76816fcae55a4b86b05
+The full 22755-line log was reviewed in 16 chunks of at most 1500 lines.
+The image-driver wiring changed afterward; its five focused controls pass.
+
+Scope: this verifies selected source projection and one real conversation's
+cross-container resume through the two existing mounts. It does not establish
+full Claude transcript/index/history discovery, default authentication migration
+or native refresh owner-death coordination. These and the original complete-scope
+acceptance criteria remain unfinished.
+
+Repository checks at this change: full lint, Secretlint and file-line limits
+pass. Duplication is 10.04%, below the repository threshold of 12%. Changed
+source, tests, experiments and documentation pass Prettier.

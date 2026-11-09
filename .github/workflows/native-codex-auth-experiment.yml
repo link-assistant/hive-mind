@@ -1,0 +1,538 @@
+name: Native Codex auth adapter experiment
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/native-codex/**'
+      - 'experiments/issue-3785/probe-codex-native-auth-root.mjs'
+      - 'experiments/issue-3785/probe-codex-native-capability-auth.mjs'
+      - 'experiments/issue-3785/probe-codex-native-model-catalogue.mjs'
+      - 'experiments/issue-3785/probe-codex-native-manager.mjs'
+      - 'experiments/issue-3785/probe-codex-native-request-auth.mjs'
+      - 'experiments/issue-3785/probe-codex-native-refresh-crash.mjs'
+      - 'experiments/issue-3785/probe-codex-native-agent-identity.py'
+      - 'experiments/issue-3785/probe-codex-native-global-prompts.py'
+      - 'experiments/issue-3785/probe-codex-native-compression.py'
+      - 'experiments/issue-3785/probe-codex-native-migration.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-authority.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-binding.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-lifetime.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-recovery.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-performance.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-peers.py'
+      - 'experiments/issue-3785/probe-codex-native-sqlite-startup.py'
+      - 'experiments/issue-3785/probe-sqlite-*.py'
+      - 'experiments/issue-3785/probe-sqlite-*.c'
+      - 'experiments/issue-3785/probe-sqlx-selected-vfs.py'
+      - 'experiments/issue-3785/build_sqlite_vfs_control.py'
+      - 'experiments/issue-3785/benchmark-sqlite-selected-vfs.*'
+      - 'experiments/issue-3785/probe-codex-native-limits-generation.py'
+      - 'experiments/issue-3785/probe-codex-native-auth-identity.py'
+      - 'experiments/issue-3785/native-request-proxy.mjs'
+      - 'experiments/issue-3785/probe-codex-native-maintenance.mjs'
+      - 'experiments/issue-3785/probe-codex-native-message-history.mjs'
+      - 'experiments/issue-3785/probe-codex-native-tui-history.py'
+      - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/native_network_fixture.py'
+      - 'experiments/issue-3785/test_native_process_group.py'
+      - 'experiments/issue-3785/probe-codex-native-rollout-recovery.mjs'
+      - 'src/codex-sessions.lib.mjs'
+      - 'src/agent-config-audit*.mjs'
+      - 'tests/issue-3785-codex-global-prompts.test.mjs'
+      - 'tests/issue-3785-codex-dotenv.test.mjs'
+      - 'src/codex-rollout-publication.lib.mjs'
+      - 'src/session-kill-resume.fresh-session.lib.mjs'
+      - '.github/workflows/native-codex-auth-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-codex-auth-experiment-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  refresh-intent-modules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the source-pinned compiler
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt
+      - name: Apply the exact native auth and refresh transaction modules
+        run: |
+          native_source="$RUNNER_TEMP/codex-native-transactions"
+          echo "NATIVE_TRANSACTION_SOURCE=$native_source" >> "$GITHUB_ENV"
+          git init "$native_source"
+          git -C "$native_source" remote add origin https://github.com/openai/codex.git
+          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$native_source" checkout --detach FETCH_HEAD
+          python3 experiments/issue-3785/native-codex/apply_adapter.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_coordination.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_cached_reads.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_refresh_intent.py "$native_source"
+      - name: Reproduce and repair stale native identity metadata publication
+        run: |
+          if python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py "$NATIVE_TRANSACTION_SOURCE" > "$RUNNER_TEMP/native-identity-unit-before.log" 2>&1; then
+            echo "The native identity writer regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'test api_key_login_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F 'test api_key_with_stale_tokens_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F 'test legacy_account_switch_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F 'test legacy_fresh_owned_login_refuses ... FAILED' "$RUNNER_TEMP/native-identity-unit-before.log"
+          grep -F '8 passed; 4 failed' "$RUNNER_TEMP/native-identity-unit-before.log"
+          python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_TRANSACTION_SOURCE"
+          python3 experiments/issue-3785/native-codex/build_identity_publication_tests.py "$NATIVE_TRANSACTION_SOURCE" > "$RUNNER_TEMP/native-identity-unit-after.log" 2>&1
+      - name: Build the pinned dependency subset and test the exact native modules
+        run: |
+          cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir "$RUNNER_TEMP/transaction-dependencies" > "$RUNNER_TEMP/native-transaction-dependencies.log" 2>&1
+          python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py "$NATIVE_TRANSACTION_SOURCE" --dependencies-dir "$RUNNER_TEMP/transaction-dependencies/debug/deps" > "$RUNNER_TEMP/native-transaction-tests.log" 2>&1
+      - name: Preserve focused transaction diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-transactions
+          path: |
+            ${{ runner.temp }}/native-transaction-*.log
+            ${{ runner.temp }}/native-identity-unit-*.log
+          if-no-files-found: error
+          retention-days: 7
+  native-history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Verify native probe cleanup after an exited process leader
+        run: python3 experiments/issue-3785/test_native_process_group.py
+      - name: Install branch dependencies and the exact native Linux CLI
+        run: |
+          npm ci --ignore-scripts > "$RUNNER_TEMP/history-dependencies.log" 2>&1 &
+          wait "$!"
+          npm ci --prefix experiments/issue-3785/native-codex/stock-cli --ignore-scripts --no-audit --no-fund >> "$RUNNER_TEMP/history-dependencies.log" 2>&1 &
+          wait "$!"
+          echo "CODEX_PROBE_BINARY=$GITHUB_WORKSPACE/experiments/issue-3785/native-codex/stock-cli/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex" >> "$GITHUB_ENV"
+          echo "CODEX_PROBE_DIAGNOSTIC_FILE=$RUNNER_TEMP/native-history-process.log" >> "$GITHUB_ENV"
+      - name: Verify native cross-scope writer ownership and archive lifecycle
+        run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-scopes > "$RUNNER_TEMP/native-history-scopes.log" 2>&1
+      - name: Verify global instruction admission with actual native model requests
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" > "$RUNNER_TEMP/native-history-global-prompts.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" --model-catalog > "$RUNNER_TEMP/native-history-global-prompts-catalog.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-global-prompts.py "$CODEX_PROBE_BINARY" --dotenv-home > "$RUNNER_TEMP/native-history-global-prompts-dotenv.log" 2>&1
+      - name: Verify native formats through stopped-container recovery
+        run: node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs > "$RUNNER_TEMP/native-history-recovery.log" 2>&1
+      - name: Reproduce private native thread metadata with and without shared SQLite
+        run: |
+          node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-metadata --expect-private-metadata > "$RUNNER_TEMP/native-history-metadata-before.log" 2>&1
+          node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-metadata --shared-sqlite --expect-private-metadata > "$RUNNER_TEMP/native-history-metadata-sqlite-before.log" 2>&1
+      - name: Reproduce stale authorization in actual stock-native model requests
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_PROBE_BINARY" --expect-uncoordinated > "$RUNNER_TEMP/native-history-request-before.log" 2>&1
+      - name: Reproduce actual stock compression using a private maintenance lock
+        run: python3 experiments/issue-3785/probe-codex-native-compression.py "$CODEX_PROBE_BINARY" --without-selector --expect-independent-locks > "$RUNNER_TEMP/native-history-compression-before.log" 2>&1
+      - name: Preserve native history diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-history
+          path: |
+            ${{ runner.temp }}/history-dependencies.log
+            ${{ runner.temp }}/native-history-*.log
+          retention-days: 7
+  native-file-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      LIBSQLITE3_FLAGS: SQLITE_ENABLE_FILESTAT
+      CODEX_PROBE_DIAGNOSTICS: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Fetch the immutable supported native source
+        run: |
+          native_source="$RUNNER_TEMP/codex-native-source"
+          echo "NATIVE_SOURCE=$native_source" >> "$GITHUB_ENV"
+          git init "$native_source"
+          git -C "$native_source" remote add origin https://github.com/openai/codex.git
+          node scripts/github-retry.mjs git -C "$native_source" fetch --depth 1 origin 6aaac694803004a63c6f393d153c96d22521a6b9
+          git -C "$native_source" checkout --detach FETCH_HEAD
+          python3 experiments/issue-3785/native-codex/apply_adapter.py "$native_source"
+          python3 experiments/issue-3785/native-codex/apply_message_history_probe.py "$native_source"
+      - name: Install the source-pinned compiler
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt
+      - name: Test the exact canonical storage module
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_auth_tests.rs -o "$RUNNER_TEMP/canonical-auth-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-auth-tests" --test-threads=1
+      - name: Test the exact canonical session index module
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_session_index.rs -o "$RUNNER_TEMP/canonical-session-index-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-session-index-tests" --test-threads=1
+      - name: Test canonical SQLite rollout-path projection and refusal
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_rollout_paths.rs -o "$RUNNER_TEMP/canonical-rollout-paths-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-rollout-paths-tests" --test-threads=1 > "$RUNNER_TEMP/native-compression-path-tests.log" 2>&1
+      - name: Test canonical migration journal safety
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_migration_journals.rs -o "$RUNNER_TEMP/canonical-migration-journal-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-journal-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-safety-tests.log" 2>&1
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_migration_stages.rs -o "$RUNNER_TEMP/canonical-migration-stage-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-migration-stage-tests" --test-threads=1 > "$RUNNER_TEMP/native-migration-stage-tests.log" 2>&1
+      - name: Test final canonical SQLite configuration admission
+        run: |
+          rustc +1.99.1 --edition 2024 --test experiments/issue-3785/native-codex/canonical_sqlite_authority.rs -o "$RUNNER_TEMP/canonical-sqlite-authority-tests"
+          prlimit --data=134217728 --stack=8388608 --core=0 -- "$RUNNER_TEMP/canonical-sqlite-authority-tests" --test-threads=1 > "$RUNNER_TEMP/native-sqlite-authority-tests.log" 2>&1
+      - name: Test durable refresh intent storage and owner death
+        run: python3 experiments/issue-3785/native-codex/build_refresh_intent_tests.py > "$RUNNER_TEMP/native-refresh-intent-storage.log" 2>&1
+      - name: Install native Linux build prerequisites
+        run: |
+          {
+            sudo apt-get update
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends pkg-config libcap-dev
+          } > "$RUNNER_TEMP/native-prerequisites.log" 2>&1 &
+          wait "$!"
+      - name: Build the real native manager before coordination
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe > "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Reproduce native cached-read and refresh defects before coordination
+        run: |
+          for scenario in replacement logout refresh refresh-login refresh-logout; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" --expect-uncoordinated > "$RUNNER_TEMP/native-manager-before-$scenario.log" 2>&1
+          done
+      - name: Apply and build the native manager coordination experiment
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_coordination.py "$NATIVE_SOURCE"
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify native manager invalidation and one predecessor consumption
+        run: |
+          for scenario in replacement logout refresh refresh-login refresh-logout; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-after-$scenario.log" 2>&1
+          done
+      - name: Reproduce synchronous request-cache reads after async coordination
+        run: |
+          for scenario in cached-replacement cached-logout cached-malformed cached-permissions; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" --expect-uncoordinated > "$RUNNER_TEMP/native-manager-before-$scenario.log" 2>&1
+          done
+      - name: Apply and build synchronous canonical reads
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_cached_reads.py "$NATIVE_SOURCE"
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify synchronous reads without regressing native coordination
+        run: |
+          for scenario in replacement logout refresh refresh-login refresh-logout cached-replacement cached-logout cached-malformed cached-permissions; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-after-$scenario.log" 2>&1
+          done
+      - name: Apply the pinned canonical session index experiment
+        run: python3 experiments/issue-3785/native-codex/apply_session_index.py "$NATIVE_SOURCE"
+      - name: Reproduce private native maintenance ownership
+        run: node experiments/issue-3785/probe-codex-native-maintenance.mjs "$NATIVE_SOURCE" --expect-private-locks > "$RUNNER_TEMP/native-maintenance-before.log" 2>&1
+      - name: Apply and verify canonical native maintenance ownership
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_maintenance.py "$NATIVE_SOURCE"
+          node experiments/issue-3785/probe-codex-native-maintenance.mjs "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-maintenance-after.log" 2>&1
+      - name: Reproduce native private prompt history and configuration disposal loss
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-message-history --bin hive-message-history-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+          cd "$GITHUB_WORKSPACE"
+          node experiments/issue-3785/probe-codex-native-message-history.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-message-history-probe" --expect-private-history > "$RUNNER_TEMP/native-prompt-history-before.log" 2>&1
+      - name: Apply and verify canonical native prompt history
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_message_history.py "$NATIVE_SOURCE"
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-message-history --bin hive-message-history-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+          cd "$GITHUB_WORKSPACE"
+          node experiments/issue-3785/probe-codex-native-message-history.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-message-history-probe" > "$RUNNER_TEMP/native-prompt-history-after.log" 2>&1
+      - name: Verify optimized SQLite components and actual SQLx recovery
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: |
+          python3 experiments/issue-3785/build_sqlite_vfs_control.py "$RUNNER_TEMP/sqlite-vfs-control" --cargo-lock "$NATIVE_SOURCE/codex-rs/Cargo.lock" --online > "$RUNNER_TEMP/native-sqlite-sqlx-build.log" 2>&1
+          python3 experiments/issue-3785/probe-sqlx-selected-vfs.py "$RUNNER_TEMP/sqlite-vfs-control/target/debug/codex-sqlite-vfs-control" > "$RUNNER_TEMP/native-sqlite-sqlx.log" 2>&1
+          sqlite_source="$(python3 -c 'from pathlib import Path; sources = list((Path.home() / ".cargo/registry/src").glob("*/libsqlite3-sys-0.37.0/sqlite3/sqlite3.c")); assert len(sources) == 1; print(sources[0])')"
+          python3 experiments/issue-3785/probe-sqlite-selected-vfs.py --sqlite-source "$sqlite_source" --all-databases > "$RUNNER_TEMP/native-sqlite-components.log" 2>&1
+          python3 experiments/issue-3785/benchmark-sqlite-selected-vfs.py --sqlite-source "$sqlite_source" > "$RUNNER_TEMP/native-sqlite-benchmark.log" 2>&1
+      - name: Build the full supported CLI with the coordinated source adapter
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify native session index reads and mutations retain upstream behavior
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 test --locked --profile dev-small -p codex-rollout --lib session_index:: -- --test-threads=1 > "$RUNNER_TEMP/native-session-index-tests.log" 2>&1
+      - name: Reproduce compressed-history SQLite paths through deleted private homes
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-compression.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-private-metadata > "$RUNNER_TEMP/native-compression-metadata-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-codex-native-compression.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-compression-regression.log" 2>&1; then
+            echo "The native persisted rollout path regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Native SQLite must persist canonical rollout paths rather than disposable aliases.' "$RUNNER_TEMP/native-compression-regression.log"
+      - name: Reproduce disposable migration journals and persisted private metadata
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-journal-projection --expect-private-journal > "$RUNNER_TEMP/native-migration-journal-before.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-private-metadata > "$RUNNER_TEMP/native-migration-metadata-before.log" 2>&1
+          for link in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" --expect-unsafe-journal > "$RUNNER_TEMP/native-migration-$link-before.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$link-before.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind head --subagent --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-head-$link-before.log" 2>&1
+            for kind in decompressed compressed; do
+              python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed --expect-unsafe-stage > "$RUNNER_TEMP/native-migration-stage-$kind-$link-before.log" 2>&1
+            done
+          done
+          if python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack symlink > "$RUNNER_TEMP/native-migration-stage-regression.log" 2>&1; then
+            echo "The unsafe staging regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Unsafe native migration target must not overwrite unrelated evidence.' "$RUNNER_TEMP/native-migration-stage-regression.log"
+      - name: Reproduce actual native TUI executing after canonical history refusal
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-before.log" 2>&1
+      - name: Exercise native status, replacement and logout across private homes
+        run: node experiments/issue-3785/probe-codex-native-auth-root.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex"
+      - name: Reproduce unauthenticated model execution after canonical logout
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-unauthenticated-logout > "$RUNNER_TEMP/native-request-missing-before.log" 2>&1
+      - name: Reproduce independent provider authority overrides
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-overrides --expect-provider-overrides > "$RUNNER_TEMP/native-request-overrides-before.log" 2>&1
+      - name: Reproduce alternate native provider constructor authority
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-constructors --expect-provider-constructors > "$RUNNER_TEMP/native-request-constructors-before.log" 2>&1
+      - name: Reproduce native identity publication into a replacement login
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-stale-publication > "$RUNNER_TEMP/native-identity-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --scenario account-switch > "$RUNNER_TEMP/native-identity-regression.log" 2>&1; then
+            echo "The native identity publication regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'A stale identity must not be published into a replacement login.' "$RUNNER_TEMP/native-identity-regression.log"
+      - name: Reproduce consumed predecessor reuse after native refresh owner death
+        run: |
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-reused-predecessor > "$RUNNER_TEMP/native-refresh-crash-before.log" 2>&1
+          if node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-regression.log" 2>&1; then
+            echo "The native crash regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'A peer must not consume G0 again after an unknown native refresh outcome.' "$RUNNER_TEMP/native-refresh-crash-regression.log"
+      - name: Apply native durable refresh intent and test exact transaction modules
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_refresh_intent.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-refresh-intent-transactions.log" 2>&1
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-login --bin hive-canonical-auth-probe >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+          cd "$GITHUB_WORKSPACE"
+          for scenario in replacement logout refresh refresh-login refresh-logout cached-replacement cached-logout cached-malformed cached-permissions; do
+            node experiments/issue-3785/probe-codex-native-manager.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/hive-canonical-auth-probe" "$scenario" > "$RUNNER_TEMP/native-manager-intent-$scenario.log" 2>&1
+          done
+      - name: Reproduce final native database configuration redirection
+        run: |
+          for scenario in configuration cli logs; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --expect-redirect --diagnostics > "$RUNNER_TEMP/native-sqlite-$scenario-before.log" 2>&1
+          done
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --diagnostics > "$RUNNER_TEMP/native-sqlite-regression.log" 2>&1; then
+            echo "The native SQLite authority regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Private configuration redirected acknowledged canonical SQLite storage.' "$RUNNER_TEMP/native-sqlite-regression.log"
+      - name: Reproduce native database aliases reaching another authority
+        run: |
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" --expect-follow > "$RUNNER_TEMP/native-sqlite-$alias-before.log" 2>&1
+          done
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-binding-regression.log" 2>&1; then
+            echo "The native SQLite binding regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'An aliased native database must refuse explicitly before SQLite opens.' "$RUNNER_TEMP/native-sqlite-binding-regression.log"
+      - name: Reproduce retired native usage responses
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation none > "$RUNNER_TEMP/native-limits-healthy-before.log" 2>&1
+          for mutation in logout replace malformed; do
+            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" --expect-retired-response > "$RUNNER_TEMP/native-limits-$mutation-before.log" 2>&1
+            if python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" > "$RUNNER_TEMP/native-limits-$mutation-regression.log" 2>&1; then
+              echo "The native usage generation regression unexpectedly passed before repair."
+              exit 1
+            fi
+            grep -F 'Retired native authentication generation published its usage response.' "$RUNNER_TEMP/native-limits-$mutation-regression.log"
+          done
+      - name: Reproduce native operations continuing in retired SQLite storage
+        run: |
+          for scenario in directory database; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-lifetime.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --expect-retired > "$RUNNER_TEMP/native-sqlite-lifetime-$scenario-before.log" 2>&1
+            if python3 experiments/issue-3785/probe-codex-native-sqlite-lifetime.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" > "$RUNNER_TEMP/native-sqlite-lifetime-$scenario-regression.log" 2>&1; then
+              echo "The native SQLite operation regression unexpectedly passed before repair."
+              exit 1
+            fi
+            grep -F 'Replacing the admitted SQLite authority must explicitly refuse the subsequent native operation.' "$RUNNER_TEMP/native-sqlite-lifetime-$scenario-regression.log"
+          done
+          python3 experiments/issue-3785/probe-codex-native-sqlite-recovery.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-recovery-before.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-performance.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-performance-before.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-peers.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-peers-before.log" 2>&1
+      - name: Reproduce selected SQLite startup errors allowing native model requests
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-sqlite-startup.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --expect-fallback --diagnostics "$RUNNER_TEMP/native-sqlite-startup-diagnostics-before" > "$RUNNER_TEMP/native-sqlite-startup-before.log" 2>&1
+          if python3 experiments/issue-3785/probe-codex-native-sqlite-startup.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-startup-regression.log" 2>&1; then
+            echo "The selected SQLite startup regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Unusable selected native SQLite must refuse before a model request.' "$RUNNER_TEMP/native-sqlite-startup-regression.log"
+          if python3 experiments/issue-3785/native-codex/build_sqlite_startup_tests.py "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-sqlite-startup-function-before.log" 2>&1; then
+            echo "The selected SQLite initialization regression unexpectedly passed before repair."
+            exit 1
+          fi
+          grep -F 'Selected startup error must refuse.' "$RUNNER_TEMP/native-sqlite-startup-function-before.log"
+      - name: Apply canonical request and SQLite operation admission
+        run: |
+          python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_tui_message_history.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_identity_publication.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_rollout_paths.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_migration_journals.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_sqlite_authority.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_limits_generation.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_sqlite_vfs.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/apply_sqlite_startup.py "$NATIVE_SOURCE"
+          python3 experiments/issue-3785/native-codex/build_sqlite_startup_tests.py "$NATIVE_SOURCE" > "$RUNNER_TEMP/native-sqlite-startup-function-after.log" 2>&1
+          sqlite_source="$(python3 -c 'from pathlib import Path; sources = list((Path.home() / ".cargo/registry/src").glob("*/libsqlite3-sys-0.37.0/sqlite3/sqlite3.c")); assert len(sources) == 1; print(sources[0])')"
+          python3 experiments/issue-3785/probe-sqlite-config-lock.py "$NATIVE_SOURCE/codex-rs/core/src/config/canonical_sqlite_authority.rs" --sqlite-include "$(dirname "$sqlite_source")" > "$RUNNER_TEMP/native-sqlite-config-lock.log" 2>&1
+      - name: Build the actual native CLI with guarded SQLite operations
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 build --locked --profile dev-small -p codex-cli --bin codex >> "$RUNNER_TEMP/native-codex-build.log" 2>&1
+      - name: Verify actual SQLite operation refusal and healthy corruption recovery
+        run: |
+          for scenario in directory database; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-lifetime.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" > "$RUNNER_TEMP/native-sqlite-lifetime-$scenario-after.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-codex-native-sqlite-recovery.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-recovery-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-recovery.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-path-selector > "$RUNNER_TEMP/native-sqlite-recovery-ordinary.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-performance.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-performance-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-peers.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-sqlite-peers-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-peers.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-path-selector > "$RUNNER_TEMP/native-sqlite-peers-ordinary.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-startup.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --diagnostics "$RUNNER_TEMP/native-sqlite-startup-diagnostics-after" > "$RUNNER_TEMP/native-sqlite-startup-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-sqlite-startup.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-path-selector --diagnostics "$RUNNER_TEMP/native-sqlite-startup-diagnostics-ordinary" > "$RUNNER_TEMP/native-sqlite-startup-ordinary.log" 2>&1
+      - name: Verify native database overrides refuse before opening storage
+        run: |
+          for scenario in configuration cli logs; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --case "$scenario" --diagnostics > "$RUNNER_TEMP/native-sqlite-$scenario-after.log" 2>&1
+          done
+          for alias in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --alias "$alias" > "$RUNNER_TEMP/native-sqlite-$alias-after.log" 2>&1
+          done
+      - name: Verify native launcher directory identity
+        run: python3 experiments/issue-3785/probe-codex-native-auth-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-auth-directory-identity.log" 2>&1
+      - name: Verify native usage publication rejects retired authentication
+        run: |
+          for mutation in none logout replace malformed; do
+            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" > "$RUNNER_TEMP/native-limits-$mutation-after.log" 2>&1
+          done
+      - name: Verify actual compression, canonical metadata and resume after disposal
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-compression.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-compression-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-compression.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-path-selector --expect-private-metadata > "$RUNNER_TEMP/native-compression-without-selector.log" 2>&1
+      - name: Verify killed native migration recovery across private scope disposal
+        run: |
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-migration-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --compressed > "$RUNNER_TEMP/native-migration-compressed-after.log" 2>&1
+          python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --subagent > "$RUNNER_TEMP/native-migration-subagent-after.log" 2>&1
+          for link in symlink hardlink; do
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --journal-attack "$link" > "$RUNNER_TEMP/native-migration-$link-after.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" > "$RUNNER_TEMP/native-migration-stage-$link-after.log" 2>&1
+            python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind head --subagent > "$RUNNER_TEMP/native-migration-stage-head-$link-after.log" 2>&1
+            for kind in decompressed compressed; do
+              python3 experiments/issue-3785/probe-codex-native-migration.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --stage-attack "$link" --stage-kind "$kind" --compressed > "$RUNNER_TEMP/native-migration-stage-$kind-$link-after.log" 2>&1
+            done
+          done
+      - name: Verify actual native TUI refuses before executing without safe history
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-tui-history-after.log" 2>&1
+      - name: Verify native identity metadata remains bound to the originating login
+        run: python3 experiments/issue-3785/probe-codex-native-agent-identity.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-identity-after.log" 2>&1
+      - name: Verify actual native peer refuses uncertain predecessor after owner death
+        run: |
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" > "$RUNNER_TEMP/native-refresh-crash-after.log" 2>&1
+          node experiments/issue-3785/probe-codex-native-refresh-crash.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --repair-malformed > "$RUNNER_TEMP/native-refresh-repair-after.log" 2>&1
+      - name: Verify native TUI history behavior without the canonical selector
+        run: python3 experiments/issue-3785/probe-codex-native-tui-history.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --without-selector --expect-private-history --expect-unsafe-execution > "$RUNNER_TEMP/native-tui-history-legacy.log" 2>&1
+      - name: Verify native prompt-history upstream behavior remains intact
+        run: |
+          cd "$NATIVE_SOURCE/codex-rs"
+          cargo +1.99.1 test --locked --profile dev-small -p codex-message-history -- --test-threads=1 > "$RUNNER_TEMP/native-prompt-history-tests.log" 2>&1
+      - name: Verify actual model requests across canonical authority changes
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --diagnostics-dir "$RUNNER_TEMP/native-request-diagnostics" > "$RUNNER_TEMP/native-request-after.log" 2>&1
+      - name: Verify provider authority overrides refuse before model execution
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-overrides > "$RUNNER_TEMP/native-request-overrides-after.log" 2>&1
+      - name: Verify native provider constructors refuse alternate authority
+        run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --provider-constructors > "$RUNNER_TEMP/native-request-constructors-after.log" 2>&1
+      - name: Verify named history survives disposal of both private configurations
+        env:
+          CODEX_PROBE_BINARY: ${{ env.NATIVE_SOURCE }}/codex-rs/target/dev-small/codex
+          CODEX_PROBE_IMAGE: hive-codex-probe:0.164.0
+          CODEX_PROBE_DIAGNOSTIC_FILE: ${{ runner.temp }}/native-index-process.log
+        run: |
+          npm ci --ignore-scripts > "$RUNNER_TEMP/native-index-dependencies.log" 2>&1 &
+          wait "$!"
+          docker build -t hive-codex-probe:0.164.0 -f experiments/issue-3785/native-codex/Dockerfile.runtime experiments/issue-3785/native-codex > "$RUNNER_TEMP/native-index-image.log" 2>&1
+          node experiments/issue-3785/probe-codex-native-rollout-recovery.mjs --history-metadata --shared-sqlite --shared-index --shared-maintenance > "$RUNNER_TEMP/native-index-history.log" 2>&1
+      - name: Verify selected credentials through actual native capability discovery
+        run: prlimit --data=536870912 --stack=16777216 --core=0 -- node --jitless --max-old-space-size=96 experiments/issue-3785/probe-codex-native-capability-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --unpackaged-development > "$RUNNER_TEMP/native-capability-auth.log" 2>&1
+      - name: Verify compiled model metadata without configuration or credentials
+        run: prlimit --data=536870912 --stack=16777216 --core=0 -- node --jitless --max-old-space-size=96 experiments/issue-3785/probe-codex-native-model-catalogue.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --unpackaged-development > "$RUNNER_TEMP/native-model-catalogue.log" 2>&1
+      - name: Preserve the experimental CLI for bounded lifecycle investigations
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-experimental-cli
+          path: ${{ env.NATIVE_SOURCE }}/codex-rs/target/dev-small/codex
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Preserve native build diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-codex-auth-build
+          path: |
+            ${{ runner.temp }}/native-codex-build.log
+            ${{ runner.temp }}/native-prerequisites.log
+            ${{ runner.temp }}/native-manager-before-*.log
+            ${{ runner.temp }}/native-manager-after-*.log
+            ${{ runner.temp }}/native-manager-intent-*.log
+            ${{ runner.temp }}/native-refresh-*.log
+            ${{ runner.temp }}/native-request-*.log
+            ${{ runner.temp }}/native-request-diagnostics/*.log
+            ${{ runner.temp }}/native-identity-*.log
+            ${{ runner.temp }}/native-auth-directory-identity.log
+            ${{ runner.temp }}/native-limits-*.log
+            ${{ runner.temp }}/native-maintenance-*.log
+            ${{ runner.temp }}/native-compression-*.log
+            ${{ runner.temp }}/native-migration-*.log
+            ${{ runner.temp }}/native-prompt-history-*.log
+            ${{ runner.temp }}/native-tui-history-*.log
+            ${{ runner.temp }}/native-session-index-tests.log
+            ${{ runner.temp }}/native-sqlite-*.log
+            ${{ runner.temp }}/native-sqlite-startup-diagnostics-*/*.log
+            ${{ runner.temp }}/native-index-*.log
+            ${{ runner.temp }}/native-capability-auth.log
+            ${{ runner.temp }}/native-model-catalogue.log
+          if-no-files-found: ignore
+          retention-days: 7

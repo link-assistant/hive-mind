@@ -1,0 +1,27 @@
+Native Gemini CI preservation, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41202009296
+Source: f2e845cb38cfbdf53e435db1307e0086a4e38d0c
+Created: 2026-10-31 12:38:27 UTC
+Last job completed: 2026-10-31 13:01:37 UTC
+Conclusion: success; all six jobs pass.
+
+The credential, full-history regression, tracker, Git-checkpoint, restorable
+tool and ACP-restore jobs pass their required native controls. Their six
+diagnostic artifacts are preserved locally: 2761 text files, 107833 lines,
+indexed in 2497 chunks of at most 1500 lines. Fifty-two files contain the
+expected strict before-control assertion failures. Their filenames, actual
+assertions and corresponding successful workflow steps were inspected; the
+history-regression control is an intentional negative control despite lacking
+"before" in its filename. These failures must remain part of the evidence.
+
+The complete workflow log has 3917 lines, reviewed in three bounded chunks.
+SHA256: 4d04faf1623c067ead4a1ff41f12865625a86268fddb9cce7384b2477da00a61
+No unexpected after-control failure is reported by the preserved diagnostic
+index or the successful workflow jobs.
+
+This establishes the checked opt-in native adapter's CI controls at the stated
+source. It does not establish default canonical selection, prior-state
+migration, every backend, complete release-image lifecycle or the complete
+six-tool acceptance contract. Those requirements remain open in the inventory;
+the pull request remains draft and unmerged.

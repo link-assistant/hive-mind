@@ -1,0 +1,47 @@
+Verified pushed commit:
+  ec03c083d0e01b4f5982669cc16ca708a555e61c
+Committed 2026-10-31T04:31:46Z; all eight workflows start 04:31:56Z.
+Seven pass. Gemini fails on an omitted exact manager pin in its final auth
+regressions; see ci-ec03c083-gemini.txt for reproduction and local repair.
+These results precede the complete CLI kill controls and atomic-proof stage.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41168944346
+  Completes 04:59:40Z. Full ci-logs/checks-41168944346.log retained:
+    72,350 lines, reviewed in 49 chunks of at most 1500; no error annotations.
+  Line 71825: all 739 default test files pass.
+  Line 71887: both GitHub integration test files pass.
+  Lines 44130-44135: installed-package host/nested Docker task writes and
+    Agent/OpenCode atomic replacement, deletion/recreation, concurrent tasks
+    and private-redirection refusal pass.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41168944450
+  All three jobs pass; final job completes 05:06:52Z. Full
+    ci-logs/native-codex-41168944450.log retained: 1,790 lines, reviewed in
+    two chunks; no error annotations. Lines 718/739 report seven canonical
+    storage and five session-index tests passing. Line 1075 confirms actual
+    status/logout/replacement across private homes.
+  All 94 native-codex-auth-build files downloaded and reviewed in 95 chunks.
+    Four strict-before assertion failures are required reproductions of
+    compression paths, migration staging, identity and refresh owner death.
+    The repaired native CLI passes canonical history/migration, compression,
+    identity provenance, TUI refusal, prompt history, request admission and
+    refresh owner-death refusal with explicit-login repair.
+  Build artifact 13031167593: 90,476 bytes, archive SHA-256
+    08c6c0167ee7801fc40fe48afe2d1cd7349f225c0e43b2386794ab1c00c4d7f0.
+  Complete CLI artifact 13031386448: 114,239,444 bytes, archive SHA-256
+    676db603a8b2b66f74a808aa819ffe82d786473391ad06502ddab61a7b5a6d19.
+    Extracted executable: 419,096,400 bytes, SHA-256
+    61e786a8bb7fee18e8e1fe349ee1821786124ce0bf3c4f416e33ab5ec5b34bc3.
+  Local downloads: /tmp/issue-3785-recovery/codex-ec03-auth-artifacts and
+    /tmp/issue-3785-recovery/codex-ec03-cli-artifacts.
+
+Other successful workflows at this SHA:
+  Workflows 41168944347; Links 41168944458; Claude 41168944408;
+  Qwen 41168944353; Security 41168944393.
+
+Passing Claude reproduction still demonstrates its unresolved native refresh
+owner-death defect. Production installation, broad lifecycle and the remaining
+acceptance inventory stay unfinished. The pin repair and atomic proof stage
+require fresh exact-head CI; keep PR 3786 draft and unmerged.

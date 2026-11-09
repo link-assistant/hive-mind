@@ -1,0 +1,29 @@
+✔ unattested stock content blocks admission: operator/SKILL.md (54.075694ms)
+✔ unattested stock content blocks admission: .operator/SKILL.md (26.949052ms)
+✔ unattested stock content blocks admission: imagegen/SKILL.md (30.709968ms)
+✔ unattested stock content blocks admission: .codex-system-skills.marker (35.787358ms)
+✔ nested stock credential symlink blocks admission (30.994337ms)
+✔ nested stock credential hard link blocks admission (31.731865ms)
+✔ an empty stock directory is not a pristine CLI baseline (20.608213ms)
+✔ Dockerfile pins the CLI version used to generate the stock baseline (1.676577ms)
+✔ Dockerfile.dind pins the CLI version used to generate the stock baseline (1.075797ms)
+✔ coolify/Dockerfile pins the CLI version used to generate the stock baseline (1.658093ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (30.6684ms)
+✔ stock verification rejects an oversized file before opening it (28.840541ms)
+✔ concurrent stock edits reject verification without exposing content (25.97287ms)
+✔ PR image builds install this branch as a package in both images (4.097734ms)
+✔ both packaged images require a network-disabled stock-runtime gate (1.840523ms)
+✔ packaged runtime rejects a native CLI that materializes unapproved stock (205.209485ms)
+✔ packaged runtime rejects a native CLI that does not materialize stock (214.554677ms)
+Docker DinD variant checks passed
+✔ tests/test-docker-dind-variant.mjs (82.79047ms)
+Docker release-order contract tests passed
+✔ tests/test-docker-release-order.mjs (85.781189ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 912.475701

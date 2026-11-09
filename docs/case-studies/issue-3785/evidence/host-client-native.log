@@ -1,0 +1,2 @@
+Verified: client-free runtime refuses Docker execution; the exact copied client runs as UID 1000 and reaches the host daemon through its socket group.
+Docker version 29.9.2, build a82e528

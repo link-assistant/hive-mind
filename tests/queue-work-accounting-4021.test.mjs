@@ -4,13 +4,15 @@
  */
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { classifyToolProcesses, mergeToolWork, readToolProcessSnapshot } from '../src/queue-work.lib.mjs';
 import { getRunningProcesses } from '../src/telegram-solve-queue.helpers.lib.mjs';
 import { SolveQueue, QUEUE_CONFIG } from '../src/telegram-solve-queue.lib.mjs';
-import { getLimitCache, resetLimitCache } from '../src/limits.lib.mjs';
+import { getCachedClaudeLimits, getCachedCodexLimits, getLimitCache, resetLimitCache, resolveLimitsCredentialPaths } from '../src/limits.lib.mjs';
+import { resolveClaudeAuthorityCredentialsPath } from '../src/claude-auth-authority.lib.mjs';
 import { createSessionRegistryQueries } from '../src/session-monitor.queries.lib.mjs';
 
 const record = (pid, ppid, argv, extra = {}) => ({ pid, ppid, argv, state: 'S', ...extra });
@@ -18,13 +20,25 @@ const services = [record(10, 1, ['codex', 'app-server', 'daemon', 'pid-update-lo
 const url = 'https://github.com/test/repo/issues/1';
 const ok = { ok: true, reasons: [], oneAtATime: false, rejected: false };
 
-function cacheUsage(percentage) {
+// Usage results are partitioned by credential path and generation (#3785), so
+// seed them through the public readers against synthetic, isolated auth files.
+const fixtureHome = mkdtempSync(join(tmpdir(), 'queue-work-4021-home-'));
+process.env.CODEX_HOME = join(fixtureHome, 'codex');
+process.env.CLAUDE_CONFIG_DIR = join(fixtureHome, 'claude');
+process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
+process.env.HIVE_MIND_USE_ROUTER = '0';
+process.once('exit', () => rmSync(fixtureHome, { recursive: true, force: true }));
+
+async function cacheUsage(percentage) {
   resetLimitCache();
-  const cache = getLimitCache();
   const usage = { currentSession: { percentage: 10 }, allModels: { percentage } };
-  cache.set('codex', { success: true, usage });
-  cache.set('claude', { success: true, usage });
-  cache.set('github', { success: true, githubRateLimit: { usedPercentage: 10 } });
+  for (const file of [await resolveClaudeAuthorityCredentialsPath(), resolveLimitsCredentialPaths().codex]) {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, '{}');
+  }
+  await getCachedClaudeLimits(false, { fetchLimits: async () => ({ success: true, usage }) });
+  await getCachedCodexLimits(false, { fetchLimits: async () => ({ success: true, usage }) });
+  getLimitCache().set('github', { success: true, githubRateLimit: { usedPercentage: 10 } });
 }
 
 function queueFor({ records = services, sessions = [] } = {}) {
@@ -118,7 +132,7 @@ test('the process reader classifies NUL-separated argv and tolerates vanished PI
 for (const tool of ['claude', 'codex']) {
   for (const percentage of [50, 98]) {
     test(`${tool} services-only at ${percentage}% permits admission and displays zero work`, { timeout: 10000 }, async () => {
-      cacheUsage(percentage);
+      await cacheUsage(percentage);
       const queue = queueFor();
       const result = await queue.canStartCommand({ tool });
       assert.equal(result.canStart, true);
@@ -130,20 +144,20 @@ for (const tool of ['claude', 'codex']) {
   }
   test(`${tool} real work blocks at 98% and permits parallel work at 50%`, { timeout: 10000 }, async () => {
     const queue = queueFor({ records: [...services, record(20, 1, [tool, '-p', 'work'])] });
-    cacheUsage(98);
+    await cacheUsage(98);
     const blocked = await queue.canStartCommand({ tool });
     assert.equal(blocked.canStart, false);
     assert.equal(blocked.totalProcessing, 1);
     assert.match(blocked.reason, /waiting for current command/);
     assert.match(await queue.formatStatus(), new RegExp(`${tool} \\(pending: 0, processing: 1\\)`));
     assert.match(await queue.formatDetailedStatus(), /Processing: 1/);
-    cacheUsage(50);
+    await cacheUsage(50);
     assert.equal((await queue.canStartCommand({ tool })).canStart, true);
   });
 }
 
 test('active app-server-backed turns count from executions, regardless of daemon trees', { timeout: 10000 }, async () => {
-  cacheUsage(98);
+  await cacheUsage(98);
   const sessions = [
     { sessionName: 'turn-1', tool: 'codex', url, isolationBackend: 'screen', status: 'executing' },
     { sessionName: 'turn-2', tool: 'codex', url: `${url}0`, isolationBackend: 'docker', status: 'executing' },
@@ -157,7 +171,7 @@ test('active app-server-backed turns count from executions, regardless of daemon
 });
 
 test('one snapshot deduplicates tracked screen work, queue launch and native wrapper pairs', { timeout: 10000 }, async () => {
-  cacheUsage(98);
+  await cacheUsage(98);
   const records = [record(10, 1, ['node', 'solve.mjs', url]), record(20, 10, ['node', '/opt/codex/bin/codex.js', 'exec']), record(21, 20, ['codex', 'exec'])];
   const sessions = [{ sessionName: 'screen-one', tool: 'codex', url, status: 'executing', isolationBackend: 'screen', processIds: { wrapperPid: 10 } }];
   const queue = queueFor({ records, sessions });
@@ -186,7 +200,7 @@ test('STY joins detached work; Docker PIDs do not collide with host PIDs', { tim
 });
 
 test('distinct local and Docker jobs are added across tools for resource throttling', { timeout: 10000 }, async () => {
-  cacheUsage(50);
+  await cacheUsage(50);
   const queue = queueFor({
     records: [...services, record(20, 1, ['codex', 'exec']), record(30, 1, ['claude', '-p', 'work'])],
     sessions: [
@@ -224,7 +238,7 @@ test('registry liveness excludes stale records and exposes identities for live d
   assert.equal(items.length, 1);
   assert.equal(items[0].sessionId, 'uuid-live');
   assert.deepEqual(items[0].processIds, { wrapperPid: 42 });
-  cacheUsage(98);
+  await cacheUsage(98);
   const queue = queueFor({ sessions: items });
   assert.equal((await queue.canStartCommand({ tool: 'codex' })).canStart, false);
   activeSessions.clear();
@@ -232,7 +246,7 @@ test('registry liveness excludes stale records and exposes identities for live d
 });
 
 test('concurrent admissions with services only reserve exactly one startup slot', { timeout: 10000 }, async () => {
-  cacheUsage(98);
+  await cacheUsage(98);
   const queue = queueFor();
   const results = await Promise.all([queue.reserveStartSlot({ tool: 'codex' }), queue.reserveStartSlot({ tool: 'codex' })]);
   assert.equal(results.filter(result => result.startReserved).length, 1);
@@ -241,7 +255,7 @@ test('concurrent admissions with services only reserve exactly one startup slot'
 });
 
 test('one-at-a-time admission remains atomic with startup pacing disabled; reservations release on failed launch', { timeout: 10000 }, async () => {
-  cacheUsage(98);
+  await cacheUsage(98);
   const previousInterval = QUEUE_CONFIG.MIN_START_INTERVAL_MS;
   QUEUE_CONFIG.MIN_START_INTERVAL_MS = 0;
   try {
@@ -261,7 +275,7 @@ test('one-at-a-time admission remains atomic with startup pacing disabled; reser
 });
 
 test('queue consumer and direct admission share the reservation with startup pacing disabled', { timeout: 10000 }, async () => {
-  cacheUsage(98);
+  await cacheUsage(98);
   const previousInterval = QUEUE_CONFIG.MIN_START_INTERVAL_MS;
   QUEUE_CONFIG.MIN_START_INTERVAL_MS = 0;
   try {

@@ -1,0 +1,8 @@
+{
+  "name": "hive-native-gemini-experiment",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@google/gemini-cli": "0.65.0"
+  }
+}

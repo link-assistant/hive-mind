@@ -1,0 +1,15 @@
+✔ Dockerfile supplies and verifies the host-socket Docker client (23.467203ms)
+✔ coolify/Dockerfile supplies and verifies the host-socket Docker client (8.942031ms)
+✔ running image verification requires a working Docker client (3.00532ms)
+✔ missing packaged client fails before daemon retries without exposing exec output (22.650619ms)
+✔ a packaged client is checked before waiting for a starting daemon (7.147882ms)
+✔ the image gate waits for both tasks and cleans them up after success (784.198704ms)
+✔ the image gate waits for both tasks and cleans them up after a peer failure (965.465996ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1898.799316

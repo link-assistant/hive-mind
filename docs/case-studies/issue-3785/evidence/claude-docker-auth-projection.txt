@@ -1,0 +1,94 @@
+Explicit Claude Docker authentication projection, 2026-10-31 UTC
+
+Bounded requirements: A1/A2/A3/A4/A6/A7/A10/A11/A12 for an explicitly selected
+independent credential parent. Default migration, complete native history,
+all writers and the complete six-tool contract remain unfinished.
+
+Initial production-builder regressions: 13 fail, one Router control passes.
+A healthy independent credential parent is omitted, its native selector and
+admitted identity disappear, unsafe input reaches legacy preparation, and
+substituted backing is accepted. Additional reader controls reproduce ignored
+launch identity in direct credentials, cached usage and pending usage/profile.
+A separate image-gate regression fails because neither daemon runs Claude's
+actual credential-parent control.
+
+Production repair:
+- Mount the selected credential PARENT, never a credential snapshot or the
+  operator's configuration parent, at /home/box/.hive-mind/canonical/claude-auth.
+- Carry CLAUDE_SECURESTORAGE_CONFIG_DIR and admitted device/inode through
+  preparation, Docker command creation and daemon mount namespace resolution.
+- Reject absent, linked, public, overlapping, substituted or ambiguous selected
+  state and competing conventional credentials before legacy preparation.
+- Bound owned private single-link credential reads through held descriptors.
+  Reuse the same reader for Codex without weakening its refusals.
+- Revalidate admitted Claude backing before connection and every execution
+  attempt, including resume, and before returning cached/pending usage/profile.
+- Preserve existing native empty-selector behavior outside this dedicated
+  projection; refuse empty dedicated Docker selection rather than mount the
+  operator's entire configuration parent. Router tasks receive no vendor state.
+
+Reproduction/verification:
+node --test tests/issue-3785-claude-docker-auth-projection.test.mjs
+node --test tests/claude-prompt-argv-3282.test.mjs
+The complete focused invocation adds Codex projection, limits authority,
+storage revalidation and packaged mount gates: 74 tests pass. All six command
+wrapper tests pass separately, including new/resume refusal before any native
+launch after equal-content parent replacement and connection refusal.
+
+Actual native control:
+HIVE_MOUNT_TEST_IMAGE=node:24-alpine HIVE_MOUNT_TEST_FIXTURE=PRIVATE_PARENT
+node scripts/verify-mounted-claude-auth.mjs INSTALLED_HIVE [LOCAL_EXACT_BINARY]
+The optional binary argument is only for a bounded local reproduction; image
+checks resolve the image's installed Claude and assert its pinned version.
+Actual CLI: 2.1.310 (Claude Code), SHA256 b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56
+
+Root and two live offline Docker peers use the actual production prepare/build/
+daemon-translation functions, exact binary and root loader/shared libraries.
+They observe initial Max credentials, atomic replacement with Pro, task native
+logout, synthetic Max publication, root native logout, Pro publication, in-place
+Max update and the same Max after deleting all private configuration homes.
+Both peer mount identities match the admitted host parent. Neither conventional
+nor private-config credential snapshots are created. No provider request,
+SDK replacement or native export instrumentation is used.
+
+The real single-file-bind negative control still reports Max after atomic Pro
+replacement AND after peer logout. Its retained retired inode proves the old
+file bind no longer follows the authority. This is the unmodified stock CLI's
+observed behavior, unlike the stricter native Codex adapter's refusal.
+
+Both complete local actual-Claude runs pass; all three peer containers are
+removed/reaped and verified absent before fixture removal. The shared runtime
+helper also passes the existing actual native Codex root/two-peer lifecycle.
+Native commands have finite 1.5 GiB DATA / 16 MiB stack / zero-core limits;
+peers have bounded lifetimes, no network, private tmpfs and a read-only runtime.
+Peer CLI commands run sequentially to bound peak resident memory. Root/probe
+child peak RSS is 158612 KiB. Release-image peers additionally have a 256 MiB
+memory limit. The local delegated threaded cgroup cannot impose that controller;
+the local optional-binary control retains the finite native limits.
+
+Required image wiring runs actual installed Claude and Codex controls in BOTH
+host-socket and nested-daemon variants. Complete image CI remains required.
+
+Boundaries: synthetic credential publication models a provider login's file
+replacement; it does NOT verify native OAuth login or refresh. The marker is
+rechecked by Hive-managed readers/entrypoints; stock Claude does not implement
+this marker internally. Full native writer lifetime enforcement, default
+selection/migration, selected configuration-root history projection, complete
+history and refresh-owner-death coordination remain unfinished. The published
+Claude owner-death report is evidence of an unresolved criterion, not a fix.
+
+The first complete default-suite attempt stopped at file 69: adding the two
+admission lines raised claude.lib.mjs to 1352 lines, above the existing strict
+1350-line test threshold. Extract the unchanged synchronous new/resume/NDJSON
+launch block into the existing command-builder module; keep credential admission
+immediately before command creation. The main module is now 1342 lines. All
+34 extraction/argv/stream-close/error-precedence controls pass, including the
+unchanged prompt quoting and native refusal tests. The complete suite was
+restarted after this repair and passes all 753 selected test files (exit 0).
+Preserved log: claude-projection-default-suite-final.log, 22635 lines, reviewed
+in 16 chunks of at most 1500 lines. SHA256:
+345d221d90495316bd9aa42781901eee7bc9096aa2473d032cb51731108a8418.
+The eleven HTTP 408 diagnostics at lines 1853–1986 are deliberate upload-retry
+fixtures; all ten enclosing regression controls pass. Repository-wide ESLint,
+GitHub retry checks, strict file limits, changed-file formatting and secret
+checks pass. Full repository duplication passes at 10.05% (12% ceiling).

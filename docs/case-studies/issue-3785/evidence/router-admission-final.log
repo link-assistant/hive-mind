@@ -1,0 +1,13 @@
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (2.436294ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.420885ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.596212ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (2.760559ms)
+✔ task routing uses the selected image dialect from the launch environment (6.467443ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 410.6336

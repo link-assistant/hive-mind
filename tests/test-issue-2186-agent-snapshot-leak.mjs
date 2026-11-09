@@ -39,7 +39,7 @@ import { assert as check, printSummary, getFailCount } from './test-helpers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
-const CURRENT_AGENT_IMAGE_VERSION = '0.27.0';
+const CURRENT_AGENT_IMAGE_VERSION = '0.27.2';
 
 const { agentCliPrunesOrphanSnapshots, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 
@@ -112,7 +112,7 @@ console.log('\n3. Image pins match the runtime floor\n');
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
-  const installs = [...text.matchAll(/bun install -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
+  const installs = [...text.matchAll(/bun install --backend=copyfile -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
   check(installs.length > 0, `${file} installs the Agent CLI`);
   check(asNumber(CURRENT_AGENT_IMAGE_VERSION) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION), `the current Agent image pin satisfies the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor`);
   check(

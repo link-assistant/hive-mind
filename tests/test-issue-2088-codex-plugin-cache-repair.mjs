@@ -147,14 +147,14 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
 
   assert.equal(result.required, true, 'the preflight completes instead of degrading');
   assert.equal(result.degraded, undefined);
-  assert.equal(result.codexHome, scoped, 'plugin state stays scoped to this repository');
+  assert.notEqual(result.codexHome, scoped, 'a new task does not reuse the old repository home');
   assert(
-    codex.calls.some(call => call.args.join(' ') === `plugin add ${PLUGIN_ID} --json` && call.env.CODEX_HOME === scoped),
+    codex.calls.some(call => call.args.join(' ') === `plugin add ${PLUGIN_ID} --json` && call.env.CODEX_HOME === result.codexHome),
     'the payload is materialized even though `plugin list` already reported installed+enabled'
   );
   assert.deepEqual(result.repairs, [`install:${PLUGIN_ID}`], 'the cheapest repair that works is the one that runs');
 
-  const { skills } = await readMaterializedPluginSkills({ codexHome: scoped, pluginId: PLUGIN_ID });
+  const { skills } = await readMaterializedPluginSkills({ codexHome: result.codexHome, pluginId: PLUGIN_ID });
   assert.deepEqual([...skills].sort(), ['superpowers:test-driven-development', 'superpowers:using-superpowers'], 'the scoped cache carries the required skills after repair');
   assert(
     logs.some(entry => entry.message.includes('Verified 2 required skill(s) are visible to the model')),
@@ -162,7 +162,7 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
   );
 
   // 1b. a new task starts clean and deterministically rematerializes only the
-  // selected provider in the same repository scope.
+  // selected provider in a separate task scope.
   const second = makeCodex({ fixture });
   const repeat = await preflight({ fixture, codex: second });
   assert.deepEqual(repeat.result.repairs, [`install:${PLUGIN_ID}`], 'each task rebuilds the selected payload after clearing stale state');
@@ -170,7 +170,8 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
     second.calls.some(call => call.args?.[1] === 'add'),
     'the selected provider is materialized into the clean task scope'
   );
-  assert.equal(repeat.result.codexHome, scoped, 'the scoped home is stable across runs, so it survives a container restart');
+  assert.notEqual(repeat.result.codexHome, result.codexHome, 'a restart receives fresh configuration while history remains shared');
+  assert.equal((await readMaterializedPluginSkills({ codexHome: result.codexHome, pluginId: PLUGIN_ID })).skills.size, 2, 'preparing a restart preserves the previous task payload');
 
   await rm(fixture.root, { recursive: true, force: true });
 }
@@ -188,7 +189,7 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
 
   assert.equal(result.required, true, 'a stale payload is repaired rather than trusted');
   assert(result.repairs.length > 0, 'the stale payload triggered a repair');
-  const { skills } = await readMaterializedPluginSkills({ codexHome: scoped, pluginId: PLUGIN_ID });
+  const { skills } = await readMaterializedPluginSkills({ codexHome: result.codexHome, pluginId: PLUGIN_ID });
   assert(skills.has('superpowers:using-superpowers'), 'the required skill is materialized after the stale payload is refreshed');
 
   await rm(fixture.root, { recursive: true, force: true });
@@ -209,7 +210,8 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
 
   assert(failure instanceof CodexCapabilityPreflightError, 'a host cache is not copied when the selected marketplace is unreachable');
   assert(!String(failure.message).includes('copy-operator-payload'), 'the diagnostic never claims an unsafe host-cache fallback was attempted');
-  const { skills } = await readMaterializedPluginSkills({ codexHome: scopedHomeFor(fixture), pluginId: PLUGIN_ID });
+  const attemptedHome = codex.calls.find(call => call.command === 'codex').env.CODEX_HOME;
+  const { skills } = await readMaterializedPluginSkills({ codexHome: attemptedHome, pluginId: PLUGIN_ID });
   assert.equal(skills.size, 0, 'operator instructions never enter the repository scope');
 
   await rm(fixture.root, { recursive: true, force: true });

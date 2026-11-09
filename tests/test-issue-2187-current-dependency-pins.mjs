@@ -20,12 +20,12 @@ const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
-  agent: '0.27.1',
+  agent: '0.27.2',
   box: '2.10.5',
   bun: '1.4.4',
   eslint: '10.14.0',
   formalAi: '0.355.34',
-  jscpd: '5.4.2',
+  jscpd: '5.4.3',
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
   node: '26.13.0',
@@ -56,8 +56,8 @@ assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegE
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const source = read(file);
-  assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
-  assert.match(source, new RegExp(`bun install -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
+  assert.match(source, new RegExp(`bun install --backend=copyfile -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
 }
 
 const formalAiVersionSource = read('src/formal-ai-version.lib.mjs');

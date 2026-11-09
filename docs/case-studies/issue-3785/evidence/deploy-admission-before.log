@@ -1,0 +1,108 @@
+✖ deployment rejects a contaminated restored home before starting hive (32.700571ms)
+✖ missing GitHub setup cannot hide a failed global baseline (21.75179ms)
+✖ startup failure remains a failed deployment after a clean baseline (23.902948ms)
+✖ a clean deployment starts hive after its installed runtime check (18.662293ms)
+✖ a clean unconfigured deployment retains the existing setup terminal (14.474471ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 289.471187
+
+✖ failing tests:
+
+test at tests/issue-3785-deployment-admission.test.mjs:49:1
+✖ deployment rejects a contaminated restored home before starting hive (32.700571ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 23
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-deployment-admission.test.mjs:51:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 23,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-deployment-admission.test.mjs:55:1
+✖ missing GitHub setup cannot hide a failed global baseline (21.75179ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 23
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-deployment-admission.test.mjs:57:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 23,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-deployment-admission.test.mjs:61:1
+✖ startup failure remains a failed deployment after a clean baseline (23.902948ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 17
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-deployment-admission.test.mjs:63:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 17,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-deployment-admission.test.mjs:67:1
+✖ a clean deployment starts hive after its installed runtime check (18.662293ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+  -   'gate',
+      'hive'
+    ]
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-deployment-admission.test.mjs:70:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'hive' ],
+    expected: [ 'gate', 'hive' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-deployment-admission.test.mjs:73:1
+✖ a clean unconfigured deployment retains the existing setup terminal (14.474471ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+  -   'gate',
+      'kept-alive'
+    ]
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-deployment-admission.test.mjs:76:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'kept-alive' ],
+    expected: [ 'gate', 'kept-alive' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

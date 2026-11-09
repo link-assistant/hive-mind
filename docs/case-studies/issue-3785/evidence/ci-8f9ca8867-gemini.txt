@@ -1,0 +1,33 @@
+Exact SHA 8f9ca8867aa1fbc87ef356d7a37081a31c8c1577.
+Gemini run 41166203183 created 2026-10-31T03:52:22Z, after its commit;
+all six jobs pass, completed 2026-10-31T04:04:23Z.
+https://github.com/link-assistant/hive-mind/actions/runs/41166203183
+
+Full workflow log ci-logs/native-gemini-41166203183.log: 3,815 lines,
+no error annotations. ACP artifact 13028334343 contains 461 downloaded files,
+76 control logs with 17 expected strict before failures and no unexpected
+tracebacks. All 70 network diagnostics have errors [].
+Artifact SHA-256 e267539188e4f36d8bb7d5f3d613ab1cb16d4513edc5913e876cdb1b365f27ef;
+329,757 bytes. Local artifact directory:
+  /tmp/issue-3785-recovery/gemini-8f9-acp-artifacts
+
+Both actual native engines pass concurrent generalist execution with selected
+canonical history: three assertions and eight actual model requests each.
+The finite provider barrier requires both child requests before either response.
+Each child edits a different real file and returns its result to its parent.
+Whole private-home disposal, fresh discovery and actual parent resume preserve
+both results, both edits and complete root/child audit prefixes. Separate full
+child conversations and distinct acknowledged canonical checkpoints remain;
+no private conversation or checkpoint copies are used.
+
+Both unselected controls pass two assertions and six model requests each,
+preserving original private behavior without canonical history writes.
+Both complete child-edit restore cycles still pass five assertions and seven
+requests. Fresh reconstruction verifies twenty-four stages and seventeen
+identical native files. Surrounding metadata 54, shell 28 and authentication
+41/30/11 assertions pass.
+
+This is Gemini evidence at this SHA. All eight workflows subsequently passed;
+see ci-8f9ca8867.txt for complete compiled Codex and Docker evidence.
+Plan preservation, production installation, direct child
+continuation and the complete six-tool lifecycle are separate unfinished work.

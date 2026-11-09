@@ -1,0 +1,56 @@
+Verified pushed commit:
+  533cc3a20c01814c7ae6f297eebdc09f7f478be6
+Node 24 workflow created 2026-10-31T02:37:16Z:
+  https://github.com/link-assistant/hive-mind/actions/runs/41160834587
+All six Gemini jobs pass; the final ACP job completes at 02:46:54Z.
+
+Preserved full workflow log:
+  ci-logs/native-gemini-41160834587.log (3681 lines).
+  Lines 1451-1452: healthy actual ACP edit, then strict missing-checkpoint failure.
+  Lines 1477-1478: strict actual provider-history restore failure.
+  Lines 1503-1504: strict third-ACP restored-original-prompt failure.
+  Lines 1529-1530: strict checkpoint filename/tool listing failure.
+  Lines 1556-1557: strict third-terminal restored-original-prompt failure.
+  Lines 1583-1584: strict automatic startup-prompt/resume admission failure.
+  Lines 1612-1615: healthy actual headless edits, then strict checkpoint
+    failures in both the legacy and agent-session native engines.
+  Line 1649: strict canonical child recording failure, after healthy actual
+    private root/generalist-child execution in the same successful step.
+  Lines 1701-1714: checked fresh twenty-two-stage source reconstruction and
+    actual child, ACP, manual/automatic terminal and both headless controls.
+  Lines 1757-1768: all 272 ACP diagnostic artifact files uploaded.
+  Line 1764: artifact SHA-256:
+    2add9af1456612e74b1ba41404e200433b12572236ee31227684fce4a02cedf6
+  Artifact ID: 13027595764; archive size: 211057 bytes.
+
+All 272 ACP artifacts were downloaded and inspected locally. The 45 control
+logs contain precisely nine expected strict before failures and no unexpected
+failure; all 43 network diagnostic files have an empty errors array.
+  Fresh reconstruction retains seventeen byte-identical native files and
+    proves applicability checks do not mutate the package.
+  Actual canonical root/generalist-child edit, completion, discovery and root
+    resume retain both complete transcripts after whole private-home disposal.
+    Unsafe child directory mode, symlink and parent replacement refuse before
+    child inference/edits. Unselected private root/child behavior remains healthy.
+  Both headless engines pass complete edit/ACP-restore/headless-resume cycles,
+    private behavior and live/startup metadata refusal controls.
+  Three-terminal restore/resume and automatic startup-prompt admission pass.
+  Actual writer ownership refusal and recovery: five assertions pass.
+  Full metadata: 54 assertions; full shell: 28 assertions.
+  Authentication writer/request/read suites: 41 + 30 + 11 assertions.
+  ACP replace/autoEdit/cancel/listing, private recording and live/startup
+    metadata refusal controls pass.
+
+Successful jobs:
+  native-history-regressions: completed 02:43:29Z.
+  native-git-checkpoints: completed 02:44:55Z.
+  native-acp-restore: completed 02:46:54Z.
+  native-tracker-history: completed 02:44:06Z.
+  native-restorable-tools: completed 02:42:27Z.
+  native-credential-reads: completed 02:45:23Z.
+
+This pushed commit precedes the added delayed/interrupted admission controls
+and retained-conversation-evidence repair. Their local results require fresh
+exact-head CI. These successful experiments do not install a production adapter
+or complete remaining writers, migration, interruption/power loss, all-six-tool
+authority or the full lifecycle requirements.

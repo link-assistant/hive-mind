@@ -1,0 +1,43 @@
+✔ Claude authentication error has its own section without subscription metadata (7.212785ms)
+✔ both providers have separate sections when neither has authentication (0.592014ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (45.883481ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (13.747415ms)
+✔ missing Claude authentication does not invent a cancelled subscription (9.85834ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (8.445294ms)
+✔ a successful usage cache is invalidated when credentials rotate (8.65197ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (8.451304ms)
+✔ different credential authorities never share a usage cache entry (14.459062ms)
+✔ limits paths follow effective tool homes and never fall back to another home (1.774079ms)
+✔ logout immediately invalidates cached Codex subscription claims (23.631893ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (23.786913ms)
+✖ successful profile diagnostics omit values from credentials and provider metadata (8.606013ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (14.668593ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 976.385602
+
+✖ failing tests:
+
+test at tests/issue-3785-limits.test.mjs:151:1
+✖ successful profile diagnostics omit values from credentials and provider metadata (8.606013ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /private-.*sentinel/. Input:
+
+  '[VERBOSE] /limits credentials loaded from: /tmp/hive-limits-3785-1SCHCM/credentials.json\n' +
+    '[VERBOSE] /limits subscription: GET https://api.anthropic.com/api/oauth/profile\n' +
+    '[VERBOSE] /limits Claude subscription: {"source":"authenticated-profile","planType":"private-credential-sentinel","status":"private-provider-sentinel","hasPaidEndDate":false}'
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:162:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '[VERBOSE] /limits credentials loaded from: /tmp/hive-limits-3785-1SCHCM/credentials.json\n[VERBOSE] /limits subscription: GET https://api.anthropic.com/api/oauth/profile\n[VERBOSE] /limits Claude subscription: {"source":"authenticated-profile","planType":"private-credential-sentinel","status":"private-provider-sentinel","hasPaidEndDate":false}',
+    expected: /private-.*sentinel/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

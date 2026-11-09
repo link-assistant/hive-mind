@@ -1,0 +1,60 @@
+Actual downloaded Codex CLI from native CI run 41051640537.
+This binary predates the identity publication repair. Its identity cases below intentionally reproduce three stale writes.
+
+native-request-routed-after.log
+CHECK: api-key both live clients made their initial G0 model request.
+CHECK: api-key both live clients completed replacement requests.
+CHECK: api-key both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: api-key both live clients completed logout requests.
+PASS: api-key actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+CHECK: chatgpt both live clients made their initial G0 model request.
+CHECK: chatgpt both live clients completed replacement requests.
+CHECK: chatgpt both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: chatgpt both live clients completed logout requests.
+PASS: chatgpt actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+native-request-routed-overrides.log
+PASS: provider-env refuses an alternate native authority before model execution.
+PASS: provider-bearer refuses an alternate native authority before model execution.
+PASS: provider-no-auth refuses an alternate native authority before model execution.
+PASS: provider-header refuses an alternate native authority before model execution.
+PASS: provider-extra-header refuses an alternate native authority before model execution.
+PASS: provider-env-header refuses an alternate native authority before model execution.
+PASS: provider-organization refuses an alternate native authority before model execution.
+PASS: provider-project refuses an alternate native authority before model execution.
+PASS: stock-version-header preserves canonical model execution.
+PASS: stock-unset-identity-headers preserves canonical model execution.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+native-request-routed-constructors.log
+PASS: Amazon Bedrock, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+crash-routed-after.log
+PASS: actual native CLI peer preserves unresolved intent and refuses a second G0 exchange or model request after owner death.
+
+crash-routed-repair.log
+PASS: actual native explicit login repairs safe malformed credentials after owner death without reusing G0 or creating a private copy.
+PASS: actual native CLI peer preserves unresolved intent and refuses a second G0 exchange or model request after owner death.
+
+identity-routing-before-fixed.log
+PASS: healthy: preserves canonical rotation; model_requests=1
+PASS: rotation: preserves canonical rotation; model_requests=1
+PASS: account-switch: reproduces stale native identity publication; model_requests=0
+PASS: api-key-login: reproduces stale native identity publication; model_requests=0
+PASS: logout: refuses stale identity publication; model_requests=0
+PASS: owned-account-switch: refuses stale identity publication; model_requests=0
+PASS: legacy-fresh-owned-login: reproduces stale native identity publication; model_requests=0
+PASS: owned-fresh-login: refuses stale identity publication; model_requests=0
+
+tui-routing-fixed.log
+PASS: healthy native TUI persists history and reaches the synthetic model
+PASS: unsafe native prompt history refuses model execution

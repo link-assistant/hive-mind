@@ -1,0 +1,15 @@
+PASS: actual native Qwen manager reads healthy synthetic G0 without exchanging.
+PASS: forced native Qwen read observes same-timestamp atomic replacement.
+PASS: native Qwen reads a later-timestamp G1 publication.
+PASS: native Qwen logout refuses cached credentials without an exchange.
+PASS: ordinary native reads observe recreation and same-timestamp replacement without waiting for a polling interval.
+PASS: native malformed refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native permissions refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native symlink refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native hardlink refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native directory refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native oversized refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native unsafe-parent refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: native redirected-parent refusal clears caches, preserves evidence and accepts repaired G1 without exchange.
+PASS: ordinary native reads refuse logout without a stale-token grace period.
+LIMIT: actual native token-manager methods; independent config roots, all writers and model-request admission remain unverified.

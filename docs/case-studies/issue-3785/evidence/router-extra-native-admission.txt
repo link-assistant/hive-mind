@@ -1,0 +1,74 @@
+Additional direct Router adapters, 2026-10-31 UTC
+
+Root causes: Agent, OpenCode, Gemini and Qwen direct execution and connection
+paths did not inspect the final native environment against the selected Router
+lease. Ordinary connection handling could swallow a typed security refusal.
+These execution paths did not monitor the shared credential files, and Qwen's
+login shell could replace the admitted environment. Shared connection dispatch
+did not forward argv selection, including its Formal AI availability shortcut.
+
+Reproduction imports the actual production adapters and buildRouterTaskEnv.
+Commands are mocked; isolated temporary HOME/XDG/state/workspace directories
+contain synthetic credentials. No native CLI, provider, real token or network
+is used. Each case has a ten-second deadline and bounded native command count.
+Periodic controls wait at most one second for the mocked process to be killed.
+The factory fixtures independently verify which task environments are valid.
+
+The corrected original-source matrix has 177 cases: 20 pass, 157 fail. It covers
+all four tools, new/resumed commands, environment/argv selection, version and
+paid connection probes, credentials/endpoints/task-token changes, shared
+dispatch and Formal AI availability. Runtime file, throwing stream and bounded
+waiting controls fail before monitoring is added. Before log: 3052 lines,
+reviewed in three chunks; SHA256:
+7ce3de8a81305122ac6d60f00198de662904355c4778b09dba841e5611714457
+
+An additional 16-case output-consumer control has four passes and twelve
+failures after initial stream monitoring. ECMAScript iterator cleanup cannot
+replace the consumer's exception. Rechecking authentication before ordinary
+error recovery preserves the typed violation in those cases. Before log SHA256:
+6ffe51a6b5428931754eb13f529bf69412aa66bcb2fe297398bb234e20cb9576
+
+A separate failing startup test reproduces Hive allowing a typed authentication
+refusal to escape to its generic error handler. Startup now logs the sanitized
+refusal and exits 77 with ordinary pre-exit recovery disabled. Before log SHA256:
+d7a652b3ffc7bab3c477d3093362e300e1a47d72d40aebf41852af8fe05a5e95
+
+Final strict matrix: all 194 cases pass. Final native environment admission runs
+before command creation and again before the paid probe after version checking.
+Security refusals precede ordinary connection fallback and execution retry.
+All four execution paths monitor the listed shared credential files while
+consuming output, stop the process and preserve typed refusals through stream
+and consumer failures. Qwen uses sh -c for selected Router commands. New and
+resumed healthy controls retain normal execution. Shared connection admission
+also preserves explicit selection for Claude/Codex and Formal AI availability.
+
+Focused invocation (sequential files):
+node --test --test-concurrency=1
+  tests/issue-3785-router-extra-native-admission.test.mjs
+  tests/provider-transient-recovery-3831.test.mjs
+  tests/formal-ai-tool-parity-3279.test.mjs
+  tests/agent-recoverable-tool-error-3213.test.mjs
+  tests/test-agent-stream-json-2119.mjs
+  tests/test-gemini-support.mjs
+  tests/test-qwen-support.mjs
+  tests/hive-extracted-modules-2175.test.mjs
+All 295 tests pass. Focused log SHA256:
+71a4694672f61539eb0e48639fcc2889ee8b73bf136c298a3586eb46b66f9f0a
+
+Complete default suite: all 758 selected test files pass. Its 23,116-line log
+was reviewed in sixteen chunks; SHA256:
+58ddb6e38f9b7201f032240f892f3da8a6fe86ea107eff5e8aeedec33328233e
+Repository ESLint (zero warnings), GitHub retry-shell checks, Secretlint,
+file limits, duplication (10.03%), changed-file Prettier and git diff --check
+all pass. No cgroup OOM events. Quality logs SHA256:
+lint: 1cbdd4663d15ab3449fdd43e49ad9a10f1285afc9fd94ea3beee81727d5fc81f
+secrets: 06b0c16a72b88aec65ef3e739e70b5efdbe9a4764f6bb808aaddb14e88fa1864
+duplication: bcaa6c6af079b06ba739353c4547ace72287d9463a6c6af130e2ec13af9ea2ab
+format: 17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20
+
+Limits: these controls mock commands and do not establish native in-memory
+authority or inspect every tool-specific credential store. Monitoring starts
+when the output iterator is entered; earlier post-spawn awaits still require
+separate admission/lifetime coverage. Full refresh/request mediation, complete
+Router durable audit and restart/failure semantics, default canonical storage
+and migration remain OPEN. Keep the PR draft and the full inventory unfinished.

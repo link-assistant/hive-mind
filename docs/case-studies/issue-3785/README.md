@@ -58,6 +58,15 @@ temporary directories. The regression
 in `tests/issue-3785-repository-agent-config.test.mjs` snapshots a synthetic host
 home. It fails when a task's Codex home points at the host.
 
+The default was also checked against the actual Codex binaries, pinned 0.164.0
+and 0.166.0, using `experiments/issue-3785/inspect-codex-default-catalog.mjs`.
+By default the model-visible `<skills_instructions>` block is still parsed and
+fingerprinted, and it lists 0 skills. With `HIVE_MIND_CODEX_SYSTEM_SKILLS=1` it
+lists `imagegen`, `openai-docs`, `skill-creator` and `skill-installer`. Native
+run 42586115890 failed because `probe-codex-native-capability-auth.mjs` still
+required a non-empty default catalog. The probe now asserts both modes, and it
+passes locally against both binaries.
+
 Claude and Codex require explicit trust or approval before honouring repository
 configuration. That is a deliberate security boundary, not a defect, so no
 upstream report was filed. Hive Mind provides the per-task equivalent.

@@ -75,7 +75,14 @@ try {
   const options = { owner: 'fixture', repo: 'canonical', projectDir, baseCodexHome: canonical, env, codexPath: binary, runCommand };
   const first = await runCodexCapabilityPreflight(options);
   scopes.push(first);
-  assert.ok(first.skillCatalog?.length > 0, 'The actual native prompt must expose its bundled skill catalog.');
+  // Issue #3785: no skills by default. The native prompt must still yield a parsed,
+  // fingerprinted catalog, and it must be empty; the opt-in restores the bundled catalog.
+  assert.deepEqual(first.skillCatalog, [], 'The actual native prompt must expose no bundled system skills by default.');
+  assert.match(String(first.skillCatalogFingerprint), /^[0-9a-f]{64}$/u, 'The actual native prompt must expose a parseable skill catalog.');
+  const optIn = await runCodexCapabilityPreflight({ ...options, env: { ...env, HIVE_MIND_CODEX_SYSTEM_SKILLS: '1' } });
+  scopes.push(optIn);
+  assert.ok(optIn.skillCatalog?.length > 0 && optIn.skillCatalog.every(entry => entry.providerId === 'codex-system'), 'HIVE_MIND_CODEX_SYSTEM_SKILLS=1 must restore the bundled skill catalog.');
+  await assert.rejects(fs.lstat(path.join(optIn.codexHome, 'auth.json')), { code: 'ENOENT' });
   await assert.rejects(fs.lstat(path.join(first.codexHome, 'auth.json')), { code: 'ENOENT' });
   assert.equal(await fs.readFile(auth, 'utf8'), initial);
   await fs.writeFile(`${auth}.new`, replacement, { mode: 0o600 });
@@ -83,7 +90,7 @@ try {
   const second = await runCodexCapabilityPreflight(options);
   scopes.push(second);
   assert.notEqual(first.codexHome, second.codexHome);
-  assert.ok(second.skillCatalog?.length > 0);
+  assert.deepEqual(second.skillCatalog, []);
   await assert.rejects(fs.lstat(path.join(second.codexHome, 'auth.json')), { code: 'ENOENT' });
   await verifyCodexCapabilityExecutionCatalog({ ...options, capabilityPreflight: first });
   await first.dispose();
@@ -96,7 +103,7 @@ try {
   await fs.writeFile(path.join(second.codexHome, 'auth.json'), initial, { mode: 0o600 });
   await assert.rejects(verifyCodexCapabilityExecutionCatalog({ ...options, capabilityPreflight: second }), /Canonical Codex authentication storage/u);
   assert.equal(await fs.readFile(auth, 'utf8'), replacement);
-  console.log(`PASS: ${development ? 'unpackaged development' : 'actual installed-package'} native capability discovery preserves one selected credential authority across two tasks, atomic replacement, task disposal, logout and injected-private-auth refusal.`);
+  console.log(`PASS: ${development ? 'unpackaged development' : 'actual installed-package'} native capability discovery preserves one selected credential authority across two tasks, atomic replacement, task disposal, logout and injected-private-auth refusal, with no system skills by default and the opt-in catalog restored.`);
 } finally {
   for (const scope of scopes) await scope.dispose();
   await fs.rm(root, { recursive: true, force: true });

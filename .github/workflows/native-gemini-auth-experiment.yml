@@ -1,0 +1,1002 @@
+name: Native Gemini auth adapter experiment
+on:
+  pull_request:
+    paths:
+      - 'experiments/issue-3785/native-gemini/**'
+      - 'experiments/issue-3785/native-qwen/read_credentials.mjs'
+      - 'experiments/issue-3785/native-oauth-transaction.mjs'
+      - 'src/shared-auth-refresh-lock.lib.mjs'
+      - 'src/canonical-auth-file.lib.mjs'
+      - 'src/gemini*.mjs'
+      - 'src/native-gemini/**'
+      - 'src/native-gemini-package.lib.mjs'
+      - 'src/native-gemini-command.lib.mjs'
+      - 'src/install-native-gemini.mjs'
+      - 'tests/issue-3785-*gemini*.test.mjs'
+      - 'experiments/issue-3785/build_native_gemini_recipe.py'
+      - 'experiments/issue-3785/probe-packaged-native-gemini.mjs'
+      - 'experiments/issue-3785/check_packaged_gemini.sh'
+      - 'experiments/issue-3785/probe-gemini-*.mjs'
+      - 'experiments/issue-3785/probe-gemini-native-cli.py'
+      - 'experiments/issue-3785/probe-gemini-native-history-storage.py'
+      - 'experiments/issue-3785/native_process_group.py'
+      - 'experiments/issue-3785/gemini_restorable_tui.py'
+      - 'experiments/issue-3785/gemini_restorable_acp.py'
+      - 'experiments/issue-3785/gemini_restorable_headless.py'
+      - 'experiments/issue-3785/gemini_resume_refusal.py'
+      - 'experiments/issue-3785/gemini_resume_interruption.py'
+      - 'experiments/issue-3785/gemini_subagent_history.py'
+      - 'experiments/issue-3785/gemini_subagent_restore.py'
+      - 'experiments/issue-3785/gemini_subagent_concurrent.py'
+      - 'experiments/issue-3785/gemini_plan_history.py'
+      - 'experiments/issue-3785/gemini_plan_interruption.py'
+      - 'experiments/issue-3785/gemini_live_audit.py'
+      - 'experiments/issue-3785/gemini_live_audit_interactive.py'
+      - 'experiments/issue-3785/gemini_live_summary.py'
+      - 'experiments/issue-3785/gemini_docker_storage.py'
+      - 'experiments/issue-3785/verify-gemini-docker-storage.mjs'
+      - 'src/isolation-runner*.mjs'
+      - 'src/native-auth-docker.lib.mjs'
+      - '.github/workflows/native-gemini-auth-experiment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-gemini-auth-experiment-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+jobs:
+  native-credential-reads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Install the exact native package without lifecycle scripts or optional binaries
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-dependencies.log" 2>&1 &
+          wait "$!"
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+      - name: Reproduce actual native factory and retained-client stale headers
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --expect-native-gaps > "$RUNNER_TEMP/gemini-reads-before.log" 2>&1
+      - name: Require the strict regression to fail for stale native authority
+        run: |
+          if node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs > "$RUNNER_TEMP/gemini-reads-regression.log" 2>&1; then
+            echo 'The native Gemini read regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: replacement: native factory' "$RUNNER_TEMP/gemini-reads-regression.log"
+          grep -F "selected: 'G0'" "$RUNNER_TEMP/gemini-reads-regression.log"
+          grep -F "selected: 'G1'" "$RUNNER_TEMP/gemini-reads-regression.log"
+      - name: Reproduce native loss of the provider's rotated refresh token
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --legacy-configs --scenario=direct-refresh > "$RUNNER_TEMP/gemini-rotation-before.log" 2>&1; then
+            echo 'The native rotating-token regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F "'synthetic-refresh-G0'" "$RUNNER_TEMP/gemini-rotation-before.log"
+          grep -F "'synthetic-refresh-G1'" "$RUNNER_TEMP/gemini-rotation-before.log"
+          grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-rotation-before.log"
+      - name: Apply exact pinned native read admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_reads.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_reads.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify actual native headers observe replacement and refuse unsafe storage
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs > "$RUNNER_TEMP/gemini-reads-after.log" 2>&1
+      - name: Verify independent private configuration, disposal and read-stage writer refusal
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs --refusal-controls > "$RUNNER_TEMP/gemini-private-reads-after.log" 2>&1
+      - name: Require the read-stage refresh regression to fail
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=two-refreshes > "$RUNNER_TEMP/gemini-writers-before.log" 2>&1; then
+            echo 'The read stage unexpectedly completed coordinated native refresh.'
+            exit 1
+          fi
+          grep -F 'expired native credentials must exchange' "$RUNNER_TEMP/gemini-writers-before.log"
+          grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-writers-before.log"
+      - name: Require native login and revocation regressions to fail before coordination
+        run: |
+          for scenario in auth-code initial-login revoke; do
+            if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario="$scenario" > "$RUNNER_TEMP/gemini-$scenario-before.log" 2>&1; then
+              echo "The read-stage $scenario regression unexpectedly passed before repair."
+              exit 1
+            fi
+            grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-$scenario-before.log"
+            grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-$scenario-before.log"
+          done
+      - name: Require account cache and callback regressions before coordination
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=account-cache > "$RUNNER_TEMP/gemini-accounts-before.log" 2>&1; then
+            echo 'The read-stage account cache regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'ENOENT' "$RUNNER_TEMP/gemini-accounts-before.log"
+          grep -F 'google_accounts.json' "$RUNNER_TEMP/gemini-accounts-before.log"
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs --scenario=account-callback > "$RUNNER_TEMP/gemini-callback-before.log" 2>&1; then
+            echo 'The read-stage callback regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]' "$RUNNER_TEMP/gemini-callback-before.log"
+          grep -F "selected: 'rejected'" "$RUNNER_TEMP/gemini-callback-before.log"
+      - name: Apply exact pinned native writer coordination
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce actual alternate constructors and retained request authority
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --expect-native-gaps > "$RUNNER_TEMP/gemini-requests-before.log" 2>&1
+      - name: Require the selected constructor regression to fail before admission
+        run: |
+          if node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --scenario=constructor-api-key > "$RUNNER_TEMP/gemini-constructor-regression.log" 2>&1; then
+            echo 'The selected native API-key constructor unexpectedly refused before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: constructor-api-key: actual native authority admission' "$RUNNER_TEMP/gemini-constructor-regression.log"
+          grep -F "selected: 'accepted'" "$RUNNER_TEMP/gemini-constructor-regression.log"
+          grep -F 'requests: 1' "$RUNNER_TEMP/gemini-constructor-regression.log"
+      - name: Apply exact pinned native constructor and request admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_request_auth.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Refuse competing native request authority and observe canonical replacement
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-requests-after.log" 2>&1
+      - name: Preserve unselected native constructors and request dispatch
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs --without-selector > "$RUNNER_TEMP/gemini-requests-legacy.log" 2>&1
+      - name: Verify native refresh, login, accounts, callbacks, revocation and crash recovery
+        run: node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-writers-after.log" 2>&1
+      - name: Complete actual CLI OAuth inference through a TLS-verifying local provider
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-cli-healthy.log" > "$RUNNER_TEMP/gemini-cli-healthy-control.log" 2>&1
+      - name: Reproduce actual native history loss after private configuration disposal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --expect-history-gap --diagnostics "$RUNNER_TEMP/gemini-cli-history-before.log" > "$RUNNER_TEMP/gemini-cli-history-before-control.log" 2>&1
+      - name: Require the strict full CLI history regression to fail at discovery
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics "$RUNNER_TEMP/gemini-cli-history-regression.log" > "$RUNNER_TEMP/gemini-cli-history-regression-control.log" 2>&1; then
+            echo 'The native CLI history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: A fresh native CLI must discover canonical conversation history.' "$RUNNER_TEMP/gemini-cli-history-regression-control.log"
+      - name: Preserve coordinated native canonical reads and private-scope isolation
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-coordinated-reads.log" 2>&1
+      - name: Preserve no-selector native behavior
+        run: node --max-old-space-size=256 experiments/issue-3785/probe-gemini-native-reads.mjs --without-selector --expect-native-gaps > "$RUNNER_TEMP/gemini-legacy-reads.log" 2>&1
+      - name: Apply exact pinned native conversation storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce full tool-output loss after successful native shell execution
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-artifact-before.log" > "$RUNNER_TEMP/gemini-artifact-before-control.log" 2>&1; then
+            echo 'The native tool-output lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native tool-output history must survive private-home disposal.' "$RUNNER_TEMP/gemini-artifact-before-control.log"
+      - name: Apply exact pinned native artifact storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Read complete native tool output after private home disposal and resume
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-artifact-after.log" > "$RUNNER_TEMP/gemini-artifact-after-control.log" 2>&1
+      - name: Verify the native truncation and both masking writers
+        run: python3 experiments/issue-3785/native-gemini/probe_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-artifact-writers.log" > "$RUNNER_TEMP/gemini-artifact-writers-controls.log" 2>&1
+      - name: Refuse unsafe native tool artifacts without another model request
+        run: |
+          for state in symlink hardlink unsafe-mode invalid-utf8 content-change oversized missing parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --history-tool-output-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-artifact-$state.log" > "$RUNNER_TEMP/gemini-artifact-$state-control.log" 2>&1
+          done
+      - name: Reproduce native degraded blob loss after successful image read
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario healthy --diagnostics "$RUNNER_TEMP/gemini-blob-before.log" > "$RUNNER_TEMP/gemini-blob-before-control.log" 2>&1; then
+            echo 'The native degraded blob lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError [ERR_ASSERTION]: Native degraded blob history must survive private-home disposal.' "$RUNNER_TEMP/gemini-blob-before-healthy.log"
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-blob-cli-before.log" > "$RUNNER_TEMP/gemini-blob-cli-before-control.log" 2>&1; then
+            echo 'The complete native degraded blob lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native degraded blob history must survive private-home disposal.' "$RUNNER_TEMP/gemini-blob-cli-before-control.log"
+      - name: Apply exact pinned native multimodal blob storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve native degraded images and refuse unsafe blob paths
+        run: python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-blob-after.log" > "$RUNNER_TEMP/gemini-blob-after-control.log" 2>&1
+      - name: Resume complete native CLI and read the retained degraded PNG
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-blob-cli-after.log" > "$RUNNER_TEMP/gemini-blob-cli-after-control.log" 2>&1
+      - name: Refuse unsafe native degraded blobs before further inference
+        run: |
+          for attack in symlink hardlink unsafe-mode content-change oversized missing parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --history-blob-attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-blob-cli-$attack.log" > "$RUNNER_TEMP/gemini-blob-cli-$attack-control.log" 2>&1
+          done
+      - name: Reproduce native prompt and named-checkpoint lifetime and stale reads
+        run: |
+          for state in prompt-healthy checkpoint-healthy prompt-peer; do
+            if python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-logger-before-$state.log" > "$RUNNER_TEMP/gemini-logger-before-$state-control.log" 2>&1; then
+              echo 'The native Logger history regression unexpectedly passed.'
+              exit 1
+            fi
+            case "$state" in
+              prompt-healthy) phase=peer-prompt; expected='Native prompt history must survive private-home disposal.' ;;
+              checkpoint-healthy) phase=peer-checkpoint; expected='Native named checkpoints must survive private-home disposal.' ;;
+              prompt-peer) phase=initial; expected='Native prompt reads must observe the latest peer generation.' ;;
+            esac
+            grep -F "AssertionError [ERR_ASSERTION]: $expected" "$RUNNER_TEMP/gemini-logger-before-$state-$state-$phase.log"
+          done
+      - name: Apply exact pinned native Logger storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve native prompts and checkpoint audit with independent writers
+        run: python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-logger-after.log" > "$RUNNER_TEMP/gemini-logger-after-control.log" 2>&1
+      - name: Reproduce interrupted first publication using the exact preceding helper
+        run: |
+          for family in registry prompt checkpoint artifact blob; do
+            if python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --before-control --scenario "$family" --point after-link --diagnostics "$RUNNER_TEMP/gemini-publication-before-$family.log" > "$RUNNER_TEMP/gemini-publication-before-$family-control.log" 2>&1; then
+              echo 'The preceding first-publication control unexpectedly passed.'
+              exit 1
+            fi
+            grep -F 'Error: Gemini canonical conversation history is unavailable or unsafe.' "$RUNNER_TEMP/gemini-publication-before-$family-$family-after-link-peer.log"
+          done
+      - name: Recover native first publication after forced owner death
+        run: |
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-publication-after.log" > "$RUNNER_TEMP/gemini-publication-after-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --live-journal-replacement --diagnostics "$RUNNER_TEMP/gemini-publication-live-journal.log" > "$RUNNER_TEMP/gemini-publication-live-journal-control.log" 2>&1
+      - name: Refuse unsafe native publication evidence without changing protected data
+        run: |
+          for attack in journal-symlink journal-hardlink journal-mode journal-malformed journal-schema journal-invalid-utf8 journal-oversized journal-traversal journal-inode journal-digest stage-symlink stage-hardlink stage-mode stage-content stage-missing target-symlink target-hardlink target-mode target-content target-collision; do
+            python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --attack "$attack" --diagnostics "$RUNNER_TEMP/gemini-publication-$attack.log" > "$RUNNER_TEMP/gemini-publication-$attack-control.log" 2>&1
+          done
+      - name: Reproduce native shell command loss, cached navigation and swallowed writes
+        run: |
+          for state in lifetime peer write-failure; do
+            if python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-shell-before-$state.log" > "$RUNNER_TEMP/gemini-shell-before-$state-control.log" 2>&1; then
+              echo 'The native shell history regression unexpectedly passed.'
+              exit 1
+            fi
+            case "$state" in
+              lifetime) phase=peer; expected='Native interactive shell history must survive private-home disposal.' ;;
+              peer) phase=owner; expected='Native shell navigation must observe the latest peer command.' ;;
+              write-failure) phase=owner; expected='Native shell submit must refuse a failed history write synchronously.' ;;
+            esac
+            grep -F "$expected" "$RUNNER_TEMP/gemini-shell-before-$state-$state-$phase.log"
+          done
+      - name: Reproduce command recall loss using the complete native terminal
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-shell-tui-before.log" > "$RUNNER_TEMP/gemini-shell-tui-before-control.log" 2>&1; then
+            echo 'The complete terminal history regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Fresh native TUI shell navigation must recover the prior command after private-home disposal.' "$RUNNER_TEMP/gemini-shell-tui-before-control.log"
+      - name: Apply exact pinned native interactive shell history
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Retain command audit and observe independent native shell writers
+        run: python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-shell-after.log" > "$RUNNER_TEMP/gemini-shell-after-control.log" 2>&1
+      - name: Recall and execute the saved command in a fresh complete native terminal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-shell-tui-after.log" > "$RUNNER_TEMP/gemini-shell-tui-after-control.log" 2>&1
+      - name: Refuse unsafe command history before native terminal inference or execution
+        run: |
+          for state in symlink hardlink unsafe-mode malformed invalid-utf8 oversized command-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --shell-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-shell-tui-$state.log" > "$RUNNER_TEMP/gemini-shell-tui-$state-control.log" 2>&1
+          done
+      - name: Preserve native diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-auth-experiment
+          path: |
+            ${{ runner.temp }}/gemini-*.log
+            ${{ runner.temp }}/gemini-*.network.json
+            ${{ runner.temp }}/gemini-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-acp-restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Rebuild the exact preceding terminal restore package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-acp-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          cp -a "$package" "$RUNNER_TEMP/gemini-acp-pristine-cli"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-acp-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination git_history git_configuration git_objects git_services restorable_history restorable_admission; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce the missing checkpoint after a healthy actual ACP edit
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-writer-before.log" > "$RUNNER_TEMP/gemini-acp-writer-before-control.log" 2>&1; then
+            echo 'The native ACP checkpoint regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-writer-before-control.log"
+          grep -F 'AssertionError: Actual native ACP edits must acknowledge their restorable checkpoint before approval.' "$RUNNER_TEMP/gemini-acp-writer-before-control.log"
+      - name: Apply the pinned actual ACP checkpoint writer
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_restorable.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_restorable.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce the actual ACP restore retaining later model messages
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-model-before.log" > "$RUNNER_TEMP/gemini-acp-model-before-control.log" 2>&1; then
+            echo 'The native ACP model-history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-model-before-control.log"
+          grep -F 'AssertionError: Native ACP restore must update the actual subsequent model history.' "$RUNNER_TEMP/gemini-acp-model-before-control.log"
+      - name: Apply the pinned actual ACP chat and recorder restore
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_restore_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_restore_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce the original prompt disappearing on a third actual ACP reopen
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-durable-before.log" > "$RUNNER_TEMP/gemini-acp-durable-before-control.log" 2>&1; then
+            echo 'The native ACP durable-history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual fresh native ACP restores its Git snapshot and model history after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-durable-before-control.log"
+          grep -F 'AssertionError: A fresh native ACP must resume the restored model history.' "$RUNNER_TEMP/gemini-acp-durable-before-control.log"
+      - name: Preserve native context and prompt turn boundaries
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce native ACP checkpoint listings losing their name and tool
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-acp-mode list --diagnostics "$RUNNER_TEMP/gemini-acp-list-before.log" > "$RUNNER_TEMP/gemini-acp-list-before-control.log" 2>&1; then
+            echo 'The native ACP checkpoint listing regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native ACP approves and completes its real write_file edit and inference.' "$RUNNER_TEMP/gemini-acp-list-before-control.log"
+          grep -F 'AssertionError: Actual native ACP checkpoint listings must identify their restorable native filename and tool.' "$RUNNER_TEMP/gemini-acp-list-before-control.log"
+      - name: List validated native ACP checkpoint names and tools
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_acp_checkpoint_listing.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_acp_checkpoint_listing.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-acp-mode list --diagnostics "$RUNNER_TEMP/gemini-acp-list-after.log" > "$RUNNER_TEMP/gemini-acp-list-after-control.log" 2>&1
+      - name: Reproduce original prompt loss after terminal restore and another home disposal
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-before.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-before-control.log" 2>&1; then
+            echo 'The native terminal durable-history regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: fresh actual native TUI restores the original project and conversation, then replays its stored native tool after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-terminal-durable-before-control.log"
+          grep -F 'AssertionError: A third native terminal must resume its restored original model history.' "$RUNNER_TEMP/gemini-acp-terminal-durable-before-control.log"
+      - name: Preserve native terminal checkpoint turn boundaries
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_terminal_durable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-after.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-after-control.log" 2>&1
+      - name: Reproduce automatic terminal prompt dispatch before resume finishes
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-before.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log" 2>&1; then
+            echo 'The native terminal automatic-prompt regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: fresh actual native TUI restores the original project and conversation, then replays its stored native tool after complete private-home disposal.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
+          grep -F 'AssertionError: An automatic native terminal prompt must wait for resumed model history.' "$RUNNER_TEMP/gemini-acp-terminal-resume-before-control.log"
+      - name: Reproduce original history loss after delayed native admission
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-admission-lock release --diagnostics "$RUNNER_TEMP/gemini-acp-admission-before.log" > "$RUNNER_TEMP/gemini-acp-admission-before-control.log" 2>&1; then
+            echo 'The delayed native terminal admission regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual terminal startup/resume waits on the inspected canonical lock without provider requests or protected project/audit changes.' "$RUNNER_TEMP/gemini-acp-admission-before-control.log"
+          grep -F 'AssertionError: A delayed actual terminal resume must preserve original model history.' "$RUNNER_TEMP/gemini-acp-admission-before-control.log"
+      - name: Await native terminal resume before admitting prompts
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_terminal_resume_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-after.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-after-control.log" 2>&1
+      - name: Reproduce missing headless checkpoints after healthy edits in both native engines
+        run: |
+          for engine in legacy agent; do
+            if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-before.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log" 2>&1; then
+              echo 'The native headless checkpoint regression unexpectedly passed before repair.'
+              exit 1
+            fi
+            grep -F 'PASS: actual headless native CLI completes its real write_file edit and subsequent inference.' "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log"
+            grep -F 'AssertionError: Actual headless native edits must acknowledge their canonical restorable checkpoint.' "$RUNNER_TEMP/gemini-acp-headless-$engine-before-control.log"
+          done
+      - name: Bind both native headless checkpoint writers and verify complete restore cycles
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_headless_restorable.py "$package"
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-after.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-after-control.log" 2>&1
+            for state in live-metadata-schema startup-metadata-schema; do
+              python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-$state.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-$state-control.log" 2>&1
+            done
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-private.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-private-control.log" 2>&1
+          done
+      - name: Reproduce canonical child recording refusal after healthy private delegation
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-private-before.log" > "$RUNNER_TEMP/gemini-acp-child-private-before-control.log" 2>&1
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-before.log" > "$RUNNER_TEMP/gemini-acp-child-before-control.log" 2>&1; then
+            echo 'The native child recording regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Healthy actual native child execution must retain canonical recording without refusing delegation.' "$RUNNER_TEMP/gemini-acp-child-before-control.log"
+      - name: Allocate checked child directories and retain actual root and child history
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_subagent_history.py "$package"
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-after.log" > "$RUNNER_TEMP/gemini-acp-child-after-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-private.log" > "$RUNNER_TEMP/gemini-acp-child-private-control.log" 2>&1
+          for state in unsafe-mode symlink parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-child-$state.log" > "$RUNNER_TEMP/gemini-acp-child-$state-control.log" 2>&1
+          done
+      - name: Reproduce rollback and replacement of previously observed native conversation evidence
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-summary --diagnostics "$RUNNER_TEMP/gemini-acp-live-summary-before.log" > "$RUNNER_TEMP/gemini-acp-live-summary-before-control.log" 2>&1
+          for state in evidence-rollback evidence-read-rollback evidence-replacement; do
+            if python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state-before.log" > "$RUNNER_TEMP/gemini-acp-$state-before-control.log" 2>&1; then
+              echo 'The retained native conversation evidence regression unexpectedly passed before repair.'
+              exit 1
+            fi
+            grep -F 'Missing expected exception: Previously observed complete conversation evidence must not be silently replaced or rolled back.' "$RUNNER_TEMP/gemini-acp-$state-before-$state-$state.log"
+          done
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-before.log" > "$RUNNER_TEMP/gemini-acp-live-audit-before-control.log" 2>&1; then
+            echo 'The actual native live audit rollback regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'REPRODUCED: actual native inference completes after valid audit rollback, silently losing its previously recorded tool call/result from the selected conversation.' "$RUNNER_TEMP/gemini-acp-live-audit-before-control.log"
+          grep -F 'AssertionError: Actual native recording must refuse a valid rollback of its previously observed complete conversation.' "$RUNNER_TEMP/gemini-acp-live-audit-before-control.log"
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-before.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-before-control.log" 2>&1; then
+            echo 'The actual native agent-session audit rollback regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'REPRODUCED: actual native inference completes after valid audit rollback, silently losing its previously recorded tool call/result from the selected conversation.' "$RUNNER_TEMP/gemini-acp-live-audit-agent-before-control.log"
+          grep -F 'AssertionError: Actual native recording must refuse a valid rollback of its previously observed complete conversation.' "$RUNNER_TEMP/gemini-acp-live-audit-agent-before-control.log"
+      - name: Retain complete observed native conversation evidence across operations
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_conversation_evidence.py "$package"
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --conversation-evidence --diagnostics "$RUNNER_TEMP/gemini-acp-evidence-storage.log" > "$RUNNER_TEMP/gemini-acp-evidence-storage-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-after-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-after.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-after-control.log" 2>&1
+      - name: Reproduce actual response delivery before canonical audit refusal
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for mode in terminal acp; do
+            if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-before.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log" 2>&1; then
+              echo 'The actual native streaming audit regression unexpectedly passed before repair.'
+              exit 1
+            fi
+            grep -F 'REPRODUCED: actual native inference completes after valid audit rollback, silently losing its previously recorded tool call/result from the selected conversation.' "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log"
+            grep -F 'AssertionError: Actual native recording must refuse a valid rollback of its previously observed complete conversation.' "$RUNNER_TEMP/gemini-acp-stream-$mode-before-control.log"
+          done
+      - name: Admit actual response chunks and refuse subsequent unsafe dispatch
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_stream_admission.py "$package"
+          for mode in terminal acp; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-after.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-after-control.log" 2>&1
+          done
+      - name: Reproduce an acknowledged native plan disappearing with its private home
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-before.log" > "$RUNNER_TEMP/gemini-acp-plan-before-control.log" 2>&1; then
+            echo 'The actual native plan-disposal regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native Plan Mode writes and acknowledges its complete implementation plan before private-home disposal.' "$RUNNER_TEMP/gemini-acp-plan-before-control.log"
+          grep -F 'AssertionError: Actual native plans must survive private-home disposal in canonical history.' "$RUNNER_TEMP/gemini-acp-plan-before-control.log"
+      - name: Retain actual native plans, generations and restricted Plan Mode policy
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package" --check
+          python3 experiments/issue-3785/native-gemini/apply_plans_history.py "$package"
+          python3 experiments/issue-3785/native-gemini/probe_plans_history.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-plan-storage.log" > "$RUNNER_TEMP/gemini-acp-plan-storage-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-after.log" > "$RUNNER_TEMP/gemini-acp-plan-after-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-plan-private.log" > "$RUNNER_TEMP/gemini-acp-plan-private-control.log" 2>&1
+          for state in missing content-change symlink unsafe-mode; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-plan --history-plan-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-plan-$state.log" > "$RUNNER_TEMP/gemini-acp-plan-$state-control.log" 2>&1
+          done
+      - name: Reproduce and recover interrupted native plan publication
+        run: bash experiments/issue-3785/native-gemini/check_plan_transactions.sh experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli "$RUNNER_TEMP/gemini-acp-plan-publication"
+      - name: Reproduce partial proof writes and verify atomic recovery across native writers
+        run: bash experiments/issue-3785/native-gemini/check_atomic_publication.sh experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli "$RUNNER_TEMP/gemini-acp-atomic-proof"
+      - name: Verify actual ACP restore, third-process resume and audit retention
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-lifetime.log" > "$RUNNER_TEMP/gemini-acp-lifetime-control.log" 2>&1
+      - name: Verify native replace, automatic edits and cancellation
+        run: |
+          for state in replace autoEdit cancel; do
+            if [ "$state" = replace ]; then
+              extra=(--restorable-acp-tool replace)
+            else
+              extra=(--restorable-acp-mode "$state")
+            fi
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp "${extra[@]}" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
+          done
+      - name: Refuse live and startup metadata damage and preserve unselected native behavior
+        run: |
+          for state in live-metadata-schema startup-metadata-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-$state.log" > "$RUNNER_TEMP/gemini-acp-$state-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-acp --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-private.log" > "$RUNNER_TEMP/gemini-acp-private-control.log" 2>&1
+      - name: Rebuild all twenty-seven stages and require identical tested native source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-acp-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --acp --terminal-resume --headless --subagent --conversation-evidence --stream-admission --plans --plan-transactions --atomic-proofs --output "$RUNNER_TEMP/gemini-acp-fresh-cli" > "$RUNNER_TEMP/gemini-acp-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_plan_publication.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --scenario replacement --point after-journal --diagnostics "$RUNNER_TEMP/gemini-acp-plan-publication-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-publication-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --history-plan-interruption replacement --history-plan-point after-journal --diagnostics "$RUNNER_TEMP/gemini-acp-plan-publication-cli-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-publication-cli-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --history-plan-interruption replacement --history-plan-point partial-intent-journal --diagnostics "$RUNNER_TEMP/gemini-acp-atomic-cli-fresh.log" > "$RUNNER_TEMP/gemini-acp-atomic-cli-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-plan --diagnostics "$RUNNER_TEMP/gemini-acp-plan-fresh.log" > "$RUNNER_TEMP/gemini-acp-plan-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --conversation-evidence --diagnostics "$RUNNER_TEMP/gemini-acp-plan-history.log" > "$RUNNER_TEMP/gemini-acp-plan-history-control.log" 2>&1
+          for mode in terminal acp; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --history-live-rollback-engine "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh.log" > "$RUNNER_TEMP/gemini-acp-stream-$mode-fresh-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-audit-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-rollback --history-live-rollback-engine agent --diagnostics "$RUNNER_TEMP/gemini-acp-live-audit-agent-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-audit-agent-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-live-summary --diagnostics "$RUNNER_TEMP/gemini-acp-live-summary-fresh.log" > "$RUNNER_TEMP/gemini-acp-live-summary-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --history-subagent --diagnostics "$RUNNER_TEMP/gemini-acp-child-fresh.log" > "$RUNNER_TEMP/gemini-acp-child-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-acp --diagnostics "$RUNNER_TEMP/gemini-acp-fresh.log" > "$RUNNER_TEMP/gemini-acp-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-durable-fresh-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-reopen --restorable-terminal-startup-prompt --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh.log" > "$RUNNER_TEMP/gemini-acp-terminal-resume-fresh-control.log" 2>&1
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-headless --restorable-headless-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh.log" > "$RUNNER_TEMP/gemini-acp-headless-$engine-fresh-control.log" 2>&1
+          done
+      - name: Restore actual child edits across private-home disposal in both native engines
+        run: |
+          package="$RUNNER_TEMP/gemini-acp-fresh-cli"
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-restore --history-subagent-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-child-restore-$engine.log" > "$RUNNER_TEMP/gemini-acp-child-restore-$engine-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-engine agent --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-agent-private.log" > "$RUNNER_TEMP/gemini-acp-child-agent-private-control.log" 2>&1
+          for state in unsafe-mode symlink parent-replacement; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-engine agent --history-subagent-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-acp-child-agent-$state.log" > "$RUNNER_TEMP/gemini-acp-child-agent-$state-control.log" 2>&1
+          done
+      - name: Preserve both actual concurrent child edits and histories across private-home disposal
+        run: |
+          package="$RUNNER_TEMP/gemini-acp-fresh-cli"
+          for engine in legacy agent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-concurrent --history-subagent-engine "$engine" --private-history --diagnostics "$RUNNER_TEMP/gemini-acp-child-concurrent-$engine-private.log" > "$RUNNER_TEMP/gemini-acp-child-concurrent-$engine-private-control.log" 2>&1
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --history-subagent --history-subagent-concurrent --history-subagent-engine "$engine" --diagnostics "$RUNNER_TEMP/gemini-acp-child-concurrent-$engine.log" > "$RUNNER_TEMP/gemini-acp-child-concurrent-$engine-control.log" 2>&1
+          done
+      - name: Refuse terminal resume while a real writer lives and recover after owner exit
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-resume-refusal --diagnostics "$RUNNER_TEMP/gemini-acp-resume-refusal.log" > "$RUNNER_TEMP/gemini-acp-resume-refusal-control.log" 2>&1
+      - name: Recover actual delayed and interrupted canonical history admission
+        run: |
+          for mode in release kill; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$RUNNER_TEMP/gemini-acp-fresh-cli" --history --restorable-history --restorable-terminal-admission-lock "$mode" --diagnostics "$RUNNER_TEMP/gemini-acp-admission-$mode.log" > "$RUNNER_TEMP/gemini-acp-admission-$mode-control.log" 2>&1
+          done
+      - name: Preserve native metadata, terminal and authentication behavior
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          python3 experiments/issue-3785/native-gemini/probe_restorable_history.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-metadata.log" > "$RUNNER_TEMP/gemini-acp-metadata-control.log" 2>&1
+          for state in healthy live-metadata-schema startup-metadata-schema; do
+            extra=()
+            if [ "$state" != healthy ]; then extra+=(--restorable-history-attack "$state"); fi
+            python3 experiments/issue-3785/probe-gemini-native-cli.py "$package" --history --restorable-history "${extra[@]}" --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-$state.log" > "$RUNNER_TEMP/gemini-acp-terminal-$state-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/native-gemini/probe_shell_history.py "$package" --diagnostics "$RUNNER_TEMP/gemini-acp-terminal-shell.log" > "$RUNNER_TEMP/gemini-acp-terminal-shell-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-acp-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-acp-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-acp-auth-reads.log" 2>&1
+      - name: Reproduce and repair inherited storage identities, then independently rebuild the native adapter
+        run: bash experiments/issue-3785/native-gemini/check_inherited_identity.sh "$RUNNER_TEMP/gemini-acp-constructor-cli" "$RUNNER_TEMP/gemini-acp-fresh-cli" "$RUNNER_TEMP/gemini-acp-identity"
+      - name: Install the exact adapter from the actual npm artifact and verify native execution
+        run: bash experiments/issue-3785/check_packaged_gemini.sh "$RUNNER_TEMP/gemini-acp-pristine-cli" "$RUNNER_TEMP/gemini-acp-identity-fresh-cli" "$RUNNER_TEMP/gemini-acp-packaged"
+      - name: Preserve actual native ACP diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-acp-restore-experiment
+          path: |
+            ${{ runner.temp }}/gemini-acp-*.log
+            ${{ runner.temp }}/gemini-acp-*.diff
+            ${{ runner.temp }}/gemini-acp-*.network.json
+            ${{ runner.temp }}/gemini-acp-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-restorable-tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding native Git service package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-restorable-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-restorable-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination git_history git_configuration git_objects git_services; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce actual terminal restore metadata loss after a healthy edit
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --diagnostics "$RUNNER_TEMP/gemini-restorable-before.log" > "$RUNNER_TEMP/gemini-restorable-before-control.log" 2>&1; then
+            echo 'The native terminal restore regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'PASS: actual native TUI records its restorable checkpoint before approval' "$RUNNER_TEMP/gemini-restorable-before-control.log"
+          grep -F 'AssertionError: Fresh native TUI must restore its actual pre-edit checkpoint after private-home disposal.' "$RUNNER_TEMP/gemini-restorable-before-control.log"
+      - name: Preserve checked native restore metadata in canonical history
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce an approved edit executing with damaged restore metadata
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-history-attack live-metadata-schema --diagnostics "$RUNNER_TEMP/gemini-restorable-admission-before.log" > "$RUNNER_TEMP/gemini-restorable-admission-before-control.log" 2>&1; then
+            echo 'The native terminal edit admission regression unexpectedly passed before repair.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Unsafe native restore metadata must prevent the approved native edit.' "$RUNNER_TEMP/gemini-restorable-admission-before-control.log"
+      - name: Require acknowledged native snapshots before approval and execution
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_restorable_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_restorable_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Verify actual native metadata writers, generations, restore and unsafe storage
+        run: python3 experiments/issue-3785/native-gemini/probe_restorable_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-restorable-after.log" > "$RUNNER_TEMP/gemini-restorable-after-control.log" 2>&1
+      - name: Restore the original conversation and project in a fresh actual terminal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --diagnostics "$RUNNER_TEMP/gemini-restorable-cli-after.log" > "$RUNNER_TEMP/gemini-restorable-cli-after-control.log" 2>&1
+      - name: Refuse damaged restore metadata before edit execution and inference
+        run: |
+          for state in live-metadata-schema startup-metadata-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --restorable-history --restorable-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-restorable-cli-$state.log" > "$RUNNER_TEMP/gemini-restorable-cli-$state-control.log" 2>&1
+          done
+      - name: Require identical fresh native source through restore admission
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-restorable-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --restorable --output "$RUNNER_TEMP/gemini-restorable-fresh-cli" > "$RUNNER_TEMP/gemini-restorable-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_restorable_history.py "$RUNNER_TEMP/gemini-restorable-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-restorable-fresh.log" > "$RUNNER_TEMP/gemini-restorable-fresh-control.log" 2>&1
+      - name: Preserve surrounding native Git, tracker, history and authentication
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for family in git_history tracker; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-restorable-$family.log" > "$RUNNER_TEMP/gemini-restorable-$family-control.log" 2>&1
+          done
+          for family in shell_history logger artifacts blobs publication; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --diagnostics "$RUNNER_TEMP/gemini-restorable-$family.log" > "$RUNNER_TEMP/gemini-restorable-$family-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-restorable-storage.log" > "$RUNNER_TEMP/gemini-restorable-storage-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-restorable-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-restorable-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-restorable-auth-reads.log" 2>&1
+      - name: Preserve native restorable-tool diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-restorable-tool-experiment
+          path: |
+            ${{ runner.temp }}/gemini-restorable-*.log
+            ${{ runner.temp }}/gemini-restorable-*.network.json
+            ${{ runner.temp }}/gemini-restorable-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-history-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact native shell-history package for independent regressions
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-regressions-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth history artifacts blobs logger shell_history; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Verify bounded history storage and independent concurrent writers
+        run: python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-history-storage.log" > "$RUNNER_TEMP/gemini-history-storage-controls.log" 2>&1
+      - name: Discover and resume actual CLI conversation after private home disposal
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --diagnostics "$RUNNER_TEMP/gemini-cli-history-after.log" > "$RUNNER_TEMP/gemini-cli-history-after-control.log" 2>&1
+      - name: Refuse unsafe native history without modifying protected files
+        run: |
+          for link in symlink hardlink malformed truncated schema foreign-project invalid-session; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-attack "$link" --diagnostics "$RUNNER_TEMP/gemini-cli-history-$link.log" > "$RUNNER_TEMP/gemini-cli-history-$link-control.log" 2>&1
+          done
+      - name: Preserve unselected native private history behavior
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --private-history --expect-history-gap --diagnostics "$RUNNER_TEMP/gemini-cli-history-legacy.log" > "$RUNNER_TEMP/gemini-cli-history-legacy-control.log" 2>&1
+      - name: Retain native audit evidence after automatic session retirement
+        run: |
+          for state in empty expired; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-retention "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-retention-$state.log" > "$RUNNER_TEMP/gemini-cli-retention-$state-control.log" 2>&1
+          done
+      - name: Keep live native conversation writers out of peer retention
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-live-retention --diagnostics "$RUNNER_TEMP/gemini-cli-live-retention.log" > "$RUNNER_TEMP/gemini-cli-live-retention-control.log" 2>&1
+      - name: Preserve audit evidence and writer ownership during native deletion
+        run: |
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --diagnostics "$RUNNER_TEMP/gemini-cli-delete.log" > "$RUNNER_TEMP/gemini-cli-delete-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-live-delete --diagnostics "$RUNNER_TEMP/gemini-cli-live-delete.log" > "$RUNNER_TEMP/gemini-cli-live-delete-control.log" 2>&1
+      - name: Discover archived native generations and resume with one writer
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-discovery --history-archive-live-resume --history-archive-second-cycle --diagnostics "$RUNNER_TEMP/gemini-cli-archive.log" > "$RUNNER_TEMP/gemini-cli-archive-control.log" 2>&1
+      - name: Preserve native opaque session identifier compatibility
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-discovery --session-identifier SYNTHETIC_NATIVE_SESSION-3785 --diagnostics "$RUNNER_TEMP/gemini-cli-native-id.log" > "$RUNNER_TEMP/gemini-cli-native-id-control.log" 2>&1
+      - name: Import native conversations and resume after private home disposal
+        run: |
+          for state in canonical export legacy-export; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-import "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-import-$state.log" > "$RUNNER_TEMP/gemini-cli-import-$state-control.log" 2>&1
+          done
+      - name: Refuse unsafe import sources before publication or inference
+        run: |
+          for state in symlink hardlink malformed truncated schema invalid-session invalid-project unsafe-mode unsafe-parent; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-import export --history-import-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-import-$state.log" > "$RUNNER_TEMP/gemini-cli-import-$state-control.log" 2>&1
+          done
+      - name: Refuse unsafe archived native records before another inference
+        run: |
+          for state in symlink hardlink malformed truncated schema foreign-project invalid-session; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-delete --history-archive-resume --history-archive-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-cli-archive-$state.log" > "$RUNNER_TEMP/gemini-cli-archive-$state-control.log" 2>&1
+          done
+      - name: Preserve native authentication after conversation storage admission
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-history-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-history-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-history-auth-reads.log" 2>&1
+      - name: Preserve independent history regression diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-history-regressions
+          path: |
+            ${{ runner.temp }}/gemini-*.log
+            ${{ runner.temp }}/gemini-*.network.json
+            ${{ runner.temp }}/gemini-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-tracker-history:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding disposable native shell-history package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-tracker-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-tracker-constructor-cli"
+          for stage in history artifacts blobs logger shell_history; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce native tracker loss after healthy creation and private-home disposal
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-tracker-before.log" > "$RUNNER_TEMP/gemini-tracker-before-control.log" 2>&1; then
+            echo 'The native tracker regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Native tracker tasks must survive private-home disposal.' "$RUNNER_TEMP/gemini-tracker-before-lifetime-peer.log"
+      - name: Reproduce tracker loss through complete native CLI tools
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-before.log" > "$RUNNER_TEMP/gemini-tracker-cli-before-control.log" 2>&1; then
+            echo 'The complete native tracker regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Fresh native CLI must list its persisted tracker task after private-home disposal.' "$RUNNER_TEMP/gemini-tracker-cli-before-control.log"
+      - name: Apply checked canonical native tracker storage
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce malformed tracker dispatch before native startup admission
+        run: |
+          if python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --tracker-history-attack task-schema --diagnostics "$RUNNER_TEMP/gemini-tracker-admission-before.log" > "$RUNNER_TEMP/gemini-tracker-admission-before-control.log" 2>&1; then
+            echo 'The native tracker startup regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'AssertionError: Native CLI must refuse unsafe tracker history before another inference.' "$RUNNER_TEMP/gemini-tracker-admission-before-control.log"
+      - name: Apply native tracker admission before configuration discovery
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker_admission.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce dependency changes after native validation
+        run: |
+          for state in dependency-race cycle-race; do
+            if python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario "$state" --diagnostics "$RUNNER_TEMP/gemini-tracker-$state-before.log" > "$RUNNER_TEMP/gemini-tracker-$state-before-control.log" 2>&1; then
+              echo 'The native tracker dependency race unexpectedly passed.'
+              exit 1
+            fi
+            grep -F 'Native tracker must refuse a dependency changed after' "$RUNNER_TEMP/gemini-tracker-$state-before-$state-owner.log"
+          done
+      - name: Bind native validation reads to the checked publication transaction
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_tracker_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_tracker_coordination.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Preserve tracker generations and independent writers with native service semantics
+        run: python3 experiments/issue-3785/native-gemini/probe_tracker.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-after.log" > "$RUNNER_TEMP/gemini-tracker-after-control.log" 2>&1
+      - name: Read the updated task through a fresh resumed native CLI
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-after.log" > "$RUNNER_TEMP/gemini-tracker-cli-after-control.log" 2>&1
+      - name: Refuse unsafe tracker audit before further native inference
+        run: |
+          for state in symlink hardlink unsafe-mode malformed invalid-utf8 oversized task-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --tracker-history --tracker-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-$state.log" > "$RUNNER_TEMP/gemini-tracker-cli-$state-control.log" 2>&1
+          done
+      - name: Rebuild all history stages and require identical tested source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-tracker-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --tracker --output "$RUNNER_TEMP/gemini-tracker-fresh-cli" > "$RUNNER_TEMP/gemini-tracker-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_tracker.py "$RUNNER_TEMP/gemini-tracker-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-tracker-fresh.log" > "$RUNNER_TEMP/gemini-tracker-fresh-control.log" 2>&1
+      - name: Preserve surrounding native history and authentication behavior
+        run: |
+          python3 experiments/issue-3785/native-gemini/probe_shell_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-shell.log" > "$RUNNER_TEMP/gemini-tracker-shell-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_logger.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-logger.log" > "$RUNNER_TEMP/gemini-tracker-logger-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-storage.log" > "$RUNNER_TEMP/gemini-tracker-storage-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_artifacts.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-artifacts.log" > "$RUNNER_TEMP/gemini-tracker-artifacts-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_blobs.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-blobs.log" > "$RUNNER_TEMP/gemini-tracker-blobs-control.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_publication.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-tracker-publication.log" > "$RUNNER_TEMP/gemini-tracker-publication-control.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-tracker-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-tracker-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-tracker-auth-reads.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-tool-output --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-artifact.log" > "$RUNNER_TEMP/gemini-tracker-cli-artifact-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --history-blob --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-blob.log" > "$RUNNER_TEMP/gemini-tracker-cli-blob-control.log" 2>&1
+          python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --shell-history --diagnostics "$RUNNER_TEMP/gemini-tracker-cli-shell.log" > "$RUNNER_TEMP/gemini-tracker-cli-shell-control.log" 2>&1
+      - name: Preserve tracker diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-tracker-history-experiment
+          path: |
+            ${{ runner.temp }}/gemini-tracker-*.log
+            ${{ runner.temp }}/gemini-tracker-*.network.json
+            ${{ runner.temp }}/gemini-tracker-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-git-checkpoints:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Build the exact preceding native tracker package
+        run: |
+          npm ci --prefix experiments/issue-3785/native-gemini/stock-cli --ignore-scripts --omit=optional --no-audit --no-fund > "$RUNNER_TEMP/gemini-git-dependencies.log" 2>&1 &
+          wait "$!"
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          echo "GEMINI_PROBE_MODULE=$GITHUB_WORKSPACE/$package/bundle/chunk-DKZARV6U.js" >> "$GITHUB_ENV"
+          for stage in reads coordination request_auth; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+          cp -a "$package" "$RUNNER_TEMP/gemini-git-constructor-cli"
+          for stage in history artifacts blobs logger shell_history tracker tracker_admission tracker_coordination; do
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package" --check
+            python3 "experiments/issue-3785/native-gemini/apply_$stage.py" "$package"
+          done
+      - name: Reproduce actual Git checkpoint loss after private-home disposal
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-git-before.log" > "$RUNNER_TEMP/gemini-git-before-control.log" 2>&1; then
+            echo 'The native Git checkpoint lifetime regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Native Git checkpoint history must survive private-home disposal.' "$RUNNER_TEMP/gemini-git-before-lifetime-peer.log"
+      - name: Apply canonical native Git object storage and serialized head publication
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce execution of changed private Git configuration
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario private-filter --diagnostics "$RUNNER_TEMP/gemini-git-filter-before.log" > "$RUNNER_TEMP/gemini-git-filter-before-control.log" 2>&1; then
+            echo 'The native Git configuration regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'REPRODUCED: the actual native Git child executed the synthetic private configuration filter.' "$RUNNER_TEMP/gemini-git-filter-before-private-filter-owner.log"
+      - name: Admit private Git configuration before executing native children
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_configuration.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_configuration.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce acceptance of missing earlier acknowledged Git objects
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario unsafe-missing --diagnostics "$RUNNER_TEMP/gemini-git-missing-before.log" > "$RUNNER_TEMP/gemini-git-missing-before-control.log" 2>&1; then
+            echo 'The native acknowledged-object regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'Missing expected rejection: Native Git reads must refuse a missing earlier acknowledged commit object.' "$RUNNER_TEMP/gemini-git-missing-before-unsafe-missing-owner.log"
+      - name: Admit all acknowledged native object graphs with finite discovery bounds
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_objects.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Reproduce rejection of the actual UI Git service instance
+        run: |
+          if python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --scenario same-storage-service --diagnostics "$RUNNER_TEMP/gemini-git-service-before.log" > "$RUNNER_TEMP/gemini-git-service-before-control.log" 2>&1; then
+            echo 'The native UI Git service regression unexpectedly passed.'
+            exit 1
+          fi
+          grep -F 'A native UI GitService must reuse its already initialized private repository.' "$RUNNER_TEMP/gemini-git-service-before-same-storage-service-owner.log"
+      - name: Reuse checked Git repositories across native UI service instances
+        run: |
+          python3 experiments/issue-3785/native-gemini/apply_git_services.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --check
+          python3 experiments/issue-3785/native-gemini/apply_git_services.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+      - name: Restore actual native checkpoints across disposal and concurrent private writers
+        run: python3 experiments/issue-3785/native-gemini/probe_git_history.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --diagnostics "$RUNNER_TEMP/gemini-git-after.log" > "$RUNNER_TEMP/gemini-git-after-control.log" 2>&1
+      - name: Resume the complete native CLI with the same canonical Git head
+        run: python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --git-history --diagnostics "$RUNNER_TEMP/gemini-git-cli-after.log" > "$RUNNER_TEMP/gemini-git-cli-after-control.log" 2>&1
+      - name: Refuse unsafe native Git history before another model request
+        run: |
+          for state in missing symlink hardlink unsafe-mode content-change alternates head-schema; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history --git-history --git-history-attack "$state" --diagnostics "$RUNNER_TEMP/gemini-git-cli-$state.log" > "$RUNNER_TEMP/gemini-git-cli-$state-control.log" 2>&1
+          done
+      - name: Rebuild all native Git stages and require identical tested source
+        run: |
+          python3 experiments/issue-3785/native-gemini/verify_shell_application.py "$RUNNER_TEMP/gemini-git-constructor-cli" experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --git --output "$RUNNER_TEMP/gemini-git-fresh-cli" > "$RUNNER_TEMP/gemini-git-source.log" 2>&1
+          python3 experiments/issue-3785/native-gemini/probe_git_history.py "$RUNNER_TEMP/gemini-git-fresh-cli" --scenario lifetime --diagnostics "$RUNNER_TEMP/gemini-git-fresh.log" > "$RUNNER_TEMP/gemini-git-fresh-control.log" 2>&1
+      - name: Preserve surrounding tracker and history service behavior
+        run: |
+          package=experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli
+          for family in tracker shell_history logger artifacts blobs publication; do
+            python3 "experiments/issue-3785/native-gemini/probe_$family.py" "$package" --diagnostics "$RUNNER_TEMP/gemini-git-$family.log" > "$RUNNER_TEMP/gemini-git-$family-control.log" 2>&1
+          done
+          python3 experiments/issue-3785/probe-gemini-native-history-storage.py "$package" --diagnostics "$RUNNER_TEMP/gemini-git-storage.log" > "$RUNNER_TEMP/gemini-git-storage-control.log" 2>&1
+      - name: Preserve surrounding native authentication and complete CLI tools
+        run: |
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-writers.mjs > "$RUNNER_TEMP/gemini-git-auth-writers.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-request-auth.mjs > "$RUNNER_TEMP/gemini-git-auth-requests.log" 2>&1
+          node --max-old-space-size=128 experiments/issue-3785/probe-gemini-native-reads.mjs --private-configs > "$RUNNER_TEMP/gemini-git-auth-reads.log" 2>&1
+          for mode in history-tool-output history-blob shell-history tracker-history; do
+            python3 experiments/issue-3785/probe-gemini-native-cli.py experiments/issue-3785/native-gemini/stock-cli/node_modules/@google/gemini-cli --history "--$mode" --diagnostics "$RUNNER_TEMP/gemini-git-cli-$mode.log" > "$RUNNER_TEMP/gemini-git-cli-$mode-control.log" 2>&1
+          done
+      - name: Preserve native Git checkpoint diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-gemini-git-checkpoint-experiment
+          path: |
+            ${{ runner.temp }}/gemini-git-*.log
+            ${{ runner.temp }}/gemini-git-*.network.json
+            ${{ runner.temp }}/gemini-git-*.control.json
+          if-no-files-found: ignore
+          retention-days: 7

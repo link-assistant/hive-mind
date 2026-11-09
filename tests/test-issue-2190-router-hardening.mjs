@@ -21,6 +21,7 @@
  *      no other way of auth.
  */
 import { EventEmitter } from 'node:events';
+import { buildRouterTaskEnv } from '../src/router-isolation.lib.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,6 +30,7 @@ import { watchRouterTaskContainer } from '../src/router-task-isolation.lib.mjs';
 import { ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT } from '../src/router-isolation.lib.mjs';
 import { CLAUDE_SETTINGS_AUTH_ENV_KEYS, DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS, describeRouterAuthSurface, EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation, inspectRouterAuthSurface, isRouterAuthGuardRequired, readCodexProviderPin, resolveRouterAuthGuardIntervalMs, ROUTER_CODEX_PROVIDER_ID, startRouterAuthGuard } from '../src/router-auth-guard.lib.mjs';
 import { EXIT_CODE_INSUFFICIENT_DISK_SPACE } from '../src/disk-guard.lib.mjs';
+import { ROUTER_STORAGE_INSPECT_FORMAT } from '../src/router-storage-contract.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -86,6 +88,7 @@ const makeDocker = ({ networkMode = ROUTER_SIDECAR_NETWORK_NAME, running = false
     if (verb === 'inspect') {
       if (!containerRunning) throw new Error('No such object');
       if (args.includes('{{.HostConfig.NetworkMode}}')) return { stdout: `${networkMode}\n` };
+      if (args.includes(ROUTER_STORAGE_INSPECT_FORMAT)) return { stdout: JSON.stringify({ env: ['DATA_DIR=/data/router', 'AUDIT_LOG=/data/router/audit.jsonl'], mounts: [{ Type: 'volume', Name: 'hive-mind-router-data', Destination: '/data/router', RW: true }] }) };
       return { stdout: 'true|ghcr.io/link-assistant/router:latest|sha256:abc\n' };
     }
     if (verb === 'image') return { stdout: 'sha256:abc\n' };
@@ -323,9 +326,9 @@ console.log('\n=== issue #2190: a routed task authenticates with its router toke
 assertEqual(EXIT_CODE_ROUTER_AUTH_VIOLATION, 77, 'a security violation has its own exit code');
 assertEqual(EXIT_CODE_ROUTER_AUTH_VIOLATION === EXIT_CODE_INSUFFICIENT_DISK_SPACE, false, 'distinct from the disk-space code, so operators can tell them apart');
 assertEqual(isRouterAuthGuardRequired({}), false, 'the guard is off for a task run without the router');
-assertEqual(isRouterAuthGuardRequired({ HIVE_MIND_USE_ROUTER: '1' }), false, 'and off when no router token was handed to the task');
+assertEqual(isRouterAuthGuardRequired({ HIVE_MIND_USE_ROUTER: '1' }), true, 'a missing task token must not disable Router enforcement');
 assertEqual(isRouterAuthGuardRequired({ HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_x' }), true, 'on for a task that holds a router token');
-assertEqual(isRouterAuthGuardRequired({ HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_x', HIVE_MIND_ROUTER_AUTH_GUARD: '0' }), false, 'and an operator may switch it off with HIVE_MIND_ROUTER_AUTH_GUARD=0');
+assertEqual(isRouterAuthGuardRequired({ HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_x', HIVE_MIND_ROUTER_AUTH_GUARD: '0' }), true, 'the legacy environment switch cannot waive Router enforcement');
 assertEqual(resolveRouterAuthGuardIntervalMs({}), DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS, 'the check interval defaults to one second');
 assertEqual(resolveRouterAuthGuardIntervalMs({ HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS: '250' }), 250, 'and can be tuned');
 assertEqual(resolveRouterAuthGuardIntervalMs({ HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS: '5' }), DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS, 'but a value below 100 ms, which would just burn CPU, falls back to the default');
@@ -343,7 +346,7 @@ const makeHome = () => {
   fs.mkdirSync(path.join(home, '.config', 'gh'), { recursive: true });
   return { home, cwd, cleanup: () => fs.rmSync(home, { recursive: true, force: true }) };
 };
-const routedEnv = { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_task', HIVE_MIND_ROUTER_URL: 'https://link-assistant-router', ANTHROPIC_BASE_URL: 'https://link-assistant-router', ANTHROPIC_AUTH_TOKEN: 'la_sk_task', OPENAI_BASE_URL: 'https://link-assistant-router/v1' };
+const routedEnv = { ...buildRouterTaskEnv({ tool: 'claude', baseUrl: 'https://link-assistant-router', token: 'la_sk_task' }), ...buildRouterTaskEnv({ tool: 'codex', baseUrl: 'https://link-assistant-router', token: 'la_sk_task' }), HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_TOKEN: 'la_sk_task', HIVE_MIND_ROUTER_URL: 'https://link-assistant-router', ANTHROPIC_BASE_URL: 'https://link-assistant-router', ANTHROPIC_AUTH_TOKEN: 'la_sk_task', OPENAI_BASE_URL: 'https://link-assistant-router/v1' };
 const inspect = ({ tool, home, cwd, env = routedEnv }) => inspectRouterAuthSurface({ tool, homeDir: home, cwd, env: { ...env, CODEX_HOME: path.join(home, '.codex') } });
 const firstReason = result => result.violations[0]?.reason ?? null;
 
@@ -425,7 +428,7 @@ const firstReason = result => result.violations[0]?.reason ?? null;
   fs.writeFileSync(configPath, `${pinned}\n[projects."${cwd}"]\ntrust_level = "trusted"\n`);
   assertEqual(inspect({ tool: 'codex', home, cwd }).violations.length, 0, 'the trust table Codex appends for the workspace does not trip the guard');
   fs.writeFileSync(configPath, pinned.replace('model_provider = "hive-mind-router"', 'model_provider = "openai"'));
-  assertEqual(carries(firstReason(inspect({ tool: 'codex', home, cwd })), "model_provider was changed to 'openai'"), true, 'switching Codex back to the openai provider is a violation');
+  assertEqual(carries(firstReason(inspect({ tool: 'codex', home, cwd })), 'model_provider was changed'), true, 'switching Codex back to the openai provider is a violation');
   fs.writeFileSync(configPath, pinned.replace(routedEnv.OPENAI_BASE_URL, 'https://api.openai.com/v1'));
   assertEqual(carries(firstReason(inspect({ tool: 'codex', home, cwd })), 'base_url was changed'), true, "and so is repointing the router provider's base_url");
   fs.writeFileSync(configPath, pinned.replace('env_key = "OPENAI_API_KEY"', 'env_key = "MY_KEY"'));

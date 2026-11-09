@@ -116,11 +116,13 @@ assert.match(result.stdout, /::warning::Cancelled jobs: test\. A newer commit su
 
 result = runGate({ test: { result: 'cancelled' } }, false, { RUN_SHA: 'aaa', HEAD_REF: 'refs/pull/1/head', BRANCH_HEAD_SHA: 'aaa' });
 assert.equal(result.status, 1, 'a PR job cancelled by its timeout fails the gate');
-assert.match(result.stdout, /::error::Cancelled jobs: test, but no newer commit superseded this run/);
+assert.match(result.stdout, /::error::Pipeline has cancelled jobs: test, but no newer commit superseded this run/);
 
+// Issue #3785: a checkout timeout once passed as a superseded PR run.
 result = runGate({ test: { result: 'cancelled' } });
-assert.equal(result.status, 1, 'an unknown run head fails closed instead of passing a possible timeout');
-assert.match(result.stdout, /cannot tell whether a newer commit superseded this run/);
+assert.equal(result.status, 1, 'a PR job timeout must fail the terminal gate, including without a replacement run');
+assert.match(result.stdout, /::error::Pipeline has cancelled jobs.*test/);
+assert.match(result.stdout, /cannot tell whether a newer commit superseded this run/, 'an unknown run head fails closed');
 
 const gateStep = workflow.slice(workflow.indexOf('  pipeline-status:'));
 assert.match(gateStep, /IS_MAIN: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/, 'workflow_dispatch runs on main are held to the main policy');

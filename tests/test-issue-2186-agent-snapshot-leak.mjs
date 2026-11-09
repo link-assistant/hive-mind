@@ -116,7 +116,7 @@ console.log('\n3. Image pins match the runtime floor\n');
 const imagePins = new Set();
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
-  const installs = [...text.matchAll(/bun install -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
+  const installs = [...text.matchAll(/bun install --backend=copyfile -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
   check(installs.length > 0, `${file} installs the Agent CLI`);
   const exact = installs.every(pin => /^@\d+\.\d+\.\d+$/.test(pin ?? ''));
   check(exact, `${file} pins an exact @link-assistant/agent version (found ${JSON.stringify(installs)})`);

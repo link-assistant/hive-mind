@@ -1,0 +1,624 @@
+✔ installGitPushGuard writes an executable hook without synchronous fs calls (17.074212ms)
+✔ prepareDockerIsolationHostPaths creates missing tool directories without synchronous fs calls (10.239387ms)
+✔ host credential probes resolve asynchronously and only mount what exists (18.701487ms)
+✔ root bind and nested volume paths use the most specific daemon source (4.406973ms)
+✔ daemon mount mapping rejects unpersisted layer (1.544802ms)
+✔ daemon mount mapping rejects prefix sibling (1.37177ms)
+✔ daemon mount mapping rejects duplicate mapping (0.280654ms)
+✔ daemon mount mapping rejects unsupported nested mount (0.32719ms)
+✔ daemon mount mapping rejects relative path (0.173945ms)
+✔ daemon mount mapping rejects path traversal (0.306492ms)
+✔ daemon mount mapping rejects ambiguous volume argument (0.225942ms)
+✔ daemon mount mapping rejects ambiguous CSV argument (0.279823ms)
+✔ a same-namespace source requires a bounded read-only backing probe and reaps it (49.82255ms)
+✔ host-socket translation is verified after a wrong same-path identity (14.105361ms)
+✔ a missing image is pulled before probing, using the selected daemon environment (22.135836ms)
+✔ backing admission rejects remote without exposing Docker diagnostics (14.637295ms)
+✔ backing admission rejects malformed without exposing Docker diagnostics (10.747706ms)
+✔ backing admission rejects changed without exposing Docker diagnostics (7.312456ms)
+✔ backing admission rejects symlink without exposing Docker diagnostics (10.785526ms)
+✔ the launcher builder uses attested sources and preserves mount flags (2.181049ms)
+✔ production launch refuses unverifiable mounts before invoking start-command (491.446813ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (3.351604ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.654281ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.742535ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (0.817826ms)
+✔ task routing uses the selected image dialect from the launch environment (2.816536ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (0.825971ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (0.557431ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.274703ms)
+✔ the launch dialect follows the lease through container attachment (0.96989ms)
+✔ launch diagnostics describe the selected dialect (2.53442ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (5.213758ms)
+✔ the pinned native stock catalog is accepted independently of discovery order (4.990944ms)
+✔ native stock discovery rejects admin before trusting its file tree (440.003246ms)
+✔ native stock discovery rejects user before trusting its file tree (275.418416ms)
+✔ native stock discovery rejects repo before trusting its file tree (284.634324ms)
+✔ native stock discovery rejects outside-stock before trusting its file tree (208.294521ms)
+✔ native stock discovery rejects duplicate before trusting its file tree (302.523043ms)
+✔ native stock discovery rejects missing before trusting its file tree (254.989665ms)
+✔ native stock discovery rejects disabled before trusting its file tree (316.107722ms)
+✔ native stock discovery rejects plugin before trusting its file tree (302.903502ms)
+✔ native stock discovery rejects name before trusting its file tree (287.148502ms)
+✔ native stock discovery rejects errors before trusting its file tree (316.433077ms)
+✔ native stock discovery rejects wrong-cwd before trusting its file tree (343.745282ms)
+✔ native stock discovery rejects missing-errors before trusting its file tree (404.205641ms)
+✔ native stock discovery rejects malformed-skills before trusting its file tree (258.178524ms)
+✔ native stock discovery rejects extra-result before trusting its file tree (249.979864ms)
+Testing isolation-runner.lib.mjs
+============================================================
+
+  import side effects:
+  ✅ PASS: Importing pure helpers does not fetch use-m bootstrap
+
+  generateSessionId:
+  ✅ PASS: Returns a string
+  ✅ PASS: UUID has correct length (36 chars)
+  ✅ PASS: UUID matches v4 format
+  ✅ PASS: Generates unique IDs
+
+  isValidIsolationBackend:
+  ✅ PASS: screen is valid
+  ✅ PASS: tmux is valid
+  ✅ PASS: docker is valid
+  ✅ PASS: ssh is not valid (not supported in telegram bot)
+  ✅ PASS: invalid backend is rejected
+  ✅ PASS: empty string is rejected
+
+  VALID_ISOLATION_BACKENDS:
+  ✅ PASS: Is an array
+  ✅ PASS: Has 3 backends
+  ✅ PASS: Contains screen
+  ✅ PASS: Contains tmux
+  ✅ PASS: Contains docker
+
+============================================================
+Results: 16 passed, 0 failed, 16 total
+============================================================
+
+✅ All tests passed!
+✔ tests/test-isolation-runner.mjs (154.928447ms)
+
+--- Docker isolation image selection ---
+  PASS: dind Hive Mind image spawns the dind Docker isolation image
+  PASS: regular Hive Mind image spawns the regular Docker isolation image
+  PASS: explicit Docker isolation image override wins
+
+--- Docker writable layer size parsing ---
+  PASS: docker inspect SizeRw output parses as bytes
+  PASS: missing SizeRw output returns null
+  PASS: empty SizeRw output returns null
+
+--- Tool-scoped credential mounts ---
+  PASS: codex tasks receive gh and Codex credentials only
+  PASS: claude tasks receive gh and Claude credentials only
+  PASS: GH_CONFIG_DIR is used when the host exposes gh auth outside the default path
+
+--- start-command invocation shape ---
+  PASS: Docker isolation runs natively on start-command's docker backend with the dind Hive Mind image
+  PASS: Docker isolation is no longer wrapped in a screen session (issue #1914)
+  PASS: Docker isolation no longer shells out to a hand-rolled docker run
+  PASS: dind Docker isolation runs privileged
+  PASS: Docker isolation forces the sh shell so start-command does not boot a container to probe for one
+  PASS: Docker isolation runs detached
+  PASS: Docker isolation tracks the task by the session UUID (also the container name)
+  PASS: Docker isolation sets HOME so credential mounts under /home/box resolve
+  PASS: Docker isolation records the dind image variant inside the container
+  PASS: Docker isolation mounts gh credentials
+  PASS: Docker isolation mounts Codex credentials
+  PASS: Docker isolation does not mount Claude credentials for a Codex task
+  PASS: start-command receives an explicit command separator before the task command
+  PASS: Docker isolation gates the task until the writable-layer baseline is captured
+  PASS: the separated command preserves the solve arguments after releasing the disk baseline gate
+  PASS: buildStartCommandArgs delegates the docker backend to buildDockerIsolationStartArgs
+  PASS: non-Docker isolation keeps the original backend and command shape
+
+--- Native docker log path ---
+  PASS: a start-command-reported docker log path is used verbatim
+  PASS: native docker sessions fall back to the docker log directory
+
+--- Telegram tool propagation ---
+[telegram-send] s1 safeEditMessageText → chat=101 message=303 parse_mode=Markdown chars=53 bytes=53 text="starting session=direct-session-1860 isolation=docker"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=101 message=303 parse_mode=Markdown chars=44 bytes=44 text="session=direct-session-1860 isolation=docker"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+  PASS: direct isolated execution invokes the runner once
+  PASS: direct isolated execution keeps docker backend
+  PASS: direct isolated execution passes the selected tool
+  PASS: direct isolated execution passes configured container limits
+  PASS: direct tracked session stores the selected tool
+  PASS: direct tracked session stores docker filesystem start size after launch
+  PASS: direct tracked session stores resolved container limits
+  PASS: queued isolated execution succeeds through the mocked runner
+  PASS: queued isolated execution invokes the runner once
+  PASS: queued isolated execution keeps docker backend
+  PASS: queued isolated execution passes the selected tool
+  PASS: queued tracked session stores the selected tool
+  PASS: queued tracked session stores docker filesystem start size
+
+Result: 41 passed, 0 failed
+✔ tests/test-issue-1860-docker-isolation.mjs (2375.15699ms)
+
+--- Git identity is mounted for every tool (issue #1939, problem 3) ---
+  PASS: claude tasks receive gh, git identity, and Claude credentials
+  PASS: codex tasks receive gh, git identity, and Codex credentials
+
+--- Git identity mounts honor git/XDG env overrides ---
+  PASS: GIT_CONFIG_GLOBAL and XDG_CONFIG_HOME are used when the host exposes git config outside the default paths
+
+--- Missing host git identity is skipped, not invented ---
+  PASS: a host without a git identity gets no phantom git mount (the symptom the deploy must fix)
+
+--- Host git-identity preflight is self-healing (issue #1939, problem 3) ---
+  PASS: an existing host git identity is detected and mounted (no repair attempted)
+  PASS: no repair runs when the host already has a git identity
+  PASS: the repair probe is not invoked when an identity already exists
+  PASS: a missing host git identity is derived from the gh account so it becomes mountable
+  PASS: the preflight records that it repaired the identity
+  PASS: a successful self-heal emits no warning
+  PASS: an unrepairable missing identity is reported absent
+  PASS: an unrepairable missing identity emits exactly one warning
+  PASS: the warning names the exact downstream failure
+  PASS: hostHasMountableGitIdentity sees the XDG ~/.config/git directory
+  PASS: hostHasMountableGitIdentity is false when no git identity exists
+
+--- Unknown docker exit code detection (issue #1939, problem 1) ---
+  PASS: the -1 sentinel is treated as an unknown exit code
+  PASS: a missing exit code is treated as unknown
+  PASS: an undefined exit code is treated as unknown
+  PASS: a real success exit code (0) is a known result
+  PASS: a real failure exit code (127) is a known result
+
+--- session-monitor cross-checks a live container on an ambiguous docker status (problem 1) ---
+  PASS: a docker "executed"/-1 status whose container is still running is reported running (no premature completion)
+  PASS: a docker "executed"/-1 status whose container has exited is reported finished
+  PASS: a docker terminal status with a real exit code is trusted without cross-checking the container
+  PASS: the real captured exit code is preserved
+  PASS: a screen terminal status is still trusted directly (docker cross-check does not apply)
+
+Result: 25 passed, 0 failed
+✔ tests/test-issue-1939-docker-isolation.mjs (1199.537626ms)
+PASS: failure reply carries the session UUID, the backend, the error and the "not launched" note
+PASS: failure reply omits the session block when no session was ever generated
+PASS: failure reply never renders an empty code fence
+PASS: acquireFormalAiSidecarForTask logs the refusal with the session UUID
+PASS: executeWithIsolation logs a refused launch with the session UUID
+[telegram-send] s1 safeEditMessageText → chat=42 message=100 parse_mode=Markdown chars=129 bytes=135 text="🔄 Starting...\n\n📊 Session: `08ec853a-158a-4314-83e9-c6365670fe4c`\n🔒 Isolation: `docker`\n\nIssue: https://github.com/o/r/issues/1"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=42 message=100 parse_mode=Markdown chars=460 bytes=468 text="❌ Error executing solve command:\n📊 Session: `08ec853a-158a-4314-83e9-c6365670fe4c`\n🔒 Isolation: `docker`\n\n```\nFormal AI sidecar could not be started, so the task was not launched (issue #2146): Command failed: docker run --detach --name hive-mind-formal-ai …\nUnable to find image 'ghcr.io/link-assi"… (+160 chars)
+[telegram-send] s2 safeEditMessageText ✓ delivered
+PASS: a Formal AI launch failure reaches both the bot log and the Telegram reply, with its UUID
+[telegram-send] s3 safeEditMessageText → chat=42 message=100 parse_mode=Markdown chars=99 bytes=105 text="🔄 Starting...\n\n📊 Session: `08ec853a-158a-4314-83e9-c6365670fe4c`\n🔒 Isolation: `docker`\n\nIssue: x"
+[telegram-send] s3 safeEditMessageText ✓ delivered
+[telegram-send] s4 safeEditMessageText → chat=42 message=100 parse_mode=Markdown chars=46 bytes=46 text="EXECUTING 08ec853a-158a-4314-83e9-c6365670fe4c"
+[telegram-send] s4 safeEditMessageText ✓ delivered
+PASS: a successful launch is neither logged as a failure nor altered
+
+7 passed, 0 failed
+✔ tests/test-issue-2154-launch-failure-visibility.mjs (2464.210754ms)
+
+--- The flag is off by default and readable from the environment ---
+  PASS: router isolation is off when nothing asks for it
+  PASS: --use-router turns it on
+  PASS: HIVE_MIND_USE_ROUTER=true is inherited by nested invocations
+  PASS: HIVE_MIND_USE_ROUTER=0 keeps it off
+
+--- Endpoint resolution rejects anything that is not a bare origin ---
+  PASS: a bare http origin is accepted
+  PASS: a lone trailing slash is normalized away
+  PASS: a path is rejected rather than silently dropped
+  PASS: embedded credentials are rejected
+  PASS: a non-http scheme is rejected
+  PASS: without an override the task targets the sidecar alias
+  PASS: the sidecar endpoint is not reported as external
+  PASS: HIVE_MIND_ROUTER_URL marks the router as externally managed
+  PASS: an unusable override yields no endpoint
+  PASS: an unusable override explains itself
+
+--- The sidecar is a pinned, TLS-terminating router on 443 ---
+  PASS: the router listens on 443, the only port gh will build an endpoint for
+  PASS: so the internal endpoint is https with no port, matching the certificate authority name
+  PASS: the image is pinned to an exact version rather than :latest
+  PASS: the certificate claims exactly the internal alias and api.github.com — the second is what lets an unmodified gh verify the interception, and the list is asserted whole so an extra SAN cannot slip in unnoticed
+
+--- GitHub routing: transparent for our own sidecar, declared for an external one ---
+  PASS: our own sidecar intercepts api.github.com by name, with no gh reconfiguration
+  PASS: an external router is on a network we cannot rewrite, so nothing is claimed
+  PASS: an operator-supplied HTTPS endpoint is wired through GH_HOST instead
+  PASS: and an operator can turn GitHub routing off entirely
+  PASS: no explicit gh host is needed for the default path
+  PASS: plaintext is refused here, where the reason can be explained
+
+--- Routed tasks are pointed at the router, per tool surface ---
+  PASS: claude is redirected via ANTHROPIC_BASE_URL
+  PASS: and the task's token is offered in both forms the router accepts
+  PASS: and nothing else is injected
+  PASS: gh keeps its own host: the interception happens in DNS, so every gh command form is covered
+  PASS: gh authenticates to the router with the same scoped token, and holds no GitHub credential
+  PASS: Node-based clients are given the router CA as an addition to the system store
+  PASS: clients that replace the store are given a bundle that still contains the public roots
+  PASS: codex is redirected via the OpenAI-compatible surface under /v1
+  PASS: and gets a CODEX_HOME of its own, because codex ignores OPENAI_BASE_URL without a provider entry there
+  PASS: the generated provider entry speaks the wire API the router serves
+  PASS: and names the router as its base URL
+  PASS: an external router is reached by pointing gh at its host
+  PASS: with the task token as its enterprise credential
+  PASS: an unrouted-GitHub task is given no GitHub credential of ours at all
+  PASS: no token means no redirect: a task is never pointed at a router it cannot authenticate to
+
+--- git is sent through the router, and cannot fall back to an inherited credential ---
+  PASS: github.com is rewritten to the router git proxy, over a trusted CA
+  PASS: and the operator’s inherited credential helper is cleared, so no real GitHub token can be presented
+  PASS: the token rides in a scoped header rather than in a remote URL, where it would reach reflogs and error messages
+  PASS: nothing is rewritten when GitHub is not routed
+
+--- The task container is finished off from the host, inside the start gate ---
+  PASS: the CA is written into the task container
+  PASS: api.github.com is resolved to the router, which is what makes gh routing transparent
+  PASS: and the entry is added only once, so a reused sidecar does not duplicate it
+  PASS: the replacement bundle starts from the system roots
+  PASS: a claude task gets no codex provider entry
+  PASS: a codex task does
+  PASS: an externally-hosted gh endpoint needs no hosts entry
+
+--- Vendor credentials are withheld from routed tasks (R2, R9) ---
+  PASS: a routed claude task loses both Claude credential paths
+  PASS: a routed codex task loses both Codex credential paths
+  PASS: the gh credential is withheld once GitHub is routed
+  PASS: default behaviour is unchanged: claude tasks still receive the real subscription (R9)
+  PASS: nothing named .claude survives into a routed container
+  PASS: nothing named .codex or .agents survives into a routed container
+  PASS: the git identity is still mounted: it is not a subscription credential (issue #1939)
+  PASS: once gh is routed, its host credential is withheld too (R12)
+
+--- The launcher wires it end to end ---
+  PASS: a default launch injects no router endpoint
+  PASS: a routed launch points Claude Code at the sidecar
+  PASS: the task's own token is passed in, not the operator's credential
+  PASS: and at the CA it will be given while the start gate still holds it
+  PASS: no Claude credential mount appears anywhere in a routed launch command
+  PASS: the push guard and the router git settings share one GIT_CONFIG_COUNT
+  PASS: with the push-guard hook first
+  PASS: and the github.com rewrite among them
+  PASS: without an issued token an explicitly selected Router launch is rejected
+  PASS: a guard that could not be installed leaves only the router git settings
+  PASS: and no hooksPath is set for a hook the task was never given
+  PASS: nor is the hook directory mounted
+
+--- An experimental run states its own limits (R10, R16) ---
+  PASS: every routed run names the destructive-API gap the router still forwards, and cites the upstream issue (R13)
+  PASS: and no longer claims force pushes are unblocked — router#273 closed that from 0.110.0, and the pin is past it
+  PASS: the pinned image is at or above 0.110.0, so it carries the compare-based force-push mediation the warning above stopped claiming was missing
+  PASS: the default path routes GitHub, so it claims no gap there
+  PASS: a run without GitHub routing says so
+  PASS: --model formal-ai explains how it reaches the router (R11)
+  PASS: #3215: the provider-qualified spelling is Formal AI too, not an unknown alias
+  PASS: a model alias is called out, because the router resolves advertised ids only
+  PASS: a dated id is not
+  PASS: and a non-Claude tool is flagged as the less exercised path
+
+Result: 80 passed, 0 failed
+✔ tests/test-issue-2164-router-isolation.mjs (222.18915ms)
+
+=== issue #2164: router sidecar run arguments ===
+  PASS: the sidecar is launched onto the internal network, the one address it will bind
+  PASS: under the alias tasks resolve, so the bind script can look its own address up
+  PASS: no port is published to the host
+  PASS: the container is started detached
+  PASS: the container carries the stable reconciliation name
+  PASS: the signing secret is passed to the router
+  PASS: DATA_DIR points at the mounted volume so request logs persist (R8)
+  PASS: and the audit log is written into that same volume, so who asked for what survives the container (R8)
+  PASS: the audit volume is mounted by name (R8)
+  PASS: every discovered credential directory is mounted into the sidecar (R3)
+  PASS: credential mounts are writable, so refreshed tokens survive a restart
+  PASS: the GitHub credential the router presents upstream is mounted read-only (R12)
+  PASS: and named through GH_CONFIG_DIR, which is where the router looks for it
+  PASS: the router is told where each credential home landed
+  PASS: the codex credential home is wired too
+  PASS: the image runs the bind script through the sh entrypoint
+  PASS: because the router has no bind-to-network option of its own yet (issue #2190)
+  PASS: the router is started in serve mode on 443, the only port an unmodified gh will build an api.github.com endpoint for
+  PASS: and the script's only mention of 0.0.0.0 is its refusal to bind there
+  PASS: so no argument ever asks the router to listen on every interface
+  PASS: the router terminates TLS with a certificate of its own
+  PASS: whose names cover both the internal alias and api.github.com
+  PASS: which is what lets an unmodified gh verify the interception
+
+=== issue #2164: credential discovery ===
+  PASS: only credential directories that exist on the host are mounted
+
+=== issue #2164: token identity ===
+  PASS: the token id is read from the JWT subject, without needing the signing secret
+  PASS: a non-router credential yields no id rather than a wrong one
+  PASS: a malformed token yields no id
+
+=== issue #2164: signing secret ===
+  PASS: a first run generates a secret
+  PASS: and reports that it did
+  PASS: a restart reuses the stored secret, so tokens already handed to running tasks stay valid
+  PASS: an operator-supplied secret wins
+
+=== issue #2164: sidecar toggles ===
+  PASS: Hive Mind manages the router container by default
+  PASS: an operator can opt out of container management
+  PASS: the published image is the default
+  PASS: pinned to an exact version rather than :latest
+  PASS: the image can be pinned or replaced
+
+=== issue #2164: acquire and release against a fake docker ===
+  PASS: the sidecar comes up against a healthy fake docker
+  PASS: the task is pointed at the internal alias over HTTPS
+  PASS: on the default port, so the URL carries no port for gh to disagree about
+  PASS: health is probed over the same TLS endpoint and alias a task will use; loopback is no longer bound (issue #2190)
+  PASS: the lease records the id of the token it minted
+  PASS: the acquiring task holds the only lease
+  PASS: the outbound bridge is attached after creation, so it is never the address the router binds (issue #2190)
+  PASS: the token is labelled with the session that owns it, so its log can be found later (R6)
+  PASS: the state file holding TOKEN_SECRET is owner-only
+  PASS: releasing the last task leaves no leases
+  PASS: and stops the sidecar, so it only runs while a task needs it (R5)
+  PASS: the finishing task's token is revoked rather than left live until its TTL
+  PASS: the audit volume is never removed (R8)
+
+=== issue #2164: the token is confined to one repository ===
+  PASS: the task's token names the repository it may touch, so it cannot be replayed against another (R13)
+  PASS: and anything that is not a router token is refused rather than handed to a task
+
+=== issue #2164: the task container is finished off from the host ===
+  PASS: a healthy router wires the task container
+  PASS: as root, because /etc/hosts and the CA store belong to root while the agent does not
+  PASS: inside the task container, not the sidecar
+  PASS: and the CA the router just printed is what gets installed
+  PASS: with api.github.com pointed at the router's address on the internal network
+  PASS: a router that prints no CA is reported rather than leaving the task unable to verify it
+  PASS: and so is a router with no address to intercept GitHub through
+  PASS: a missing container name is refused outright
+  PASS: a CA read that returns something other than PEM yields null rather than a broken trust file
+  PASS: and an address read against a missing container yields null rather than throwing into the launch path
+  PASS: attach and wire together report success as no error
+  PASS: the tool travels with the lease, so the wiring step writes the right provider config
+  PASS: and a container that could not be wired fails the launch instead of running with a partly-configured trust store
+
+=== issue #2164: launch policy fails closed ===
+  PASS: a default run does not touch the router
+  PASS: and is not an error
+  PASS: router isolation only applies to the docker backend
+  PASS: an unavailable router yields no router handle
+  PASS: and the launch is refused with the underlying reason, not silently given the credentials it was told to withhold
+  PASS: a thrown acquire is reported rather than crashing the launch
+  PASS: a failed network attach is reported so the caller can stop the container
+
+=== issue #2164 R11: --model formal-ai is served by the same router ===
+  PASS: the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for
+  PASS: a base URL that already names the API version is not versioned twice
+  PASS: and no endpoint yields no command rather than a half-formed one
+  PASS: registering a provider succeeds when the router accepts it
+  PASS: the CLI is invoked inside the sidecar, naming the binary because docker exec bypasses the entrypoint
+  PASS: and a refusal is reported with the router's own words
+  PASS: the router joins the Formal AI network so it can resolve the alias
+  PASS: no alias is requested: nothing on that network calls the router by name
+[router-isolation] Session s: Router isolation was requested but the router is unavailable, so the task was not launched rather than being given direct access to the subscription (issue #2164): daemon unreachable
+[router-isolation] Session s: Router isolation was requested but the router is unavailable, so the task was not launched rather than being given direct access to the subscription (issue #2164): boom
+  PASS: a Formal AI task without routing is left alone
+  PASS: and a routed task that is not a Formal AI task registers nothing
+  PASS: with both sidecars up the router is taught to serve formal-ai itself
+  PASS: the network is joined first, because the provider is useless until the alias resolves
+  PASS: the DNS endpoint is stored rather than an address that changes on every restart
+  PASS: a router that cannot reach Formal AI fails the launch
+  PASS: and so does a provider the router refuses to store, rather than running unmediated
+  PASS: an external router is somebody else's to configure
+  PASS: an external router has no network of ours to join
+  PASS: releasing a run that never routed does nothing
+
+=== issue #2164: idle maintenance stops a sidecar nothing is using (R5) ===
+  PASS: a lease whose task container is gone is dropped
+  PASS: and the sidecar it was holding up is stopped
+  PASS: the dead task's token is revoked, not left usable for the rest of its TTL
+  PASS: the audit volume survives the teardown (R8)
+  PASS: a lease whose task container is still running is kept
+  PASS: and the router keeps serving it
+  PASS: no stop is even attempted while a task holds a lease
+  PASS: an operator-managed router is left alone
+  PASS: a failing tick collects the failure instead of rejecting
+  PASS: and says what went wrong, so an idle router is never silently left running
+  PASS: the loop reconciles immediately rather than waiting a full interval after a bot restart
+  PASS: and the timer is cleared on shutdown
+
+Result: 101 passed, 0 failed
+✔ tests/test-issue-2164-router-sidecar.mjs (201.417861ms)
+
+--- Reproduction: a task must not inherit the global application folder ---
+  PASS: claude: the whole ~/.claude directory is not mounted
+  PASS: claude: ~/.claude.json (MCP/plugin registry) is not mounted
+  PASS: claude: the whole ~/.codex directory is not mounted
+  PASS: claude: ~/.agents (global skills) is not mounted
+  PASS: claude: no plugin cache, skill, config.toml or settings.json reaches the task
+  PASS: claude: the credential file itself is still shared (token refresh visible to every task)
+  PASS: claude: .claude/projects is still shared for audit/discovery
+  PASS: claude: .claude/sessions is still shared for audit/discovery
+  PASS: codex: the whole ~/.claude directory is not mounted
+  PASS: codex: ~/.claude.json (MCP/plugin registry) is not mounted
+  PASS: codex: the whole ~/.codex directory is not mounted
+  PASS: codex: ~/.agents (global skills) is not mounted
+  PASS: codex: no plugin cache, skill, config.toml or settings.json reaches the task
+  PASS: codex: the credential file itself is still shared (token refresh visible to every task)
+  PASS: codex: .codex/sessions is still shared for audit/discovery
+
+--- Exact mount list ---
+  PASS: claude: gh, git identity, credential file, projects, sessions — nothing else
+  PASS: codex: gh, git identity, auth.json, sessions — nothing else
+  PASS: a missing credential file is skipped rather than mounted (Docker would otherwise create a directory in its place)
+
+--- The mount table is the single source of truth ---
+  PASS: claude shares exactly the credential file and the two session directories
+  PASS: codex shares exactly auth.json and the sessions directory
+  PASS: the table is frozen so a task or a test cannot widen it at runtime
+
+--- Router suppression still covers the split entries (issue #2164) ---
+  PASS: claude: with --use-router none of the split claude paths survives (prefix suppression)
+  PASS: claude: gh is still mounted when GitHub is not routed
+  PASS: codex: with --use-router none of the split codex paths survives (prefix suppression)
+  PASS: codex: gh is still mounted when GitHub is not routed
+
+--- Host-side preparation creates the session directories, never the credential file ---
+  PASS: codex: the sessions directory is created on a fresh host
+  PASS: codex: a missing auth.json is reported, not fabricated
+  PASS: codex: auth.json is never created (an empty file breaks codex: "EOF while parsing")
+  PASS: claude: projects and sessions are created on a fresh host
+  PASS: claude: an existing credential file is not reported
+  PASS: preparation is idempotent
+  PASS: a routed task prepares nothing: it mounts no vendor state at all
+
+Result: 32 passed, 0 failed
+✔ tests/test-issue-2190-docker-isolation-mount-split.mjs (211.112401ms)
+
+=== issue #2190: the router binds the internal network only ===
+  PASS: the sidecar is created on the internal network, so that is the only address it has at start-up
+  PASS: with the alias tasks use, which the bind script resolves to find that address
+  PASS: the router image is entered through sh, because router serve has no bind-to-network option yet
+  PASS: sh is handed the bind script as its command
+  PASS: and that script is the constant the real-Docker probe validates
+  PASS: no port is published to the host
+  PASS: the script looks up its own internal address by alias
+  PASS: and binds that address alone on the port gh expects api.github.com on
+  PASS: when the alias does not resolve the script refuses rather than fall back to every interface
+  PASS: so no branch of it ever asks for 0.0.0.0
+  PASS: and that refusal ends the container, which acquire reports as unhealthy
+  PASS: the upstream network defaults to the docker bridge
+  PASS: which is the network with a route to the vendor APIs
+  PASS: an operator may name another network with egress
+  PASS: but naming the internal network is ignored: it has no egress and would leave the router with no upstream at all
+  PASS: a fresh sidecar comes up against a healthy fake docker
+  PASS: the upstream bridge is connected after the container was created on the internal network
+  PASS: and before health is probed, so an unhealthy verdict is never caused by a missing upstream
+  PASS: health is probed through the internal alias, the only address the router now answers on
+  PASS: loopback is never probed: the router does not bind it any more
+  PASS: a router created on the internal network is kept
+  PASS: a bridge that is already attached counts as attached, so re-acquires against a running router succeed
+  PASS: a router that cannot reach its upstream is reported rather than handed to a task
+  PASS: and no token is issued on it
+  PASS: the routeless container is removed, so the next acquire starts clean
+  PASS: the primary network of a legacy container reads as the bridge
+  PASS: acquiring against a legacy router succeeds
+  PASS: by replacing it: the legacy container is removed and a new one created on the internal network
+  PASS: and the operator is told why the router restarted
+  PASS: first task takes a lease (this recreates the legacy router)
+  PASS: a second task still gets a token
+  PASS: but a legacy router with a live lease is not restarted under the task holding it
+  PASS: the restart is deferred and announced instead
+  PASS: reading the primary network of a missing container yields null rather than throwing into acquire
+
+=== issue #2190: the token dies with the container ===
+  PASS: the watcher waits on the task container itself, not on the solve process
+  PASS: nothing is revoked while the container runs
+  PASS: the token is released the moment the container exits
+  PASS: for the session that owned it
+  PASS: against the router that issued it
+  PASS: and the exit status is recorded, killed or not
+  PASS: a container docker cannot wait on is not running either, so its token is released too
+  PASS: with the daemon message as the reason
+  PASS: stopping the watcher ends its docker wait
+  PASS: and a stopped watcher does not revoke: the caller took over the lease
+  PASS: which is what it reports
+  PASS: a docker wait that could not run says nothing about the container, so the maintenance tick keeps the job
+  PASS: and the watcher reports that it did not release
+  PASS: an external router issues no per-task token, so there is nothing to watch
+  PASS: and without a container name there is nothing to wait on
+[router-isolation] Could not start 'docker wait task-f', the token will be revoked by the next maintenance tick instead: docker missing
+  PASS: a spawn that throws is reported and leaves the token to the maintenance tick
+
+=== issue #2190: a routed task authenticates with its router token only ===
+  PASS: a security violation has its own exit code
+  PASS: distinct from the disk-space code, so operators can tell them apart
+  PASS: the guard is off for a task run without the router
+  PASS: and off when no router token was handed to the task
+  PASS: on for a task that holds a router token
+  PASS: and an operator may switch it off with HIVE_MIND_ROUTER_AUTH_GUARD=0
+  PASS: the check interval defaults to one second
+  PASS: and can be tuned
+  PASS: but a value below 100 ms, which would just burn CPU, falls back to the default
+  PASS: starting the guard without the router yields an inactive handle
+  PASS: whose check never finds anything
+  PASS: a clean routed Claude home passes
+  PASS: and the guard did look at something
+  PASS: the Claude OAuth credential file is on the watch list
+  PASS: a Claude OAuth credential appearing is a violation, however it got there
+  PASS: an ordinary ~/.claude.json with onboarding state is fine
+  PASS: an API key stored in ~/.claude.json is a violation
+  PASS: and so is a recorded OAuth account: the task logged in as someone
+  PASS: and an approved custom API key
+  PASS: a half-written ~/.claude.json is not a violation on its own (the CLI writes it non-atomically)
+  PASS: a settings file that repeats the router base URL changes nothing and passes
+  PASS: pointing Claude away from the router through settings is a violation
+  PASS: and so is smuggling an API key in through settings
+  PASS: and an apiKeyHelper, which would replace the token on every request
+  PASS: a project-level settings file in the workspace is watched too
+  PASS: every env key Claude accepts a credential through is on the list
+  PASS: a git credential store appearing is a violation: GitHub goes through the router too
+  PASS: and so is a .netrc dropped into the workspace
+  PASS: a gh hosts.yml without a token (what transparent mode leaves) passes
+  PASS: a gh login inside the task is a violation
+  PASS: and GH_CONFIG_DIR is honoured when looking for it
+  PASS: a Codex home pinned to the router passes
+  PASS: the config that pins the provider is on the watch list
+  PASS: the trust table Codex appends for the workspace does not trip the guard
+  PASS: switching Codex back to the openai provider is a violation
+  PASS: and so is repointing the router provider's base_url
+  PASS: and reading the key from another variable
+  PASS: and pinning a bearer token into the provider entry
+  PASS: removing the pin altogether is a violation: Codex would fall back to its default provider
+  PASS: an API key stored through codex login is a violation
+  PASS: and so is a ChatGPT login
+  PASS: an auth.json the guard cannot read is treated as a violation, not ignored
+  PASS: a project-level Codex config that redirects the provider is a violation
+  PASS: while one that only tunes approvals is allowed
+  PASS: the pin reader finds the top-level provider
+  PASS: and the router provider's own base_url, not another provider's
+  PASS: and its env_key
+  PASS: an empty config has no provider pinned
+  PASS: the guard arms for a routed task
+  PASS: its first check ran at once and found the clean home clean
+  PASS: the periodic check uses the configured interval
+  PASS: arming is logged (verbose only)
+  PASS: a tick against a clean home finds nothing
+  PASS: the tick after a credential file appears records the violation
+  PASS: and the handler fires once
+  PASS: and the interval is cleared, so it cannot fire again
+  PASS: later ticks and explicit checks do not fire the handler a second time
+  PASS: the violation names the tool
+  PASS: the operator-facing message calls it what it is
+  PASS: and names the path that tripped it
+  PASS: and states the rule that was broken
+  PASS: a credential already present when the guard arms is caught before the CLI does any work
+  PASS: stopping the guard clears its interval
+  PASS: and stopping twice clears it once
+
+Result: 114 passed, 0 failed
+✔ tests/test-issue-2190-router-hardening.mjs (394.087046ms)
+PASS: omitted limits preserve the current unlimited behavior
+PASS: fixed CPU, RAM, and disk values resolve without defaults
+PASS: percentages resolve against host CPU, RAM, and available disk
+PASS: invalid and unsafe values are rejected before a container starts
+PASS: Docker update contains only explicitly configured enforceable limits
+PASS: limits are applied while the Docker start gate is closed
+PASS: a resource-limited start gate cannot time out into an unlimited task
+PASS: a failed resource update destroys the gated container without releasing user code
+PASS: a failed gated-container removal falls back to killing without releasing user code
+PASS: Docker-only limits do not break per-command screen or tmux overrides
+PASS: disk quota detects only measurements above the configured limit
+[isolation-runner] Session issue-449-non-docker was not launched (backend=screen, tool=claude, model=default): Container resource limits require the Docker isolation backend, not 'screen'
+PASS: resource limits fail closed on non-Docker isolation backends
+PASS: Telegram startup requires Docker only when a limit is configured
+PASS: Telegram startup adapter logs configured limits and exits cleanly on invalid backends
+
+Total: 14, Passed: 14, Failed: 0
+✔ tests/test-issue-449-container-resource-limits.mjs (322.89341ms)
+ℹ tests 56
+ℹ suites 0
+ℹ pass 56
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13434.695738

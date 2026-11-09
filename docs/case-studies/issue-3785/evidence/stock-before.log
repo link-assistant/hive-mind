@@ -1,0 +1,152 @@
+✖ unattested stock content blocks admission: operator/SKILL.md (62.251229ms)
+✖ unattested stock content blocks admission: .operator/SKILL.md (34.964288ms)
+✖ unattested stock content blocks admission: imagegen/SKILL.md (22.948469ms)
+✖ unattested stock content blocks admission: .codex-system-skills.marker (25.643395ms)
+✖ nested stock credential symlink blocks admission (24.790755ms)
+✖ nested stock credential hard link blocks admission (22.608045ms)
+✖ an empty stock directory is not a pristine CLI baseline (37.559009ms)
+✖ Dockerfile pins the CLI version used to generate the stock baseline (21.460274ms)
+✖ Dockerfile.dind pins the CLI version used to generate the stock baseline (4.666402ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (29.470353ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 1
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 544.425205
+
+✖ failing tests:
+
+test at tests/issue-3785-stock-skills.test.mjs:22:3
+✖ unattested stock content blocks admission: operator/SKILL.md (62.251229ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:28:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:22:3
+✖ unattested stock content blocks admission: .operator/SKILL.md (34.964288ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:28:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:22:3
+✖ unattested stock content blocks admission: imagegen/SKILL.md (22.948469ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:28:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:22:3
+✖ unattested stock content blocks admission: .codex-system-skills.marker (25.643395ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:28:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:36:3
+✖ nested stock credential symlink blocks admission (24.790755ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:40:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:36:3
+✖ nested stock credential hard link blocks admission (22.608045ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:40:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:45:1
+✖ an empty stock directory is not a pristine CLI baseline (37.559009ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:47:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /stock|unsafe|configuration/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:51:3
+✖ Dockerfile pins the CLI version used to generate the stock baseline (21.460274ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(content.includes(`bun install -g @openai/codex@${version}`))
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:54:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-stock-skills.test.mjs:51:3
+✖ Dockerfile.dind pins the CLI version used to generate the stock baseline (4.666402ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(content.includes(`bun install -g @openai/codex@${version}`))
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-stock-skills.test.mjs:54:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

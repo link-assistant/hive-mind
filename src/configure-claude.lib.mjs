@@ -12,14 +12,12 @@
  */
 
 import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 
-import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION, REQUIRED_CLAUDE_QUIET_PERMISSIONS, ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
+import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION, REQUIRED_CLAUDE_QUIET_PERMISSIONS, ensureClaudeQuietConfig, resolveClaudeSettingsPath } from './claude-quiet-config.lib.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { buildDisallowedToolsList, ensureDisallowedToolsInSettings } from './useless-tools.lib.mjs';
 
-export const resolveSettingsPath = settingsPath => settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
+export const resolveSettingsPath = resolveClaudeSettingsPath;
 
 export const createConfigureClaudeYargsConfig = yargsInstance =>
   yargsInstance

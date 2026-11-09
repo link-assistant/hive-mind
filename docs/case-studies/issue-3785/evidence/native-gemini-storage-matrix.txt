@@ -1,0 +1,45 @@
+CI run 41164253228, head e375e9df5070f8fe37f1ea375ef8006884056bed.
+Commit 2026-10-31T03:24:22Z; runs created 03:24:35/36Z.
+
+Failure:
+  The shared storage probe ran the newly added stage-23 retained-evidence
+  scenarios unconditionally on earlier independent source stages.
+  History, tracker, Git and restorable jobs therefore passed 61 base scenarios
+  and failed evidence-rollback before reaching their concurrency controls.
+  Worker diagnostic line 5 in every artifact:
+    AssertionError [ERR_ASSERTION]: Missing expected exception: Previously
+    observed complete conversation evidence must not be silently replaced or
+    rolled back.
+  Parent control lines 63-69 report Inspect bounded storage diagnostics.
+  Complete saved job logs and exit-1 locations:
+    ci-logs/native-gemini-history-job-124428265020.log:337
+    ci-logs/native-gemini-tracker-job-124428264987.log:476
+    ci-logs/native-gemini-git-job-124428265068.log:497
+    ci-logs/native-gemini-restorable-job-124428265087.log:488
+  All four diagnostic artifacts were downloaded and reviewed, in chunks of
+  at most 1500 lines. History artifact 13027519516 has digest:
+    e031a7a8c38e40c092b2e8056fbee1f17092dd9da02bcddeb494864359b2d71e
+  The same default-suite failure was reproduced locally before repair.
+
+Repair and local verification:
+  --conversation-evidence explicitly selects all retained-evidence checks and
+  requires exact native helper 4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd.
+  The final-stage workflow requires that option. Earlier independent stages
+  retain their complete existing suite. Explicit --scenario evidence-* requests
+  still exercise the strict before failures on the earlier packages.
+  Complete suites pass on all three distinct helpers:
+    586d39370a4344a1aaa46c81894f2c6239253a91cb84e3871288c2093c328e99: 65
+    216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed: 65
+    4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd: 69
+  Counts include independent concurrent writers, stale rewrite/archive refusal,
+  stable canonical lock identity and writer-owner death/recovery controls.
+  All probes retain finite process, output, input, heap and phase bounds.
+  This repair changes test-stage selection, not native source or production
+  behavior. Fresh exact-head CI is still required; no all-six production or
+  lifecycle acceptance criterion is completed by correcting this test matrix.
+
+Local logs:
+  /tmp/issue-3785-recovery/gemini-storage-staging-before-control.log
+  /tmp/issue-3785-recovery/gemini-storage-staging-{shell,child,complete}-after-control.log
+  /tmp/issue-3785-recovery/gemini-storage-staging-evidence-*-strict-control.log
+  /tmp/issue-3785-recovery/gemini-storage-staging-unsupported-flag-control.log

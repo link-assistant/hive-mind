@@ -1,0 +1,52 @@
+Pinned optimized Codex build foundation (production distribution unfinished)
+
+Upstream: openai/codex 6aaac694803004a63c6f393d153c96d22521a6b9
+Native version: 0.164.0; Rust toolchain: 1.99.1
+Supported build targets: native Linux GNU x64 and arm64 Ubuntu 24.04 runners
+
+Reproduction and local verification:
+- The preceding complete native CLI artifact is 419,096,400 bytes and already
+  stripped. Running strip --strip-all produces 419,096,392 bytes, removing only
+  eight bytes; stripping alone cannot materially reduce this build.
+- That actual complete native artifact passes probe-codex-native-auth-root.mjs:
+  separate canonical authority, status, reauthentication, atomic replacement,
+  logout, two private homes, and missing/private/environment authority refusal.
+- test_native_codex_build.py first fails because the build implementation does
+  not exist. After implementation all five controls pass: exact pinned inputs,
+  changed input refusal, alias refusal, wrong-machine/oversized binary refusal,
+  and removal of inherited compiler/profile overrides.
+- probe_native_codex_preparation.py clones committed upstream source twice,
+  applies all twelve stages with the pinned formatter and records 31 changed
+  source files. Both preparations have identical inventory SHA256:
+  019f1f26493147be93e36b7eb140fe0719bc3f46d66d738938952f1f62a7cc77
+- The platform-independent content fingerprint pinned in the recipe is:
+  2d249fff1198fe5be7bfb6a44fd0383e634defe5210ba459224965f272330006
+- Both actual prepared trees refuse repeated preparation, a changed native
+  source file, unexpected source and a changed recipe identity. Restoring the
+  original bytes restores admission; the supplied source checkout is untouched.
+- Workflow timeout/cancellation and existing packaged-image ordering controls
+  pass (seven assertions). Changed formatting, actionlint/ShellCheck and Python
+  syntax checks pass. Compilation is reserved for adequately provisioned CI.
+
+Build contract:
+- Verify all 30 adapter inputs and 17 upstream license/notice files before source
+  mutation. Require a pristine pinned checkout and a fresh external state file.
+- Remove the separate experimental process driver; compile only codex-cli.
+- Pin optimization level 2, no LTO/debug data, symbol stripping, 16 codegen units,
+  one Cargo job and incremental compilation off. Keep locked dependency edges.
+- Recheck the complete prepared source inventory before and after compilation.
+- Admit only bounded regular ELF64 executables of the selected native machine;
+  require the exact CLI version in a private home with finite process limits.
+- Package the actual binary, recipe, full changed-source inventory, compiler and
+  build flags, upstream licenses/notices and SHA256/size metadata.
+- Exercise actual packaged status/authentication and request-authority controls
+  on both architectures; preserve diagnostics and self-contained build artifacts.
+
+Limits:
+The optimized compiler jobs have not yet run for this foundation. Binary size,
+both architecture outputs and actual native controls require fresh CI. These
+finite-retention build artifacts are not a production runtime download service.
+Release/npm/image/host installation and installed-runtime admission remain open.
+The production launcher still copies auth.json; O3/A2 remain unfinished. Existing
+native experiments and this build foundation do not complete A1-A12 or the
+six-tool lifecycle requirements. The pull request must remain draft.

@@ -29,31 +29,32 @@ const pass = name => {
   passed++;
 };
 
-const fail = (name, detail) => {
+// getClaudeEnv includes inherited environment values. Keep assertion names,
+// but never print compared values or exception messages in failure output.
+const fail = name => {
   console.log(`❌ ${name}`);
-  if (detail) console.log(`   ${detail}`);
   failed++;
 };
 
 const assertEqual = (name, actual, expected) => {
   const ok = actual === expected;
   if (ok) pass(name);
-  else fail(name, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  else fail(name);
 };
 
 const assertDeep = (name, actual, expected) => {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
   if (ok) pass(name);
-  else fail(name, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  else fail(name);
 };
 
 const assertThrows = (name, fn, messageMatch) => {
   try {
     fn();
-    fail(name, 'expected throw');
+    fail(name);
   } catch (e) {
     if (!messageMatch || e.message.includes(messageMatch)) pass(name);
-    else fail(name, `expected message containing "${messageMatch}", got "${e.message}"`);
+    else fail(name);
   }
 };
 

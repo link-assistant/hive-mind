@@ -1,0 +1,64 @@
+Native experiment evidence, 2026-10-31 UTC
+
+Head: a3ca1a1a8eacc5d4e0b2d7752574608d5c1f8693
+All runs were created at 2026-10-31T09:45:42Z.
+
+Codex: https://github.com/link-assistant/hive-mind/actions/runs/41189998687
+Refresh-intent modules and native history succeed. Native-file-authority compiles
+the actual CLI, then its compression control fails at runner-log line 1277.
+The complete 1756-line log was reviewed in two bounded chunks; all 91 text
+artifacts were reviewed in 92 chunks. The compiler log has no errors. The one
+unexpected positive-control assertion is native-compression-after.log line 14:
+"Native protocol deadline exceeded; exit=1; reader_failed=False."
+
+The compiled CLI passes all three SQLite redirect controls automatically,
+without an explicit --strict-config flag: TOML sqlite_home, CLI sqlite_home and
+separate log_dir overrides refuse before any database creation. Healthy startup
+controls succeed. Both symlink and hardlink database controls refuse without
+changing outside SQLite evidence. All eleven native file-admission tests pass.
+This verifies development compilation; optimized and installed packages are
+separate gates, and database operation leases remain unfinished.
+
+CLI artifact: 13039127155, native-codex-experimental-cli
+Archive bytes: 114243184
+Archive SHA256: 3131a1366154994884666d5888cdad9966f6c5d406cc7782fe585640baf3c90c
+Executable SHA256: fcdd43932b3ca543a0b3d3387d894f830ab04469f598a5053d2827da7c732cd9
+Build-log artifact: 13039057328, 45808 bytes
+Archive SHA256: a184da3f29b7a76043516ca0302b681b0de9d463568e92d9302e2c9245bebb60
+Preserved under /tmp/issue-3785-recovery/codex-a3ca1a1a8-artifacts.
+Runner log: ci-logs/native-codex-41189998687.log
+Runner SHA256: c1ed34367dc3e888c14dfb4d5f315ce8106b136cd883696ffbab5f5cfeff43bc
+
+The bounded startup diagnostic wrapper reproduces the exact cause:
+  python3 experiments/issue-3785/reproduce-codex-compression-startup.py BINARY
+  unknown configuration field `features.rollout_compression`
+The pinned CLI has no such feature. Earlier app-server default recovery hid
+the invalid synthetic configuration. Keep strict native admission; remove only
+the obsolete setting from the fixture. Optional CODEX_PROBE_DIAGNOSTICS=1 now
+preserves bounded native startup diagnostics when a protocol deadline fails.
+With the corrected fixture, the exact same compiled binary passes compression,
+active/archived peer reads and fresh resume after both private homes are deleted.
+All 24 post-admission control invocations pass with this identical binary,
+including selected/unselected compression and TUI history, twelve migration
+variants, nine identity scenarios, refresh owner-death/repair, model requests
+and provider overrides/constructors, capability discovery and bundled models.
+The complete 24 logs contain 63 lines, 54 PASS lines and zero tracebacks or
+assertion failures. Reproduce without rebuilding:
+  python3 experiments/issue-3785/verify-codex-post-admission.py BINARY NEW_LOG_DIR
+These development controls do not replace pending Cargo unit, named-volume
+Docker, actual npm-installed command or packaged image verification.
+
+Gemini: https://github.com/link-assistant/hive-mind/actions/runs/41189998738
+All six jobs pass. The complete 3917-line runner log and all 2761 artifact files
+were reviewed in bounded chunks (2497 artifact chunks). All 200 network logs are
+reviewed. There are 80 expected before-assertion files and two expected tracker
+before-control network assertions. There are zero unexpected assertion files,
+runner errors or network errors. Atomic proof, storage and generic recovery
+positive controls were separately inspected.
+
+The complete unchanged a3 source passes all 750 local default test files. The
+subsequent selected-storage Docker repair passes all 751 default test files.
+Six workflows succeed at a3; Codex fails as described above. Both optimized
+package builds are still running. No optimized or installed-package result is
+claimed here. Complete default authority, migration and six-tool lifecycle
+acceptance criteria remain open; the PR remains draft and unmerged.

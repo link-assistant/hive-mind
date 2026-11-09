@@ -5,8 +5,10 @@
 # "failed". A cancellation is only harmless when a newer commit superseded
 # this run (the workflow's `cancel-in-progress` on non-main refs). Anything
 # else - a timeout, or a cancellation on main, where runs queue instead of
-# cancelling - fails the gate (issue #4025, adapted from
-# link-foundation/js-ai-driven-development-pipeline-template).
+# cancelling - fails the gate (issue #3785 made every cancellation fail after
+# a checkout timeout passed as "superseded"; issue #4025 keeps that, fails
+# closed when the head is unknown, and excuses only runs a newer commit really
+# replaced, as link-foundation/js-ai-driven-development-pipeline-template does).
 #
 # Inputs (environment):
 #   NEEDS_JSON      toJSON(needs) (required)
@@ -75,7 +77,7 @@ if [ -n "$cancelled" ]; then
   elif run_is_superseded; then
     echo "::warning::Cancelled jobs: ${cancelled}. A newer commit superseded this run."
   else
-    echo "::error::Cancelled jobs: ${cancelled}, but no newer commit superseded this run. A job that hits 'timeout-minutes' is reported as cancelled; see its log."
+    echo "::error::Pipeline has cancelled jobs: ${cancelled}, but no newer commit superseded this run. A job that hits 'timeout-minutes' is reported as cancelled; see its log."
     status=1
   fi
 fi

@@ -39,6 +39,11 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { TextDecoder } from 'node:util';
+import { parse as parseToml } from 'smol-toml';
+import { resolveClaudeConfigDirectory, resolveClaudeCredentialDirectory } from './claude-paths.lib.mjs';
+import { inspectRouterTaskEnvironment } from './router-task-auth.lib.mjs';
+import { routerNativeCredentialFiles } from './router-native-auth-paths.lib.mjs';
 
 /** `solve` exits with this when the guard fires: distinct from 1 (tool failure) and 75 (disk), so a supervisor can tell a security stop from a crash. */
 export const EXIT_CODE_ROUTER_AUTH_VIOLATION = 77;
@@ -57,28 +62,44 @@ const isTruthy = value => value !== undefined && value !== null && String(value)
 const normalizeTool = tool => String(tool || 'claude').toLowerCase();
 
 /** Claude Code settings `env` keys that select a credential or an endpoint; any value that differs from the routed process env is a redirection. */
-export const CLAUDE_SETTINGS_AUTH_ENV_KEYS = Object.freeze(['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'ANTHROPIC_BEDROCK_BASE_URL', 'ANTHROPIC_VERTEX_BASE_URL', 'ANTHROPIC_FOUNDRY_BASE_URL', 'AWS_BEARER_TOKEN_BEDROCK']);
+export const CLAUDE_SETTINGS_AUTH_ENV_KEYS = Object.freeze(['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'ANTHROPIC_BEDROCK_BASE_URL', 'ANTHROPIC_VERTEX_BASE_URL', 'ANTHROPIC_FOUNDRY_BASE_URL', 'AWS_BEARER_TOKEN_BEDROCK', 'CLAUDE_CONFIG_DIR', 'CLAUDE_SECURESTORAGE_CONFIG_DIR', 'CLAUDE_CODE_HOST_CREDS_FILE', 'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR']);
 
 /**
  * Is the guard required for this process?
  *
- * Only for a routed task holding a router token. `HIVE_MIND_ROUTER_AUTH_GUARD=0`
- * turns it off for an operator debugging a routed container by hand; it is
- * deliberately not a CLI flag, since the task's own argv is under the task's
- * influence and this guard exists to restrain the task.
+ * Router selection requires the guard even when its task token is missing.
+ * The legacy HIVE_MIND_ROUTER_AUTH_GUARD switch cannot waive this requirement.
  */
-export const isRouterAuthGuardRequired = (env = process.env) => isTruthy(env?.HIVE_MIND_USE_ROUTER) && Boolean(String(env?.HIVE_MIND_ROUTER_TOKEN || '').trim()) && !isFalsey(env?.HIVE_MIND_ROUTER_AUTH_GUARD ?? '1');
+export const isRouterAuthGuardRequired = (env = process.env) => isTruthy(env?.HIVE_MIND_USE_ROUTER);
 
 export const resolveRouterAuthGuardIntervalMs = (env = process.env) => {
   const parsed = Number.parseInt(String(env?.HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS || ''), 10);
-  return Number.isFinite(parsed) && parsed >= 100 ? parsed : DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS;
+  return Number.isFinite(parsed) && parsed >= 100 ? Math.min(parsed, DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS) : DEFAULT_ROUTER_AUTH_GUARD_INTERVAL_MS;
 };
 
 const readText = (fsImpl, filePath) => {
+  let fd;
   try {
-    return fsImpl.readFileSync(filePath, 'utf8');
-  } catch {
-    return null;
+    // A task can replace these paths. Never block on a FIFO, follow a symlink
+    // or read an unbounded file while deciding whether authentication is safe.
+    fd = fsImpl.openSync(filePath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK | fs.constants.O_NOFOLLOW);
+    const info = fsImpl.fstatSync(fd);
+    const limit = 1024 * 1024;
+    if (!info.isFile() || info.size > limit) throw new Error('Unsafe Router authentication surface');
+    const buffer = Buffer.alloc(limit + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const count = fsImpl.readSync(fd, buffer, length, buffer.length - length, length);
+      if (count === 0) break;
+      length += count;
+    }
+    if (length > limit) throw new Error('Oversized Router authentication surface');
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, length));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  } finally {
+    if (fd !== undefined) fsImpl.closeSync(fd);
   }
 };
 
@@ -97,35 +118,40 @@ const isNonEmptyString = value => typeof value === 'string' && value.trim() !== 
  * a reason string for a violation or null. `text` is null when the file is
  * absent. Kept as data so the surface is inspectable and testable on its own.
  */
-export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedir(), cwd = process.cwd(), env = process.env } = {}) => {
+export const describeRouterAuthSurface = ({ tool = 'claude', env = process.env, homeDir = env?.HOME || os.homedir(), cwd = process.cwd() } = {}) => {
   const normalizedTool = normalizeTool(tool);
   const entries = [];
   const forbidden = (filePath, what) => entries.push({ path: filePath, kind: 'forbidden', check: text => (text === null ? null : `${what} appeared; a routed task authenticates with its router token only`) });
+  for (const file of routerNativeCredentialFiles({ tool: normalizedTool, env, homeDir, cwd })) forbidden(file, `a native ${normalizedTool} credential store`);
 
   if (CLAUDE_TOOLS.has(normalizedTool)) {
-    forbidden(path.join(homeDir, '.claude', '.credentials.json'), 'a Claude OAuth credential file');
-    entries.push({
-      path: path.join(homeDir, '.claude.json'),
-      kind: 'claude-json',
-      check: text => {
-        if (text === null) return null;
-        const data = parseJson(text);
-        if (!data || typeof data !== 'object') return null;
-        if (isNonEmptyString(data.primaryApiKey)) return 'primaryApiKey was set in ~/.claude.json';
-        if (data.oauthAccount && typeof data.oauthAccount === 'object') return 'an oauthAccount was recorded in ~/.claude.json';
-        if (Array.isArray(data.customApiKeyResponses?.approved) && data.customApiKeyResponses.approved.length > 0) return 'a custom API key was approved in ~/.claude.json';
-        return null;
-      },
-    });
-    for (const settingsPath of [path.join(homeDir, '.claude', 'settings.json'), path.join(homeDir, '.claude', 'settings.local.json'), path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json')]) {
+    const conventional = path.join(homeDir, '.claude');
+    const config = resolveClaudeConfigDirectory(env, homeDir);
+    for (const root of new Set([conventional, config, resolveClaudeCredentialDirectory(env, homeDir)])) forbidden(path.join(root, '.credentials.json'), 'a Claude OAuth credential file');
+    for (const statePath of new Set([path.join(homeDir, '.claude.json'), path.join(config, '.claude.json')]))
+      entries.push({
+        path: statePath,
+        kind: 'claude-json',
+        check: text => {
+          if (text === null) return null;
+          const data = parseJson(text);
+          if (!data || typeof data !== 'object') return null;
+          if (isNonEmptyString(data.primaryApiKey)) return 'primaryApiKey was set in ~/.claude.json';
+          if (data.oauthAccount && typeof data.oauthAccount === 'object') return 'an oauthAccount was recorded in ~/.claude.json';
+          if (Array.isArray(data.customApiKeyResponses?.approved) && data.customApiKeyResponses.approved.length > 0) return 'a custom API key was approved in ~/.claude.json';
+          return null;
+        },
+      });
+    for (const settingsPath of new Set([conventional, config, path.join(cwd, '.claude')].flatMap(root => ['settings.json', 'settings.local.json'].map(file => path.join(root, file))))) {
       entries.push({
         path: settingsPath,
         kind: 'claude-settings',
         check: text => {
           if (text === null) return null;
           const data = parseJson(text);
-          if (!data || typeof data !== 'object') return null;
+          if (!data || typeof data !== 'object' || Array.isArray(data)) return 'a Claude settings file could not be inspected as a JSON object';
           if (isNonEmptyString(data.apiKeyHelper)) return 'apiKeyHelper was configured in a Claude settings file';
+          if (data.env !== undefined && (!data.env || typeof data.env !== 'object' || Array.isArray(data.env))) return 'the Claude settings env field could not be inspected as a JSON object';
           const overrides = data.env && typeof data.env === 'object' ? data.env : {};
           for (const key of CLAUDE_SETTINGS_AUTH_ENV_KEYS) {
             if (!(key in overrides)) continue;
@@ -145,7 +171,7 @@ export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedi
       check: text => {
         if (text === null) return null;
         const data = parseJson(text);
-        if (data === undefined) return 'an unreadable Codex auth.json appeared';
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return 'an unreadable Codex auth.json appeared';
         if (isNonEmptyString(data?.OPENAI_API_KEY)) return 'an OPENAI_API_KEY was written to Codex auth.json';
         if (data?.tokens && typeof data.tokens === 'object') return 'ChatGPT tokens were written to Codex auth.json';
         return null;
@@ -157,10 +183,10 @@ export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedi
       check: text => {
         if (text === null) return 'the Codex config.toml that pins the router provider was removed';
         const pin = readCodexProviderPin(text);
-        if (pin.modelProvider !== ROUTER_CODEX_PROVIDER_ID) return `Codex model_provider was changed to '${pin.modelProvider ?? '(unset)'}'`;
+        if (pin.modelProvider !== ROUTER_CODEX_PROVIDER_ID) return 'Codex model_provider was changed or removed';
         const expectedBaseUrl = String(env?.OPENAI_BASE_URL || '').trim();
-        if (expectedBaseUrl && pin.baseUrl !== undefined && pin.baseUrl !== expectedBaseUrl) return `the router provider base_url was changed to '${pin.baseUrl}'`;
-        if (pin.envKey !== undefined && pin.envKey !== 'OPENAI_API_KEY') return `the router provider env_key was changed to '${pin.envKey}'`;
+        if (!expectedBaseUrl || pin.baseUrl !== expectedBaseUrl) return 'the router provider base_url was changed or removed';
+        if (pin.envKey !== 'OPENAI_API_KEY') return 'the router provider env_key was changed or removed';
         if (pin.experimentalBearerToken) return 'a bearer token was pinned into the router provider entry';
         return null;
       },
@@ -168,7 +194,7 @@ export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedi
     entries.push({
       path: path.join(cwd, '.codex', 'config.toml'),
       kind: 'codex-project-config',
-      check: text => (text !== null && /^\s*(model_provider|base_url|env_key|experimental_bearer_token)\s*=|^\s*\[model_providers/m.test(text) ? 'a project-level Codex config redirects the provider' : null),
+      check: text => (text !== null && hasCodexProviderOverride(parseToml(text, { maxDepth: 64 })) ? 'a project-level Codex config redirects the provider' : null),
     });
   }
 
@@ -183,32 +209,18 @@ export const describeRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedi
 /**
  * The provider pin from a Codex config.toml: `model_provider` at the top level
  * and `base_url` / `env_key` under `[model_providers.hive-mind-router]`. A
- * line-wise read on purpose — Codex may append `[projects."…"]` trust tables
- * to the same file, and those must not trip the guard.
+ * real TOML parse preserves quoted/dotted keys and ignores unrelated project
+ * trust settings. Inspection errors are refused without exposing source text.
  */
 export const readCodexProviderPin = text => {
-  const pin = { modelProvider: null, baseUrl: undefined, envKey: undefined, experimentalBearerToken: false };
-  let section = '';
-  const unquote = value => value.trim().replace(/^["']|["']$/g, '');
-  for (const rawLine of String(text).split(/\r?\n/)) {
-    const line = rawLine.replace(/#.*$/, '').trim();
-    if (!line) continue;
-    const header = line.match(/^\[([^\]]+)\]$/);
-    if (header) {
-      section = header[1].trim().replace(/"/g, '');
-      continue;
-    }
-    const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
-    if (!assignment) continue;
-    const [, key, value] = assignment;
-    if (section === '' && key === 'model_provider') pin.modelProvider = unquote(value);
-    if (section === `model_providers.${ROUTER_CODEX_PROVIDER_ID}`) {
-      if (key === 'base_url') pin.baseUrl = unquote(value);
-      if (key === 'env_key') pin.envKey = unquote(value);
-      if (key === 'experimental_bearer_token' && unquote(value)) pin.experimentalBearerToken = true;
-    }
-  }
-  return pin;
+  const config = parseToml(String(text), { maxDepth: 64 });
+  const provider = config.model_providers?.[ROUTER_CODEX_PROVIDER_ID];
+  return { modelProvider: config.model_provider ?? null, baseUrl: provider?.base_url, envKey: provider?.env_key, experimentalBearerToken: Boolean(provider?.experimental_bearer_token) };
+};
+
+const hasCodexProviderOverride = value => {
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value).some(([key, entry]) => ['model_provider', 'model_providers', 'base_url', 'env_key', 'experimental_bearer_token'].includes(key) || hasCodexProviderOverride(entry));
 };
 
 /**
@@ -216,11 +228,21 @@ export const readCodexProviderPin = text => {
  *
  * @returns {{ violations: Array<{path: string, kind: string, reason: string}>, checked: number }}
  */
-export const inspectRouterAuthSurface = ({ tool = 'claude', homeDir = os.homedir(), cwd = process.cwd(), env = process.env, fsImpl = fs, surface = null } = {}) => {
-  const entries = surface || describeRouterAuthSurface({ tool, homeDir, cwd, env });
-  const violations = [];
+export const inspectRouterAuthSurface = ({ tool = 'claude', env = process.env, homeDir = env?.HOME || os.homedir(), cwd = process.cwd(), fsImpl = fs, surface = null } = {}) => {
+  const violations = isRouterAuthGuardRequired(env) ? inspectRouterTaskEnvironment({ tool, env }) : [];
+  let entries;
+  try {
+    entries = surface || describeRouterAuthSurface({ tool, homeDir, cwd, env });
+  } catch {
+    return { violations: [...violations, { path: '(router task environment)', kind: 'inspection', reason: 'the Router credential paths could not be resolved safely' }], checked: 0 };
+  }
   for (const entry of entries) {
-    const reason = entry.check(readText(fsImpl, entry.path));
+    let reason;
+    try {
+      reason = entry.check(readText(fsImpl, entry.path));
+    } catch {
+      reason = 'the Router credential surface could not be inspected safely';
+    }
     if (reason) violations.push({ path: entry.path, kind: entry.kind, reason });
   }
   return { violations, checked: entries.length };
@@ -233,22 +255,39 @@ export const formatRouterAuthViolation = violation => {
   return `Security violation (issue #2190): ${first.reason} — ${first.path}${extra}. A task run with --use-router may authenticate only with its router token; the session was stopped.`;
 };
 
+/** Refuse before command-stream creates the native process, including resumes. */
+export const assertRouterTaskAuthentication = (options = {}) => {
+  if (!isRouterAuthGuardRequired(options.env ?? process.env)) return;
+  const { violations } = inspectRouterAuthSurface(options);
+  if (violations.length === 0) return;
+  const violation = { violations, detectedAt: new Date().toISOString(), tool: normalizeTool(options.tool) };
+  throw Object.assign(new Error(formatRouterAuthViolation(violation)), { code: 'ROUTER_AUTH_VIOLATION', routerAuthViolation: violation });
+};
+
 /**
  * Start watching. Returns a handle whose `violation` is set once a check
  * fails; `onViolation` is invoked exactly once, with the checks that fired.
  *
- * The first check is started at once, before the CLI is given a chance to
- * do anything: a routed container that starts with a vendor credential already
- * present is a leaked mount, and just as much a violation as one written later.
- * Its result is available through `handle.first`.
+ * Call assertRouterTaskAuthentication before launching, then start this guard
+ * to detect persistent changes while the command runs. The first monitoring
+ * result is available through handle.first.
  */
-export const startRouterAuthGuard = ({ tool = 'claude', homeDir = os.homedir(), cwd = process.cwd(), env = process.env, fsImpl = fs, log = null, onViolation = null, intervalMs = null, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) => {
+export const startRouterAuthGuard = ({ tool = 'claude', env = process.env, homeDir = env?.HOME || os.homedir(), cwd = process.cwd(), fsImpl = fs, log = null, onViolation = null, intervalMs = null, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) => {
   const inactive = { active: false, violation: null, first: Promise.resolve(null), check: async () => null, stop: () => {} };
   if (!isRouterAuthGuardRequired(env)) return inactive;
-  const surface = describeRouterAuthSurface({ tool, homeDir, cwd, env });
   const handle = { active: true, violation: null, checks: 0, check: null, stop: null };
+  let checkedPaths = 0;
   let timer = null;
   let firing = null;
+  // Diagnostics cannot interrupt security decisions or leave unhandled rejections.
+  const emitDiagnostic = (...args) => {
+    if (!log) return;
+    try {
+      Promise.resolve(log(...args)).catch(() => {});
+    } catch {
+      // A synchronous logger is equally optional.
+    }
+  };
   const fire = async violations => {
     if (handle.violation) return handle.violation;
     handle.violation = { violations, detectedAt: new Date().toISOString(), tool: normalizeTool(tool) };
@@ -257,10 +296,9 @@ export const startRouterAuthGuard = ({ tool = 'claude', homeDir = os.homedir(), 
       timer = null;
     }
     if (onViolation) {
-      firing = Promise.resolve(onViolation(handle.violation)).catch(error => {
-        if (log) return log(`⚠️ Router auth guard handler failed: ${error?.message || error}`);
-        return null;
-      });
+      firing = Promise.resolve()
+        .then(() => onViolation(handle.violation))
+        .catch(error => emitDiagnostic(`⚠️ Router auth guard handler failed: ${error?.message || error}`));
       await firing;
     }
     return handle.violation;
@@ -268,7 +306,8 @@ export const startRouterAuthGuard = ({ tool = 'claude', homeDir = os.homedir(), 
   handle.check = async () => {
     if (handle.violation) return handle.violation;
     handle.checks += 1;
-    const { violations } = inspectRouterAuthSurface({ tool, homeDir, cwd, env, fsImpl, surface });
+    const { violations, checked } = inspectRouterAuthSurface({ tool, homeDir, cwd, env, fsImpl });
+    checkedPaths = checked;
     return violations.length > 0 ? fire(violations) : null;
   };
   handle.stop = () => {
@@ -278,18 +317,18 @@ export const startRouterAuthGuard = ({ tool = 'claude', homeDir = os.homedir(), 
   timer = setIntervalImpl(
     () => {
       handle.check().catch(error => {
-        if (log) log(`⚠️ Router auth guard check failed: ${error?.message || error}`);
+        emitDiagnostic(`⚠️ Router auth guard check failed: ${error?.message || error}`);
       });
     },
     intervalMs || resolveRouterAuthGuardIntervalMs(env)
   );
   if (typeof timer?.unref === 'function') timer.unref();
   handle.first = handle.check().catch(error => {
-    if (log) log(`⚠️ Router auth guard check failed: ${error?.message || error}`);
+    emitDiagnostic(`⚠️ Router auth guard check failed: ${error?.message || error}`);
     return null;
   });
-  if (log) log(`🛡️ Router auth guard armed: ${surface.length} credential path(s) watched every ${intervalMs || resolveRouterAuthGuardIntervalMs(env)} ms (issue #2190)`, { verbose: true });
+  emitDiagnostic(`🛡️ Router auth guard armed: ${checkedPaths} credential path(s) watched every ${intervalMs || resolveRouterAuthGuardIntervalMs(env)} ms (issue #2190)`, { verbose: true });
   return handle;
 };
 
-export default { EXIT_CODE_ROUTER_AUTH_VIOLATION, describeRouterAuthSurface, formatRouterAuthViolation, inspectRouterAuthSurface, isRouterAuthGuardRequired, readCodexProviderPin, startRouterAuthGuard };
+export default { EXIT_CODE_ROUTER_AUTH_VIOLATION, assertRouterTaskAuthentication, describeRouterAuthSurface, formatRouterAuthViolation, inspectRouterAuthSurface, isRouterAuthGuardRequired, readCodexProviderPin, startRouterAuthGuard };

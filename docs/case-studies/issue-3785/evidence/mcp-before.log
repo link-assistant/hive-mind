@@ -1,0 +1,433 @@
+✖ claude Playwright name cannot approve arbitrary command (140.309775ms)
+✖ claude Playwright name cannot approve missing package (32.436234ms)
+✖ claude Playwright name cannot approve different package (65.349376ms)
+✖ claude Playwright name cannot approve npx package injection (80.681243ms)
+✖ claude Playwright name cannot approve package URL (49.065593ms)
+✖ claude Playwright name cannot approve script option (71.729842ms)
+✖ claude Playwright name cannot approve config option (137.066202ms)
+✖ claude Playwright name cannot approve environment injection (170.157268ms)
+✖ claude Playwright name cannot approve working directory (110.668673ms)
+✖ claude Playwright name cannot approve remote transport (147.073761ms)
+✔ claude shipped Playwright registration remains byte-for-byte unchanged (132.037851ms)
+✖ codex Playwright name cannot approve arbitrary command (77.773546ms)
+✖ codex Playwright name cannot approve missing package (97.592963ms)
+✖ codex Playwright name cannot approve different package (118.429115ms)
+✖ codex Playwright name cannot approve npx package injection (88.723497ms)
+✖ codex Playwright name cannot approve package URL (134.654495ms)
+✖ codex Playwright name cannot approve script option (129.728006ms)
+✖ codex Playwright name cannot approve config option (65.088291ms)
+✖ codex Playwright name cannot approve environment injection (107.818572ms)
+✖ codex Playwright name cannot approve working directory (149.320307ms)
+✖ codex Playwright name cannot approve remote transport (96.174288ms)
+✔ codex shipped Playwright registration remains byte-for-byte unchanged (47.728674ms)
+✖ profile Playwright name cannot approve arbitrary command (41.833141ms)
+✖ profile Playwright name cannot approve missing package (76.465807ms)
+✖ profile Playwright name cannot approve different package (73.196179ms)
+✖ profile Playwright name cannot approve npx package injection (83.685656ms)
+✖ profile Playwright name cannot approve package URL (119.16064ms)
+✖ profile Playwright name cannot approve script option (90.904641ms)
+✖ profile Playwright name cannot approve config option (129.406005ms)
+✖ profile Playwright name cannot approve environment injection (248.286727ms)
+✖ profile Playwright name cannot approve working directory (38.634465ms)
+✖ profile Playwright name cannot approve remote transport (83.545291ms)
+✔ profile shipped Playwright registration remains byte-for-byte unchanged (76.323519ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 3
+ℹ fail 30
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3557.540318
+
+✖ failing tests:
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve arbitrary command (140.309775ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve missing package (32.436234ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve different package (65.349376ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve npx package injection (80.681243ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve package URL (49.065593ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve script option (71.729842ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve config option (137.066202ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve environment injection (170.157268ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve working directory (110.668673ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ claude Playwright name cannot approve remote transport (147.073761ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve arbitrary command (77.773546ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve missing package (97.592963ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve different package (118.429115ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve npx package injection (88.723497ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve package URL (134.654495ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve script option (129.728006ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve config option (65.088291ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve environment injection (107.818572ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve working directory (149.320307ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ codex Playwright name cannot approve remote transport (96.174288ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve arbitrary command (41.833141ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve missing package (76.465807ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve different package (73.196179ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve npx package injection (83.685656ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve package URL (119.16064ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve script option (90.904641ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve config option (129.406005ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve environment injection (248.286727ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve working directory (38.634465ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:44:5
+✖ profile Playwright name cannot approve remote transport (83.545291ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:52:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

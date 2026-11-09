@@ -1,0 +1,74 @@
+Native Gemini 0.65.0 terminal restore and third-process resume
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local native runtime: Node 26.12.1. Production installation remains unfinished.
+
+Strict before-repair reproduction, using the complete native terminal:
+  --history --restorable-history --restorable-terminal-reopen
+  PASS: actual terminal acknowledges its checkpoint before approval, then edits.
+  PASS: after the entire first private home is deleted, another actual terminal
+        restores the Git snapshot and conversation, then replays the native tool.
+  FAIL: after deleting the second private home, a third terminal resumes the
+        recorded session and submits a new interactive prompt. Its actual model
+        request omits the restored original prompt:
+          A third native terminal must resume its restored original model history.
+  Five model requests are observed, including native summary generation.
+  The final request has first_prompt=false, second_prompt=false; the synthetic
+    provider records no fixture errors.
+
+Root cause:
+  The terminal's selected registered writer obtains checkpoint clientHistory
+  through GeminiClient.getHistory(). Native role coalescing combines the initial
+  session context and original user prompt. Restore records that combined turn;
+  the native session loader later filters the whole context-prefixed turn.
+
+Repair:
+  apply_terminal_durable_history.py uses actual AgentChatHistory turn contents
+  before the existing processRestorableToolCalls serializer. Configuration,
+  executable caches, native recorder formats and unselected writers are retained.
+  The package version, prerequisite hashes and unique source context are checked
+  before mutation; --check does not modify the disposable package.
+
+Verified after repair:
+  PASS: the same actual three-terminal restore/resume control.
+  PASS: both earlier private home/configuration directories are deleted.
+  PASS: the last actual request has first_prompt=true, second_prompt=false.
+  PASS: resuming requires no inference; one subsequent submitted turn makes
+        exactly one model request and completes without a history refusal.
+  PASS: native tool replay and the separately restored companion file retain
+        their expected different contents.
+  PASS: the complete pre-restore conversation audit remains an unchanged byte
+        prefix, and the original acknowledged checkpoint remains available.
+  PASS: all nineteen history stages reconstruct seventeen identical native
+        manager/CLI/helper files, without mutation during applicability checks.
+  PASS: the fresh reconstruction passes the same three-terminal control.
+  PASS: the final combined package also passes the full three-process ACP
+        restore, unselected ACP recording/editing, terminal live/startup schema
+        refusals and the complete native interactive shell-history controls.
+
+Native terminal bundle, interactiveCli-AVD3AKNJ.js:
+  Before:
+    5aac5d78adb500c820779bac8deec422a5c30d2436d746e946848c71b95c2c64
+  After:
+    1092664e6803b78047a74c8115d8f432c48ef459f121b57ac33c5543efe81a40
+The other sixteen native files match the eighteen-stage ACP package.
+  Native manager:
+    ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07
+  ACP bundle:
+    ca5c9f85fa66d0a71acba63e3bac8faaae42167cacc719e99d590cda2d684654
+
+The third terminal waits for the native resumed input UI before submitting its
+interactive prompt. The initial experiment using --prompt-interactive exposed
+a separate native startup race: that prompt can dispatch before resume finishes
+and subsequent recording can refuse. That automatic path is not fixed by this
+checkpoint repair and remains an explicitly unfinished criterion.
+
+The actual CLI entry, PTY, checkpoint serializer, Git service, chat, recorder,
+session loader and model requests execute without native exports or SDK methods
+instrumented. Credentials and provider responses are synthetic; TLS verification
+stays enabled through the loopback provider. Data/heap/stack, phase, request and
+diagnostic limits are finite, and whole process groups are stopped and reaped.
+The experiment does not install a production adapter. Complete native writers,
+plan/task memory, migrations, interrupted/power-loss durability, all-backend
+lifecycle and production package/image/launcher integration remain unfinished.

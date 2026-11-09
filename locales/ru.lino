@@ -183,6 +183,8 @@ ru
   time
     current "Текущее время: {{time}}"
   limits
+    stored
+      metadata "сохранённые сведения"
     additional
       codex
         limits "Дополнительные лимиты Codex"

@@ -1,0 +1,24 @@
+✔ admission refuses absent cloud policy when repair is disabled (61.08494ms)
+✔ admission refuses empty cloud policy when repair is disabled (28.765966ms)
+✔ admission refuses skills enabled cloud policy when repair is disabled (45.380916ms)
+✔ admission refuses plugins enabled cloud policy when repair is disabled (41.951098ms)
+✔ admission refuses connectors enabled cloud policy when repair is disabled (34.227649ms)
+✔ admission refuses marketplace enabled cloud policy when repair is disabled (11.495143ms)
+✔ cloud policy repair preserves protected state and unrelated security settings (71.417748ms)
+✔ new quiet configuration disables skills, plugins and connectors (10.924922ms)
+✔ configure-claude resolves the same selected native directory as admission (0.573097ms)
+✔ the configure command writes only its selected disposable home (561.713993ms)
+✔ a selected home must carry the cloud baseline even when the conventional home is clean (62.736578ms)
+✔ managed synced plugins reject admission before any user repair (29.93287ms)
+✔ managed connectors enabled cannot override the user cloud baseline (29.56286ms)
+✔ managed connector environment enabled cannot override the user cloud baseline (42.254132ms)
+✔ managed marketplace environment enabled cannot override the user cloud baseline (48.36723ms)
+✔ restored synced plugin payloads cannot survive the global audit (103.88497ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1762.740092

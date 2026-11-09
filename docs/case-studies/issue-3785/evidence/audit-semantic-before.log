@@ -1,0 +1,300 @@
+✔ disabled repair cannot admit known global contamination (52.785546ms)
+✔ unrepaired global commands reject admission even when repair is enabled (42.862787ms)
+✔ a failed removal rejects admission instead of logging and continuing (54.942301ms)
+✔ successful repair must be followed by another audit before admission (53.858839ms)
+✔ a clean re-audit admits safe repair and preserves protected state (68.032971ms)
+✔ read-only audit keeps reporting findings without enforcing admission (24.950804ms)
+✔ a clean initial audit is revalidated after yielding to verbose logging (71.038156ms)
+✖ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (16.138645ms)
+✖ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (39.137437ms)
+✖ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (31.391739ms)
+✖ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (28.435453ms)
+✖ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (32.209454ms)
+✖ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (36.016587ms)
+✖ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (15.932521ms)
+✖ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (31.07656ms)
+✔ semantic TOML additions reject admission: [mcp_servers.rogue] (21.101383ms)
+✖ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (51.385976ms)
+✖ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (25.98335ms)
+✖ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (45.210014ms)
+✖ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (12.735266ms)
+✖ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (11.893768ms)
+✖ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (13.464276ms)
+✖ table-like text inside a multiline string is data and needs no repair (37.875484ms)
+✖ TOML repair preserves unrelated typed configuration and approved MCP settings (43.056919ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 8
+ℹ fail 16
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1021.443267
+
+✖ failing tests:
+
+test at tests/issue-3785-audit-admission.test.mjs:114:3
+✖ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (16.138645ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:119:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (39.137437ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:129:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:114:3
+✖ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (31.391739ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:119:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (28.435453ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:129:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:114:3
+✖ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (32.209454ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:119:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (36.016587ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:129:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:114:3
+✖ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (15.932521ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:119:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (31.07656ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue.with.dot'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:129:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue.with.dot' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (51.385976ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:129:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:114:3
+✖ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (25.98335ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:119:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:123:3
+✖ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (45.210014ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   'rogue@synthetic'
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'rogue@synthetic' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-audit-admission.test.mjs:136:3
+✖ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (12.735266ms)
+  Error: Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.
+      at runAgentConfigAudit (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit.lib.mjs:414:29)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:140:20)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/issue-3785-audit-admission.test.mjs:136:3
+✖ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (11.893768ms)
+  Error: Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.
+      at runAgentConfigAudit (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit.lib.mjs:414:29)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:140:20)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/issue-3785-audit-admission.test.mjs:136:3
+✖ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (13.464276ms)
+  Error: Global agent configuration is not clean. Remove or safely quarantine the reported additions before launching tasks.
+      at runAgentConfigAudit (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit.lib.mjs:414:29)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:140:20)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/issue-3785-audit-admission.test.mjs:146:1
+✖ table-like text inside a multiline string is data and needs no repair (37.875484ms)
+  Error: Global agent configuration has unsafe, unreadable or unparseable audit inputs; no repair is permitted. Inspect configuration types, links and permissions.
+      at unsafe (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit-inputs.lib.mjs:20:22)
+      at validateAgentConfigAuditInputs (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit-inputs.lib.mjs:103:11)
+      at async requireCleanAuditedConfig (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit.lib.mjs:378:20)
+      at async runAgentConfigAudit (file:///tmp/gh-issue-solver-1792986793513/src/agent-config-audit.lib.mjs:428:5)
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:151:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/issue-3785-audit-admission.test.mjs:156:1
+✖ TOML repair preserves unrelated typed configuration and approved MCP settings (43.056919ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+
+    [Object: null prototype] {
+      created: TomlDate 2026-10-26T00:00:00.000Z,
+      features: [Object: null prototype] {
+        other_flag: false,
+        remote_plugin: false
+  ...
+        },
+  +     rogue: [Object: null prototype] {
+  +       env: [Object: null prototype] {
+  +         SYNTHETIC: 'remove with parent'
+  +       }
+  +     }
+      },
+      model: 'synthetic-model'
+    }
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-admission.test.mjs:165:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { model: 'synthetic-model', limit: 9223372036854775807n, created: 2026-10-26T00:00:00.000Z, features: { remote_plugin: false, other_flag: false }, mcp_servers: { playwright: [Object], rogue: [Object] } },
+    expected: { model: 'synthetic-model', limit: 9223372036854775807n, created: 2026-10-26T00:00:00.000Z, features: { remote_plugin: false, other_flag: false }, mcp_servers: { playwright: [Object] } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

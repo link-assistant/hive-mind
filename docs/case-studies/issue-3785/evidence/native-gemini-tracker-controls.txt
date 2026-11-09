@@ -1,0 +1,118 @@
+Gemini CLI 0.65.0; locally verified 2026-10-30, Node 26.12.1.
+Actual exported native Storage/TrackerService/task schema; no service replacement.
+Complete CLI uses a TLS-verifying loopback provider, no export/SDK instrumentation.
+Every credential, task, conversation and provider is synthetic.
+
+Preceding shell manager 439a87bb21b7c5f172d959f99629d74637cf847a4ddb9a684dbffa280b7cc68b
+Tracker storage manager 3442803794891386eed95dc0fdf32a41aad77e7212180205e2470d49c4c10413
+Startup-admitted manager b1b2ad9594865d2b60aee3d1b6cbf1a8d2bb2e7d72946124f9a25bc3c2808608
+Coordinated manager 9e5df4a69c98a27919561e63ebc5d9338256e399f27c4f5171ff2564cedb9b55
+Base tracker helper b4b6463940d3b17cf05db725a66b897bd8584483209cd2359d357fe1ed28d5cb
+Coordinated tracker helper 11e56b631ab984ad8bb7992586a9e6e8b0030fba5e47c1e9b0f2c4fb9497b2c1
+Transaction helper c504c700a3c11e6d25777e8b495bfba043c729cd67a91fc476465379bb667fd9
+History 586d39370a4344a1aaa46c81894f2c6239253a91cb84e3871288c2093c328e99
+Other CLI/publication/shell pins match native-gemini-shell-controls.txt.
+
+REPRODUCED: actual native task creation, update, get and list succeed. After
+            the owner exits and its private home is disposed, the fresh native
+            service returns null instead of the persisted task.
+REPRODUCED: complete native CLI create/update/get/list succeeds; a fresh resumed
+            CLI's native list returns no task after private-home disposal.
+            The strict failure requires the specific missing-persisted-list
+            assertion, rather than an arbitrary native startup failure.
+REPRODUCED: the storage draft allows malformed task data to reach additional
+            inference before its native tracker call reports checked refusal.
+            Startup admission now validates before configuration discovery.
+REPRODUCED: after native closure validation, a peer can reopen a dependency
+            before the target commit; after native cycle validation, a peer
+            can change an edge before the target commit. Both strict probes
+            require their specific missing-rejection assertion before repair.
+            Preserve native validators and bind their observations to commit.
+
+PASS: all 32 scenarios / 40 bounded native process results on freshly applied
+      source; both dependency-race refusals preserve the peer's committed data.
+PASS: healthy actual native tracker creates, updates, lists and reads its task.
+PASS: fresh actual native tracker discovers the updated task after private-home disposal.
+PASS: fresh actual native tracker discovers the updated task after private-home disposal.
+PASS: retained native tracker observes an independent private peer on its next read.
+PASS: actual native tracker writer-0 persisted ten independent tasks.
+PASS: actual native tracker writer-1 persisted ten independent tasks.
+PASS: actual native tracker writer-2 persisted ten independent tasks.
+PASS: actual native tracker writer-3 persisted ten independent tasks.
+PASS: fresh actual native tracker discovers all forty tasks and audit events from four private writers.
+PASS: native tracker retains all four create/update/close/reopen audit generations.
+PASS: actual native tracker preserves parent, dependency, closure and cycle behavior without rejected writes.
+PASS: actual native tracker preserves session-separation and native prompt navigation.
+PASS: actual native tracker preserves project-separation and native prompt navigation.
+PASS: healthy actual native tracker creates, updates, lists and reads its task.
+PASS: fresh actual native tracker discovers the updated task after private-home disposal.
+PASS: healthy actual native tracker creates, updates, lists and reads its task.
+PASS: fresh actual native tracker discovers the updated task after private-home disposal.
+PASS: the actual native JSON reader selects the canonical tracker record.
+PASS: native tracker refuses a foreign JSON path without a private fallback.
+PASS: actual native tracker refuses selector changes even to another registered session.
+PASS: actual native tracker refuses stale-save after an independent committed generation.
+PASS: actual native tracker refuses stale-update after an independent committed generation.
+PASS: actual native tracker refuses dependency-race inside the publication transaction.
+PASS: actual native tracker refuses cycle-race inside the publication transaction.
+PASS: actual native tracker refuses a generated task-ID collision before publication.
+PASS: actual native tracker refuses write-failure without changing committed audit data.
+PASS: actual native tracker refuses invalid-task without changing committed audit data.
+PASS: healthy actual native tracker creates, updates, lists and reads its task.
+PASS: actual native tracker refuses symlink without changing protected evidence.
+PASS: actual native tracker refuses hardlink without changing protected evidence.
+PASS: actual native tracker refuses unsafe-mode without changing protected evidence.
+PASS: actual native tracker refuses malformed without changing protected evidence.
+PASS: actual native tracker refuses invalid-utf8 without changing protected evidence.
+PASS: actual native tracker refuses oversized without changing protected evidence.
+PASS: actual native tracker refuses missing without changing protected evidence.
+PASS: actual native tracker refuses parent-replacement without changing protected evidence.
+PASS: actual native tracker refuses root-replacement without changing protected evidence.
+PASS: actual native tracker refuses task-schema without changing protected evidence.
+PASS: actual native tracker refuses task-schema-submit without changing protected evidence.
+PASS: actual native tracker refuses scope-schema without changing protected evidence.
+
+PASS: actual native CLI creates, updates, gets and lists a task, then a fresh resumed CLI lists and gets it after private-home disposal.
+PASS: actual Gemini CLI discovers and resumes prior user/model content after private configuration disposal; conversation_requests=2.
+
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: symlink
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: hardlink
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: unsafe-mode
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: malformed
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: invalid-utf8
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: oversized
+PASS: complete native CLI refuses unsafe tracker history before another inference and preserves protected data: task-schema
+
+PASS: fresh application rebuilds eight history stages from the pinned
+      constructor package. Every applicability check changes no files and all
+      ten resulting manager/CLI/helper files match the tested package exactly.
+PASS: surrounding native controls on the same freshly rebuilt package:
+      28 shell, 36 Logger, 65 storage, nine tool-output and 31 blob results;
+      fifteen first-publication recovery controls and live-journal replacement;
+      41 writer/account, 30 request and eleven canonical auth-read results.
+PASS: complete native CLI tool-output and blob disposal/resume, plus actual
+      terminal command execution/disposal/recall on the final tracker package.
+      Earlier shell-stage unsafe artifact/blob CLI controls are recorded in
+      native-gemini-shell-controls.txt; this stage reruns their positive paths.
+PASS: complete repository formatting and ESLint; focused helper ESLint and
+      changed-file secret scanning; actionlint, Python AST and Node syntax.
+Node 24 tracker job in run 41146984829 passes at exact head
+3aff67264dc719995d90c9a02a7189178d7cfa11 (created 2026-10-30T23:52:13Z).
+All 324 tracker artifact files are preserved locally. The sibling credential
+job exceeds its 15-minute total, so the Gemini workflow is not passing; the
+independent regression-job partition still requires fresh CI verification.
+Native Codex run 41146984988 also passes all three compiled jobs at this head.
+https://github.com/link-assistant/hive-mind/actions/runs/41146984829
+https://github.com/link-assistant/hive-mind/actions/runs/41146984988
+
+Service workers: 256 MiB heap, 16 MiB stack, 25-second deadline, 64 KiB logs.
+Complete CLI: 256 MiB heap, 16 MiB stack, 45-second deadline, 256 KiB logs.
+All groups are stopped/reaped; failed fixtures and bounded diagnostics remain.
+The audit uses existing locked 32-MiB/100,000-event canonical prompt storage.
+No independent private tracker JSON is written; no executable material is shared.
+
+Remaining: migration of existing private tasks, third-party direct writers,
+complete interactive/runtime/crash/power-loss admission, Git checkpoints,
+plans/task memory, child/subagent lifecycle, alternate backends, audit rollover
+and production installation. These are experimental controls, not completion
+of the six-tool default canonical auth/history and lifecycle contract.

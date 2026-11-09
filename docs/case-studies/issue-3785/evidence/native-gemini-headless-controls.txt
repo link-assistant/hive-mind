@@ -1,0 +1,72 @@
+Native Gemini 0.65.0 actual headless checkpoint writers
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local runtime: Node 26.12.1. Production installation remains unfinished.
+
+Strict before repair, separately for both native noninteractive engines:
+  --history --restorable-history --restorable-headless
+  --restorable-headless-engine legacy|agent
+  PASS: actual CLI completes its real write_file edit and subsequent inference.
+  FAIL: Actual headless native edits must acknowledge their canonical restorable
+        checkpoint.
+  Both actual provider traces have one native tool request and one successful
+    follow-up completion, with no synthetic fixture errors.
+  The agent control selects the native GEMINI_CLI_EXP_AGENT=true engine; the
+    legacy control explicitly selects false.
+
+Root cause and repair:
+  The CLI has separate legacy and agent-session noninteractive schedulers.
+  Neither registers a native checkpoint writer. Existing native edit admission
+  consequently has no writer to await in either path.
+  apply_headless_restorable.py registers both schedulers with the actual native
+  Git/checkpoint serializer and raw chat history, preserving context/user turns.
+  The existing admission path awaits that writer before actual execution.
+  Exact package version, manager, helper and preceding ACP CLI hashes and both
+    expected scheduler contexts are required; --check makes no changes.
+  Unselected history and disabled checkpointing do not register a writer.
+
+Verified separately for both engines on the fresh combined package:
+  PASS: actual headless edit creates its acknowledged canonical checkpoint.
+  PASS: delete the complete first private home, load the native session through
+        a fresh actual ACP and submit a later prompt.
+  PASS: actual restore rewinds both the edited file and an untouched companion
+        to their original contents without a model request.
+  PASS: the next real provider request includes the original prompt and excludes
+        the later prompt.
+  PASS: delete the complete second private home; a third actual headless CLI
+        resumes that restored history with exactly one new model request.
+  PASS: the complete preceding conversation audit remains an unchanged byte
+        prefix; selected checkpoint metadata has no private JSON copy.
+  PASS: after a healthy edit, damage metadata during a real resumed provider
+        request returning another edit. Native execution and further inference
+        refuse, preserving both protected project files and damaged audit bytes.
+  PASS: unsafe startup metadata refuses before inference or project changes,
+        preserving the damaged audit bytes.
+  PASS: unselected native editing/private recording leaves canonical history
+        untouched and retains its original behavior.
+
+Fresh-source proof:
+  Twenty-one history stages, seventeen identical native manager/CLI/helper
+    files, and no mutation during any applicability check.
+  The complete actual automatic terminal prompt/resume control also passes.
+  The native CLI bundle gemini-GLQ4MVLB.js changes from
+    ca5c9f85fa66d0a71acba63e3bac8faaae42167cacc719e99d590cda2d684654
+  to
+    7a4523edbc713e7e107dc742a162e1be5b0018e1a8d33f228479bcb206d7eecc
+  The other sixteen files match the twenty-stage terminal-admission package.
+  Native manager:
+    ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07
+  Terminal bundle:
+    80b096b4fbbe0c92bb3dff50b84dfd54a133a2443cc05b721f76d6acdaf99a1c
+
+The actual CLI entry, schedulers, tools, Git/checkpoint services, ACP transport,
+chat, recorder, session loader and model dispatch run without native exports or
+SDK methods instrumented. Provider responses and credentials are synthetic;
+TLS verification remains enabled through a loopback-only provider. Data/heap,
+stack, phase, request and diagnostic bounds are finite. All process groups are
+stopped and reaped before completion.
+
+Fresh Node 24 CI, remaining child/subagent writers, plan/task memory, migration,
+interruption/power-loss durability, complete backend lifecycle and production
+package/image/launcher installation remain unfinished.

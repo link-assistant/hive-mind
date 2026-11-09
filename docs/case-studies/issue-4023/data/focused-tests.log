@@ -1,0 +1,27 @@
+agent-commander option tests passed
+✔ tests/test-agent-commander-option.mjs (5656.6218ms)
+✔ location sharing requires an explicit boolean opt-in (6.568172ms)
+✔ all six system prompt builders apply the selected policy (102.078783ms)
+✔ every work locale supplies both policies (0.598567ms)
+✔ hive forwarding and solve relaunches preserve both choices (284.788704ms)
+✔ agent-commander and task planning preserve privacy and opt-in (3.529493ms)
+PASS: parseTaskIssueUrl accepts issues and rejects pull requests
+PASS: buildTaskSplitPrompt requires exact task count
+PASS: extractTaskSplitJson reads fenced JSON
+PASS: normalizeSplitTasks validates count and fields
+PASS: formatChildIssueBody links parent issue and dependencies
+PASS: appendOrReplaceParentSplitSection keeps one managed section
+PASS: sub-issue API helpers target GitHub relationship endpoints
+PASS: start-agent args enforce read-only planning mode
+PASS: agent-commander dependency provides start-agent before PATH lookup
+
+Total: 9, Passed: 9, Failed: 0
+✔ tests/test-task-split.mjs (3981.210955ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6139.013914

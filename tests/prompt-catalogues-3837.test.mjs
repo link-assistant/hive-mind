@@ -102,10 +102,10 @@ test('work locale changes rendered prompts independently of the UI, with English
   await initI18n('en');
 });
 
-test('catalog extraction preserves the complete English backend corpus', { timeout: 10000 }, async () => {
+test('catalog extraction preserves the English backend corpus alongside the location policy', { timeout: 10000 }, async () => {
   const { execFileSync } = await import('node:child_process');
   const expected = JSON.parse(await readFile(new URL('../docs/case-studies/issue-3837/data/prompt-corpus-before.json', import.meta.url), 'utf8'));
-  const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=96', new URL('../experiments/issue-3837-prompt-corpus.mjs', import.meta.url).pathname], { encoding: 'utf8' }));
+  const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=96', new URL('../experiments/issue-3837-prompt-corpus.mjs', import.meta.url).pathname, '--without-geolocation-policy'], { encoding: 'utf8' }));
   assert.deepEqual(actual, expected);
 });
 

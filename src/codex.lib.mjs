@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Codex CLI-related utility functions
 
@@ -469,7 +470,8 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     }
     // Test basic Codex functionality with a simple "echo hi" command
     // Using exec mode with JSON output for validation
-    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    const geolocationArgs = buildCodexGeolocationConfigArgs();
+    const testResult = await $({ env: { ...getCodexExecEnv(verbose), ...buildGeolocationEnv() } })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} ${geolocationArgs} --dangerously-bypass-approvals-and-sandbox`;
     if (testResult.code !== 0) {
       const stderr = testResult.stderr?.toString() || '';
       const stdout = testResult.stdout?.toString() || '';
@@ -583,7 +585,7 @@ export const executeCodex = async params => {
   await deployHandoffSkill({ tempDir, argv, log, $ });
   // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
   await deployPlaywrightSkill({ tempDir, argv, log, $ });
-  const codexBaseEnv = getCodexExecEnv(argv.verbose);
+  const codexBaseEnv = { ...getCodexExecEnv(argv.verbose), ...buildGeolocationEnv(argv) };
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
@@ -613,7 +615,8 @@ export const executeCodex = async params => {
 
 export const executeCodexCommand = async params => {
   const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const codexAttribution = await createToolAttribution({ tool: 'codex', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log, createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from `codex exec --json`
@@ -673,8 +676,10 @@ export const executeCodexCommand = async params => {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    Object.assign(codexEnv, buildGeolocationEnv(argv));
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
+    Object.assign(toolInvocation.env, buildGeolocationEnv(argv));
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
     const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
     // Formal AI writes its provider block into an isolated Codex home; the preflight rewrites the
@@ -764,7 +769,7 @@ export const executeCodexCommand = async params => {
     await log(`💰 Pricing tier: ${describePricingTier(codexPricingTier)}${subSessionSizeCapped ? ' — --sub-session-size capped to stay below the long-context price' : ''}`, { verbose: !subSessionSizeCapped });
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
-    for (const arg of memoryDisableArgs) {
+    for (const arg of [...memoryDisableArgs, ...buildCodexGeolocationConfigArgs(argv)]) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
@@ -784,6 +789,7 @@ export const executeCodexCommand = async params => {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     if (argv.verbose) {
+      await log(`📍 Location sharing: ${buildCodexGeolocationConfigArgs(argv).length ? 'disabled (location fields redacted)' : 'enabled for this run'}`, { verbose: true });
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });

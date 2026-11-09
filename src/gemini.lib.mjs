@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Google Gemini CLI-related utility functions
@@ -282,7 +283,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini) => 
       await log(`⚠️  Gemini CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
 
-    const testResult = await $`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
+    const testResult = await $({ env: { ...process.env, ...buildGeolocationEnv() } })`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.geminiCli / 1000)} ${geminiPath} --prompt ${promptText('prompt.templates.connection.gemini')} --output-format json --model ${mappedModel}`;
     const stdout = testResult.stdout?.toString() || '';
     const stderr = testResult.stderr?.toString() || '';
     const combinedOutput = `${stdout}\n${stderr}`;
@@ -400,7 +401,8 @@ export const executeGemini = async params => {
 };
 
 export const executeGeminiCommand = async params => {
-  const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -451,7 +453,7 @@ export const executeGeminiCommand = async params => {
     await applyGeminiFamilyPricingTier({ tool: 'gemini', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
-    const geminiEnv = { ...process.env, ...toolInvocation.env };
+    const geminiEnv = { ...process.env, ...toolInvocation.env, ...buildGeolocationEnv(argv) };
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
     if (argv.resume) {

@@ -66,7 +66,7 @@ try {
 
     // Re-run a later production global install's backend without network access.
     // Existing verified bytes and the activated command must stay independent.
-    const later = docker.match(/bun install ([^\n]*?)@link-assistant\/agent@0\.27\.0/u);
+    const later = docker.match(/bun install ([^\n]*?)@link-assistant\/agent@\d+\.\d+\.\d+/u);
     assert.ok(later);
     await run(bun, ['install', ...later[1].trim().split(/\s+/u), archive], env, root);
     assert.equal((await fs.stat(nativeBinary)).nlink, 1);

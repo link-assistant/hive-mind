@@ -8,7 +8,7 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 
 | #   | Requirement (issue text)                                                                 | Where it is addressed                                                                                         |
 | --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD on `main`  | Findings F1–F11 below                                                                                         |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD on `main`  | Findings F1–F12 below                                                                                         |
 | R2  | Checks and release: failure (run 42570340658)                                            | F2, F3                                                                                                        |
 | R3  | Broken Link Checker: failure (run 42570340566)                                           | F1                                                                                                            |
 | R4  | Cleanup Test Repositories: cancelled (run 42472902848)                                   | F4 (the ruleset part is blocked on an administrator, B1)                                                      |
@@ -35,6 +35,7 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 | 2026-11-09 11:01   | PR run 42605582705: with the full suite and `--continue-on-failure`, `test-agent-verbose-env.mjs` fails too (F11); main never reached it.                                                                                 |
 | 2026-11-09 11:17   | Security 42607903721: the new CodeQL result gate reports `1 clean report(s)` for both languages after the 44 alerts are fixed (F8).                                                                                       |
 | 2026-11-09 11:24   | PR run 42608795713: `detect-changes` fails with `STALE package-lock.json#minimatch: minimatch 11.0.5 -> 10.2.6, 11.0.5` under the runner's npm 10.9.4 (F9).                                                               |
+| 2026-11-09 11:25   | PR #3786 merges; it closes #3785, which 12 Dockerfile pin exceptions link (F12).                                                                                                                                          |
 | 2026-11-09 11:40   | PR #3786 (issue #3785) lands on main with its own "fail every cancellation" gate and the same minimatch override; this branch merges it (F10).                                                                            |
 
 ## Findings, root causes and fixes
@@ -294,6 +295,32 @@ never showed up there. It appeared as soon as F2's `--continue-on-failure` ran
 (`checks-42605582705-agent-verbose-env.log`). The test now matches the
 inheritance (`{ ...process.env`) and no longer depends on the rest of the line.
 
+### F12. Every pull request failed after PR #3786 merged (false positive)
+
+**Root cause.** PR #3786 (issue #3785) pinned Codex 0.164.0, Qwen Code 0.27.0,
+Gemini CLI 0.65.0 and OpenCode 1.19.5 in all three Dockerfiles. Each of the 12
+pin lines linked #3785 as its freshness exception. An exception is valid only
+while its issue is open. The PR body said "Fixes #3785", so the merge at
+11:25 closed the issue and turned every exception into
+`Exception issue is closed or invalid`. From then on `detect-changes` failed
+on every pull request (Checks and release run 42611647973,
+`checks-42611647973-closed-exception-issue.log`), and pushes to main got 12
+"Unresolved dependency" warnings. Nothing had checked that the tracking issue
+would outlive the pull request that added the exception.
+
+**Fix.**
+
+- The 12 pins now link #4027, an open issue that tracks upgrading these CLIs
+  together with their storage adapters.
+- On a pull request, `check-dependency-freshness.mjs` reads the event's PR body
+  and collects the issues it closes (GitHub's `close`, `fix` and `resolve`
+  keywords, as `#N`, `owner/repo#N` or an issue URL). An exception that links
+  one of them is an error, which names the issue and asks for a separate
+  tracking issue (`freshness-closing-issue-guard-local.txt`).
+
+**Test.** `tests/dependency-freshness-closing-issue-4025.test.mjs`. It fails
+without the guard.
+
 ## Template comparison
 
 The workflows were compared file by file with
@@ -364,12 +391,15 @@ configured.
     `resource-aware-prompts-3837`;
   - CodeQL: `codeql-results-gate-4025`, `codeql-source-alerts-4025`;
   - dependencies and environment: `dependency-overrides-4025`,
-    `test-agent-verbose-env`;
+    `dependency-freshness-closing-issue-4025`, the three earlier
+    `dependency-freshness-*` tests, `test-agent-verbose-env`;
   - gates and ShellCheck: `ci-integrity-2150`, `workflow-shellcheck-4025`,
     `ci-workflow-cancellation-2082`;
   - all 30 tests that read `release.yml`.
 - `actionlint` 1.7.12 and ShellCheck 0.11.0 (the job's file list) report nothing.
-- `node scripts/check-dependency-freshness.mjs`: all declarations are current.
+- `node scripts/check-dependency-freshness.mjs` with a simulated pull request
+  event: all declarations are current with this PR's body; with a body that
+  closes #4027 it reports 12 errors.
   `npm update --package-lock-only` with npm 10.9.4 leaves every package
   version unchanged. `npm audit`: 0 vulnerabilities.
 - `bash scripts/check-file-line-limits.sh`: no warnings.

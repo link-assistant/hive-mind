@@ -21,6 +21,8 @@ The analysis is in [`docs/case-studies/issue-4025/README.md`](../../../../../doc
 | `ci-logs/codeql-open-alerts-main.txt` | The 44 open CodeQL alerts on main (F8) |
 | `ci-logs/security-42607903721-codeql-gate.log` | The CodeQL result gate passing once the alerts were fixed (F8) |
 | `ci-logs/shellcheck-before.txt` | ShellCheck findings before the fix (F10) |
+| `ci-logs/checks-42611647973-closed-exception-issue.log` | `detect-changes` failing on 12 exceptions linked to closed #3785 (F12) |
+| `ci-logs/freshness-closing-issue-guard-local.txt` | The new guard rejecting exceptions that link an issue the PR closes (F12) |
 | `sessions/`                                         | Solver session log and metadata                                                             |
 
 Reproduction: `bash experiments/issue-4025/lychee-action-curl-no-retry.sh`.

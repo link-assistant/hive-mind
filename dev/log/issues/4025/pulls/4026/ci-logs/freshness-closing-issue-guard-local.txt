@@ -1,0 +1,15 @@
+Dependency freshness: 233/246 declarations current, 0 lockfile entries behind their allowed range
+EXCEPTION src/router-isolation.lib.mjs:81: ghcr.io/link-assistant/router: https://github.com/link-assistant/hive-mind/issues/3395
+ERROR coolify/Dockerfile:247: @openai/codex: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR coolify/Dockerfile:249: @qwen-code/qwen-code: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR coolify/Dockerfile:250: @google/gemini-cli: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR coolify/Dockerfile:252: opencode-ai: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile:254: @openai/codex: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile:256: @qwen-code/qwen-code: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile:257: @google/gemini-cli: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile:259: opencode-ai: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile.dind:271: @openai/codex: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile.dind:273: @qwen-code/qwen-code: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile.dind:274: @google/gemini-cli: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+ERROR Dockerfile.dind:276: opencode-ai: Exception issue closes when this pull request merges: https://github.com/link-assistant/hive-mind/issues/4027. Link a separate open tracking issue.
+Dependency freshness failed: 0 stale, 12 unresolved.

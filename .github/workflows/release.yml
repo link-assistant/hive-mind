@@ -88,6 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       # Issue #2625: freshness blocks pull requests only (#2264). On a push to
       # main it warns, so a release published after a merge cannot skip the
@@ -119,6 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Check for version changes in package.json
         env:
@@ -134,6 +136,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -162,6 +165,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -187,6 +192,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
       - name: Simulate fresh merge with base branch (PR only)
@@ -239,6 +245,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
       - name: Simulate fresh merge with base branch (PR only)
@@ -365,6 +372,8 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Use Node.js 24.x
         uses: actions/setup-node@v7
         with:
@@ -387,6 +396,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Use Node.js 24.x
         uses: actions/setup-node@v7
@@ -423,6 +433,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -458,6 +470,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
@@ -619,6 +632,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -685,6 +700,8 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -747,6 +764,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -808,6 +827,8 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -981,6 +1002,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1047,6 +1070,8 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -1109,6 +1134,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1170,6 +1197,8 @@ jobs:
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download digests
         uses: actions/download-artifact@v8
         with:

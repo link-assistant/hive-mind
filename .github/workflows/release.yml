@@ -248,7 +248,7 @@ jobs:
         run: bash scripts/simulate-fresh-merge.sh
       - name: Check file line limits (.mjs files and release.yml)
         run: bash scripts/check-file-line-limits.sh
-  # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
+  # The full unit suite (~10 min on PRs and main, issue #4025) runs only after all fast checks pass
   test-suites:
     permissions:
       contents: write

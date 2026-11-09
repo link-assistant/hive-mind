@@ -32,6 +32,10 @@ jobs:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # Diff-informed analysis reports only results on lines a pull request
+    # changes; the gate below needs every result (issue #4025).
+    env:
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
       cancel-in-progress: true
@@ -45,6 +49,8 @@ jobs:
         language: [javascript-typescript, actions]
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -57,6 +63,24 @@ jobs:
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
+        with:
+          output: codeql-results
+
+      # The analyze step uploads its results and passes even when it finds
+      # problems, so 44 alerts piled up on main behind a green check (issue
+      # #4025). Fail on any result, extractor warning or failed invocation.
+      - name: Require clean CodeQL results
+        if: ${{ !cancelled() }}
+        run: node scripts/check-codeql-results.mjs codeql-results
+
+      - name: Upload CodeQL reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: codeql-results
+          if-no-files-found: error
+          retention-days: 14
 
   dependency-review:
     name: Dependency Review
@@ -71,6 +95,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@v5

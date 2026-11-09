@@ -18,10 +18,13 @@ import path from 'node:path';
 import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from '../src/codex-capability-preflight.lib.mjs';
 import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
+import { buildGeolocationEnv } from '../src/geolocation-policy.lib.mjs';
 
 const VERSION = '5.1.3';
 const SKILLS = ['brainstorming', 'dispatching-parallel-agents', 'executing-plans', 'finishing-a-development-branch', 'receiving-code-review', 'requesting-code-review', 'subagent-driven-development', 'systematic-debugging', 'test-driven-development', 'using-git-worktrees', 'using-superpowers', 'verification-before-completion', 'writing-plans', 'writing-skills'];
-const CODEX_BASE_ENV = { PATH: '/bin', RUST_LOG: 'codex_core_plugins=trace,codex_core_skills=trace' };
+// Production builds the Codex base environment with the geolocation policy
+// (issue #4023), so the fixture mirrors `codexBaseEnv` in src/codex.lib.mjs.
+const CODEX_BASE_ENV = { PATH: '/bin', RUST_LOG: 'codex_core_plugins=trace,codex_core_skills=trace', ...buildGeolocationEnv({}) };
 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 

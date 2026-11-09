@@ -30,6 +30,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { $ as realDollar } from 'command-stream';
+import { withGeolocationPolicy } from '../src/geolocation-policy.lib.mjs';
 
 process.env.HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES = '1';
 process.env.HIVE_MIND_RESULT_STREAM_CLOSE_MS = '1000';
@@ -117,7 +118,9 @@ async function run(t, argv, { beforeExecution = async () => {}, onNative = () =>
   });
   const received = async () => JSON.parse(await readFile(argvFile, 'utf8'));
   const flag = (args, name) => args[args.indexOf(name) + 1];
-  return { result, logs, template, systemPrompt, prompt, marker, fakeClaude, received, flag, dir };
+  // Issue #4023 appends the location-privacy policy to every system prompt;
+  // the caller's text must still arrive verbatim at the start of it.
+  return { result, logs, template, systemPrompt: withGeolocationPolicy(systemPrompt, argv), prompt, marker, fakeClaude, received, flag, dir };
 }
 
 test('the spawned claude gets the system prompt verbatim, with nothing executed', { timeout: 30_000 }, async t => {

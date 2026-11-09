@@ -17,7 +17,8 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
-import { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
+import { REPOSITORY_SKILL_DIRECTORIES, parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
+import { REPOSITORY_CODEX_CONFIG, applyRepositoryCodexConfig, readRepositoryCodexConfig } from './codex-repository-config.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
 import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
 import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
@@ -311,14 +312,31 @@ const pluginProvidesSkill = async (plugin, skill) => {
   }
 };
 
+// Codex names a repository skill by its SKILL.md front matter, not by its
+// directory (issue #3785), so a bounded walk checks both spellings.
+const SKILL_WALK_LIMIT = 500;
+const skillFrontMatterName = text => /^---\r?\n[\s\S]*?^name:\s*["']?([^"'\r\n]+?)["']?\s*$/mu.exec(text)?.[1]?.toLowerCase() || null;
 const skillExistsInDirectories = async (skill, skillDirectories) => {
   const { name } = skillParts(skill);
   for (const directory of skillDirectories || []) {
-    try {
-      await fs.access(path.join(directory, name, 'SKILL.md'));
-      return true;
-    } catch {
-      // Keep searching the remaining standard skill locations.
+    const pending = [directory];
+    for (let visited = 0; pending.length > 0 && visited < SKILL_WALK_LIMIT; visited += 1) {
+      const current = pending.shift();
+      let entries;
+      try {
+        entries = await fs.readdir(current, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        const target = path.join(current, entry.name);
+        if (entry.isDirectory()) pending.push(target);
+        else if (entry.name === 'SKILL.md') {
+          if (path.basename(current).toLowerCase() === name) return true;
+          const text = await fs.readFile(target, 'utf8').catch(() => '');
+          if (skillFrontMatterName(text) === name) return true;
+        }
+      }
     }
   }
   return false;
@@ -552,7 +570,17 @@ export async function collectCodexCapabilityRequirements({ owner, repo, issueNum
     for (const token of overrides.invalid) rejected.push({ capability: token, line: `${label}=${token} (expected plugin@marketplace)`, source: label });
   }
 
-  return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected, sources, skippedInstructionFiles: instructions.skipped };
+  // Issue #3785: plugins the repository enables in its own `.codex/config.toml`
+  // are provisioned into this task's private scope. They are declarations, not
+  // issue instructions, so a marketplace miss degrades instead of failing.
+  const repositoryConfig = await readRepositoryCodexConfig({ projectDir });
+  if (repositoryConfig.plugins.length > 0) sources.push(REPOSITORY_CODEX_CONFIG);
+  for (const selector of repositoryConfig.plugins) {
+    plugins.add(selector);
+    evidence.push({ capability: selector, line: `[plugins."${selector}"] enabled = true`, explicit: false, source: REPOSITORY_CODEX_CONFIG });
+  }
+
+  return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected, sources, skippedInstructionFiles: instructions.skipped, repositoryConfig };
 }
 
 const syncFileIfPresent = async (source, target) => {
@@ -800,6 +828,7 @@ const provisionSafeCatalogFallback = async ({ options, error, createScope }) => 
   const codexHome = await createScope({ baseCodexHome, owner, repo });
   const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
   await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
+  await applyRepositoryCodexConfig({ codexHome, projectDir, env, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, projectDir, plugins: [], requiredSkills: [] });
@@ -895,6 +924,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // link to its marketplace (issue #3785).
   const codexHome = await createScope({ baseCodexHome, owner, repo });
   await prepareScopedCodexHome({ baseCodexHome, codexHome, env, log });
+  await applyRepositoryCodexConfig({ codexHome, projectDir, env, requiredSkills: requirements.skills, repositoryConfig: requirements.repositoryConfig, log });
   await configureScopedPluginLoader({ codexHome, plugins: [], discovery: hasRequirements, log });
   const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   let plugins = [];
@@ -903,7 +933,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
     const catalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: scopedEnv });
     const catalog = parseJsonCommand(catalogResult, 'Codex plugin catalog discovery');
     // Host-global Agent Skills are instructions outside the repository contract.
-    const skillDirectories = [projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
+    const skillDirectories = projectDir ? REPOSITORY_SKILL_DIRECTORIES.map(relative => path.join(projectDir, relative)) : [];
     ({ plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog, skillDirectories }));
   }
   for (const plugin of plugins) {

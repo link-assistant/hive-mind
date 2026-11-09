@@ -402,12 +402,10 @@ jobs:
     uses: ./.github/workflows/native-codex-build.yml
   docker-pr-check:
     runs-on: ubuntu-24.04
-    # Issue #3785: builds take 16-25 min; the installed capability lifecycle
-    # gate adds ~4 min per Docker daemon layout (real CLI updates, Router).
+    # Issue #3785: 16-25 min builds + ~4 min lifecycle gate per Docker daemon layout.
     timeout-minutes: 45
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits, native-codex-build]
-    # Real PR builds stay opt-in (#4017); every publication candidate on main is
-    # always verified because release and instant-release require this job (#3785).
+    # Real PR builds stay opt-in (#4017); main publication candidates are always verified (#3785).
     if: |
       !cancelled() &&
       needs.native-codex-build.result == 'success' &&
@@ -435,9 +433,7 @@ jobs:
           node-version: 24.x
       - uses: ./.github/actions/assemble-native-codex
       - name: Verify Docker release-order contract
-        run: |
-          node tests/test-docker-release-order.mjs
-          node tests/test-docker-pr-memory.mjs
+        run: node tests/test-docker-release-order.mjs && node tests/test-docker-pr-memory.mjs
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Build Docker images and check build logs
@@ -447,11 +443,7 @@ jobs:
       - name: Preserve synthetic tool-data gate diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
-        with:
-          name: synthetic-tool-data-gate
-          path: ${{ runner.temp }}/hive-tool-data-*.log
-          if-no-files-found: ignore
-          retention-days: 7
+        with: { name: synthetic-tool-data-gate, path: '${{ runner.temp }}/hive-tool-data-*.log', if-no-files-found: ignore, retention-days: 7 }
   helm-pr-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

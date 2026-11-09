@@ -19,14 +19,10 @@ import { resetLimitCache, getLimitCache, getCachedCodexLimits, CACHE_TTL } from 
 
 // Isolate native usage readers from operator credentials and external accounts.
 const fixtureHome = mkdtempSync(join(tmpdir(), 'hive-queue-usage-'));
-process.env.CODEX_HOME = join(fixtureHome, 'codex');
-process.env.CLAUDE_CONFIG_DIR = join(fixtureHome, 'claude');
-process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
-process.env.HIVE_MIND_USE_ROUTER = '0';
+Object.assign(process.env, { CODEX_HOME: join(fixtureHome, 'codex'), CLAUDE_CONFIG_DIR: join(fixtureHome, 'claude'), CLAUDE_SECURESTORAGE_CONFIG_DIR: join(fixtureHome, 'claude'), HIVE_MIND_USE_ROUTER: '0' });
 process.once('exit', () => rmSync(fixtureHome, { recursive: true, force: true }));
 
-// Unit tests exercise queue operations explicitly. Disable automatic consumers
-// so enqueue cannot leave native usage checks running after stop().
+// Queues use autoStart: false so enqueue cannot leave native usage checks running after stop().
 
 // Test utilities
 let testsPassed = 0;
@@ -1226,24 +1222,11 @@ await asyncTest('checkApiLimits with tool gemini should not block on Claude limi
 await asyncTest('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ autoStart: false, verbose: false });
-  // A successful cached response needs an available credential generation.
-  // Empty synthetic auth keeps the fixture independent of real accounts.
+  // A cached success needs a credential generation; empty synthetic auth avoids real accounts.
   mkdirSync(process.env.CODEX_HOME, { recursive: true });
   writeFileSync(join(process.env.CODEX_HOME, 'auth.json'), '{}');
-  // Seed through the public API so path and credential-generation partitioning
-  // is exercised instead of bypassed with a stale internal cache key.
-  await getCachedCodexLimits(false, {
-    fetchLimits: async () => ({
-      success: true,
-      usage: {
-        currentSession: { percentage: 95, resetTime: null, resetsAt: null },
-        allModels: { percentage: 10, resetTime: null, resetsAt: null },
-      },
-      planType: 'pro',
-      additionalRateLimits: [],
-      credits: null,
-    }),
-  });
+  // Seed through the public API so the path/credential-generation cache partitioning is exercised.
+  await getCachedCodexLimits(false, { fetchLimits: async () => ({ success: true, usage: { currentSession: { percentage: 95, resetTime: null, resetsAt: null }, allModels: { percentage: 10, resetTime: null, resetsAt: null } }, planType: 'pro', additionalRateLimits: [], credits: null }) });
 
   const result = await queue.checkApiLimits(false, 1, 'codex');
   assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');

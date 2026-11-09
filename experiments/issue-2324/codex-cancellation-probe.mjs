@@ -6,10 +6,14 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { $ } from 'command-stream';
 import { executeCodexCommand } from '../../src/codex.lib.mjs';
 import { resetRepeatedToolCallState } from '../../src/tool-call-loop-guard.lib.mjs';
+import { withGeolocationPolicy } from '../../src/geolocation-policy.lib.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'codex-cancellation-2324-'));
 const binary = join(directory, 'codex-fixture.mjs');
 const prompt = 'finite cancellation probe | prompt data';
+const argv = { model: 'gpt-5', verbose: true, detectRepeatedToolCalls: true };
+// Issue #4023: Codex receives the location-privacy policy before the prompt.
+const expectedInput = `${withGeolocationPolicy('', argv)}\n\n${prompt}`;
 const inputFile = join(directory, 'input.txt');
 const children = [];
 const messages = [];
@@ -56,7 +60,7 @@ const timer = setInterval(() => {
     prompt,
     systemPrompt: '',
     // The breaker is opt-in since #2395; the probe enables it explicitly.
-    argv: { model: 'gpt-5', verbose: true, detectRepeatedToolCalls: true },
+    argv,
     codexPath: binary,
     $: trackedShell,
     formatAligned: (...parts) => parts.join(' '),
@@ -82,8 +86,8 @@ const timer = setInterval(() => {
     }
   }
   const input = await readFile(inputFile, 'utf8');
-  console.log(JSON.stringify({ success: result.success, input, breaker: messages.find(message => String(message).includes('Repeated-tool-call breaker')), observations }, null, 2));
-  if (input !== prompt || !observations.length || observations.some(observation => observation.delay === 500 && observation.exists)) process.exitCode = 1;
+  console.log(JSON.stringify({ success: result.success, input, expectedInput, breaker: messages.find(message => String(message).includes('Repeated-tool-call breaker')), observations }, null, 2));
+  if (input !== expectedInput || !observations.length || observations.some(observation => observation.delay === 500 && observation.exists)) process.exitCode = 1;
 } finally {
   if (previousStateDir === undefined) delete process.env.HIVE_MIND_STATE_DIR;
   else process.env.HIVE_MIND_STATE_DIR = previousStateDir;

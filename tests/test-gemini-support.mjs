@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { buildSystemPrompt, buildUserPrompt } from '../src/gemini.prompts.lib.mjs';
 import { buildGeminiArgs, detectGeminiPlainTextError, executeGeminiCommand, parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
+import { withGeolocationPolicy } from '../src/geolocation-policy.lib.mjs';
 import { buildModelOptionDescription, defaultModels, getToolDisplayName, primaryModelNames, resolveModelId, validateModelName } from '../src/models/index.mjs';
 
 let testsPassed = 0;
@@ -206,7 +207,11 @@ await asyncTest('executeGeminiCommand uses structured headless stream-json invoc
   // Issue #1809: the prompt is now piped via command-stream stdin instead of a
   // temp prompt file, so no $TMPDIR/gemini_prompt_ path should appear.
   assert.ok(!captured.command.includes('gemini_prompt_'));
-  assert.equal(captured.options.stdin, 'System prompt\n\nProceed.\n');
+  // Issue #4023 appends the location-privacy policy to every system prompt.
+  // This file is not in the pull-request suite, so the stale expectation first
+  // failed on main (issue #4025).
+  assert.equal(captured.options.stdin, `${withGeolocationPolicy('System prompt', { model: 'flash', verbose: false })}\n\nProceed.\n`);
+  assert.match(captured.options.stdin, /\n\nLocation privacy: /);
   assert.ok(logs.some(line => line.includes('Gemini command completed')));
 });
 

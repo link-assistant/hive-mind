@@ -53,11 +53,11 @@ export function escapeMarkdown(text) {
  * @param {boolean} state.isComplete - Whether processing is complete
  * @returns {string} Formatted message
  */
-function buildProgressMessage(state) {
+export function buildProgressMessage(state) {
   const { acceptedRepos, acceptedOrgs, errors, totalRepos, totalOrgs, processedRepos, processedOrgs, isComplete } = state;
 
   // Calculate totals
-  const totalInvitations = totalRepos + totalOrgs;
+  const totalInvitations = totalRepos + totalOrgs; // telegram-markdown-ok: numeric sum, not message text
   const processedTotal = processedRepos + processedOrgs;
   const acceptedTotal = acceptedRepos.length + acceptedOrgs.length;
 

@@ -135,7 +135,7 @@ await test('formatResourceSnapshotForLog prints a human block plus the parseable
   assert.match(text, /Memory:/);
   assert.match(text, /Process RSS:/);
   assert.match(text, /Disk \(\//);
-  assert.match(text, new RegExp(RESOURCE_MARKER_PREFIX.replace('[', '\\[').replace(']', '\\]')));
+  assert.ok(text.includes(RESOURCE_MARKER_PREFIX), 'log block contains the parseable marker');
 });
 
 await test('summarizeResourceSnapshot keeps heartbeat metadata compact and structured', () => {

@@ -32,15 +32,19 @@ function runTest(name, testFn) {
   }
 }
 
+// Paths go to the shell through the environment, not string interpolation,
+// so a checkout path with spaces or shell characters cannot change the command.
+const commandEnv = { ...process.env, MEMORY_CHECK_PATH: memoryCheckPath };
+
 function execCommand(command) {
   // A non-zero exit is a test failure. The old helper returned stderr as if it
   // were successful output, allowing a startup stack trace to satisfy --help.
-  return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+  return execSync(command, { encoding: 'utf8', stdio: 'pipe', env: commandEnv });
 }
 
 // Test 1: Check if memory-check.mjs exists
 runTest('memory-check.mjs exists', () => {
-  const output = execCommand(`ls -la ${memoryCheckPath}`);
+  const output = execCommand(`ls -la "$MEMORY_CHECK_PATH"`);
   if (!output.includes('memory-check.mjs')) {
     throw new Error('memory-check.mjs not found');
   }
@@ -48,7 +52,7 @@ runTest('memory-check.mjs exists', () => {
 
 // Test 2: Check basic help works
 runTest('memory-check.mjs --help', () => {
-  const output = execCommand(`${memoryCheckPath} --help 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --help 2>&1`);
 
   // Debug: Show what we actually get in CI
   if (process.env.GITHUB_ACTIONS) {
@@ -66,7 +70,7 @@ runTest('memory-check.mjs --help', () => {
 
 // Test 3: Check basic execution
 runTest('memory-check.mjs basic execution', () => {
-  const output = execCommand(`${memoryCheckPath} --quiet --json 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --quiet --json 2>&1`);
 
   // Filter out any trace/debug lines and find JSON output
   const lines = output.split('\n');
@@ -98,7 +102,7 @@ runTest('memory-check.mjs basic execution', () => {
 
 // Test 4: Check disk space check
 runTest('memory-check.mjs disk space check', () => {
-  const output = execCommand(`${memoryCheckPath} --min-disk-space 1 --quiet --json 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --min-disk-space 1 --quiet --json 2>&1`);
 
   // Filter out any trace/debug lines and find JSON output
   const lines = output.split('\n');
@@ -133,7 +137,7 @@ runTest('memory-check.mjs disk space check', () => {
 
 // Test 5: Check RAM check
 runTest('memory-check.mjs RAM check', () => {
-  const output = execCommand(`${memoryCheckPath} --min-memory 1 --quiet --json 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --min-memory 1 --quiet --json 2>&1`);
 
   // Filter out any trace/debug lines and find JSON output
   const lines = output.split('\n');
@@ -168,7 +172,7 @@ runTest('memory-check.mjs RAM check', () => {
 
 // Test 6: Check verbose output (non-JSON)
 runTest('memory-check.mjs verbose output', () => {
-  const output = execCommand(`${memoryCheckPath} --min-memory 1 --min-disk-space 1 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --min-memory 1 --min-disk-space 1 2>&1`);
 
   // Should contain human-readable output
   if (!output.includes('Disk space check') || !output.includes('Memory check')) {
@@ -182,7 +186,7 @@ runTest('memory-check.mjs verbose output', () => {
 
 // Test 7: Node.js syntax check
 runTest('memory-check.mjs syntax check', () => {
-  const output = execCommand(`node -c ${memoryCheckPath} 2>&1`);
+  const output = execCommand(`node -c "$MEMORY_CHECK_PATH" 2>&1`);
   // If there's a syntax error, node -c will output it
   if (output && output.includes('SyntaxError')) {
     throw new Error(`Syntax error in memory-check.mjs: ${output}`);
@@ -191,7 +195,7 @@ runTest('memory-check.mjs syntax check', () => {
 
 // Test 8: Check platform-specific logic
 runTest('memory-check.mjs platform detection', () => {
-  const output = execCommand(`${memoryCheckPath} --quiet --json 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --quiet --json 2>&1`);
 
   // Filter out any trace/debug lines and find JSON output
   const lines = output.split('\n');
@@ -228,7 +232,7 @@ runTest('memory-check.mjs platform detection', () => {
 // Test 9: Check exit code on success
 runTest('memory-check.mjs exit code on success', () => {
   try {
-    execSync(`${memoryCheckPath} --min-memory 1 --min-disk-space 1 --quiet`, { stdio: 'ignore' });
+    execSync(`"$MEMORY_CHECK_PATH" --min-memory 1 --min-disk-space 1 --quiet`, { stdio: 'ignore', env: commandEnv });
     // If we get here, exit code was 0 (success)
   } catch (error) {
     throw new Error(`Should exit with 0 on success, got: ${error.status}`, { cause: error });
@@ -237,7 +241,7 @@ runTest('memory-check.mjs exit code on success', () => {
 
 // Test 10: Check that script can be executed successfully
 runTest('memory-check.mjs execution', () => {
-  const output = execCommand(`${memoryCheckPath} --min-memory 1 --min-disk-space 1 --quiet 2>&1`);
+  const output = execCommand(`"$MEMORY_CHECK_PATH" --min-memory 1 --min-disk-space 1 --quiet 2>&1`);
 
   // Should complete without errors
   if (output.includes('Error') || output.includes('error')) {

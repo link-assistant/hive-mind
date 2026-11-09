@@ -11,75 +11,10 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1148
  */
 
-/**
- * Escapes special characters in text for Telegram MarkdownV2 formatting
- * @param {string} text - The text to escape
- * @returns {string} The escaped text
- */
-function escapeMarkdown(text) {
-  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-}
+// Test the shipped functions, not a copy: the copy drifted from src and kept
+// an escaper without the backslash (issue #4025, CodeQL js/incomplete-sanitization).
+import { buildProgressMessage } from '../src/telegram-accept-invitations.lib.mjs';
 
-/**
- * Build progress message from current state
- * @param {Object} state - Current state object
- * @returns {string} Formatted message
- */
-function buildProgressMessage(state) {
-  const { acceptedRepos, acceptedOrgs, errors, totalRepos, totalOrgs, processedRepos, processedOrgs, isComplete } = state;
-
-  const totalInvitations = totalRepos + totalOrgs;
-  const processedTotal = processedRepos + processedOrgs;
-  const acceptedTotal = acceptedRepos.length + acceptedOrgs.length;
-
-  let message = isComplete ? '✅ *GitHub Invitations Processed*\n\n' : `🔄 *Processing GitHub Invitations* \\(${processedTotal}/${totalInvitations}\\)\n\n`;
-
-  if (acceptedRepos.length > 0 || (!isComplete && totalRepos > 0)) {
-    message += '*Repositories:*\n';
-    for (const repoName of acceptedRepos) {
-      const escapedName = escapeMarkdown(repoName);
-      const escapedLink = escapeMarkdown(`https://github.com/${repoName}`);
-      message += `  • 📦 [${escapedName}](${escapedLink})\n`;
-    }
-    if (!isComplete && processedRepos < totalRepos) {
-      const remaining = totalRepos - processedRepos;
-      message += `  • _\\.\\.\\. ${remaining} more pending_\n`;
-    }
-    message += '\n';
-  }
-
-  if (acceptedOrgs.length > 0 || (!isComplete && totalOrgs > 0)) {
-    message += '*Organizations:*\n';
-    for (const orgName of acceptedOrgs) {
-      const escapedName = escapeMarkdown(orgName);
-      const escapedLink = escapeMarkdown(`https://github.com/${orgName}`);
-      message += `  • 🏢 [${escapedName}](${escapedLink})\n`;
-    }
-    if (!isComplete && processedOrgs < totalOrgs) {
-      const remaining = totalOrgs - processedOrgs;
-      message += `  • _\\.\\.\\. ${remaining} more pending_\n`;
-    }
-    message += '\n';
-  }
-
-  if (errors.length > 0) {
-    message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n') + '\n\n';
-  }
-
-  if (isComplete) {
-    if (acceptedTotal === 0 && errors.length === 0) {
-      message += 'No pending invitations found\\.';
-    } else if (acceptedTotal > 0 && errors.length === 0) {
-      message += `\n🎉 Successfully accepted ${acceptedTotal} invitation\\(s\\)\\!`;
-    } else if (acceptedTotal > 0 && errors.length > 0) {
-      message += `\n⚠️ Accepted ${acceptedTotal} invitation\\(s\\), ${errors.length} error\\(s\\)\\.`;
-    }
-  }
-
-  return message;
-}
-
-// Test cases
 const testCases = [
   {
     name: 'No pending invitations',

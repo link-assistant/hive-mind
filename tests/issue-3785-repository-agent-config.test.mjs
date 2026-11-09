@@ -220,3 +220,70 @@ test('Claude: a directory marketplace cannot point outside the checkout', async 
   assert.deepEqual(result.pluginDirs, []);
   assert.match(result.warnings.join('\n'), /outside the checkout/u);
 });
+
+// Recursively lists every entry with its size so writes, creations and
+// deletions in a directory tree are all detected.
+const snapshotTree = async root => {
+  const { readdir, lstat } = await import('node:fs/promises');
+  const entries = [];
+  const walk = async directory => {
+    for (const name of (await readdir(directory)).sort()) {
+      const file = path.join(directory, name);
+      const info = await lstat(file);
+      entries.push(`${path.relative(root, file)}:${info.isDirectory() ? 'dir' : info.size}`);
+      if (info.isDirectory()) await walk(file);
+    }
+  };
+  await walk(root);
+  return entries;
+};
+
+test('two tasks with different repository declarations never touch the host or each other', async t => {
+  const root = await tempDir(t);
+  const host = path.join(root, 'host');
+  await write(path.join(host, '.claude', 'settings.json'), '{"enabledPlugins":{}}');
+  await write(path.join(host, '.claude.json'), '{"mcpServers":{}}');
+  await write(path.join(host, '.codex', 'config.toml'), '[mcp_servers.playwright]\ncommand = "operator-playwright"\n');
+  await write(path.join(host, '.codex', 'auth.json'), 'synthetic-host-auth');
+  const saved = Object.fromEntries(['HOME', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME'].map(key => [key, process.env[key]]));
+  Object.assign(process.env, { HOME: host, CODEX_HOME: path.join(host, '.codex'), CLAUDE_CONFIG_DIR: path.join(host, '.claude'), XDG_CONFIG_HOME: path.join(host, '.config'), XDG_DATA_HOME: path.join(host, '.local', 'share') });
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const hostBefore = await snapshotTree(host);
+
+  const tasks = {};
+  for (const name of ['alpha', 'beta']) {
+    const projectDir = path.join(root, `${name}-checkout`);
+    const codexHome = path.join(root, `${name}-codex-home`);
+    await write(path.join(codexHome, 'config.toml'), '[mcp_servers.playwright]\ncommand = "operator-playwright"\n');
+    await write(path.join(projectDir, '.agents', 'skills', `${name}-skill`, 'SKILL.md'), skill(`${name}-skill`));
+    await write(path.join(projectDir, '.codex', 'config.toml'), `[mcp_servers.${name}-docs]\ncommand = "${name}-mcp"\n`);
+    await write(path.join(projectDir, '.mcp.json'), JSON.stringify({ mcpServers: { [`${name}-claude-docs`]: { command: `${name}-claude-mcp` } } }));
+    await write(path.join(projectDir, '.claude', 'settings.json'), JSON.stringify({ enabledPlugins: { [`${name}@${name}-market`]: true }, extraKnownMarketplaces: { [`${name}-market`]: { source: { source: 'directory', path: './market' } } } }));
+    await write(path.join(projectDir, 'market', '.claude-plugin', 'marketplace.json'), JSON.stringify({ name: `${name}-market`, plugins: [{ name, source: `./plugins/${name}` }] }));
+    await write(path.join(projectDir, 'market', 'plugins', name, '.claude-plugin', 'plugin.json'), JSON.stringify({ name }));
+    await applyRepositoryCodexConfig({ codexHome, projectDir, env: {}, repositoryConfig: await readRepositoryCodexConfig({ projectDir }) });
+    const claude = await resolveRepositoryClaudePluginArgs({ projectDir, clone: async () => assert.fail('no remote plugins declared') });
+    t.after(claude.cleanup);
+    tasks[name] = { codexHome, claude, mcp: (await readRepositoryMcpServers({ projectDir })).servers };
+  }
+
+  for (const [name, other] of [
+    ['alpha', 'beta'],
+    ['beta', 'alpha'],
+  ]) {
+    const config = parseToml(await readFile(path.join(tasks[name].codexHome, 'config.toml'), 'utf8'));
+    assert.equal(config.mcp_servers[`${name}-docs`].command, `${name}-mcp`);
+    assert.equal(config.mcp_servers[`${other}-docs`], undefined, `${other}'s MCP server must not reach ${name}`);
+    assert.equal(config.mcp_servers.playwright.command, 'operator-playwright');
+    assert.deepEqual(Object.keys(tasks[name].mcp), [`${name}-claude-docs`]);
+    assert.deepEqual(tasks[name].claude.loaded, [`${name}@${name}-market`]);
+    assert.ok(tasks[name].claude.args.every(argument => !argument.includes(other)));
+  }
+  assert.deepEqual(await snapshotTree(host), hostBefore, 'repository capabilities must never be written to host configuration');
+  assert.equal(await readFile(path.join(host, '.codex', 'auth.json'), 'utf8'), 'synthetic-host-auth');
+});

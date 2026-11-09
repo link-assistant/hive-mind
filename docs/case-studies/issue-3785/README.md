@@ -16,6 +16,70 @@ complete global baseline enforcement, migration, and full six-tool release and
 deployment lifecycle remain unfinished. Passing narrower tests does not satisfy
 those criteria.
 
+## Follow-up on 2026-11-09: per-task repository capabilities and dependencies
+
+[PR comment 6733911857](https://github.com/link-assistant/hive-mind/pull/3786#issuecomment-6733911857)
+asked for four things, mapped to rows D1–D9 in [requirements](requirements.md):
+
+- update every dependency;
+- keep credentials linked to the host;
+- keep every plugin, skill and MCP server per task and per container;
+- provision what each repository declares, with nothing but Playwright MCP by default.
+
+### Root cause of the referenced downstream failure
+
+Only the minimum needed was taken from the referenced private report. A task
+in a repository that declared its own Codex skills could not use them, and two
+behaviours caused this together:
+
+- The model-visible skill validator admitted a repository skill only from
+  `.agents/skills`, and only when its directory name equalled the skill name.
+- Bundled Codex system skills were enabled in every task.
+
+Repository-declared capabilities were therefore refused, while undeclared ones
+were offered.
+
+### Changes
+
+| Tool   | Repository declaration                                                                             | Per-task handling                                                                                                                                                                                                                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Codex  | `.agents/skills`, `.codex/skills`                                                                  | Admitted wherever Codex discovers them inside the checkout; links leaving the checkout are refused                                                                                                                                                                                                      |
+| Codex  | `.codex/config.toml`                                                                               | An allowlisted subset (`mcp_servers`, in-checkout `[[skills.config]]`, enabled plugins) is copied into the disposable per-task `CODEX_HOME`. Provider, base URL and sandbox keys are reported and ignored. The checkout is never marked trusted                                                         |
+| Codex  | (bundled system skills)                                                                            | Disabled per task with `[[skills.config]] enabled = false`. `HIVE_MIND_CODEX_SYSTEM_SKILLS=1` restores them, and a system skill a task explicitly requires stays enabled                                                                                                                                |
+| Claude | `.claude/skills`                                                                                   | Already loaded natively from the working directory                                                                                                                                                                                                                                                      |
+| Claude | `.mcp.json`                                                                                        | Headless runs leave these servers pending approval, and the `--strict-mcp-config` file drops them. They are now merged into that per-session temporary file; operator servers such as Playwright win on name conflicts, and the filtered `claude.ai` Gmail/Drive/Calendar connector names stay excluded |
+| Claude | `.claude/settings.json` `enabledPlugins` with `extraKnownMarketplaces` or the official marketplace | Headless runs neither install nor load them. They are materialized in a private temporary directory, passed with `--plugin-dir`, and removed when the Hive Mind process exits                                                                                                                           |
+
+Credentials keep the existing host-backed authority (A1, P1a). The control center
+mounts the host Claude/Codex directories, and tasks receive only the credential
+parent. Repository capabilities are written only to per-task homes and
+temporary directories. The regression
+`two tasks with different repository declarations never touch the host or each other`
+in `tests/issue-3785-repository-agent-config.test.mjs` snapshots a synthetic host
+home. It fails when a task's Codex home points at the host.
+
+Claude and Codex require explicit trust or approval before honouring repository
+configuration. That is a deliberate security boundary, not a defect, so no
+upstream report was filed. Hive Mind provides the per-task equivalent.
+
+### Dependency refresh
+
+| Dependency            | Before  | After   | Verification                                                                                                                                                                                                                              |
+| --------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code           | 2.1.310 | 2.1.319 | Release manifest `linux-x64` SHA-256 `dabafec8…8eed` matches the binary. `experiments/issue-3785/run-claude-native-probes.sh` passes every step, including the expected owner-death reproduction. All cloud-policy keys are still present |
+| @link-assistant/agent | 0.27.1  | 0.27.2  | CI-only upstream changes. The runtime gate's stale `0.27.0` expectation is corrected                                                                                                                                                      |
+| opencode-ai           | 1.19.4  | 1.19.5  | One upstream bug fix. The data-runtime version tests are updated                                                                                                                                                                          |
+| @qwen-code/qwen-code  | 0.26.1  | 0.27.0  | Contains QwenLM/qwen-code#15661, which closed QwenLM/qwen-code#15653. The same environment and authentication surface. `probe-qwen-lock-ownership.mjs --expect-upstream-fix` prints `FIXED`, and the native Qwen workflow now requires it |
+| jscpd                 | 5.4.2   | 5.4.3   | Lockfile changes are limited to jscpd                                                                                                                                                                                                     |
+| @google/gemini-cli    | 0.65.0  | 0.65.0  | **Blocked.** 0.67.0 needs a regenerated hash-locked native adapter recipe and attestation                                                                                                                                                 |
+| @openai/codex         | 0.164.0 | 0.164.0 | **Blocked.** 0.167.0 needs a regenerated stock-skill manifest and native build attestation                                                                                                                                                |
+
+These were already the latest releases: start-command 0.43.0, Box 2.10.5,
+Bun 1.4.4, Node 26.13.0, Formal AI 0.355.34 and Rust 1.99. Upstream
+anthropics/claude-code#106218 (owner-death predecessor reuse) is still open
+and still reproduces on 2.1.319. See
+[`evidence/qwen-lock-ownership.txt`](evidence/qwen-lock-ownership.txt).
+
 ## Recovery on 2026-10-30
 
 The interrupted session's complete trace is retained as

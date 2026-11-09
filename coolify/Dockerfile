@@ -254,7 +254,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.27.1 && \
+    bun install -g @link-assistant/agent@0.27.2 && \
     bun install -g start-command@0.43.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \

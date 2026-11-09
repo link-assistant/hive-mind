@@ -270,9 +270,11 @@ jobs:
         run: node scripts/npm-install-with-retry.mjs install
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
-      - name: Run default test suite
-        run: npm test
+      - name: Run selected source test suite
+        id: test-profile
+        run: node scripts/source-test-profile.mjs
       - name: Resolve GitHub credentials
+        if: steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'
         id: gh
         uses: ./.github/actions/resolve-github-token # https://github.com/link-foundation/.github/issues/1
         with:
@@ -281,13 +283,14 @@ jobs:
           token: ${{ secrets.AUTOMATION_TOKEN }}
           default-token: ${{ github.token }}
       - name: Run GitHub integration test suite
+        if: steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
           AUTOMATION_CAN_CREATE_REPOSITORIES: ${{ steps.gh.outputs.can-create-repositories }}
           AUTOMATION_CAN_DELETE_REPOSITORIES: ${{ steps.gh.outputs.can-delete-repositories }}
         run: node scripts/run-tests.mjs --suite github-integration
       - name: Upload integration evidence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: feedback-lines-integration
@@ -403,7 +406,8 @@ jobs:
     # gate adds ~4 min per Docker daemon layout (real CLI updates, Router).
     timeout-minutes: 45
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits, native-codex-build]
-    # Verify changed PR images and every publication candidate before npm release.
+    # Real PR builds stay opt-in (#4017); every publication candidate on main is
+    # always verified because release and instant-release require this job (#3785).
     if: |
       !cancelled() &&
       needs.native-codex-build.result == 'success' &&
@@ -412,7 +416,9 @@ jobs:
       (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
-      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' ||
+      ((vars.ENABLE_DOCKER_PR_BUILDS == 'true' &&
+        github.event_name == 'pull_request' &&
+        (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')) ||
        (github.ref == 'refs/heads/main' &&
         ((github.event_name == 'push' && needs.detect-changes.outputs.any-code-changed == 'true') ||
          (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))))

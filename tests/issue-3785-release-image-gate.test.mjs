@@ -20,7 +20,7 @@ const conditions = Object.fromEntries(
   })
 );
 
-function allowed(job, { event = 'push', ref = 'refs/heads/main', imageChanges = 'false', codeChanges = 'true', mode = 'checks', gate = 'success', nativeGate = 'success' } = {}) {
+function allowed(job, { event = 'push', ref = 'refs/heads/main', imageChanges = 'false', codeChanges = 'true', mode = 'checks', gate = 'success', nativeGate = 'success', prBuilds = 'true' } = {}) {
   const needs = Object.fromEntries(['changeset-check', 'test-compilation', 'lint', 'check-file-line-limits', 'test-suites', 'test-execution', 'memory-check-linux', 'validate-docs', 'version-check', 'helm-pr-check', 'release-preflight', 'docker-pr-check'].map(name => [name, { result: name === 'docker-pr-check' ? gate : 'success' }]));
   needs['detect-changes'] = { result: 'success', outputs: { 'docker-changed': imageChanges, 'workflow-changed': 'false', 'any-code-changed': codeChanges } };
   needs['native-codex-build'] = { result: nativeGate };
@@ -29,7 +29,7 @@ function allowed(job, { event = 'push', ref = 'refs/heads/main', imageChanges = 
     .replaceAll('needs.*.result', 'results')
     .replace(/needs\.([a-z][a-z-]*)/gu, 'needs["$1"]')
     .replace(/\.outputs\.([a-z][a-z-]*)/gu, '.outputs["$1"]');
-  return vm.runInNewContext(expression, { needs, inputs, results: Object.values(needs).map(item => item.result), github: { ref, event_name: event, event: { inputs } }, contains: (list, item) => list.includes(item), cancelled: () => false }, { timeout: 100 });
+  return vm.runInNewContext(expression, { vars: prBuilds === null ? {} : { ENABLE_DOCKER_PR_BUILDS: prBuilds }, needs, inputs, results: Object.values(needs).map(item => item.result), github: { ref, event_name: event, event: { inputs } }, contains: (list, item) => list.includes(item), cancelled: () => false }, { timeout: 100 });
 }
 
 test('packaged image checks run on main before source and test-only releases', () => {
@@ -45,6 +45,16 @@ test('PR image selection and docs-only main pushes retain their existing behavio
   assert.equal(allowed('docker-pr-check', { event: 'pull_request', ref: 'refs/pull/1/merge', imageChanges: 'true' }), true);
   assert.equal(allowed('docker-pr-check', { event: 'pull_request', ref: 'refs/pull/1/merge' }), false);
   assert.equal(allowed('docker-pr-check', { codeChanges: 'false' }), false);
+});
+
+// #4017 made real PR Docker builds opt-in; release and instant-release still
+// require this job, so the opt-in must never gate main publication candidates.
+test('PR builds stay opt-in while main publication checks never depend on the opt-in', () => {
+  for (const prBuilds of [null, '', 'false']) {
+    assert.equal(allowed('docker-pr-check', { event: 'pull_request', ref: 'refs/pull/1/merge', imageChanges: 'true', prBuilds }), false, `PR with ${prBuilds}`);
+    assert.equal(allowed('docker-pr-check', { prBuilds }), true, `main push with ${prBuilds}`);
+    assert.equal(allowed('docker-pr-check', { event: 'workflow_dispatch', mode: 'release', codeChanges: 'false', prBuilds }), true, `manual release with ${prBuilds}`);
+  }
 });
 
 for (const job of ['release', 'instant-release']) {

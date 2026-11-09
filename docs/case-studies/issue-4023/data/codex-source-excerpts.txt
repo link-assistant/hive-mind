@@ -1,0 +1,28 @@
+Source: openai/codex @ 09bd19a0deb54cce82439c23373b07b84d3e5d04
+codex-rs/protocol/src/config_types.rs, lines 420-435
+pub struct WebSearchLocation {
+    pub country: Option<String>,
+    pub region: Option<String>,
+    pub city: Option<String>,
+    pub timezone: Option<String>,
+}
+
+impl WebSearchLocation {
+    pub fn merge(&self, other: &Self) -> Self {
+        Self {
+            country: other.country.clone().or_else(|| self.country.clone()),
+            region: other.region.clone().or_else(|| self.region.clone()),
+            city: other.city.clone().or_else(|| self.city.clone()),
+            timezone: other.timezone.clone().or_else(|| self.timezone.clone()),
+        }
+    }
+
+codex-rs/config/src/config_toml.rs, lines 749-756
+    Ok(match value {
+        None => None,
+        Some(WebSearchToolConfigInput::Enabled(enabled)) => {
+            let _ = enabled;
+            None
+        }
+        Some(WebSearchToolConfigInput::Config(config)) => Some(config),
+    })

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 /**
  * Issue #3248: the Formal AI Draft workflow failed on 53 of 60 new issues.
  *
@@ -42,12 +43,14 @@ test('a draft does not restart the model over uncommitted files', () => {
 
 // --- 5. Pinned image, pulled with retries -----------------------------------
 
-test('the image follows the checked-out package.json version, with :latest only as a fallback', () => {
+test('the image follows the selected version or explicit override without an implicit fallback', () => {
   assert.equal(HIVE_MIND_IMAGE_REPOSITORY, 'konard/hive-mind');
-  assert.deepEqual(resolveDraftImages({ version: '2.35.9' }), { image: 'konard/hive-mind:2.35.9', fallback: 'konard/hive-mind:latest' });
+  assert.deepEqual(resolveDraftImages({ version: '2.35.9' }), { image: 'konard/hive-mind:2.35.9', fallback: null });
+  assert.deepEqual(resolveDraftImages({ version: '42.8.1-rc.2' }), { image: 'konard/hive-mind:42.8.1-rc.2', fallback: null });
   assert.deepEqual(resolveDraftImages({ override: 'example/hive:candidate', version: '2.35.9' }), { image: 'example/hive:candidate', fallback: null }, 'an explicit image is used as given');
-  assert.deepEqual(resolveDraftImages({ override: '  ', version: 'not-a-version' }), { image: 'konard/hive-mind:latest', fallback: null });
-  assert.deepEqual(resolveDraftImages({}), { image: 'konard/hive-mind:latest', fallback: null });
+  for (const options of [{}, { version: '' }, { version: 'latest' }, { override: '  ', version: 'not-a-version' }]) {
+    assert.throws(() => resolveDraftImages(options), { code: 'DRAFT_IMAGE_SELECTION_UNAVAILABLE' });
+  }
 });
 
 test('pull failures are classified: a missing tag is not retried, a registry timeout is', () => {
@@ -86,27 +89,121 @@ test('a registry that never answers fails the pull after the last retry, naming 
   assert.deepEqual(sleeps, [10, 20]);
 });
 
-test('a pinned tag that is not published yet falls back to :latest with a warning', async () => {
-  const pulled = [];
+test('a missing selected tag fails without pulling another image or retrying it', async () => {
+  const calls = [];
+  const sleeps = [];
   const warnings = [];
-  const image = await pullDraftImage({
-    version: '2.36.0',
-    run: async ([, image]) => (pulled.push(image), image.endsWith(':2.36.0') ? { code: 1, output: 'manifest unknown' } : { code: 0, output: '' }),
-    sleep: async () => {},
-    delays: [1, 1],
-    log: () => {},
-    warn: message => warnings.push(message),
-  });
-  assert.equal(image, 'konard/hive-mind:latest');
-  assert.deepEqual(pulled, ['konard/hive-mind:2.36.0', 'konard/hive-mind:latest'], 'a missing tag is not retried');
-  assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /konard\/hive-mind:2\.36\.0 is not published/);
+  await assert.rejects(
+    pullDraftImage({
+      version: '2.36.0',
+      run: async args => (calls.push(args), { code: 1, output: 'manifest unknown' }),
+      sleep: async ms => sleeps.push(ms),
+      delays: [1, 1],
+      log: () => {},
+      warn: message => warnings.push(message),
+    }),
+    /Could not pull konard\/hive-mind:2\.36\.0 after 1 attempt: manifest unknown/
+  );
+  assert.deepEqual(calls, [['pull', 'konard/hive-mind:2.36.0']], 'no fallback image or container start is requested');
+  assert.deepEqual(sleeps, [], 'a missing tag is not retried');
+  assert.deepEqual(warnings, [], 'no fallback warning conceals the refusal');
 });
 
 test('a transient failure of the pinned tag does not silently switch images', async () => {
   const pulled = [];
   await assert.rejects(pullDraftImage({ version: '2.35.9', run: async ([, image]) => (pulled.push(image), { code: 1, output: 'context deadline exceeded' }), sleep: async () => {}, delays: [1], log: () => {}, warn: () => {} }), /Could not pull konard\/hive-mind:2\.35\.9 after 2 attempts: context deadline exceeded/);
   assert.deepEqual(pulled, ['konard/hive-mind:2.35.9', 'konard/hive-mind:2.35.9']);
+});
+
+test('missing or invalid versions refuse before any run or sleep callback', async () => {
+  for (const options of [{}, { version: '' }, { version: 'latest' }, { override: '  ', version: 'not-a-version' }]) {
+    const calls = [];
+    const sleeps = [];
+    await assert.rejects(
+      pullDraftImage({
+        ...options,
+        run: async args => (calls.push(args), { code: 0, output: '' }),
+        sleep: async ms => sleeps.push(ms),
+        log: () => {},
+      }),
+      { code: 'DRAFT_IMAGE_SELECTION_UNAVAILABLE' }
+    );
+    assert.deepEqual(calls, []);
+    assert.deepEqual(sleeps, []);
+  }
+});
+
+test('explicit overrides route as selected without authenticating them or choosing a fallback', async () => {
+  for (const override of ['example/hive:latest', 'example/hive@sha256:' + 'a'.repeat(64)]) {
+    const calls = [];
+    const image = await pullDraftImage({
+      override,
+      version: 'not-a-version',
+      run: async args => (calls.push(args), { code: 0, output: '' }),
+      sleep: async () => assert.fail('a successful pull needs no retry'),
+      log: () => {},
+    });
+    assert.equal(image, override);
+    assert.deepEqual(calls, [['pull', override]]);
+  }
+  const override = 'example/hive@sha256:' + 'b'.repeat(64);
+  const calls = [];
+  await assert.rejects(
+    pullDraftImage({
+      override,
+      run: async args => (calls.push(args), { code: 1, output: 'pull access denied' }),
+      sleep: async () => assert.fail('a missing explicit image is not retried'),
+      log: () => {},
+    }),
+    /after 1 attempt: pull access denied/
+  );
+  assert.deepEqual(calls, [['pull', override]]);
+});
+
+test('failed pulls retain the selected image and expose distinct bounded infrastructure errors', async () => {
+  for (const failure of [
+    { output: 'manifest unknown', code: 'DRAFT_IMAGE_UNAVAILABLE', attempts: 1 },
+    { output: 'context deadline exceeded', code: 'DRAFT_IMAGE_PULL_FAILED', attempts: 2 },
+  ]) {
+    const calls = [];
+    await assert.rejects(
+      pullDraftImage({
+        version: '2.36.0',
+        run: async args => (calls.push(args), { code: 1, output: failure.output }),
+        sleep: async () => {},
+        delays: [1],
+        log: () => {},
+      }),
+      error => {
+        assert.equal(error.code, failure.code);
+        assert.equal(error.image, 'konard/hive-mind:2.36.0');
+        assert.equal(error.attempts, failure.attempts);
+        assert.match(error.message, new RegExp('^\\[' + failure.code + '\\]'));
+        return true;
+      }
+    );
+    assert.equal(calls.length, failure.attempts);
+    assert(calls.every(args => args[1] === 'konard/hive-mind:2.36.0'));
+  }
+});
+
+test('default transient retry budget keeps every attempt on the same selected image', async () => {
+  const calls = [];
+  const sleeps = [];
+  await assert.rejects(
+    pullDraftImage({
+      version: '42.8.1-rc.2',
+      run: async args => (calls.push(args), { code: 1, output: 'TLS handshake timeout' }),
+      sleep: async ms => sleeps.push(ms),
+      log: () => {},
+    }),
+    /after 5 attempts: TLS handshake timeout/
+  );
+  assert.deepEqual(
+    calls,
+    Array.from({ length: 5 }, () => ['pull', 'konard/hive-mind:42.8.1-rc.2'])
+  );
+  assert.deepEqual(sleeps, [15000, 30000, 60000, 120000]);
 });
 
 // --- 3. The container knows it is ephemeral -----------------------------------

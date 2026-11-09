@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -29,10 +30,16 @@ for (const file of dockerfiles) {
 
 const releaseYml = await read('.github/workflows/release.yml');
 const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
-const helmPrStart = releaseYml.indexOf('  # === HELM PR CHECK', dockerPrStart);
+const helmPrStart = releaseYml.indexOf('  helm-pr-check:', dockerPrStart);
+assert.ok(dockerPrStart >= 0 && helmPrStart > dockerPrStart, 'the Docker PR contract must inspect exactly its named job');
 const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
+assert.match(dockerPrSection, /^ {6}\(\(vars\.ENABLE_DOCKER_PR_BUILDS == 'true' &&\n {8}github\.event_name == 'pull_request' &&$/m, 'real PR Docker builds require an explicit repository opt-in (#4017)');
+assert.ok(!/vars\.ENABLE_DOCKER_PR_BUILDS[^\n]*\n[^\n]*github\.ref == 'refs\/heads\/main'/.test(dockerPrSection), 'the PR opt-in must not gate the main publication verification');
+assert.match(dockerPrSection, /^ {7}\(github\.ref == 'refs\/heads\/main' &&\n {8}\(\(github\.event_name == 'push' && needs\.detect-changes\.outputs\.any-code-changed == 'true'\) \|\|\n {9}\(github\.event_name == 'workflow_dispatch' && inputs\.mode == 'release'\)\)\)\)$/m, 'release and instant-release require this job, so main publication candidates are always verified (#3785)');
+assert.match(releaseYml, /needs\.docker-pr-check\.result == 'success' && github\.ref == 'refs\/heads\/main' && github\.event_name == 'push'/, 'npm release waits for the verified publication candidate');
+assert.ok(dockerPrSection.includes('    timeout-minutes: 45'), 'the retained real build keeps its finite job budget');
 
-// PR docker-pr-check must (1) run the release-order contract test AND
+// When explicitly enabled, docker-pr-check must (1) run the release-order contract test AND
 // (2) actually build the Docker image using a packed copy of the PR branch
 // and run the container verification script.
 // The build and verification commands live in scripts/ rather than inline in the

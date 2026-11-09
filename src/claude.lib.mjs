@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -163,12 +164,9 @@ export const executeClaude = async params => {
     })
   );
 };
-// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
-// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+// Separate cost/session accounting keeps this runner within the file-size cap (issues #1710, #2175).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
-// Issue #2175: session token accounting lives in claude.session-tokens.lib.mjs
-// so this file stays under the 1350-line early-warning threshold (issue #1593).
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
@@ -181,7 +179,7 @@ export const executeClaudeCommand = async params => {
     tempDir,
     branchName,
     prompt,
-    systemPrompt,
+    systemPrompt: originalSystemPrompt,
     argv,
     log,
     setLogFile,
@@ -201,6 +199,7 @@ export const executeClaudeCommand = async params => {
     // and issue body/title polling in setupBidirectionalHandler.
     issueNumber,
   } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
   const claudeAttribution = await createToolAttribution({ tool: 'claude', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl: params.prUrl, log, createAttributionSession: params.createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from stream-json
   let claudeBaseUrl = null; // Issue #3279: the endpoint Claude Code was pointed at, for pricing the served model
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
@@ -398,7 +397,7 @@ export const executeClaudeCommand = async params => {
           await log(`❌ ${error.message}`, { level: 'error' });
           throw error;
         });
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env };
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env, ...buildGeolocationEnv(argv) };
       if (useRouter) claudeEnv.HIVE_MIND_USE_ROUTER = '1';
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       claudeBaseUrl = (await claudeAttribution.prepareEnv(claudeEnv)).ANTHROPIC_BASE_URL || null; // Issue #3279: attribution hooks via GIT_CONFIG_*; endpoint kept for pricing

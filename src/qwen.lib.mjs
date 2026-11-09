@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs';
@@ -379,7 +380,7 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
 
 // Function to validate Qwen connection
 export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen', { useRouter = false } = {}) => {
-  const runConnection = createRouterConnectionRunner({ $, tool: 'qwen', useRouter, log });
+  const runConnection = createRouterConnectionRunner({ $, tool: 'qwen', useRouter, log, env: () => ({ ...process.env, ...buildGeolocationEnv() }) });
   const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
   assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
   const mappedModel = mapModelToId(model);
@@ -508,7 +509,8 @@ export const executeQwen = async params => {
 };
 
 export const executeQwenCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
@@ -563,7 +565,8 @@ export const executeQwenCommand = async params => {
     await applyGeminiFamilyPricingTier({ tool: 'qwen', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'qwen', model: argv.model || defaultModels.qwen, toolPath: qwenPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
-    const qwenEnv = { ...process.env, ...toolInvocation.env };
+    Object.assign(toolInvocation.env, buildGeolocationEnv(argv));
+    const qwenEnv = { ...process.env, ...toolInvocation.env, ...buildGeolocationEnv(argv) };
     const resumeSession = argv.resume || null;
     const resumeArgs = resumeSession ? ` --resume ${shellQuote(resumeSession)}` : '';
     const appendSystemPromptArg = systemPrompt ? ` --append-system-prompt "$(cat ${shellQuote(systemPromptFile)})"` : '';

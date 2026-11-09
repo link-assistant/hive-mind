@@ -1,3 +1,4 @@
+// @hive-mind-test-suite default,pr-essential
 /**
  * Regression coverage for issue #2625 (E2E Hello World Matrix run 37616874265,
  * row `agent / nemotron-3-super-free`).
@@ -75,6 +76,9 @@ test('models Agent already knows need no overlay', () => {
 
 test('the task run hands the overlay to Agent', () => {
   const agentLib = source('src/agent.lib.mjs');
+  assert.match(agentLib, /const validationEnv = \{ \.\.\.process\.env, \.\.\.getAgentModelOverlayEnv\(\{ mappedModel \}\), \.\.\.buildGeolocationEnv\(\) \};/);
+  assert.match(agentLib, /createRouterConnectionRunner\(\{ \$, tool: 'agent', useRouter: options\.useRouter, log, env: \(\) => validationEnv \}\)/);
+  assert.match(agentLib, /runValidation`printf %s \$\{promptText\('prompt\.templates\.connection\.greeting'/);
   assert.match(agentLib, /getAgentModelOverlayEnv\(\{ env: agentEnv, mappedModel \}\)/);
 });
 
@@ -85,4 +89,19 @@ test('connection validation hands the free-model overlay and existing settings t
   assert.match(result.stdout, /Ordinary agent env connection lifetime: healthy/);
   assert.match(result.stdout, /pass 1(?:\s|$)/);
   assert.match(result.stdout, /fail 0(?:\s|$)/);
+});
+
+// Captured provider404 from E2E41776642750: the old free Super id was withdrawn.
+test('the explicit free control uses the current catalogue id without remapping the historical alias', () => {
+  const mapped = validateModelName('kilo/nemotron-3.5-lightning-free', 'agent').mappedModel;
+  assert.equal(mapped, 'kilo/nemotron-3.5-lightning-free');
+  const config = JSON.parse(mergeAgentModelOverlayConfigContent('', mapped));
+  const model = config.provider.kilo.models['nemotron-3.5-lightning-free'];
+  assert.equal(model.id, 'nvidia/nemotron-3.5-lightning:free');
+  assert.deepEqual(model.cost, { input: 0, output: 0, cache_read: 0, cache_write: 0 });
+  assert.deepEqual(model.limit, { context: 1000000, output: 65536 });
+  assert.equal(model.tool_call, true);
+  assert.equal(AGENT_PROVIDER_MODEL_OVERLAYS['kilo/nemotron-3-super-free'].id, 'nvidia/nemotron-3-super-120b-a12b:free');
+  const userConfig = JSON.stringify({ provider: { kilo: { models: { 'nemotron-3.5-lightning-free': { id: 'user-owned' } } } } });
+  assert.equal(mergeAgentModelOverlayConfigContent(userConfig, mapped), null);
 });

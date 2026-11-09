@@ -1,3 +1,4 @@
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
@@ -16,7 +17,7 @@ import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
 import { createRouterConnectionRunner } from './router-command-stream.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
-  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log });
+  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log, env: () => ({ ...process.env, ...buildGeolocationEnv() }) });
   const checkRouter = () => assertRouterTaskAuthentication({ tool: 'claude', env: { ...process.env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
   checkRouter();
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
@@ -76,13 +77,13 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       let result;
       try {
         checkRouter();
-        result = await runConnection`printf hi | claude --model ${mappedModel} -p`;
+        result = await runConnection`printf hi | claude --model ${mappedModel} -p --append-system-prompt ${withGeolocationPolicy('')}`;
       } catch (pipeError) {
         if (pipeError.routerAuthViolation) throw pipeError;
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
           checkRouter();
-          result = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
+          result = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} --append-system-prompt ${withGeolocationPolicy('')}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
             await log(`❌ Claude CLI timed out after ${Math.floor(timeouts.claudeCli / 1000)} seconds`, {

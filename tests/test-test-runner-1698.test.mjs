@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 
 /**
  * @hive-mind-test-suite default
@@ -14,6 +15,7 @@ import { describe, it, assert } from 'test-anywhere';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const releaseWorkflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
+const profileRunner = readFileSync(new URL('../scripts/source-test-profile.mjs', import.meta.url), 'utf8');
 
 function extractWorkflowJob(workflow, jobName) {
   const pattern = new RegExp(`\\n  ${jobName}:\\n[\\s\\S]*?(?=\\n  [A-Za-z0-9_-]+:\\n|\\n$)`);
@@ -34,7 +36,9 @@ describe('issue #1698 stable test entrypoints', () => {
     const testSuitesJob = extractWorkflowJob(releaseWorkflow, 'test-suites');
 
     assert.ok(testSuitesJob, 'release.yml should define the test-suites job');
-    assert.ok(testSuitesJob.includes('npm test'), 'test-suites should run npm test');
+    assert.ok(testSuitesJob.includes('node scripts/source-test-profile.mjs'), 'test-suites should use the cohesive profile runner');
+    assert.ok(profileRunner.includes("command: 'npm', args: ['test']"), 'the default profile still executes npm test');
+    assert.ok(profileRunner.includes("['scripts/run-tests.mjs', '--suite', 'pr-essential']"), 'the essential profile still executes the shared runner');
     assert.ok(!/node\s+tests\//.test(testSuitesJob), 'test-suites should not enumerate individual test files');
   });
 });

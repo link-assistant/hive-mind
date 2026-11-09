@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.29
+ARG FORMAL_AI_VERSION=0.355.34
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.99-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -276,8 +276,8 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install --backend=copyfile -g @link-assistant/claude-profiles && \
-    bun install --backend=copyfile -g @link-assistant/agent@0.27.0 && \
-    bun install --backend=copyfile -g start-command@0.42.0 && \
+    bun install --backend=copyfile -g @link-assistant/agent@0.27.1 && \
+    bun install --backend=copyfile -g start-command@0.43.0 && \
     bun install --backend=copyfile -g gh-setup-git-identity && \
     bun install --backend=copyfile -g gh-pull-all && \
     bun install --backend=copyfile -g gh-load-issue && \

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
@@ -369,7 +370,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
-      const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }) }; // Issue #2625: models Agent's provider table lacks
+      const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }), ...buildGeolocationEnv() }; // Issue #2625: models Agent's provider table lacks
       await assertSharedToolData({ tool: 'agent', env: validationEnv });
       assertRouterTaskAuthentication({ tool: 'agent', env: { ...validationEnv, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
       const runValidation = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log, env: () => validationEnv });
@@ -511,7 +512,8 @@ export const executeAgent = async params => {
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, prUrl, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown, createAttributionSession = resolveFormalAiAttributionSession } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, prUrl, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown, createAttributionSession = resolveFormalAiAttributionSession } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   // Issue #2229: commits authored by Formal AI carry the trailers and the
   // evidence bundle its self-hosting metric reads. Created once for the whole
@@ -563,7 +565,7 @@ export const executeAgentCommand = async params => {
 
     // Issue #1521: Build environment for agent process.
     // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
-    const agentEnv = { ...process.env };
+    const agentEnv = { ...process.env, ...buildGeolocationEnv(argv) };
     await assertSharedToolData({ tool: 'agent', env: agentEnv });
     if (argv.verbose) {
       agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
@@ -597,7 +599,7 @@ export const executeAgentCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
-    Object.assign(agentEnv, toolInvocation.env);
+    Object.assign(agentEnv, toolInvocation.env, buildGeolocationEnv(argv));
     await assertSharedToolData({ tool: 'agent', env: agentEnv });
     // Issue #2625: the default free model is on Kilo, reachable only with the provider entry Hive Mind supplies.
     const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });

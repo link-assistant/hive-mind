@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
@@ -276,7 +277,7 @@ export const validateGeminiConnection = async (model = defaultModels.gemini, { u
   const mappedModel = mapModelToId(model);
   const geminiPath = process.env.GEMINI_PATH || 'gemini';
   const initialStorage = await admitNativeGeminiStorage({ env: connectionEnv, command: geminiPath, useRouter });
-  const runConnection = createRouterConnectionRunner({ $, tool: 'gemini', useRouter, log, ...(initialStorage ? { env: () => connectionEnv } : {}) });
+  const runConnection = createRouterConnectionRunner({ $, tool: 'gemini', useRouter, log, env: () => ({ ...(initialStorage ? connectionEnv : process.env), ...buildGeolocationEnv() }) });
   const admittedCommand = async () => {
     const env = guardEnv();
     assertRouterTaskAuthentication({ tool: 'gemini', env });
@@ -422,7 +423,8 @@ export const executeGemini = async params => {
 };
 
 export const executeGeminiCommand = async params => {
-  const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
   const initialStorage = await admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter, expected: params[nativeStorageAdmission] });
   const recheckStorage = () => admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter, expected: initialStorage });
 
@@ -476,7 +478,7 @@ export const executeGeminiCommand = async params => {
     await applyGeminiFamilyPricingTier({ tool: 'gemini', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: initialStorage?.command || geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
-    const geminiEnv = { ...process.env, ...toolInvocation.env };
+    const geminiEnv = { ...process.env, ...toolInvocation.env, ...buildGeolocationEnv(argv) };
     if (argv.useRouter === true) geminiEnv.HIVE_MIND_USE_ROUTER = '1';
     const finalStorage = await admitNativeGeminiStorage({ env: geminiEnv, command: toolInvocation.command, useRouter: argv.useRouter, expected: initialStorage });
     Object.assign(geminiEnv, finalStorage?.env);

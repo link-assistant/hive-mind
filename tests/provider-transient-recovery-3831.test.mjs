@@ -1,5 +1,5 @@
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  * Issue #3831: retries bound a continuous outage, not productive task lifetime.
  */
 import assert from 'node:assert/strict';
@@ -53,18 +53,23 @@ for (const tool of ['agent', 'opencode']) adapters[tool] = { execute: tool === '
 adapters.qwen = { ...adapters.claude, execute: executeQwenCommand, model: 'qwen3-coder-plus', failure: message => [{ type: 'error', error: { message } }] };
 adapters.gemini = { execute: executeGeminiCommand, model: 'gemini-2.5-pro', start: [{ type: 'init', session_id: 'session-3831' }], failure: message => [{ type: 'error', error: { message } }], progress: { type: 'message', role: 'assistant', content: 'Working on the next change.' }, success: [{ type: 'result', status: 'success' }] };
 
-async function replay(t, tool, attempts, { throwAt = null, throwMessage = 'fetch failed' } = {}) {
+async function replay(t, tool, attempts, { throwAt = null, throwMessage = 'fetch failed', shareGeolocation = false } = {}) {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'hive-3831-'));
   const calls = [];
+  const invocations = [];
   const logs = [];
   const waits = [];
   let clock = 0;
   t.mock.method(Date, 'now', () => clock);
   const fakeDollar =
-    () =>
+    options =>
     (strings, ...values) => {
       const index = calls.length;
-      calls.push(strings.reduce((s, part, i) => s + part + (values[i] ?? ''), ''));
+      const command = strings.reduce((s, part, i) => s + part + (values[i] ?? ''), '');
+      calls.push(command);
+      const promptFiles = [...command.matchAll(/["'](\/[^"']+\.txt)["']/g)].map(match => match[1]);
+      promptFiles.push(...values.filter(value => typeof value === 'string' && value.startsWith('/') && value.endsWith('.txt')));
+      invocations.push({ env: options.env, promptEvidence: [command, options.stdin, ...promptFiles.filter(file => fs.existsSync(file)).map(file => fs.readFileSync(file, 'utf8'))].join('\n') });
       assert.ok(index < attempts.length, 'unexpected unbounded retry');
       return {
         result: { code: attempts[index].code ?? 1 },
@@ -82,7 +87,7 @@ async function replay(t, tool, attempts, { throwAt = null, throwMessage = 'fetch
         },
       };
     };
-  const argv = { model: adapters[tool].model, verbose: false, agentMemoryDisabled: false, auxiliaryModelCallsDisabled: false };
+  const argv = { model: adapters[tool].model, verbose: false, agentMemoryDisabled: false, auxiliaryModelCallsDisabled: false, shareGeolocation };
   try {
     const { execute } = adapters[tool];
     const result = await execute({
@@ -108,9 +113,29 @@ async function replay(t, tool, attempts, { throwAt = null, throwMessage = 'fetch
         clock += delay;
       },
     });
-    return { result, argv, calls, logs, waits };
+    return { result, argv, calls, logs, waits, invocations };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+// Issue #4023: exercise the actual child-process boundary for all six tools.
+for (const [tool, { start, success }] of Object.entries(adapters)) {
+  for (const shareGeolocation of [false, true]) {
+    test(`${tool}: child location preference, share=${shareGeolocation}`, { timeout: 10000 }, async t => {
+      const previousTimezone = process.env.TZ;
+      process.env.TZ = 'Etc/GMT+9'; // Synthetic host hint; never query the real location.
+      try {
+        const { result, calls, invocations } = await replay(t, tool, [{ events: [...start, ...success], code: 0 }], { shareGeolocation });
+        assert.equal(result.success, true);
+        assert.equal(invocations[0].env.TZ, shareGeolocation ? 'Etc/GMT+9' : 'UTC');
+        assert.ok(invocations[0].promptEvidence.includes(shareGeolocation ? 'Location sharing:' : 'Location privacy:'));
+        if (tool === 'codex') assert.equal(calls[0].includes('tools.web_search.location='), !shareGeolocation);
+      } finally {
+        if (previousTimezone === undefined) delete process.env.TZ;
+        else process.env.TZ = previousTimezone;
+      }
+    });
   }
 }
 

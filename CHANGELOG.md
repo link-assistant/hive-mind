@@ -1,5 +1,31 @@
 # @link-assistant/hive-mind
 
+## 2.39.14
+
+### Patch Changes
+
+- faf2833: Count active executions and foreground CLI task trees for queue display and throttling. Exclude idle Codex app-server/updater services and vendor helpers, deduplicate wrappers and tracked jobs, and retain Docker and detached task counts.
+
+## 2.39.13
+
+### Patch Changes
+
+- c85adb4: Correct the Hello World E2E evaluator to recognize framed act program output and distinguish a verified, run-bound four-file session evidence bundle from program changes. Select the explicitly named free Nemotron 3.5 Lightning E2E control after the older free control was withdrawn, without remapping existing aliases or changing user defaults.
+
+  Keep real GitHub E2E resources opt-in: manual dispatch remains available, while automatic schedule/release-triggered runs require the optional ENABLE_REAL_GITHUB_E2E=true repository variable. Captured regressions remain in the default test suite, and full E2E success still requires physical fixture cleanup.
+
+  Keep real PR Docker builds and container integration opt-in through ENABLE_DOCKER_PR_BUILDS=true. Preserve the full PR build scripts for explicit runs and all actual default-branch production builds; retain the Docker release-order contract in default source tests.
+
+  Use the existing named PR-essential source-test profile for pull request events and explicit feature-branch dispatches while retaining every selected test in the full default-branch unit suite. Add no PR-number source-admission input or checkout override. Keep real GitHub integration and credential resolution explicitly opt-in on the full branch lane.
+
+- e71b941: Extract source-suite profile selection and execution into one builtins-only runner, keeping the release workflow below its existing warning threshold without changing test commands or integration gates. Include the existing source-size regression in the essential PR profile so this main-only failure is caught before merge.
+
+## 2.39.12
+
+### Patch Changes
+
+- c27e413: Reject missing or invalid draft image selections instead of substituting latest, while keeping bounded retries and explicit image overrides. Expose distinct errors for unavailable selected images and exhausted pull retries, and refresh the dependency versions required by CI.
+
 ## 2.39.11
 
 ### Patch Changes

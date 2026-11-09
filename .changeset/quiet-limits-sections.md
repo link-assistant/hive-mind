@@ -136,12 +136,10 @@ Admit measured optimized Codex executables within a finite 384 MiB package and
 installer size ceiling, with a full-size packaging regression and preserved
 platform, alias and recipe-ceiling refusals.
 
-Refresh all image and runtime Formal AI bootstrap pins to published 0.355.29,
-and the image start-command pins to 0.42.0 (its changes are confined to the
-opt-in Formal AI mode), after the dependency-freshness gate rejected the
-previous versions. Pin links-notation 0.30.0, semver ^7.8.6 and lino-i18n
-^0.5.1, move zizmor-action to v0.8.1, and refresh the @babel lockfile entries
-to 8.1.0 for the same reason.
+Keep the image and runtime pins aligned with main (Formal AI 0.355.34,
+start-command 0.43.0, Agent 0.27.1, links-notation 0.31.3, lino-arguments
+^0.4.1) while preserving this branch's copyfile global installs and native
+adapter activation steps.
 
 Project explicitly selected dedicated Claude credential parents into Docker
 tasks, revalidate launch identity in limits/profile/cache readers and before

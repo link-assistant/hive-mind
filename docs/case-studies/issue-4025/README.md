@@ -266,6 +266,9 @@ keys and requires a single patched minimatch. It fails on the ranged key.
 - The gate fails on any cancellation unless the ref head has moved past the
   tested commit (`git ls-remote`, compared with the PR head SHA, not the merge
   commit). It fails closed when the head cannot be resolved.
+  The lookup runs under the shared retry loop (`scripts/github-retry.mjs`,
+  issue #3552), so a transient fault does not fail the gate
+  (`checks-42613833285-lint-retry-bypass.log`).
   `PIPELINE_STATUS_VERBOSE=1` prints its reasoning; this is off by default.
 - PR #3786 (issue #3785) independently made every cancellation fail after a
   checkout timeout passed as "superseded". The merge keeps that behaviour for

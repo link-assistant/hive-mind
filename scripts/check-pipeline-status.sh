@@ -46,7 +46,8 @@ run_is_superseded() {
     return 1
   fi
   if [ -z "$head" ]; then
-    head="$(git ls-remote "$git_remote" "$HEAD_REF" 2>/dev/null | awk 'NR == 1 { print $1 }' || true)"
+    # Retried (issue #3552): a transient fault would otherwise fail the gate closed.
+    head="$(node "$(dirname "${BASH_SOURCE[0]}")/github-retry.mjs" git ls-remote "$git_remote" "$HEAD_REF" 2>/dev/null | awk 'NR == 1 { print $1 }' || true)"
   fi
   trace "RUN_SHA=${RUN_SHA} HEAD_REF=${HEAD_REF} head=${head:-<unresolved>}"
   if [ -z "$head" ]; then

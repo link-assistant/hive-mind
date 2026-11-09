@@ -35,8 +35,8 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 | 2026-11-09 11:01   | PR run 42605582705: with the full suite and `--continue-on-failure`, `test-agent-verbose-env.mjs` fails too (F11); main never reached it.                                                                                 |
 | 2026-11-09 11:17   | Security 42607903721: the new CodeQL result gate reports `1 clean report(s)` for both languages after the 44 alerts are fixed (F8).                                                                                       |
 | 2026-11-09 11:24   | PR run 42608795713: `detect-changes` fails with `STALE package-lock.json#minimatch: minimatch 11.0.5 -> 10.2.6, 11.0.5` under the runner's npm 10.9.4 (F9).                                                               |
-| 2026-11-09 11:25   | PR #3786 merges; it closes #3785, which 12 Dockerfile pin exceptions link (F12).                                                                                                                                          |
-| 2026-11-09 11:40   | PR #3786 (issue #3785) lands on main with its own "fail every cancellation" gate and the same minimatch override; this branch merges it (F10).                                                                            |
+| 2026-11-09 11:25   | PR #3786 merges and closes #3785. Main now has its own "fail every cancellation" gate and the same minimatch override (F10), plus 12 Dockerfile pin exceptions that link #3785 (F12).                                     |
+| 2026-11-09 11:42   | This branch merges main (4a63c23d0). The next PR run, 42611647973, fails `detect-changes` on those 12 exceptions (F12).                                                                                                   |
 
 ## Findings, root causes and fixes
 

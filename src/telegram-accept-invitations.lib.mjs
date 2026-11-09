@@ -36,8 +36,8 @@ const exec = (cmd, opts) =>
  * @param {string} text - The text to escape
  * @returns {string} The escaped text
  */
-function escapeMarkdown(text) {
-  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+export function escapeMarkdown(text) {
+  return String(text).replace(/[\\_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 /**

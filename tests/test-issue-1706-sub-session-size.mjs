@@ -183,7 +183,20 @@ assertEqual('sub-session-size type = "string"', SOLVE_OPTION_DEFINITIONS['sub-se
 assertEqual('disable-1m-context default = undefined (auto, issue #2771)', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.default, undefined);
 assertEqual('disable-1m-context type = "boolean"', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.type, 'boolean');
 
+// getClaudeEnv() copies all of process.env, secrets included. On a mismatch,
+// report presence instead of the value so a wrong key can never print a
+// secret into the CI log (issue #4025, CodeQL js/clear-text-logging).
+const assertEnv = (name, env, key, expected) => {
+  if (env[key] === expected) pass(name);
+  else fail(name, `expected ${key}=${JSON.stringify(expected)}, got ${Object.hasOwn(env, key) ? 'a different value' : 'no value'}`);
+};
+
 console.log('\n=== getClaudeEnv integration ===\n');
+
+// getClaudeEnv() starts from process.env, so a caller that already exports
+// these (any shell running inside Claude Code does) made the "default" cases
+// fail locally while CI passed. Clear them so the test is hermetic.
+for (const key of ['CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE']) delete process.env[key];
 
 {
   const env = getClaudeEnv({
@@ -192,9 +205,9 @@ console.log('\n=== getClaudeEnv integration ===\n');
     subSessionSize: parseSubSessionSize('150k'),
     contextWindowTokens: 200_000,
   });
-  assertEqual('getClaudeEnv: CLAUDE_CODE_DISABLE_1M_CONTEXT=1', env.CLAUDE_CODE_DISABLE_1M_CONTEXT, '1');
-  assertEqual('getClaudeEnv: CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000', env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, '150000');
-  assertEqual('getClaudeEnv: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75', env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, '75');
+  assertEnv('getClaudeEnv: CLAUDE_CODE_DISABLE_1M_CONTEXT=1', env, 'CLAUDE_CODE_DISABLE_1M_CONTEXT', '1');
+  assertEnv('getClaudeEnv: CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000', env, 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', '150000');
+  assertEnv('getClaudeEnv: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75', env, 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', '75');
 }
 {
   const env = getClaudeEnv({
@@ -202,9 +215,9 @@ console.log('\n=== getClaudeEnv integration ===\n');
     disable1mContext: false,
     subSessionSize: parseSubSessionSize('default'),
   });
-  assertEqual('getClaudeEnv: no DISABLE_1M_CONTEXT when disabled=false', env.CLAUDE_CODE_DISABLE_1M_CONTEXT, undefined);
-  assertEqual('getClaudeEnv: no AUTO_COMPACT_WINDOW when sub-session-size=default', env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, undefined);
-  assertEqual('getClaudeEnv: no PCT_OVERRIDE when sub-session-size=default', env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, undefined);
+  assertEnv('getClaudeEnv: no DISABLE_1M_CONTEXT when disabled=false', env, 'CLAUDE_CODE_DISABLE_1M_CONTEXT', undefined);
+  assertEnv('getClaudeEnv: no AUTO_COMPACT_WINDOW when sub-session-size=default', env, 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', undefined);
+  assertEnv('getClaudeEnv: no PCT_OVERRIDE when sub-session-size=default', env, 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', undefined);
 }
 {
   const env = getClaudeEnv({
@@ -213,8 +226,8 @@ console.log('\n=== getClaudeEnv integration ===\n');
     subSessionSize: parseSubSessionSize('50%'),
     contextWindowTokens: 200_000,
   });
-  assertEqual('getClaudeEnv: percent=50 → PCT_OVERRIDE=50', env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, '50');
-  assertEqual('getClaudeEnv: percent=50 → AUTO_COMPACT_WINDOW=200000', env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, '200000');
+  assertEnv('getClaudeEnv: percent=50 → PCT_OVERRIDE=50', env, 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', '50');
+  assertEnv('getClaudeEnv: percent=50 → AUTO_COMPACT_WINDOW=200000', env, 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', '200000');
 }
 
 console.log('\n================================================================================');

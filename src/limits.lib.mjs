@@ -46,6 +46,7 @@ const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
  */
 const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
 const CODEX_USAGE_API_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api';
+const REDACTED_BEARER = 'Bearer [redacted]';
 export function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string') return null;
 
@@ -679,23 +680,19 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         failureKind: 'auth',
       };
     }
-    const requestHeaders = {
+    const publicHeaders = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'User-Agent': 'claude-code/2.0.55',
-      Authorization: `Bearer ${accessToken}`,
       'anthropic-beta': 'oauth-2025-04-20',
     };
+    const requestHeaders = { ...publicHeaders, Authorization: `Bearer ${accessToken}` };
     if (verbose) {
       console.log('[VERBOSE] /limits fetching usage from API...');
       console.log(`[VERBOSE] /limits API request: GET ${USAGE_API_ENDPOINT}`);
-      // Log request headers with sanitized Authorization (show only last 8 chars)
-      const sanitizedHeaders = { ...requestHeaders };
-      if (sanitizedHeaders.Authorization) {
-        const token = sanitizedHeaders.Authorization;
-        sanitizedHeaders.Authorization = `Bearer ...${token.slice(-8)}`;
-      }
-      console.log('[VERBOSE] /limits API request headers:', JSON.stringify(sanitizedHeaders, null, 2));
+      // No part of the OAuth token is logged; verbose logs end up in CI and
+      // in uploaded solver logs (issue #4025, CodeQL js/clear-text-logging).
+      console.log('[VERBOSE] /limits API request headers:', JSON.stringify({ ...publicHeaders, Authorization: REDACTED_BEARER }, null, 2));
     }
 
     // Call the Anthropic OAuth usage API
@@ -846,7 +843,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
         JSON.stringify(
           {
             Accept: requestHeaders.Accept,
-            Authorization: `Bearer ...${accessToken.slice(-8)}`,
+            Authorization: REDACTED_BEARER,
             'User-Agent': requestHeaders['User-Agent'],
           },
           null,

@@ -8,7 +8,7 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 
 | #   | Requirement (issue text)                                                                 | Where it is addressed                                                                                         |
 | --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD on `main`  | Findings F1–F7 below                                                                                          |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD on `main`  | Findings F1–F11 below                                                                                         |
 | R2  | Checks and release: failure (run 42570340658)                                            | F2, F3                                                                                                        |
 | R3  | Broken Link Checker: failure (run 42570340566)                                           | F1                                                                                                            |
 | R4  | Cleanup Test Repositories: cancelled (run 42472902848)                                   | F4 (the ruleset part is blocked on an administrator, B1)                                                      |
@@ -32,6 +32,10 @@ Research date: 2026-11-09 UTC. Evidence: [`dev/log/issues/4025/pulls/4026`](../.
 | 2026-11-09 06:03   | E2E Hello World Matrix 42570805017: skipped (`vars.ENABLE_REAL_GITHUB_E2E` is not set; the repository has 0 Actions variables).                                                                                           |
 | 2026-11-09 10:18   | Issue #4025 is opened.                                                                                                                                                                                                    |
 | 2026-11-09 10:27   | Formal AI Draft 42599900381 for this issue exits 5 ("Finished without changes"); its annotation blames an HTTP 403 from gh-upload-log.                                                                                    |
+| 2026-11-09 11:01   | PR run 42605582705: with the full suite and `--continue-on-failure`, `test-agent-verbose-env.mjs` fails too (F11); main never reached it.                                                                                 |
+| 2026-11-09 11:17   | Security 42607903721: the new CodeQL result gate reports `1 clean report(s)` for both languages after the 44 alerts are fixed (F8).                                                                                       |
+| 2026-11-09 11:24   | PR run 42608795713: `detect-changes` fails with `STALE package-lock.json#minimatch: minimatch 11.0.5 -> 10.2.6, 11.0.5` under the runner's npm 10.9.4 (F9).                                                               |
+| 2026-11-09 11:40   | PR #3786 (issue #3785) lands on main with its own "fail every cancellation" gate and the same minimatch override; this branch merges it (F10).                                                                            |
 
 ## Findings, root causes and fixes
 
@@ -175,15 +179,197 @@ The Workflows check did not lint changes under `.github/actions/**`, and zizmor
 still had a policy for the lychee actions that are no longer used. Both are
 fixed in 6db96f96a.
 
+### F8. 44 CodeQL alerts on main behind a green Security check (false negative)
+
+**Root cause.** `github/codeql-action/analyze` uploads its results and passes,
+whatever it finds. Main had 44 open alerts (`codeql-open-alerts-main.txt`):
+
+| Rule                                          | Alerts |
+| --------------------------------------------- | -----: |
+| `js/incomplete-url-substring-sanitization`    |     22 |
+| `js/shell-command-injection-from-environment` |     10 |
+| `js/incomplete-sanitization`                  |      8 |
+| `js/clear-text-logging`                       |      2 |
+| `js/redos`                                    |      1 |
+| `js/identity-replacement`                     |      1 |
+
+Some of them were real bugs:
+
+- `use-m-single-flight` used a specifier pattern that backtracks exponentially
+  (442 ms on 50 characters; `experiments/issue-4025/specifier-regex-equivalence.mjs`).
+- The three MarkdownV2 escapers did not escape `\`, so `a\_b` reached Telegram
+  with a bare `_`.
+- Verbose `/limits` logged the last 8 characters of the OAuth tokens. Main's
+  PR #3786 fixed the same lines while this PR was open, and the merge keeps
+  main's version.
+
+**Fix.** Each alert is fixed in code: 89239d21f for `src/` and 6bddbb1f5 for
+`tests/`. `security.yml` writes the SARIF reports and gates on them with
+`scripts/check-codeql-results.mjs` (adapted from the JS template). It keeps the
+reports as an artifact and reports every result on pull requests
+(`CODEQL_ACTION_DIFF_INFORMED_QUERIES=false`).
+
+**Tests.** `codeql-results-gate-4025` and `codeql-source-alerts-4025`. Run
+42607903721 logged `CodeQL result gate: 1 clean report(s)` for both languages
+(`security-42607903721-codeql-gate.log`).
+
+### F9. Dependabot alerts, and a lockfile that npm 10 and npm 11 disagree on
+
+**Root causes.**
+
+- Alert #9 (minimatch, GHSA-g3hv-75wg-m249) is real: ESLint 10 pulled in a
+  vulnerable minimatch 10.x.
+- Alert #8 (setuptools, GHSA-xmj3-9gf7-h52w) is a false positive. The dependency
+  graph read an evidence copy of another project's `requirements.txt` under
+  `docs/case-studies/issue-3863/` as a manifest of this repository.
+- The first override used a ranged key, `"minimatch@>=7.0.0 <11.0.1"`. npm 11
+  kept that tree, but the runner's npm 10.9.4 re-nested
+  `@eslint/config-array/node_modules/minimatch@10.2.6` on
+  `npm update --package-lock-only`. The freshness gate therefore failed the PR
+  with a lockfile that was actually correct (`checks-42608795713-freshness-npm10.log`).
+
+**Fix.**
+
+- A bare `"minimatch": "^11.0.5"` override, which every dependent accepts
+  (`@eslint/config-array` ^10.2.4 → 11.x via the override, `glob` ^11.0.5).
+  npm 10.9.4 and npm 11.20 both leave a single `node_modules/minimatch@11.0.5`.
+  Main's PR #3786 landed the same override.
+  `experiments/issue-4025/minimatch-11-eslint-globs.mjs` checks ESLint's glob
+  matching with 11.x.
+- The copied manifest is renamed to `.txt.snapshot` (c81723999).
+
+**Test.** `tests/dependency-overrides-4025.test.mjs` rejects ranged override
+keys and requires a single patched minimatch. It fails on the ranged key.
+
+### F10. Timeouts reported as a pass, and checks without a status
+
+**Root causes.**
+
+- GitHub reports a job killed by `timeout-minutes` as `cancelled`.
+  `check-pipeline-status.sh` downgraded every non-main cancellation to a
+  warning, so a PR job that timed out left the Pipeline Status green.
+  `IS_MAIN` also required `event_name == 'push'`, which meant a
+  `workflow_dispatch` on main got the PR policy.
+- Links, Security and Workflows had no status gate at all, so a timed-out job
+  left those runs grey rather than red.
+- actionlint only reads inline `run:` blocks. Nothing linted the 27 standalone
+  shell scripts and hooks. ShellCheck finds 4 errors (missing shebangs in
+  `.husky/pre-commit` and the two `gitpod-*-auth.sh` files) and an `ls | grep`
+  in `scripts/verify-docker-image.sh` (`shellcheck-before.txt`).
+- Jobs that never push kept the `GITHUB_TOKEN` in `.git/config` (zizmor
+  `artipacked`).
+
+**Fix.**
+
+- The gate fails on any cancellation unless the ref head has moved past the
+  tested commit (`git ls-remote`, compared with the PR head SHA, not the merge
+  commit). It fails closed when the head cannot be resolved.
+  `PIPELINE_STATUS_VERBOSE=1` prints its reasoning; this is off by default.
+- PR #3786 (issue #3785) independently made every cancellation fail after a
+  checkout timeout passed as "superseded". The merge keeps that behaviour for
+  timeouts and unknown heads, and it keeps #3785's test and wording. It still
+  excuses runs that a newer commit really replaced, because the new Links,
+  Security and Workflows gates cancel in-progress runs on main too, and a
+  red X there would be a false positive.
+- Links, Security and Workflows each get a `pipeline-status` gate that
+  observes every job.
+- The Workflows check runs ShellCheck 0.11.0 (pinned via `shellcheck-py`) on
+  tracked scripts and hooks. Evidence folders (`experiments/`, `dev/`,
+  `docs/case-studies/`) are excluded.
+- 18 read-only release jobs and the gates use `persist-credentials: false`.
+  Checkout `with:` blocks are written as one-line maps, which keeps
+  `release.yml` at 1,349 lines, under the 1,350-line warning of
+  `check-file-line-limits.sh`.
+
+**Tests.** `ci-integrity-2150` (supersede, timeout and unknown-head cases, plus
+the wiring of all four gates) and `workflow-shellcheck-4025`.
+
+### F11. A test broken on main that fail-fast hid
+
+`tests/test-agent-verbose-env.mjs` matched the whole `agentEnv` line. PR #4024
+added `...buildGeolocationEnv(argv)` to it, so the test failed on main. The
+fail-fast runner stopped at `claude-prompt-argv-3282` first, so this failure
+never showed up there. It appeared as soon as F2's `--continue-on-failure` ran
+(`checks-42605582705-agent-verbose-env.log`). The test now matches the
+inheritance (`{ ...process.env`) and no longer depends on the rest of the line.
+
 ## Template comparison
 
-See the section added after the file-by-file comparison below.
+The workflows were compared file by file with
+[js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)
+and
+[python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)
+(default branches as of 2026-11-09).
+
+**Already equivalent in hive-mind.**
+
+- actionlint, zizmor, CodeQL, dependency review and npm audit.
+- secretlint, jscpd, and ESLint with `--max-warnings 0`.
+- A release `pipeline-status` gate whose coverage is tested.
+- The fresh-merge simulation in `lint`, and timeouts on every job.
+- The web-archive check and the link recheck step.
+
+**Adopted in this PR.**
+
+| Template practice                                     | hive-mind change                 |
+| ----------------------------------------------------- | -------------------------------- |
+| Persistent lychee cache, report artifact, fail closed | F1                               |
+| Same test suite on pull requests and main             | F2                               |
+| Fail on CodeQL results (`check-codeql-results`)       | F8                               |
+| Supersede-aware cancellation in the status gate       | F10                              |
+| A status gate per workflow                            | F10 (Links, Security, Workflows) |
+| ShellCheck for standalone scripts                     | F10                              |
+| `persist-credentials: false` on read-only checkouts   | F1, F8, F10                      |
+| Workflow lint triggered by `.github/actions/**`       | F7                               |
+| Concurrency for scheduled maintenance jobs            | F4                               |
+
+**Same defect in the templates (reported).** Both templates install lychee
+through `lycheeverse/lychee-action`, which downloads it with no retry:
+[js#291](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/291),
+[python#141](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/141)
+and the root cause,
+[lycheeverse/lychee-action#348](https://github.com/lycheeverse/lychee-action/issues/348).
+The red main runs in both templates are configuration problems, not template
+defects: js has no `NPM_TOKEN`, and python's PyPI trusted publisher is not
+configured.
+
+**Not adopted (low severity, no observed failure).**
+
+- A weekly scheduled link check.
+- `rerun-unacquired.yml`: no runner-acquisition failures appear in the last 60 main runs.
+- Per-step time budgets (`run-with-budget-warning`).
+- A dependency-graph prerequisite job.
+- The fresh-merge simulation in `test-suites`; `lint` already covers it.
+- zizmor `min-confidence: low` / a pedantic pass.
+- actionlint pinned by digest instead of version.
+- A package smoke test.
+- lychee `--hidden --extensions` and a `lychee.toml` rate limit.
+- `check-ci-workflows` pin checks.
+
+## Blocked
+
+- **B1.** Ruleset 21204104 needs an administrator to exclude
+  `refs/heads/e2e/**` and add a bypass for the cleanup App (F4). Until then
+  the cleanup warning `Fixture branches retained` is accurate and stays.
 
 ## Verification
 
-- Focused tests: `links-workflow-lychee-4025`, `cleanup-task-fixtures-budget-4025`,
-  `formal-ai-draft-3248`, `test-issue-2186`, `test-issue-2187`,
-  `test-lino-arguments-cli`, `claude-prompt-argv-3282`, `test-gemini-support`,
-  `optional-automation-2324`, `resource-aware-prompts-3837`.
-- `node scripts/check-dependency-freshness.mjs`: all declarations current.
-- Full default suite and all workflows: PR #4026 checks on the final commit.
+- Focused tests:
+  - lychee, cleanup and drafts: `links-workflow-lychee-4025`,
+    `cleanup-task-fixtures-budget-4025`, `formal-ai-draft-3248`;
+  - pins and prompts: `test-issue-2186`, `test-issue-2187`,
+    `test-lino-arguments-cli`, `claude-prompt-argv-3282`,
+    `test-gemini-support`, `optional-automation-2324`,
+    `resource-aware-prompts-3837`;
+  - CodeQL: `codeql-results-gate-4025`, `codeql-source-alerts-4025`;
+  - dependencies and environment: `dependency-overrides-4025`,
+    `test-agent-verbose-env`;
+  - gates and ShellCheck: `ci-integrity-2150`, `workflow-shellcheck-4025`,
+    `ci-workflow-cancellation-2082`;
+  - all 30 tests that read `release.yml`.
+- `actionlint` 1.7.12 and ShellCheck 0.11.0 (the job's file list) report nothing.
+- `node scripts/check-dependency-freshness.mjs`: all declarations are current.
+  `npm update --package-lock-only` with npm 10.9.4 leaves every package
+  version unchanged. `npm audit`: 0 vulnerabilities.
+- `bash scripts/check-file-line-limits.sh`: no warnings.
+- The full default suite and all workflows run as PR #4026 checks on the final commit.

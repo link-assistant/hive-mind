@@ -16,6 +16,11 @@ The analysis is in [`docs/case-studies/issue-4025/README.md`](../../../../../doc
 | `ci-logs/formal-ai-draft-42599900381.log.gz`        | Formal AI Draft for this issue: exit 5, annotation blamed a 403                             |
 | `ci-logs/formal-ai-draft-42599900381-session-tail.log` | End of that session log: "Finished without changes" and the recovered gh-upload-log 403   |
 | `ci-logs/pr4024-final-run-42311200153.log.gz`       | Last PR #4024 run: green, because the broken tests were not in the PR subset                |
+| `ci-logs/checks-42605582705-agent-verbose-env.log` | `test-agent-verbose-env.mjs` failing once the whole suite ran (F11) |
+| `ci-logs/checks-42608795713-freshness-npm10.log` | npm 10 re-nesting minimatch with the ranged override key (F9) |
+| `ci-logs/codeql-open-alerts-main.txt` | The 44 open CodeQL alerts on main (F8) |
+| `ci-logs/security-42607903721-codeql-gate.log` | The CodeQL result gate passing once the alerts were fixed (F8) |
+| `ci-logs/shellcheck-before.txt` | ShellCheck findings before the fix (F10) |
 | `sessions/`                                         | Solver session log and metadata                                                             |
 
 Reproduction: `bash experiments/issue-4025/lychee-action-curl-no-retry.sh`.

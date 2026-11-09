@@ -33,7 +33,7 @@ const expected = {
   sentry: '11.11.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.43.0',
-  useM: '8.16.4',
+  useM: '8.17.0',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];

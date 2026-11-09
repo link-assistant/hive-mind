@@ -113,6 +113,13 @@ ranges) and the SHA pin in `release.yml` are all updated.
 `node scripts/check-dependency-freshness.mjs` reports
 `All tracked dependency declarations are current.`
 
+The gate is time-dependent by design. Run 42635732377 (14:34) failed
+`detect-changes` because use-m 8.17.0, `@clack/core` 1.6.0, `@clack/prompts`
+1.9.0 and `sisteransi` 2.0.0 had been published since the previous run. The
+bootstrap pins and the lockfile are updated; npm 10.9.4 and npm 11.20 resolve
+the same tree, and `experiments/issue-4025/use-m-bootstrap-smoke.mjs` imports a
+package through the new bootstrap (`checks-42635732377-freshness-new-releases.log`).
+
 ### F4. Cleanup Test Repositories cancelled every day
 
 **Root cause.** Ruleset 21204104 (`no-destruction-possible`, `~ALL`, deletion

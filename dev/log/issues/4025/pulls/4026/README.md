@@ -27,6 +27,7 @@ The analysis is in [`docs/case-studies/issue-4025/README.md`](../../../../../doc
 | `ci-logs/checks-42615367731-test-suites.log` | Excerpt: two tests the main merge left inconsistent with this branch (F8, F9) |
 | `ci-logs/checks-42615367731-pipeline-status-superseded.log` | The gate failing on `test-suites` and excusing jobs a newer push cancelled (F10) |
 | `ci-logs/main-42609000121-test-suites.log` | Main still failing the Codex cancellation probe after PR #3786 (F2) |
+| `ci-logs/checks-42635732377-freshness-new-releases.log` | Freshness gate failing on releases published during the PR (F3) |
 | `sessions/`                                         | Solver session log and metadata                                                             |
 
 Reproduction: `bash experiments/issue-4025/lychee-action-curl-no-retry.sh`.

@@ -1337,6 +1337,8 @@ jobs:
       - changeset-pr
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -1344,5 +1346,12 @@ jobs:
       - name: Fail the run when a required job was cancelled or failed
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          IS_MAIN: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          # Every event on main, including workflow_dispatch: main runs queue,
+          # so a cancellation there is a timeout, never a supersede (#4025).
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+          # Elsewhere a cancellation passes only if the ref moved past the
+          # tested commit. For pull requests github.sha is the merge commit,
+          # so compare the PR head instead.
+          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REF: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
         run: bash scripts/check-pipeline-status.sh

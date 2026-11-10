@@ -82,6 +82,7 @@
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {
+    "@link-foundation/sensitive-data-sanitizer": "^0.19.3",
     "@secretlint/core": "^13.1.0",
     "@secretlint/profiler": "^13.1.0",
     "@secretlint/secretlint-rule-preset-recommend": "^13.1.0",

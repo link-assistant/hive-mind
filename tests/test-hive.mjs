@@ -29,12 +29,17 @@ function runTest(name, testFn) {
   }
 }
 
+// Paths go to the shell through the environment, not string interpolation,
+// so a checkout path with spaces or shell characters cannot change the command.
+const commandEnv = { ...process.env, HIVE_PATH: hivePath };
+
 function execCommand(command, timeout = 60000) {
   try {
     return execSync(command, {
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: timeout,
+      env: commandEnv,
     });
   } catch (error) {
     // For commands that exit with non-zero or timeout, we still want the output
@@ -54,7 +59,7 @@ function normalizeOutput(output) {
 
 // Test 1: Check if hive.mjs exists and is executable
 runTest('hive.mjs exists', () => {
-  const output = normalizeOutput(execCommand(`ls -la ${hivePath}`));
+  const output = normalizeOutput(execCommand(`ls -la "$HIVE_PATH"`));
   if (!output.includes('hive.mjs')) {
     throw new Error('hive.mjs not found');
   }
@@ -62,7 +67,7 @@ runTest('hive.mjs exists', () => {
 
 // Test 2: Check usage output
 runTest('hive.mjs usage', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" 2>&1`));
 
   // Check that it shows usage information
   if (!output.includes('Usage:') && !output.includes('usage:') && !output.includes('GitHub URL is required')) {
@@ -76,7 +81,7 @@ runTest('hive.mjs usage', () => {
 
 // Test 3: Check --version output
 runTest('hive.mjs --version', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --version 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --version 2>&1`, 10000));
   // Version should be a number like 1.0.0
   if (!output.match(/\d+\.\d+\.\d+/)) {
     throw new Error('Version output not in expected format');
@@ -85,7 +90,7 @@ runTest('hive.mjs --version', () => {
 
 // Test 4: Check --help functionality
 runTest('hive.mjs --help', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --help 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --help 2>&1`, 10000));
 
   // Should show help
   if (!output.includes('Usage: hive.mjs <github-url> [options]')) {
@@ -103,7 +108,7 @@ runTest('hive.mjs --help', () => {
 
 // Test 5: Check -h functionality
 runTest('hive.mjs -h', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} -h 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" -h 2>&1`, 10000));
 
   // Should show help
   if (!output.includes('Usage: hive.mjs <github-url> [options]')) {
@@ -121,7 +126,7 @@ runTest('hive.mjs -h', () => {
 
 // Test 6: Check that it requires a GitHub URL
 runTest('hive.mjs requires GitHub URL', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" 2>&1`));
   if (!output.toLowerCase().includes('github') && !output.toLowerCase().includes('url')) {
     throw new Error('Should indicate that GitHub URL is required');
   }
@@ -129,7 +134,7 @@ runTest('hive.mjs requires GitHub URL', () => {
 
 // Test 7: Check that it validates URL format
 runTest('hive.mjs validates URL format', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} "not a valid url!" 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" "not a valid url!" 2>&1`));
   if (!output.toLowerCase().includes('invalid') && !output.toLowerCase().includes('url')) {
     throw new Error('Should indicate invalid URL format');
   }
@@ -137,7 +142,7 @@ runTest('hive.mjs validates URL format', () => {
 
 // Test 8: Basic validation
 runTest('hive.mjs basic validation', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" 2>&1`));
   if (!output) {
     throw new Error('No output from hive.mjs');
   }
@@ -145,7 +150,7 @@ runTest('hive.mjs basic validation', () => {
 
 // Test 9: Node.js syntax check
 runTest('hive.mjs syntax check', () => {
-  const output = normalizeOutput(execCommand(`node -c ${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`node -c "$HIVE_PATH" 2>&1`));
   // If there's a syntax error, node -c will output it
   if (output && output.includes('SyntaxError')) {
     throw new Error(`Syntax error in hive.mjs: ${output}`);
@@ -155,7 +160,7 @@ runTest('hive.mjs syntax check', () => {
 // Test 10: Check imports work (basic module loading)
 runTest('hive.mjs module imports', () => {
   // This will fail if there are import errors
-  const output = normalizeOutput(execCommand(`${hivePath} --version 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --version 2>&1`, 10000));
   if (output.includes('Cannot find module') || output.includes('MODULE_NOT_FOUND')) {
     throw new Error(`Module import error: ${output}`);
   }
@@ -164,7 +169,7 @@ runTest('hive.mjs module imports', () => {
 // Test 11: Skip monitoring options test
 runTest('hive.mjs loads', () => {
   // Just verify it loads
-  const output = normalizeOutput(execCommand(`${hivePath} --version 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --version 2>&1`, 10000));
   if (output.includes('Cannot find module')) {
     throw new Error('Module loading error');
   }
@@ -172,7 +177,7 @@ runTest('hive.mjs loads', () => {
 
 // Test 12: Skip default values test
 runTest('hive.mjs basic execution', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" 2>&1`));
   if (!output) {
     throw new Error('No output from hive.mjs');
   }
@@ -180,7 +185,7 @@ runTest('hive.mjs basic execution', () => {
 
 // Test 13: Skip argument parsing test
 runTest('hive.mjs script loads', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --version 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --version 2>&1`, 10000));
   if (output.includes('Error')) {
     throw new Error('Script error on load');
   }
@@ -188,7 +193,7 @@ runTest('hive.mjs script loads', () => {
 
 // Test 14: Check that runtime switching options have been removed
 runTest('hive.mjs no runtime switching', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} 2>&1`));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" 2>&1`));
 
   // Verify runtime switching options have been removed (they're now in claude-runtime.mjs)
   if (output.includes('--force-claude-bun-run') || output.includes('--force-claude-nodejs-run')) {
@@ -198,7 +203,7 @@ runTest('hive.mjs no runtime switching', () => {
 
 // Test 15: Check --attach-logs flag is available
 runTest('hive.mjs --attach-logs flag', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --help 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --help 2>&1`, 10000));
   if (!output.includes('attach-logs')) {
     throw new Error('--attach-logs option not found in help output');
   }
@@ -209,7 +214,7 @@ runTest('hive.mjs --attach-logs flag', () => {
 
 // Test 16: Check --skip-tool-connection-check flag is available
 runTest('hive.mjs --skip-tool-connection-check flag', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --help 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --help 2>&1`, 10000));
   if (!output.includes('skip-tool-connection-check')) {
     throw new Error('--skip-tool-connection-check option not found in help output');
   }
@@ -220,7 +225,7 @@ runTest('hive.mjs --skip-tool-connection-check flag', () => {
 
 // Test 17: Check --tool flag is available
 runTest('hive.mjs --tool flag', () => {
-  const output = normalizeOutput(execCommand(`${hivePath} --help 2>&1`, 10000));
+  const output = normalizeOutput(execCommand(`"$HIVE_PATH" --help 2>&1`, 10000));
   if (!output.includes('--tool')) {
     throw new Error('--tool option not found in help output');
   }
@@ -231,7 +236,7 @@ runTest('hive.mjs --tool flag', () => {
 
 // Test 18: hive --dry-run with --no-sentry doesn't hang (Issue #504 regression test)
 runTest("hive --dry-run with --no-sentry doesn't hang", () => {
-  const output = execCommand(`${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-connection-check --once --no-auto-continue 2>&1`, 15000);
+  const output = execCommand(`"$HIVE_PATH" https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-connection-check --once --no-auto-continue 2>&1`, 15000);
   const outputStr = normalizeOutput(output);
 
   // Check that it produces output (not silent)
@@ -250,7 +255,7 @@ runTest("hive --dry-run with --no-sentry doesn't hang", () => {
 
 // Test 19: hive --dry-run doesn't silently fail (different flag combination)
 runTest("hive --dry-run doesn't silently fail (variant test)", () => {
-  const output = execCommand(`${hivePath} https://github.com/test/test --all-issues --dry-run --no-sentry --skip-tool-connection-check --once 2>&1`, 15000);
+  const output = execCommand(`"$HIVE_PATH" https://github.com/test/test --all-issues --dry-run --no-sentry --skip-tool-connection-check --once 2>&1`, 15000);
   const outputStr = normalizeOutput(output);
 
   // Primary check: must produce output (not silent failure)
@@ -270,10 +275,11 @@ runTest("hive --dry-run doesn't silently fail (variant test)", () => {
 runTest('hive --dry-run exits without hanging', () => {
   try {
     // This should complete within 15 seconds (with timeout as backup)
-    execSync(`timeout 15 ${hivePath} https://github.com/test/test --dry-run --no-sentry --skip-tool-connection-check --once 2>&1 > /dev/null`, {
+    execSync(`timeout 15 "$HIVE_PATH" https://github.com/test/test --dry-run --no-sentry --skip-tool-connection-check --once 2>&1 > /dev/null`, {
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: 15000,
+      env: commandEnv,
     });
   } catch (error) {
     // Check if it timed out (exit code 124 from timeout command)

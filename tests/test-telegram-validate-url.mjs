@@ -30,7 +30,7 @@ function validateGitHubUrl(args, options = {}) {
   }
 
   const url = args[0];
-  if (!url.includes('github.com')) {
+  if (!/github\.com/.test(url)) {
     return {
       valid: false,
       error: 'First argument must be a GitHub URL',

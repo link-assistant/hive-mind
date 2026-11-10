@@ -1,0 +1,23 @@
+✔ effective CLAUDE_CONFIG_DIR cannot hide CLAUDE.md behind a clean conventional home (47.376812ms)
+✔ effective CLAUDE_CONFIG_DIR cannot hide .claude.json behind a clean conventional home (66.269295ms)
+✔ effective CODEX_HOME cannot hide AGENTS.md behind a clean conventional home (38.688064ms)
+✔ unsafe effective input prevents unrelated conventional-home repair (47.227463ms)
+✔ effective config root symlink cannot redirect repair (28.315052ms)
+✔ effective config ancestor symlink cannot redirect repair (27.412558ms)
+✔ effective repairs preserve auth/history identities and unrelated settings (167.746409ms)
+✔ a concurrent effective edit invalidates every pending repair (78.088038ms)
+✔ relative effective config paths reject admission without disclosing values (17.099718ms)
+✔ changed path selectors reject clean admission after asynchronous logging (48.619041ms)
+✔ changed path selectors reject repair after asynchronous logging (43.109557ms)
+✔ an effective hard-linked configuration cannot repair a credential inode (24.480664ms)
+✔ a conventional registration is repaired once when effective roots also exist (103.762961ms)
+✔ the installed-runtime verifier audits selected tool roots before native commands (43.833617ms)
+✔ an effective Codex TOML repair preserves approved Playwright and synthetic auth (95.483476ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1178.444555

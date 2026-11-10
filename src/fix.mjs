@@ -55,7 +55,9 @@ Options:
   --no-merge-dependabot-prs
                      --update-all-dependencies only: do not merge the open
                      Dependabot pull requests before creating the issue (by
-                     default they are merged without waiting for CI/CD)
+                     default they are merged without waiting for CI/CD;
+                     conflicting ones are closed when superseded by the
+                     default branch, otherwise recreated by Dependabot)
   --no-report-dependencies-issues
                      Disable upstream reporting during dependency updates
   --version          Show version number

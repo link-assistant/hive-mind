@@ -237,7 +237,7 @@ docker run -dit \
   konard/hive-mind:latest
 ```
 
-`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` से बंद करें); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
+`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` केवल सुधार बंद करता है; शेष ऑडिट निष्कर्ष कार्य को रोकते हैं); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
 
 **Docker के लाभ:**
 
@@ -593,7 +593,7 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
 विवरण के लिए
 [स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
-देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है; `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
+देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है। conflict वाले pull requests बंद किए जाते हैं यदि default branch में उनके अपडेट पहले से हैं, अन्यथा `@dependabot recreate` से दोबारा बनाकर merge किए जाते हैं ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)); `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
 हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
 
 यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` और

@@ -1,0 +1,26 @@
+2026-10-28T17:09:15.0437345Z   GITHUB_BEFORE_SHA: 8f97cbc19c0cbf366eebab339fb187e8f59e429c
+2026-10-28T17:09:15.0437800Z   GITHUB_AFTER_SHA: e98c608579715ce58e8f4d5d8c176c22c82c7142
+2026-10-28T17:09:15.0440556Z   GITHUB_TOKEN: ***
+2026-10-28T17:09:15.0440787Z ##[endgroup]
+2026-10-28T17:09:34.8603526Z Dependency freshness: 171/182 declarations current, 8 lockfile entries behind their allowed range
+2026-10-28T17:09:34.8605272Z EXCEPTION src/router-isolation.lib.mjs:81: ghcr.io/link-assistant/router: https://github.com/link-assistant/hive-mind/issues/3395
+2026-10-28T17:09:34.8607084Z STALE .github/workflows/e2e-hello-world-matrix.yml:112: nektos/act 0.2.90 -> v0.2.91 (exact)
+2026-10-28T17:09:34.8608040Z STALE coolify/Dockerfile:167: nodejs/node 26.12.1 -> v26.13.0 (exact)
+2026-10-28T17:09:34.8608771Z STALE Dockerfile:169: nodejs/node 26.12.1 -> v26.13.0 (exact)
+2026-10-28T17:09:34.8609455Z STALE Dockerfile.dind:202: nodejs/node 26.12.1 -> v26.13.0 (exact)
+2026-10-28T17:09:34.8610220Z STALE package-lock.json#@sentry/node: @sentry/node 11.9.0 -> 11.10.0 (exact)
+2026-10-28T17:09:34.8611186Z STALE package-lock.json#@sentry/profiling-node: @sentry/profiling-node 11.9.0 -> 11.10.0 (exact)
+2026-10-28T17:09:34.8612240Z STALE package-lock.json#lino-i18n: lino-i18n 0.4.1 -> 0.5.0 (exact)
+2026-10-28T17:09:34.8613088Z STALE package.json#dependencies: @sentry/node ^11.9.0 -> 11.10.0 (exact)
+2026-10-28T17:09:34.8614667Z STALE package.json#dependencies: @sentry/profiling-node ^11.9.0 -> 11.10.0 (exact)
+2026-10-28T17:09:34.8615534Z STALE package.json#dependencies: lino-i18n ^0.4.1 -> 0.5.0 (exact)
+2026-10-28T17:09:34.8616508Z STALE package-lock.json#@sentry/bundler-plugins: @sentry/bundler-plugins 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8617644Z STALE package-lock.json#@sentry/conventions: @sentry/conventions 0.27.0 -> 0.29.0 (npm update)
+2026-10-28T17:09:34.8618652Z STALE package-lock.json#@sentry/core: @sentry/core 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8619551Z STALE package-lock.json#@sentry/node: @sentry/node 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8620653Z STALE package-lock.json#@sentry/opentelemetry: @sentry/opentelemetry 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8621829Z STALE package-lock.json#@sentry/profiling-node: @sentry/profiling-node 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8623141Z STALE package-lock.json#@sentry/server-runtime-injection: @sentry/server-runtime-injection 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8624659Z STALE package-lock.json#@sentry/server-utils: @sentry/server-utils 11.9.0 -> 11.10.0 (npm update)
+2026-10-28T17:09:34.8625206Z Dependency freshness failed: 18 stale, 0 unresolved.
+2026-10-28T17:09:34.8729952Z ##[error]Process completed with exit code 1.

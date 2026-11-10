@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Guard rails for the --auto-merge / --auto-restart-until-mergeable watch loop.
  *
@@ -90,28 +91,28 @@ export const evaluateWatchTimeout = ({ watchTimeoutHours, watchStartedAt, now, c
 export const buildDeliberateDraftFeedback = deliberate => {
   if (deliberate?.kind === 'no_changes') {
     return {
-      restartReason: 'The previous working session produced no changes',
-      feedbackLines: ['📭 The previous working session produced no changes: the pull request diff against the base branch is empty.', '', 'Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.'],
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text1'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text2'), '', promptText('prompt.templates.solve-auto-merge.watchUntilMergeable_text4')],
     };
   }
   // Issue #3211: the run finished but changed nothing; that is not a failed session.
   if (deliberate?.kind === 'no_session_changes') {
     return {
-      restartReason: 'The previous working session made no change',
-      feedbackLines: ['📭 The previous working session made no change: no new commit, no file change and no comment.', `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Do the requested work and commit it to the pull request branch. Do not end the session without a change.'],
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text3'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text4'), `  ${deliberate.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text6')}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text7')],
     };
   }
   // Issue #3330: the session's effect could not be measured; that is not a failed session either.
   if (deliberate?.kind === 'session_effect_unverified') {
     return {
-      restartReason: "The previous working session's effect could not be verified",
-      feedbackLines: ["🔍 The previous working session's effect could not be verified:", `  ${deliberate.reason || 'no reason was recorded'}`, '', 'Check that the requested change is committed to the pull request branch and finish it if it is not. Do not end the session without a change.'],
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text8'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text9'), `  ${deliberate.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text11')}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text12')],
     };
   }
-  const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
+  const reason = deliberate?.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text13');
   return {
-    restartReason: `The previous working session failed: ${reason}`,
-    feedbackLines: ['🛑 The previous working session failed:', `  ${reason}`, '', 'Find the cause of this failure, fix it, and commit the fix to the pull request branch. Do not repeat the same steps unchanged.'],
+    restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text14', { reason: String(reason) }),
+    feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text15'), `  ${reason}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text16')],
   };
 };
 

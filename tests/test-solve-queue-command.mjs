@@ -329,11 +329,11 @@ function buildEnglishHelpMessage() {
 }
 
 await asyncTest('locale files recommend short commands and no legacy solve-prefixed commands', async () => {
-  const content = await readFile(join(__dirname, '..', 'src', 'locales', 'en.lino'), 'utf-8');
+  const content = await readFile(join(__dirname, '..', 'locales', 'en.lino'), 'utf-8');
   assert.ok(content.includes('Use /queue to check the queue status'), 'Should use /queue in hint text');
 
   for (const locale of ['en', 'ru', 'zh', 'hi']) {
-    const localeContent = await readFile(join(__dirname, '..', 'src', 'locales', `${locale}.lino`), 'utf-8');
+    const localeContent = await readFile(join(__dirname, '..', 'locales', `${locale}.lino`), 'utf-8');
     assert.ok(!localeContent.includes(legacySolveCommandPrefix), `${locale}.lino should not contain user-facing legacy solve-prefixed commands`);
     assert.ok(!localeContent.includes(escapedLegacySolveCommandPrefix), `${locale}.lino should not contain escaped user-facing legacy solve-prefixed commands`);
   }

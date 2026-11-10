@@ -213,7 +213,7 @@ const makeSelectedPluginFixture = async label => {
   await rm(fixture.root, { recursive: true, force: true });
 }
 
-// 4. Stale repository-scoped cache and legacy marketplace residue are cleaned;
+// 4. Stale repository-scoped cache and legacy marketplace residue are excluded;
 // an unrelated operator checkout is never mounted into the task home.
 {
   const fixture = await makeFixture('stale-marketplace');
@@ -228,10 +228,11 @@ const makeSelectedPluginFixture = async label => {
     },
   });
   const result = await preflight({ fixture, codex });
-  assert.equal(result.codexHome, fixture.scopedHome);
-  assert.equal(await exists(path.join(fixture.scopedHome, 'plugins')), false, 'stale plugin cache is removed before probing');
-  assert.equal(await exists(path.join(fixture.scopedHome, '.tmp', 'plugins')), false, 'legacy marketplace checkout is not retained or mounted');
-  assert.doesNotMatch(await readFile(path.join(fixture.scopedHome, 'config.toml'), 'utf8'), /\[plugins\./u, 'stale plugin enablement is removed');
+  assert.notEqual(result.codexHome, fixture.scopedHome);
+  assert.equal(await exists(path.join(result.codexHome, 'plugins')), false, 'stale plugin cache is absent before probing');
+  assert.equal(await exists(path.join(result.codexHome, '.tmp', 'plugins')), false, 'legacy marketplace checkout is not retained or mounted');
+  assert.doesNotMatch(await readFile(path.join(result.codexHome, 'config.toml'), 'utf8'), /\[plugins\./u, 'stale plugin enablement is excluded');
+  assert.equal(await exists(path.join(fixture.scopedHome, 'plugins')), true, 'creating a task does not erase another scope');
   await rm(fixture.root, { recursive: true, force: true });
 }
 

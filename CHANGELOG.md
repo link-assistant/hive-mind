@@ -1,5 +1,69 @@
 # @link-assistant/hive-mind
 
+## 2.39.14
+
+### Patch Changes
+
+- faf2833: Count active executions and foreground CLI task trees for queue display and throttling. Exclude idle Codex app-server/updater services and vendor helpers, deduplicate wrappers and tracked jobs, and retain Docker and detached task counts.
+
+## 2.39.13
+
+### Patch Changes
+
+- c85adb4: Correct the Hello World E2E evaluator to recognize framed act program output and distinguish a verified, run-bound four-file session evidence bundle from program changes. Select the explicitly named free Nemotron 3.5 Lightning E2E control after the older free control was withdrawn, without remapping existing aliases or changing user defaults.
+
+  Keep real GitHub E2E resources opt-in: manual dispatch remains available, while automatic schedule/release-triggered runs require the optional ENABLE_REAL_GITHUB_E2E=true repository variable. Captured regressions remain in the default test suite, and full E2E success still requires physical fixture cleanup.
+
+  Keep real PR Docker builds and container integration opt-in through ENABLE_DOCKER_PR_BUILDS=true. Preserve the full PR build scripts for explicit runs and all actual default-branch production builds; retain the Docker release-order contract in default source tests.
+
+  Use the existing named PR-essential source-test profile for pull request events and explicit feature-branch dispatches while retaining every selected test in the full default-branch unit suite. Add no PR-number source-admission input or checkout override. Keep real GitHub integration and credential resolution explicitly opt-in on the full branch lane.
+
+- e71b941: Extract source-suite profile selection and execution into one builtins-only runner, keeping the release workflow below its existing warning threshold without changing test commands or integration gates. Include the existing source-size regression in the essential PR profile so this main-only failure is caught before merge.
+
+## 2.39.12
+
+### Patch Changes
+
+- c27e413: Reject missing or invalid draft image selections instead of substituting latest, while keeping bounded retries and explicit image overrides. Expose distinct errors for unavailable selected images and exhausted pull retries, and refresh the dependency versions required by CI.
+
+## 2.39.11
+
+### Patch Changes
+
+- bd93586: `/fix --update-all-dependencies` and `/task --update-all-dependencies` no longer leave conflicting Dependabot pull requests open (issue #3863). Mergeability that GitHub has not computed yet is re-read before merging, "the merge commit cannot be cleanly created" counts as a conflict instead of triggering a pointless `--admin` retry, a conflicting pull request is closed when the base branch already pins every dependency it bumps at the same or a newer version, and otherwise Dependabot is asked to `@dependabot recreate` it and the recreated pull request is merged within a bounded wait. The issue section is now headed "Open Dependabot pull requests handled before this issue was created" and lists merged, closed and still-open pull requests separately, without claiming that Dependabot closes them by itself.
+
+## 2.39.10
+
+### Patch Changes
+
+- 9f66230: A successful Claude session no longer counts as failed when its last command is `gh pr checks` on a pull request without CI ("no checks reported", exit 1) or with pending checks (exit 8). A genuine final-command failure is now reported as "Claude reported success, but its last command `<command>` exited with code N: <error line>" instead of the flattened raw output, and the full output stays in the log.
+
+  Fork pull requests now have their workflow files read at the head SHA, so the lookup no longer fails with HTTP 404. When a lookup does fail, the wait message gives the reason instead of an empty "()" list. Commit SHAs that the log itself links as commits are no longer masked as tokens. `--auto-restart-until-mergeable` no longer announces "Auto-merge mode enabled - will attempt to merge".
+
+  Also refreshes the dependency pins flagged by the CI freshness gate: Formal AI 0.355.27 in every image and the bootstrap constant, nektos/act v0.2.94, eslint 10.14.0, lino-objects-codec 0.9.4, and the lockfile entries `npm update` moves.
+
+## 2.39.9
+
+### Patch Changes
+
+- 4238993: Prefer focused local validation and existing CI coverage across all solver prompts, account for build costs and local resources, and suggest owner-controlled CI/CD adoption. Remove repeated guidance and align translated prompt catalogs.
+
+  Prefer drafting all requirements before verification. Load all solver and auxiliary prompt templates from separate root UI, user-prompt and system-prompt Lino catalogs, preserving English output and work-locale fallback with a strict recursive locale merger.
+
+## 2.39.8
+
+### Patch Changes
+
+- 2af6b96: Reset transient retry budgets after genuine provider progress across all six AI tools, so later capacity failures resume the existing session after long-running work. Preserve Gemini and OpenCode sessions during retries, retry transport exceptions in every adapter, and recognize additional temporary provider errors.
+
+## 2.39.7
+
+### Patch Changes
+
+- 7b3ece2: Explain Claude access denials with billing and account recovery steps when the CLI omits its terminal error. Prefer explicit subscription diagnostics from the session transcript, preserve the HTTP status and request ID, and keep opaque SDK body dumps out of failure reports across all tools.
+
+  Refresh runtime, container and CI dependency pins to satisfy dependency freshness checks, preserving Hive's concurrency alias with the updated configuration parser.
+
 ## 2.39.6
 
 ### Patch Changes

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
 
 import crypto from 'crypto';
 import path from 'path';
@@ -46,6 +48,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar');
   console.log('  --no-tool-update   Skip the agentic CLI version check before starting');
   console.log('  --dry-run          Print split output without creating GitHub issues');
+  console.log(`  --share-geolocation ${SHARE_GEOLOCATION_OPTION.description}`);
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');
   process.exit(earlyArgs.length === 0 ? 1 : 0);
@@ -118,6 +121,7 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
     isolation: argv.isolation,
     screenName: argv.isolation === 'screen' ? argv.screenName || buildScreenName(issue) : null,
     verbose: argv.verbose,
+    shareGeolocation: argv.shareGeolocation,
   });
 
   await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });
@@ -238,21 +242,13 @@ async function runClarifyOrDecomposeMode() {
   };
 
   if (argv.clarify) {
-    const prompt = `Task: "${taskInput}"
-
-Please help clarify this task by:
-1. Identifying ambiguous aspects of the task
-2. Asking 3-5 specific clarifying questions
-3. Suggesting assumptions that could be made if these questions are not answered
-4. Identifying missing context or requirements`;
-    results.clarification = await runAgentPrompt(prompt, 'Return a concise clarification analysis. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text1', { taskInput: String(taskInput) });
+    results.clarification = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text2'));
   }
 
   if (argv.decompose) {
-    const prompt = `Task: "${taskInput}"
-
-${results.clarification ? `Clarification analysis:\n${results.clarification}\n\n` : ''}Please decompose this task into actionable subtasks with dependencies, complexity, risks, and success criteria.`;
-    results.decomposition = await runAgentPrompt(prompt, 'Return a concise decomposition. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text4', { taskInput: String(taskInput), value2: String(results.clarification ? promptText('prompt.templates.task.runClarifyOrDecomposeMode.text3', { value1: String(results.clarification) }) : '') });
+    results.decomposition = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text5'));
   }
 
   return results;

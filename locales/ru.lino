@@ -1,0 +1,760 @@
+ru
+  error
+    label "Ошибка"
+    invalid
+      github
+        url
+          label "Ошибка: Неверный формат URL GitHub"
+          monitoring "Ошибка: Неверный URL GitHub для мониторинга"
+          solve "Ошибка: Неверный URL GitHub для команды solve"
+      url
+        type "Ошибка: Неверный формат URL GitHub"
+      language "Неверный язык '{{value}}'. Поддерживаются: {{supported}}"
+    missing
+      required
+        url "Ошибка: Отсутствует обязательный URL проблемы или запроса на слияние GitHub"
+    unable
+      determine
+        version "Ошибка: Не удается определить версию"
+    url
+      type
+        not
+          supported "Тип URL '{{type}}' не поддерживается"
+    failed
+      to
+        get
+          current
+            user "Ошибка: Не удалось получить текущего пользователя"
+            branch "Не удалось получить текущую ветку"
+          default
+            branch "Не удалось получить имя ветки по умолчанию"
+        initialize
+          repository "Ошибка: Не удалось инициализировать репозиторий"
+        create
+          fork "Не удалось создать форк после всех попыток"
+        add
+          upstream
+            remote "Не удалось добавить удалённый репозиторий upstream"
+          pr
+            fork
+              remote "Не удалось добавить удалённый репозиторий pr-fork"
+        checkout "Не удалось переключиться на {{branch}}"
+        sync "Не удалось синхронизировать {{branch}} с upstream"
+        fetch
+          upstream "Не удалось получить данные из upstream"
+          from
+            pr
+              fork "Не удалось получить данные из pr-fork"
+    fork
+      not
+        accessible "Форк существует, но недоступен после нескольких попыток"
+    pr
+      does
+        not
+          exist "Ошибка: PR #{{prNumber}} не существует в {{owner}}/{{repo}}"
+    youtrack
+      url
+        detected
+          no
+            config "Ошибка: Обнаружен URL YouTrack, но конфигурация YouTrack не найдена"
+    telegram
+      bot
+        token
+          not
+            set "Ошибка: Переменная окружения TELEGRAM_BOT_TOKEN или опция --token не установлена"
+  success
+    label "Успешно"
+    readme
+      created "README.md успешно создан"
+    process
+      completed "Процесс завершён"
+    error
+      reported
+        to
+          sentry "Ошибка успешно отправлена в Sentry"
+    language
+      set "Язык установлен: {{language}}"
+  warning
+    label "Предупреждение"
+    session
+      log
+        not
+          found "Предупреждение: Журнал сеанса для {{session}} не найден, но продолжаем попытку возобновления"
+    failed
+      to
+        create
+          readme "Не удалось: Не удалось создать README.md"
+        fetch
+          branches "Предупреждение: Не удалось получить ветки из удалённого репозитория"
+    could
+      not
+        determine
+          root
+            repository "Не удалось определить корневой репозиторий"
+          token
+            scopes "Предупреждение: Не удалось определить области токена из статуса аутентификации"
+        check
+          fork
+            status "Предупреждение: Не удалось проверить статус форка: {{message}}"
+          github
+            permissions "Предупреждение: Не удалось проверить разрешения GitHub: {{message}}"
+          convert
+            pr
+              draft
+                status "Предупреждение: Не удалось проверить/преобразовать статус черновика PR"
+        search
+          for
+            existing
+              prs "Предупреждение: Не удалось найти существующие PR: {{message}}"
+        get
+          current
+            user "Предупреждение: Не удалось получить текущего пользователя GitHub"
+        convert
+          pr
+            to
+              draft "Предупреждение: Не удалось преобразовать PR в черновик"
+              ready
+                label "Предупреждение: Не удалось преобразовать PR в готовый"
+                status "Предупреждение: Не удалось преобразовать статус PR в готовый"
+        post
+          work
+            start
+              comment "Предупреждение: Не удалось опубликовать комментарий о начале работы"
+            end
+              comment "Предупреждение: Не удалось опубликовать комментарий о завершении работы"
+        assign
+          user "Не удалось назначить пользователя"
+    no
+      linked
+        issue
+          found "Предупреждение: Связанная проблема не найдена в теле PR"
+    error
+      during
+        auto
+          pr
+            creation "Предупреждение: Ошибка при автоматическом создании PR: {{message}}"
+    pr
+      created
+        but
+          no
+            url "Предупреждение: PR создан, но URL не возвращён"
+  failed "Не удалось"
+  info
+    label "Информация"
+    expected
+      github
+        url
+          format "Ожидается: https://github.com/owner или https://github.com/owner/repo"
+    you
+      can
+        use
+          formats "Вы можете использовать любой из этих форматов:"
+    format
+      https
+        owner
+          label "- https://github.com/owner"
+          repo "- https://github.com/owner/repo"
+      http
+        owner "- http://github.com/owner (будет преобразовано в https)"
+      github
+        owner "- github.com/owner (будет добавлено https://)"
+      owner
+        label "- owner (будет преобразовано в https://github.com/owner)"
+        repo "- owner/repo (будет преобразовано в https://github.com/owner/repo)"
+    full
+      log
+        file "Полный файл журнала: {{path}}"
+    process
+      exited
+        with
+          code "Процесс завершился с кодом {{code}}"
+    current
+      configuration "Текущая конфигурация:"
+  process
+    using
+      repository
+        fallback "Использование резервного метода репозиторий-за-репозиторием для {{scope}}: {{owner}}"
+    fetching
+      repository
+        list "Получение списка репозиториев..."
+    command "Команда: {{command}}"
+  check
+    number "Проверка #{{iteration}}:"
+  time
+    current "Текущее время: {{time}}"
+  limits
+    stored
+      metadata "сохранённые сведения"
+    additional
+      codex
+        limits "Дополнительные лимиты Codex"
+    balance "баланс"
+    claude
+      5
+        hour
+          session "5-часовой сеанс Claude"
+      limits "Лимиты Claude"
+      subscription
+        title "Подписка Claude{{plan}}"
+    chatgpt
+      subscription
+        title "Подписка ChatGPT{{plan}}"
+    codex
+      5
+        hour
+          session "5-часовой сеанс Codex"
+      credits "Кредиты Codex"
+      limits "Лимиты Codex"
+    cpu
+      label "CPU"
+      cores
+        used "используемых ядер CPU"
+    current
+      time "Текущее время"
+      week
+        label "Текущая неделя"
+        all
+          models "Текущая неделя (все модели)"
+        sonnet
+          only "Текущая неделя (только Sonnet)"
+    disabled
+      by
+        admin "`--show-limits` отключён администратором бота."
+    disk
+      space "Дисковое пространство"
+    duration
+      day
+        short "д"
+      hour
+        short "ч"
+      minute
+        short "мин"
+      second
+        short "с"
+    end "Конец"
+    five
+      hour
+        limit
+          session "5-часовой сеанс"
+        session "5-часовой сеанс"
+      min
+        load
+          avg "средняя нагрузка за 5 мин"
+    github
+      api "GitHub API"
+    limits
+      at
+        end "Лимиты в конце"
+        start "Лимиты в начале"
+      change "Изменение лимитов"
+    na "Н/Д"
+    note
+      delta
+        approx "Примечание: дельта приблизительная (параллельные сеансы используют общий бюджет)."
+    passed "прошло"
+    plan "План"
+    ram "RAM"
+    reason
+      claude
+        5
+          hour
+            session "Лимит 5-часового сеанса Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
+        running "Процесс Claude уже выполняется"
+        weekly "Недельный лимит Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
+      codex
+        5
+          hour
+            session "Лимит 5-часового сеанса Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
+        running "Процесс Codex уже выполняется"
+        weekly "Недельный лимит Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
+      cpu
+        usage "Использование CPU {{currentPercent}}% (порог: {{thresholdPercent}})"
+      disk
+        usage "Использование диска {{currentPercent}}% (порог: {{thresholdPercent}})"
+      gemini
+        running "Процесс Gemini CLI уже выполняется"
+      github
+        api "Использование GitHub API {{currentPercent}}% (порог: {{thresholdPercent}})"
+      min
+        interval "Минимальный интервал между командами ещё не прошёл"
+      qwen
+        running "Процесс Qwen Code уже выполняется"
+      ram
+        usage "Использование RAM {{currentPercent}}% (порог: {{thresholdPercent}})"
+      threshold
+        exceeded "Превышен порог {{metric}}"
+    remaining "осталось {{duration}}"
+    requests "запросов"
+    resets
+      at "Сброс {{time}}"
+      in "Сброс через {{duration}}"
+    resource
+      limit
+        exceeded "Превышен лимит ресурсов"
+    solve
+      queue
+        status "Статус очереди solve"
+    queue
+      completed "Завершено"
+      failed "С ошибкой"
+      and
+        more "и ещё {{count}}"
+      continued "продолжение"
+      exit
+        code "код выхода {{code}}"
+      pending "ожидает"
+      processing "выполняется"
+      processes "процессов: {{count}}"
+      status
+        cancelled "отменено"
+        failed "ошибка"
+        queued "в очереди"
+        started "запущено"
+        starting "запускается"
+        waiting "ожидание"
+      waiting
+        current
+          command "ожидание текущей команды"
+        in
+          queue "Ожидание в очереди"
+    queues "Очереди"
+    seven
+      day
+        all
+          models "7 дней, все модели"
+        sonnet
+          only "7 дней, только Sonnet"
+    session "сеанс"
+    start "Начало"
+    subscription
+      blocked
+        title "Доступ к инструменту по подписке недоступен"
+        provider "Ответ провайдера"
+        code "Код ошибки"
+        reason "Почему запуск остановлен"
+        note "Это не лимит использования. Провайдер не указал время восстановления; повтор или смена только модели, скорее всего, не восстановят доступ."
+        steps "Что делать"
+        preserved "Незакоммиченные изменения были автоматически закоммичены перед остановкой."
+        resume "Продолжить после восстановления доступа"
+      detail
+        ends
+          label "заканчивается {{time}}"
+          in "заканчивается через {{duration}}; {{time}}"
+        trial
+          ends
+            label "пробный период заканчивается {{time}}"
+            in "пробный период заканчивается через {{duration}}; {{time}}"
+      ends
+        label "Подписка заканчивается {{time}}"
+        in "Подписка заканчивается через {{duration}} ({{time}})"
+      status "Подписка: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "контроль флуда"
+      last
+        rate
+          limit "Последний ответ 429: {{method}}"
+        refusal "Последний ответ 429: {{method}}, {{ago}} назад"
+      observed
+        limit "измеренный лимит"
+      peak "пик {{peak}}"
+      rate
+        limit
+          responses "Ответов 429 с момента запуска: {{count}}"
+      requests "{{used}}/{{limit}} запросов"
+      restraint "Сдержано ботом: отложено {{delayed}}, пропущено {{held}}, повторено {{retried}}"
+      retry
+        after "retry_after {{duration}}"
+        in "повтор через {{duration}}"
+      scope
+        broadcast "сообщения во все чаты, 1 с"
+        chat "сообщения в чат, 1 мин"
+        group "сообщения в группу, 1 мин"
+        other "другие запросы API, 1 с"
+    trial
+      ends
+        label "Пробный период заканчивается {{time}}"
+        in "Пробный период заканчивается через {{duration}} ({{time}})"
+    unavailable "недоступно"
+    unlimited "без ограничений"
+    used "использовано"
+    week "неделя"
+    weekly "Неделя"
+  telegram
+    fetching
+      limits "🔄 Получение лимитов использования..."
+    gathering
+      version "🔄 Сбор информации о версии..."
+    usage
+      limits
+        title "📊 *Лимиты использования*"
+    version
+      information
+        title "🤖 *Информация о версиях*"
+      only
+        in
+          groups "❌ Команда /version работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+    formatting
+      fallback
+        warning "⚠️ Обнаружена ошибка форматирования. Показываю обычный текст."
+    limits
+      only
+        in
+          groups "❌ Команда /limits работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+    solve
+      only
+        in
+          groups "❌ Команда {{commandDisplay}} работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      queue
+        only
+          in
+            groups "❌ Команда /queue работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      disabled "❌ Команда solve отключена в этом экземпляре бота."
+      rejected """
+        ❌ Команда solve отклонена.
+
+        {{infoBlock}}
+
+        🚫 Причина: {{reason}}
+      """
+      queued "📋 Команда solve поставлена в очередь (позиция #{{position}} в очереди {{tool}})"
+      waiting "⏳ Ожидание (очередь {{tool}} #{{position}})"
+      invalid
+        url
+          help """
+            Пример: `/solve https://github.com/owner/repo/issues/123`
+
+            Или ответьте `/solve` на сообщение со ссылкой GitHub
+          """
+    hive
+      only
+        in
+          groups "❌ Команда /hive работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      disabled "❌ Команда /hive отключена в этом экземпляре бота."
+      invalid
+        url
+          help "Пример: `/hive https://github.com/owner/repo`"
+    no
+      label "❌ Нет"
+      github
+        link
+          in
+            reply """
+              ❌ В сообщении, на которое вы ответили, не найдена ссылка на проблему/PR GitHub.
+
+              Пример: Ответьте на сообщение со ссылкой на проблему GitHub командой `/solve`
+
+              Или с опциями: `/solve --model opus`
+            """
+    invalid
+      options """
+        ❌ Неверные опции: {{message}}
+
+        Используйте /help, чтобы увидеть доступные опции
+      """
+      isolation "❌ Неверное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
+      locked
+        isolation "❌ Неверное заблокированное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
+    option
+      syntax
+        check "Проверьте синтаксис опций."
+    url
+      status
+        active """
+          ❌ Этот URL имеет статус {{statusText}}.
+
+          URL: {{url}}
+          Статус: {{status}}
+
+          💡 Используйте /queue для проверки очереди.
+        """
+      session
+        running """
+          ❌ Для этого URL уже выполняется рабочий сеанс.
+
+          URL: {{url}}
+          Сеанс: `{{session}}`
+
+          💡 Дождитесь завершения текущего сеанса или используйте /stop для отмены.
+        """
+      issues
+        list
+          error """
+            URL ведет на список задач, но нужна конкретная задача
+
+            💡 Как исправить:
+            1. Откройте репозиторий: {{url}}
+            2. Нажмите на конкретную задачу
+            3. Скопируйте URL (он должен заканчиваться на /issues/NUMBER)
+
+            Пример: `{{example}}`
+          """
+      pulls
+        list
+          error """
+            URL ведет на список pull request'ов, но нужен конкретный pull request
+
+            💡 Как исправить:
+            1. Откройте репозиторий: {{url}}
+            2. Нажмите на конкретный pull request
+            3. Скопируйте URL (он должен заканчиваться на /pull/NUMBER)
+
+            Пример: `{{example}}`
+          """
+      repo
+        error """
+          URL ведет на репозиторий, но нужен конкретный {{allowedTypes}}
+
+          💡 Как исправить:
+          1. Перейдите: {{url}}/issues
+          2. Нажмите на задачу для решения
+          3. Используйте полный URL с номером задачи
+
+          Пример: `{{example}}`
+        """
+      must
+        be
+          type "URL должен быть GitHub {{allowedTypes}} (не {{type}})"
+      recovered """
+        ℹ️ Ссылка была исправлена перед запуском.
+
+        Вы отправили: {{original}}
+        Используется: {{used}}
+        Исправлено: {{repairs}}
+      """
+    language
+      invalid """
+        ❌ Неверный язык. Поддерживаются: {{supported}}.
+        Использование: /language <код>
+      """
+      set "✅ Язык установлен: *{{language}}*."
+      current """
+        🌐 Текущий язык: *{{language}}*.
+        Поддерживаются: {{supported}}.
+        Использование: /language <код>
+      """
+    yes "✅ Да"
+    info
+      requested
+        by
+          label "Запросил"
+      issue
+        label "Задача"
+      pull
+        request
+          label "Pull request"
+      url
+        label "URL"
+      options
+        label "🛠 Опции"
+      locked
+        options
+          label "🔒 Заблокированные опции"
+    help
+      title "🤖 *Справка SwarmMindBot*"
+      status
+        stopped "🛑 *Статус бота: ОСТАНОВЛЕН*"
+      reason "Причина: {{reason}}"
+      stopped "Остановлен: {{stoppedAt}}"
+      resume "Используйте /start (только владелец чата), чтобы возобновить работу."
+      diagnostic
+        information "📋 *Диагностическая информация:*"
+      chat
+        id "• ID чата: `{{chatId}}`"
+        type "• Тип чата: {{chatType}}"
+        title "• Название чата: {{chatTitle}}"
+      topic
+        id "• ID темы: `{{topicId}}`"
+      available
+        commands "📝 *Доступные команды:*"
+      solve
+        enabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - Решить задачу GitHub"
+        usage "Использование: `/solve <github-url> [options]`"
+        example "Пример: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
+        alias
+          detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
+        reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
+        disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
+        queue "`/queue` - Показать состояние очереди solve"
+      locked
+        options "🔒 Заблокированные опции: `{{options}}`"
+      task
+        enabled "*/task* - Создать issue GitHub из текста или контекста CI/CD"
+        usage "Использование: `/task <github-repository-url>` с текстом или `/task --ci-cd <github-repository-url>`"
+        example "Пример: `/task --ci-cd https://github.com/owner/repo` создаёт только issue для исправления CI/CD"
+        disabled "*/task* / */split* - ❌ Отключено"
+      split
+        enabled "*/split* - Разделить задачу GitHub на меньшие задачи"
+        usage "Использование: `/split <github-issue-url> [options]` или `/task --split <github-issue-url>`"
+        example "Пример: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      fix
+        enabled "*/fix* - Создать задачу об исправлении CI/CD для репозитория и решить её"
+        usage "Использование: `/fix <github-repository-url> [options]`"
+        example "Пример: `/fix https://github.com/owner/repo --model sonnet`"
+        disabled "*/fix* - ❌ Отключено"
+      organize
+        enabled "*/organize* - Классифицировать все открытые задачи существующими типами и метками"
+        usage "Использование: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`; дополнительные инструкции — с новой строки"
+        example "Пример: `/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ Отключено"
+      hive
+        enabled "*/hive* - Выполнить команду hive"
+        usage "Использование: `/hive <github-url> [options]`"
+        example "Пример: `/hive https://github.com/owner/repo`"
+        disabled "*/hive* - ❌ Отключено"
+      models "*/models* - Показать доступные модели, объединённые из этой установки и всех живых источников. Использование: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
+      limits "*/limits* - Показать лимиты использования"
+      version "*/version* - Показать версии бота и среды выполнения"
+      language "*/language* `[en|ru|zh|hi]` - Установить или показать предпочитаемый язык ответов (в памяти, для пользователя)"
+      accept
+        invites "`/accept_invites` - Принять все ожидающие приглашения GitHub"
+      merge
+        label "*/merge* - Очередь слияния (экспериментально)"
+        usage "Использование: `/merge <github-repo-url>`"
+        description "Последовательно сливает все PR с меткой 'ready'."
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 Получать личную пересылку завершения /solve (экспериментально)"
+      help "*/help* - Показать это справочное сообщение"
+      stop
+        start "*/stop* / */start* - Остановить или возобновить прием новых задач (только владелец)"
+        uuid "*/stop* `<uuid>` - Отправить CTRL+C в изолированный сеанс solve/hive (только владелец). Также работает ответом на сообщение с UUID."
+      log "*/log* - Получить лог изолированного сеанса (только владелец). Использование: `/log <uuid>` или ответ `/log`"
+      terminal
+        watch "*/terminal\\_watch* (псевдоним: */watch*) - Обновлять лог изолированного сеанса вживую (владелец чата или пользователь, запустивший сеанс). Использование: `/terminal_watch <uuid>`, `/watch <uuid>` или ответ одной из этих команд"
+      notifications "🔔 *Уведомления о сеансах:* Уведомления о завершении автоматические; используйте /subscribe для личных пересылок."
+      isolation
+        mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
+      group
+        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
+      common
+        options "🔧 *Общие опции:*"
+      model
+        option "• `--model <model>` или `-m` - {{modelDescription}}"
+      base
+        branch
+          option "• `--base-branch <branch>` или `-b` - Целевая ветка для PR (по умолчанию ветка репозитория)"
+      think
+        option "• `--think <level>` - уровень размышления (off/minimal/low/medium/high/xhigh/ultra/max/adaptive) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
+      verbose
+        option "• `--verbose` или `-v` - подробный вывод | `--attach-logs` - прикрепить логи к PR"
+      show
+        limits
+          option "• `--show-limits` - Экспериментально: добавить использование Claude/Codex в начале, в конце и дельту"
+      tip "💡 *Подсказка:* Доступно больше опций. Полный список смотрите в документации."
+      restricted
+        mode "🔒 *Ограниченный режим:* Авторизован: {{authorized}}"
+      allow
+        topic
+          hint "💡 Чтобы разрешить эту тему: `{{allowTopicHint}}`"
+      troubleshooting
+        header "🔧 *Диагностика:*"
+        body """
+          Если бот не получает сообщения:
+          1. Проверьте privacy mode в @BotFather
+             • Отправьте `/setprivacy` в @BotFather
+             • Выберите 'Disable' для вашего бота
+             • Удалите бота из группы и добавьте снова
+          2. Или сделайте бота администратором группы
+          3. Перезапустите бота с флагом `--verbose` для диагностики
+        """
+    waiting
+      label "⏳ Ожидание"
+    reason
+      label "Причина"
+    did
+      you
+        mean "💡 Вы имели в виду `{{suggestion}}`?"
+    missing
+      github
+        url "Не указан GitHub URL. Использование: /{{commandName}} <github-url> [options]"
+    first
+      arg
+        must
+          be
+            github
+              url "Первый аргумент должен быть GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *Нечего выполнять*\n\nВ `{{repository}}` нет открытых задач. Рабочий сеанс не запускался."
+    fix
+      waiting_for_ci "⏳ Ожидание завершения CI/CD в ветке {{branch}}..."
+      waiting_for_ci_default_branch "⏳ Ожидание завершения CI/CD в ветке по умолчанию..."
+      issue_label "Задача"
+    work
+      session
+        starting "🔄 Запуск..."
+        executing "⏳ Выполняется..."
+        finished "Рабочий сеанс успешно завершен"
+        hive_no_work "Ни одна задача не обработана; проверьте журнал на пропущенные задачи или блокировки. Чтобы продолжить задачи с существующими PR, используйте `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Сеанс Hive завершен с ожидающими задачами; проверьте журнал на блокировки"
+        no_changes "Сеанс завершен без изменений; причина указана в комментарии к pull request"
+        failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
+        command_not_found "command not found (программа, которую должен был запустить сеанс, не найдена)"
+        command_not_executable "command not executable (программу, которую должен был запустить сеанс, нельзя выполнить)"
+        merged_but_failed "Пул-реквест объединён, но рабочий сеанс завершился с кодом: {{exitCode}}"
+        merged_success "Запрошенный пул-реквест успешно объединён."
+        runner_also_failed "Средство запуска также завершилось с ошибкой; код выхода сохранён для расследования."
+        killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
+        stopped "Рабочий сеанс остановлен пользователем{{requestedBy}}{{exitSuffix}}"
+        not_launched "Рабочий сеанс не был запущен, поэтому у него нет журнала и он не отображается в `--list`."
+        recovering "Рабочий сеанс ещё выполняется: восстановление после кода выхода {{exitCode}}"
+        recovering_from_kill "Рабочий сеанс ещё выполняется: восстановление после принудительной остановки{{causeSuffix}}"
+        recovered "Рабочий сеанс успешно завершён после автоматического восстановления"
+        recoveries "автоматических восстановлений: {{count}}"
+        status_unknown "Рабочий сеанс завершён, но его код выхода неизвестен"
+        never_observed "Состояние рабочего сеанса неизвестно: сеанс так и не был замечен запущенным"
+        tracking_expired "Отслеживание рабочего сеанса остановлено через {{minutes}} мин без кода выхода; он может всё ещё выполняться в своём сеансе screen"
+    duration
+      label "Длительность"
+    session
+      label "Сеанс"
+      recovery
+        label "Сеанс восстановления"
+      recovered
+        oom "восстановлено после нехватки памяти"
+        kill "восстановлено после принудительного завершения"
+        at "Событие зафиксировано в {{observedAt}}; рабочая сессия продолжилась и завершилась."
+        resumed "Для восстановления после завершения запущена новая рабочая сессия."
+      kill
+        cause "Причина"
+        event "Событие"
+        event_diagnostics "Диагностика OOM-события контейнера (не причина этой остановки)"
+        diagnostics "Диагностика завершения"
+        resumed "🔄 Запущена новая рабочая сессия для восстановления после этого завершения: {{sessionId}}"
+        resumed_attempt "🔄 Запущена новая рабочая сессия для восстановления после этого завершения (попытка {{attempt}}): {{sessionId}}"
+    isolation
+      label "Изоляция"
+    execution
+      label "Запуск"
+      earlier "ранние журналы"
+    error
+      executing
+        command "❌ Ошибка выполнения команды {{commandName}}"
+  language
+    en "Английский"
+    ru "Русский"
+    zh "Китайский"
+    hi "Хинди"
+  version
+    ai
+      agents "AI-агенты"
+    browsers "Браузеры"
+    browser
+      automation "Автоматизация браузера"
+    connected "подключено"
+    development
+      tools "Инструменты разработки"
+    environment "Среда"
+    architecture "Архитектура"
+    kernel "Ядро"
+    not
+      connected "не подключено"
+    os "ОС"
+    platform "Платформа"
+    process
+      running
+        restart
+          needed "Запущенный процесс: `{{processVersion}}` (требуется перезапуск)"
+    system "Система"
+    version "Версия"

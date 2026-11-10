@@ -33,7 +33,7 @@ function validateGitHubUrl(args, options = {}) {
 
   // Issue #1102: Clean non-printable characters from the URL
   const url = cleanNonPrintableChars(args[0]);
-  if (!url.includes('github.com')) {
+  if (!/github\.com/.test(url)) {
     return {
       valid: false,
       error: 'First argument must be a GitHub URL',

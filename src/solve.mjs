@@ -5,6 +5,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
+const { promptText } = await import('./prompt-text.lib.mjs');
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
@@ -37,7 +38,7 @@ const { executeClaude } = claudeLib;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, exitOnRouterAuthViolation, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 const { notifyIssueAboutPrePullRequestFailure } = await import('./solve.pre-pr-failure-notifier.lib.mjs');
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
@@ -234,6 +235,13 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 }
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
+// Check before model discovery, CLI freshness and connection probes can launch a native tool.
+try {
+  const { assertRouterTaskAuthentication } = await import('./router-auth-guard.lib.mjs');
+  assertRouterTaskAuthentication({ tool, env: { ...process.env, ...(argv.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+} catch (error) {
+  if (!(await exitOnRouterAuthViolation(error, { log, safeExit }))) throw error;
+}
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
 if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
 // Validation accepts `--model Formal-AI`; every tool, the sidecar and the
@@ -253,6 +261,12 @@ if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.s
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+// Enforce the audited global surfaces before any native CLI connection probe.
+// Disabling repair does not permit execution with known contamination.
+if (tool === 'claude' || tool === 'codex') {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ tool, env: process.env, autoRepair: !prepareOnly && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !prepareOnly, log, verbose: argv.verbose });
+}
 // Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
 // version the task needs — a stale binary is the usual reason a brand-new model
 // name is rejected. Best effort by design: `ensureAgenticCliFreshness` never
@@ -278,15 +292,6 @@ if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCh
     await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space on this host (${availableMB}MB available, ${requiredMB}MB required) — the issue itself was not attempted`, { skipPreExit: true });
   }
   await safeExit(1, 'System checks failed');
-}
-// Issue #2190: the global Claude/Codex configuration must stay minimal. Globally
-// synced plugins/skills (e.g. Codex's remote "Superpowers" plugin) rewrite agent
-// behaviour and multiply token usage, so drift is reported and, unless
-// --no-agent-config-auto-repair is given, removed before the tool starts. A
-// dry run only reports.
-if (tool === 'claude' || tool === 'codex') {
-  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-  await runAgentConfigAudit({ tool, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), log, verbose: argv.verbose });
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
 if (!argv.dryRun && argv.playwrightMcp !== false) {
@@ -436,17 +441,17 @@ try {
         // Merge failed - likely due to conflicts
         await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
         autoMergeFeedbackLines.push('');
-        autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
-        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
-        autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text1'));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text2', { defaultBranch: String(defaultBranch) }));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text3'));
         autoMergeFeedbackLines.push('');
       }
     } catch (mergeError) {
       await log(`${formatAligned('❌', 'Merge error:', mergeError.message)}`, { level: 'error' });
       autoMergeFeedbackLines.push('');
-      autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE ERROR:');
-      autoMergeFeedbackLines.push(`git merge ${defaultBranch} failed with error: ${mergeError.message}`);
-      autoMergeFeedbackLines.push('Please check the repository state and resolve any issues.');
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text4'));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text5', { defaultBranch: String(defaultBranch), value2: String(mergeError.message) }));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text6'));
       autoMergeFeedbackLines.push('');
     }
   }

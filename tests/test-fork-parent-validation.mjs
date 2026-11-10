@@ -248,7 +248,7 @@ runTest('network error message differentiation (Issue #1311)', () => {
   }
 
   // Check for GitHub status link
-  if (!content.includes('githubstatus.com')) {
+  if (!/githubstatus\.com/.test(content)) {
     throw new Error('Missing GitHub status link in network error message');
   }
 });

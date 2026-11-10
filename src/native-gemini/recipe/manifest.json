@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "name": "@google/gemini-cli",
+  "version": "0.65.0",
+  "upstreamIntegrity": "sha512-B+flaYBNqX2zO71I5/gu7ZsnI38NlpOl654HWz+bK8I/P5sGILQsbkTOQ5a9V+w1Q6QO3wf9PlqtuMsl7XxpNQ==",
+  "inventorySha256": "057029767b3fddcd8f5eb2dddab2a891383ac3cc0b60256fa4490e5f72a9df93",
+  "patches": {
+    "bundle/chunk-DKZARV6U.js": {
+      "payload": "chunk-DKZARV6U.js.json",
+      "payloadSha256": "b362376dc46c62b03308bee46600e327fdcdbcfff1bba603403039a51efae164",
+      "sha256": "80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733",
+      "size": 16761191
+    },
+    "bundle/chunk-XHQ6TTKH.js": {
+      "payload": "chunk-XHQ6TTKH.js.json",
+      "payloadSha256": "eec3d075d9ac54b500cb1f92fc8af74730e6864dcca7b1e9c7301c440ba58cf1",
+      "sha256": "6bb7d4725650029c2d776aa62d36ed47ad12f02998874c0fcbce8b20105f16a7",
+      "size": 672758
+    },
+    "bundle/chunk-YTHYCFAB.js": {
+      "payload": "chunk-YTHYCFAB.js.json",
+      "payloadSha256": "e0537b58eacdfa8767d961446b1804638a299652239070e4a73cc08cb7e3c494",
+      "sha256": "8e7ca00ff7730471df646ebbbd8effbb67dfbb36ddc7c0066ea190edfb79822d",
+      "size": 3679586
+    },
+    "bundle/gemini-GLQ4MVLB.js": {
+      "payload": "gemini-GLQ4MVLB.js.json",
+      "payloadSha256": "1bc5ac73398bc281f4a4d4d2eb5bb55d886151b16b347b88cc5ad84c0fde0779",
+      "sha256": "7a4523edbc713e7e107dc742a162e1be5b0018e1a8d33f228479bcb206d7eecc",
+      "size": 653259
+    },
+    "bundle/hive-gemini-accounts.mjs": {
+      "payload": "hive-gemini-accounts.mjs.json",
+      "payloadSha256": "9869a482ff44a059a0229b641df8512a44abcf90900dfea5139fa7e1912ca707",
+      "sha256": "7ff53a502b0e8e7e6be48ddd8ecb9341a20307d3266b69834a20a7a5329793c0",
+      "size": 9472
+    },
+    "bundle/hive-gemini-admission.mjs": {
+      "payload": "hive-gemini-admission.mjs.json",
+      "payloadSha256": "0a360b2f0f460889e2f9b82f8d736683cf4683ba66092c858064f68500266e98",
+      "sha256": "4295266680ab563e571e7af3d72be762b91948b940ec0abea766583f905737ef",
+      "size": 3847
+    },
+    "bundle/hive-gemini-git-configuration.mjs": {
+      "payload": "hive-gemini-git-configuration.mjs.json",
+      "payloadSha256": "c185d49535d262c3c5d6d05750fdd41b284a41d1beccbfdfa4f7559606c4f7fa",
+      "sha256": "3be27b9f5d2aba8b4456397fea5b418cea13a8ed6f5d7a6816191091052272b1",
+      "size": 3161
+    },
+    "bundle/hive-gemini-git-history.mjs": {
+      "payload": "hive-gemini-git-history.mjs.json",
+      "payloadSha256": "4e86b95d2361c7fd8b0511f4aeeab85e38d7379c0af125e4af7ba6168bc9292f",
+      "sha256": "83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35",
+      "size": 14218
+    },
+    "bundle/hive-gemini-git-lock.mjs": {
+      "payload": "hive-gemini-git-lock.mjs.json",
+      "payloadSha256": "62e88dfd2ddef8b6c8170559caa2ba54aacbad2531499a7ad2ad68bef08b2d38",
+      "sha256": "6271784aa3773fc3a54056bf1ce8fd7b1f2da3a813e01537c47bcbc6d674c568",
+      "size": 4273
+    },
+    "bundle/hive-gemini-git-objects.mjs": {
+      "payload": "hive-gemini-git-objects.mjs.json",
+      "payloadSha256": "9c4ecacd4be5537120de74e106b38df4439219f81f3832c009b9cde4793990f9",
+      "sha256": "22bb570da1e211791e3bc6a6eeefe46635fd63ba6df4cc87320978b8de45bd9f",
+      "size": 3052
+    },
+    "bundle/hive-gemini-history.mjs": {
+      "payload": "hive-gemini-history.mjs.json",
+      "payloadSha256": "addcf0c50d30847fdf345ea280beebbb1915cf04da408b6348228c15b80d959d",
+      "sha256": "4e8997989bd15779ea8e663fe7cd88cc9bebee1cffabe39d8f394dafedf771fb",
+      "size": 49915
+    },
+    "bundle/hive-gemini-publication.mjs": {
+      "payload": "hive-gemini-publication.mjs.json",
+      "payloadSha256": "114f66c1bb45864d2c8f16397da97ce2392a2fcf48b88ecc4b527bf61a55f648",
+      "sha256": "3b2b4dbc2296e6da81d314879e466f100f211579ebee13a63a74d9129bae28d8",
+      "size": 11136
+    },
+    "bundle/hive-gemini-reads.mjs": {
+      "payload": "hive-gemini-reads.mjs.json",
+      "payloadSha256": "ef0af90010c6dda97dc23a33ea169c1d88f6ed4f811837d3a72c1fcfaee74488",
+      "sha256": "12823c530218bdd1d1bfd322451bc79ed8fcd8c25dd1d66807909a720ac91ce1",
+      "size": 4004
+    },
+    "bundle/hive-gemini-restorable-admission.mjs": {
+      "payload": "hive-gemini-restorable-admission.mjs.json",
+      "payloadSha256": "d8e951f6c10265684a5f3bcfefc21357e329f80c3eccf73655bae7521285a9eb",
+      "sha256": "49ebf3f3d44104430c8f854083bfd73966292646fa52b4c3f822c17db97440d8",
+      "size": 2362
+    },
+    "bundle/hive-gemini-restorable-history.mjs": {
+      "payload": "hive-gemini-restorable-history.mjs.json",
+      "payloadSha256": "46dc9172984587579afa11fb305b27ff846a4040c894bbaa17fb0ffe4a7c4300",
+      "sha256": "b9fda6d67fb6d52dab8dfc09dceeb26285e38808b8a31b9945e1e65dab076b24",
+      "size": 4033
+    },
+    "bundle/hive-gemini-shell-history.mjs": {
+      "payload": "hive-gemini-shell-history.mjs.json",
+      "payloadSha256": "b5f43d23879ff6bc03e1bdb8c3c27a35dfcbbec26f53c99c1a18e24950c8f4df",
+      "sha256": "c1b5b1abca32643ae0674779fe21bcf5713795906b9f6aac0d57a0ce3774e2f0",
+      "size": 3302
+    },
+    "bundle/hive-gemini-storage-identity.mjs": {
+      "payload": "hive-gemini-storage-identity.mjs.json",
+      "payloadSha256": "7d3c6affd4b4a4b5a1a4feb4e8b130336b1fbb619219b6f661629184c3428c6d",
+      "sha256": "72d5757195df3120eb60083efddf892df194328938e75ce64c4aa7bd0001ca00",
+      "size": 1853
+    },
+    "bundle/hive-gemini-tracker-history.mjs": {
+      "payload": "hive-gemini-tracker-history.mjs.json",
+      "payloadSha256": "ce90ce7520b20ec3fd3621feb18a6c552e6927a125944945ba9c8a06f72b51c1",
+      "sha256": "11e56b631ab984ad8bb7992586a9e6e8b0030fba5e47c1e9b0f2c4fb9497b2c1",
+      "size": 5404
+    },
+    "bundle/hive-gemini-tracker-transactions.mjs": {
+      "payload": "hive-gemini-tracker-transactions.mjs.json",
+      "payloadSha256": "6828c67ea95ad362005e0aab2f5ec31cc6bf66fcf5edfd0269c85bf7a9722cc8",
+      "sha256": "c504c700a3c11e6d25777e8b495bfba043c729cd67a91fc476465379bb667fd9",
+      "size": 1014
+    },
+    "bundle/hive-gemini-writers.mjs": {
+      "payload": "hive-gemini-writers.mjs.json",
+      "payloadSha256": "ecbb67534fff7c917d7414736be7c00871c23e549a5b4aa6c19244dfb0b66ebd",
+      "sha256": "6e2f10d652d8cae21e0986c82a7302296ba84ad6a21f44cf117ce60cb99b0b40",
+      "size": 7033
+    },
+    "bundle/hive-native-oauth-transaction.mjs": {
+      "payload": "hive-native-oauth-transaction.mjs.json",
+      "payloadSha256": "3a73ee3814e7e598d61e3a0b3a0455281a45b28ea5ca018f5c8d5e74ea70a6bc",
+      "sha256": "763d60a05674d0581c5d9e9045c8c5ad349592a6debcebf60c1645b9271bc1af",
+      "size": 10881
+    },
+    "bundle/hive-read-credentials.mjs": {
+      "payload": "hive-read-credentials.mjs.json",
+      "payloadSha256": "878515a0b0ea5ab4c5e53056f9f6318a2e470352e6cfecf2074788cd093ce4e3",
+      "sha256": "c3556a57278413d39e0b2cf0b8a3de1fefc2e1b0cd6f4f489fb0a722bfc43672",
+      "size": 3432
+    },
+    "bundle/hive-shared-refresh-lock.mjs": {
+      "payload": "hive-shared-refresh-lock.mjs.json",
+      "payloadSha256": "62e88dfd2ddef8b6c8170559caa2ba54aacbad2531499a7ad2ad68bef08b2d38",
+      "sha256": "6271784aa3773fc3a54056bf1ce8fd7b1f2da3a813e01537c47bcbc6d674c568",
+      "size": 4273
+    },
+    "bundle/interactiveCli-AVD3AKNJ.js": {
+      "payload": "interactiveCli-AVD3AKNJ.js.json",
+      "payloadSha256": "c4e814ec360a1c831aaa221b35de426c937c4b46d58fe9c525705ebebe6884a3",
+      "sha256": "80b096b4fbbe0c92bb3dff50b84dfd54a133a2443cc05b721f76d6acdaf99a1c",
+      "size": 1333286
+    }
+  }
+}

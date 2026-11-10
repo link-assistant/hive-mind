@@ -279,6 +279,32 @@ export function firstErrorLine(text) {
   return errorLine ? message(errorLine) : null;
 }
 
+/** solve's last word on a run that changed nothing (src/solve.finalize.lib.mjs). */
+const FINISHED_WITHOUT_CHANGES = /^⚠️\s+Finished without changes: (.+)$/u;
+
+/**
+ * Why a draft run is red, for the `Formal AI draft failed` annotation and the
+ * health check that reads it back.
+ *
+ * Issue #4025: every red draft since #3211 exited 5 ("finished without
+ * changes"), yet the annotation said "Failed to fetch authenticated GitHub
+ * username ... HTTP 403". That ❌ line is gh-upload-log failing to create a
+ * gist with the workflow token, an error solve recovers from by saving the
+ * log on the pull request branch. When solve reports it finished without
+ * changes, that line and its reason are the outcome; otherwise the first
+ * error is.
+ *
+ * @param {string} text session log contents
+ * @returns {string|null}
+ */
+export function draftFailureReason(text) {
+  for (const line of String(text || '').split('\n')) {
+    const match = FINISHED_WITHOUT_CHANGES.exec(line.replace(LOG_LINE_PREFIX, '').trim());
+    if (match) return `Finished without changes: ${match[1].trim()}`;
+  }
+  return firstErrorLine(text);
+}
+
 const escapeAnnotationData = value => String(value).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 const escapeAnnotationProperty = value => escapeAnnotationData(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
 

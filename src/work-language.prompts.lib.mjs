@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 // Issue #378: shared helper that emits a "working language" directive to be
 // appended to every tool's system prompt. The directive is empty for English
 // (default), and tells the model to communicate with the user in the chosen
@@ -16,7 +17,7 @@ const LOCALE_DISPLAY_NAMES = Object.freeze({
 export function buildWorkLanguageDirective(locale = getWorkLocale()) {
   if (!locale || locale === 'en') return '';
   const name = LOCALE_DISPLAY_NAMES[locale] || locale;
-  return `\n\nWorking language: ${name}. When you communicate with the user via comments, commit messages, pull request titles/descriptions, and chat replies, use ${name}. Code, identifiers, and command-line strings stay in their original form.`;
+  return promptText('prompt.system.templates.work-language-prompts.buildWorkLanguageDirective.text1', { name: String(name) });
 }
 
 export default { buildWorkLanguageDirective };

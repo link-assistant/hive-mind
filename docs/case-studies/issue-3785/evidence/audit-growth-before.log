@@ -1,0 +1,35 @@
+✔ malformed global JSON stops repair without exposing input or changing other state (73.170622ms)
+✔ symlink from settings into credentials is rejected before repair (13.470809ms)
+✔ hardlink from settings into credentials is rejected before repair (13.521252ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (30.870175ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (17.020219ms)
+✔ unreadable Codex configuration stops every repair (26.058138ms)
+✔ a concurrent configuration edit invalidates the repair plan (28.462864ms)
+✔ a concurrent file creation prevents empty-parent pruning (42.237369ms)
+✔ removing an unapproved skill preserves hidden stock runtime files (38.722914ms)
+✔ malformed TOML stops repair without exposing configuration or changing other state (29.388301ms)
+✖ configuration growth after the size check cannot trigger an unbounded read (48.301882ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 527.505624
+
+✖ failing tests:
+
+test at tests/issue-3785-audit-inputs.test.mjs:204:1
+✖ configuration growth after the size check cannot trigger an unbounded read (48.301882ms)
+  AssertionError [ERR_ASSERTION]: read at most the configured limit plus one overflow byte
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-audit-inputs.test.mjs:245:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,39 @@
+================================================================================
+Regression: benign in-session tool results are not errors (Issue #2160)
+================================================================================
+
+classifyToolResultError():
+
+  [32mPASS:[0m benign (harness_blocked): Blocked: sleep 240 followed by: gh pr checks 201
+  [32mPASS:[0m benign (harness_blocked): Blocked: sleep 60 followed by: gh run list --rep
+  [32mPASS:[0m benign (command_timeout): Exit code 143
+  [32mPASS:[0m benign (command_timeout): Command timed out after 10m 0s
+  [32mPASS:[0m benign (command_exit_code): Exit code 1
+  [32mPASS:[0m benign (command_exit_code): Exit code 127
+  [32mPASS:[0m still an error signal: Path does not exist: /tmp/gh-issue-solver-177927
+  [32mPASS:[0m still an error signal: File has not been read yet. Read it first before
+  [32mPASS:[0m still an error signal: ENOSPC: no space left on device, write
+  [32mPASS:[0m empty / non-string input is not classified as benign
+
+collectClaudeStreamEventFacts():
+
+  [32mPASS:[0m exposes the classification alongside toolResultError
+  [32mPASS:[0m events without a tool error keep the flags off
+
+Truncated-stream reporting:
+
+  [32mPASS:[0m a truncated stream is reported after the assistant message, not after a blocked sleep
+  [32mPASS:[0m a benign result is still the reported detail when the AI said nothing (issue #2023)
+
+Wiring in src/claude.lib.mjs:
+
+  [32mPASS:[0m claude.lib.mjs never overwrites lastMessage with a tool result error
+  [32mPASS:[0m claude.lib.mjs only records non-benign tool result errors
+
+Prompt guidance (contributing factor):
+
+  [32mPASS:[0m the prompt tells the AI not to wait with long foreground sleeps
+
+================================================================================
+Results: 17 passed, 0 failed
+================================================================================

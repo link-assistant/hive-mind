@@ -1,0 +1,65 @@
+# Dependabot version updates (issue #10) -
+# https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Every action is pinned to a commit hash with its release in a comment
+# (`uses: owner/repo@<sha> # vX.Y.Z`); Dependabot rewrites both together,
+# so each update is a reviewable pull request that runs the same required
+# checks as a contributor's. Updates wait seven days after a release
+# (cooldown), so a compromised release that is pulled quickly never lands.
+#
+# None of the ecosystems below touches src/, tests/ or scripts/, so these pull
+# requests need no changelog fragment. The Python packages and the
+# pre-commit hooks share one weekly pull request (a multi-ecosystem group):
+# the hooks pin the same ruff, mypy and pillow as the dev extra
+# (tests/test_project_metadata.py), so updating one without the other would
+# fail the tests. scripts/unimedvl-requirements.{in,txt} is excluded: its
+# torch pin has to match the SHA-256-pinned flash-attn wheel in
+# scripts/medbench-model-run.sh and upstream UniMedVL's code, which
+# Dependabot cannot update together (issue #19 moves them by hand, with a
+# test run). scripts/audit_dependencies.py fails the Security workflow when a
+# new advisory hits one of those pins.
+version: 2
+multi-ecosystem-groups:
+  python:
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: deps
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
+
+  # pyproject.toml (package and extras) and docs/requirements.txt.
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /docs
+    exclude-paths:
+      - scripts/unimedvl-requirements.*
+    patterns:
+      - '*'
+    multi-ecosystem-group: python
+    cooldown:
+      default-days: 7
+
+  # .pre-commit-config.yaml hook revisions.
+  - package-ecosystem: pre-commit
+    directory: /
+    patterns:
+      - '*'
+    multi-ecosystem-group: python
+    cooldown:
+      default-days: 7

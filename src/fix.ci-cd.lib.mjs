@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Pure helpers for the `/fix --ci-cd` command (issue #1733).
  *
@@ -201,7 +202,7 @@ function shortSha(sha) {
 export function buildLanguagesSection(languages) {
   const normalized = normalizeLanguages(languages);
   if (normalized.length === 0) {
-    return 'No languages were reported by the GitHub Linguist API for this repository.';
+    return promptText('prompt.templates.fix-ci-cd.buildLanguagesSection.text1');
   }
   const total = normalized.reduce((sum, { bytes }) => sum + bytes, 0) || 1;
   const lines = normalized.map(({ name, bytes }) => {
@@ -217,13 +218,13 @@ export function buildTemplatesSection(languages) {
   const lines = [];
 
   if (sortedTemplates.length === 0) {
-    lines.push('No language-specific template matched the detected languages. Review all templates and apply the closest match:');
+    lines.push(promptText('prompt.templates.fix-ci-cd.buildTemplatesSection.text2'));
     lines.push('');
     for (const template of CI_CD_TEMPLATES) {
       lines.push(`- ${template.label}: [${template.repo}](${templateUrl(template.repo)})`);
     }
   } else {
-    lines.push('Apply the best practices from these templates, in priority order (most-used language first):');
+    lines.push(promptText('prompt.templates.fix-ci-cd.buildTemplatesSection.text3'));
     lines.push('');
     sortedTemplates.forEach((entry, index) => {
       const detected = entry.languages.join(', ');
@@ -233,7 +234,7 @@ export function buildTemplatesSection(languages) {
 
   if (unmatchedLanguages.length > 0) {
     lines.push('');
-    lines.push(`Other detected languages without a dedicated template: ${unmatchedLanguages.join(', ')}.`);
+    lines.push(promptText('prompt.templates.fix-ci-cd.buildTemplatesSection.text4', { value1: String(unmatchedLanguages.join(', ')) }));
   }
 
   return lines.join('\n');
@@ -304,9 +305,9 @@ export function countDuplicateRuns(runs) {
 export function buildRunsSection(runs, { emptyMessage, includeCommit = false } = {}) {
   const list = dedupeRunsByWorkflow(runs);
   if (list.length === 0) {
-    return emptyMessage || 'No CI/CD runs were found for the latest default-branch commit.';
+    return emptyMessage || promptText('prompt.templates.fix-ci-cd.buildRunsSection.text5');
   }
-  const header = includeCommit ? '| Workflow | Status | Conclusion | Commit | Run |\n| --- | --- | --- | --- | --- |' : '| Workflow | Status | Conclusion | Run |\n| --- | --- | --- | --- |';
+  const header = includeCommit ? promptText('prompt.templates.fix-ci-cd.buildRunsSection.text6') : promptText('prompt.templates.fix-ci-cd.buildRunsSection.text7');
   const rows = list.map(run => {
     const name = run.name || run.workflowName || 'unknown';
     const status = run.status || 'unknown';
@@ -362,8 +363,8 @@ export const FIX_FORWARDED_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPME
  * issues must never offer or restore the superseded folder convention, even
  * when callers request an otherwise unabridged prompt (PR #1929 feedback).
  */
-export const DEBUG_OUTPUT_PARAGRAPH = 'If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.';
-export const REPORT_UPSTREAM_PARAGRAPH = 'If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.';
+export const DEBUG_OUTPUT_PARAGRAPH = promptText('prompt.templates.fix-ci-cd.DEBUG_OUTPUT_PARAGRAPH.text8', {}, { locale: 'en' });
+export const REPORT_UPSTREAM_PARAGRAPH = promptText('prompt.templates.fix-ci-cd.REPORT_UPSTREAM_PARAGRAPH.text9', {}, { locale: 'en' });
 
 /** Build the ordered, tagged paragraphs of the standard prompt. */
 export function buildStandardPromptParagraphs({ templatesSorted } = {}) {
@@ -372,29 +373,29 @@ export function buildStandardPromptParagraphs({ templatesSorted } = {}) {
   return [
     {
       providedBy: [],
-      text: `Use all the best practices from CI/CD templates (check full file tree to compare for all GitHub workflow and CI/CD scripts file), if the same issue is found in template report issue also in templates:\n\n${templateLinks}`,
+      text: promptText('prompt.templates.fix-ci-cd.buildStandardPromptParagraphs.text10', { templateLinks: String(templateLinks) }),
     },
     {
       providedBy: [],
-      text: "We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.",
+      text: promptText('prompt.templates.fix-ci-cd.buildStandardPromptParagraphs.text11'),
     },
     {
       providedBy: [SOLVE_OPTION_DEEP_ANALYSIS],
-      text: DEBUG_OUTPUT_PARAGRAPH,
+      text: localizePromptConstant(DEBUG_OUTPUT_PARAGRAPH),
     },
     {
       providedBy: [SOLVE_OPTION_DEEP_ANALYSIS],
-      text: REPORT_UPSTREAM_PARAGRAPH,
+      text: localizePromptConstant(REPORT_UPSTREAM_PARAGRAPH),
     },
     {
       providedBy: [],
-      text: `Follow the CI/CD best practices collected in [${CI_CD_BEST_PRACTICES_URL}](${CI_CD_BEST_PRACTICES_URL}).`,
+      text: promptText('prompt.templates.fix-ci-cd.buildStandardPromptParagraphs.text12', { CI_CD_BEST_PRACTICES_URL: String(CI_CD_BEST_PRACTICES_URL) }),
     },
     {
       // Quoted verbatim from the template; identical to the reinforcement
       // prompt /solve --keep-working-... reuses, so share the single constant.
       providedBy: [],
-      text: KEEP_WORKING_PROMPT,
+      text: localizePromptConstant(KEEP_WORKING_PROMPT),
     },
   ];
 }
@@ -443,10 +444,10 @@ export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, la
   // commit cannot be hidden by unrelated successful runs on the latest one.
   // The exact-commit query remains a fallback for repositories whose branch
   // query returns no runs. Label the source honestly.
-  const runsHeading = runsSource === 'branch' ? `Recent CI/CD runs on \`${defaultBranch || 'default branch'}\`` : 'Latest default-branch CI/CD runs';
-  const runsEmptyMessage = runsSource === 'branch' ? `No recent CI/CD runs were found on \`${defaultBranch || 'the default branch'}\`.` : 'No CI/CD runs were found for the latest default-branch commit.';
+  const runsHeading = runsSource === 'branch' ? promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text14', { value1: String(defaultBranch || promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text13')) }) : promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text15');
+  const runsEmptyMessage = runsSource === 'branch' ? promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text17', { value1: String(defaultBranch || promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text16')) }) : promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text18');
 
-  const sections = [`### ${runsHeading}`, '', buildRunsSection(uniqueRuns, { emptyMessage: runsEmptyMessage, includeCommit: runsSource === 'branch' }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --ci-cd</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', '**Detected languages**', '', buildLanguagesSection(languages), '', '**Recommended CI/CD templates**', '', buildTemplatesSection(languages), '', '</details>'];
+  const sections = [`### ${runsHeading}`, '', buildRunsSection(uniqueRuns, { emptyMessage: runsEmptyMessage, includeCommit: runsSource === 'branch' }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text19'), '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text20', { value1: String(defaultBranch || 'unknown') }), promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text21', { commitLine: String(commitLine) }), promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text22', { total: String(total), failing: String(failing) }), '', promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text23'), '', buildLanguagesSection(languages), '', promptText('prompt.templates.fix-ci-cd.buildCiCdIssueBody.text24'), '', buildTemplatesSection(languages), '', '</details>'];
 
   return sections.join('\n');
 }

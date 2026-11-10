@@ -209,7 +209,7 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
-issue 以 **Dependabot pull requests merged before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。仍然无法合并的 pull request（冲突、草稿、无法绕过的 ruleset）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新；更新落地后 Dependabot 会自行关闭它们。`--dry-run` 只列出将被合并的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
+issue 以 **Open Dependabot pull requests handled before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。GitHub 尚未计算出的可合并状态（`UNKNOWN`）会先重新读取。与基础分支冲突的 pull request（"the merge commit cannot be cleanly created"）绝不会用 `--admin` 重试：如果基础分支已经把它升级的每个依赖固定在相同或更新的版本，就以"已被取代"关闭，并在评论中列出这些版本；否则请 Dependabot 重建它（`@dependabot recreate`），重建后的 pull request 若在三分钟内变为可合并就会被合并。当 Dependabot 的配置不再覆盖其文件时，它不会自行关闭这类 pull request（[issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)）。仍然无法合并的 pull request（草稿、无法绕过的 ruleset、未完成的重建）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新。`--dry-run` 只列出将被合并、关闭或重建的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
 
 ```bash
 fix owner/repo --update-all-dependencies --no-merge-dependabot-prs

@@ -1,0 +1,278 @@
+✖ global instruction or command payload blocks admission: .claude/CLAUDE.md (90.410753ms)
+✖ global instruction or command payload blocks admission: .claude/rules/operator.md (64.100484ms)
+✖ global instruction or command payload blocks admission: .codex/AGENTS.md (39.687053ms)
+✖ global instruction or command payload blocks admission: .codex/AGENTS.override.md (51.085215ms)
+✖ global instruction or command payload blocks admission: .codex/prompts/operator.md (46.824968ms)
+✖ Claude inline hooks are repaired without changing provider, permissions or auth metadata (63.777321ms)
+✖ Codex hook manifests block admission without executing or deleting payloads (64.149375ms)
+✖ Codex inline global behavior is repaired: notify (54.833517ms)
+✖ Codex inline global behavior is repaired: developer_instructions (45.094699ms)
+✖ Codex inline global behavior is repaired: model_instructions_file (49.518252ms)
+✖ Codex inline global behavior is repaired: hooks (39.188382ms)
+✖ Codex profiles cannot hide global registrations and hooks (42.915635ms)
+✖ Codex global agent declarations are removed while concurrency limits survive (32.905052ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 0
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 876.156104
+
+✖ failing tests:
+
+test at tests/issue-3785-global-baseline.test.mjs:20:3
+✖ global instruction or command payload blocks admission: .claude/CLAUDE.md (90.410753ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:25:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:20:3
+✖ global instruction or command payload blocks admission: .claude/rules/operator.md (64.100484ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:25:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:20:3
+✖ global instruction or command payload blocks admission: .codex/AGENTS.md (39.687053ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:25:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:20:3
+✖ global instruction or command payload blocks admission: .codex/AGENTS.override.md (51.085215ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:25:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:20:3
+✖ global instruction or command payload blocks admission: .codex/prompts/operator.md (46.824968ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:25:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:30:1
+✖ Claude inline hooks are repaired without changing provider, permissions or auth metadata (63.777321ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    {
+      disableAllHooks: true,
+      env: {
+        ANTHROPIC_BASE_URL: 'https://provider.invalid'
+      },
+  +   hooks: {
+  +     SessionStart: [
+  +       {
+  +         hooks: [
+  +           {
+  +             command: '/usr/bin/false',
+  +             type: 'command'
+  +           }
+  +         ]
+  +       }
+  +     ]
+  +   },
+      model: 'synthetic-model',
+      permissions: {
+        deny: [
+          'Read(secret)'
+        ]
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:36:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { model: 'synthetic-model', permissions: { deny: [Array] }, env: { ANTHROPIC_BASE_URL: 'https://provider.invalid' }, disableAllHooks: true, hooks: { SessionStart: [Array] } },
+    expected: { model: 'synthetic-model', permissions: { deny: [Array] }, env: { ANTHROPIC_BASE_URL: 'https://provider.invalid' }, disableAllHooks: true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:39:1
+✖ Codex hook manifests block admission without executing or deleting payloads (64.149375ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:44:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /configuration.*not clean/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:49:3
+✖ Codex inline global behavior is repaired: notify (54.833517ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + [
+  +   '/usr/bin/false'
+  + ]
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '/usr/bin/false' ],
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:49:3
+✖ Codex inline global behavior is repaired: developer_instructions (45.094699ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + 'synthetic global instruction'
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'synthetic global instruction',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:49:3
+✖ Codex inline global behavior is repaired: model_instructions_file (49.518252ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '/synthetic/global-instructions.md'
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/synthetic/global-instructions.md',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:49:3
+✖ Codex inline global behavior is repaired: hooks (39.188382ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + [Object: null prototype] {
+  +   SessionStart: [
+  +     [Object: null prototype] {
+  +       hooks: [
+  +         [Object: null prototype] {
+  +           command: '/usr/bin/false',
+  +           type: 'command'
+  +         }
+  +       ]
+  +     }
+  +   ]
+  + }
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:55:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { SessionStart: [ [Object] ] },
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:61:1
+✖ Codex profiles cannot hide global registrations and hooks (42.915635ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + [
+  +   '/usr/bin/false'
+  + ]
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:68:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '/usr/bin/false' ],
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-global-baseline.test.mjs:74:1
+✖ Codex global agent declarations are removed while concurrency limits survive (32.905052ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + [Object: null prototype] {
+  +   config_file: '/synthetic/worker.toml',
+  +   description: 'synthetic global role'
+  + }
+  - undefined
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-global-baseline.test.mjs:81:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { description: 'synthetic global role', config_file: '/synthetic/worker.toml' },
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

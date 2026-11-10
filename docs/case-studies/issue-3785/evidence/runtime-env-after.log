@@ -1,0 +1,30 @@
+✔ Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (25.083169ms)
+✔ Dockerfile.dind keeps pinned runtimes out of automatic and command-triggered updates (12.590083ms)
+✔ coolify/Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (6.77131ms)
+✔ outside pinned images the existing CLI update defaults remain available (0.769211ms)
+✔ all stock-gate native children receive disposable homes without inherited credentials or overrides (604.377208ms)
+✔ unattested stock content blocks admission: operator/SKILL.md (42.075877ms)
+✔ unattested stock content blocks admission: .operator/SKILL.md (20.635791ms)
+✔ unattested stock content blocks admission: imagegen/SKILL.md (42.289799ms)
+✔ unattested stock content blocks admission: .codex-system-skills.marker (18.762937ms)
+✔ nested stock credential symlink blocks admission (21.209042ms)
+✔ nested stock credential hard link blocks admission (22.909091ms)
+✔ an empty stock directory is not a pristine CLI baseline (44.636355ms)
+✔ Dockerfile pins the CLI version used to generate the stock baseline (4.462024ms)
+✔ Dockerfile.dind pins the CLI version used to generate the stock baseline (0.945534ms)
+✔ coolify/Dockerfile pins the CLI version used to generate the stock baseline (10.909271ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (40.205859ms)
+✔ stock verification rejects an oversized file before opening it (50.092883ms)
+✔ concurrent stock edits reject verification without exposing content (18.916057ms)
+✔ PR image builds install this branch as a package in both images (3.312395ms)
+✔ both packaged images require a network-disabled stock-runtime gate (4.535159ms)
+✔ packaged runtime rejects a native CLI that materializes unapproved stock (332.509184ms)
+✔ packaged runtime rejects a native CLI that does not materialize stock (292.674312ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1223.362407

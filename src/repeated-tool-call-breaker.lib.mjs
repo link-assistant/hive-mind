@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Circuit breaker for an agentic session that repeats one failing tool call.
  *
@@ -148,10 +149,10 @@ export const buildToolCallSignature = ({ name, input } = {}) => `${name || 'unkn
 
 export const describeRepeatedToolCall = ({ tool, input, count, error = null, succeeded = false }) => {
   const inputText = stableStringify(input === undefined ? null : input);
-  const inputPreview = inputText.length > INPUT_PREVIEW_LENGTH ? `${inputText.slice(0, INPUT_PREVIEW_LENGTH)}...` : inputText;
-  if (succeeded) return `Identical tool call repeated ${count} times in a row, returning the same output every time: ${tool}(${inputPreview}).`;
-  const errorPreview = typeof error === 'string' && error.trim() ? ` Last error: ${error.trim().slice(0, INPUT_PREVIEW_LENGTH)}` : '';
-  return `Identical tool call repeated ${count} times, failing every time: ${tool}(${inputPreview}).${errorPreview}`;
+  const inputPreview = inputText.length > INPUT_PREVIEW_LENGTH ? promptText('prompt.system.templates.repeated-tool-call-breaker.describeRepeatedToolCall.text1', { value1: String(inputText.slice(0, INPUT_PREVIEW_LENGTH)) }) : inputText;
+  if (succeeded) return promptText('prompt.system.templates.repeated-tool-call-breaker.describeRepeatedToolCall.text2', { count: String(count), tool: String(tool), inputPreview: String(inputPreview) });
+  const errorPreview = typeof error === 'string' && error.trim() ? promptText('prompt.system.templates.repeated-tool-call-breaker.describeRepeatedToolCall.text3', { value1: String(error.trim().slice(0, INPUT_PREVIEW_LENGTH)) }) : '';
+  return promptText('prompt.system.templates.repeated-tool-call-breaker.describeRepeatedToolCall.text4', { count: String(count), tool: String(tool), inputPreview: String(inputPreview), errorPreview: String(errorPreview) });
 };
 
 /**
@@ -161,7 +162,7 @@ export const describeRepeatedToolCall = ({ tool, input, count, error = null, suc
  * @param {{reason: string}} verdict
  * @returns {string[]}
  */
-export const buildRepeatedToolCallFeedback = verdict => [`The previous session was stopped by the repeated-tool-call breaker: ${verdict.reason}`, 'Do not repeat that call. Its output is already known; act on it (edit files, commit, push) or try a different approach.'];
+export const buildRepeatedToolCallFeedback = verdict => [promptText('prompt.templates.repeated-tool-call-breaker.buildRepeatedToolCallFeedback.text5', { value1: String(verdict.reason) }), promptText('prompt.templates.repeated-tool-call-breaker.buildRepeatedToolCallFeedback.text6')];
 
 /**
  * Issue #2247 (H10): put the cause in front of the consequence.

@@ -1,0 +1,68 @@
+✔ admission refuses absent cloud policy when repair is disabled (89.720517ms)
+✔ admission refuses empty cloud policy when repair is disabled (31.981599ms)
+✔ admission refuses skills enabled cloud policy when repair is disabled (70.364609ms)
+✔ admission refuses plugins enabled cloud policy when repair is disabled (50.327825ms)
+✔ admission refuses connectors enabled cloud policy when repair is disabled (55.621524ms)
+✔ admission refuses marketplace enabled cloud policy when repair is disabled (92.07435ms)
+✔ cloud policy repair preserves protected state and unrelated security settings (101.218329ms)
+✔ new quiet configuration disables skills, plugins and connectors (7.542847ms)
+✔ configure-claude resolves the same selected native directory as admission (0.567968ms)
+✔ the configure command writes only its selected disposable home (649.581396ms)
+✔ a selected home must carry the cloud baseline even when the conventional home is clean (76.853304ms)
+✔ managed synced plugins reject admission before any user repair (54.626512ms)
+✖ managed connectors enabled cannot override the user cloud baseline (91.439479ms)
+✖ managed connector environment enabled cannot override the user cloud baseline (139.543813ms)
+✖ managed marketplace environment enabled cannot override the user cloud baseline (106.054937ms)
+✔ restored synced plugin payloads cannot survive the global audit (81.010936ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 13
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2560.594938
+
+✖ failing tests:
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:107:3
+✖ managed connectors enabled cannot override the user cloud baseline (91.439479ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:115:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /managed.*not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:107:3
+✖ managed connector environment enabled cannot override the user cloud baseline (139.543813ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:115:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /managed.*not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:107:3
+✖ managed marketplace environment enabled cannot override the user cloud baseline (106.054937ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:115:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /managed.*not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }

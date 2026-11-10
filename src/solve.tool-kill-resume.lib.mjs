@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /** Bounded, observable in-process SIGKILL recovery (#2408, #2498). */
 import { resolveSessionKillResumeAttempts, pickSessionKillResumeDelayMs } from './session-kill-policy.lib.mjs';
 import { postTrackedComment, RECOVERY_LIFECYCLE_MARKER } from './tool-comments.lib.mjs';
@@ -5,7 +6,7 @@ import { RECOVERY_HEARTBEAT_MS, recoveryLogLine, formatRecoveryLifecycle } from 
 
 /** 128 + SIGKILL(9); this exit code alone does not establish an OOM cause. */
 export const SIGKILL_EXIT_CODE = 137;
-export const TOOL_KILL_RESUME_FEEDBACK = 'Continue. Your previous run was killed with SIGKILL (exit code 137). Its cause is not established by that exit code; an out-of-memory kill is one possibility. Continue from where you stopped, and prefer lower-memory commands: run builds and tests one at a time, and use `cargo build -j 1` / `CARGO_BUILD_JOBS=1` or one test target at a time.';
+export const TOOL_KILL_RESUME_FEEDBACK = promptText('prompt.templates.solve-tool-kill-resume.TOOL_KILL_RESUME_FEEDBACK.text1', {}, { locale: 'en' });
 
 export function isToolProcessKilled(toolResult) {
   if (!toolResult || toolResult.success || toolResult.limitReached) return false;
@@ -108,7 +109,7 @@ export async function resumeAfterToolKill({ toolResult, attemptsUsed = 0, argv =
         heartbeat = heartbeat.then(() => record('running')).catch(error => log(`Recovery heartbeat failed: ${error?.message || error}`));
       }, RECOVERY_HEARTBEAT_MS);
       timer?.unref?.();
-      result = await runIteration({ argv: sessionId ? { ...argv, resume: sessionId } : argv, feedbackLines: [TOOL_KILL_RESUME_FEEDBACK] });
+      result = await runIteration({ argv: sessionId ? { ...argv, resume: sessionId } : argv, feedbackLines: [localizePromptConstant(TOOL_KILL_RESUME_FEEDBACK)] });
       resumed = true;
     } catch (error) {
       result = { success: false, sessionId, exitCode: 1, errorInfo: { message: error?.message || String(error), exitCode: 1 } };

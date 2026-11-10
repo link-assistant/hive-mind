@@ -1,0 +1,87 @@
+Native Gemini 0.65.0 terminal restore metadata and edit admission
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local native runtime: Node 26.12.1. Production installation remains unfinished.
+
+Strict before control on the checked Git-service stage:
+  PASS: actual native TUI records its restorable checkpoint before approval
+        and completes the real write_file edit.
+  After complete private-home disposal, the fresh terminal reports File not found.
+  AssertionError: Fresh native TUI must restore its actual pre-edit checkpoint
+                  after private-home disposal.
+
+Strict before control after canonical metadata persistence alone:
+  The actual terminal waits at Allow once with its healthy metadata acknowledged.
+  Replacing a native history item's numeric id with a string does not prevent
+  the approved write_file edit.
+  AssertionError: Unsafe native restore metadata must prevent the approved
+                  native edit.
+
+After controls on the final metadata/admission package:
+  PASS: actual native terminal persists its full native checkpoint before approval.
+  PASS: deleting the entire first private home and starting a fresh native
+        terminal retains the Git snapshot and original conversation.
+  PASS: /restore rewinds an untouched companion file to its pre-edit contents
+        and loads the saved original prompt/history. The native automatically
+        replayed tool then executes without another inference.
+  PASS: live damaged metadata refuses the approved edit and further inference;
+        the workspace and damaged evidence remain unchanged.
+  PASS: fresh startup with damaged metadata refuses before inference or project
+        changes, preserving damaged evidence.
+  PASS: 26 native API scenarios / 30 bounded process results: lifetime,
+        generations, retained readers, two concurrent writers retaining all
+        six checkpoints, project separation, foreign/missing restore authority,
+        changed storage/selector and 17 unsafe journal/schema/commit controls.
+  PASS: fourteen checked history stages reproduce seventeen tested native
+        manager/CLI/helper files. Every --check leaves the source unchanged.
+
+No native CLI exports or SDK methods are instrumented in terminal controls.
+The provider is loopback-only with TLS verification and synthetic credentials.
+Actual native API controls use the original native Storage, GitService,
+processRestorableToolCalls, getToolCallDataSchema and performRestore exports.
+Memory/stack/output/phase limits are finite. Whole process groups are reaped;
+failed fixtures are retained. Debug refusal locations are off by default.
+
+Derived final native files:
+  chunk-DKZARV6U.js
+    ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07
+  interactiveCli-AVD3AKNJ.js
+    5aac5d78adb500c820779bac8deec422a5c30d2436d746e946848c71b95c2c64
+  chunk-YTHYCFAB.js
+    8e7ca00ff7730471df646ebbbd8effbb67dfbb36ddc7c0066ea190edfb79822d
+  gemini-GLQ4MVLB.js
+    c2fbe9a3dd514a3fc7c200fb5a9cf10629903e15f3a5bb3d1b7d2a3d47e0d22e
+  hive-gemini-restorable-history.mjs
+    b9fda6d67fb6d52dab8dfc09dceeb26285e38808b8a31b9945e1e65dab076b24
+  hive-gemini-restorable-admission.mjs
+    49ebf3f3d44104430c8f854083bfd73966292646fa52b4c3f822c17db97440d8
+
+Checkpoint JSON is data only in the checked canonical prompt journal. Complete
+native Git snapshots remain in the separate checked canonical object store;
+executable configuration and hooks remain private. Each metadata generation is
+retained, including repeated native filenames. Restore validates acknowledged
+metadata and Git before yielding conversation changes. The terminal's real
+history writer is awaited before native approval and execution, while provider
+dispatch rereads registered metadata. Failed snapshots cannot use an older head.
+
+Actual ACP list/read/restore source paths are patched but complete ACP write
+coverage is unfinished. Child/subagent writers, task/plan memory, prior-private
+state migration, interrupted and power-loss durability, all backend lifecycle
+coverage and production package/image/launcher installation remain open. These
+results do not establish the complete issue acceptance contract. Exact-head
+Node 24 CI is required after committing and pushing this stage.
+
+Final-source surrounding regression results:
+  PASS: all 24 Git scenarios / 28 native processes.
+  PASS: all 32 tracker scenarios / 40 native processes.
+  PASS: all 22 shell-hook scenarios / 28 native processes.
+  PASS: all 36 Logger process results, all 14 artifact compatibility/results,
+        all 31 blob controls and all 15 first-publication owner-death cases.
+  PASS: all 65 storage controls. Existing helpers are byte-identical.
+  PASS: all 41 authentication writer/account, 30 native request and 11
+        canonical-read controls on the final reconstructed manager/helper.
+  The shell probe initially rejected the changed terminal bundle before running
+  its controls. Its exact final hash was added; all 28 results then passed.
+  Full repository formatting/ESLint, focused helper lint and secret scanning,
+  actionlint, Python parsing and diff whitespace checks pass before publication.

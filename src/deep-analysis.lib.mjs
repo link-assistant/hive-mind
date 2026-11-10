@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 import { buildDevelopmentLogDirectory, buildDevelopmentLogPrompt, isBugIssueType, isDevelopmentLogEnabled } from './development-log.lib.mjs';
 
 export const isDeepAnalysisEnabled = argv => argv?.deepAnalysis === true || argv?.['deep-analysis'] === true;
@@ -13,16 +14,16 @@ export const buildDeepAnalysisPrompt = ({ argv, issueNumber, prNumber, issueType
   // that directory, but must never activate logging by itself.
   if (isDevelopmentLogEnabled(argv)) {
     const directory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
-    lines.push(isBug ? `Download all logs and collect data related about the issue to this repository, and compile that data into the ${directory} folder.` : `Collect data related about the issue to this repository, and compile that data into the ${directory} folder.`);
+    lines.push(isBug ? promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text1', { directory: String(directory) }) : promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text2', { directory: String(directory) }));
   }
 
   if (isBug) {
-    lines.push('Use the collected evidence to do a deep analysis (search online for additional facts and data), reconstruct the timeline/sequence of events, list each and every requirement from the issue, find the root cause of each problem, and propose possible solutions and solution plans for each requirement. Also check online for known existing components/libraries that solve a similar problem or can help.', 'If there is not enough data to find the actual root cause, add debug output and a verbose mode (if not already present) so the root cause can be found on the next iteration. Keep the default state switched off.', 'If the issue is related to another repository/project, report issues on GitHub for that project when possible. Each report must contain reproducible examples, workarounds, and suggestions for fixing the issue in code.');
+    lines.push(promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text3'), promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text4'), promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text5'));
   } else {
-    lines.push('Do a deep analysis (search online for additional facts and data), list each and every requirement from the issue, and propose possible solutions and solution plans for each requirement. Also check online for known existing components/libraries that solve a similar problem or can help.');
+    lines.push(promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text6'));
   }
 
-  lines.push('Double-check that the requirements are fully applied to the entire codebase: if an issue exists in multiple places, apply it in all of them.');
+  lines.push(promptText('prompt.templates.deep-analysis.buildDeepAnalysisPrompt.text7'));
   return `\n${lines.join('\n\n')}\n`;
 };
 

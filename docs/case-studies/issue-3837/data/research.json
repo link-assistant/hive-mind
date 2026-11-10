@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://developers.openai.com/api/docs/guides/prompt-generation",
+    "accessed": "2026-10-28",
+    "finding": "Official prompt-generation guidance recommends specific, concise instructions and avoiding unnecessary statements while preserving the task content.",
+    "application": "Replace conflicting blanket instructions and remove repeated guidance without deleting required delivery, CI, or reproduction safeguards."
+  },
+  {
+    "url": "https://nodejs.org/api/test.html",
+    "accessed": "2026-10-28",
+    "finding": "The built-in test runner accepts file selection and test-name filtering; concurrency can be controlled.",
+    "application": "Use the existing node:test framework for focused prompt regression coverage without introducing a dependency or build step."
+  },
+  {
+    "url": "https://doc.rust-lang.org/cargo/commands/cargo-test.html",
+    "accessed": "2026-10-28",
+    "finding": "Test-name filters are passed to the test binaries; cargo test still builds selected package targets and dependencies. Build jobs and test threads have separate controls.",
+    "application": "A narrowly named test is not sufficient evidence that a command avoids compilation; explicitly inspect build behavior before a local check."
+  }
+]

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Codex CLI-related utility functions
 
@@ -23,7 +24,7 @@ import { codexTracePathFor, createCodexStderrLog } from './codex-stderr-log.lib.
 import { findCodexUsageLimitMessage, getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
 export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits } from './config.lib.mjs';
+import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'codex', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
@@ -46,16 +47,18 @@ import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPrepar
 import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCodexHome } from './codex.formal-ai.lib.mjs';
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, retryTransientFailure as retryTransientToolFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
-import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
+import { CODEX_HOSTED_APPS_DISABLE_ARGS, CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
@@ -188,7 +191,7 @@ const upsertCodexItemError = (itemErrors, item) => {
 // the #2102 plugin-install rejection), but protocol-shaped JSON found there is
 // counted into `telemetryEventCounts` and otherwise ignored — it never touches
 // eventCounts, sessionId, usage or the error buckets.
-export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null, { source = 'stdout' } = {}) => {
+export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null, { source = 'stdout', onEvent = null } = {}) => {
   const isProtocolStream = source === 'stdout';
   const nextState = {
     sessionId: state.sessionId || null,
@@ -262,6 +265,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       nextState.telemetryEventCounts[eventType] = (nextState.telemetryEventCounts[eventType] || 0) + 1;
       continue;
     }
+    onEvent?.(data);
     nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
     if (eventType === 'turn.started' || eventType === 'turn.completed' || eventType === 'turn.failed') {
       nextState.turnLifecycle.push(eventType);
@@ -447,27 +451,36 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   }
 };
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
+export const validateCodexConnection = async (model = defaultModels.codex, verbose = false, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log });
+  const checkRouter = env => assertRouterTaskAuthentication({ tool: 'codex', env: { ...env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+  checkRouter(process.env);
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex', useRouter }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   try {
     await log('🔍 Validating Codex CLI connection...');
     // Check if Codex CLI is installed and get version
     try {
-      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      checkRouter(process.env);
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Codex CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
     // Test basic Codex functionality with a simple "echo hi" command
     // Using exec mode with JSON output for validation
-    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    const connectionEnv = { ...getCodexExecEnv(verbose), ...buildGeolocationEnv() };
+    checkRouter(connectionEnv);
+    const geolocationArgs = buildCodexGeolocationConfigArgs();
+    const runValidation = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log, env: () => connectionEnv });
+    const testResult = await runValidation`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} ${geolocationArgs} --dangerously-bypass-approvals-and-sandbox`;
     if (testResult.code !== 0) {
       const stderr = testResult.stderr?.toString() || '';
       const stdout = testResult.stdout?.toString() || '';
@@ -490,6 +503,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     await log('✅ Codex CLI connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
     return false;
@@ -581,11 +595,14 @@ export const executeCodex = async params => {
   await deployHandoffSkill({ tempDir, argv, log, $ });
   // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
   await deployPlaywrightSkill({ tempDir, argv, log, $ });
-  const codexBaseEnv = getCodexExecEnv(argv.verbose);
+  const codexBaseEnv = { ...getCodexExecEnv(argv.verbose), ...buildGeolocationEnv(argv) };
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
   const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
+  // Retain the execution home until native history metadata/SQLite also have a
+  // verified canonical projection (issue #3785). A later task always allocates
+  // fresh configuration; deleting this home would discard unprojected data.
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -611,7 +628,8 @@ export const executeCodex = async params => {
 
 export const executeCodexCommand = async params => {
   const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const codexAttribution = await createToolAttribution({ tool: 'codex', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log, createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from `codex exec --json`
@@ -620,6 +638,20 @@ export const executeCodexCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'codex',
+    budget: transientRetryBudget,
+    argv,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+    log,
+  });
+  const retryTransientFailure = async (retryableError, sessionId) => {
+    const allowed = await retryTransientToolFailure({ tool: 'codex', retryableError, sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay });
+    if (allowed) retryCount++;
+    return allowed;
+  };
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   // Issue #2888: a recovery run may resume a thread whose rollout is not here.
@@ -650,27 +682,31 @@ export const executeCodexCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
+    let routerStream;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    Object.assign(codexEnv, buildGeolocationEnv(argv));
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log, env: codexEnv });
+    let isResumeMode = !!argv.resume;
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
+    Object.assign(toolInvocation.env, buildGeolocationEnv(argv));
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
     const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
     // Formal AI writes its provider block into an isolated Codex home; the preflight rewrites the
     // scoped config every iteration, so copy the block in again and pin that verified home (#2254).
     await pinFormalAiCodexHome({ toolInvocation, capabilityPreflight, log });
-    // `sh -lc` sources the operator profile. Re-export the verified scope in
+    // Ordinary `sh -lc` runs source the operator profile. Re-export the verified scope in
     // the command itself as well as the process environment so a stale profile
     // assignment cannot swap CODEX_HOME after the final probe.
     if (capabilityPreflight?.codexHome) {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    if (argv.useRouter === true) codexEnv.HIVE_MIND_USE_ROUTER = '1';
     await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
@@ -748,7 +784,7 @@ export const executeCodexCommand = async params => {
     await log(`💰 Pricing tier: ${describePricingTier(codexPricingTier)}${subSessionSizeCapped ? ' — --sub-session-size capped to stay below the long-context price' : ''}`, { verbose: !subSessionSizeCapped });
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
-    for (const arg of memoryDisableArgs) {
+    for (const arg of [...memoryDisableArgs, ...buildCodexGeolocationConfigArgs(argv)]) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
@@ -767,13 +803,20 @@ export const executeCodexCommand = async params => {
     for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #3785: with no selected plugins, the plugin loader stays off so a
+    // model start cannot clone the curated marketplace into any CODEX_HOME,
+    // and the hosted ChatGPT connectors MCP server is not attached.
+    if (!(capabilityPreflight?.plugins?.length > 0)) {
+      for (const arg of [...CODEX_PLUGIN_SYNC_DISABLE_ARGS, ...CODEX_HOSTED_APPS_DISABLE_ARGS]) codexArgs += ` ${shellQuote(arg)}`;
+    }
     if (argv.verbose) {
+      await log(`📍 Location sharing: ${buildCodexGeolocationConfigArgs(argv).length ? 'disabled (location fields redacted)' : 'enabled for this run'}`, { verbose: true });
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });
       if (auxiliaryDisableArgs.length) await log(`🔕 Codex non-essential model calls disabled: ${auxiliaryDisableArgs.join(' ')} (issue #2236)`, { verbose: true });
     }
-    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // Issue #2130: re-export the Formal AI environment inside the shell script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.
     // Issue #2324: a pipe inside the quoted script makes command-stream take its
     // unowned Node pipeline path, so kill() cannot stop the actual shell. Redirect
@@ -781,6 +824,7 @@ export const executeCodexCommand = async params => {
     const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${codexArgs} < ${shellQuote(promptFile)})`;
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
+    let sessionId = argv.resume || null;
     try {
       await assertFormalAiCodexConfig({ toolInvocation, model: mappedModel, log }); // fail closed: never reach a vendor endpoint (#2146)
       let interactiveHandler = null;
@@ -800,29 +844,16 @@ export const executeCodexCommand = async params => {
         await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
       }
       const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log });
-
-      execCommand = $({
+      const routerGuardEnv = codexEnv;
+      assertRouterTaskAuthentication({ tool: 'codex', cwd: tempDir, env: routerGuardEnv });
+      const launch = $({
         cwd: tempDir,
         mirror: false,
         env: codexEnv,
-      })`sh -lc ${fullCommand}`;
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token; see router-auth-guard.lib.mjs. Inert unless
-      // HIVE_MIND_USE_ROUTER and a router token are in the environment.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: 'codex',
-        cwd: tempDir,
-        env: codexEnv,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          try {
-            if (execCommand?.kill) execCommand.kill('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
       });
+      // A login profile must not replace the Router environment after admission.
+      execCommand = isRouterAuthGuardRequired(routerGuardEnv) ? launch`sh -c ${fullCommand}` : launch`sh -lc ${fullCommand}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'codex', env: routerGuardEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -835,7 +866,6 @@ export const executeCodexCommand = async params => {
       let exitCode = 0;
       let signal = null;
       let stderrError = null;
-      let sessionId = null;
       let limitReached = false;
       let limitResetTime = null;
       let limitTimezone = null; // Issue #3570: an epoch-derived reset is in UTC
@@ -885,7 +915,7 @@ export const executeCodexCommand = async params => {
       const codexStderrLines = createLineBuffer();
       const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const raw = chunk.data.toString();
           if (argv.verbose) {
@@ -895,7 +925,8 @@ export const executeCodexCommand = async params => {
           const output = codexStdoutLines.write(raw);
           await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
-          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
+          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout', onEvent: retryProgress.observe });
+          await retryProgress.flushLog();
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
           if (interactiveHandler || progressMonitor) {
             for (const rawLine of output.split('\n')) {
@@ -951,19 +982,13 @@ export const executeCodexCommand = async params => {
         if (!remaining.trim()) continue;
         if (source === 'stderr') stderrError = findCodexStderrError(remaining, stderrError);
         else await codexAttribution.observeText(remaining);
-        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
+        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source, onEvent: retryProgress.observe });
+        await retryProgress.flushLog();
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
       if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
         sessionId = codexJsonState.sessionId;
         await log(`📌 Session ID: ${sessionId}`);
-      }
-      // Issue #2190: final read after the stream closed; a violation ends the
-      // run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, codexJsonDetails: codexJsonState, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) }, result: formatRouterAuthViolation(routerAuthGuard.violation), resultSummary: null };
       }
       if (codexJsonState.resultSummary) {
         lastTextContent = codexJsonState.resultSummary;
@@ -1088,32 +1113,7 @@ export const executeCodexCommand = async params => {
             await log(line, { level: 'warning' });
           }
         } else if (retryableError.isRetryable) {
-          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
-          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-          // Issue #2169: the attempt count is only a runaway backstop — the 12-hour wall-clock budget
-          // (configurable) decides when to stop, and every wait honours the 3-minute minimum.
-          const retryDecision = transientRetryBudget.evaluate({
-            retryCount,
-            maxRetries,
-            initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-            maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            minDelayMs: retryLimits.minTransientErrorDelayMs,
-          });
-          if (retryDecision.allowed) {
-            transientRetryBudget.grant();
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            // Issue #2037: retry same model on capacity errors before falling back; a
-            // capacity-driven switch retries fast, other transient errors use standard backoff.
-            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs, minDelayMs: retryLimits.minTransientErrorDelayMs });
-            const delay = retryPlan.delay;
-            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-            await waitForRetryDelay(delay, log);
-            await log('\n🔄 Retrying now...');
-            retryCount++;
-            return await executeWithRetry();
-          }
-          await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
+          if (await retryTransientFailure(retryableError, sessionId)) return await executeWithRetry();
         } else {
           await log(`\n\n❌ Codex emitted error event: ${codexErrorSummary.message}`, { level: 'error' });
           await log(`   Error events: item=${codexErrorSummary.counts.item}, turn=${codexErrorSummary.counts.turn}, stream=${codexErrorSummary.counts.stream}`, { level: 'error' });
@@ -1127,32 +1127,7 @@ export const executeCodexCommand = async params => {
         const failureSource = signal ? '' : stderrError || lastMessage;
         const retryableError = classifyRetryableError(failureSource);
         if (retryableError.isRetryable) {
-          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
-          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-          // Issue #2169: the attempt count is only a runaway backstop — the 12-hour wall-clock budget
-          // (configurable) decides when to stop, and every wait honours the 3-minute minimum.
-          const retryDecision = transientRetryBudget.evaluate({
-            retryCount,
-            maxRetries,
-            initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-            maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            minDelayMs: retryLimits.minTransientErrorDelayMs,
-          });
-          if (retryDecision.allowed) {
-            transientRetryBudget.grant();
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            // Issue #2037: retry same model on capacity errors before falling back; a
-            // capacity-driven switch retries fast, other transient errors use standard backoff.
-            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs, minDelayMs: retryLimits.minTransientErrorDelayMs });
-            const delay = retryPlan.delay;
-            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-            await waitForRetryDelay(delay, log);
-            await log('\n🔄 Retrying now...');
-            retryCount++;
-            return await executeWithRetry();
-          }
-          await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
+          if (await retryTransientFailure(retryableError, sessionId)) return await executeWithRetry();
         }
         // Check for usage limit errors first (more specific); issue #3570: the rollout is cross-checked too.
         const limitInfo = await resolveCodexExitUsageLimit({ failureSource, signal, exitCode, threadId: sessionId, codexHome: codexEnv.CODEX_HOME, buildResumeCommand: () => __codexBuildSolveResumeCmd(argv, sessionId, tempDir), log });
@@ -1208,6 +1183,8 @@ export const executeCodexCommand = async params => {
       }
       return buildRunResult({ success: true, pluginProvisioning });
     } catch (error) {
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'codex', env: codexEnv, cwd: tempDir });
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { hasError: true, message: routerError.message }, result: routerError.message };
       // Don't report auth errors to Sentry as they are user configuration issues
       if (!error.isAuthError) {
         reportError(error, {
@@ -1217,6 +1194,8 @@ export const executeCodexCommand = async params => {
           operation: 'run_codex_command',
         });
       }
+      const retryableException = classifyRetryableError(error);
+      if (!error.isAuthError && retryableException.isRetryable && (await retryTransientFailure(retryableException, sessionId))) return await executeWithRetry();
       await log(`\n\n❌ Error executing Codex command: ${error.message}`, { level: 'error' });
       // Re-throw auth errors to stop any outer retry loops
       if (error.isAuthError) {
@@ -1224,7 +1203,7 @@ export const executeCodexCommand = async params => {
       }
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         pricingInfo: null,

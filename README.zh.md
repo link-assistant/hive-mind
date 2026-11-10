@@ -237,7 +237,7 @@ docker run -dit \
   konard/hive-mind:latest
 ```
 
-在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 可关闭）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
+在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 仅关闭修复；未解决的审计问题仍会阻止任务启动）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
 
 **Docker 的优势：**
 
@@ -582,7 +582,7 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/fix --update-all-dependencies` 对依赖执行同样的流程。它会检测仓库使用的语言*以及*默认分支上提交的每个依赖清单文件，把两者映射到包生态系统，并创建一个 `Task`
 类型的 issue（带 `dependencies` 标签），其中列出每个生态系统、找到的清单文件、需要重新生成的锁文件，以及在该生态系统中真正能跨越大版本的命令。随后它会把该 issue 交给
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。详见
-[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。在检查仓库之前，它会合并所有打开的 Dependabot pull request，不等待 CI/CD，并在 issue 中要求修复这些合并引入的每一个错误；`--no-merge-dependabot-prs` 可跳过此步骤（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)）。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
+[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。在检查仓库之前，它会合并所有打开的 Dependabot pull request，不等待 CI/CD，并在 issue 中要求修复这些合并引入的每一个错误。冲突的 pull request 若其更新已在默认分支中则被关闭，否则通过 `@dependabot recreate` 重建后合并（[issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)）；`--no-merge-dependabot-prs` 可跳过此步骤（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)）。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
 
 如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 和
 `/task --update-all-dependencies <repository>` 只执行相同的 issue

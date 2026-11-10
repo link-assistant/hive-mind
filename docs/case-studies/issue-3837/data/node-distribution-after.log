@@ -1,0 +1,2 @@
+node resolver selected v26.13.0; https://nodejs.org/dist/v26.13.0/SHASUMS256.txt returned 200
+PASS: the selected Node release has both Linux checksum entries

@@ -93,6 +93,16 @@ const runGhUploadLogCommand = async args => {
   });
 };
 
+// Compare hostnames, not substrings: `includes('github.com')` also matches
+// `github.com.example.net` (CodeQL js/incomplete-url-substring-sanitization).
+const hostnameOf = url => {
+  try {
+    return url ? new URL(url).hostname : '';
+  } catch {
+    return '';
+  }
+};
+
 export const parseGhUploadLogOutput = outputValue => {
   const output = outputValue?.toString?.() || '';
   const parsed = {
@@ -114,9 +124,10 @@ export const parseGhUploadLogOutput = outputValue => {
     parsed.rawUrl = rawUrlMatch[1].trim();
   }
 
-  if (output.includes('Type: 📝 Gist') || parsed.url?.includes('gist.github.com')) {
+  const urlHost = hostnameOf(parsed.url);
+  if (output.includes('Type: 📝 Gist') || urlHost === 'gist.github.com') {
     parsed.type = 'gist';
-  } else if (output.includes('Type: 📦 Repository') || (parsed.url?.includes('github.com') && !parsed.url?.includes('gist'))) {
+  } else if (output.includes('Type: 📦 Repository') || urlHost === 'github.com') {
     parsed.type = 'repository';
   }
 

@@ -153,6 +153,8 @@ check_tool "Clang"     clang     --version
 check_tool "Clang++"   clang++   --version
 check_tool "CMake"     cmake     --version
 check_tool "Deno"      deno      --version
+# Unlike check_tool's informational version pipeline, a broken client must fail.
+docker --version
 check_tool "Elan"      elan      --version
 check_tool "File"      file      --version
 check_tool "G++"       g++       --version
@@ -290,7 +292,7 @@ if [ "$ROCQ_VERIFIED" = false ]; then
   if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
     echo "rocq-prover package is installed in opam"
     echo "Opam bin directory contents:"
-    ls -la "$HOME/.opam/default/bin/" 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq binaries found in opam bin"
+    find "$HOME/.opam/default/bin/" -maxdepth 1 \( -iname '*rocq*' -o -iname '*coq*' \) -exec ls -la {} + 2>/dev/null | grep . || echo "No rocq/coq binaries found in opam bin"
     echo "Installed opam packages:"
     opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq packages found"
   else # shell-lint: allow-nonfatal — diagnostics for the ERROR raised below.
@@ -390,14 +392,13 @@ if command -v configure-claude >/dev/null 2>&1; then
   echo "Verifying quiet Claude Code baseline..."
   configure-claude --settings-path /home/box/.claude/settings.json --verify
   echo "Quiet Claude Code baseline: OK"
-else # shell-lint: allow-nonfatal — see the reasoning below.
-  # PR Docker builds install @link-assistant/hive-mind@latest, which can pre-date
-  # this PR and therefore not ship the configure-claude bin yet. Release builds
-  # install an exact pinned version where the bin must exist (enforced in the
-  # Dockerfile itself when HIVE_MIND_VERSION != latest).
-  echo "configure-claude not found — tolerated only for PR builds where @link-assistant/hive-mind@latest pre-dates this PR"
-  echo "(solve re-applies the quiet baseline at runtime)"
+else
+  echo "ERROR: configure-claude is missing from the installed package" >&2
+  exit 1
 fi
+
+echo "Checking the installed stock-runtime baseline..."
+node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 echo ""
 echo "Checking Playwright MCP registration in Claude and Codex..."

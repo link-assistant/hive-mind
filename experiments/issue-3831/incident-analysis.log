@@ -1,0 +1,33 @@
+incident.part-00.log.txt.gz 356688 lines; SHA-256 verified
+  229: [2026-10-26T04:10:27.345Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  14862: [2026-10-26T06:24:46.494Z] [STDOUT] {"type":"error","message":"Selected model is at capacity. Please try a different model."}
+  14864: [2026-10-26T06:24:47.136Z] [STDOUT] {"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}
+  14869: [2026-10-26T06:24:47.563Z] [INFO] 📈 Codex cgroup memory after execution: {"version":2,"path":"/sys/fs/cgroup","limitBytes":3135369216,"currentBytes":2457264128,"peakBytes":3135397888,"oomEvents":0,"oomKills":0}
+  14871: [2026-10-26T06:24:47.577Z] [INFO] 📊 Codex JSON events: thread.started=1, turn.started=1, item.completed=474, item.started=393, error=1, turn.failed=1
+  14872: [2026-10-26T06:24:47.584Z] [INFO] 📦 Codex item types: agent_message=39, command_execution=711, web_search=10, reasoning=43, file_change=64
+  14884: [2026-10-26T06:24:48.060Z] [WARNING] ⚠️ Model capacity error detected. Retry 1 in 15s (session preserved) (budget 0s/12h used)...
+  14888: [2026-10-26T06:25:03.098Z] [INFO] 🔄 Retry attempt:            1 (budget 15s/12h used)
+  14975: [2026-10-26T06:25:08.460Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  70367: [2026-10-26T13:01:53.225Z] [STDOUT] {"type":"error","message":"Selected model is at capacity. Please try a different model."}
+  70369: [2026-10-26T13:01:54.737Z] [STDOUT] {"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}
+  70375: [2026-10-26T13:01:55.317Z] [INFO] 📈 Codex cgroup memory after execution: {"version":2,"path":"/sys/fs/cgroup","limitBytes":3135369216,"currentBytes":2449149952,"peakBytes":3136466944,"oomEvents":0,"oomKills":0}
+  70377: [2026-10-26T13:01:55.327Z] [INFO] 📊 Codex JSON events: thread.started=1, turn.started=1, item.started=1420, item.completed=1692, error=1, turn.failed=1
+  70378: [2026-10-26T13:01:55.329Z] [INFO] 📦 Codex item types: command_execution=2509, agent_message=149, reasoning=124, file_change=302, mcp_tool_call=12, web_search=16
+  70391: [2026-10-26T13:01:55.870Z] [WARNING] ⚠️ Model capacity error detected. Retry 2 in 30s (session preserved) (budget 6h 37m/12h used)...
+  70395: [2026-10-26T13:02:25.881Z] [INFO] 🔄 Retry attempt:            2 (budget 6h 38m/12h used)
+  70545: [2026-10-26T13:02:30.715Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+  78393: [2026-10-26T14:00:30.546Z] [STDOUT] {"type":"error","message":"Selected model is at capacity. Please try a different model."}
+  78395: [2026-10-26T14:00:31.611Z] [STDOUT] {"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}
+  78400: [2026-10-26T14:00:31.828Z] [INFO] 📈 Codex cgroup memory after execution: {"version":2,"path":"/sys/fs/cgroup","limitBytes":3135369216,"currentBytes":2684907520,"peakBytes":3136466944,"oomEvents":0,"oomKills":0}
+  78402: [2026-10-26T14:00:31.920Z] [INFO] 📊 Codex JSON events: thread.started=1, turn.started=1, item.completed=261, item.started=213, error=1, turn.failed=1
+  78403: [2026-10-26T14:00:31.959Z] [INFO] 📦 Codex item types: agent_message=26, command_execution=389, file_change=36, reasoning=23
+  78414: [2026-10-26T14:00:32.536Z] [WARNING] ⚠️ Model capacity error detected. Retry 3 in 1 min (session preserved) (budget 7h 36m/12h used)...
+  78418: [2026-10-26T14:01:32.555Z] [INFO] 🔄 Retry attempt:            3 (budget 7h 37m/12h used)
+  78519: [2026-10-26T14:01:36.536Z] [INFO] 📌 Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f
+incident.part-01.log.txt.gz 45300 lines; SHA-256 verified
+  45133: [2026-10-28T00:48:22.400Z] [STDOUT] {"type":"error","message":"Selected model is at capacity. Please try a different model."}
+  45136: [2026-10-28T00:48:31.714Z] [STDOUT] {"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}
+  45146: [2026-10-28T00:48:34.409Z] [INFO] 📈 Codex cgroup memory after execution: {"version":2,"path":"/sys/fs/cgroup","limitBytes":3135369216,"currentBytes":2735190016,"peakBytes":3136802816,"oomEvents":0,"oomKills":0}
+  45148: [2026-10-28T00:48:34.431Z] [INFO] 📊 Codex JSON events: thread.started=1, turn.started=1, item.completed=10298, item.started=8596, error=1, turn.failed=1
+  45149: [2026-10-28T00:48:34.432Z] [INFO] 📦 Codex item types: agent_message=880, command_execution=15447, reasoning=823, web_search=68, file_change=1670, mcp_tool_call=6
+  45162: [2026-10-28T00:48:35.008Z] [ERROR] ❌ Model capacity error persisted: retry budget of 12h exhausted after 3 retries over 42h 24m

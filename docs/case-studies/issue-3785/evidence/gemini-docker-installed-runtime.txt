@@ -1,0 +1,44 @@
+Issue #3785 — packaged Gemini Docker storage fixture: installed-runtime copy
+==========================================================================
+
+CI symptom (release run 41360700885, job docker-pr-check, head ffd3c8a4b, host variant):
+  AssertionError: Actual native Gemini Docker fixture failed; inspect bounded diagnostics.
+  (experiments/issue-3785/gemini_docker_storage.py, verify_docker_storage)
+  The orchestrator did not print the bounded diagnostics, so the job showed no cause.
+
+Root cause (reproduced locally, synthetic fixture only):
+  verify-gemini-docker-storage.mjs copied the launcher's runtime for peers with
+    fs.realpath(path.join(path.dirname(source), 'node_modules'))
+  A source checkout has <package>/node_modules, but the release images install the
+  packed package with `bun install --backend=copyfile -g`, and Bun hoists every
+  dependency beside the package:
+    .../install/global/node_modules/@link-assistant/hive-mind   (no node_modules)
+    .../install/global/node_modules/smol-toml
+  A local Bun global install of the packed PR package (npm pack + bun install
+  --backend=copyfile -g) has no @link-assistant/hive-mind/node_modules.
+  Peers import gemini-storage-admission.lib.mjs -> router-auth-guard.lib.mjs ->
+  smol-toml, so they need that hoisted dependency.
+
+Before (fixture at ffd3c8a4b, Bun-installed launcher, actual native Gemini, Docker peers):
+  exit 1; diagnostics: syscall: 'realpath', path: '.../@link-assistant/hive-mind/node_modules' (ENOENT)
+
+Repair:
+  The fixture loads the peer admission entry in a child Node process with
+  module.registerHooks, records every resolved file URL, and copies exactly the
+  resolved dependency packages (here only smol-toml) with the launcher source.
+  It keeps their layout relative to a base above the first node_modules segment,
+  so peers resolve the same package bytes through Node's normal lookup.
+  Launcher source digests are still compared file by file.
+  The intermediate attempt that placed the base inside node_modules failed in the
+  peer with ERR_MODULE_NOT_FOUND 'smol-toml', confirming the layout requirement.
+
+After (same command, actual native Gemini, root + two live Docker peers + legacy control):
+  Bun-installed launcher: exit 0, both PASS lines
+  Source-checkout launcher: exit 0, both PASS lines
+
+Orchestrator: scripts/docker-pr-verify-mount-backing.mjs now prints a bounded
+16 KiB tail of the synthetic Gemini diagnostics on failure, without the native
+conversation payload lines, each line cut to 400 characters.
+
+Local limit: this host cannot apply cgroup --memory, so a local-only docker
+wrapper drops that flag; CI runs the unchanged limits in both daemon layouts.

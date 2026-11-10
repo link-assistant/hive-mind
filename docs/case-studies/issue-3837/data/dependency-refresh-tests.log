@@ -1,0 +1,88 @@
+PASS: issue #2264 dependency freshness gate and idle operational CLI refresh
+✔ tests/dependency-freshness-2264.test.mjs (1606.234487ms)
+✔ UI, user prompts, and system prompts merge from the requested locale tree (17.824193ms)
+✔ all backend prompts prefer bulk drafting before verification (134.204652ms)
+✔ nested catalogs merge with aliases and reject conflicting definitions (60.914641ms)
+✔ catalog files separate UI, user messages, and system instructions (117.14322ms)
+✔ work locale changes rendered prompts independently of the UI, with English fallback (11.218193ms)
+✔ catalog extraction preserves the complete English backend corpus (612.823682ms)
+✔ every literal prompt reference resolves from the merged English catalog (408.555997ms)
+✔ live feedback, finalization and intervention templates are catalogued without changing English output (1474.618654ms)
+✔ the version-only CLI exit remains independent of prompt catalogs (215.695738ms)
+✔ agent: resource-aware defaults survive workspace and optional prompt sections (115.419216ms)
+✔ claude: resource-aware defaults survive workspace and optional prompt sections (6.848063ms)
+✔ codex: resource-aware defaults survive workspace and optional prompt sections (7.318079ms)
+✔ gemini: resource-aware defaults survive workspace and optional prompt sections (8.84145ms)
+✔ opencode: resource-aware defaults survive workspace and optional prompt sections (5.849249ms)
+✔ qwen: resource-aware defaults survive workspace and optional prompt sections (3.650337ms)
+✔ en: translated prompt catalogue follows the same validation policy (9.449193ms)
+✔ ru: translated prompt catalogue follows the same validation policy (7.663393ms)
+✔ zh: translated prompt catalogue follows the same validation policy (3.283615ms)
+✔ hi: translated prompt catalogue follows the same validation policy (4.79346ms)
+Issue #2187 current dependency pin checks passed
+✔ tests/test-issue-2187-current-dependency-pins.mjs (94.628028ms)
+  ✅ PASS: package.json declares an engines.node floor (>=24.0.0)
+  ✅ PASS: Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile: Node.js pin is current (26.13.0)
+  ✅ PASS: Dockerfile: Bun pin is current (1.4.4)
+  ✅ PASS: Dockerfile: pins an exact Node.js version (26.13.0)
+  ✅ PASS: Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile: pinned Node.js 26.13.0 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile.dind: Node.js pin is current (26.13.0)
+  ✅ PASS: Dockerfile.dind: Bun pin is current (1.4.4)
+  ✅ PASS: Dockerfile.dind: pins an exact Node.js version (26.13.0)
+  ✅ PASS: Dockerfile.dind: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile.dind: pinned Node.js 26.13.0 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile.dind: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile.dind: installs the pinned Bun version
+  ✅ PASS: coolify/Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: coolify/Dockerfile: Node.js pin is current (26.13.0)
+  ✅ PASS: coolify/Dockerfile: Bun pin is current (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pins an exact Node.js version (26.13.0)
+  ✅ PASS: coolify/Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pinned Node.js 26.13.0 satisfies engines.node >= 24
+  ✅ PASS: coolify/Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: coolify/Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins the same Node.js version as Dockerfile
+  ✅ PASS: Dockerfile.dind: pins the same Bun version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Node.js version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Bun version as Dockerfile
+  ✅ PASS: Dockerfile: has a superseded-node prune loop
+  ✅ PASS: Dockerfile: prune loop keeps only v26.13.0 (kept: v26.13.0)
+  ✅ PASS: Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile.dind: has a superseded-node prune loop
+  ✅ PASS: Dockerfile.dind: prune loop keeps only v26.13.0 (kept: v26.13.0)
+  ✅ PASS: Dockerfile.dind: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: coolify/Dockerfile: has a superseded-node prune loop
+  ✅ PASS: coolify/Dockerfile: prune loop keeps only v26.13.0 (kept: v26.13.0)
+  ✅ PASS: coolify/Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile: has a global-npm-package scan
+  ✅ PASS: Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: Dockerfile.dind: has a global-npm-package scan
+  ✅ PASS: Dockerfile.dind: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile.dind: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile.dind: collects nothing when the base has no global packages
+  ✅ PASS: coolify/Dockerfile: has a global-npm-package scan
+  ✅ PASS: coolify/Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: coolify/Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: coolify/Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: scripts/verify-docker-image.sh MIN_NODE_MAJOR (24) matches engines.node floor (24)
+  ✅ PASS: scripts/verify-docker-image.sh counts installed Node.js versions
+
+============================================================
+Results: 52 passed, 0 failed, 52 total
+============================================================
+✔ tests/test-issue-2187-runtime-versions.mjs (1382.34624ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7308.49015

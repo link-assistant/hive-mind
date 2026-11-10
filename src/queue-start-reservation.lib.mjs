@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 const reservationLocks = new WeakMap();
 
 function getReservationLock(queue) {
@@ -5,11 +7,11 @@ function getReservationLock(queue) {
 }
 
 /**
- * Atomically check and reserve the global startup slot for direct execution.
+ * Atomically check and reserve the global startup slot for task execution.
  *
- * Queue consumer starts are naturally serialized. Telegram direct starts need
- * the same serialization because overlapping handlers can both pass resource
- * checks before the first detached process is visible to process scanning.
+ * Queue consumer and Telegram direct starts share serialization because
+ * overlapping admissions can both pass resource checks before the first
+ * detached process is visible to process scanning.
  *
  * @param {Object} queue - SolveQueue-like object.
  * @param {Object} options - Same options as queue.canStartCommand().
@@ -34,7 +36,11 @@ export async function reserveStartSlotForQueue(queue, options = {}) {
     }
 
     const reservedStartTime = queue.recordStart(options.tool || 'claude');
-    return { ...check, startReserved: true, reservedStartTime };
+    // Reserve work as well as time: a zero minimum interval must still honor
+    // one-at-a-time limits while a detached launch is not observable yet.
+    const id = randomUUID();
+    queue.startReservations.set(id, { id, tool: options.tool || 'claude', url: options.url || null, sessionName: id, startTime: new Date(reservedStartTime), status: 'starting' });
+    return { ...check, startReserved: true, reservedStartTime, releaseStartReservation: () => queue.startReservations.delete(id) };
   } finally {
     releaseReservation();
   }

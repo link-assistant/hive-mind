@@ -156,7 +156,7 @@ test('no_checks branch: blocker details include workflow run html_url', () => {
 
   assert(blocker.type === 'ci_pending', `expected ci_pending, got ${blocker.type}`);
   assert(blocker.details.length === 1, `expected 1 detail, got ${blocker.details.length}`);
-  assert(blocker.details[0].includes('https://github.com/link-foundation/box/actions/runs/25097532949'), `expected details to include the run URL, got: ${blocker.details[0]}`);
+  assert(/https:\/\/github\.com\/link-foundation\/box\/actions\/runs\/25097532949/.test(blocker.details[0]), `expected details to include the run URL, got: ${blocker.details[0]}`);
   assert(blocker.details[0].includes('[in_progress]'), `expected details to include status [in_progress], got: ${blocker.details[0]}`);
   assert(blocker.message.includes(`https://github.com/link-foundation/box/pull/83/commits/${sha}`), `expected message to include full commit link, got: ${blocker.message}`);
 });
@@ -195,7 +195,7 @@ test('pending branch: blocker details include check html_url and [status]', () =
   const blocker = buildPendingBlocker(pendingChecks);
 
   assert(blocker.details.length === 2, `expected 2 details, got ${blocker.details.length}`);
-  assert(blocker.details[0].includes('https://github.com/link-foundation/box/runs/9999999999'), `expected first detail to include URL, got: ${blocker.details[0]}`);
+  assert(/https:\/\/github\.com\/link-foundation\/box\/runs\/9999999999/.test(blocker.details[0]), `expected first detail to include URL, got: ${blocker.details[0]}`);
   assert(blocker.details[0].includes('[in_progress]'), `expected first detail to include [in_progress], got: ${blocker.details[0]}`);
   assert(blocker.details[1].includes('[queued]'), `expected second detail to include [queued], got: ${blocker.details[1]}`);
 });
@@ -218,7 +218,7 @@ test('cancelled branch: blocker details include conclusion and URL', () => {
   const blocker = buildCancelledBlocker(cancelledChecks, 'aa35cde4280238d066db4a771a662a6ebdcb604a');
   assert(blocker.type === 'ci_cancelled', `expected ci_cancelled, got ${blocker.type}`);
   assert(blocker.details[0].includes('[cancelled]'), `expected details to include [cancelled], got: ${blocker.details[0]}`);
-  assert(blocker.details[0].includes('https://github.com/link-foundation/box/runs/8888888888'), `expected details to include URL, got: ${blocker.details[0]}`);
+  assert(/https:\/\/github\.com\/link-foundation\/box\/runs\/8888888888/.test(blocker.details[0]), `expected details to include URL, got: ${blocker.details[0]}`);
   assert(blocker.sha === 'aa35cde4280238d066db4a771a662a6ebdcb604a', `expected sha to be set on blocker`);
 });
 
@@ -289,8 +289,8 @@ test('joined details work cleanly for multiple runs', () => {
   ];
   const blocker = buildNoChecksBlocker(workflowRuns, sha);
   const joined = blocker.details.join(', ');
-  assert(joined.includes('https://example.test/runs/1'), `missing URL #1: ${joined}`);
-  assert(joined.includes('https://example.test/runs/2'), `missing URL #2: ${joined}`);
+  assert(/https:\/\/example\.test\/runs\/1/.test(joined), `missing URL #1: ${joined}`);
+  assert(/https:\/\/example\.test\/runs\/2/.test(joined), `missing URL #2: ${joined}`);
   assert(joined.includes('Build [in_progress]'), `missing first run formatting: ${joined}`);
   assert(joined.includes('Test [queued]'), `missing second run formatting: ${joined}`);
 });

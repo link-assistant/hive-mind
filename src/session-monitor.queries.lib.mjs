@@ -232,6 +232,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
       let running;
       let status = null;
+      let processIds = sessionInfo.processIds || {};
+      let screenSessionName = sessionInfo.screenSessionName || sessionName;
       if (sessionInfo.isolationBackend) {
         // Forward every injectable seam so the listing applies the same #1927
         // stale-`executing` reconciliation the monitor does — a session that
@@ -247,6 +249,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
         });
         running = state.running;
         status = state.status || null;
+        processIds = state.statusResult?.processIds || processIds;
+        screenSessionName = state.statusResult?.screenSessionName || state.statusResult?.sessionName || screenSessionName;
         if (!running) {
           sessionInfo.lastKnownStatus = state.status || null;
           sessionInfo.lastKnownExitCode = state.exitCode ?? null;
@@ -268,6 +272,10 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       }
       items.push({
         sessionName,
+        sessionId: sessionInfo.sessionId || null,
+        executionUuid: sessionInfo.executionUuid || null,
+        processIds,
+        screenSessionName,
         url: sessionInfo.url || null,
         tool: sessionInfo.tool || 'claude',
         status,

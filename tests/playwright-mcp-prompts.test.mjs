@@ -52,18 +52,22 @@ async function runTests() {
 
   for (const { file, tool } of promptFiles) {
     await asyncTest(`${tool} prompts include Playwright MCP section`, async () => {
-      const content = await fs.readFile(path.join(srcDir, file), 'utf-8');
+      const { buildSystemPrompt } = await import(`../src/${file}`);
+      const content = buildSystemPrompt({ owner: 'example', repo: 'project', issueNumber: 1, prNumber: 2, branchName: 'issue-1', argv: { promptPlaywrightMcp: true } });
       assert.ok(content.includes('Playwright MCP usage'), `${file} should contain Playwright MCP usage section`);
-      assert.ok(content.includes('promptPlaywrightMcp'), `${file} should check promptPlaywrightMcp flag`);
+      const disabled = buildSystemPrompt({ owner: 'example', repo: 'project', issueNumber: 1, prNumber: 2, branchName: 'issue-1', argv: { promptPlaywrightMcp: false } });
+      assert.ok(!disabled.includes('Playwright MCP usage'), `${file} should check promptPlaywrightMcp flag`);
     });
 
     await asyncTest(`${tool} prompts include WebFetch fallback note`, async () => {
-      const content = await fs.readFile(path.join(srcDir, file), 'utf-8');
+      const { buildSystemPrompt } = await import(`../src/${file}`);
+      const content = buildSystemPrompt({ owner: 'example', repo: 'project', issueNumber: 1, prNumber: 2, branchName: 'issue-1', argv: { promptPlaywrightMcp: true } });
       assert.ok(content.includes('WebFetch') || content.includes('fetch-based browsing'), `${file} should mention WebFetch fallback to Playwright MCP`);
     });
 
     await asyncTest(`${tool} prompts include WebSearch fallback note`, async () => {
-      const content = await fs.readFile(path.join(srcDir, file), 'utf-8');
+      const { buildSystemPrompt } = await import(`../src/${file}`);
+      const content = buildSystemPrompt({ owner: 'example', repo: 'project', issueNumber: 1, prNumber: 2, branchName: 'issue-1', argv: { promptPlaywrightMcp: true } });
       assert.ok(content.includes('WebSearch'), `${file} should mention WebSearch fallback to Playwright MCP`);
     });
   }

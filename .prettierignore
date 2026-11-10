@@ -61,6 +61,9 @@ ci-logs/
 # Generated duplication reports
 reports/
 
+# Generated native build outputs retain their checked provenance bytes.
+src/native-codex/runtime/
+
 # Collected CI/CD investigation evidence: verbatim upstream copies must not be reformatted
 dev/log/
 
@@ -101,3 +104,12 @@ docs/case-studies/issue-3445/data/
 
 # Verbatim issue #3469 incident and upstream evidence
 docs/case-studies/issue-3469/data/
+
+# Verbatim issue #3759 incident and upstream evidence
+docs/case-studies/issue-3759/data/
+
+# Verbatim issue #3831 incident and upstream evidence
+docs/case-studies/issue-3831/data/
+
+# Verbatim issue #4023 research and experiment evidence
+docs/case-studies/issue-4023/data/

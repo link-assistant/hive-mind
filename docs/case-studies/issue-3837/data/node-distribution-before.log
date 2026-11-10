@@ -1,0 +1,20 @@
+github resolver selected v26.13.0; https://nodejs.org/dist/v26.13.0/SHASUMS256.txt returned 404
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The freshness gate must select a Node release NVM can verify
+
+404 !== 200
+
+    at file:///tmp/gh-issue-solver-1793206320861/experiments/issue-3837-node-distribution.mjs:14:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 404,
+  expected: 200,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.12.1

@@ -1,0 +1,110 @@
+[
+  {
+    "backend": "agent",
+    "profile": "default",
+    "bytes": 11053,
+    "characters": 11053,
+    "words": 1725,
+    "duplicateBullets": [],
+    "sha256": "f54509a5c606a59db1eb84c4d9225e9fb6314b1a635f0c03954800328d337f24"
+  },
+  {
+    "backend": "agent",
+    "profile": "workspace-visual",
+    "bytes": 15539,
+    "characters": 15539,
+    "words": 2355,
+    "duplicateBullets": [],
+    "sha256": "bf728b269bbbfffe39d6314c2426b85acfb8c351ae49e1f448771c8d6520b3ce"
+  },
+  {
+    "backend": "claude",
+    "profile": "default",
+    "bytes": 13484,
+    "characters": 13484,
+    "words": 2086,
+    "duplicateBullets": [],
+    "sha256": "294d7316f1871a66d34d920794b97bb19e40971c6a3f63ad5ac33b5ef9f00cf7"
+  },
+  {
+    "backend": "claude",
+    "profile": "workspace-visual",
+    "bytes": 17986,
+    "characters": 17986,
+    "words": 2716,
+    "duplicateBullets": [],
+    "sha256": "696b7afc1075ce261ed6da85c56da9bf932f8ca10c3fa63991b8c79a29324b0b"
+  },
+  {
+    "backend": "codex",
+    "profile": "default",
+    "bytes": 12787,
+    "characters": 12787,
+    "words": 1971,
+    "duplicateBullets": [],
+    "sha256": "42414fa29b4b736095caab12255977b2ae8f433bfcecf1524fc624bf9ab7d82c"
+  },
+  {
+    "backend": "codex",
+    "profile": "workspace-visual",
+    "bytes": 16152,
+    "characters": 16152,
+    "words": 2443,
+    "duplicateBullets": [],
+    "sha256": "a0064c77bb6d2d7f6c09aef62b7a132cf57ad11cbd1ec768bfe6f1d14d424722"
+  },
+  {
+    "backend": "gemini",
+    "profile": "default",
+    "bytes": 11139,
+    "characters": 11139,
+    "words": 1727,
+    "duplicateBullets": [],
+    "sha256": "6b6564cd8008f803bf9ed4a1df77b862a2f41acff6cbf4fb3f0452e51c675147"
+  },
+  {
+    "backend": "gemini",
+    "profile": "workspace-visual",
+    "bytes": 13534,
+    "characters": 13534,
+    "words": 2049,
+    "duplicateBullets": [],
+    "sha256": "084b7f9b33b4fdd0eb9f9e889a4958d19010f1a226df310dee6c449f6ad360cb"
+  },
+  {
+    "backend": "opencode",
+    "profile": "default",
+    "bytes": 11270,
+    "characters": 11270,
+    "words": 1761,
+    "duplicateBullets": [],
+    "sha256": "e3edf67ba9793a64629e413ca54573931991f519b45b48426ffa1e9cdba13aed"
+  },
+  {
+    "backend": "opencode",
+    "profile": "workspace-visual",
+    "bytes": 15757,
+    "characters": 15757,
+    "words": 2391,
+    "duplicateBullets": [],
+    "sha256": "cade222a9cfa770e58a202d52d0d5a7479bbaaf85312659b67375c7454257fdf"
+  },
+  {
+    "backend": "qwen",
+    "profile": "default",
+    "bytes": 10994,
+    "characters": 10994,
+    "words": 1714,
+    "duplicateBullets": [],
+    "sha256": "d3271281af8e2c5337c59f1fd6dd7538cb3bcde1af9565354aabf4d7143eb163"
+  },
+  {
+    "backend": "qwen",
+    "profile": "workspace-visual",
+    "bytes": 15492,
+    "characters": 15492,
+    "words": 2347,
+    "duplicateBullets": [],
+    "sha256": "10714eed82b9a219ee2b4b09d87b1bb4a5327d38f004888de6115eb248b65965"
+  }
+]

@@ -1102,7 +1102,7 @@ test('formatUsageMessage with extraSections includes extra content inside code b
   assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with extraSections');
 });
 
-test('formatUsageMessage with claudeError and extraSections includes extra content inside code block', () => {
+test('formatUsageMessage separates Claude errors and queue status into their own code blocks', () => {
   const errorMessage = 'Claude authentication expired.';
   const queueStatus = 'Queues\nclaude (pending: 0, processing: 0)\nagent (pending: 0, processing: 0)\n';
 
@@ -1121,9 +1121,9 @@ test('formatUsageMessage with claudeError and extraSections includes extra conte
   const closingFenceIndex = message.lastIndexOf('```');
   assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence with claudeError');
 
-  // Still only one code block
+  // Metrics, the Claude error and the queue each have a separate code block.
   const fenceCount = (message.match(/```/g) || []).length;
-  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with claudeError and extraSections');
+  assert.equal(fenceCount, 6, 'Message should contain three independently fenced sections');
 });
 
 test('formatUsageMessage with empty extraSections works as before', () => {

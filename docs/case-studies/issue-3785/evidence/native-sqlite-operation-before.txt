@@ -1,0 +1,80 @@
+Pinned optimized native Codex SQLite lifetime reproduction, 2026-10-31 UTC
+
+Actual optimized x64 binary from f7b1f506d release run 41211781231:
+23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+350992512 bytes. Complete provenance admission passed before execution.
+
+Probe: experiments/issue-3785/probe-codex-native-sqlite-lifetime.py
+Both cases first create and list a real native thread section successfully.
+After initialization, either rename/recreate the selected directory or publish
+a consistent SQLite backup at the database name with a different inode.
+The same live native app-server then lists the old section, creates another
+section and lists that new section without refusing either retired authority.
+After the native process group is stopped and reaped, SQLite inspection finds
+the new section in the retired database and not the replacement database.
+
+For both cases, --expect-retired passes its explicit negative control.
+For both cases, the default required-refusal control fails with:
+Replacing the admitted SQLite authority must explicitly refuse the subsequent native operation.
+Actual observations: refusal=null, nativeReadRetiredSection=true,
+nativeReadNewSection=true, nativeWriteInRetiredDatabase=true,
+nativeWriteInReplacementDatabase=false.
+
+These are real native SQLite reads and writes, with no provider or credentials.
+The reused app-server fixture limits data to 512 MiB, stack to 16 MiB, core to
+zero, protocol operations to 8 seconds and protocol/stderr output to 256 KiB.
+The probe bounds each selected/retired store to 100 entries and stops/reaps the
+native process group before inspection and temporary-directory disposal.
+The first fixture attempt incorrectly bounded the separate stock configuration
+catalog; it was corrected to bound selected/retired stores independently.
+
+The operation-lifetime requirement remains OPEN. Startup admission and passing
+optimized/installed startup-alias controls do not establish lifetime safety.
+There is no operation-lifetime implementation or passing strict after result.
+
+Preserved logs, SHA256:
+codex-sqlite-directory-retired-verified.log (3 lines):
+458e6d5ac3775ce1a16c13f4982bff3847093b17ce169b139a86a2dddf827a39
+codex-sqlite-database-retired-verified.log (3 lines):
+9fd3d8d5acbdb54753471684dd9d27da8540da67af10a4340a21e51ece49e007
+codex-sqlite-directory-strict-before.log (10 lines):
+c70738eb0c4fb993042b41f5abd068e974f8e694be1f5890367680e21cf37410
+codex-sqlite-database-strict-before.log (10 lines):
+cad20f9e74db4f9c61d6420b2b8902716edf7ee8cd5add83db002367dcfb7097
+
+Separate operation-hook design control (not compiled native acceptance):
+probe-sqlite-progress-close.py uses system SQLite 3.45.1 with data bounded to
+128 MiB, stack 8 MiB, core zero, six tiny databases, at most 1000 progress
+callbacks per case and a 1 MiB maximum inspected database size. All unsafe
+queries refuse. After an added database hardlink or loosened directory/file
+permissions, close still changes the unsafe main database with no progress
+callback. Directory/file replacement alone does not produce that close write.
+Thus a progress-hook-only implementation would leave a distinct unsafe cleanup
+path. The canonical native repair remains unimplemented. Complete observations:
+{"sqliteVersion": "3.45.1", "mutation": "none", "queryRefused": false, "queryHookCalls": 9, "closeHookCalls": 0, "retiredMainFileChangedOnClose": true}
+{"sqliteVersion": "3.45.1", "mutation": "directory", "queryRefused": true, "queryHookCalls": 1, "closeHookCalls": 0, "retiredMainFileChangedOnClose": false}
+{"sqliteVersion": "3.45.1", "mutation": "database", "queryRefused": true, "queryHookCalls": 1, "closeHookCalls": 0, "retiredMainFileChangedOnClose": false}
+{"sqliteVersion": "3.45.1", "mutation": "database-hardlink", "queryRefused": true, "queryHookCalls": 1, "closeHookCalls": 0, "retiredMainFileChangedOnClose": true}
+{"sqliteVersion": "3.45.1", "mutation": "directory-permissions", "queryRefused": true, "queryHookCalls": 1, "closeHookCalls": 0, "retiredMainFileChangedOnClose": true}
+{"sqliteVersion": "3.45.1", "mutation": "database-permissions", "queryRefused": true, "queryHookCalls": 1, "closeHookCalls": 0, "retiredMainFileChangedOnClose": true}
+SHA256: 75ecfb1721535385a12da834534beb76247515fc0c3005331258e77267b470d7
+
+Separate combined VFS/progress system-SQLite design control:
+probe-sqlite-vfs-close.py compiles probe-sqlite-vfs-close.c with strict C
+warnings and finite memory/stack/time limits. All 12 query/write and close-only
+cases pass. Every unsafe case preserves all three database/WAL/SHM byte
+digests; healthy WAL writes and close succeed. This is a one-database design
+control, not integrated native Codex acceptance. The detailed plan records
+the remaining identity, alias, callback-ownership and concurrency boundaries.
+Complete log: sqlite-vfs-close-design.log, 12 lines.
+SHA256: 6804692c64d5915f317b8af53ee7560aaafb45d14b85e84d27eb1d0cfe1614a2
+
+The same twelve combined controls also pass against checked libsqlite3-sys
+0.37.0 sqlite3.c, which reports SQLite 3.51.3. The official archive matches
+the prepared Cargo.lock checksum before extraction; the C source digest is
+9512509b1bccb7461f79bea8aad6280ae4699e925fa4804381b71f59e7efb0c5.
+Amalgamation compilation uses one compiler with 384 MiB data, 8 MiB stack
+and a thirty-second deadline. No full native CLI build runs locally.
+sqlite-vfs-close-pinned-design.log, 12 lines, SHA256:
+a0aa1f78d9c3e9f1a8ac7b0bafaf0ad1b3b69910ad6f7fcabd8ae427b8a60e09
+This is pinned-component design evidence, not actual native after acceptance.

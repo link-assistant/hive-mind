@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * `--update-all-dependencies` sub-prompt module (issue #2184).
  *
@@ -44,17 +45,12 @@ export const buildUpdateAllDependenciesSubPrompt = ({ omittedOptions = [] } = {}
   const bullets = buildStandardPromptParagraphs({ reportDependenciesIssues: false })
     // /solve always emits KEEP_WORKING_PROMPT itself; repeating it here would
     // only spend context.
-    .filter(paragraph => paragraph.text !== KEEP_WORKING_PROMPT)
+    .filter(paragraph => paragraph.text !== localizePromptConstant(KEEP_WORKING_PROMPT))
     .filter(paragraph => paragraph.providedBy.length === 0 || !paragraph.providedBy.every(option => omitted.has(option)))
     .map(paragraph => `   - ${paragraph.text}`)
     .join('\n');
 
-  return `
-
-Dependency updates (--update-all-dependencies).
-   - This run must also bring every dependency of this repository up to date, in every language and package manager it uses, in the same pull request as the work you were asked to do.
-${bullets}
-   - When the dependency update turns out to be large enough to risk the original task, finish the original task first, commit it, and then do the update — but do not end the session with the update unstarted.`;
+  return promptText('prompt.system.templates.update-dependencies-prompts.buildUpdateAllDependenciesSubPrompt.text1', { bullets: String(bullets) });
 };
 
 /**

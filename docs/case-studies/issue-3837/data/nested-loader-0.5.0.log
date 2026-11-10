@@ -1,0 +1,1 @@
+Confirmed with the installed lino-i18n: recursive: true loads prompts/system/en.lino; the default remains flat.

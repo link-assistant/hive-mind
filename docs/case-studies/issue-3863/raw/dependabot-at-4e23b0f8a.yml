@@ -1,0 +1,48 @@
+# Dependabot version updates (issue #10) -
+# https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Every action is pinned to a commit hash with its release in a comment
+# (`uses: owner/repo@<sha> # vX.Y.Z`); Dependabot rewrites both together,
+# so each update is a reviewable pull request that runs the same required
+# checks as a contributor's. Updates wait seven days after a release
+# (cooldown), so a compromised release that is pulled quickly never lands.
+#
+# Neither ecosystem below touches src/, tests/ or scripts/, so these pull
+# requests need no changelog fragment. scripts/unimedvl-requirements.txt is
+# deliberately left out: its torch pin has to match the SHA-256-pinned
+# flash-attn wheel in scripts/medbench-model-run.sh and upstream UniMedVL's
+# code, which Dependabot cannot update together. scripts/audit_dependencies.py
+# fails the Security workflow when a new advisory hits one of those pins.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
+
+  # pyproject.toml (package and extras) and docs/requirements.txt.
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /docs
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      python-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: deps

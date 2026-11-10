@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Restart feedback for a working session that ended with uncommitted changes.
  *
@@ -18,8 +19,8 @@
  * @returns {string[]} feedback lines for the next session's prompt
  */
 export const buildUncommittedChangesFeedback = (changes, restartCount = 0, maxIterations = 0) => {
-  const iterationInfo = maxIterations > 0 ? ` (Auto-restart ${restartCount}/${maxIterations})` : '';
-  return ['', `⚠️ UNCOMMITTED CHANGES DETECTED${iterationInfo}:`, 'The previous working session ended with uncommitted changes. This is the exact `git status --porcelain` output of the working tree:', '', '```', ...changes, '```', '', 'IMPORTANT: For EVERY file listed above you MUST do exactly one of:', '1. COMMIT it if it is part of the solution (git add <file> && git commit && git push).', '2. IGNORE it if it is a build output or another generated file that must not be committed (add a matching pattern to .gitignore, then commit and push .gitignore).', '3. DELETE it if it is not needed (git checkout -- <file> for a tracked file, rm <file> for an untracked file).', '', 'Do not end the session while `git status --porcelain` still prints any line. The session will auto-restart until the working tree is clean.'];
+  const iterationInfo = maxIterations > 0 ? promptText('prompt.templates.feedback.restartIteration', { restartCount, maxIterations }) : '';
+  return ['', promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text1', { iterationInfo: String(iterationInfo) }), promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text2'), '', '```', ...changes, '```', '', promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text3'), promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text4'), promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text5'), promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text6'), '', promptText('prompt.templates.uncommitted-changes-feedback.buildUncommittedChangesFeedback.text7')];
 };
 
 export default { buildUncommittedChangesFeedback };

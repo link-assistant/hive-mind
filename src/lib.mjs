@@ -2,7 +2,7 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
-import { isPlaceholderErrorText } from './error-text.lib.mjs'; // issue #2141: never publish "[object Object]" as a reason
+import { isPlaceholderErrorText, isOpaqueErrorText } from './error-text.lib.mjs'; // issue #2141/#3759: reject placeholders and opaque dumps
 import { isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
 import { retryGitHubOperation } from './github-operation-retry.lib.mjs'; // issue #3552: one retry loop for every GitHub operation
 
@@ -807,7 +807,7 @@ export const isMeaningfulErrorText = value => {
   if (!collapsed) return false;
   // Issue #2141: "[object Object]" has letters, but it is the *absence* of an
   // error message — a structured payload that was stringified by mistake.
-  if (isPlaceholderErrorText(collapsed)) return false;
+  if (isPlaceholderErrorText(collapsed) || isOpaqueErrorText(collapsed)) return false;
   // Require at least one Unicode letter or number; pure punctuation/brackets
   // (e.g. "}", "{", "[]", ",") are stream fragments, not real errors.
   return /[\p{L}\p{N}]/u.test(collapsed);

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 
 /**
  * Generate minimal prompt for auto-restart with session resume
@@ -37,23 +38,14 @@ export const generateMinimalRestartPrompt = async (tempDir, $) => {
   const gitCachedDiffStat = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff --cached --stat`;
   const stagedDiffSummary = gitCachedDiffStat.stdout.toString().trim();
   const summarySections = [];
-  if (unstagedDiffSummary) summarySections.push(`Unstaged changes:\n${unstagedDiffSummary}`);
-  if (stagedDiffSummary) summarySections.push(`Staged changes:\n${stagedDiffSummary}`);
-  const diffSummary = summarySections.join('\n\n') || 'No tracked-file diff summary available.';
+  if (unstagedDiffSummary) summarySections.push(promptText('prompt.templates.solve-minimal-restart-prompt.generateMinimalRestartPrompt.text1', { unstagedDiffSummary: String(unstagedDiffSummary) }));
+  if (stagedDiffSummary) summarySections.push(promptText('prompt.templates.solve-minimal-restart-prompt.generateMinimalRestartPrompt.text2', { stagedDiffSummary: String(stagedDiffSummary) }));
+  const diffSummary = summarySections.join('\n\n') || promptText('prompt.templates.solve-minimal-restart-prompt.generateMinimalRestartPrompt.text3');
 
   // Count changes
   const fileCount = uncommittedFiles.split('\n').filter(line => line.trim()).length;
 
-  return `🔄 Auto-restart: resume the previous session and handle its uncommitted changes.
-
-Uncommitted files (${fileCount}):
-${uncommittedFiles}
-
-Changes summary:
-${diffSummary}
-
-Please review these changes and commit them with an appropriate commit message.
-Follow the repository's commit message conventions from previous commits.`;
+  return promptText('prompt.templates.solve-minimal-restart-prompt.generateMinimalRestartPrompt.text4', { fileCount: String(fileCount), uncommittedFiles: String(uncommittedFiles), diffSummary: String(diffSummary) });
 };
 
 /**
@@ -80,19 +72,15 @@ export const generateFullRestartPrompt = async (issueUrl, issueBody, prNumber, f
   const gitDiff = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff`;
   const fullDiff = gitDiff.stdout.toString();
 
-  let prompt = `
-Continuing work on issue: ${issueUrl}
-
-Previous session completed but left uncommitted changes.
-  `.trim();
+  let prompt = promptText('prompt.templates.solve-minimal-restart-prompt.generateFullRestartPrompt.text5', { issueUrl: String(issueUrl) }).trim();
 
   if (feedbackLines && feedbackLines.length > 0) {
-    prompt += `\n\nFeedback from reviewers:\n${feedbackLines.join('\n')}`;
+    prompt += promptText('prompt.templates.solve-minimal-restart-prompt.generateFullRestartPrompt.text6', { value1: String(feedbackLines.join('\n')) });
   }
 
-  prompt += `\n\nUncommitted changes:\n${uncommittedFiles}\n\nFull diff:\n${fullDiff}`;
+  prompt += promptText('prompt.templates.solve-minimal-restart-prompt.generateFullRestartPrompt.text7', { uncommittedFiles: String(uncommittedFiles), fullDiff: String(fullDiff) });
 
-  prompt += '\n\nPlease review these changes and commit them appropriately.';
+  prompt += promptText('prompt.templates.solve-minimal-restart-prompt.generateFullRestartPrompt.text8');
 
   return prompt;
 };

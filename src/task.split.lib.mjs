@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
 
 export const TASK_SPLIT_MARKER_START = '<!-- hive-mind-task-split:start -->';
@@ -22,38 +23,11 @@ export function parseTaskIssueUrl(url) {
 }
 
 export function buildTaskSplitSystemPrompt() {
-  return ['You split GitHub issues into smaller GitHub issues.', 'Read only the issue details supplied by the user.', 'Do not clone repositories, create branches, edit files, create GitHub issues, or execute shell commands.', 'Return only valid JSON matching the requested schema.'].join('\n');
+  return [promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text1'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text2'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text3'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text4')].join('\n');
 }
 
 export function buildTaskSplitPrompt({ issue, splitCount }) {
-  return `Split this GitHub issue into exactly ${splitCount} smaller GitHub issues.
-
-Source issue:
-- Repository: ${issue.owner}/${issue.repo}
-- Issue number: ${issue.number}
-- URL: ${issue.url}
-- Title: ${issue.title}
-
-Issue body:
-${issue.body || '(empty)'}
-
-Return only this JSON shape:
-{
-  "tasks": [
-    {
-      "title": "short issue title",
-      "body": "complete issue body with objective, scope, deliverables, and acceptance criteria",
-      "dependencies": [1]
-    }
-  ]
-}
-
-Rules:
-- The tasks array must contain exactly ${splitCount} items.
-- Each task must be independently actionable.
-- Together the tasks must cover the full source issue.
-- Dependencies must be 1-based task numbers and should be empty when none are needed.
-- Do not include Markdown fences, prose, comments, or extra top-level keys.`;
+  return promptText('prompt.templates.task-split.buildTaskSplitPrompt.text5', { splitCount: String(splitCount), value2: String(issue.owner), value3: String(issue.repo), value4: String(issue.number), value5: String(issue.url), value6: String(issue.title), value7: String(issue.body || '(empty)') });
 }
 
 function tryParseJson(text) {

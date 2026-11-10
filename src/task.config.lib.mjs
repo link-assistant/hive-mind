@@ -1,3 +1,4 @@
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
@@ -46,6 +47,7 @@ export const createYargsConfig = yargsInstance =>
       description: 'Number of issues to split into',
       default: 2,
     })
+    .option('share-geolocation', SHARE_GEOLOCATION_OPTION)
     .option('tool', {
       type: 'string',
       description: 'AI tool to use through agent-commander read-only mode',

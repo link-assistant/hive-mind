@@ -1,0 +1,58 @@
+================================================================================
+Unit Tests: /queue Command
+================================================================================
+
+📋 Registration Tests
+
+✅ registerSolveQueueCommand registers a command handler
+✅ registerSolveQueueCommand returns handleSolveQueueCommand function
+✅ Command regex does not match legacy solve_queue command
+✅ Command regex does not match legacy solvequeue command
+✅ Command regex does not match legacy solve-queue command
+✅ Command regex does not match legacy SOLVE_QUEUE command
+✅ Command regex does not match solve
+✅ Command regex matches queue (alias added in issue #1837)
+✅ Command regex matches QUEUE (case insensitive alias)
+✅ Command regex does not match unrelated commands like queued
+
+📋 Permission Tests
+
+[telegram-send] s1 safeReply → chat=-100123 parse_mode=Markdown reply_to=1 chars=100 bytes=102 text="❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin."
+[telegram-send] s1 safeReply ✓ delivered message_id=2
+✅ Rejects non-group chat
+[telegram-send] s2 safeReply → chat=-100123 parse_mode=Markdown reply_to=1 chars=44 bytes=46 text="❌ This chat (ID: -100123) is not authorized."
+[telegram-send] s2 safeReply ✓ delivered message_id=2
+✅ Rejects unauthorized chat
+✅ Ignores old messages
+✅ Ignores forwarded messages
+
+📋 Queue Status Output Tests
+
+[telegram-send] s3 safeReply → chat=-100123 parse_mode=Markdown reply_to=1 chars=76 bytes=78 text="📋 *Solve Queue Status*\n\nPending: 0, Processing: 0, Completed: 0, Failed: 0\n"
+[telegram-send] s3 safeReply ✓ delivered message_id=2
+✅ Shows queue status for empty queue (hides empty queues, issue #1891)
+[telegram-send] s4 safeReply → chat=-100123 parse_mode=Markdown reply_to=1 chars=173 bytes=181 text="📋 *Solve Queue Status*\n\n*claude*\n  *Processing* (1):\n    • [test/repo#2](https://github.com/test/repo/issues/2) (▶️ 5s)\n\nPending: 0, Processing: 1, Completed: 0, Failed: 0\n"
+[telegram-send] s4 safeReply ✓ delivered message_id=2
+✅ Shows processing list only for queues with running work (issue #1891)
+[telegram-send] s5 safeReply → chat=-100123 parse_mode=Markdown reply_to=1 chars=169 bytes=175 text="📋 *Solve Queue Status*\n\n*claude*\n  *Pending* (1):\n    • [test/repo#1](https://github.com/test/repo/issues/1) (⏳ 0s)\n\nPending: 1, Processing: 0, Completed: 0, Failed: 0\n"
+[telegram-send] s5 safeReply ✓ delivered message_id=2
+✅ Shows queue with pending items
+
+📋 Hint Text Regression Tests
+
+❌ locale files recommend short commands and no legacy solve-prefixed commands
+   Error: ENOENT: no such file or directory, open '/tmp/gh-issue-solver-1793186592138/src/locales/en.lino'
+✅ help message includes /queue using backtick code block
+✅ telegram-bot.mjs fallback routes only the /queue command
+✅ duplicate URL messages recommend /queue and /stop
+✅ telegram-solve-queue.lib.mjs uses /queue in verbose command logs
+✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+✅ help message includes /accept_invites using backtick code block
+✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+
+================================================================================
+Test Results for /queue command:
+  ✅ Passed: 24
+  ❌ Failed: 1
+  Total: 25
+================================================================================

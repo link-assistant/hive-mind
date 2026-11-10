@@ -86,7 +86,7 @@ export function parseGitHubUrl(url, options = {}) {
     // Check if it starts with github.com
     if (normalizedUrl.startsWith('github.com/')) {
       normalizedUrl = 'https://' + normalizedUrl;
-    } else if (!normalizedUrl.includes('github.com')) {
+    } else if (!/github\.com/.test(normalizedUrl)) {
       // Assume it's a shorthand format (owner, owner/repo, owner/repo/issues/123, etc.)
       normalizedUrl = 'https://github.com/' + normalizedUrl;
     } else {

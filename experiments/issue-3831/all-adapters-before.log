@@ -1,0 +1,111 @@
+✔ productive recovery resets the outage clock and retry backstop (3.008602ms)
+✔ codex: capacity after 13 hours of resumed work gets a fresh retry with context (108.050236ms)
+✔ codex: init and repeated failures do not reset exponential backoff or the count limit (41.859227ms)
+✔ codex: successful text quoting an outage is never retried (12.153844ms)
+✔ claude: capacity after 13 hours of resumed work gets a fresh retry with context (65.906647ms)
+✔ claude: init and repeated failures do not reset exponential backoff or the count limit (20.778472ms)
+✔ claude: successful text quoting an outage is never retried (7.266837ms)
+✖ agent: capacity after 13 hours of resumed work gets a fresh retry with context (12.503494ms)
+✔ agent: init and repeated failures do not reset exponential backoff or the count limit (21.173308ms)
+✔ agent: successful text quoting an outage is never retried (3.513674ms)
+✖ opencode: capacity after 13 hours of resumed work gets a fresh retry with context (7.142274ms)
+✔ opencode: init and repeated failures do not reset exponential backoff or the count limit (11.539938ms)
+✔ opencode: successful text quoting an outage is never retried (3.739716ms)
+✖ qwen: capacity after 13 hours of resumed work gets a fresh retry with context (9.366523ms)
+✔ qwen: init and repeated failures do not reset exponential backoff or the count limit (8.079001ms)
+✔ qwen: successful text quoting an outage is never retried (5.050431ms)
+✖ gemini: capacity after 13 hours of resumed work gets a fresh retry with context (10.316044ms)
+✔ gemini: init and repeated failures do not reset exponential backoff or the count limit (7.619594ms)
+✔ gemini: successful text quoting an outage is never retried (3.656641ms)
+✔ Codex transport exception resumes the observed thread (33.037331ms)
+✔ provider transient signature is retryable: server_is_overloaded (0.483292ms)
+✔ provider transient signature is retryable: HTTP 529 (0.162043ms)
+✔ provider transient signature is retryable: API Error: 529 (0.122158ms)
+✔ provider transient signature is retryable: timeout_error (0.117008ms)
+✔ provider transient signature is retryable: rate_limit_error (1.232149ms)
+✔ provider transient signature is retryable: InternalServerError (0.640124ms)
+✔ provider transient signature is retryable: ResponseStreamDisconnected (0.117249ms)
+✔ provider transient signature is retryable: ResponseTooManyFailedAttempts (0.107802ms)
+✔ permanent errors and prose stay terminal: Invalid API key (0.395858ms)
+✔ permanent errors and prose stay terminal: model not found (0.497538ms)
+✔ permanent errors and prose stay terminal: Quota exceeded. Check your plan and billing details. (0.269332ms)
+✔ permanent errors and prose stay terminal: This content was flagged for possible cybersecurity risk. (0.142566ms)
+✔ permanent errors and prose stay terminal: See issue #529 and PR #503. (0.131045ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 29
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 787.28316
+
+✖ failing tests:
+
+test at tests/provider-transient-recovery-3831.test.mjs:128:3
+✖ agent: capacity after 13 hours of resumed work gets a fresh retry with context (12.503494ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:128:3
+✖ opencode: capacity after 13 hours of resumed work gets a fresh retry with context (7.142274ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:128:3
+✖ qwen: capacity after 13 hours of resumed work gets a fresh retry with context (9.366523ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:128:3
+✖ gemini: capacity after 13 hours of resumed work gets a fresh retry with context (10.316044ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:130:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

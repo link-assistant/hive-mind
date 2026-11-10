@@ -5,7 +5,7 @@
 # nested-Docker default checks against the DinD image.
 #
 # Verifies box user setup (/home/box access), development tools, AI tools, and
-# configure-claude (tolerantly, for PR builds — see docker-pr-build.sh).
+# configure-claude and the installed stock-runtime baseline (required).
 #
 # Environment:
 #   IMAGE_NAME       Tag for the main image      (default: konard/hive-mind)
@@ -46,7 +46,35 @@ docker run --rm --privileged \
   "${DIND_IMAGE_NAME}:test" \
   bash /verify-docker-image.sh
 
+for verified_image in "${IMAGE_NAME}:test" "${DIND_IMAGE_NAME}:test"; do
+  echo "Checking installed Formal AI configuration and native Codex usage authority: ${verified_image}"
+  docker run --rm --network none \
+    -v "$(pwd)/experiments/issue-3785/probe-formal-ai-codex-auth.mjs:/probe-formal-ai-codex-auth.mjs:ro" \
+    -v "$(pwd)/experiments/issue-3785/probe-codex-native-limits-generation.py:/probe-codex-native-limits-generation.py:ro" \
+    -v "$(pwd)/experiments/issue-3785/probe-codex-native-auth-identity.py:/probe-codex-native-auth-identity.py:ro" \
+    -v "$(pwd)/experiments/issue-3785:/hive-native-probes:ro" \
+    --entrypoint bash "${verified_image}" -c '
+      set -euo pipefail
+      native_hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")
+      node --max-old-space-size=128 /probe-formal-ai-codex-auth.mjs "$(command -v formal-ai)" "$native_hive_root"
+      python3 /probe-codex-native-auth-identity.py "$(command -v codex)"
+      for mutation in none logout replace malformed; do
+        python3 /probe-codex-native-limits-generation.py "$(command -v codex)" --mutation "$mutation"
+      done
+      for scenario in directory database; do
+        python3 /hive-native-probes/probe-codex-native-sqlite-lifetime.py "$(command -v codex)" --case "$scenario"
+      done
+      for scenario in recovery peers startup; do
+        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$(command -v codex)"
+        python3 "/hive-native-probes/probe-codex-native-sqlite-$scenario.py" "$(command -v codex)" --without-path-selector
+      done
+      python3 /hive-native-probes/probe-codex-native-sqlite-performance.py "$(command -v codex)"
+    '
+done
+
 bash scripts/verify-dind-exec-defaults.sh "${DIND_IMAGE_NAME}:test"
+
+node scripts/docker-pr-verify-mount-backing.mjs
 
 echo ""
 echo "All system, development, and nested Docker verification checks passed!"

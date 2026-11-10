@@ -68,7 +68,7 @@ const USE_SINGLE_FLIGHT_WRAPPED = Symbol.for('hive-mind.use-m-single-flight.wrap
 
 // Mirrors use-m's own parser (`parseModuleSpecifier`) so the alias computed
 // here is byte-identical to the directory npm will create.
-const SPECIFIER_PATTERN = /^(?<packageName>(@[^@/]+\/)?[^@/]+)?(?:@(?<version>[^/]*))?(?<modulePath>(?:\/[^@]+)*)?$/;
+const SPECIFIER_PATTERN = /^(?<packageName>(@[^@/]+\/)?[^@/]+)?(?:@(?<version>[^/]*))?(?<modulePath>(?:\/[^@]+)?)$/;
 
 /**
  * @param {string} specifier

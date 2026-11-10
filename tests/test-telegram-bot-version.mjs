@@ -16,6 +16,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+const telegramBotPath = join(projectRoot, 'src', 'telegram-bot.mjs');
 
 console.log('='.repeat(80));
 console.log('Unit Tests: Telegram Bot --version Output (Issue #1318)');
@@ -47,8 +48,10 @@ function runTest(name, fn) {
  * Execute telegram-bot.mjs with given args and return { stdout, stderr }
  */
 function execTelegramBot(args, options = {}) {
-  const cmd = `node ${join(projectRoot, 'src', 'telegram-bot.mjs')} ${args}`;
-  const env = { ...process.env, ...options.env };
+  // The script path reaches the shell through the environment, not string
+  // interpolation, so a checkout path with shell characters cannot change it.
+  const cmd = `node "$TELEGRAM_BOT_PATH" ${args}`;
+  const env = { ...process.env, ...options.env, TELEGRAM_BOT_PATH: telegramBotPath };
 
   // Run in a directory without .env file to simulate the issue
   try {
@@ -131,7 +134,8 @@ runTest('--version works with non-existent HOME directory', () => {
 
 runTest('--version exits with code 0', () => {
   try {
-    execSync(`node ${join(projectRoot, 'src', 'telegram-bot.mjs')} --version`, {
+    execSync('node "$TELEGRAM_BOT_PATH" --version', {
+      env: { ...process.env, TELEGRAM_BOT_PATH: telegramBotPath },
       encoding: 'utf8',
       cwd: '/tmp',
       timeout: 30000,

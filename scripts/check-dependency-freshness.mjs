@@ -7,7 +7,7 @@ import { appendFile, copyFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { checkDependencyRecords, collectDependencyRecords, formatFreshnessReport, freshnessEnforcement, lockfileLagRecords } from './dependency-freshness.lib.mjs';
+import { checkDependencyRecords, collectDependencyRecords, formatFreshnessReport, freshnessEnforcement, issuesClosedBy, lockfileLagRecords } from './dependency-freshness.lib.mjs';
 
 const run = promisify(execFile);
 const npmOptions = { maxBuffer: 64 * 1024 * 1024, timeout: 5 * 60 * 1000 };
@@ -42,7 +42,9 @@ for (const [name, entry] of Object.entries(outdated)) {
   const current = entry.current || lock.packages?.[`node_modules/${name}`]?.version;
   if (!current || current !== entry.latest) records.push({ kind: 'npm', name, current: current || 'missing', policy: 'exact', location: `package-lock.json#${name}` });
 }
-const result = await checkDependencyRecords(records);
+// An exception may not link an issue this pull request closes (issue #4025).
+const pullRequestBody = process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH) ? JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request?.body : undefined;
+const result = await checkDependencyRecords(records, { closingIssues: issuesClosedBy(pullRequestBody, process.env.GITHUB_REPOSITORY) });
 // Transitive lockfile entries must be at the newest version their dependents allow (`npm update`).
 const lockfileLag = lockfileLagRecords(lock, await refreshedLockfile());
 result.stale.push(...lockfileLag);

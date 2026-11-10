@@ -1,3 +1,5 @@
+import { createLineBuffer } from './json-stream.lib.mjs';
+
 /**
  * Determines whether a stderr message line should be treated as an error.
  *
@@ -35,4 +37,18 @@ export const isStderrError = message => {
     return true;
   }
   return false;
+};
+
+/** Preserve complete SDK debug lines across arbitrary stderr chunk boundaries. */
+export const createClaudeStderrObserver = ({ evidence, errors }) => {
+  const buffer = createLineBuffer();
+  const observe = text => {
+    for (const line of text.split('\n')) {
+      if (!evidence.observeRawLine(line, 'stderr').isDebugOutput && isStderrError(line)) errors.push(line.trim());
+    }
+  };
+  return {
+    write: chunk => observe(buffer.write(chunk)),
+    flush: () => observe(buffer.flush()),
+  };
 };

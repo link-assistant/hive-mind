@@ -1,0 +1,12 @@
+[
+  {
+    "file": "incident.part-00.log.txt.gz",
+    "originalBytes": 104848294,
+    "sha256": "8b2ed513f7274d0cf633df3e49760f1c36454ed4dd152e2be9c951119fc27ffe"
+  },
+  {
+    "file": "incident.part-01.log.txt.gz",
+    "originalBytes": 14031447,
+    "sha256": "3fcb7fe847be8f0d197d2b09a4d24c556ba5242bb6b7429f047d2f5f23c2449a"
+  }
+]

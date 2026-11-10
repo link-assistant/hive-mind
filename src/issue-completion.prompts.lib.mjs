@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /** Complete-delivery goal shared by every tool's prompts (issue #2406). */
 import { fileURLToPath } from 'node:url';
 
@@ -16,17 +17,10 @@ const TRUE_VALUES = /^(?:true|1|yes|on)$/i;
  */
 export const isRequirementsReportEnabled = (argv = {}, env = process.env) => (typeof argv?.requirementsReport === 'boolean' ? argv.requirementsReport : TRUE_VALUES.test(String(env?.HIVE_MIND_REQUIREMENTS_REPORT ?? '').trim()));
 
-export const ISSUE_COMPLETION_GOAL = 'Do not stop until every requirement of the issue and all required sub-issues is fully implemented and verified in this single pull request, in the widest requested scope, with no requested work deferred; work that is truly blocked must be reported as blocked and left unfinished, never presented as done.';
+export const ISSUE_COMPLETION_GOAL = promptText('prompt.system.templates.issue-completion-prompts.ISSUE_COMPLETION_GOAL.text3', {}, { locale: 'en' });
 
 export function getIssueCompletionSubPrompt({ owner, repo, issueNumber, prNumber, argv } = {}) {
-  return `
-
-Issue completion goal.
-   - ${ISSUE_COMPLETION_GOAL}
-   - Try to set this exact objective with a native goal-setting API or tool before working, and keep it active until every acceptance criterion is verified. Codex exposes thread/goal/set through its app-server API when available; do not invent an exec --goal flag. If the running tool provides no native goal API, keep the objective and checklist in your work plan across turns and compaction.
-   - Read the complete issue, every comment, every required sub-issue, and all pull request conversation comments, inline comments, and reviews. Inventory each requirement, including prose requirements and later feedback, and map each one to implementation and verification evidence.
-   - Passing CI, a partial implementation, an upstream report, or a workaround does not complete an unmet acceptance criterion. Continue authorized work. If an external blocker cannot be resolved, report the exact blocked criteria and evidence, leave them unfinished, and keep the pull request unmerged.
-   - Preserve a positive closing keyword in the pull request description for the original issue and every required issue. Repeat the keyword per issue, use the correct repository for foreign issues, and keep references outside examples or code blocks. A negated sentence (for example "does not close" before an issue reference) is not a closing reference. Mention issues you reported to other repositories without a keyword: GitHub also closes an issue linked right after "fix:", as in "a suggested fix: <issue URL>".${isRequirementsReportEnabled(argv) ? getRequirementsReportSubPrompt({ owner, repo, issueNumber, prNumber }) : ''}`;
+  return promptText('prompt.system.templates.issue-completion-prompts.getIssueCompletionSubPrompt.text4', { ISSUE_COMPLETION_GOAL: String(localizePromptConstant(ISSUE_COMPLETION_GOAL)), value2: String(isRequirementsReportEnabled(argv) ? getRequirementsReportSubPrompt({ owner, repo, issueNumber, prNumber }) : '') });
 }
 
 /** The experimental requirements report instructions (issue #2406), only with --requirements-report (issue #3469). */
@@ -34,9 +28,5 @@ export function getRequirementsReportSubPrompt({ owner, repo, issueNumber, prNum
   const snapshotPath = fileURLToPath(new URL('./issue-requirements-snapshot.mjs', import.meta.url));
   const quote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
   const command = `${quote(process.execPath)} ${quote(snapshotPath)} ${quote(`${owner}/${repo}`)} ${issueNumber || '<issue-number>'} ${prNumber || '<pull-request-number>'}`;
-  return `
-   - Before finishing, run this command after pushing the final code commit to obtain the current requirements report template:
-     ${command}
-   - Fill every requirement with status "done" only after verifying it, and record concrete test results, files, or other reviewable evidence. Add every prose requirement the template could not extract. Mark requirements you cannot complete as "blocked" with the evidence of the blocker. Include the complete JSON report between its supplied ${REQUIREMENTS_START} and ${REQUIREMENTS_END} markers in the pull request description. Preserve those markers on later edits. Refresh the template after any new commit or requirement feedback.
-   - The merge guard requires a report for exactly the required issues, the current commit, and current issue/review feedback. It rejects missing criteria, empty evidence, pending or blocked statuses, missing links, and unreadable verification data. Never fabricate evidence to pass this check.`;
+  return promptText('prompt.system.templates.issue-completion-prompts.getRequirementsReportSubPrompt.text5', { command: String(command), REQUIREMENTS_START: String(REQUIREMENTS_START), REQUIREMENTS_END: String(REQUIREMENTS_END) });
 }

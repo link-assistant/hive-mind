@@ -1,0 +1,190 @@
+✖ agent: resource-aware defaults survive workspace and optional prompt sections (244.823824ms)
+✖ claude: resource-aware defaults survive workspace and optional prompt sections (24.232891ms)
+✖ codex: resource-aware defaults survive workspace and optional prompt sections (10.936459ms)
+✖ gemini: resource-aware defaults survive workspace and optional prompt sections (14.601756ms)
+✖ opencode: resource-aware defaults survive workspace and optional prompt sections (10.025029ms)
+✖ qwen: resource-aware defaults survive workspace and optional prompt sections (12.234419ms)
+✖ en: translated prompt catalogue follows the same validation policy (162.636525ms)
+✖ ru: translated prompt catalogue follows the same validation policy (104.065847ms)
+✖ zh: translated prompt catalogue follows the same validation policy (39.478878ms)
+✖ hi: translated prompt catalogue follows the same validation policy (83.471054ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1010.406492
+
+✖ failing tests:
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ agent: resource-aware defaults survive workspace and optional prompt sections (244.823824ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ claude: resource-aware defaults survive workspace and optional prompt sections (24.232891ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ codex: resource-aware defaults survive workspace and optional prompt sections (10.936459ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ gemini: resource-aware defaults survive workspace and optional prompt sections (14.601756ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ opencode: resource-aware defaults survive workspace and optional prompt sections (10.025029ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:19:3
+✖ qwen: resource-aware defaults survive workspace and optional prompt sections (12.234419ms)
+  AssertionError [ERR_ASSERTION]: local validation must consider existing CI coverage and build cost
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:23:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:55:3
+✖ en: translated prompt catalogue follows the same validation policy (162.636525ms)
+  AssertionError [ERR_ASSERTION]: translated guidance must not require an unconditional full local suite
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:61:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:55:3
+✖ ru: translated prompt catalogue follows the same validation policy (104.065847ms)
+  AssertionError [ERR_ASSERTION]: translated guidance must not require an unconditional full local suite
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:61:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:55:3
+✖ zh: translated prompt catalogue follows the same validation policy (39.478878ms)
+  AssertionError [ERR_ASSERTION]: translated guidance must not require an unconditional full local suite
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:61:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/resource-aware-prompts-3837.test.mjs:55:3
+✖ hi: translated prompt catalogue follows the same validation policy (83.471054ms)
+  AssertionError [ERR_ASSERTION]: translated guidance must not require an unconditional full local suite
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793186592138/tests/resource-aware-prompts-3837.test.mjs:61:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

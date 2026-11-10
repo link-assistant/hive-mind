@@ -1,0 +1,96 @@
+Native Gemini 0.65.0 actual ACP checkpoint and conversation restore
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local native runtime: Node 26.12.1. Production installation remains unfinished.
+
+Four separate strict regressions precede their corresponding source repairs:
+
+1. On the final terminal restore package, the actual ACP approves and completes
+   its real write_file edit and two provider requests, without canonical restore
+   metadata. The strict test fails:
+     Actual native ACP edits must acknowledge their restorable checkpoint
+     before approval.
+   ACP's own Session.runTool bypasses the terminal's core tool executor.
+
+2. After applying only the ACP checkpoint writer, a fresh native ACP loads the
+   conversation after complete private-home disposal. /restore resets both the
+   edited file and an untouched companion to their pre-edit contents without
+   inference, but the next provider request still includes the later prompt:
+     Native ACP restore must update the actual subsequent model history.
+   The native RestoreCommand only formats its load_history result as text.
+
+3. After applying the native chat/recorder restore, the next request has the
+   restored prompt and omits the later prompt. Disposing that entire private
+   home and loading the same session in a third actual ACP loses the original
+   prompt:
+     A fresh native ACP must resume the restored model history.
+   Native getHistory() coalesces the first prompt with the session context;
+   the native session loader ignores a turn beginning with that context.
+
+4. After those repairs, actual /restore list displays Unknown rather than the
+   saved checkpoint name and native tool. The native listing reads fields that
+   getCheckpointInfoList does not return:
+     Actual native ACP checkpoint listings must identify their restorable
+     native filename and tool.
+   The selected canonical branch now uses the actual checkpoint identifier and
+   its already-validated native toolCall.name. The private branch is unchanged.
+
+Verified after the corresponding source repairs:
+  PASS: actual ACP metadata and Git snapshot are acknowledged before approval.
+  PASS: actual native write_file edits complete with two synthetic requests.
+  PASS: actual native replace completes the same three-process restore cycle.
+  PASS: automatic edit mode acknowledges the checkpoint without asking approval.
+  PASS: native cancellation retains its checkpoint and changes neither file.
+  PASS: /restore and /restore list identify the native checkpoint and tool,
+        without inference or project changes.
+  PASS: /restore resets both project files after complete private-home disposal.
+  PASS: restore makes no provider request and the next request uses the restored
+        history, retaining the original prompt and excluding the later prompt.
+  PASS: after a second complete private-home disposal, a third actual ACP loads
+        the same restored model history. The prior conversation audit remains
+        an unchanged byte prefix and its one acknowledged checkpoint remains.
+  PASS: live schema damage after the acknowledged checkpoint and before approval
+        prevents the actual edit and further inference, retaining damaged bytes.
+  PASS: fresh startup with damaged metadata refuses before inference or project
+        changes, retaining damaged bytes.
+  PASS: no-selector actual ACP preserves native private recording, approval and
+        editing, leaving the candidate canonical history directory untouched.
+  PASS: eighteen checked history stages reconstruct the same seventeen final
+        native manager/CLI/helper files; --check does not mutate any source.
+        The fresh reconstruction passes the full three-process restore cycle.
+  PASS: the combined reconstructed package passes all 54 metadata assertions
+        across 26 scenarios / 30 native processes, and all three actual terminal
+        restore/live-refusal/startup-refusal controls.
+  PASS: the same combined reconstructed package passes all 41 authentication
+        writer/account, 30 request and 11 canonical-read controls.
+
+Derived ACP bundle, gemini-GLQ4MVLB.js:
+  Before ACP writer:
+    c2fbe9a3dd514a3fc7c200fb5a9cf10629903e15f3a5bb3d1b7d2a3d47e0d22e
+  After ACP writer, before actual chat restore:
+    276e808f2238147acf325619d6f67ab1496a8a06f254b1c3b2a024960eb3324c
+  After actual chat restore, before native turn-boundary preservation:
+    923feb573a468e178c4902079055fed721e5cd48eef1937c06169de3b8997886
+  After turn-boundary preservation:
+    cfcdeef45cd442e4b082749596577aad251b8c3d4d73b2c06b92407f4d2a1d05
+  After checkpoint listing:
+    ca5c9f85fa66d0a71acba63e3bac8faaae42167cacc719e99d590cda2d684654
+  All sixteen surrounding manager/CLI/helper files match the preceding terminal
+  restore package. Its native manager remains:
+    ace42576cb7d8f0f2ef710e148cbfb81311929f42f5c3a50851e27cb5e744a07
+
+Controls run the original CLI entry through newline-delimited JSON-RPC. They do
+not instrument native module exports, SDK methods or protocol server methods.
+The actual native tool, Git service, chat, recorder and session loader execute.
+Only synthetic credentials and a TLS-verifying loopback provider are used.
+Memory/stack/request/output/phase limits are finite, whole process groups are
+reaped, and failed synthetic fixtures are retained. The audit assertion selects
+the actual conversation containing the later prompt; unrelated empty native
+startup sessions may legitimately be archived during native cleanup.
+
+These disposable pinned native-source experiments do not install a production
+adapter. Remaining native writers, plan/task memory, child/subagent execution,
+legacy migration, interruption/power-loss durability, every backend's complete
+lifecycle and production package/image/launcher integration remain unfinished.
+Fresh exact-head Node 24 ACP CI is required after committing and pushing.

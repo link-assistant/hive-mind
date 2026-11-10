@@ -1,0 +1,146 @@
+✖ effective CLAUDE_CONFIG_DIR cannot hide CLAUDE.md behind a clean conventional home (154.694322ms)
+✖ effective CLAUDE_CONFIG_DIR cannot hide .claude.json behind a clean conventional home (36.022336ms)
+✖ effective CODEX_HOME cannot hide AGENTS.md behind a clean conventional home (213.029911ms)
+✖ unsafe effective input prevents unrelated conventional-home repair (122.161539ms)
+✖ effective config root symlink cannot redirect repair (219.50022ms)
+✖ effective config ancestor symlink cannot redirect repair (108.026523ms)
+✖ effective repairs preserve auth/history identities and unrelated settings (214.879287ms)
+✖ a concurrent effective edit invalidates every pending repair (156.666467ms)
+✖ relative effective config paths reject admission without disclosing values (220.053543ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 0
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1673.574228
+
+✖ failing tests:
+
+test at tests/issue-3785-effective-config-audit.test.mjs:25:3
+✖ effective CLAUDE_CONFIG_DIR cannot hide CLAUDE.md behind a clean conventional home (154.694322ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:31:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:25:3
+✖ effective CLAUDE_CONFIG_DIR cannot hide .claude.json behind a clean conventional home (36.022336ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:31:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:25:3
+✖ effective CODEX_HOME cannot hide AGENTS.md behind a clean conventional home (213.029911ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:31:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:36:1
+✖ unsafe effective input prevents unrelated conventional-home repair (122.161539ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:42:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:47:3
+✖ effective config root symlink cannot redirect repair (219.50022ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:54:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:47:3
+✖ effective config ancestor symlink cannot redirect repair (108.026523ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:54:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:59:1
+✖ effective repairs preserve auth/history identities and unrelated settings (214.879287ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 2
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:71:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:79:1
+✖ a concurrent effective edit invalidates every pending repair (156.666467ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:87:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-effective-config-audit.test.mjs:97:1
+✖ relative effective config paths reject admission without disclosing values (220.053543ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-effective-config-audit.test.mjs:99:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

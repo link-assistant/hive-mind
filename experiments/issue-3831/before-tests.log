@@ -1,0 +1,261 @@
+✖ productive recovery resets the outage clock and retry backstop (2.747195ms)
+✖ codex: capacity after 13 hours of resumed work gets a fresh retry with context (93.243336ms)
+✔ codex: init and repeated failures do not reset exponential backoff or the count limit (57.912136ms)
+✔ codex: successful text quoting an outage is never retried (47.108882ms)
+✖ claude: capacity after 13 hours of resumed work gets a fresh retry with context (62.821664ms)
+✖ claude: init and repeated failures do not reset exponential backoff or the count limit (34.60172ms)
+✔ claude: successful text quoting an outage is never retried (25.79421ms)
+✖ Codex transport exception resumes the observed thread (11.413792ms)
+✔ provider transient signature is retryable: server_is_overloaded (0.782319ms)
+✖ provider transient signature is retryable: HTTP 529 (1.251383ms)
+✖ provider transient signature is retryable: API Error: 529 (0.510562ms)
+✖ provider transient signature is retryable: timeout_error (0.255667ms)
+✖ provider transient signature is retryable: rate_limit_error (0.283519ms)
+✖ provider transient signature is retryable: InternalServerError (0.32125ms)
+✖ provider transient signature is retryable: ResponseStreamDisconnected (0.272118ms)
+✖ provider transient signature is retryable: ResponseTooManyFailedAttempts (0.251009ms)
+✔ permanent errors and prose stay terminal: Invalid API key (0.380381ms)
+✔ permanent errors and prose stay terminal: model not found (0.351024ms)
+✔ permanent errors and prose stay terminal: Quota exceeded. Check your plan and billing details. (0.141073ms)
+✔ permanent errors and prose stay terminal: This content was flagged for possible cybersecurity risk. (0.136143ms)
+✔ permanent errors and prose stay terminal: See issue #529 and PR #503. (0.140001ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 9
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 748.326803
+
+✖ failing tests:
+
+test at tests/provider-transient-recovery-3831.test.mjs:84:1
+✖ productive recovery resets the outage clock and retry backstop (2.747195ms)
+  TypeError [Error]: budget.recordProgress is not a function
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:90:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at tests/provider-transient-recovery-3831.test.mjs:100:3
+✖ codex: capacity after 13 hours of resumed work gets a fresh retry with context (93.243336ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:106:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:100:3
+✖ claude: capacity after 13 hours of resumed work gets a fresh retry with context (62.821664ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:106:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:114:3
+✖ claude: init and repeated failures do not reset exponential backoff or the count limit (34.60172ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   1,
+  -   2,
+  -   4
+  - ]
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:118:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 1, 2, 4 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:127:1
+✖ Codex transport exception resumes the observed thread (11.413792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:132:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: HTTP 529 (1.251383ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: API Error: 529 (0.510562ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: timeout_error (0.255667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: rate_limit_error (0.283519ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: InternalServerError (0.32125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: ResponseStreamDisconnected (0.272118ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:138:3
+✖ provider transient signature is retryable: ResponseTooManyFailedAttempts (0.251009ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:138:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

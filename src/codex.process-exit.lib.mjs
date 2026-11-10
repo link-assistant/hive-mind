@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /** Process-level diagnostics when Codex cannot emit a protocol error. */
 import { constants } from 'node:os';
 
@@ -22,8 +23,8 @@ const finiteLimit = snapshot => Number.isFinite(snapshot?.limitBytes) && snapsho
 
 export function buildCodexMemoryBudgetPrompt(snapshot) {
   if (!finiteLimit(snapshot)) return '';
-  const current = Number.isFinite(snapshot.currentBytes) ? ` Current use is ${gib(snapshot.currentBytes)}; available headroom is ${gib(Math.max(0, snapshot.limitBytes - snapshot.currentBytes))}.` : '';
-  return `Execution resource budget: the container memory limit is ${gib(snapshot.limitBytes)} (${snapshot.limitBytes} bytes), shared by the agent and all build/test subprocesses.${current} Host free memory does not override this limit. Run memory-heavy commands sequentially, use CARGO_BUILD_JOBS=1 / cargo -j 1 for Rust builds, and prefer focused test targets. A single compiler can still exceed the budget: measure memory, reduce compiler/debug settings where appropriate, and stop repeating a build that is killed; use an adequately provisioned CI runner for remaining validation.`;
+  const current = Number.isFinite(snapshot.currentBytes) ? promptText('prompt.templates.codex-process-exit.buildCodexMemoryBudgetPrompt.text1', { value1: String(gib(snapshot.currentBytes)), value2: String(gib(Math.max(0, snapshot.limitBytes - snapshot.currentBytes))) }) : '';
+  return promptText('prompt.templates.codex-process-exit.buildCodexMemoryBudgetPrompt.text2', { value1: String(gib(snapshot.limitBytes)), value2: String(snapshot.limitBytes), current: String(current) });
 }
 
 export function buildCodexProcessFailure({ exitCode, signal = null, stderrError = null, before = null, after = null }) {

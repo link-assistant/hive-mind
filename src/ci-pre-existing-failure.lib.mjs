@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 
 /**
  * Issue #2839: tell the AI when a failing CI check also fails without the pull
@@ -152,13 +153,13 @@ export const detectPreExistingCiFailures = async ({ owner, repo, prNumber, faili
     if (baseBranch) {
       const baseSha = String((await stdoutOf(command`gh api repos/${owner}/${repo}/git/ref/heads/${baseBranch} --jq .object.sha`)) || '').trim();
       const checks = baseSha ? await fetchCommitChecks({ command, owner, repo, sha: baseSha }) : null;
-      if (checks) references.push({ label: `the head of the base branch \`${baseBranch}\``, sha: baseSha, checks });
+      if (checks) references.push({ label: promptText('prompt.templates.ci-pre-existing-failure.detectPreExistingCiFailures.text1', { baseBranch: String(baseBranch) }), sha: baseSha, checks });
     }
     const commits = parseJson(await stdoutOf(command`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --slurp`));
     const placeholderSha = findPlaceholderCommitSha(Array.isArray(commits) ? commits.flat() : []);
     if (placeholderSha) {
       const checks = await fetchCommitChecks({ command, owner, repo, sha: placeholderSha });
-      if (checks) references.push({ label: 'the placeholder commit that only adds the task file', sha: placeholderSha, checks });
+      if (checks) references.push({ label: promptText('prompt.templates.ci-pre-existing-failure.detectPreExistingCiFailures.text2'), sha: placeholderSha, checks });
     }
     if (references.length === 0) return null;
     const classification = classifyPreExistingCiFailures({ failingChecks, references });
@@ -172,14 +173,14 @@ export const detectPreExistingCiFailures = async ({ owner, repo, prNumber, faili
   }
 };
 
-const describeEvidence = (entry, owner, repo) => `\`${entry.name}\` also fails (\`${entry.conclusion}\`) on ${entry.reference.label}: https://github.com/${owner}/${repo}/commit/${entry.reference.sha}`;
+const describeEvidence = (entry, owner, repo) => promptText('prompt.templates.ci-pre-existing-failure.describeEvidence.text3', { value1: String(entry.name), value2: String(entry.conclusion), value3: String(entry.reference.label), owner: String(owner), repo: String(repo), value6: String(entry.reference.sha) });
 
 /**
  * What the next session is asked to do about failing CI, whatever its cause.
  *
  * @returns {string[]}
  */
-export const buildCiFailureGuidance = () => ['Fix every failing check, including failures that also happen on the default branch: this pull request cannot be merged or released while its CI fails, whatever the cause.', 'If a check can only pass after a human action you cannot do yourself (for example adding a secret, or granting access to a private repository or submodule), change the CI/CD configuration so that:', '  - CI on this pull request passes without that action (for example, skip only the step that needs the missing secret or access, and print why it was skipped);', '  - CI on the default branch fails with an explicit message that says exactly what a human has to do, so the job can be re-run and pass once that is done.', 'Describe that manual action in the pull request description.'];
+export const buildCiFailureGuidance = () => [promptText('prompt.templates.ci-pre-existing-failure.buildCiFailureGuidance.text1'), promptText('prompt.templates.ci-pre-existing-failure.buildCiFailureGuidance.text2'), promptText('prompt.templates.ci-pre-existing-failure.buildCiFailureGuidance.text3'), promptText('prompt.templates.ci-pre-existing-failure.buildCiFailureGuidance.text4'), promptText('prompt.templates.ci-pre-existing-failure.buildCiFailureGuidance.text5')];
 
 /**
  * Evidence lines appended to the CI section of the next session's feedback.
@@ -189,7 +190,7 @@ export const buildCiFailureGuidance = () => ['Fix every failing check, including
  */
 export const buildPreExistingCiFeedback = detection => {
   if (!detection?.allPreExisting) return [];
-  return ['', "⚠️ These CI failures are pre-existing - they also fail without this pull request's changes:", ...detection.preExisting.map(entry => `  - ${describeEvidence(entry, detection.owner, detection.repo)}`), 'That does not make them optional: they still block this pull request, so fix them here as described above.'];
+  return ['', promptText('prompt.templates.ci-pre-existing-failure.buildPreExistingCiFeedback.text6'), ...detection.preExisting.map(entry => `  - ${describeEvidence(entry, detection.owner, detection.repo)}`), promptText('prompt.templates.ci-pre-existing-failure.buildPreExistingCiFeedback.text7')];
 };
 
 export default { PLACEHOLDER_COMMIT_PATTERN, buildCiFailureGuidance, buildPreExistingCiFeedback, classifyPreExistingCiFailures, detectPreExistingCiFailures, findPlaceholderCommitSha, summarizeCommitChecks };

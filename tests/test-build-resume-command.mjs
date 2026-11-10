@@ -207,7 +207,7 @@ runTest('buildClaudeAutonomousResumeCommand: includes Continue prompt', () => {
     sessionId: 'abc123',
   });
 
-  assertContains(cmd, '-p "Continue."', 'Should include -p "Continue."');
+  assertContains(cmd, "-p 'Continue.'", 'Should include a shell-quoted continuation prompt');
 });
 
 runTest('buildClaudeAutonomousResumeCommand: includes model when specified', () => {

@@ -1,0 +1,760 @@
+en
+  error
+    label "Error"
+    invalid
+      github
+        url
+          label "Error: Invalid GitHub URL format"
+          monitoring "Error: Invalid GitHub URL for monitoring"
+          solve "Error: Invalid GitHub URL for solve command"
+      url
+        type "Error: Invalid GitHub URL format"
+      language "Invalid language '{{value}}'. Supported: {{supported}}"
+    missing
+      required
+        url "Error: Missing required github issue or pull request URL"
+    unable
+      determine
+        version "Error: Unable to determine version"
+    url
+      type
+        not
+          supported "URL type '{{type}}' is not supported"
+    failed
+      to
+        get
+          current
+            user "Error: Failed to get current user"
+            branch "Failed to get current branch"
+          default
+            branch "Failed to get default branch name"
+        initialize
+          repository "Error: Failed to initialize repository"
+        create
+          fork "Failed to create fork after all retries"
+        add
+          upstream
+            remote "Failed to add upstream remote"
+          pr
+            fork
+              remote "Failed to add pr-fork remote"
+        checkout "Failed to checkout {{branch}}"
+        sync "Failed to sync {{branch}} with upstream"
+        fetch
+          upstream "Failed to fetch upstream"
+          from
+            pr
+              fork "Failed to fetch from pr-fork"
+    fork
+      not
+        accessible "Fork exists but not accessible after multiple retries"
+    pr
+      does
+        not
+          exist "Error: PR #{{prNumber}} does not exist in {{owner}}/{{repo}}"
+    youtrack
+      url
+        detected
+          no
+            config "Error: YouTrack URL detected but YouTrack configuration not found"
+    telegram
+      bot
+        token
+          not
+            set "Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set"
+  success
+    label "Success"
+    readme
+      created "README.md created successfully"
+    process
+      completed "Process completed"
+    error
+      reported
+        to
+          sentry "Error reported to Sentry successfully"
+    language
+      set "Language set to {{language}}"
+  warning
+    label "Warning"
+    session
+      log
+        not
+          found "Warning: Session log for {{session}} not found, but continuing with resume attempt"
+    failed
+      to
+        create
+          readme "Failed: Could not create README.md"
+        fetch
+          branches "Warning: Failed to fetch branches from remote"
+    could
+      not
+        determine
+          root
+            repository "Could not determine root repository"
+          token
+            scopes "Warning: Could not determine token scopes from auth status"
+        check
+          fork
+            status "Warning: Could not check fork status: {{message}}"
+          github
+            permissions "Warning: Could not check GitHub permissions: {{message}}"
+          convert
+            pr
+              draft
+                status "Warning: Could not check/convert PR draft status"
+        search
+          for
+            existing
+              prs "Warning: Could not search for existing PRs: {{message}}"
+        get
+          current
+            user "Warning: Could not get current GitHub user"
+        convert
+          pr
+            to
+              draft "Warning: Could not convert PR to draft"
+              ready
+                label "Warning: Could not convert PR to ready"
+                status "Warning: Could not convert PR to ready status"
+        post
+          work
+            start
+              comment "Warning: Could not post work start comment"
+            end
+              comment "Warning: Could not post work end comment"
+        assign
+          user "Could not assign user"
+    no
+      linked
+        issue
+          found "Warning: No linked issue found in PR body"
+    error
+      during
+        auto
+          pr
+            creation "Warning: Error during auto PR creation: {{message}}"
+    pr
+      created
+        but
+          no
+            url "Warning: PR created but no URL returned"
+  failed "Failed"
+  info
+    label "Info"
+    expected
+      github
+        url
+          format "Expected: https://github.com/owner or https://github.com/owner/repo"
+    you
+      can
+        use
+          formats "You can use any of these formats:"
+    format
+      https
+        owner
+          label "- https://github.com/owner"
+          repo "- https://github.com/owner/repo"
+      http
+        owner "- http://github.com/owner (will be converted to https)"
+      github
+        owner "- github.com/owner (will add https://)"
+      owner
+        label "- owner (will be converted to https://github.com/owner)"
+        repo "- owner/repo (will be converted to https://github.com/owner/repo)"
+    full
+      log
+        file "Full log file: {{path}}"
+    process
+      exited
+        with
+          code "Process exited with code {{code}}"
+    current
+      configuration "Current Configuration:"
+  process
+    using
+      repository
+        fallback "Using repository-by-repository fallback for {{scope}}: {{owner}}"
+    fetching
+      repository
+        list "Fetching repository list..."
+    command "Command: {{command}}"
+  check
+    number "Check #{{iteration}}:"
+  time
+    current "Current time: {{time}}"
+  limits
+    stored
+      metadata "stored metadata"
+    additional
+      codex
+        limits "Additional Codex limits"
+    balance "balance"
+    claude
+      5
+        hour
+          session "Claude 5 hour session"
+      limits "Claude limits"
+      subscription
+        title "Claude{{plan}} subscription"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} subscription"
+    codex
+      5
+        hour
+          session "Codex 5 hour session"
+      credits "Codex credits"
+      limits "Codex limits"
+    cpu
+      label "CPU"
+      cores
+        used "CPU cores used"
+    current
+      time "Current time"
+      week
+        label "Current week"
+        all
+          models "Current week (all models)"
+        sonnet
+          only "Current week (Sonnet only)"
+    disabled
+      by
+        admin "`--show-limits` is disabled by the bot administrator."
+    disk
+      space "Disk space"
+    duration
+      day
+        short "d"
+      hour
+        short "h"
+      minute
+        short "m"
+      second
+        short "s"
+    end "End"
+    five
+      hour
+        limit
+          session "5 hour session"
+        session "5h session"
+      min
+        load
+          avg "5m load avg"
+    github
+      api "GitHub API"
+    limits
+      at
+        end "Limits at end"
+        start "Limits at start"
+      change "Limits change"
+    na "N/A"
+    note
+      delta
+        approx "Note: delta is approximate (parallel sessions share the same budget)."
+    passed "passed"
+    plan "Plan"
+    ram "RAM"
+    reason
+      claude
+        5
+          hour
+            session "Claude 5 hour session limit is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+        running "Claude process is already running"
+        weekly "Claude weekly limit is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      codex
+        5
+          hour
+            session "Codex 5 hour session limit is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+        running "Codex process is already running"
+        weekly "Codex weekly limit is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      cpu
+        usage "CPU usage is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      disk
+        usage "Disk usage is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      gemini
+        running "Gemini CLI process is already running"
+      github
+        api "GitHub API usage is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      min
+        interval "Minimum interval between commands not reached"
+      qwen
+        running "Qwen Code process is already running"
+      ram
+        usage "RAM usage is {{currentPercent}}% (threshold: {{thresholdPercent}})"
+      threshold
+        exceeded "{{metric}} threshold exceeded"
+    remaining "{{duration}} remaining"
+    requests "requests"
+    resets
+      at "Resets {{time}}"
+      in "Resets in {{duration}}"
+    resource
+      limit
+        exceeded "Resource limit exceeded"
+    solve
+      queue
+        status "Solve Queue Status"
+    queue
+      completed "Completed"
+      failed "Failed"
+      and
+        more "and {{count}} more"
+      continued "continued"
+      exit
+        code "exit code {{code}}"
+      pending "pending"
+      processing "processing"
+      processes "{{count}} processes"
+      status
+        cancelled "cancelled"
+        failed "failed"
+        queued "queued"
+        started "started"
+        starting "starting"
+        waiting "waiting"
+      waiting
+        current
+          command "waiting for current command"
+        in
+          queue "Waiting in queue"
+    queues "Queues"
+    seven
+      day
+        all
+          models "7d all models"
+        sonnet
+          only "7d Sonnet only"
+    session "session"
+    start "Start"
+    subscription
+      blocked
+        title "Tool subscription/access unavailable"
+        provider "Provider said"
+        code "Error code"
+        reason "Why the run stopped"
+        note "This is not a usage limit. The provider gave no reset time; retrying or switching only the model is not expected to restore access."
+        steps "What to do"
+        preserved "Uncommitted work was auto-committed before stopping."
+        resume "Resume after access is restored"
+      detail
+        ends
+          label "ends {{time}}"
+          in "ends in {{duration}}; {{time}}"
+        trial
+          ends
+            label "trial ends {{time}}"
+            in "trial ends in {{duration}}; {{time}}"
+      ends
+        label "Subscription ends {{time}}"
+        in "Subscription ends in {{duration}} ({{time}})"
+      status "Subscription: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "flood control"
+      last
+        rate
+          limit "Last 429: {{method}}"
+        refusal "Last 429: {{method}}, {{ago}} ago"
+      observed
+        limit "observed limit"
+      peak "peak {{peak}}"
+      rate
+        limit
+          responses "429 responses since startup: {{count}}"
+      requests "{{used}}/{{limit}} requests"
+      restraint "Held back by the bot: {{delayed}} delayed, {{held}} skipped, {{retried}} retried"
+      retry
+        after "retry_after {{duration}}"
+        in "retry in {{duration}}"
+      scope
+        broadcast "messages to all chats, 1s"
+        chat "messages per chat, 1m"
+        group "messages per group, 1m"
+        other "other API requests, 1s"
+    trial
+      ends
+        label "Trial ends {{time}}"
+        in "Trial ends in {{duration}} ({{time}})"
+    unavailable "unavailable"
+    unlimited "unlimited"
+    used "used"
+    week "week"
+    weekly "Weekly"
+  telegram
+    fetching
+      limits "🔄 Fetching usage limits..."
+    gathering
+      version "🔄 Gathering version information..."
+    usage
+      limits
+        title "📊 *Usage Limits*"
+    version
+      information
+        title "🤖 *Version Information*"
+      only
+        in
+          groups "❌ The /version command only works in group chats. Please add this bot to a group and make it an admin."
+    formatting
+      fallback
+        warning "⚠️ Formatting error detected. Showing plain text fallback."
+    limits
+      only
+        in
+          groups "❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin."
+    solve
+      only
+        in
+          groups "❌ The {{commandDisplay}} command only works in group chats. Please add this bot to a group and make it an admin."
+      queue
+        only
+          in
+            groups "❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin."
+      disabled "❌ The solve command is disabled on this bot instance."
+      rejected """
+        ❌ Solve command rejected.
+
+        {{infoBlock}}
+
+        🚫 Reason: {{reason}}
+      """
+      queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
+      waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      invalid
+        url
+          help """
+            Example: `/solve https://github.com/owner/repo/issues/123`
+
+            Or reply to a message containing a GitHub link with `/solve`
+          """
+    hive
+      only
+        in
+          groups "❌ The /hive command only works in group chats. Please add this bot to a group and make it an admin."
+      disabled "❌ The /hive command is disabled on this bot instance."
+      invalid
+        url
+          help "Example: `/hive https://github.com/owner/repo`"
+    no
+      label "❌ No"
+      github
+        link
+          in
+            reply """
+              ❌ No GitHub issue/PR link found in the replied message.
+
+              Example: Reply to a message containing a GitHub issue link with `/solve`
+
+              Or with options: `/solve --model opus`
+            """
+    invalid
+      options """
+        ❌ Invalid options: {{message}}
+
+        Use /help to see available options
+      """
+      isolation "❌ Invalid --isolation value '{{value}}'. Must be: screen, tmux, or docker"
+      locked
+        isolation "❌ Invalid locked --isolation value '{{value}}'. Must be: screen, tmux, or docker"
+    option
+      syntax
+        check "Please check your option syntax."
+    url
+      status
+        active """
+          ❌ This URL is {{statusText}}.
+
+          URL: {{url}}
+          Status: {{status}}
+
+          💡 Use /queue to check the queue status.
+        """
+      session
+        running """
+          ❌ A working session is already running for this URL.
+
+          URL: {{url}}
+          Session: `{{session}}`
+
+          💡 Wait for the current session to complete, or use /stop to cancel it.
+        """
+      issues
+        list
+          error """
+            URL points to the issues list page, but you need a specific issue
+
+            💡 How to fix:
+            1. Open the repository: {{url}}
+            2. Click on a specific issue
+            3. Copy the URL (it should end with /issues/NUMBER)
+
+            Example: `{{example}}`
+          """
+      pulls
+        list
+          error """
+            URL points to the pull requests list page, but you need a specific pull request
+
+            💡 How to fix:
+            1. Open the repository: {{url}}
+            2. Click on a specific pull request
+            3. Copy the URL (it should end with /pull/NUMBER)
+
+            Example: `{{example}}`
+          """
+      repo
+        error """
+          URL points to a repository, but you need a specific {{allowedTypes}}
+
+          💡 How to fix:
+          1. Go to: {{url}}/issues
+          2. Click on an issue to solve
+          3. Use the full URL with the issue number
+
+          Example: `{{example}}`
+        """
+      must
+        be
+          type "URL must be a GitHub {{allowedTypes}} (not {{type}})"
+      recovered """
+        ℹ️ I repaired the link before starting.
+
+        You sent: {{original}}
+        Using: {{used}}
+        Repaired: {{repairs}}
+      """
+    language
+      invalid """
+        ❌ Invalid language. Supported: {{supported}}.
+        Usage: /language <code>
+      """
+      set "✅ Language set to *{{language}}*."
+      current """
+        🌐 Current language: *{{language}}*.
+        Supported: {{supported}}.
+        Usage: /language <code>
+      """
+    yes "✅ Yes"
+    info
+      requested
+        by
+          label "Requested by"
+      issue
+        label "Issue"
+      pull
+        request
+          label "Pull request"
+      url
+        label "URL"
+      options
+        label "🛠 Options"
+      locked
+        options
+          label "🔒 Locked options"
+    help
+      title "🤖 *SwarmMindBot Help*"
+      status
+        stopped "🛑 *Bot Status: STOPPED*"
+      reason "Reason: {{reason}}"
+      stopped "Stopped: {{stoppedAt}}"
+      resume "Use /start (chat owner only) to resume."
+      diagnostic
+        information "📋 *Diagnostic Information:*"
+      chat
+        id "• Chat ID: `{{chatId}}`"
+        type "• Chat Type: {{chatType}}"
+        title "• Chat Title: {{chatTitle}}"
+      topic
+        id "• Topic ID: `{{topicId}}`"
+      available
+        commands "📝 *Available Commands:*"
+      solve
+        enabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - Solve a GitHub issue"
+        usage "Usage: `/solve <github-url> [options]`"
+        example "Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
+        alias
+          detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
+        reply "Or reply to a message with a GitHub link: `/solve`"
+        disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
+        queue "`/queue` - Show solve queue status"
+      locked
+        options "🔒 Locked options: `{{options}}`"
+      task
+        enabled "*/task* - Create a GitHub issue from text or CI/CD context"
+        usage "Usage: `/task <github-repository-url>` followed by issue text, or `/task --ci-cd <github-repository-url>`"
+        example "Example: `/task --ci-cd https://github.com/owner/repo` creates only the CI/CD remediation issue"
+        disabled "*/task* / */split* - ❌ Disabled"
+      split
+        enabled "*/split* - Split a GitHub issue into smaller issues"
+        usage "Usage: `/split <github-issue-url> [options]` or `/task --split <github-issue-url>`"
+        example "Example: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      fix
+        enabled "*/fix* - Create a CI/CD remediation issue for a repository and solve it"
+        usage "Usage: `/fix <github-repository-url> [options]`"
+        example "Example: `/fix https://github.com/owner/repo --model sonnet`"
+        disabled "*/fix* - ❌ Disabled"
+      organize
+        enabled "*/organize* - Classify every open issue with existing Issue Types and labels"
+        usage "Usage: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`, with optional instructions on a new line"
+        example "Example: `/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ Disabled"
+      hive
+        enabled "*/hive* - Run hive command"
+        usage "Usage: `/hive <github-url> [options]`"
+        example "Example: `/hive https://github.com/owner/repo`"
+        disabled "*/hive* - ❌ Disabled"
+      models "*/models* - List available models, merged from this installation and every live source. Usage: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
+      limits "*/limits* - Show usage limits"
+      version "*/version* - Show bot and runtime versions"
+      language "*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)"
+      accept
+        invites "`/accept_invites` - Accept all pending GitHub invitations"
+      merge
+        label "*/merge* - Merge queue (experimental)"
+        usage "Usage: `/merge <github-repo-url>`"
+        description "Merges all PRs with 'ready' label sequentially."
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental)"
+      help "*/help* - Show this help message"
+      stop
+        start "*/stop* / */start* - Stop or resume accepting new tasks (owner only)"
+        uuid "*/stop* `<uuid>` - Send CTRL+C to an isolated solve/hive session (owner only). Also works as a reply to a message containing the UUID."
+      log "*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`"
+      terminal
+        watch "*/terminal\\_watch* (alias: */watch*) - Live-update an isolation session log (chat owner or session requester). Usage: `/terminal_watch <uuid>`, `/watch <uuid>`, or reply with either command"
+      notifications "🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards."
+      isolation
+        mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
+      group
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+      common
+        options "🔧 *Common Options:*"
+      model
+        option "• `--model <model>` or `-m` - {{modelDescription}}"
+      base
+        branch
+          option "• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)"
+      think
+        option "• `--think <level>` - Thinking level (off/minimal/low/medium/high/xhigh/ultra/max/adaptive) | `--thinking-budget <num>` - Token budget (0-63999)"
+      verbose
+        option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
+      show
+        limits
+          option "• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta"
+      tip "💡 *Tip:* Many more options available. See full documentation for complete list."
+      restricted
+        mode "🔒 *Restricted Mode:* Authorized: {{authorized}}"
+      allow
+        topic
+          hint "💡 To allow this topic: `{{allowTopicHint}}`"
+      troubleshooting
+        header "🔧 *Troubleshooting:*"
+        body """
+          If bot is not receiving messages:
+          1. Check privacy mode in @BotFather
+             • Send `/setprivacy` to @BotFather
+             • Choose 'Disable' for your bot
+             • Remove bot from group and re-add
+          2. Or make bot an admin in the group
+          3. Restart bot with `--verbose` flag for diagnostics
+        """
+    waiting
+      label "⏳ Waiting"
+    reason
+      label "Reason"
+    did
+      you
+        mean "💡 Did you mean `{{suggestion}}`?"
+    missing
+      github
+        url "Missing GitHub URL. Usage: /{{commandName}} <github-url> [options]"
+    first
+      arg
+        must
+          be
+            github
+              url "First argument must be a GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *Nothing to do*\n\n`{{repository}}` has no open issues. No work session was started."
+    fix
+      waiting_for_ci "⏳ Waiting for CI/CD on {{branch}} branch to finish..."
+      waiting_for_ci_default_branch "⏳ Waiting for CI/CD on the default branch to finish..."
+      issue_label "Issue"
+    work
+      session
+        starting "🔄 Starting..."
+        executing "⏳ Executing..."
+        finished "Work session finished successfully"
+        hive_no_work "No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive session ended with issues still waiting; check the log for blockers"
+        no_changes "Work session finished without changes; see the pull request comment for the reason"
+        failed "Work session failed (exit code: {{exitCode}})"
+        command_not_found "command not found (the program the session was asked to run does not exist)"
+        command_not_executable "command not executable (the program the session was asked to run cannot be executed)"
+        merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
+        merged_success "The requested pull request was merged successfully."
+        runner_also_failed "The runner also failed; its exit code is preserved for investigation."
+        killed "Work session {{reason}}{{exitSuffix}}"
+        stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
+        not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
+        recovering "Work session still in progress: recovering from exit code {{exitCode}}"
+        recovering_from_kill "Work session still in progress: recovering from a kill{{causeSuffix}}"
+        recovered "Work session finished successfully after automatic recovery"
+        recoveries "automatic recoveries: {{count}}"
+        status_unknown "Work session ended, but its exit status is unknown"
+        never_observed "Work session status unknown: the session was never observed running"
+        tracking_expired "Stopped tracking the work session after {{minutes}} minutes without an exit status; it may still be running in its screen session"
+    duration
+      label "Duration"
+    session
+      label "Session"
+      recovery
+        label "Recovery session"
+      recovered
+        oom "recovered from out of memory"
+        kill "recovered from forced kill"
+        at "The event was observed at {{observedAt}}; the work session kept running and completed."
+        resumed "A new working session was started to recover from the kill."
+      kill
+        cause "Cause"
+        event "Event"
+        event_diagnostics "Container OOM event diagnostics (not the cause of this stop)"
+        diagnostics "Kill diagnostics"
+        resumed "🔄 A new working session was started to recover from this kill: {{sessionId}}"
+        resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"
+    isolation
+      label "Isolation"
+    execution
+      label "Execution"
+      earlier "earlier logs"
+    error
+      executing
+        command "❌ Error executing {{commandName}} command"
+  language
+    en "English"
+    ru "Russian"
+    zh "Chinese"
+    hi "Hindi"
+  version
+    ai
+      agents "AI Agents"
+    browsers "Browsers"
+    browser
+      automation "Browser Automation"
+    connected "connected"
+    development
+      tools "Development Tools"
+    environment "Environment"
+    architecture "Architecture"
+    kernel "Kernel"
+    not
+      connected "not connected"
+    os "OS"
+    platform "Platform"
+    process
+      running
+        restart
+          needed "Process running: `{{processVersion}}` (restart needed)"
+    system "System"
+    version "Version"

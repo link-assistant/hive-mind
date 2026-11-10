@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Restore backup of auth data after stopped workspace is restarted (to not login again all the time)
 
 # --- GitHub restore ---

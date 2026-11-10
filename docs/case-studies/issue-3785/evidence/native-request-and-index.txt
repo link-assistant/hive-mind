@@ -1,0 +1,82 @@
+Issue 3785 continuation, 2026-10-26 UTC. Synthetic state only.
+
+Actual executable: native-codex-experimental-cli artifact, run 40370836766,
+head 24c34a39aa30222d441adb6f741f0befff2d6926, pinned upstream Codex 0.164.0.
+Two independent long-lived app servers per mode; bounded loopback HTTP provider.
+G0 warm request, canonical atomic G1 replacement, unlink logout, G2 recreation.
+
+Before request-admission repair:
+  API key: both clients use G0, observe G1, send an unauthenticated request after
+  logout, then observe G2. --expect-unauthenticated-logout: PASS (defect reproduced).
+  Managed ChatGPT: same actual-request sequence and negative-control PASS.
+  Both modes also reproduce unauthenticated requests for malformed JSON and
+  unsafe permissions, then observe repaired G1 in the same live clients.
+  Positive control fails because invalid authority must produce zero requests.
+  No credential/header/body bytes are emitted; observations are classified.
+  Root cause: model-provider/src/auth.rs resolves missing required auth into
+  unauthenticated execution. The initial request guard compiles in native CI
+  run 40376400046 at c1858ca8fd7018bc935df879f0874f5d72e9b1e6. Its real-request
+  positive control PASS: zero requests after malformed/unsafe/logout authority,
+  replacement/repair G1 and recreation G2 still work in both modes and peers.
+
+Independent provider authority controls against the same actual executable:
+  env_key: G2; experimental_bearer_token: G2; requires_openai_auth=false: absent;
+  explicit Authorization: G2; extra X-Api-Key: G2-extra; environment-derived
+  X-Api-Key: G2-extra; organization/project selectors: G2-organization/G2-project.
+  All eight negative controls PASS (defects reproduced).
+  Stock version metadata and unset stock organization/project mappings each
+  preserve a real canonical G0 request. Both positive compatibility controls PASS.
+  Extended pinned admission patch applies cleanly and checks both ordinary and
+  scoped auth resolution. The rebuilt executable must refuse all eight routes
+  without model requests while preserving both stock metadata controls.
+  Native compilation/positive refusal remain pending; alternative constructors,
+  AWS/gateway and agent-identity bootstrap are not certified by these controls.
+
+Alternate native provider constructors against that same actual executable:
+  Amazon Bedrock and Amazon Bedrock Runtime, requires_openai_auth=false:
+    both send the independent synthetic AWS G2 bearer despite canonical G0.
+  Both constructors, requires_openai_auth=true:
+    both send an unauthenticated model request despite canonical G0.
+  All four negative controls PASS. All four no-selector compatibility controls
+  PASS with the original native behavior. The strict canonical refusal test
+  FAILS before repair (actual [G2], expected []). No real AWS endpoint is used.
+  Extended apply_request_auth.py also pins the native provider.rs source and
+  validates before alternate constructors/credential managers/exporters/gateways.
+  Rejected providers expose no auth manager, refuse provider/auth resolution,
+  and construct only an in-memory static model catalog. Source applicability
+  and Rust formatting pass; rebuilt full-CLI positive controls remain pending.
+  These controls do not establish all gateway/agent-identity endpoint coverage.
+
+Stock Codex named metadata, real Docker app-server protocol:
+  thread/name/set succeeds; dispose the complete first private configuration.
+  Fresh thread/resume loses the name, including with shared CODEX_SQLITE_HOME.
+  Both --expect-private-metadata controls PASS (defect reproduced).
+  CODEX_SESSION_INDEX_HOME experiment standalone tests: 5 PASS, 1 ignored worker.
+  Covers canonical replacement/append/read without private copies, paused rewrite
+  versus peer append, forced owner death preserving lock identity, conflicting
+  private copies/links, unsafe modes/root aliases and replaced lock refusal.
+  Native CI run 40376400046 compiles the full CLI, passes all 20 selected
+  upstream/index tests (one ignored worker), and passes actual named-thread
+  read/resume and peer updates across two disposed private configurations.
+
+Production history inspection:
+  Three new EACCES/EIO regressions FAIL before repair; surrounding selection
+  passes all 28 cases after repair. Failed inspection cannot authorize a retry;
+  recovery refuses before copying or deleting the resume argument.
+
+Native maintenance lock, actual pinned module compiled with rustc 1.99.1:
+  Upstream maintenance.rs SHA-256:
+    abdbd690732aaee671609fc0540c9e845a15116c0de183b0dd976d560f55c404
+  Two private configurations resolve sessions to the same canonical directory.
+  Both native maintenance owners acquire before repair: negative control PASS,
+  for normal release and forced owner death.
+  CODEX_ROLLOUT_MAINTENANCE_HOME patch: 12 actual-function controls PASS.
+  Peer refuses while owner holds the lock; successor acquires after release or
+  owner death without deleting/replacing the canonical lock inode. Unsafe modes,
+  links, aliases, private competing lock, missing root and config overlap refuse.
+  Repaired authority works; absent selector retains legacy private behavior.
+  Full CLI compilation, actual compression/migration mutation races and ongoing
+  backing attestation remain pending. This is not complete history acceptance.
+
+These results do not establish production canonical auth/history, all native
+writers, post-exchange crash recovery, or the required six-tool image matrix.

@@ -1,0 +1,760 @@
+zh
+  error
+    label "错误"
+    invalid
+      github
+        url
+          label "错误：GitHub URL 格式无效"
+          monitoring "错误：用于监控的 GitHub URL 无效"
+          solve "错误：solve 命令的 GitHub URL 无效"
+      url
+        type "错误：GitHub URL 格式无效"
+      language "无效的语言 '{{value}}'。支持的语言：{{supported}}"
+    missing
+      required
+        url "错误：缺少必需的 GitHub issue 或 pull request URL"
+    unable
+      determine
+        version "错误：无法确定版本"
+    url
+      type
+        not
+          supported "URL 类型 '{{type}}' 不受支持"
+    failed
+      to
+        get
+          current
+            user "错误：无法获取当前用户"
+            branch "无法获取当前分支"
+          default
+            branch "无法获取默认分支名称"
+        initialize
+          repository "错误：无法初始化仓库"
+        create
+          fork "多次重试后仍无法创建 fork"
+        add
+          upstream
+            remote "无法添加 upstream 远程仓库"
+          pr
+            fork
+              remote "无法添加 pr-fork 远程仓库"
+        checkout "无法切换到 {{branch}}"
+        sync "无法将 {{branch}} 与 upstream 同步"
+        fetch
+          upstream "无法从 upstream 获取数据"
+          from
+            pr
+              fork "无法从 pr-fork 获取数据"
+    fork
+      not
+        accessible "Fork 已存在但多次重试后仍无法访问"
+    pr
+      does
+        not
+          exist "错误：PR #{{prNumber}} 在 {{owner}}/{{repo}} 中不存在"
+    youtrack
+      url
+        detected
+          no
+            config "错误：检测到 YouTrack URL 但未找到 YouTrack 配置"
+    telegram
+      bot
+        token
+          not
+            set "错误：未设置 TELEGRAM_BOT_TOKEN 环境变量或 --token 选项"
+  success
+    label "成功"
+    readme
+      created "README.md 创建成功"
+    process
+      completed "进程已完成"
+    error
+      reported
+        to
+          sentry "错误已成功上报到 Sentry"
+    language
+      set "语言已设置为 {{language}}"
+  warning
+    label "警告"
+    session
+      log
+        not
+          found "警告：未找到会话 {{session}} 的日志，但将继续尝试恢复"
+    failed
+      to
+        create
+          readme "失败：无法创建 README.md"
+        fetch
+          branches "警告：无法从远程获取分支"
+    could
+      not
+        determine
+          root
+            repository "无法确定根仓库"
+          token
+            scopes "警告：无法从认证状态确定令牌范围"
+        check
+          fork
+            status "警告：无法检查 fork 状态：{{message}}"
+          github
+            permissions "警告：无法检查 GitHub 权限：{{message}}"
+          convert
+            pr
+              draft
+                status "警告：无法检查/转换 PR 草稿状态"
+        search
+          for
+            existing
+              prs "警告：无法搜索现有的 PR：{{message}}"
+        get
+          current
+            user "警告：无法获取当前 GitHub 用户"
+        convert
+          pr
+            to
+              draft "警告：无法将 PR 转换为草稿"
+              ready
+                label "警告：无法将 PR 转换为就绪状态"
+                status "警告：无法将 PR 状态转换为就绪"
+        post
+          work
+            start
+              comment "警告：无法发布工作开始评论"
+            end
+              comment "警告：无法发布工作结束评论"
+        assign
+          user "无法分配用户"
+    no
+      linked
+        issue
+          found "警告：在 PR 内容中未找到关联的 issue"
+    error
+      during
+        auto
+          pr
+            creation "警告：自动创建 PR 时出错：{{message}}"
+    pr
+      created
+        but
+          no
+            url "警告：已创建 PR 但未返回 URL"
+  failed "失败"
+  info
+    label "信息"
+    expected
+      github
+        url
+          format "预期格式：https://github.com/owner 或 https://github.com/owner/repo"
+    you
+      can
+        use
+          formats "您可以使用以下任意格式："
+    format
+      https
+        owner
+          label "- https://github.com/owner"
+          repo "- https://github.com/owner/repo"
+      http
+        owner "- http://github.com/owner（将转换为 https）"
+      github
+        owner "- github.com/owner（将添加 https://）"
+      owner
+        label "- owner（将转换为 https://github.com/owner）"
+        repo "- owner/repo（将转换为 https://github.com/owner/repo）"
+    full
+      log
+        file "完整日志文件：{{path}}"
+    process
+      exited
+        with
+          code "进程退出代码：{{code}}"
+    current
+      configuration "当前配置："
+  process
+    using
+      repository
+        fallback "使用按仓库回退方式处理 {{scope}}：{{owner}}"
+    fetching
+      repository
+        list "正在获取仓库列表……"
+    command "命令：{{command}}"
+  check
+    number "检查 #{{iteration}}："
+  time
+    current "当前时间：{{time}}"
+  limits
+    stored
+      metadata "已存储的元数据"
+    additional
+      codex
+        limits "其他 Codex 限额"
+    balance "余额"
+    claude
+      5
+        hour
+          session "Claude 5 小时会话"
+      limits "Claude 限额"
+      subscription
+        title "Claude{{plan}} 订阅"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} 订阅"
+    codex
+      5
+        hour
+          session "Codex 5 小时会话"
+      credits "Codex 点数"
+      limits "Codex 限额"
+    cpu
+      label "CPU"
+      cores
+        used "已用 CPU 核心"
+    current
+      time "当前时间"
+      week
+        label "本周"
+        all
+          models "本周（所有模型）"
+        sonnet
+          only "本周（仅 Sonnet）"
+    disabled
+      by
+        admin "`--show-limits` 已被机器人管理员禁用。"
+    disk
+      space "磁盘空间"
+    duration
+      day
+        short "天"
+      hour
+        short "小时"
+      minute
+        short "分钟"
+      second
+        short "秒"
+    end "结束"
+    five
+      hour
+        limit
+          session "5 小时会话"
+        session "5 小时会话"
+      min
+        load
+          avg "5 分钟平均负载"
+    github
+      api "GitHub API"
+    limits
+      at
+        end "结束时限额"
+        start "开始时限额"
+      change "限额变化"
+    na "不可用"
+    note
+      delta
+        approx "注意：变化值为近似值（并行会话共享同一预算）。"
+    passed "已过"
+    plan "方案"
+    ram "内存"
+    reason
+      claude
+        5
+          hour
+            session "Claude 5 小时会话限额为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+        running "Claude 进程已在运行"
+        weekly "Claude 每周限额为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      codex
+        5
+          hour
+            session "Codex 5 小时会话限额为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+        running "Codex 进程已在运行"
+        weekly "Codex 每周限额为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      cpu
+        usage "CPU 使用率为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      disk
+        usage "磁盘使用率为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      gemini
+        running "Gemini CLI 进程已在运行"
+      github
+        api "GitHub API 使用率为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      min
+        interval "尚未达到命令之间的最小间隔"
+      qwen
+        running "Qwen Code 进程已在运行"
+      ram
+        usage "内存使用率为 {{currentPercent}}%（阈值：{{thresholdPercent}}）"
+      threshold
+        exceeded "{{metric}} 超过阈值"
+    remaining "剩余 {{duration}}"
+    requests "请求"
+    resets
+      at "{{time}} 重置"
+      in "{{duration}} 后重置"
+    resource
+      limit
+        exceeded "资源限额已超出"
+    solve
+      queue
+        status "Solve 队列状态"
+    queue
+      completed "已完成"
+      failed "失败"
+      and
+        more "还有 {{count}} 个"
+      continued "续"
+      exit
+        code "退出码 {{code}}"
+      pending "等待"
+      processing "处理中"
+      processes "{{count}} 个进程"
+      status
+        cancelled "已取消"
+        failed "失败"
+        queued "已排队"
+        started "已启动"
+        starting "正在启动"
+        waiting "等待中"
+      waiting
+        current
+          command "等待当前命令"
+        in
+          queue "在队列中等待"
+    queues "队列"
+    seven
+      day
+        all
+          models "7 天所有模型"
+        sonnet
+          only "7 天仅 Sonnet"
+    session "会话"
+    start "开始"
+    subscription
+      blocked
+        title "工具订阅访问不可用"
+        provider "服务方提示"
+        code "错误代码"
+        reason "运行停止的原因"
+        note "这不是用量限制。服务方未提供恢复时间；重试或仅切换模型预计无法恢复访问。"
+        steps "如何处理"
+        preserved "停止前已自动提交未提交的改动。"
+        resume "恢复访问后继续"
+      detail
+        ends
+          label "结束于 {{time}}"
+          in "将在 {{duration}} 后结束；{{time}}"
+        trial
+          ends
+            label "试用结束于 {{time}}"
+            in "试用将在 {{duration}} 后结束；{{time}}"
+      ends
+        label "订阅结束于 {{time}}"
+        in "订阅将在 {{duration}} 后结束 ({{time}})"
+      status "订阅: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "限流"
+      last
+        rate
+          limit "最近一次 429：{{method}}"
+        refusal "最近一次 429：{{method}}，{{ago}} 前"
+      observed
+        limit "实测上限"
+      peak "峰值 {{peak}}"
+      rate
+        limit
+          responses "启动后的 429 响应：{{count}}"
+      requests "{{used}}/{{limit}} 个请求"
+      restraint "机器人主动限流：延后 {{delayed}}，跳过 {{held}}，重试 {{retried}}"
+      retry
+        after "retry_after {{duration}}"
+        in "{{duration}} 后重试"
+      scope
+        broadcast "发送到所有聊天，1 秒"
+        chat "每个聊天的消息，1 分钟"
+        group "每个群组的消息，1 分钟"
+        other "其他 API 请求，1 秒"
+    trial
+      ends
+        label "试用结束于 {{time}}"
+        in "试用将在 {{duration}} 后结束 ({{time}})"
+    unavailable "不可用"
+    unlimited "无限"
+    used "已用"
+    week "周"
+    weekly "每周"
+  telegram
+    fetching
+      limits "🔄 正在获取使用限额……"
+    gathering
+      version "🔄 正在收集版本信息……"
+    usage
+      limits
+        title "📊 *使用限额*"
+    version
+      information
+        title "🤖 *版本信息*"
+      only
+        in
+          groups "❌ /version 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+    formatting
+      fallback
+        warning "⚠️ 检测到格式错误。正在显示纯文本备用内容。"
+    limits
+      only
+        in
+          groups "❌ /limits 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+    solve
+      only
+        in
+          groups "❌ {{commandDisplay}} 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+      queue
+        only
+          in
+            groups "❌ /queue 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+      disabled "❌ 此机器人实例已禁用 solve 命令。"
+      rejected """
+        ❌ Solve 命令被拒绝。
+
+        {{infoBlock}}
+
+        🚫 原因：{{reason}}
+      """
+      queued "📋 solve 命令已入队（{{tool}} 队列位置 #{{position}}）"
+      waiting "⏳ 等待中（{{tool}} 队列 #{{position}}）"
+      invalid
+        url
+          help """
+            示例：`/solve https://github.com/owner/repo/issues/123`
+
+            也可以回复包含 GitHub 链接的消息并发送 `/solve`
+          """
+    hive
+      only
+        in
+          groups "❌ /hive 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+      disabled "❌ 此机器人实例已禁用 /hive 命令。"
+      invalid
+        url
+          help "示例：`/hive https://github.com/owner/repo`"
+    no
+      label "❌ 否"
+      github
+        link
+          in
+            reply """
+              ❌ 被回复的消息中未找到 GitHub issue/PR 链接。
+
+              示例：使用 `/solve` 回复包含 GitHub issue 链接的消息
+
+              或带选项：`/solve --model opus`
+            """
+    invalid
+      options """
+        ❌ 无效选项：{{message}}
+
+        使用 /help 查看可用选项
+      """
+      isolation "❌ 无效的 --isolation 值 '{{value}}'。必须是：screen、tmux 或 docker"
+      locked
+        isolation "❌ 无效的锁定 --isolation 值 '{{value}}'。必须是：screen、tmux 或 docker"
+    option
+      syntax
+        check "请检查您的选项语法。"
+    url
+      status
+        active """
+          ❌ 此 URL 状态为 {{statusText}}。
+
+          URL：{{url}}
+          状态：{{status}}
+
+          💡 使用 /queue 查看队列状态。
+        """
+      session
+        running """
+          ❌ 该 URL 已有正在运行的工作会话。
+
+          URL：{{url}}
+          会话：`{{session}}`
+
+          💡 等待当前会话完成，或使用 /stop 取消。
+        """
+      issues
+        list
+          error """
+            URL 指向 issue 列表页，但需要具体的 issue
+
+            💡 修复方法：
+            1. 打开仓库：{{url}}
+            2. 点击一个具体 issue
+            3. 复制 URL（应以 /issues/NUMBER 结尾）
+
+            示例：`{{example}}`
+          """
+      pulls
+        list
+          error """
+            URL 指向 pull request 列表页，但需要具体的 pull request
+
+            💡 修复方法：
+            1. 打开仓库：{{url}}
+            2. 点击一个具体 pull request
+            3. 复制 URL（应以 /pull/NUMBER 结尾）
+
+            示例：`{{example}}`
+          """
+      repo
+        error """
+          URL 指向仓库，但需要具体的 {{allowedTypes}}
+
+          💡 修复方法：
+          1. 前往：{{url}}/issues
+          2. 点击要解决的 issue
+          3. 使用包含 issue 编号的完整 URL
+
+          示例：`{{example}}`
+        """
+      must
+        be
+          type "URL 必须是 GitHub {{allowedTypes}}（不是 {{type}}）"
+      recovered """
+        ℹ️ 开始前已修复链接。
+
+        您发送的：{{original}}
+        实际使用：{{used}}
+        修复内容：{{repairs}}
+      """
+    language
+      invalid """
+        ❌ 语言无效。支持的语言：{{supported}}。
+        用法：/language <代码>
+      """
+      set "✅ 语言已设置为 *{{language}}*。"
+      current """
+        🌐 当前语言：*{{language}}*。
+        支持的语言：{{supported}}。
+        用法：/language <代码>
+      """
+    yes "✅ 是"
+    info
+      requested
+        by
+          label "请求者"
+      issue
+        label "Issue"
+      pull
+        request
+          label "Pull request"
+      url
+        label "URL"
+      options
+        label "🛠 选项"
+      locked
+        options
+          label "🔒 锁定选项"
+    help
+      title "🤖 *SwarmMindBot 帮助*"
+      status
+        stopped "🛑 *机器人状态：已停止*"
+      reason "原因：{{reason}}"
+      stopped "停止时间：{{stoppedAt}}"
+      resume "使用 /start（仅聊天所有者）恢复。"
+      diagnostic
+        information "📋 *诊断信息：*"
+      chat
+        id "• 聊天 ID：`{{chatId}}`"
+        type "• 聊天类型：{{chatType}}"
+        title "• 聊天标题：{{chatTitle}}"
+      topic
+        id "• 话题 ID：`{{topicId}}`"
+      available
+        commands "📝 *可用命令：*"
+      solve
+        enabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- 解决 GitHub issue"
+        usage "用法：`/solve <github-url> [options]`"
+        example "示例：`/solve https://github.com/owner/repo/issues/123 --model sonnet`"
+        alias
+          detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
+        reply "也可以回复包含 GitHub 链接的消息：`/solve`"
+        disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
+        queue "`/queue` - 显示 solve 队列状态"
+      locked
+        options "🔒 锁定选项：`{{options}}`"
+      task
+        enabled "*/task* - 根据文本或 CI/CD 上下文创建 GitHub issue"
+        usage "用法：`/task <github-repository-url>` 后接 issue 文本，或 `/task --ci-cd <github-repository-url>`"
+        example "示例：`/task --ci-cd https://github.com/owner/repo` 只创建 CI/CD 修复 issue"
+        disabled "*/task* / */split* - ❌ 已禁用"
+      split
+        enabled "*/split* - 将 GitHub issue 拆分为更小的 issue"
+        usage "用法：`/split <github-issue-url> [options]` 或 `/task --split <github-issue-url>`"
+        example "示例：`/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      fix
+        enabled "*/fix* - 为仓库创建 CI/CD 修复 issue 并解决它"
+        usage "用法：`/fix <github-repository-url> [options]`"
+        example "示例：`/fix https://github.com/owner/repo --model sonnet`"
+        disabled "*/fix* - ❌ 已禁用"
+      organize
+        enabled "*/organize* - 使用现有议题类型和标签分类所有开放议题"
+        usage "用法：`/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`；可在新行添加说明"
+        example "示例：`/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ 已禁用"
+      hive
+        enabled "*/hive* - 运行 hive 命令"
+        usage "用法：`/hive <github-url> [options]`"
+        example "示例：`/hive https://github.com/owner/repo`"
+        disabled "*/hive* - ❌ 已禁用"
+      models "*/models* - 列出可用模型，合并本次安装自带的模型与所有实时来源的模型。用法：`/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
+      limits "*/limits* - 显示使用限额"
+      version "*/version* - 显示机器人和运行时版本"
+      language "*/language* `[en|ru|zh|hi]` - 设置或显示首选回复语言（内存中，按用户）"
+      accept
+        invites "`/accept_invites` - 接受所有待处理的 GitHub 邀请"
+      merge
+        label "*/merge* - 合并队列（实验性）"
+        usage "用法：`/merge <github-repo-url>`"
+        description "按顺序合并所有带有 'ready' 标签的 PR。"
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 私聊转发 /solve 完成通知（实验性）"
+      help "*/help* - 显示此帮助消息"
+      stop
+        start "*/stop* / */start* - 停止或恢复接收新任务（仅所有者）"
+        uuid "*/stop* `<uuid>` - 向隔离的 solve/hive 会话发送 CTRL+C（仅所有者）。也可回复包含 UUID 的消息。"
+      log "*/log* - 获取隔离会话日志（仅所有者）。用法：`/log <uuid>` 或回复 `/log`"
+      terminal
+        watch "*/terminal\\_watch*（别名：*/watch*）- 实时更新隔离会话日志（聊天所有者或会话请求者）。用法：`/terminal_watch <uuid>`、`/watch <uuid>`，或用任一命令回复"
+      notifications "🔔 *会话通知：* 完成通知会自动发送；使用 /subscribe 获取私聊转发。"
+      isolation
+        mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
+      group
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+      common
+        options "🔧 *常用选项：*"
+      model
+        option "• `--model <model>` 或 `-m` - {{modelDescription}}"
+      base
+        branch
+          option "• `--base-branch <branch>` 或 `-b` - PR 目标分支（默认：仓库默认分支）"
+      think
+        option "• `--think <level>` - 思考级别（off/minimal/low/medium/high/xhigh/ultra/max/adaptive）| `--thinking-budget <num>` - token 预算（0-63999）"
+      verbose
+        option "• `--verbose` 或 `-v` - 详细输出 | `--attach-logs` - 将日志附加到 PR"
+      show
+        limits
+          option "• `--show-limits` - 实验性：在开始、结束和变化量中嵌入 Claude/Codex 使用情况"
+      tip "💡 *提示：* 还有更多选项。完整列表见文档。"
+      restricted
+        mode "🔒 *受限模式：* 已授权：{{authorized}}"
+      allow
+        topic
+          hint "💡 要允许此话题：`{{allowTopicHint}}`"
+      troubleshooting
+        header "🔧 *故障排查：*"
+        body """
+          如果机器人没有收到消息：
+          1. 在 @BotFather 中检查 privacy mode
+             • 向 @BotFather 发送 `/setprivacy`
+             • 为你的机器人选择 'Disable'
+             • 将机器人移出群组后重新加入
+          2. 或将机器人设为群组管理员
+          3. 使用 `--verbose` 标志重启机器人以诊断
+        """
+    waiting
+      label "⏳ 等待"
+    reason
+      label "原因"
+    did
+      you
+        mean "💡 你是指 `{{suggestion}}`？"
+    missing
+      github
+        url "缺少 GitHub URL。用法：/{{commandName}} <github-url> [options]"
+    first
+      arg
+        must
+          be
+            github
+              url "第一个参数必须是 GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *无需执行任何操作*\n\n`{{repository}}` 没有开放的议题。未启动工作会话。"
+    fix
+      waiting_for_ci "⏳ 正在等待 {{branch}} 分支上的 CI/CD 完成..."
+      waiting_for_ci_default_branch "⏳ 正在等待默认分支上的 CI/CD 完成..."
+      issue_label "Issue"
+    work
+      session
+        starting "🔄 正在启动..."
+        executing "⏳ 正在执行..."
+        finished "工作会话已成功完成"
+        hive_no_work "未处理任何问题；请查看日志中的跳过原因或阻塞问题。要继续处理已有 PR 的问题，请使用 `--no-skip-issues-with-prs --auto-continue`"
+        hive_incomplete "Hive 会话结束时仍有问题等待处理；请查看日志中的阻塞问题"
+        no_changes "工作会话结束但没有任何更改；原因请见 pull request 评论"
+        failed "工作会话失败（退出代码：{{exitCode}}）"
+        command_not_found "command not found（会话要运行的程序不存在）"
+        command_not_executable "command not executable（会话要运行的程序无法执行）"
+        merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
+        merged_success "请求的拉取请求已成功合并。"
+        runner_also_failed "运行器也失败了；其退出代码已保留以供调查。"
+        killed "工作会话已终止：{{reason}}{{exitSuffix}}"
+        stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
+        not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+        recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
+        recovering_from_kill "工作会话仍在进行：正在从强制终止中恢复{{causeSuffix}}"
+        recovered "工作会话在自动恢复后成功完成"
+        recoveries "自动恢复次数：{{count}}"
+        status_unknown "工作会话已结束，但其退出状态未知"
+        never_observed "工作会话状态未知：从未观察到该会话运行"
+        tracking_expired "已在 {{minutes}} 分钟后停止跟踪工作会话，未获得退出状态；它可能仍在其 screen 会话中运行"
+    duration
+      label "耗时"
+    session
+      label "会话"
+      recovery
+        label "恢复会话"
+      recovered
+        oom "已从内存不足中恢复"
+        kill "已从强制终止中恢复"
+        at "事件发生于 {{observedAt}}；工作会话继续运行并已完成。"
+        resumed "已启动新的工作会话以从终止中恢复。"
+      kill
+        cause "原因"
+        event "事件"
+        event_diagnostics "容器 OOM 事件诊断（不是此次停止的原因）"
+        diagnostics "终止诊断"
+        resumed "🔄 已启动新的工作会话以从此次终止中恢复：{{sessionId}}"
+        resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
+    isolation
+      label "隔离"
+    execution
+      label "执行"
+      earlier "更早的日志"
+    error
+      executing
+        command "❌ 执行 {{commandName}} 命令时出错"
+  language
+    en "英语"
+    ru "俄语"
+    zh "中文"
+    hi "印地语"
+  version
+    ai
+      agents "AI 代理"
+    browsers "浏览器"
+    browser
+      automation "浏览器自动化"
+    connected "已连接"
+    development
+      tools "开发工具"
+    environment "环境"
+    architecture "架构"
+    kernel "内核"
+    not
+      connected "未连接"
+    os "操作系统"
+    platform "平台"
+    process
+      running
+        restart
+          needed "正在运行的进程：`{{processVersion}}`（需要重启）"
+    system "系统"
+    version "版本"

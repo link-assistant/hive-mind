@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Prompt snippets for user-requested solve options.
  */
@@ -12,8 +13,7 @@ export function buildRequestedBaseBranchDirective(argv = {}) {
     return '';
   }
 
-  return `Requested by user --base-branch: ${baseBranch}
-The user expects the pull request base branch to remain ${baseBranch}.`;
+  return promptText('prompt.templates.solve-option-contract-prompts.buildRequestedBaseBranchDirective.text1', { baseBranch: String(baseBranch) });
 }
 
 export const buildLockedSolveOptionsDirective = buildRequestedBaseBranchDirective;

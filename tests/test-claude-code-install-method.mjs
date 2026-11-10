@@ -12,8 +12,8 @@ for (const file of dockerfiles) {
   assert.ok(content.includes('/home/box/.local/bin'), `${file} should keep ~/.local/bin on PATH for native Claude Code`);
   assert.ok(content.includes('https://claude.ai/install.sh'), `${file} should install Claude Code through the native installer`);
   assert.ok(content.includes('claude --version'), `${file} should verify that the installed Claude Code binary runs`);
-  assert.ok(!content.includes('bun install -g @anthropic-ai/claude-code'), `${file} should not install Claude Code through Bun`);
-  assert.ok(content.includes('bun install -g @openai/codex'), `${file} should still use Bun for compatible AI CLI packages`);
+  assert.doesNotMatch(content, /bun install(?: --backend=copyfile)? -g @anthropic-ai\/claude-code/u, `${file} should not install Claude Code through Bun`);
+  assert.ok(content.includes('bun install --backend=copyfile -g @openai/codex'), `${file} should still use Bun for compatible AI CLI packages`);
 }
 
 console.log('Claude Code install method tests passed');

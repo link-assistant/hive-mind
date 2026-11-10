@@ -96,15 +96,15 @@ export const classifyRetryableError = value => {
   // surface only "We're currently experiencing high demand, which may cause
   // temporary errors." The terminal message omits both the preceding 503 and
   // the backend's concurrency_limit code, so it must be recognized directly.
-  if (lower.includes('overloaded') || lower.includes('overloaded_error') || lower.includes('currently experiencing high demand') || lower.includes('too many concurrent requests') || lower.includes('concurrency_limit')) {
+  if (lower.includes('overloaded') || lower.includes('overloaded_error') || lower.includes('currently experiencing high demand') || lower.includes('is experiencing high load') || lower.includes('too many concurrent requests') || lower.includes('concurrency_limit') || matchesHttpStatus(lower, '529')) {
     return { message, isRetryable: true, isCapacity: false, label: 'API overload' };
   }
 
-  if (lower.includes('request timed out')) {
+  if (lower.includes('request timed out') || lower.includes('timeout_error') || lower.includes('apitimeouterror') || lower.includes('no response from api') || lower === 'request_timeout') {
     return { message, isRetryable: true, isCapacity: false, label: 'Request timeout' };
   }
 
-  if (lower.includes('stream disconnected before completion')) {
+  if (lower.includes('stream disconnected before completion') || /response_?stream(?:_?connection_?failed|_?disconnected)|response_?too_?many_?failed_?attempts/i.test(lower)) {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
@@ -215,7 +215,7 @@ export const classifyRetryableError = value => {
   // retry with the session preserved (--resume) after a backoff. Switching models
   // does not help (the throttle is request-rate, not model capacity), so
   // isCapacity is false.
-  if (lower.includes('temporarily limiting requests') || (lower.includes('rate limited') && lower.includes('not your usage limit')) || (lower.includes('rate_limit') && lower.includes('429'))) {
+  if (lower.includes('temporarily limiting requests') || (lower.includes('rate limited') && lower.includes('not your usage limit')) || lower.includes('rate_limit_error') || lower === 'rate_limit_exceeded' || (lower.includes('rate_limit') && lower.includes('429'))) {
     return { message, isRetryable: true, isCapacity: false, label: 'Server rate limited (429)' };
   }
 
@@ -228,7 +228,7 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }
 
-  if (lower.includes('internal server error') || lower.includes('api error: 500')) {
+  if (lower.includes('internal server error') || /internal_?server_?error/.test(lower) || lower === 'api_error' || lower === 'server_error' || lower === 'internal_error' || matchesHttpStatus(lower, '500')) {
     return { message, isRetryable: true, isCapacity: false, label: 'Internal server error (500)' };
   }
 
@@ -277,7 +277,8 @@ export const formatRetryDuration = ms => {
 // fixed number of attempts (10), which — with the old 2 min → 30 min backoff — gave up after
 // ~3.5 hours. The budget below turns "how long do we keep trying" into the primary knob: retries
 // continue while the *next* backoff still fits inside `budgetMs` (default 12 h), measured from
-// the first retry of the run. The per-tool retry counts stay as runaway-loop backstops.
+// the first retry of a continuous outage. Provider progress resets the window; productive
+// task execution must not spend the outage budget. Retry counts remain runaway backstops.
 //
 // Usage inside a tool's retry loop (the budget object lives outside `executeWithRetry` so it
 // survives the recursive calls):
@@ -295,6 +296,13 @@ export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErr
     remainingMs,
     get retriesGranted() {
       return retriesGranted;
+    },
+    // Genuine provider progress ends the previous continuous outage (#3831).
+    recordProgress() {
+      const wasRetrying = startedAt !== null;
+      startedAt = null;
+      retriesGranted = 0;
+      return wasRetrying;
     },
     // Starts the clock on the first granted retry and counts it.
     grant() {
@@ -492,6 +500,33 @@ export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, re
   return { delay, switched: switchResult?.switched === true };
 };
 
+// Shared by process/stream exception paths: preserve the same policy and session
+// as an explicit provider error instead of terminating on a transient transport.
+export const retryTransientFailure = async ({ tool, retryableError, sessionId, argv, log, budget, retryCount, waitForRetryDelay = waitWithCountdown }) => {
+  if (!retryableError.isRetryable) return false;
+  const isRequestTimeout = retryableError.label === 'Request timeout';
+  const options = {
+    retryCount,
+    maxRetries: isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries,
+    initialDelayMs: isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+    maxDelayMs: isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+    minDelayMs: retryLimits.minTransientErrorDelayMs,
+  };
+  const decision = budget.evaluate(options);
+  if (!decision.allowed) {
+    await log(`\n\n❌ ${retryableError.label} persisted: ${budget.describeExhaustion(decision)}`, { level: 'error' });
+    return false;
+  }
+  budget.grant();
+  if (sessionId && !argv.resume) argv.resume = sessionId;
+  const { delay } = await prepareRetryAfterError({ tool, argv, log, errorMessage: retryableError.message, ...options });
+  const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+  await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${budget.describeProgress()})...`, { level: 'warning' });
+  await waitForRetryDelay(delay, log);
+  await log('\n🔄 Retrying now...');
+  return true;
+};
+
 export default {
   classifyRetryableError,
   matchesHttpStatus,
@@ -503,6 +538,7 @@ export default {
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,
   prepareRetryAfterError,
+  retryTransientFailure,
   formatModelWithResolvedId,
   logExecutionContext,
 };

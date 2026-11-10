@@ -1,0 +1,119 @@
+✖ Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (11.066297ms)
+✖ Dockerfile.dind keeps pinned runtimes out of automatic and command-triggered updates (8.346992ms)
+✖ coolify/Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (2.553472ms)
+✔ outside pinned images the existing CLI update defaults remain available (1.724463ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 178.08051
+
+✖ failing tests:
+
+test at tests/issue-3785-pinned-updates.test.mjs:8:3
+✖ Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (11.066297ms)
+  AssertionError [ERR_ASSERTION]: launch-time freshness checks must preserve the attested CLI versions
+  + actual - expected
+
+  + [
+  +   {
+  +     binary: 'claude',
+  +     id: 'claude',
+  +     installer: 'self',
+  +     package: '@anthropic-ai/claude-code',
+  +     updateArgs: [
+  +       'update'
+  +     ]
+  +   },
+  +   {
+  +     binary: 'codex',
+  +     id: 'codex',
+  +     installer: 'bun',
+  +     package: '@openai/codex'
+  +   }
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-pinned-updates.test.mjs:12:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { id: 'claude', package: '@anthropic-ai/claude-code', binary: 'claude', installer: 'self', updateArgs: [Array] }, { id: 'codex', package: '@openai/codex', binary: 'codex', installer: 'bun' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-pinned-updates.test.mjs:8:3
+✖ Dockerfile.dind keeps pinned runtimes out of automatic and command-triggered updates (8.346992ms)
+  AssertionError [ERR_ASSERTION]: launch-time freshness checks must preserve the attested CLI versions
+  + actual - expected
+
+  + [
+  +   {
+  +     binary: 'claude',
+  +     id: 'claude',
+  +     installer: 'self',
+  +     package: '@anthropic-ai/claude-code',
+  +     updateArgs: [
+  +       'update'
+  +     ]
+  +   },
+  +   {
+  +     binary: 'codex',
+  +     id: 'codex',
+  +     installer: 'bun',
+  +     package: '@openai/codex'
+  +   }
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-pinned-updates.test.mjs:12:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { id: 'claude', package: '@anthropic-ai/claude-code', binary: 'claude', installer: 'self', updateArgs: [Array] }, { id: 'codex', package: '@openai/codex', binary: 'codex', installer: 'bun' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-pinned-updates.test.mjs:8:3
+✖ coolify/Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (2.553472ms)
+  AssertionError [ERR_ASSERTION]: launch-time freshness checks must preserve the attested CLI versions
+  + actual - expected
+
+  + [
+  +   {
+  +     binary: 'claude',
+  +     id: 'claude',
+  +     installer: 'self',
+  +     package: '@anthropic-ai/claude-code',
+  +     updateArgs: [
+  +       'update'
+  +     ]
+  +   },
+  +   {
+  +     binary: 'codex',
+  +     id: 'codex',
+  +     installer: 'bun',
+  +     package: '@openai/codex'
+  +   }
+  + ]
+  - []
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-pinned-updates.test.mjs:12:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { id: 'claude', package: '@anthropic-ai/claude-code', binary: 'claude', installer: 'self', updateArgs: [Array] }, { id: 'codex', package: '@openai/codex', binary: 'codex', installer: 'bun' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

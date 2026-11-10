@@ -1,0 +1,5 @@
+# Runtime for the Ubuntu-built experimental GNU CLI and its OpenSSL linkage.
+FROM ubuntu:24.04
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libssl3t64 libgcc-s1 \
+ && rm -rf /var/lib/apt/lists/*

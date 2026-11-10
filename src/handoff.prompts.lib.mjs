@@ -1,3 +1,4 @@
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * HANDOFF.md support — Agent Skill (issue #1877)
  *
@@ -52,7 +53,7 @@ export const HANDOFF_SKILL_NAME = 'handoff';
  * use case and trigger words so the tool can match the skill implicitly.
  * @type {string}
  */
-export const HANDOFF_SKILL_DESCRIPTION = "Maintain a HANDOFF.md continuity document in the repository root so any session can continue a previous session's work — even across different AI tools (Claude and Codex) in the same pull request. Use when starting, resuming, or finishing work on a long-running task, issue, or pull request.";
+export const HANDOFF_SKILL_DESCRIPTION = promptText('prompt.templates.handoff-prompts.HANDOFF_SKILL_DESCRIPTION.text1', {}, { locale: 'en' });
 
 /**
  * Build the canonical handoff skill instructions (the markdown body that follows
@@ -64,33 +65,7 @@ export const HANDOFF_SKILL_DESCRIPTION = "Maintain a HANDOFF.md continuity docum
  * @returns {string} The markdown instructions body.
  */
 export const buildHandoffSkillBody = ({ fileName = HANDOFF_FILE_NAME } = {}) => {
-  return `# HANDOFF.md continuity skill
-
-${fileName} is a single shared handoff document in the repository root that lets any session continue the work of any previous session, even when a different AI tool (for example Claude and Codex) is used. It travels with the pull request branch, so it is the cross-tool, cross-session memory for this PR.
-
-## When to use this skill
-
-- When you start a working session, read ${fileName} first if it exists. Treat its "Next steps" section as your immediate starting point and honor the decisions and constraints it records before exploring anything else.
-- When ${fileName} does not exist yet and the task is non-trivial, create it early so an interrupted session can always be resumed.
-- When you make meaningful progress, update ${fileName} so it always reflects the current truth. Keep exactly one active ${fileName} per pull request branch (do not create per-session copies).
-- When all requirements are fully met and the work is complete, record that completion at the top of ${fileName} (or delete the file) so the next session knows there is nothing left to continue.
-
-## How to write ${fileName}
-
-- Keep it concise and tool-agnostic: describe state by referencing file paths, function names, branch, and commit SHAs rather than tool-specific commands, so the next tool (Claude or Codex) can act on it directly. Prefer pointers to existing artifacts over duplicating their content.
-- Include these sections:
-  1. **Task** — the issue/PR being solved and the goal.
-  2. **Current state** — what is done and verified.
-  3. **Decisions** — key choices made and why (so they are not re-litigated).
-  4. **Next steps** — the concrete, ordered actions the next session should take.
-  5. **Gotchas** — known pitfalls, failing checks, or constraints.
-  6. **Critical files** — the important paths and what each is for.
-- When you record next steps, make them specific and actionable (a path, a function, a command to run) instead of vague goals, and remove items as they are completed.
-
-## Committing and safety
-
-- When you finish a step that changes the state, commit ${fileName} together with the related code changes so the handoff stays in sync with the branch and is never lost if the session is interrupted.
-- Never include secrets, tokens, API keys, passwords, or personal data in ${fileName} — it is committed to the repository.`;
+  return promptText('prompt.templates.handoff-prompts.buildHandoffSkillBody.text2', { fileName: String(fileName) });
 };
 
 /**
@@ -105,14 +80,8 @@ ${fileName} is a single shared handoff document in the repository root that lets
  * @param {string} [options.description=HANDOFF_SKILL_DESCRIPTION] - Skill description.
  * @returns {string} The full SKILL.md content.
  */
-export const buildHandoffSkillFile = ({ fileName = HANDOFF_FILE_NAME, name = HANDOFF_SKILL_NAME, description = HANDOFF_SKILL_DESCRIPTION } = {}) => {
-  return `---
-name: ${name}
-description: ${description}
----
-
-${buildHandoffSkillBody({ fileName })}
-`;
+export const buildHandoffSkillFile = ({ fileName = HANDOFF_FILE_NAME, name = HANDOFF_SKILL_NAME, description = localizePromptConstant(HANDOFF_SKILL_DESCRIPTION) } = {}) => {
+  return promptText('prompt.templates.handoff-prompts.buildHandoffSkillFile.text3', { name: String(name), description: String(description), value3: String(buildHandoffSkillBody({ fileName })) });
 };
 
 /**
@@ -127,10 +96,7 @@ ${buildHandoffSkillBody({ fileName })}
  * @returns {string} The activation nudge.
  */
 export const buildHandoffSubPrompt = ({ fileName = HANDOFF_FILE_NAME, name = HANDOFF_SKILL_NAME } = {}) => {
-  return `
-HANDOFF.md continuity skill (experimental, --use-handoff).
-   - A reusable "${name}" Agent Skill is installed in this workspace (.claude/skills/${name}/ for Claude, .agents/skills/${name}/ for Codex). It defines how to read and maintain ${fileName} so any session can continue the work of a previous one — even across tools (Claude and Codex) in the same pull request.
-   - At the start of this session, use the ${name} skill: if ${fileName} exists in the repository root, read it first and continue from its "Next steps". Create or update ${fileName} as you make progress and commit it to the pull request branch.`;
+  return promptText('prompt.system.templates.handoff-prompts.buildHandoffSubPrompt.text4', { name: String(name), fileName: String(fileName) });
 };
 
 /**

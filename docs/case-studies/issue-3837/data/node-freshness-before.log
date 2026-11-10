@@ -1,0 +1,11 @@
+Dependency freshness: 170/179 declarations current, 0 lockfile entries behind their allowed range
+EXCEPTION src/router-isolation.lib.mjs:81: ghcr.io/link-assistant/router: https://github.com/link-assistant/hive-mind/issues/3395
+STALE coolify/Dockerfile:22: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE coolify/Dockerfile:41: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile:22: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile:41: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile.dind:32: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile.dind:51: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile.formal-ai:28: formal-ai 0.355.14 -> 0.355.15 (exact)
+STALE Dockerfile.formal-ai:7: formal-ai 0.355.14 -> 0.355.15 (exact)
+Dependency freshness failed: 8 stale, 0 unresolved.

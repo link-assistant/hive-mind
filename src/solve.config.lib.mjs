@@ -1,3 +1,4 @@
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 // CLI configuration module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
 
@@ -31,6 +32,7 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // and excluded from this map since functions cannot be cleanly shared as data
 // (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
+  'share-geolocation': SHARE_GEOLOCATION_OPTION,
   resume: {
     type: 'string',
     description: 'Resume from a previous session ID (when limit was reached)',
@@ -712,7 +714,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'agent-config-auto-repair': {
     type: 'boolean',
-    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn.',
+    description: 'Automatically repair audited global Claude/Codex configuration before a task starts (enabled by default). Unrepaired findings stop execution. Use --no-agent-config-auto-repair to inspect without changing configuration; a contaminated configuration still blocks tasks.',
     default: true,
   },
   'auto-gh-configuration-repair': {

@@ -1,0 +1,681 @@
+test-suites	UNKNOWN STEP	﻿2026-11-09T06:02:00.9661631Z Current runner version: '2.338.2'
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9696484Z ##[group]Runner Image Provisioner
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9697731Z Hosted Compute Agent
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9698650Z Version: 20261028.624
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9699548Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9700655Z Build Date: 2026-10-28T21:51:42Z
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9701720Z Worker ID: {d1fa3577-f40b-4fac-a2de-a2d709f5c6bf}
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9703100Z Region: eastus2
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9703979Z Cloud: Azure
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9704738Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9706754Z ##[group]Operating System
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9707664Z Ubuntu
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9708384Z 24.04.5
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9709210Z LTS
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9709978Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9710805Z ##[group]Runner Image
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9711758Z Image: ubuntu-24.04
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9712559Z Version: 20261101.360.1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9714881Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9717394Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261101.360
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9718977Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9721117Z ##[group]GITHUB_TOKEN Permissions
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9724824Z Actions: read
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9725638Z Contents: write
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9726515Z Issues: write
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9727295Z Metadata: read
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9728132Z PullRequests: write
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9729078Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9732088Z Secret source: Actions
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9733855Z Cache mode: write
+test-suites	UNKNOWN STEP	2026-11-09T06:02:00.9735228Z Prepare workflow directory
+test-suites	UNKNOWN STEP	2026-11-09T06:02:01.0267646Z Prepare all required actions
+test-suites	UNKNOWN STEP	2026-11-09T06:02:01.0339946Z Getting action download info
+test-suites	UNKNOWN STEP	2026-11-09T06:02:01.2353122Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:01.8274827Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.0421265Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.3473580Z Complete job name: test-suites
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4443627Z ##[group]Run actions/checkout@v7
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4445076Z with:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4446127Z   repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4454491Z   token: ***
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4455467Z   ssh-strict: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4456434Z   ssh-user: git
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4457361Z   persist-credentials: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4458439Z   clean: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4459744Z   sparse-checkout-cone-mode: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4460901Z   fetch-depth: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4461876Z   fetch-tags: false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4463171Z   show-progress: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4464241Z   lfs: false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4465135Z   submodules: false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4466120Z   set-safe-directory: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4467237Z   allow-unsafe-pr-checkout: false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4468649Z env:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4469609Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4470792Z   GIT_CONFIG_COUNT: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4471986Z   GIT_CONFIG_KEY_0: init.defaultBranch
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4473455Z   GIT_CONFIG_VALUE_0: main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:02.4474438Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:04.9579534Z Syncing repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:04.9581190Z ##[group]Getting Git version info
+test-suites	UNKNOWN STEP	2026-11-09T06:02:04.9581732Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-11-09T06:02:04.9582630Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1175240Z git version 2.56.0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1193625Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1205315Z Temporarily overriding HOME='/home/runner/work/_temp/30616114-aa82-4090-b9c1-447f6593f7ba' before making global git config changes
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1206929Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1210970Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1464737Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1468726Z ##[group]Determining repository object format
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1471022Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1471836Z ##[group]Initializing the repository
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.1475111Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2126465Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2137375Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2498669Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2499885Z ##[group]Disabling automatic garbage collection
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2500943Z [command]/usr/bin/git config --local gc.auto 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2539027Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2540016Z ##[group]Setting up auth
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2540737Z Removing SSH command configuration
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2544523Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.2580789Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.4866080Z Removing HTTP extra header
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.4869097Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.4900915Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5106608Z Removing includeIf entries pointing to credentials config files
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5119529Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5151080Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5347259Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5388957Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5422466Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5455409Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5496246Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5529998Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5530890Z ##[group]Fetching the repository
+test-suites	UNKNOWN STEP	2026-11-09T06:02:05.5539439Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa:refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3611511Z From https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3612621Z  * [new ref]         c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa -> origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3622550Z [command]/usr/bin/git branch --list --remote origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3655009Z   origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3663137Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3688920Z c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3692590Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3693533Z ##[group]Determining the checkout info
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3694809Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3698755Z [command]/usr/bin/git sparse-checkout disable
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3844829Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3879474Z ##[group]Checking out the ref
+test-suites	UNKNOWN STEP	2026-11-09T06:02:23.3883229Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:24.4834454Z Updating files:  21% (2039/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:24.8186747Z Updating files:  22% (2101/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:24.9201678Z Updating files:  23% (2196/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:24.9676760Z Updating files:  24% (2292/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.0061170Z Updating files:  25% (2387/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.0325610Z Updating files:  26% (2483/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.1266621Z Updating files:  27% (2578/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.1792945Z Updating files:  28% (2674/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.1997241Z Updating files:  29% (2769/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.2750670Z Updating files:  30% (2865/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.4013342Z Updating files:  31% (2960/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.4100561Z Updating files:  31% (3053/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.4957201Z Updating files:  32% (3056/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.7021967Z Updating files:  33% (3151/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.7458471Z Updating files:  34% (3246/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.8776497Z Updating files:  35% (3342/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.9276575Z Updating files:  36% (3437/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:25.9795213Z Updating files:  37% (3533/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.0635846Z Updating files:  38% (3628/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.1433401Z Updating files:  39% (3724/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.1810676Z Updating files:  40% (3819/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.2106253Z Updating files:  41% (3915/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.2678988Z Updating files:  42% (4010/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.2852950Z Updating files:  43% (4106/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.4014236Z Updating files:  44% (4201/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.4079520Z Updating files:  44% (4277/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.4431436Z Updating files:  45% (4297/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.5326222Z Updating files:  46% (4392/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.5446561Z Updating files:  47% (4488/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.5850104Z Updating files:  48% (4583/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.6133991Z Updating files:  49% (4679/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.6376871Z Updating files:  50% (4774/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.6462988Z Updating files:  51% (4869/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.7731735Z Updating files:  52% (4965/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.8431700Z Updating files:  53% (5060/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:26.9843886Z Updating files:  54% (5156/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.0084858Z Updating files:  55% (5251/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.0450680Z Updating files:  56% (5347/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.1415540Z Updating files:  57% (5442/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.1509159Z Updating files:  58% (5538/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.1791309Z Updating files:  59% (5633/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.2543620Z Updating files:  60% (5729/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.2608468Z Updating files:  61% (5824/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.2652927Z Updating files:  62% (5920/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.2976607Z Updating files:  63% (6015/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.4055126Z Updating files:  64% (6111/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.4578453Z Updating files:  64% (6172/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.5732623Z Updating files:  65% (6206/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.6319912Z Updating files:  66% (6302/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.6761399Z Updating files:  67% (6397/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.6900477Z Updating files:  68% (6492/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.8139396Z Updating files:  69% (6588/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:27.8341881Z Updating files:  70% (6683/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.0850339Z Updating files:  71% (6779/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1393102Z Updating files:  72% (6874/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1687601Z Updating files:  73% (6970/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1723462Z Updating files:  74% (7065/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1762431Z Updating files:  75% (7161/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1795014Z Updating files:  76% (7256/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.1840839Z Updating files:  77% (7352/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2383674Z Updating files:  78% (7447/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2415248Z Updating files:  79% (7543/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2473934Z Updating files:  80% (7638/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2507311Z Updating files:  81% (7734/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2544879Z Updating files:  82% (7829/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2580895Z Updating files:  83% (7925/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2617629Z Updating files:  84% (8020/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2657472Z Updating files:  85% (8115/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2723502Z Updating files:  86% (8211/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2793125Z Updating files:  87% (8306/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2869987Z Updating files:  88% (8402/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.2946208Z Updating files:  89% (8497/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3032886Z Updating files:  90% (8593/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3114895Z Updating files:  91% (8688/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3171919Z Updating files:  92% (8784/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3234103Z Updating files:  93% (8879/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3296729Z Updating files:  94% (8975/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3363515Z Updating files:  95% (9070/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3423144Z Updating files:  96% (9166/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3483151Z Updating files:  97% (9261/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3551931Z Updating files:  98% (9357/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3612214Z Updating files:  99% (9452/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3612787Z Updating files: 100% (9547/9547)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.3613377Z Updating files: 100% (9547/9547), done.
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.5735938Z Reset branch 'main'
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.5788619Z branch 'main' set up to track 'origin/main'.
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.5886489Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.5937416Z [command]/usr/bin/git log -1 --format=%H
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.5970803Z c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6373891Z ##[group]Run actions/setup-node@v7
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6374341Z with:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6374643Z   node-version: 24.x
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6374943Z   check-latest: false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6377241Z   token: ***
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6377581Z   package-manager-cache: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6377915Z env:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6378266Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6378616Z   GIT_CONFIG_COUNT: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6379006Z   GIT_CONFIG_KEY_0: init.defaultBranch
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6379367Z   GIT_CONFIG_VALUE_0: main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.6379689Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:28.8044633Z Found in cache @ /opt/hostedtoolcache/node/24.22.2/x64
+test-suites	UNKNOWN STEP	2026-11-09T06:02:29.9854662Z ##[group]Environment details
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4283027Z node: v24.22.2
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4283569Z npm: 11.19.1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4284015Z yarn: 1.22.22
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4284980Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4289659Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.4305906Z [command]/opt/hostedtoolcache/node/24.22.2/x64/bin/npm config get cache
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.7151598Z /home/runner/.npm
+test-suites	UNKNOWN STEP	2026-11-09T06:02:32.8926925Z Cache hit for: node-cache-Linux-x64-npm-efca53510c51d3de1efd9fb5d41c167d98d371b493be627fee47f7405541d636
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0754906Z Received 698 of 698 (100.0%), 0.0 MBs/sec
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0755644Z Cache Size: ~0 MB (698 B)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0777182Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a0386e9c-474f-4283-a2af-5a2d56e58d5c/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0823929Z Cache restored successfully
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0828774Z Cache restored from key: node-cache-Linux-x64-npm-efca53510c51d3de1efd9fb5d41c167d98d371b493be627fee47f7405541d636
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0967043Z ##[group]Run node scripts/npm-install-with-retry.mjs install
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.0967726Z ^[[36;1mnode scripts/npm-install-with-retry.mjs install^[[0m
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1083912Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1084390Z env:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1084718Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1085315Z   GIT_CONFIG_COUNT: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1085657Z   GIT_CONFIG_KEY_0: init.defaultBranch
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1086102Z   GIT_CONFIG_VALUE_0: main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1086431Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:33.1625772Z [npm-install-with-retry] attempt 1/5: npm install
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.6601264Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.6602580Z > @link-assistant/hive-mind@2.39.14 prepare
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.6603589Z > husky
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.6603917Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8320885Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8322234Z added 344 packages, and audited 345 packages in 8s
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8323185Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8323576Z 98 packages are looking for funding
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8324294Z   run `npm fund` for details
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8373522Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8374447Z 4 moderate severity vulnerabilities
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8374971Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8375535Z To address all issues (including breaking changes), run:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8376364Z   npm audit fix --force
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8376785Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8377183Z Run `npm audit` for details.
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8722001Z [npm-install-with-retry] ✅ npm install succeeded on attempt 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8858501Z ##[group]Run node scripts/preinstall-use-m-packages.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8859031Z ^[[36;1mnode scripts/preinstall-use-m-packages.mjs^[[0m
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8872478Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8872935Z env:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8873343Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8873748Z   GIT_CONFIG_COUNT: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8874102Z   GIT_CONFIG_KEY_0: init.defaultBranch
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8874516Z   GIT_CONFIG_VALUE_0: main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:40.8874834Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:41.0572118Z [preinstall-use-m] global root: /opt/hostedtoolcache/node/24.22.2/x64/lib/node_modules
+test-suites	UNKNOWN STEP	2026-11-09T06:02:41.8735687Z [preinstall-use-m] ✅ installed @dotenvx/dotenvx@2.38.2 as dotenvx-dotenvx-v-2.38.2 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:51.5316920Z [preinstall-use-m] ✅ installed command-stream@2.6.0 as command-stream-v-2.6.0 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:51.8477066Z [preinstall-use-m] ✅ installed getenv@2.0.0 as getenv-v-2.0.0 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:52.1180545Z [preinstall-use-m] ✅ installed links-notation@0.31.3 as links-notation-v-0.31.3 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:52.8753072Z [preinstall-use-m] ✅ installed lino-arguments@0.4.1 as lino-arguments-v-0.4.1 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:53.6582296Z [preinstall-use-m] ✅ installed telegraf@4.16.3 as telegraf-v-4.16.3 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.0232017Z [preinstall-use-m] ✅ installed yargs@18.2.0 as yargs-v-18.2.0 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4087093Z [preinstall-use-m] ✅ installed zx@8.8.5 as zx-v-8.8.5 (attempt 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4088142Z [preinstall-use-m] ✅ all 8 pinned use-m packages pre-installed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4171189Z ##[group]Run node scripts/source-test-profile.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4171685Z ^[[36;1mnode scripts/source-test-profile.mjs^[[0m
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4185938Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4186383Z env:
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4186717Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4187094Z   GIT_CONFIG_COUNT: 1
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4187488Z   GIT_CONFIG_KEY_0: init.defaultBranch
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4187899Z   GIT_CONFIG_VALUE_0: main
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.4188232Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.5573566Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.5574676Z > @link-assistant/hive-mind@2.39.14 test
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.5575585Z > node scripts/run-tests.mjs --suite default
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.5576070Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7396511Z Running 703 default test file(s)...
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7397662Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7398310Z [1/703] tests/agent-auxiliary-calls-2247.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7734736Z PASS: issue #2247 (H5) the Agent CLI stops calling opencode/big-pickle for summaries and titles
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7771778Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:54.7773053Z [2/703] tests/agent-default-free-model-2625.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0090196Z ✔ the default Agent model no longer points at the withdrawn Zen model (2.202363ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0114477Z ✔ both the short name and the full Kilo id are accepted (0.54022ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0115589Z ✔ the overlay is added to an empty inline config (0.413088ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0117032Z ✔ existing inline config is preserved, including Playwright MCP settings (0.506065ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0118067Z ✔ a user definition of the same model wins (0.258054ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0119016Z ✔ unparseable inline config is left alone (0.277751ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0120094Z ✔ models Agent already knows need no overlay (0.252354ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0121344Z ✔ both the task run and the connection check hand the overlay to Agent (1.030401ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0122974Z ✔ the explicit free control uses the current catalogue id without remapping the historical alias (0.522905ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0124029Z ℹ tests 9
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0124692Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0125248Z ℹ pass 9
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0125785Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0126300Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0126869Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0127385Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0127993Z ℹ duration_ms 13.085276
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0406062Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:55.0407416Z [3/703] tests/agent-recoverable-tool-error-3213.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0225678Z ✔ the recorded agent 0.26.13 stream (failed read, error record, then a finished turn, exit 0) is a success (300.271927ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0318368Z ✔ a failed tool call followed only by session.idle and exit 0 is not resurrected by the raw-text fallback (9.000965ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0394256Z ✔ the agent 0.26.14 stream (failure only on the tool_use event) is a success (7.371716ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0474740Z ✔ a provider error that no completion follows still fails the run, and the reason names it, not the tool error (7.945597ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0546086Z ✔ a non-zero exit after a failed tool call still fails the run (6.899239ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0561008Z ✔ output scan: tool-part error records are skipped and the reason is the last fatal record (1.346658ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0564931Z ✔ classification: only tool-part and explicitly recoverable error records are recoverable (0.310785ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0574819Z ✔ --agent-commander: the same records decide the run the same way (0.759389ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0609839Z ℹ tests 8
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0610390Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0611024Z ℹ pass 8
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0611468Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0611986Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0612530Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0613183Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0613758Z ℹ duration_ms 341.818531
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0751900Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.0752549Z [4/703] tests/agent-recovery-message-2923.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7083724Z ✔ an error that still fails the run is never logged as recovered (1.44217ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7085415Z ✔ a streaming error with no error record in the output is a real recovery (issue #1276) (0.727893ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7086724Z ✔ nothing is cleared or logged on a non-zero exit or an unfinished session (0.133303ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7087567Z ℹ tests 3
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7089713Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7090342Z ℹ pass 3
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7090991Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7091424Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7091990Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7092429Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7093221Z ℹ duration_ms 6.005033
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7214614Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7215614Z [5/703] tests/agentic-cli-version-manifest-3469.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7758718Z ✔ the manifest that owns the binary wins over a CLI that misreports its version (13.191408ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7777490Z ✔ an older copy earlier on PATH is reported, not mistaken for the update (1.611209ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7790954Z ✔ a binary outside any matching package (a native installer) falls back to --version (1.077294ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7797681Z ✔ the git identity repair hint names the published package (0.581546ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7803393Z ℹ tests 4
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7804549Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7805534Z ℹ pass 4
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7806225Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7806975Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7807674Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7808381Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7809161Z ℹ duration_ms 21.367661
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7855795Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:56.7857579Z [6/703] tests/alias-recovery-2887.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.2699884Z [session-kill-resume] Snapshot resume of eec34a2b-aa97-4bf1-8879-b483ab13d784 returned after 0s
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.2708264Z ✔ the resume command of a /codex task executes solve; /codex appears only in the chat hint (1.935168ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3042016Z ✔ in-place recovery of router#728 runs the verified workaround command, never /codex (37.048897ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3048684Z [session-kill-resume] Snapshot resume of eec34a2b-aa97-4bf1-8879-b483ab13d784 returned after 0s
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3051318Z [session-kill-resume] Automatic recovery could not start: container eec34a2b-aa97-4bf1-8879-b483ab13d784-resume-1 exited with code 127 after 1 seconds.
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3055959Z ✔ when the resumed container still exits 127 at startup, the fresh launch also runs solve (1.330752ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3066249Z ✔ a recovery container's own exit 127 is reported as failed, not as the predecessor's oom-kill (0.787819ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3071765Z ✔ 126 and 127 are described as a command that never started (0.413938ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3092602Z ✔ the completion message of an exit 127 says the command was not found, in every locale (1.997289ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3100617Z [session-kill-resume] The recovery session eec34a2b-aa97-4bf1-8879-b483ab13d784-resume-1 exited with code 127 (command not found) without running its command; starting a fresh isolated session (issue #2887).
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3109478Z ✔ an in-place recovery that exits 127 at completion is relaunched fresh under the same attempt (1.48675ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3113118Z ✔ a fresh recovery, an ordinary failure or a stopped session that exits 127 is not relaunched (0.284841ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3120199Z ℹ tests 8
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3120744Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3121282Z ℹ pass 8
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3121708Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3122147Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3122844Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3123329Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3123901Z ℹ duration_ms 49.520555
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3237211Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:57.3238136Z [7/703] tests/anonymous-clone-auth-2192.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0023209Z ✔ the anonymous-download refusal is recognised, not reported as "Unknown error" (1.115683ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0024688Z ✔ classification survives the shapes the message arrives in (0.230442ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0025984Z ✔ the refusal is transient and gets its own diagnostic category (0.435581ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0028253Z ✔ unrelated clone failures keep their existing classification (0.160847ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0029248Z ✔ the Authorization header carries the token as HTTP Basic, actions/checkout style (0.206706ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0030108Z ✔ the git config key matches every repository on the host and nothing else (0.109971ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0031054Z ✔ the token travels in GIT_CONFIG_* env vars, never in argv or a config file (0.231182ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0031864Z ✔ existing GIT_CONFIG_* entries from the outer environment are preserved (0.112688ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0032868Z ✔ a malformed GIT_CONFIG_COUNT does not stop authentication (0.114979ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0033955Z ✔ hasGitAuthConfig sees authentication configured by an outer environment (0.211863ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0034894Z ✔ ensureAuthenticatedGitTransport applies the header from an env token (0.76003ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0035885Z ✔ ensureAuthenticatedGitTransport is idempotent (0.1695ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0036614Z ✔ an operator can opt out of forced authentication (0.150148ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0037321Z ✔ an explicit env token wins over gh auth token, and gh is used otherwise (0.916318ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0038089Z ✔ the clone paths authenticate before the first git network call (2.277011ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0047641Z ✔ the retry paths recover instead of merely waiting (1.069018ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0107791Z ✔ the preemptive Authorization header is sanitized in every representation (5.890577ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0110668Z ✔ the already-configured path reports the transport state (0.254236ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0116264Z ℹ tests 18
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0116737Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0117215Z ℹ pass 18
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0117648Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0118064Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0118581Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0119008Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0121760Z ℹ duration_ms 18.355306
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0249656Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.0250499Z [8/703] tests/auto-restart-after-completion-restart-3469.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4634087Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4635415Z Issue #3469: auto-restart after a completion restart and the .gitkeep revert
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4635783Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4644644Z   PASS: the PR #3446 sequence: the branch moved after the repeated session, so the loop restarts
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4651249Z   PASS: a genuine stall on an unmoved branch still stops (issue #2247 stays fixed)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4653088Z   PASS: an unreadable HEAD keeps the previous behaviour instead of guessing
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4656118Z   PASS: a completion restart is recorded but is not stall evidence itself
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4660202Z   PASS: completion restarts are labelled and marked as no stall evidence
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4660680Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4661102Z Results: 5 passed, 0 failed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4730940Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:58.4731886Z [9/703] tests/billing-limit-stop-2247.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.1345264Z PASS: billing-limit stop extracted for #2247
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.1462160Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.1465952Z [10/703] tests/bot-import-closure-3206.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2347088Z ✔ finds static, side-effect, re-export and literal dynamic imports (1.675657ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2347864Z ✔ multi-line import lists are followed (0.187625ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2348753Z ✔ commented-out imports are not followed (0.146644ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2350018Z ✔ the closure follows imports transitively and handles cycles (0.436272ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2350700Z ✔ a specifier that resolves to no file is skipped (0.188956ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2351439Z ✔ the real bot entry pulls in the modules it loads (44.907162ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2354904Z ℹ tests 6
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2355381Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2355791Z ℹ pass 6
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2356242Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2356598Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2356954Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2357318Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2357667Z ℹ duration_ms 54.524825
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2409133Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2410315Z [11/703] tests/check-release-needed-2175.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2706934Z check-release-needed-2175.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2736648Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.2737543Z [12/703] tests/check-web-archive.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3584192Z ▶ extractErrorsSection
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3585254Z   ✔ stops at the next top-level heading (0.930444ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3586186Z   ✔ falls back to the whole document when the heading is absent (0.161241ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3587186Z ✔ extractErrorsSection (2.136045ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3587777Z ▶ extractBrokenUrls
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3588547Z   ✔ ignores successful redirects outside the errors section (1.075615ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3589574Z   ✔ parses the full document when the errors section is absent (0.279542ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3590514Z   ✔ extracts every http error from a full report exactly once (0.278764ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3591344Z ✔ extractBrokenUrls (1.907833ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3592077Z ▶ extractBrokenLinks
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3593002Z   ✔ reports errors that the Wayback Machine cannot answer (0.309289ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3593987Z   ✔ never classifies a non-http error as a URL (0.1842ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3594876Z   ✔ matches the error count lychee itself reports (0.198114ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3595974Z ✔ extractBrokenLinks (0.969561ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3596653Z ▶ check-web-archive.mjs end to end
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3597559Z   ✔ fails when the only lychee errors have no http URL to archive (36.149306ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3598472Z ✔ check-web-archive.mjs end to end (36.321034ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3599107Z ℹ tests 9
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3599679Z ℹ suites 4
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3600120Z ℹ pass 9
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3600571Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3601084Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3601533Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3602081Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3602581Z ℹ duration_ms 49.009894
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3647408Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.3648310Z [13/703] tests/ci-integrity-2150.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6329773Z ci-integrity-2150.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6369530Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6370127Z [14/703] tests/ci-runner-image-2279.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6667914Z ci-runner-image-2279.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6703127Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.6703818Z [15/703] tests/ci-workflow-cancellation-2082.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7089273Z ci-workflow-cancellation-2082.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7176181Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7177252Z [16/703] tests/ci-workflow-timeouts-2082.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7516954Z ci-workflow-timeouts-2082.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7562085Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7563084Z [17/703] tests/cicd-best-practices-concurrency-2128.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7881333Z cicd-best-practices-concurrency-2128.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7920409Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.7921175Z [18/703] tests/cicd-best-practices-container-images-2152.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8237034Z cicd-best-practices-container-images-2152.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8274147Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8275511Z [19/703] tests/cicd-best-practices-false-negatives-2625.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8579862Z cicd-best-practices-false-negatives-2625.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8610320Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8611463Z [20/703] tests/cicd-best-practices-pipeline-gates-2198.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8912969Z cicd-best-practices-pipeline-gates-2198.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8949329Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.8950631Z [21/703] tests/cicd-best-practices-publish-preflight-2221.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.9263409Z cicd-best-practices-publish-preflight-2221.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.9298572Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.9305987Z [22/703] tests/cicd-best-practices-registry-lag-2923.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.9593619Z cicd-best-practices-registry-lag-2923.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:02:59.9629704Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.0065283Z [23/703] tests/cicd-best-practices-serialised-writers-2220.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.0066105Z cicd-best-practices-serialised-writers-2220.test.mjs: all assertions passed
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.0104300Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.0105471Z [24/703] tests/claude-access-error-3759.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3161265Z ✔ replay the incident: missing result, exit 1, 403, and 99% warning (24.356723ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3244362Z ✔ an explicit cancellation in the transcript supplies the diagnosis (newline=true) (7.971402ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3309192Z ✔ an explicit cancellation in the transcript supplies the diagnosis (newline=false) (6.41306ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3312817Z ✔ the shared error boundary rejects pure and concatenated opaque dumps for every tool (0.296109ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3315975Z ✔ SDK summary is debug output even when concatenated with a base64 body (0.215441ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3375341Z ✔ a successful terminal result never becomes an access failure (5.739112ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3404982Z ✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=true) (2.75323ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3430779Z ✔ SDK response block alone survives arbitrary stream chunks (stderr=true, newline=false) (2.410957ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3477657Z ✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=true) (4.560531ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3525461Z ✔ SDK response block alone survives arbitrary stream chunks (stderr=false, newline=false) (4.629628ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3557716Z ✔ a bare 403 without a response block is recovered from the concatenated summary (3.068518ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3611149Z ✔ a terminal access refusal supersedes an earlier quota rejection (5.254153ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3612270Z ✔ ordinary prose and a file permission error remain meaningful (0.119786ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3615274Z ✔ a subsequent assistant turn clears a recovered SDK access error (0.204594ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3619982Z ✔ unrelated endpoints and non-access failures are not subscription failures (0.393905ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3622088Z ✔ a readable provider error takes precedence over a bare SDK 403 (0.174635ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3703473Z ✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (json) (7.970305ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3780596Z ✔ an actual Claude CLI mock-403 trace retains the explicit cancellation (br) (7.538978ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3785554Z ℹ tests 18
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3786073Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3786569Z ℹ pass 18
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3786982Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3787438Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3788033Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3788457Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3789018Z ℹ duration_ms 91.146507
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3895672Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.3896788Z [25/703] tests/claude-post-result-kill-3015.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:03:00.8932830Z ✔ SIGTERM after a successful result is not a failure (exit chunk: true) (219.984435ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.0983684Z ✔ SIGTERM after a successful result is not a failure (exit chunk: false) (204.61109ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1043338Z ✔ a genuine non-zero exit after a successful result still fails, but never with the summary as the error (5.844112ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1070705Z ✔ a CLI that exits by itself after its result is unaffected (2.681486ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1075738Z ℹ tests 4
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1076412Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1077029Z ℹ pass 4
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1077458Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1077913Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1078362Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1078793Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1079254Z ℹ duration_ms 438.165787
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1176099Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.1177486Z [26/703] tests/claude-process-exit-3015.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3154395Z ✔ describeExitCode names the signal for 128 + n codes (0.962454ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3155902Z ✔ the solver killing the CLI after a successful result is ignored (0.347058ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3157316Z ✔ a post-result kill after an error result keeps its exit code (0.83357ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3158245Z ✔ other solver kills keep the code but leave the verdict to their own flags (0.18275ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3159192Z ✔ a non-zero exit the solver did not cause is a failure (0.205561ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3160060Z ✔ exit 0 and missing codes are not failures (0.16445ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3161027Z ✔ isSuccessSummaryText compares whitespace-normalized text (0.258247ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3162008Z ✔ selectClaudeFailureMessage replaces the success summary with an exit description (0.251982ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3163110Z ✔ selectClaudeFailureMessage keeps real error text (0.287153ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3164147Z ✔ extractToolErrorCore never publishes the work summary as the error, for any tool (3.200291ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3165093Z ✔ extractToolErrorCore still reports real errors next to a summary (0.210015ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3166045Z ✔ isProcessGroupAlive maps kill(0) outcomes (0.180517ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3184969Z ✔ isProcessGroupAlive sees a real group until it is killed (27.866799ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3186243Z ℹ tests 13
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3186916Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3187553Z ℹ pass 13
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3188059Z ℹ fail 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3188560Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3189458Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3190001Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3190638Z ℹ duration_ms 39.785346
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3368347Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.3369418Z [27/703] tests/claude-prompt-argv-3282.test.mjs
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.7450063Z ✔ the tests replay the command-stream version production loads (0.934711ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.7971663Z ✖ the spawned claude gets the system prompt verbatim, with nothing executed (53.840342ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8336637Z ✖ a resumed session gets -p and the system prompt verbatim (36.256493ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8650368Z ✖ the logged command (and --dry-run result) is copy-pastable shell (31.044842ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8655926Z ℹ tests 4
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8658152Z ℹ suites 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8658870Z ℹ pass 1
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8659434Z ℹ fail 3
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8659883Z ℹ cancelled 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8660418Z ℹ skipped 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8660849Z ℹ todo 0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8661457Z ℹ duration_ms 126.966961
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8687974Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8688951Z ✖ failing tests:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8690823Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8691514Z test at tests/claude-prompt-argv-3282.test.mjs:118:1
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8693026Z ✖ the spawned claude gets the system prompt verbatim, with nothing executed (53.840342ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8694193Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8694875Z   + actual - expected
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8695323Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8696096Z     `Use the 'file' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\n` +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8697355Z   +   'Files saved as `touch /tmp/claude-prompt-argv-3282-yWCweD/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8698366Z   +   '\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8701970Z   +   "Location privacy: Keep the user's and host's geolocation private. Avoid collecting, inferring, or transmitting their location, including IP-geolocation lookups, GPS/browser location permissions, local timezone or region probes, and user_location hints in search or model requests. Use location-neutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location."
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8705660Z   -   'Files saved as `touch /tmp/claude-prompt-argv-3282-yWCweD/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8706638Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8707583Z       at TestContext.<anonymous> (file:///home/runner/work/hive-mind/hive-mind/tests/claude-prompt-argv-3282.test.mjs:126:10)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8709017Z       at async Test.run (node:internal/test_runner/test:1409:7)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8709835Z       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8710733Z     generatedMessage: true,
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8711338Z     code: 'ERR_ASSERTION',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8713310Z     actual: "eutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location....",
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8716157Z     expected: 'Use the \'file\' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\nFiles saved as `touch /tmp/claude-prompt-argv-3282-yWCweD/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8717694Z     operator: 'strictEqual',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8718256Z     diff: 'simple'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8718775Z   }
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8719007Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8719544Z test at tests/claude-prompt-argv-3282.test.mjs:131:1
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8720793Z ✖ a resumed session gets -p and the system prompt verbatim (36.256493ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8721909Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8723083Z   + actual - expected
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8723578Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8724572Z     `Use the 'file' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\n` +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8726095Z   +   'Files saved as `touch /tmp/claude-prompt-argv-3282-BQs4vC/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8727210Z   +   '\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8730770Z   +   "Location privacy: Keep the user's and host's geolocation private. Avoid collecting, inferring, or transmitting their location, including IP-geolocation lookups, GPS/browser location permissions, local timezone or region probes, and user_location hints in search or model requests. Use location-neutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location."
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8734656Z   -   'Files saved as `touch /tmp/claude-prompt-argv-3282-BQs4vC/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8735629Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8736585Z       at TestContext.<anonymous> (file:///home/runner/work/hive-mind/hive-mind/tests/claude-prompt-argv-3282.test.mjs:139:10)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8737824Z       at async Test.run (node:internal/test_runner/test:1409:7)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8738776Z       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8739635Z     generatedMessage: true,
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8740205Z     code: 'ERR_ASSERTION',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8741917Z     actual: "eutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location....",
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8744717Z     expected: 'Use the \'file\' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\nFiles saved as `touch /tmp/claude-prompt-argv-3282-BQs4vC/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8746240Z     operator: 'strictEqual',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8746851Z     diff: 'simple'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8747344Z   }
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8747545Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8748008Z test at tests/claude-prompt-argv-3282.test.mjs:143:1
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8749150Z ✖ the logged command (and --dry-run result) is copy-pastable shell (31.044842ms)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8750234Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8750980Z   + actual - expected
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8751465Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8752559Z     `Use the 'file' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\n` +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8754056Z   +   'Files saved as `touch /tmp/claude-prompt-argv-3282-cGdLfh/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8755099Z   +   '\n' +
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8758250Z   +   "Location privacy: Keep the user's and host's geolocation private. Avoid collecting, inferring, or transmitting their location, including IP-geolocation lookups, GPS/browser location permissions, local timezone or region probes, and user_location hints in search or model requests. Use location-neutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location."
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8761660Z   -   'Files saved as `touch /tmp/claude-prompt-argv-3282-cGdLfh/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8762950Z   
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8764011Z       at TestContext.<anonymous> (file:///home/runner/work/hive-mind/hive-mind/tests/claude-prompt-argv-3282.test.mjs:153:10)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8765189Z       at async Test.run (node:internal/test_runner/test:1409:7)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8766276Z       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8767138Z     generatedMessage: true,
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8767725Z     code: 'ERR_ASSERTION',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8769555Z     actual: "eutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location....",
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8772197Z     expected: 'Use the \'file\' command, retry with: curl -H "Authorization: token $(echo LEAKED-3282)" "<url>".\nFiles saved as `touch /tmp/claude-prompt-argv-3282-cGdLfh/executed` or `.png`; C:\\tmp\\ costs $5 & more | less > out ! ~',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8773730Z     operator: 'strictEqual',
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8774395Z     diff: 'simple'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8774863Z   }
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8834439Z 
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8835396Z Failed test files:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8968011Z   - tests/claude-prompt-argv-3282.test.mjs (exit 1)
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.8979523Z ##[error]Process completed with exit code 1.
+test-suites	UNKNOWN STEP	2026-11-09T06:03:01.9305323Z Post job cleanup.
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0272623Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0313738Z git version 2.56.0
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0346802Z Temporarily overriding HOME='/home/runner/work/_temp/1da3091e-7926-40e6-8e1d-9ab7e532d8fb' before making global git config changes
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0348448Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0352942Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0397871Z Removing SSH command configuration
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0404865Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0439919Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0669643Z Removing HTTP extra header
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0677111Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0720669Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0966875Z Removing includeIf entries pointing to credentials config files
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.0978677Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1016572Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1028788Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1041949Z includeif.gitdir:/github/workspace/.git.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1043282Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1045829Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1062541Z /home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.1094302Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-ed2b0875\-bebd\-4df1\-be04\-d5a18a5fe10c\.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.2332111Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.2371586Z /home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.2381047Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-ed2b0875\-bebd\-4df1\-be04\-d5a18a5fe10c\.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3071614Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3100636Z /github/runner_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3107503Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-ed2b0875\-bebd\-4df1\-be04\-d5a18a5fe10c\.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3604775Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3633008Z /github/runner_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.3640138Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-ed2b0875\-bebd\-4df1\-be04\-d5a18a5fe10c\.config
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.4479002Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.4705001Z Removing credentials config '/home/runner/work/_temp/git-credentials-ed2b0875-bebd-4df1-be04-d5a18a5fe10c.config'
+test-suites	UNKNOWN STEP	2026-11-09T06:03:02.5505741Z Cleaning up orphan processes

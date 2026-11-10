@@ -1,0 +1,26 @@
+en
+  prompt
+    user
+      issue
+        to
+          solve "Issue to solve: {{issueUrl}}"
+        linked
+          to
+            pr "Issue to solve: Issue linked to PR #{{prNumber}}"
+      prepared
+        branch "Your prepared branch: {{branchName}}"
+        working
+          directory "Your prepared working directory: {{tempDir}}"
+        tmp
+          directory "Your prepared tmp directory for logs and downloads: {{workspaceTmpDir}}"
+        pull
+          request "Your prepared Pull Request: {{prUrl}}"
+      forked
+        repository "Your forked repository: {{forkedRepo}}"
+      original
+        repository "Original repository (upstream): {{owner}}/{{repo}}"
+      fork
+        actions
+          url "GitHub Actions on your fork: {{forkActionsUrl}}"
+      continue "Continue."
+      proceed "Proceed."

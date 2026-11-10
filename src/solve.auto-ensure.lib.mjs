@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -95,7 +96,7 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
       throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout?.toString() || pullResult.stderr?.toString() || 'no output'}`);
     }
 
-    const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
+    const ensureFeedbackLines = ['', '='.repeat(60), promptText('prompt.templates.solve-auto-ensure.runAutoEnsureRequirements.text1'), '='.repeat(60), '', promptText('prompt.templates.solve-auto-ensure.runAutoEnsureRequirements.text2'), ''];
 
     const ensureResult = await executeToolIteration({
       issueUrl,

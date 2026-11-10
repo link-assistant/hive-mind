@@ -1,0 +1,134 @@
+✔ productive recovery resets the outage clock and retry backstop (3.541627ms)
+✔ codex: capacity after 13 hours of resumed work gets a fresh retry with context (107.186514ms)
+✔ codex: init and repeated failures do not reset exponential backoff or the count limit (44.00489ms)
+✔ codex: successful text quoting an outage is never retried (10.904452ms)
+✔ claude: capacity after 13 hours of resumed work gets a fresh retry with context (57.883931ms)
+✔ claude: init and repeated failures do not reset exponential backoff or the count limit (26.671846ms)
+✔ claude: successful text quoting an outage is never retried (12.289306ms)
+✔ agent: capacity after 13 hours of resumed work gets a fresh retry with context (18.683093ms)
+✔ agent: init and repeated failures do not reset exponential backoff or the count limit (14.889457ms)
+✔ agent: successful text quoting an outage is never retried (4.344103ms)
+✔ opencode: capacity after 13 hours of resumed work gets a fresh retry with context (17.664674ms)
+✔ opencode: init and repeated failures do not reset exponential backoff or the count limit (19.742819ms)
+✔ opencode: successful text quoting an outage is never retried (6.742128ms)
+✔ qwen: capacity after 13 hours of resumed work gets a fresh retry with context (22.302224ms)
+✔ qwen: init and repeated failures do not reset exponential backoff or the count limit (10.10947ms)
+✔ qwen: successful text quoting an outage is never retried (4.990379ms)
+✖ gemini: capacity after 13 hours of resumed work gets a fresh retry with context (12.700612ms)
+✔ gemini: init and repeated failures do not reset exponential backoff or the count limit (10.524434ms)
+✔ gemini: successful text quoting an outage is never retried (3.733906ms)
+✔ Codex transport exception resumes the observed thread (26.833668ms)
+✔ provider transient signature is retryable: server_is_overloaded (0.606501ms)
+✔ provider transient signature is retryable: HTTP 529 (0.278671ms)
+✔ provider transient signature is retryable: API Error: 529 (0.110626ms)
+✔ provider transient signature is retryable: timeout_error (0.10748ms)
+✔ provider transient signature is retryable: rate_limit_error (0.148256ms)
+✔ provider transient signature is retryable: InternalServerError (0.381251ms)
+✔ provider transient signature is retryable: ResponseStreamDisconnected (0.143547ms)
+✔ provider transient signature is retryable: ResponseTooManyFailedAttempts (0.138878ms)
+✖ provider transient signature is retryable: Opus is experiencing high load. Switch to Sonnet. (0.712699ms)
+✖ provider transient signature is retryable: API Error: No response from API (0.356645ms)
+✖ provider transient signature is retryable: APITimeoutError (0.379348ms)
+✔ codex: synthetic errors, initialization and tool results cannot replenish the budget (0.429051ms)
+✔ claude: synthetic errors, initialization and tool results cannot replenish the budget (0.237364ms)
+✔ agent: synthetic errors, initialization and tool results cannot replenish the budget (0.238565ms)
+✔ opencode: synthetic errors, initialization and tool results cannot replenish the budget (0.257311ms)
+✔ qwen: synthetic errors, initialization and tool results cannot replenish the budget (0.628483ms)
+✔ gemini: synthetic errors, initialization and tool results cannot replenish the budget (0.222926ms)
+✔ permanent errors and prose stay terminal: Invalid API key (0.711578ms)
+✔ permanent errors and prose stay terminal: model not found (0.188051ms)
+✔ permanent errors and prose stay terminal: Quota exceeded. Check your plan and billing details. (0.176459ms)
+✔ permanent errors and prose stay terminal: This content was flagged for possible cybersecurity risk. (0.168904ms)
+✔ permanent errors and prose stay terminal: See issue #529 and PR #503. (0.1612ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 38
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 797.337034
+
+✖ failing tests:
+
+test at tests/provider-transient-recovery-3831.test.mjs:129:3
+✖ gemini: capacity after 13 hours of resumed work gets a fresh retry with context (12.700612ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'session-3831'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:133:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'session-3831',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:164:3
+✖ provider transient signature is retryable: Opus is experiencing high load. Switch to Sonnet. (0.712699ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:164:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:164:3
+✖ provider transient signature is retryable: API Error: No response from API (0.356645ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:164:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:164:3
+✖ provider transient signature is retryable: APITimeoutError (0.379348ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:164:78)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

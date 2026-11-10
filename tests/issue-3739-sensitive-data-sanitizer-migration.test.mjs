@@ -212,9 +212,10 @@ await test('redactAuthOutput (/auth) keeps labels and masks tokens', () => {
 });
 
 await test('docker error messages keep their argv masking and mask other credentials', () => {
-  const output = dockerErrorMessage({ message: `docker run --env API_TOKEN=${OPAQUE} -H "Authorization: token ${GITHUB_TOKEN}"` });
+  const output = dockerErrorMessage({ message: `docker run --env API_TOKEN=${OPAQUE} --token ${OPAQUE} -H "Authorization: token ${GITHUB_TOKEN}"` });
   assert.ok(!output.includes(OPAQUE) && !output.includes(GITHUB_TOKEN));
   assert.match(output, /--env API_TOKEN=\*\*\*/);
+  assert.match(output, /--token f3a…3e5/);
   assert.match(output, /Authorization: token ghp…b4N/);
 });
 

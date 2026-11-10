@@ -37,7 +37,7 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-库 0.21.0 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141 的旧变通方案已删除；剩余七项问题已报告为上游 #148–#154，并在[案例研究](./case-studies/issue-3739/README.md)中逐项记录：掩码文本、折行载荷、构造语法、Markdown、Authorization 方案、编码掩码和私钥类型。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
+库 0.21.1 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141 的旧变通方案已删除；剩余七项问题已报告为上游 #148–#154，并在[案例研究](./case-studies/issue-3739/README.md)中逐项记录：掩码文本、折行载荷、构造语法、Markdown、Authorization 方案、编码掩码和私钥类型。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 

@@ -96,7 +96,10 @@
    ```
    screen -R bot # 进入机器人的新 screen 会话
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   read -rsp "Telegram 机器人令牌：" TELEGRAM_BOT_TOKEN
+   echo
+   export TELEGRAM_BOT_TOKEN
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

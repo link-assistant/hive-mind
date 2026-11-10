@@ -37,7 +37,7 @@ The library rules (vendor formats, the Gitleaks rule set, and contextual keys) c
 
 Detection is intentionally conservative at external boundaries. A false positive may mask a credential-like value; a scanner failure blocks the publication instead of sending the original bytes.
 
-Library 0.21.0 owns credential rules, environment selection, format context, npm-package and token-count exemptions. The adapter lazily loads `/credentials`. Obsolete workarounds for #131–#141 were removed; seven smaller remaining gaps are reported as upstream #148–#154 and documented individually in the [case study](./case-studies/issue-3739/README.md). They cover masked prose, wrapped payloads, constructor syntax, Markdown placeholders/configuration, overlapping scheme findings, encoded masks and private-key typing. Secretlint and `containsKnownToken` remain independent publication verifiers.
+Library 0.21.1 owns credential rules, environment selection, format context, npm-package and token-count exemptions. The adapter lazily loads `/credentials`. Obsolete workarounds for #131–#141 were removed; seven smaller remaining gaps are reported as upstream #148–#154 and documented individually in the [case study](./case-studies/issue-3739/README.md). They cover masked prose, wrapped payloads, constructor syntax, Markdown placeholders/configuration, overlapping scheme findings, encoded masks and private-key typing. Secretlint and `containsKnownToken` remain independent publication verifiers.
 
 ## Encoded credentials
 

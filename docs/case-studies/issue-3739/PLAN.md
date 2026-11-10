@@ -15,15 +15,15 @@ Objective: complete issues #3739 and #3740, all open sanitization issues identif
 - [x] Review every issue comment, PR conversation comment, inline comment and review; inspect any required sub-issues and related current implementations.
 - [x] Keep all affected documentation, translations, tracing (off by default) and changesets consistent.
 - [x] Add minimal reproducing regression tests and run focused checks sequentially; save substantial output to files; use CI for full suites/native builds.
-- [ ] Merge current main without rewriting history; review the complete PR diff for scope and regressions; commit atomic changes and push only issue-3739-dd36d9843cea.
+- [x] Merge current main without rewriting history; review the complete PR diff for scope and regressions; commit atomic changes and push only issue-3739-dd36d9843cea.
 - [ ] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
 
 ## Discovery record
 
 All 157 open issues were downloaded with pagination and filtered across titles and bodies. Direct sanitizer issues: #3739, #3740, #3747, #2841 and #2837. Adjacent credential exposure issues: #2647 and #3951. Other matches concern unrelated deployment, recovery, resource use, key-storage architecture or log attachment and are outside sanitizer behavior.
 
-The issue and PR conversation were read in full; there are no inline review comments or submitted reviews. Issues #3740, #3747 and #2841 have no comments. #2837 has two comments, including the later credentials-only clarification; #2647 has a later confirmation. #3951 has no comments. Library release 0.21.0 is the latest published release at discovery; all upstream #131–#141 issues are closed. These facts establish work to verify, not completion.
+The issue and PR conversation were read in full; there are no inline review comments or submitted reviews. Issues #3740, #3747 and #2841 have no comments. #2837 has two comments, including the later credentials-only clarification; #2647 has a later confirmation. #3951 has no comments. Library release 0.21.0 was latest at discovery; the subsequently published 0.21.1 was reviewed, adopted and audited again. All upstream #131–#141 issues are closed. These facts establish work to verify, not completion.
 
 ## Local verification
 
-All 42 files in `experiments/issue-3739-sanitizer-tests.txt` pass. The final run was sequential; after narrowing private-key typing, the five affected files were rerun and passed. The six open-issue regressions and the encoded/worker memory cases were rerun after the stream search optimization. Focused ESLint and the single patch changeset validation pass. See `verification.json` for the test-file inventory and finite timing probes. Full-suite and current-commit CI evidence will be recorded in the PR before readiness.
+All 42 files in `experiments/issue-3739-sanitizer-tests.txt` passed sequentially after upgrading to 0.21.1. The six open-issue regressions and encoded/worker memory cases also passed after the stream search optimization. The refreshed Sentry/transitive lockfile is undergoing the same focused matrix before finalization. Focused ESLint, translation sync, dependency freshness and the single patch changeset validation pass. See `verification.json` for the test-file inventory and finite timing probes. Full-suite and current-commit CI evidence will be recorded in the PR before readiness.

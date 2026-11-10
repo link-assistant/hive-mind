@@ -23,6 +23,10 @@ test('already masked prose remains stable while another credential is removed (#
   assert.equal(sanitize(once), once);
   assert.ok(!sanitize(`${once}; password=${secret}`).includes(secret));
   assert.ok(!sanitize(`${once}; token: ${secret}`).includes(secret));
+  // A vendor detector could hide a context-rule regression. Check an opaque
+  // value as well, so the prose exemption cannot swallow the next credential.
+  const opaque = ['f3a9', 'c2e1b7d4', '9a0e6f12', 'c4b8d3e5'].join('');
+  for (const suffix of [`; password=${opaque}`, `; token: ${opaque}`, `; Authorization: Bearer ${opaque}`]) assert.ok(!sanitize(`${once}${suffix}`).includes(opaque));
 });
 
 test('Actions syntax and realistic OTEL/SDK account details stay; credentials do not (#2841, #2837)', { timeout: 15000 }, () => {

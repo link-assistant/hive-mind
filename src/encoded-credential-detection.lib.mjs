@@ -266,15 +266,6 @@ export const findWrappedBase64Runs = text => {
  */
 const MAX_WRAPPED_HOLD_CHARS = 256 * 1024;
 
-/**
- * Offset from which a record-oriented sanitizer must retain `text[0, end)`
- * because its final lines may be the beginning of a wrapped base64 blob whose
- * remaining lines have not arrived yet.
- *
- * @param {string} text
- * @param {number} end offset just past the last complete record
- * @returns {number|null} offset to release up to, or null to release everything
- */
 const recordSeparatorKind = text => (text.includes('\r') ? (text.includes('\n') ? 'mixed' : '\r') : '\n');
 
 // Use native search for uniform separators; scan only the preceding line for
@@ -290,6 +281,15 @@ export const previousRecordSeparator = (text, before = text.length, kind = recor
   return -1;
 };
 
+/**
+ * Offset from which a record-oriented sanitizer must retain `text[0, end)`
+ * because its final lines may be the beginning of a wrapped base64 blob whose
+ * remaining lines have not arrived yet.
+ *
+ * @param {string} text
+ * @param {number} end offset just past the last complete record
+ * @returns {number|null} offset to release up to, or null to release everything
+ */
 export const wrappedBase64HoldStart = (text, end) => {
   const content = String(text ?? '');
   if (end <= 0 || end > content.length) return null;
@@ -355,6 +355,7 @@ export const wrappedBase64HoldStart = (text, end) => {
  * @param {string} content
  * @param {number} end offset just past the last complete record
  * @param {(index: number) => number} beforeSeparator steps back over one record separator
+ * @param {(index: number) => number} previous finds the preceding record separator
  * @returns {number|null} start offset of the line to hold, or null to release
  */
 const wrappedBase64OpenerStart = (content, end, beforeSeparator, previous) => {

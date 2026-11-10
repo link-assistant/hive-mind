@@ -67,12 +67,7 @@ export const dockerOk = async (run, args, options) => {
  * goes through the shared @link-foundation/sensitive-data-sanitizer engine
  * (#3739/#3740) like any other text meant for a human.
  */
-const maskDockerArgvSecrets = text =>
-  sanitizeCredentialText(
-    String(text ?? '')
-      .replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***')
-      .replace(/(--(?:api-key|token|secret|password)[= ])(\S+)/g, '$1***')
-  );
+const maskDockerArgvSecrets = text => sanitizeCredentialText(String(text ?? '').replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***'));
 
 /** The message a failed `docker` invocation should be reported with. */
 export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.toString?.().trim() || error?.message || String(error));

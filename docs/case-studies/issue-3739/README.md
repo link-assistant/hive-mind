@@ -54,7 +54,7 @@ The old `getGitHubTokensFromCommand` searched the output of `gh auth status` for
 
 ## Latest-library audit and remaining workarounds
 
-The dependency is now 0.21.0 (the latest npm release at the November 10 audit). Upstream #131–#141 were closed by #142. Their fixes were read and the migration regressions were rerun. The old gap detectors, clipping rules, environment-name filter, encoded-limit splitting and short-hex fallback were removed. All rendering uses the library; the private-key workaround corrects only the type on native findings so the native type-based renderer applies full redaction. The adapter uses the lazy synchronous `/credentials` entry and the library's verified `sanitize()` API.
+The dependency is now 0.21.1, published during the November 10 review. Its document-attribute changes were reviewed and all seven library-only probes below were repeated; these gaps remain. Upstream #131–#141 were closed by #142 in 0.21.0. Their fixes were read and the migration regressions were rerun. The old gap detectors, clipping rules, environment-name filter, encoded-limit splitting and short-hex fallback were removed. All rendering uses the library; the private-key workaround corrects only the type on native findings so the native type-based renderer applies full redaction. The adapter uses the lazy synchronous `/credentials` entry and the library's verified `sanitize()` API.
 
 Seven additional gaps were found with library-only probes and reported:
 

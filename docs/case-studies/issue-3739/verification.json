@@ -1,5 +1,5 @@
 {
-  "libraryVersion": "0.21.0",
+  "libraryVersion": "0.21.1",
   "testFileCount": 42,
   "testFiles": {
     "anonymous-clone-auth-2192.test.mjs": 0,

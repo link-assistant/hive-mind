@@ -119,7 +119,7 @@ const initSecretlint = async () => {
 
     return true;
   } catch (_error) {
-    // secretlint not available - fall back to custom patterns only
+    // Local diagnostics retain the library pass; publication stays blocked.
     if (global.verboseMode) {
       await log('  ⚠️  Secretlint is not available; publication boundaries will remain blocked.', { verbose: true });
     }
@@ -781,7 +781,7 @@ export const describeCredentialSanitizationFailure = error => {
  * Exact publication-boundary sanitizer.
  *
  * Unlike best-effort local diagnostics, outbound mutations require both the
- * the synchronous core (sensitive-data-sanitizer library) and Secretlint to
+ * synchronous core (sensitive-data-sanitizer library) and Secretlint to
  * complete successfully.
  * The final bytes are scanned again immediately before a caller publishes
  * them. Any scanner failure or residual finding blocks publication.

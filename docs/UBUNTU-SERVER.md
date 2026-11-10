@@ -100,7 +100,10 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
    ```
    screen -R bot # Enter new screen for bot
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   read -rsp "Telegram bot token: " TELEGRAM_BOT_TOKEN
+   echo
+   export TELEGRAM_BOT_TOKEN
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

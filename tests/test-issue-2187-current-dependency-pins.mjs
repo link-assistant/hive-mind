@@ -30,7 +30,7 @@ const expected = {
   lintStaged: '17.6.0',
   node: '26.13.0',
   prettier: '3.9.10',
-  sentry: '11.11.0',
+  sentry: '11.12.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.43.0',
   useM: '8.17.0',

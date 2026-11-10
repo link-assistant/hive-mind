@@ -40,3 +40,6 @@ test-telegram-config.mjs
 test-development-log-before-readiness-2048.mjs
 test-development-log-multi-session-2090.mjs
 test-development-log-option-1596.mjs
+telegram-event-loop-watchdog-3278.test.mjs
+telegram-handler-nonblocking-3206.test.mjs
+test-issue-2187-current-dependency-pins.mjs

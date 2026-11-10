@@ -1,6 +1,6 @@
 {
   "libraryVersion": "0.21.1",
-  "testFileCount": 42,
+  "testFileCount": 45,
   "testFiles": {
     "anonymous-clone-auth-2192.test.mjs": 0,
     "formal-ai-sidecar-lease-3210.test.mjs": 0,
@@ -43,7 +43,10 @@
     "test-telegram-config.mjs": 0,
     "test-development-log-before-readiness-2048.mjs": 0,
     "test-development-log-multi-session-2090.mjs": 0,
-    "test-development-log-option-1596.mjs": 0
+    "test-development-log-option-1596.mjs": 0,
+    "telegram-event-loop-watchdog-3278.test.mjs": 0,
+    "telegram-handler-nonblocking-3206.test.mjs": 0,
+    "test-issue-2187-current-dependency-pins.mjs": 0
   },
   "openIssueRegressionCount": 6,
   "focusedEslint": "passed",
@@ -62,5 +65,19 @@
       "preserved": true
     }
   ],
-  "ciEvidence": "See PR #3741 for current-head workflow results; local runs intentionally avoid full builds."
+  "ciEvidence": "See PR #3741 for current-head workflow results; local runs intentionally avoid full builds.",
+  "ciFollowup": {
+    "run": 42882837227,
+    "head": "43c2dcac39ec60ae6c42f6ce4bf9de61546ccab5",
+    "suiteFiles": 795,
+    "failedFiles": 4,
+    "logLines": [7463, 8204, 8242, 16961],
+    "corrections": ["Repeatable binary fixture with an explicit vendor-key-in-image masking assertion", "Private environment token inputs preserve the bot harness IPC channel", "Sentry pin assertions follow the required 11.12.0 update"],
+    "focusedReruns": "All four corrected test files pass; focused ESLint and formatting pass",
+    "boundedBinaryProbe": {
+      "seeds": 12,
+      "samples": 24,
+      "allPreserved": true
+    }
+  }
 }

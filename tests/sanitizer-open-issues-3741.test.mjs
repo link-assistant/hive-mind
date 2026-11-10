@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { createCredentialStreamSanitizer, sanitizeCredentialText } from '../src/credential-sanitization-core.lib.mjs';
 import { computeReleaseBoundary, findResidualCredentialBlock } from '../src/log-sanitize-stream.lib.mjs';
@@ -54,9 +54,13 @@ test('adapter exemptions cannot retain explicitly known values', { timeout: 1500
 
 test('closed JSON image lines and wrapped binary streams drain promptly and byte-for-byte (#3747)', { timeout: 20000 }, () => {
   // Finite 200 KiB probes: the old suffix regex takes tens of seconds here.
-  const image = JSON.stringify({ type: 'image', data: randomBytes(150000).toString('base64') }) + '\n';
+  // Fixed binary content keeps the regression reproducible. Arbitrary random
+  // base64 can contain a valid vendor-key pattern that must still be masked.
+  const bytes = Buffer.alloc(150000);
+  for (let at = 0; at < bytes.length; at += 32) createHash('sha256').update(`issue-3739:0:${at}`).digest().copy(bytes, at);
+  const image = JSON.stringify({ type: 'image', data: bytes.toString('base64') }) + '\n';
   const wrapped =
-    randomBytes(150000)
+    bytes
       .toString('base64')
       .match(/.{1,76}/g)
       .join('\n') + '\n';
@@ -73,6 +77,14 @@ test('closed JSON image lines and wrapped binary streams drain promptly and byte
     assert.ok(performance.now() - started < 10000, 'stream processing must remain bounded');
   }
   assert.equal(computeReleaseBoundary(image), image.length);
+  // Preserving image bytes must not exempt a credential-shaped substring.
+  const vendorKey = ['AIza', 'Sy5aBc9dEf7Gh3Jk2Lm8No4Pq6Rs0Tu1VwX'].join('');
+  const credentialImage = JSON.stringify({ type: 'image', data: vendorKey + 'A'.repeat(200000 - vendorKey.length) }) + '\n';
+  const credentialStream = createCredentialStreamSanitizer({ includeEnvironmentCredentials: false });
+  let cleaned = '';
+  for (let at = 0; at < credentialImage.length; at += 4096) cleaned += credentialStream.write(credentialImage.slice(at, at + 4096));
+  cleaned += credentialStream.flush();
+  assert.ok(!cleaned.includes(vendorKey));
   for (const separator of ['\n', '\r', '\r\n']) {
     const stream = createCredentialStreamSanitizer({ includeEnvironmentCredentials: false });
     const line = `Authorization: token ${secret}${separator}`;

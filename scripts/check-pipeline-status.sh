@@ -58,16 +58,37 @@ run_is_superseded() {
   [ "$head" != "$RUN_SHA" ]
 }
 
+# Issue #4029: any result other than success, skipped, failure or cancelled
+# (e.g. "abandoned" for a job that never got a runner, seen in
+# js-ai-driven-development-pipeline-template run 42674292671) means the job
+# did not prove anything, so the gate fails closed instead of passing.
+select_unknown_results() {
+  NEEDS_JSON="$NEEDS_JSON" node --input-type=module -e '
+    const known = new Set(["success", "skipped", "failure", "cancelled"]);
+    const jobs = Object.entries(JSON.parse(process.env.NEEDS_JSON))
+      .filter(([, value]) => !known.has(value?.result))
+      .map(([name, value]) => `${name} (${value?.result ?? "no result"})`);
+    console.log(jobs.join(", "));
+  '
+}
+
 failed="$(select_by_result failure)"
 cancelled="$(select_by_result cancelled)"
+unknown="$(select_unknown_results)"
 
 echo "Failed jobs:    ${failed:-<none>}"
 echo "Cancelled jobs: ${cancelled:-<none>}"
+[ -z "$unknown" ] || echo "Other results:  ${unknown}"
 
 status=0
 
 if [ -n "$failed" ]; then
   echo "::error::Pipeline failed. Failing jobs: ${failed}"
+  status=1
+fi
+
+if [ -n "$unknown" ]; then
+  echo "::error::Pipeline has jobs that neither succeeded nor were skipped: ${unknown}. They did not run to completion, so nothing they check was verified."
   status=1
 fi
 

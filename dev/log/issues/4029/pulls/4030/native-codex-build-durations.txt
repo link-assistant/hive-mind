@@ -1,0 +1,34 @@
+# Native Codex build job durations (release.yml runs, newest first; skipped jobs omitted)
+# run branch platform conclusion duration; timeout before the fix: 120 minutes
+42774931013 issue-3739-dd36d9843cea linux-x64 cancelled 16min
+42774931013 issue-3739-dd36d9843cea linux-arm64 cancelled 16min
+42773411902 issue-3739-dd36d9843cea linux-arm64 cancelled 10min
+42773411902 issue-3739-dd36d9843cea linux-x64 cancelled 9min
+42767503118 issue-4029-ba258b54b27b linux-x64 cancelled 12min
+42767503118 issue-4029-ba258b54b27b linux-arm64 cancelled 12min
+42765849035 issue-4029-ba258b54b27b linux-x64 success 82min
+42765849035 issue-4029-ba258b54b27b linux-arm64 success 103min
+42657172126 main linux-arm64 success 110min
+42657172126 main linux-x64 success 77min
+42636490213 issue-4025-c651727aa29c linux-arm64 success 104min
+42636490213 issue-4025-c651727aa29c linux-x64 success 83min
+42618686272 issue-4025-c651727aa29c linux-arm64 success 106min
+42618686272 issue-4025-c651727aa29c linux-x64 success 84min
+42615367731 issue-4025-c651727aa29c linux-arm64 cancelled 21min
+42615367731 issue-4025-c651727aa29c linux-x64 cancelled 21min
+42614946918 issue-4027-c97533127eee linux-arm64 success 103min
+42614946918 issue-4027-c97533127eee linux-x64 success 83min
+42613833285 issue-4025-c651727aa29c linux-x64 cancelled 8min
+42613833285 issue-4025-c651727aa29c linux-arm64 cancelled 8min
+42609000121 main linux-x64 success 100min
+42609000121 main linux-arm64 success 108min
+42592473438 issue-3785-4c28551ac612 linux-x64 success 105min
+42592473438 issue-3785-4c28551ac612 linux-arm64 success 105min
+42586116026 issue-3785-4c28551ac612 linux-arm64 cancelled 34min
+42586116026 issue-3785-4c28551ac612 linux-x64 cancelled 33min
+42584312863 issue-3785-4c28551ac612 linux-arm64 cancelled 12min
+42584312863 issue-3785-4c28551ac612 linux-x64 cancelled 12min
+42583769147 issue-3785-4c28551ac612 linux-arm64 cancelled 2min
+42583769147 issue-3785-4c28551ac612 linux-x64 cancelled 1min
+42582095590 issue-3785-4c28551ac612 linux-arm64 cancelled 13min
+42582095590 issue-3785-4c28551ac612 linux-x64 cancelled 13min

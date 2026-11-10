@@ -154,3 +154,21 @@ export function assertNoCapabilityTraffic(traffic, phase) {
   const leaks = Object.entries(traffic).filter(([, lines]) => lines.length);
   if (leaks.length) throw new Error(`${phase}: capability traffic ${leaks.map(([channel, lines]) => `${channel}=[${lines.join(', ')}]`).join('; ')}`);
 }
+
+/** Bare semver of a CLI version label: `codex-cli 0.164.0` and `0.164.0` both give `0.164.0`. */
+export const cliLabelVersion = label => /(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\s*$/u.exec(String(label ?? '').trim())?.[1] ?? null;
+
+/**
+ * Issue #4029: every Codex release rewrites `~/.codex/skills/.system` with its
+ * own embedded stock skills on start, and the production audit refuses launch
+ * (typed `CodexStockBaselineError`) unless they equal the pinned baseline. The
+ * lifecycle gate may accept that refusal only while a Codex *other than* the
+ * pinned release has run in the home, e.g. the previous release it stages or
+ * the npm `latest` the idle updater installs (0.167.0 on 2026-11-06 changed the
+ * stock skills, while the images pin 0.164.0 and exclude Codex from updates).
+ */
+export function codexStockRefusalExpected(codexVersion, pinnedCliVersion) {
+  const actual = cliLabelVersion(codexVersion);
+  const pinned = cliLabelVersion(pinnedCliVersion);
+  return Boolean(actual && pinned && actual !== pinned);
+}

@@ -45,6 +45,33 @@ const DEFAULT_PUSH_DELAY_MS = 3000;
 const RELEASE_METADATA_FILES = new Set(['package.json', 'package-lock.json', 'CHANGELOG.md']);
 
 /**
+ * The paths that are not release metadata (package metadata, lockfile,
+ * changelog or a changeset Markdown file).
+ *
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+export function nonReleaseMetadataPaths(paths) {
+  return paths.filter(path => path && !RELEASE_METADATA_FILES.has(path) && !/^\.changeset\/[^/]+\.md$/.test(path));
+}
+
+// Documentation, data, experiments and collected logs are not code the checks
+// validate, and scripts/detect-code-changes.mjs keeps most of them out of the
+// release trigger, so a newer commit touching only them may never release.
+const UNTESTED_SOURCE_EXCLUDED = /^(\.changeset|data|docs|experiments|dev)\/|\.md$/;
+
+/**
+ * Paths that changed on the remote branch and would be released untested:
+ * anything that is neither release metadata nor documentation.
+ *
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+export function untestedSourcePaths(paths) {
+  return nonReleaseMetadataPaths(paths).filter(path => !UNTESTED_SOURCE_EXCLUDED.test(path));
+}
+
+/**
  * Prove that a generated version commit did not change the source tree that the
  * parent workflow validated. Changesets may consume Markdown files and update
  * the package metadata, lockfile, and changelog; anything else must fail closed
@@ -54,7 +81,7 @@ const RELEASE_METADATA_FILES = new Set(['package.json', 'package-lock.json', 'CH
  * @returns {void}
  */
 export function assertReleaseMetadataOnly(paths) {
-  const unexpected = paths.filter(path => path && !RELEASE_METADATA_FILES.has(path) && !/^\.changeset\/[^/]+\.md$/.test(path));
+  const unexpected = nonReleaseMetadataPaths(paths);
   if (unexpected.length > 0) {
     throw new Error(`Refusing to publish a release commit with unvalidated source changes: ${unexpected.join(', ')}`);
   }
@@ -191,7 +218,7 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {(ms: number) => Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
- * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
+ * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean, skippedUntestedRemote?: boolean}>}
  */
 export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', sleeper, logger = console, verbose = false }) {
   // Network git (fetch) goes through the shared retry loop; local commands
@@ -215,6 +242,23 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
   if (localHead !== remoteHead) {
     logger.log(`Remote ${branch} has advanced (local: ${localHead}, remote: ${remoteHead})`);
     logger.log('This may indicate a previous attempt partially succeeded.');
+
+    // Issue #4029: rebasing onto a main that gained source changes would
+    // version and publish code this run never tested, and the release would
+    // still report green. Only release metadata (a previous attempt's bump, or
+    // another run's) may be picked up. Main runs queue rather than cancel, so
+    // the run for the newer commit validates that source and releases it.
+    const untested = untestedSourcePaths((await strict('git', ['diff', '--name-only', localHead, remoteHead])).stdout.split('\n').map(path => path.trim()));
+    if (untested.length > 0) {
+      const shown = untested.length > 10 ? `${untested.slice(0, 10).join(', ')} and ${untested.length - 10} more` : untested.join(', ');
+      if (mode === 'instant') {
+        throw new Error(`Remote ${branch} changed after this run validated ${localHead} (${shown}). Dispatch the release again on the current ${branch}.`);
+      }
+      logger.log(`::notice::Not releasing from this run: ${branch} gained changes this run did not test (${shown}). The run for ${remoteHead} tests them and releases.`);
+      output('version_committed', 'false');
+      output('already_released', 'false');
+      return { versionCommitted: false, alreadyReleased: false, skippedUntestedRemote: true };
+    }
 
     if (countChangesets() === 0) {
       const remotePackageJson = await strict('git', ['show', `${remote}/${branch}:package.json`]);

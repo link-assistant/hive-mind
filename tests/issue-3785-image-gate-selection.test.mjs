@@ -32,6 +32,12 @@ test('the real detector requires image checks for packaged runtime and gate upda
     ['scripts/verify-dind-exec-defaults.sh', true],
     ['experiments/issue-3785/probe-formal-ai-codex-auth.mjs', true],
     ['coolify/start.sh', true],
+    // Issue #4029: helpers docker-pr-check mounts into the image under test.
+    ['scripts/verify-capability-lifecycle.mjs', true],
+    ['scripts/capability-lifecycle-state.lib.mjs', true],
+    ['scripts/capability-lifecycle-provider.lib.mjs', true],
+    ['scripts/mounted-native-runtime.lib.mjs', true],
+    ['scripts/free-disk-space.mjs', false],
     ['docs/case-studies/issue-3785/README.md', false],
     ['experiments/issue-3785/probe-mount-namespace.mjs', false],
     ['tests/unrelated-unit.test.mjs', false],

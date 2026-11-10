@@ -195,6 +195,8 @@ test('progress is logged so a slow run is never silent', async () => {
   assert.ok(logs.some(line => /^Fixture branches: 250, stale: 250 \(\d+s\)$/.test(line)));
   assert.ok(logs.some(line => /^Pull requests scanned: 1 /.test(line)));
   assert.ok(logs.some(line => /^Ruleset 21204104 \(no-destruction-possible\) forbids deleting every branch/.test(line)));
+  // Issue #4029: the final count says where branches beyond the fixtures come from.
+  assert.ok(logs.some(line => /^Stale fixture branches: 251 \(250 e2e\/ fixtures, 1 pull request heads based on them\) \(\d+s\)$/.test(line)), logs.join('\n'));
 });
 
 test('helpers fail safe', async () => {

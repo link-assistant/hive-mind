@@ -13,7 +13,7 @@
 
 import { StringDecoder } from 'node:string_decoder';
 import { wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
-import { sanitizeWithPolicy } from './sensitive-data-sanitizer.lib.mjs';
+import { credentialEnvironmentValues, sanitizeWithPolicy } from './sensitive-data-sanitizer.lib.mjs';
 
 export const CREDENTIAL_SANITIZATION_ERROR_CODE = 'ERR_CREDENTIAL_SANITIZATION';
 export const CREDENTIAL_SANITIZATION_FAILURE_MESSAGE = 'Credential sanitization failed; publication was blocked.';
@@ -29,18 +29,11 @@ export const maskToken = token => {
   return `${value.slice(0, 3)}…${value.slice(-3)}`;
 };
 
-// Environment variables whose *value* is masked wherever it appears, whatever
-// its shape: the strongest signal there is, and the only one for credentials
-// with no recognizable format.
-const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
-
+// Environment values are masked wherever they appear, whatever their shape: the
+// strongest signal there is, and the only one for credentials with no
+// recognizable format. The library selects and reads them (issue #3740).
 const collectKnownTokenValues = options => {
-  const environmentTokens =
-    options.includeEnvironmentCredentials === false
-      ? []
-      : Object.entries(process.env)
-          .filter(([name, value]) => SENSITIVE_ENV_NAME.test(name) && typeof value === 'string' && value.length > 0)
-          .map(([, value]) => value);
+  const environmentTokens = options.includeEnvironmentCredentials === false ? [] : credentialEnvironmentValues();
   const explicit = (options.knownTokens || []).map(token => (typeof token === 'string' ? token : token?.value)).filter(Boolean);
   return [...environmentTokens, ...explicit];
 };

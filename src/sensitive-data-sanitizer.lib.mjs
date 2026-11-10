@@ -56,6 +56,7 @@ export const UPSTREAM = Object.freeze({
   lineContextSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/132',
   encodedLimitLines: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/139',
   shortHexKnownSecret: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/140',
+  environmentSelection: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/141',
 });
 
 const DEBUG = /^(?:1|true|yes)$/i.test(process.env.HIVE_MIND_SANITIZER_DEBUG || '');
@@ -86,6 +87,36 @@ export const loadSensitiveDataSanitizer = () => {
     library = require(fileURLToPath(import.meta.resolve(SENSITIVE_DATA_SANITIZER_PACKAGE)));
   }
   return library;
+};
+
+// ---------------------------------------------------------------------------
+// Known local values from the environment
+// ---------------------------------------------------------------------------
+// The library's knownSecretsFromEnv selects and reads the credential-named
+// variables. Its default selection misses names without a `_` boundary
+// (`PGPASSWORD`, `GITHUBTOKEN`) and cookies, so Hive Mind's previous suffix
+// rule is added to it. It also selects configuration whose value would then be
+// masked everywhere (`HIVE_MIND_ROUTER_AUTH_GUARD=0` masks every `0`), so
+// counters, limits, paths, files, directories, names, guards, identifiers and
+// git's `GIT_CONFIG_KEY_<n>` (a config entry name) are dropped.
+// Upstream: UPSTREAM.environmentSelection.
+const MISSED_CREDENTIAL_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
+const NON_CREDENTIAL_ENV_NAME = /(?:^|_)(?:COUNT|LIMIT|MAX|MIN|PATH|FILE|DIR|NAME|GUARD|ID)$|^GIT_CONFIG_KEY_\d+$/i;
+
+/**
+ * Values of the credential-named environment variables, masked wherever they
+ * appear (issue #1745: the only signal for credentials with no known shape).
+ * @param {Record<string, string|undefined>} [env]
+ * @returns {string[]}
+ */
+export const credentialEnvironmentValues = (env = process.env) => {
+  const { knownSecretsFromEnv } = loadSensitiveDataSanitizer();
+  const names = Object.keys(env).filter(name => typeof env[name] === 'string');
+  const selected = new Set(knownSecretsFromEnv(Object.fromEntries(names.map(name => [name, name]))));
+  return knownSecretsFromEnv(
+    env,
+    names.filter(name => (selected.has(name) || MISSED_CREDENTIAL_ENV_NAME.test(name)) && !NON_CREDENTIAL_ENV_NAME.test(name))
+  );
 };
 
 // ---------------------------------------------------------------------------

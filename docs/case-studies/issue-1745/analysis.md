@@ -85,6 +85,12 @@ true
 The pattern was simply never run because the comment-publishing code path did
 not call `sanitizeLogContent`. The fix is plumbing, not pattern coverage.
 
+> **Update (#3739, #3740):** the hand-written vendor patterns are gone.
+> `detectSecretsWithCustomPatterns` is now an alias of `detectSecretsWithLibrary`, and
+> Telegram bot tokens are detected by `@link-foundation/sensitive-data-sanitizer`
+> (see `src/sensitive-data-sanitizer.lib.mjs` and `docs/case-studies/issue-3739/`).
+> The plumbing fix below is unchanged.
+
 ---
 
 ## Fixes In This PR

@@ -264,6 +264,9 @@ The next blocked upload will therefore name its root cause in the PR comment its
 - The known-token threshold is one constant, used by `sanitizeOutput`,
   `sanitizeCommentBody`, `maskEncodedKnownTokens` and `containsKnownToken`. That last
   function is also behind the interactive-mode leak warning.
+- Update (#3739): `maskEncodedKnownTokens` was replaced by the library's known-secret
+  detection (`knownTokens` and `knownOnly` options of `sanitizeCredentialText`), which also
+  covers the hex and base64 forms; the threshold constant is still shared.
 
 ## Upstream: openai/codex
 

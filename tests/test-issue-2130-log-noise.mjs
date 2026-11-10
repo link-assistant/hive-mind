@@ -290,7 +290,8 @@ test('the probes evidenced in the attached logs are all quiet now', async () => 
   const probes = [
     { file: 'src/github-terminal-state.lib.mjs', pattern: /rawDollar\(QUIET_PROBE\)/, why: 'a ~33 KB pull request object, once per watch iteration' },
     { file: 'src/post-finish-sanitization-sweep.lib.mjs', pattern: /quietProbe\(\$\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/issues\/\$\{prNumber\}\/comments/, why: '46 KB of comment JSON per restart' },
-    { file: 'src/token-sanitization.lib.mjs', pattern: /\$\(QUIET_PROBE\)`gh auth status/, why: 'the call that discovers which secrets must be masked' },
+    // Issue #3740: the library runs `gh auth token` with execFile and returns the value without printing it.
+    { file: 'src/token-sanitization.lib.mjs', pattern: /loadSensitiveDataSanitizer\(\)\.knownSecretsFromGitHubAuth\(\)/, why: 'the call that discovers which secrets must be masked' },
     { file: 'src/github.lib.mjs', pattern: /\$\(QUIET_PROBE\)`gh auth status --show-token`/, why: 'a live credential in clear text' },
     { file: 'src/solve.feedback.lib.mjs', pattern: /quietProbe\(\$\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/pulls\/\$\{prNumber\}\/comments --paginate`/, why: 'whole comment lists per watch iteration' },
     { file: 'src/solve.auto-pr.lib.mjs', pattern: /quietProbe\(\$\)`gh api graphql -f query=\$\{issueNodeQuery\}/, why: 'a bare "I_kwDO..." node ID' },

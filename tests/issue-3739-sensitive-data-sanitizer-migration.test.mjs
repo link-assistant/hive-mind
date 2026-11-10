@@ -22,8 +22,11 @@
 
 import assert from 'node:assert/strict';
 import { createCredentialStreamSanitizer, findCredentialResiduals, sanitizeCredentialText } from '../src/credential-sanitization-core.lib.mjs';
-import { SENSITIVE_DATA_SANITIZER_PACKAGE, UPSTREAM, loadSensitiveDataSanitizer } from '../src/sensitive-data-sanitizer.lib.mjs';
-import { sanitizeForPublication, sanitizeOutput } from '../src/token-sanitization.lib.mjs';
+import { SENSITIVE_DATA_SANITIZER_PACKAGE, UPSTREAM, credentialEnvironmentValues, loadSensitiveDataSanitizer } from '../src/sensitive-data-sanitizer.lib.mjs';
+import { KNOWN_LOCAL_TOKEN_ENV_VARS, getEnvironmentTokens, getGitHubTokensFromFiles, sanitizeForPublication, sanitizeOutput } from '../src/token-sanitization.lib.mjs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { redactProcessText } from '../src/process-debug.lib.mjs';
 import { redactAuthOutput } from '../src/telegram-auth-command.lib.mjs';
 import { dockerErrorMessage } from '../src/docker-sidecar.lib.mjs';
@@ -211,6 +214,62 @@ await test('docker error messages keep their argv masking and mask other credent
   assert.ok(!output.includes(OPAQUE) && !output.includes(GITHUB_TOKEN));
   assert.match(output, /--env API_TOKEN=\*\*\*/);
   assert.match(output, /Authorization: token ghp…b4N/);
+});
+
+console.log('\n6. Known local values are collected by the library\n');
+
+// Awaits `fn`, so asynchronous readers see the environment too.
+const withEnv = async (env, fn) => {
+  const saved = Object.fromEntries(Object.keys(env).map(name => [name, process.env[name]]));
+  Object.assign(process.env, env);
+  try {
+    return await fn();
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+};
+
+await test('credential-named environment values are selected; configuration values are not (UPSTREAM.environmentSelection)', () => {
+  const credentials = { PGPASSWORD: `pg-${OPAQUE}`, GITHUBTOKEN: `gt-${OPAQUE}`, SESSION_COOKIE: `ck-${OPAQUE}`, GITHUB_PAT: `pat-${OPAQUE}`, AWS_SECRET_ACCESS_KEY: `aws-${OPAQUE}` };
+  const configuration = { HIVE_MIND_ROUTER_AUTH_GUARD: '0', MAX_TOKEN_COUNT: '4096', TOKEN_LIMIT: '512', SSH_KEY_PATH: '/tmp/key-path-value', SECRET_NAME: 'name-value', GIT_CONFIG_KEY_0: 'http.extraheader', AWS_ACCESS_KEY_ID: 'id-value' };
+  const values = new Set(credentialEnvironmentValues({ ...credentials, ...configuration, HOME: '/home/user' }));
+  for (const [name, value] of Object.entries(credentials)) assert.ok(values.has(value), `${name} is a credential`);
+  for (const [name, value] of Object.entries(configuration)) assert.ok(!values.has(value), `${name} is configuration`);
+  assert.ok(!values.has('/home/user'));
+});
+
+await test('a flag set to 0 does not mask every 0 of a log; a credential-named value is masked anywhere', () =>
+  withEnv({ HIVE_MIND_ROUTER_AUTH_GUARD: '0', PGPASSWORD: `pg-${OPAQUE}` }, () => {
+    const output = sanitizeCredentialText(`exit 0 after 4096 ms, pass pg-${OPAQUE}`);
+    assert.equal(output, 'exit 0 after 4096 ms, pass pg-…3e5');
+  }));
+
+await test('getEnvironmentTokens reads the explicit KNOWN_LOCAL_TOKEN_ENV_VARS selection', () =>
+  withEnv({ TELEGRAM_OWNER_CHAT_ID: '1234567890' }, () => {
+    assert.ok(KNOWN_LOCAL_TOKEN_ENV_VARS.includes('TELEGRAM_OWNER_CHAT_ID'));
+    assert.deepEqual(
+      getEnvironmentTokens().filter(({ name }) => name === 'TELEGRAM_OWNER_CHAT_ID'),
+      [{ name: 'TELEGRAM_OWNER_CHAT_ID', value: '1234567890' }]
+    );
+  }));
+
+await test('getGitHubTokensFromFiles reads every hosts.yml account and survives a malformed file', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'hive-3739-gh-'));
+  const second = ['gho_', 'Ab1Cd2Ef3Gh4Ij5Kl6Mn', '7Op8Qr9St0Uv1Wx2Yz3A'].join('');
+  try {
+    writeFileSync(join(directory, 'hosts.yml'), `github.com:\n  users:\n    first:\n      oauth_token: ${GITHUB_TOKEN}\n    second:\n      oauth_token: ${second}\n  oauth_token: ${GITHUB_TOKEN}\n  user: first\n`);
+    // Assertions compare without printing values: a wrong directory would read real tokens.
+    const tokens = await withEnv({ GH_CONFIG_DIR: directory }, () => getGitHubTokensFromFiles());
+    assert.ok(tokens.length === 2 && tokens.includes(GITHUB_TOKEN) && tokens.includes(second), `expected both synthetic accounts, got ${tokens.length} value(s)`);
+    writeFileSync(join(directory, 'hosts.yml'), 'github.com:\n  oauth_token: [unclosed\n');
+    const malformed = await withEnv({ GH_CONFIG_DIR: directory }, () => getGitHubTokensFromFiles());
+    assert.equal(malformed.length, 0, 'a malformed hosts.yml gives no tokens');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

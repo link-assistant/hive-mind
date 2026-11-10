@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Token sanitization utilities for log content.
  *
@@ -22,16 +21,12 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
-import { findCredentialFindings } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
+import { findCredentialFindings, loadSensitiveDataSanitizer } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
 import { reportError } from './sentry.lib.mjs';
 
 export { createCredentialStreamSanitizer };
 
-import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726)
-import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: never mirror the call that discovers which secrets must be masked
 // Dynamic imports for runtime dependencies
-const getOsModule = async () => (await import('os')).default;
-const getPathModule = async () => (await import('path')).default;
 const getFsModule = async () => (await import('fs')).promises;
 
 // Lazy-loaded secretlint modules (initialized on first use)
@@ -217,110 +212,42 @@ export const hexHasCommitEvidence = (content, hexString) => {
 };
 
 /**
- * Get GitHub tokens from local config files
+ * GitHub tokens stored in gh's hosts.yml (every host and account), read by the
+ * library's knownSecretsFromGitHubConfig (issue #3740). It honors GH_CONFIG_DIR
+ * and XDG_CONFIG_HOME. A missing file gives no tokens; an unreadable or
+ * malformed one gives none either (the library fails closed with ERR_AUTH), and
+ * the active token still comes from {@link getGitHubTokensFromCommand}.
  * @returns {Promise<string[]>} Array of tokens found
  */
 export const getGitHubTokensFromFiles = async () => {
-  const os = await getOsModule();
-  const path = await getPathModule();
-  const fs = await getFsModule();
-  const tokens = [];
-
   try {
-    // Check ~/.config/gh/hosts.yml
-    const hostsFile = path.join(os.homedir(), '.config/gh/hosts.yml');
-    if (
-      await fs
-        .access(hostsFile)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      const hostsContent = await fs.readFile(hostsFile, 'utf8');
-
-      // Look for oauth_token and api_token patterns
-      const oauthMatches = hostsContent.match(/oauth_token:\s*([^\s\n]+)/g);
-      if (oauthMatches) {
-        for (const match of oauthMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-
-      const apiMatches = hostsContent.match(/api_token:\s*([^\s\n]+)/g);
-      if (apiMatches) {
-        for (const match of apiMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
+    return await loadSensitiveDataSanitizer().knownSecretsFromGitHubConfig();
   } catch (error) {
-    // File access errors are expected when config doesn't exist
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_file_access',
-        level: 'debug',
-      });
-    }
+    if (global.verboseMode) reportError(error, { context: 'github_token_file_access', level: 'debug' });
+    return [];
   }
-
-  return tokens;
 };
 
 /**
- * Get GitHub tokens from gh command output
+ * The active GitHub token, from `gh auth token` through the library's
+ * knownSecretsFromGitHubAuth (issue #3740). It is found even when gh keeps it
+ * in the system keyring, where hosts.yml has no token; the previous scan of
+ * `gh auth status` found nothing there, because gh prints that token masked.
+ * The command's output is never mirrored or logged (issue #2130). Cached for the
+ * process.
  * @returns {Promise<string[]>} Array of tokens found
  */
 export const getGitHubTokensFromCommand = async () => {
-  if (githubCommandTokensCache) {
-    return [...githubCommandTokensCache];
-  }
-  if (typeof globalThis.use === 'undefined') {
-    await ensureUseM();
-  }
-  const $ = wrapDollarWithGhRetry((await globalThis.use('command-stream')).$);
-  const tokens = [];
-
-  try {
-    // Run gh auth status to get token info.
-    // Issue #2130: never mirror this. The whole point of the call is to learn
-    // which secrets have to be masked, so its output is the one thing that is
-    // guaranteed to be unmasked at this moment - and it was being echoed into
-    // the log that later gets attached to the pull request.
-    const authResult = await $(QUIET_PROBE)`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
-    const authOutput = authResult.stdout?.toString() + authResult.stderr?.toString() || '';
-
-    // Look for token patterns in the output
-    const tokenPatterns = [/(?:token|oauth|api)[:\s]*([a-zA-Z0-9_]{20,})/gi, /gh[pou]_[a-zA-Z0-9_]{20,}/gi];
-
-    for (const pattern of tokenPatterns) {
-      const matches = authOutput.match(pattern);
-      if (matches) {
-        for (let match of matches) {
-          // Clean up the match
-          const token = match.replace(/^(?:token|oauth|api)[:\s]*/, '').trim();
-          if (token && token.length >= 20 && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // Command errors are expected when gh is not configured
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_gh_auth',
-        level: 'debug',
-      });
+  if (!githubCommandTokensCache) {
+    try {
+      githubCommandTokensCache = await loadSensitiveDataSanitizer().knownSecretsFromGitHubAuth();
+    } catch (error) {
+      // gh is missing or not signed in.
+      if (global.verboseMode) reportError(error, { context: 'github_token_gh_auth', level: 'debug' });
+      githubCommandTokensCache = [];
     }
   }
-
-  githubCommandTokensCache = [...tokens];
-  return tokens;
+  return [...githubCommandTokensCache];
 };
 
 /**
@@ -988,19 +915,14 @@ export const KNOWN_LOCAL_TOKEN_ENV_VARS = Object.freeze([
  * @returns {Array<{name: string, value: string}>} entries with non-empty values
  */
 export const getEnvironmentTokens = () => {
-  const out = [];
-  for (const name of KNOWN_LOCAL_TOKEN_ENV_VARS) {
-    const value = process.env[name];
-    if (typeof value === 'string' && value.length > 0) {
-      out.push({ name, value });
-    }
-  }
-  return out;
+  // The library reads the explicit selection (issue #3740).
+  const { knownSecretsFromEnv } = loadSensitiveDataSanitizer();
+  return KNOWN_LOCAL_TOKEN_ENV_VARS.flatMap(name => knownSecretsFromEnv(process.env, [name]).map(value => ({ name, value })));
 };
 
 /**
  * Build the union of every known-local token: env vars + GitHub tokens we
- * already discover via `gh auth status` / hosts.yml (existing helpers).
+ * discover through the library: `gh auth token` and every hosts.yml token.
  *
  * Each entry is `{ source, name, value }` where `source` is 'env' | 'gh-files'
  * | 'gh-command'. The `name` field is human-readable for debug logs but is
@@ -1049,12 +971,20 @@ export const getAllKnownLocalTokens = async () => {
  * @param {string} text
  * @param {Array<{value: string, name?: string, source?: string}>} [tokens]
  *   Pre-fetched token list (if you already called getAllKnownLocalTokens).
- *   Pass an explicit list to avoid re-running `gh auth status` per check.
+ *   Pass an explicit list to avoid re-reading the local tokens per check.
  * Issue #2156: a token that appears only base64/hex/percent-encoded is a leak
  * just the same — GitHub's own secret scanning decodes before matching, which
  * is exactly how the revocation in that issue was triggered. Encoded hits are
  * reported with the encoding that matched so operators can tell the two cases
  * apart in the fail-closed publication error path.
+ *
+ * Issue #3739 / #3740: masking runs on @link-foundation/sensitive-data-sanitizer,
+ * but this check deliberately does not. It is the independent verifier after
+ * the masking step: a plain substring test plus Hive Mind's own decoder
+ * (`findEncodedKnownTokenRuns`), so a known value that the library engine
+ * misses is still caught here instead of being confirmed by the same engine
+ * that missed it. It also names the encoding (`base64`, `hex`, ...), which the
+ * library's `rule: 'encoded'` findings do not.
  *
  * @returns {Promise<Array<{name: string, source: string, encoding: string}>>}
  *   list of token identifiers that were found in the text (NOT the values

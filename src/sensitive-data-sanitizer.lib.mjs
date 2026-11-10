@@ -11,9 +11,8 @@ import { findWrappedBase64Runs, sanitizeEncodedCredentials } from './encoded-cre
 
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
-// regression test. Issues #131–#141 were fixed in library 0.21.0.
+// regression test. Issues #131–#141 were fixed in 0.21.0 and #148 in 0.21.2.
 export const UPSTREAM = Object.freeze({
-  maskedProse: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/148',
   wrappedPayload: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/149',
   constructorKeyword: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/150',
   markdownValues: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/151',
@@ -55,12 +54,7 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
         knownSecrets: secrets,
         knownOnly,
         preserveEncoding: true,
-        // The library re-masks `ghp…xyz. Next sentence` on its second pass.
-        // Only a complete mask at the start of a prose finding is exempted;
-        // declared known secrets are never passed to this hook by the library.
-        // Upstream: UPSTREAM.maskedProse.
         exempt: (finding, text) =>
-          (finding.rule === 'context' && /^(?:[^\s…]{0,3}…[^\s…]{0,3}|\[REDACTED\])(?:[.,;:!?]+\s|\s)/u.test(text.slice(finding.start, finding.end))) ||
           // Upstream #150: retain `new` only in an actual constructor call.
           (finding.rule === 'context' && text.slice(finding.start, finding.end) === 'new' && /^new\s+[A-Za-z_$][\w$.]*\s*\(/.test(text.slice(finding.start))) ||
           // Upstream #151: a Markdown delimiter is not part of a template/flag.

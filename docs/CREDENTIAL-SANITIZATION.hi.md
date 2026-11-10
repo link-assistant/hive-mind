@@ -37,7 +37,7 @@ Library rules (vendor formats, Gitleaks rule set और contextual keys) ये 
 
 External boundaries पर detection जानबूझकर conservative है। False positive credential-जैसे value को mask कर सकता है; scanner failure original bytes भेजने के बजाय publication block करता है।
 
-Library 0.21.1 credential rules, environment selection, format context और npm-package/token-count exemptions संभालती है। Adapter `/credentials` को lazily load करता है। #131–#141 के पुराने workarounds हटाए गए हैं। सात शेष gaps upstream #148–#154 में report हैं और [case study](./case-studies/issue-3739/README.md) में अलग दर्ज हैं: masked prose, wrapped payloads, constructor syntax, Markdown, Authorization scheme, encoded masks और private-key type। Secretlint और `containsKnownToken` स्वतंत्र publication verifiers हैं।
+Library 0.21.2 credential rules, environment selection, format context और npm-package/token-count exemptions संभालती है। Adapter `/credentials` को lazily load करता है। #131–#141 और #148 के पुराने workarounds हटाए गए हैं। छह शेष gaps upstream #149–#154 में report हैं और [case study](./case-studies/issue-3739/README.md) में अलग दर्ज हैं: wrapped payloads, constructor syntax, Markdown, Authorization scheme, encoded masks और private-key type। Secretlint और `containsKnownToken` स्वतंत्र publication verifiers हैं।
 
 ## Encoded credentials
 

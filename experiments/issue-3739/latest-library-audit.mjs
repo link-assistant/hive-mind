@@ -9,6 +9,13 @@ const wrapped =
     .match(/.{1,76}/g)
     .join('\n') + '\n';
 const key = '-----BEGIN PRIVATE KEY-----\nSYNTHETIC_PRIVATE_KEY_MATERIAL_123456\n-----END PRIVATE KEY-----';
+const boundaryToken = ['gho_', 'SYNTHETIC0000NotARealToken', '1'.repeat(10)].join('');
+const boundaryBody = Buffer.from(JSON.stringify({ token: boundaryToken, note: 'keep me' }))
+  .toString('base64')
+  .match(/.{1,20}/g)
+  .join('\n');
+const boundaryPrefix = 'start of output\nresponse body=\n';
+const boundarySuffix = '\ntrailing line\n';
 const cases = [
   ['maskedProse (#148)', engine.sanitize(`User token: ${secret}. Next sentence`).text, 'User token: ghp…b4N. Next sentence'],
   ['wrappedPayload (#149)', wrapped, wrapped],
@@ -17,6 +24,7 @@ const cases = [
   ['overlappingScheme (#152)', 'Authorization: SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456', 'Authorization: SharedAccessSignature sr=…456'],
   ['encodedMask (#153)', '"token":"Z2hv4oCmOTk5"', '"token":"Z2hv4oCmOTk5"'],
   ['privateKeyType (#154)', key, '-----BEGIN PRIVATE KEY-----\n[REDACTED]\n-----END PRIVATE KEY-----'],
+  ['wrappedTextBoundary (#162)', boundaryPrefix + boundaryBody + boundarySuffix, boundaryPrefix + engine.sanitize(boundaryBody).text + boundarySuffix],
 ];
 for (const [name, input, expected] of cases) {
   const output = engine.sanitize(input).text;

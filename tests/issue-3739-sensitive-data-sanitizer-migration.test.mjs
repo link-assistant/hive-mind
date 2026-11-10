@@ -132,12 +132,16 @@ await test('a credential inside line-wrapped base64 is masked and the wrapping k
     .toString('base64')
     .match(/.{1,40}/g)
     .join('\n');
-  const output = sanitize(wrapped);
-  const decoded = Buffer.from(output.replace(/\n/g, ''), 'base64').toString();
-  assert.ok(!decoded.includes(GITHUB_TOKEN));
-  assert.ok(decoded.includes('"note":"xxx'));
-  const outputLines = output.split('\n');
-  assert.ok(outputLines.length > 1 && outputLines.slice(0, -1).every(line => line.length === 40), 'the 40-column wrapping is kept');
+  for (const prefix of ['', 'start of output\nresponse body=\n']) {
+    const suffix = prefix ? '\ntrailing line\n' : '';
+    const output = sanitize(prefix + wrapped + suffix);
+    assert.ok(output.startsWith(prefix) && output.endsWith(suffix), 'surrounding prose stays intact');
+    const body = output.slice(prefix.length, suffix ? -suffix.length : undefined);
+    const decoded = Buffer.from(body.replace(/\n/g, ''), 'base64').toString();
+    assert.deepEqual(JSON.parse(decoded), { note: 'x'.repeat(60), token: 'ghp…b4N', more: 'y'.repeat(60) });
+    const outputLines = body.split('\n');
+    assert.ok(outputLines.length > 1 && outputLines.slice(0, -1).every(line => line.length === 40), 'the 40-column wrapping is kept');
+  }
 });
 
 await test('a long list of identifiers is not masked as one encoded run; the credential after it is', () => {

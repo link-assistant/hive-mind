@@ -308,8 +308,13 @@ const assertAbsent = (output, needles, message) => {
   const encoded = Buffer.from(JSON.stringify({ token: SYNTHETIC_GHO, note: 'keep me' })).toString('base64');
   for (const width of [20, 64, 76]) {
     const wrapped = encoded.replace(new RegExp(`(.{${width}})`, 'g'), '$1\n').replace(/\n$/, '');
-    const text = `start of output\nresponse body=\n${wrapped}\ntrailing line\n`;
+    const prefix = 'start of output\nresponse body=\n';
+    const suffix = '\ntrailing line\n';
+    const text = prefix + wrapped + suffix;
     const whole = sanitizeCredentialText(text);
+    assert.ok(whole.startsWith(prefix) && whole.endsWith(suffix), 'surrounding prose must survive (#162)');
+    const decoded = Buffer.from(whole.slice(prefix.length, -suffix.length), 'base64').toString();
+    assert.deepEqual(JSON.parse(decoded), { token: maskToken(SYNTHETIC_GHO), note: 'keep me' }, 'the complete JSON must survive an unpadded wrapped payload followed by prose (#162)');
     // Chunk sizes deliberately unaligned to the record and wrap boundaries.
     for (const chunk of [1, 5, 21, 4096]) {
       const stream = createCredentialStreamSanitizer();

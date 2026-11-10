@@ -1,8 +1,10 @@
 {
-  "libraryVersion": "0.21.2",
+  "libraryVersion": "0.21.3",
   "libraryOnlyAudit": {
-    "fixedAndWorkaroundRemoved": [148],
-    "reproducingGapsWithRetainedWorkarounds": [149, 150, 151, 152, 153, 154]
+    "fixedAndWorkaroundRemoved": [148, 149],
+    "reproducingGapsWithRetainedWorkarounds": [150, 151, 152, 153, 154, 162],
+    "binaryFixWithRemainingTextBoundaryReport": { "149": 162 },
+    "probeCount": 8
   },
   "testFileCount": 45,
   "testFiles": {
@@ -59,28 +61,37 @@
     {
       "name": "image",
       "length": 200027,
-      "ms": 269,
+      "ms": 255,
       "preserved": true
     },
     {
       "name": "image-1",
       "length": 627391,
-      "ms": 286,
+      "ms": 308,
       "preserved": true
     },
     {
       "name": "image-2",
       "length": 1000027,
-      "ms": 552,
+      "ms": 555,
       "preserved": true
     },
     {
       "name": "wrapped",
       "length": 194527,
-      "ms": 1370,
+      "ms": 1583,
       "preserved": true
     }
   ],
+  "wrappedTextFollowup": {
+    "initialFailedFile": "test-encoded-credential-leak-2156.mjs",
+    "cause": "Following prose extends an unpadded wrapped candidate; individual-line masking corrupts complete JSON",
+    "upstreamReport": 162,
+    "binaryExemptions": "removed; native 0.21.3 inspects embedded credentials",
+    "textExemptions": "complete canonical views up to 256 KiB, inspected as clean by the configured engine",
+    "finalFocusedFileCount": 45,
+    "allFinalFocusedFilesPass": true
+  },
   "ciEvidence": "See PR #3741 for current-head workflow results; local runs intentionally avoid full builds.",
   "ciFollowup": {
     "run": 42882837227,

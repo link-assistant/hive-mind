@@ -85,6 +85,14 @@ test('closed JSON image lines and wrapped binary streams drain promptly and byte
   for (let at = 0; at < credentialImage.length; at += 4096) cleaned += credentialStream.write(credentialImage.slice(at, at + 4096));
   cleaned += credentialStream.flush();
   assert.ok(!cleaned.includes(vendorKey));
+  // Native wrapped-binary inspection must still find text following invalid
+  // UTF-8 bytes; preserving harmless binary cannot hide an embedded secret.
+  const sensitiveBinary = Buffer.concat([Buffer.alloc(9000, 147), Buffer.from(`\npassword=${secret}\n`)]);
+  const sensitiveWrapped = sensitiveBinary
+    .toString('base64')
+    .match(/.{1,76}/g)
+    .join('\n');
+  assert.ok(!sanitize(sensitiveWrapped).includes(sensitiveWrapped));
   for (const separator of ['\n', '\r', '\r\n']) {
     const stream = createCredentialStreamSanitizer({ includeEnvironmentCredentials: false });
     const line = `Authorization: token ${secret}${separator}`;

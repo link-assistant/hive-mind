@@ -7,18 +7,19 @@
  * Set HIVE_MIND_SANITIZER_DEBUG=1 for value-free tracing (off by default).
  */
 import { createRequire } from 'node:module';
-import { findWrappedBase64Runs, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
+import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
 
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
-// regression test. Issues #131–#141 were fixed in 0.21.0 and #148 in 0.21.2.
+// regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2
+// and #149 in 0.21.3.
 export const UPSTREAM = Object.freeze({
-  wrappedPayload: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/149',
   constructorKeyword: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/150',
   markdownValues: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/151',
   overlappingScheme: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/152',
   encodedMask: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/153',
   privateKeyType: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/154',
+  wrappedTextBoundary: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/162',
 });
 const require = createRequire(import.meta.url);
 let library;
@@ -46,7 +47,7 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
   const key = JSON.stringify([knownOnly, secrets]);
   let engine = sanitizers.get(key);
   if (!engine) {
-    const state = { wrapped: false, text: null, ranges: [], exemptionDepth: 0 };
+    const state = { wrappedText: false, text: null, ranges: [], exemptionDepth: 0 };
     engine = {
       state,
       sanitizer: loadSensitiveDataSanitizer().createSyncSanitizer({
@@ -66,7 +67,9 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
           // The native escaped-JSON detector does not apply exemptions to its
           // decoded findings. Verify already-clean views with the same policy.
           (finding.rule === 'encoded' && cleanEscapedView(engine, text.slice(finding.start, finding.end))) ||
-          (state.wrapped && ['encoded', 'encoded-limit'].includes(finding.rule) && wrappedRanges(state, text).some(range => range.start <= finding.start && range.end >= finding.end)),
+          // Upstream #162: retain only complete, independently framed text
+          // views that this configured engine has already inspected as clean.
+          (state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end)),
         transformation: { mode: 'hive-mask' },
         // Upstream #154: correct the type on native findings, so native merging
         // selects full redaction for key bodies. No custom rendering callback:
@@ -120,13 +123,21 @@ const markdownValueExemption = (finding, text) => {
   return (/HIVE_MIND_(?:ROUTER_AUTH_GUARD|DISABLE_GIT_AUTH_TRANSPORT)\s*=\s*$/.test(prefix) && /^(?:0|1|true|false)$/.test(value)) || (/HIVE_MIND_CLAUDE_AUTH_AUTHORITY\s*=\s*$/.test(prefix) && /^(?:conventional|router)$/.test(value));
 };
 
-// Recompute after the library changes text, since earlier masks shift offsets.
-const wrappedRanges = (state, text) => {
+const cleanWrappedTextRanges = (engine, text) => {
+  const state = engine.state;
   if (state.text !== text) {
     state.text = text;
-    state.ranges = findWrappedBase64Runs(text)
-      .filter(({ run }) => run.length <= 256 * 1024)
-      .map(({ run, index }) => ({ start: index, end: index + run.length }));
+    state.ranges = [];
+    const previous = state.wrappedText;
+    state.wrappedText = false;
+    try {
+      state.ranges = findDecodableRuns(text)
+        .filter(({ encoding, run, decoded }) => encoding === 'base64-wrapped' && run.length <= 256 * 1024 && Buffer.from(decoded).toString('base64url') === run.replace(/\s/g, '').replace(/=+$/, '').replaceAll('+', '-').replaceAll('/', '_'))
+        .filter(({ decoded }) => engine.sanitizer.inspect(decoded).length === 0)
+        .map(({ start, end }) => ({ start, end }));
+    } finally {
+      state.wrappedText = previous;
+    }
   }
   return state.ranges;
 };
@@ -138,27 +149,24 @@ export const findCredentialFindings = (text, options = {}) => getSanitizer(optio
 export const sanitizeWithPolicy = (text, options = {}, depth = 0) => {
   let input = String(text ?? '');
   const engine = getSanitizer(options);
-  const previousWrapped = engine.state.wrapped;
-  // Upstream #149: inspect the complete wrapped payload before the library can
-  // mistake an individual line for a different encoding or redact a harmless
-  // image at its 8192-character limit. This decoder delegates every credential
-  // decision to the engine, preserves wrapping, and matches exact known bytes.
-  // Only fully inspected bounded spans suppress native encoded findings;
-  // plaintext findings remain active and oversized runs still fail closed.
-  const boundedWrapped = depth < 3 && input.includes('\n');
-  if (boundedWrapped)
+  const previous = engine.state.wrappedText;
+  const wrappedText = depth < 3 && input.includes('\n');
+  // Upstream #162: disambiguate wrapped text from following prose, sanitize
+  // its decoded content natively and verify the original wrapping on rebuild.
+  // Binary payloads use the native 0.21.3 detector without an exemption.
+  if (wrappedText)
     input = sanitizeEncodedCredentials(input, {
       encodings: ['base64-wrapped'],
       knownTokens: options.knownSecrets ?? [],
       sanitizePlaintext: decoded => sanitizeWithPolicy(decoded, options, depth + 1),
     });
   try {
-    engine.state.wrapped = boundedWrapped;
+    engine.state.wrappedText = wrappedText;
     const result = engine.sanitizer.sanitize(input);
     if ((result.redactions > 0 || input !== String(text ?? '')) && typeof options.onFindings === 'function') options.onFindings(Math.max(1, result.redactions));
     return result.text;
   } finally {
-    engine.state.wrapped = previousWrapped;
+    engine.state.wrappedText = previous;
     engine.state.text = null;
     engine.state.ranges = [];
   }

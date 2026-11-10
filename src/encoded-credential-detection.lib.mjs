@@ -275,9 +275,26 @@ const MAX_WRAPPED_HOLD_CHARS = 256 * 1024;
  * @param {number} end offset just past the last complete record
  * @returns {number|null} offset to release up to, or null to release everything
  */
+const recordSeparatorKind = text => (text.includes('\r') ? (text.includes('\n') ? 'mixed' : '\r') : '\n');
+
+// Use native search for uniform separators; scan only the preceding line for
+// mixed separators. Cache the kind during a wrapped-line walk, so an absent
+// separator never rescans the whole blob once per line (#3747).
+export const previousRecordSeparator = (text, before = text.length, kind = recordSeparatorKind(text)) => {
+  if (before <= 0) return -1;
+  if (kind !== 'mixed') return text.lastIndexOf(kind, before - 1);
+  for (let index = before - 1; index >= 0; index--) {
+    const code = text.charCodeAt(index);
+    if (code === 10 || code === 13) return index;
+  }
+  return -1;
+};
+
 export const wrappedBase64HoldStart = (text, end) => {
   const content = String(text ?? '');
   if (end <= 0 || end > content.length) return null;
+  const kind = recordSeparatorKind(content);
+  const previous = before => previousRecordSeparator(content, before, kind);
 
   // Step back over exactly one record separator. Doing this before each
   // backwards search is what lets the walk move from line to line: without it
@@ -296,7 +313,7 @@ export const wrappedBase64HoldStart = (text, end) => {
   // Walk complete lines backwards for as long as each is base64 and nothing
   // else. Trailing `=` padding means the blob ended, so nothing is held.
   while (cursor > 0) {
-    const separator = Math.max(content.lastIndexOf('\n', cursor - 1), content.lastIndexOf('\r', cursor - 1));
+    const separator = previous(cursor);
     const start = separator + 1;
     const line = content.slice(start, cursor).trim();
     if (line.length < MIN_WRAPPED_LINE_LENGTH || !/^[A-Za-z0-9+/_-]+$/.test(line)) break;
@@ -311,7 +328,7 @@ export const wrappedBase64HoldStart = (text, end) => {
     // released there is nothing left to join the group to, and a credential
     // straddling the two is invisible to both halves. So the opening line is
     // held on its own, for exactly one record.
-    const openerStart = wrappedBase64OpenerStart(content, end, beforeSeparator);
+    const openerStart = wrappedBase64OpenerStart(content, end, beforeSeparator, previous);
     return openerStart === null || end - openerStart > MAX_WRAPPED_HOLD_CHARS ? null : openerStart;
   }
 
@@ -319,7 +336,7 @@ export const wrappedBase64HoldStart = (text, end) => {
   // shape `body=<first segment>` takes — so it is held too. That costs one
   // extra record of latency and is released as soon as the blob ends.
   const beforeGroup = beforeSeparator(lineStart);
-  const previousSeparator = Math.max(content.lastIndexOf('\n', beforeGroup - 1), content.lastIndexOf('\r', beforeGroup - 1));
+  const previousSeparator = previous(beforeGroup);
   return Math.max(previousSeparator + 1, 0);
 };
 
@@ -340,15 +357,19 @@ export const wrappedBase64HoldStart = (text, end) => {
  * @param {(index: number) => number} beforeSeparator steps back over one record separator
  * @returns {number|null} start offset of the line to hold, or null to release
  */
-const wrappedBase64OpenerStart = (content, end, beforeSeparator) => {
+const wrappedBase64OpenerStart = (content, end, beforeSeparator, previous) => {
   const lineEnd = beforeSeparator(end);
   if (lineEnd <= 0) return null;
-  const lineStart = Math.max(content.lastIndexOf('\n', lineEnd - 1), content.lastIndexOf('\r', lineEnd - 1)) + 1;
+  const lineStart = previous(lineEnd) + 1;
   const line = content.slice(lineStart, lineEnd).trimEnd();
 
   // A run that carries padding is a blob that already ended, so nothing
   // follows it and there is nothing to wait for.
-  const run = /[A-Za-z0-9+/_-]+$/.exec(line)?.[0];
+  // An unanchored `[alphabet]+$` retries every start on a closed JSON
+  // image line, taking quadratic CPU before stdout can drain (#3747).
+  let runStart = line.length;
+  while (runStart > 0 && BASE64_LINE_CHARACTER.test(line[runStart - 1])) runStart--;
+  const run = runStart < line.length ? line.slice(runStart) : undefined;
   if (!run || run.length < MIN_WRAPPED_LINE_LENGTH) return null;
 
   // Decoded directly rather than through `decodeBase64Bounded`, whose floor is

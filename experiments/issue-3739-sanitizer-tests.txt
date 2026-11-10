@@ -34,3 +34,9 @@ test-telegram-auth-command.mjs
 test-token-leak-issue-1745.mjs
 test-token-sanitization.mjs
 test-token-telemetry-sanitization-2119.mjs
+sanitizer-open-issues-3741.test.mjs
+telegram-private-configuration-2647.test.mjs
+test-telegram-config.mjs
+test-development-log-before-readiness-2048.mjs
+test-development-log-multi-session-2090.mjs
+test-development-log-option-1596.mjs

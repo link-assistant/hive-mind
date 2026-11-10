@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /**
+ * @hive-mind-test-suite default
+ *
  * Issues #3739 and #3740: Hive Mind's credential sanitization runs on
  * @link-foundation/sensitive-data-sanitizer.
  *

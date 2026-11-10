@@ -4,15 +4,14 @@
  * have been initialized.
  *
  * Issues #3739 and #3740: detection and masking are done by
- * @link-foundation/sensitive-data-sanitizer. Hive Mind's policy over it (gap
- * detectors, exemptions, readable format context such as the Authorization
- * scheme) lives in ./sensitive-data-sanitizer.lib.mjs; this module adds the
+ * @link-foundation/sensitive-data-sanitizer. The verified adapter and reported
+ * library workarounds live in ./sensitive-data-sanitizer.lib.mjs; this module adds the
  * local known-token sources, the fixed-point loop and the record-oriented stream
  * sanitizer.
  */
 
 import { StringDecoder } from 'node:string_decoder';
-import { wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
+import { previousRecordSeparator, wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
 import { credentialEnvironmentValues, sanitizeWithPolicy } from './sensitive-data-sanitizer.lib.mjs';
 
 export const CREDENTIAL_SANITIZATION_ERROR_CODE = 'ERR_CREDENTIAL_SANITIZATION';
@@ -130,7 +129,7 @@ export const createCredentialStreamSanitizer = options => {
         continue;
       }
 
-      const boundary = Math.max(pending.lastIndexOf('\n'), pending.lastIndexOf('\r'));
+      const boundary = previousRecordSeparator(pending);
       if (boundary < 0) break;
 
       // Issue #2156: a base64 blob wrapped across lines is one credential

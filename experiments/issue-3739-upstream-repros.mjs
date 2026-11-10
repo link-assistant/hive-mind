@@ -1,6 +1,6 @@
-// Library-only reproductions of every behavior Hive Mind works around in
-// src/sensitive-data-sanitizer.lib.mjs (UPSTREAM keys). No Hive Mind code is
-// used, so each block can be pasted into an upstream issue as it stands.
+// Historical library-only reproductions for the 0.19.3 gaps (#131–#141),
+// resolved in 0.21.0. Current gaps are in issue-3739/latest-library-audit.mjs.
+// No Hive Mind code is used; retain these probes when upgrading the library.
 // All secrets are synthetic and assembled at runtime.
 //
 // Usage: node experiments/issue-3739-upstream-repros.mjs [key]

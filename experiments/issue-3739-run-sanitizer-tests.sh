@@ -6,9 +6,13 @@
 set -u
 out=${1:-/tmp/sanitizer-tests}; list=${2:-experiments/issue-3739-sanitizer-tests.txt}
 mkdir -p "$out"; : > "$out/summary.txt"
+status=0
 while read -r t; do
   [ -z "$t" ] && continue
-  timeout 600 node "tests/$t" < /dev/null > "$out/$t.log" 2>&1
-  echo "$? $t" >> "$out/summary.txt"
+  node "tests/$t" < /dev/null > "$out/$t.log" 2>&1
+  result=$?
+  echo "$result $t" >> "$out/summary.txt"
+  [ "$result" -eq 0 ] || status=1
 done < "$list"
 cat "$out/summary.txt"
+exit "$status"

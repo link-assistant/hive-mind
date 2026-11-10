@@ -24,11 +24,11 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 - 只掩码凭证（`credentialsOnly`）。电子邮件地址、账户和用户 ID 以及 GitHub 登录名保持可读（[#3724](https://github.com/link-assistant/hive-mind/issues/3724)，规则 14）。
 - 凭证周围的格式上下文保持可读，只掩码凭证本身：`Authorization` 头的方案词（`Authorization: token ghp…b4N`、`Authorization: CustomScheme f3a…3e5`）、URL 用户名、Cookie 名称、PEM 标记和 Webhook 端点（[#3739](https://github.com/link-assistant/hive-mind/issues/3739)）。
 - `Authorization: token $(gh auth token)` 这类 Shell 表达式会保留：它们引用凭证，但不包含凭证。
-- 设置 `HIVE_MIND_SANITIZER_DEBUG=1` 可在 stderr 中跟踪清理决策：规则 ID、偏移量和长度，从不输出匹配的文本。
+- 设置 `HIVE_MIND_SANITIZER_DEBUG=1` 可在 stderr 中跟踪清理决策：规则 ID、输入长度、轮次和计数，从不输出匹配的文本。
 
 ## 覆盖形式
 
-库规则（供应商格式、Gitleaks 规则集、上下文键）与 Hive Mind 的补充检测器共同覆盖：
+库规则（供应商格式、Gitleaks 规则集、上下文键）覆盖：
 
 - GitHub、GitLab、OpenAI、Anthropic、AWS、Google/GCP、Azure、Slack、Discord、Telegram、Stripe、Twilio、SendGrid、npm、PyPI、Docker 和常见 CI 凭证格式；
 - OAuth 访问/刷新 Token、JWT/JWS Token、Webhook URL、HTTP Authorization 标头以及 Cookie/Set-Cookie 值；
@@ -37,13 +37,13 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-实现评审（[#3739](https://github.com/link-assistant/hive-mind/issues/3739)、[#3740](https://github.com/link-assistant/hive-mind/issues/3740)）把所有检测和渲染迁移到 `@link-foundation/sensitive-data-sanitizer`，Hive Mind 不再维护自己的凭证规则副本。`src/sensitive-data-sanitizer.lib.mjs` 只在其上添加 Hive Mind 策略：补充检测器、豁免（npm 包名 [#2156](https://github.com/link-assistant/hive-mind/issues/2156)、Token 计数 [#2119](https://github.com/link-assistant/hive-mind/issues/2119)、配置标志）和可见的格式上下文。每个变通方案都链接到请求库支持它的上游 issue（`UPSTREAM`），完整列表见[案例研究](./case-studies/issue-3739/README.md)。Secretlint 仍是发布边界上独立的第二扫描器，`containsKnownToken` 仍是对已知值的独立检查。
+库 0.21.0 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141 的旧变通方案已删除；剩余七项问题已报告为上游 #148–#154，并在[案例研究](./case-studies/issue-3739/README.md)中逐项记录：掩码文本、折行载荷、构造语法、Markdown、Authorization 方案、编码掩码和私钥类型。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 
 规则扫描器只匹配交给它的字节，因此仅以编码形式进入日志的凭证会同时对所有基于表层文本的规则不可见。这并非假想的绕过手段：普通工具在毫无隐藏意图的情况下也会不断进行编码，而 issue [#2156](https://github.com/link-assistant/hive-mind/issues/2156) 正是由此导致的泄露——镜像仓库的 Token 端点把收到的凭证以 base64 编码原样放回 JSON 响应体中，该响应被写入日志、被发布，随后由 GitHub 的扫描器撤销。完整分析见[案例研究](./case-studies/issue-2156/README.md)。
 
-因此库会先解码再匹配（`preserveEncoding`）。在库支持之前，`src/encoded-credential-detection.lib.mjs` 中保留两个变通方案：按行折叠的 base64 和短已知值的 hex（[sensitive-data-sanitizer#138](https://github.com/link-foundation/sensitive-data-sanitizer/issues/138)、[#140](https://github.com/link-foundation/sensitive-data-sanitizer/issues/140)）：
+库会先解码再匹配（`preserveEncoding`）。针对 [#149](https://github.com/link-foundation/sensitive-data-sanitizer/issues/149)，保留有界的折行 base64 预处理：库检查解码后的凭证，保留原始折行和无凭证图片，只豁免已检查的 256 KiB 以内块中的原生编码发现。更大的未检查块仍采用故障关闭策略。短已知秘密的 hex 已由库原生支持。独立解码器仍用于 Secretlint 和已知 Token 验证：
 
 - 长度受限的 base64、base64url、hex、百分号编码、字节转义和 HTML 实体序列会被解码，明文规则在解码后的文本上运行。
 - base64 按三种字节对齐方式读取，因此嵌在大块数据中间的凭证同样能被找到。折行的数据块按连续的纯 base64 行分组扫描，因为常见工具都会折行输出（MIME 为 76 列，PEM 为 64 列），折行后的数据块中不存在可供匹配的单行序列。

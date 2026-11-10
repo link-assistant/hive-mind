@@ -347,12 +347,12 @@ try {
   assert.ok(stagedBytes.includes('API_TOKEN=SYN…456'));
   assert.equal(await readFile(sourceLog, 'utf8'), `API_TOKEN=${alpha}\n`, 'staging must not modify the local audit source');
 
-  // A future raw file accidentally added beneath the broad artifact directory
-  // must block the entire staging attempt.
+  // #2841: evidence added by the AI is sanitized and verified before staging,
+  // so a repairable credential does not discard the whole session.
   const roguePath = join(repositoryPath, committed.relativeDirectory, 'raw-retry.log');
   await writeFile(roguePath, `API_TOKEN=${alpha}\n`, { mode: 0o600 });
   let stagingAttempted = false;
-  const blocked = await collectAndCommitDevelopmentLogArtifacts({
+  const repaired = await collectAndCommitDevelopmentLogArtifacts({
     enabled: true,
     repositoryPath,
     logFile: sourceLog,
@@ -362,14 +362,19 @@ try {
     sessionId: 'blocked-session',
     branchName: 'issue-2111-test',
     rawCommand: 'solve --development-log',
-    $: () => {
+    $: options => {
       stagingAttempted = true;
-      return async () => ({ code: 0, stdout: '', stderr: '' });
+      const run = gitRunner(options);
+      return async (strings, ...values) => {
+        assertSanitized(await readFile(roguePath, 'utf8'), [alpha]);
+        return run(strings, ...values);
+      };
     },
     log: async () => {},
   });
-  assert.equal(blocked.skipped, 'error');
-  assert.equal(stagingAttempted, false, 'residual scan must run before git add');
+  assert.equal(repaired.committed, true);
+  assert.equal(stagingAttempted, true);
+  assert.equal(await readFile(roguePath, 'utf8'), 'API_TOKEN=SYN…456\n');
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

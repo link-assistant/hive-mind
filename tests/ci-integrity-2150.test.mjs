@@ -108,6 +108,15 @@ result = runGate({ release: { result: 'cancelled' } }, true);
 assert.equal(result.status, 1, 'timeout cancellation fails the terminal gate on main');
 assert.match(result.stdout, /cancelled jobs on main: release/i);
 
+// Issue #4029: a result the gate does not know (e.g. "abandoned", a job that
+// never got a runner) fails closed instead of passing.
+result = runGate({ lint: { result: 'success' }, zizmor: { result: 'abandoned' } });
+assert.equal(result.status, 1, 'an unknown job result fails the terminal gate');
+assert.match(result.stdout, /::error::Pipeline has jobs that neither succeeded nor were skipped: zizmor \(abandoned\)/);
+result = runGate({ lint: {} });
+assert.equal(result.status, 1, 'a job without a result fails the terminal gate');
+assert.match(result.stdout, /lint \(no result\)/);
+
 // Issue #4025: a cancellation off main passes only when a newer commit
 // superseded the run; a timeout with nothing newer is a failure.
 result = runGate({ test: { result: 'cancelled' } }, false, { RUN_SHA: 'aaa', HEAD_REF: 'refs/pull/1/head', BRANCH_HEAD_SHA: 'bbb' });

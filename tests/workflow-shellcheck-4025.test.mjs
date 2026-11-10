@@ -21,7 +21,10 @@ const job = workflow.match(/\n {2}shellcheck:\n([\s\S]*?)(?=\n {2}[a-z][\w-]*:\n
 assert.ok(job, 'workflows.yml has a shellcheck job');
 assert.match(job[1], /timeout-minutes: \d+/, 'the shellcheck job has a timeout');
 assert.match(job[1], /persist-credentials: false/, 'the shellcheck checkout holds no credentials');
-assert.match(job[1], /pipx run --spec shellcheck-py==\d+\.\d+\.\d+\.\d+ shellcheck -S warning/, 'shellcheck is pinned and fails on warnings');
+assert.match(job[1], /pip" install [^\n]*shellcheck-py==\d+\.\d+\.\d+\.\d+\n/, 'shellcheck is pinned');
+assert.match(job[1], /xargs -0 "\$RUNNER_TEMP\/shellcheck\/bin\/shellcheck" -S warning/, 'the pinned shellcheck runs by path and fails on warnings');
+// Issue #4029: `pipx run` printed "shellcheck is already on your PATH" on every run.
+assert.doesNotMatch(job[1], /^ *[^#\n ][^\n]*pipx run/mu, 'no pipx PATH notice');
 assert.match(job[1], /git ls-files -z '\*\.sh' '\.husky\/\*'/, 'shellcheck reads every tracked script and hook');
 
 for (const event of ['push', 'pull_request']) {

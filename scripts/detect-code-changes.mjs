@@ -441,8 +441,10 @@ async function detectChanges() {
   // PR builds install this branch's package. Changes to installed source or
   // verification scripts therefore invalidate image evidence even when the
   // Dockerfile is unchanged. An incremental source-only update must not skip
-  // the stock/runtime and both-daemon mount gates (issue #3785).
-  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted)[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
+  // the stock/runtime and both-daemon mount gates (issue #3785). Helpers the
+  // gates mount into the image under test count too: the capability lifecycle
+  // verifier and its libraries, and the mounted native runtime (issue #4029).
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/(Dockerfile|start\.sh)|\.dockerignore|src\/.+|scripts\/(dind\/.+|docker-[^/]+|verify-(docker|dind|mounted|capability)[^/]+|capability-lifecycle-[^/]+|mounted-[^/]+|check-docker-[^/]+|install-image-[^/]+|detect-code-changes\.mjs))$/;
   const dockerChanged = packageChanged || changedFiles.some(file => dockerPattern.test(file) || isNativeCodexBuildInput(file) || file === 'experiments/issue-3785/probe-formal-ai-codex-auth.mjs');
   setOutput('docker', dockerChanged ? 'true' : 'false');
 

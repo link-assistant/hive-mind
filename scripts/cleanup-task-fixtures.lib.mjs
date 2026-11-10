@@ -201,6 +201,7 @@ export async function cleanupStaleFixtures({ repository, api, list, graphql, dry
   }
 
   const ownedSet = new Set(owned);
+  const staleFixtureCount = owned.length;
   if (!outOfTime()) {
     const pulls = await list(`repos/${repository}/pulls?state=all&per_page=100`);
     log(`Pull requests scanned: ${pulls.length} (${elapsed()})`);
@@ -239,7 +240,9 @@ export async function cleanupStaleFixtures({ repository, api, list, graphql, dry
       if (++checked % 100 === 0) log(`Processed ${checked}/${owned.length} stale branches (${elapsed()})`);
     }
   }
-  log(`Stale fixture branches: ${owned.length} (${elapsed()})`);
+  // Issue #4029: "stale: 1108" followed by "Stale fixture branches: 1380" read
+  // as a miscount; the difference is pull request heads based on a fixture.
+  log(`Stale fixture branches: ${owned.length} (${staleFixtureCount} e2e/ fixtures, ${owned.length - staleFixtureCount} pull request heads based on them) (${elapsed()})`);
   if (retainedBranches.length) {
     // Still a warning: the retained branches pile up until someone with admin
     // rights excludes them from the ruleset, and only a person can do that.

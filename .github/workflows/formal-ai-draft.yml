@@ -64,6 +64,11 @@ on:
 permissions:
   contents: read
 
+# Quiets the `git init` "Using 'master'" hint from checkout (issue #4029).
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 jobs:
   health:
     # A caller's own schedule does not check this repository's drafts.
@@ -204,7 +209,9 @@ jobs:
     needs: draft
     if: ${{ !cancelled() && needs.draft.outputs.checks_dispatched == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # Dispatched release runs take up to ~140 min (issue #4029,
+    # dev/log/issues/4029/pulls/4030/release-dispatch-durations.txt).
+    timeout-minutes: 215
     permissions:
       contents: read
       actions: read
@@ -222,5 +229,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHECKS_REF: ${{ needs.draft.outputs.head_branch }}
-          CHECKS_DEADLINE_MINUTES: '80'
+          CHECKS_DEADLINE_MINUTES: '200'
         run: node scripts/formal-ai-draft-checks.mjs

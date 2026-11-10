@@ -1,0 +1,136 @@
+update-pip-graph	UNKNOWN STEP	﻿2026-11-09T16:40:44.4984095Z Current runner version: '2.338.2'
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5006290Z ##[group]Runner Image Provisioner
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5007059Z Hosted Compute Agent
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5007578Z Version: 20261028.624
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5008241Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5008887Z Build Date: 2026-10-28T21:51:42Z
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5009520Z Worker ID: {e8310cba-1832-40aa-ad48-3a7864fa8889}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5010380Z Region: eastus2
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5010970Z Cloud: Azure
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5011456Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5012653Z ##[group]Operating System
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5013286Z Ubuntu
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5013751Z 26.04.1
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5014255Z LTS
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5014750Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5015222Z ##[group]Runner Image
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5015810Z Image: ubuntu-26.04
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5016371Z Version: 20261101.186.1
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5017597Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5018894Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5019918Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5021396Z ##[group]GITHUB_TOKEN Permissions
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5023284Z Contents: read
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5023863Z Metadata: read
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5024352Z Packages: read
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5024917Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5026968Z Secret source: None
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5027837Z Cache mode: read
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5028723Z Prepare workflow directory
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5303284Z Prepare all required actions
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.5342369Z Getting action download info
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:44.7075333Z Download action repository 'github/dependabot-action@main' (SHA:c4bca07f7d543c36e86236dbe1eec8eea29b03be)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.0911956Z Complete job name: update-pip-graph
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1638574Z ##[group]Run sudo -n rm -rf -- /usr/local/lib/android /usr/share/dotnet > /dev/null 2>&1 &
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1639531Z ^[[36;1msudo -n rm -rf -- /usr/local/lib/android /usr/share/dotnet > /dev/null 2>&1 &^[[0m
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1687975Z shell: /usr/bin/bash -e {0}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1688619Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1914150Z ##[group]Run mkdir -p  ./dependabot-job-1690812806-1794242438
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1914850Z ^[[36;1mmkdir -p  ./dependabot-job-1690812806-1794242438^[[0m
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1962817Z shell: /usr/bin/bash -e {0}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.1963279Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2148532Z ##[group]Run github/dependabot-action@main
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2149065Z env:
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2149438Z   DEPENDABOT_DISABLE_CLEANUP: 1
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2150088Z   DEPENDABOT_ENABLE_CONNECTIVITY_CHECK: 0
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2153219Z   GITHUB_TOKEN: ***
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2153902Z   GITHUB_DEPENDABOT_JOB_TOKEN: ***
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2154632Z   GITHUB_DEPENDABOT_CRED_TOKEN: ***
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2155108Z   GITHUB_REGISTRIES_PROXY: ***
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.2155531Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.5149831Z 🤖 ~ starting update ~
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:45.5168691Z Fetching job details
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:47.3661990Z ##[group]Pulling updater images
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:47.3728878Z Pulling image ghcr.io/dependabot/dependabot-updater-pip:ddd9950ec7dc676a67c480fbc3da7b6c5db86c0e (attempt 1)...
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:47.6025434Z Successfully sent metric (dependabot.action.ghcr_image_pull) to remote API endpoint
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:59.5692526Z Pulled image ghcr.io/dependabot/dependabot-updater-pip:ddd9950ec7dc676a67c480fbc3da7b6c5db86c0e
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:59.5706861Z Pulling image ghcr.io/dependabot/proxy:v2.0.20261103195546@sha256:13982e0447ae292382c4240f36b4b1589154688dce9a79a14087888e97e080e7 (attempt 1)...
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:40:59.7216954Z Successfully sent metric (dependabot.action.ghcr_image_pull) to remote API endpoint
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:00.6149387Z Pulled image ghcr.io/dependabot/proxy:v2.0.20261103195546@sha256:13982e0447ae292382c4240f36b4b1589154688dce9a79a14087888e97e080e7
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:00.6151253Z ##[endgroup]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:00.6152230Z Starting update process
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.2994575Z Created proxy container: a29ae911eb52d5c41787c0bd6c3bf6dab81ff868d2fabc063cf5d99cf06db96e
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.5723005Z   proxy | 2026/11/09 16:41:07 proxy starting, commit: 8232624e0a642edf5b77ac4927db0bb774e43777
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.5730684Z   proxy | 2026/11/09 16:41:07 Listening (:1080)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.8074912Z Created container: 3a7e780073c61ed7d3b2ec7f9ff76e3c7377d662f020ceee9613b9deaac06a43
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.9195948Z Started container 3a7e780073c61ed7d3b2ec7f9ff76e3c7377d662f020ceee9613b9deaac06a43
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:07.9594695Z updater | Updating certificates in /etc/ssl/certs...
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:08.5238141Z updater | rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:08.5296703Z updater | 1 added, 0 removed; done.
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:08.5299217Z updater | Running hooks in /etc/ca-certificates/update.d...
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:08.5313127Z updater | done.
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:08.8128921Z updater | fetch_files command is no longer used directly
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:10.6822049Z updater | 2026/11/09 16:41:10 INFO <job_1690812806> Starting job processing
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:10.6843961Z updater | 2026/11/09 16:41:10 INFO <job_1690812806> Job definition: {"job":{"command":"graph","allowed-updates":[{"dependency-type":"direct","update-type":"all"}],"commit-message-options":{"prefix":null,"prefix-development":null,"include-scope":null},"credentials-metadata":[{"type":"git_source","host":"github.com"}],"debug":null,"dependencies":null,"dependency-groups":[],"dependency-group-to-refresh":null,"existing-pull-requests":[],"existing-group-pull-requests":[],"experiments":{"record-ecosystem-versions":true,"record-update-job-unknown-error":true,"azure-registry-backup":true,"automatic-github-packages-auth":true,"blocked-versions":true,"workflow-job-summary":true,"async-retry":true,"enable-npmrc-credential-generation":true,"proxy-egress-observe":true,"proxy-egress-enforce":true,"github-actions-lockfile":true,"maven-wrapper-updater":true,"prioritize-scm-source":true,"enable-yarn-berry-conflicting-dependencies":true},"ignore-conditions":[],"lockfile-only":false,"package-manager":"pip","requirements-update-strategy":null,"reject-external-code":false,"security-advisories":[],"security-updates-only":false,"source":{"provider":"github","repo":"link-assistant/hive-mind","branch":null,"api-endpoint":"https://api.github.com/","hostname":"github.com","directories":["/docs/case-studies/issue-3863/raw"]},"updating-a-pull-request":false,"update-subdependencies":false,"vendor-dependencies":false,"enable-beta-ecosystems":false,"repo-private":false,"multi-ecosystem-update":false,"exclude-paths":[]}}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:10.7927721Z   proxy | 2026/11/09 16:41:10 [002] GET https://github.com:443/link-assistant/hive-mind.git/info/refs?service=git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:10.7928713Z   proxy | 2026/11/09 16:41:10 [002] * authenticating git server request (host: github.com)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:10.9036751Z   proxy | 2026/11/09 16:41:10 [002] 200 https://github.com:443/link-assistant/hive-mind.git/info/refs?service=git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.1227352Z updater | 2026/11/09 16:41:11 INFO <job_1690812806> Started process PID: 996 with command: {} git clone --no-tags --depth 1 --recurse-submodules --shallow-submodules https://github.com/link-assistant/hive-mind /home/dependabot/dependabot-updater/repo {}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.2382839Z   proxy | 2026/11/09 16:41:11 [004] GET https://github.com:443/link-assistant/hive-mind/info/refs?service=git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.2385456Z   proxy | 2026/11/09 16:41:11 [004] * authenticating git server request (host: github.com)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.3594746Z   proxy | 2026/11/09 16:41:11 [004] 200 https://github.com:443/link-assistant/hive-mind/info/refs?service=git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.3629162Z   proxy | 2026/11/09 16:41:11 [005] POST https://github.com:443/link-assistant/hive-mind/git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.3630048Z 2026/11/09 16:41:11 [005] * authenticating git server request (host: github.com)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.4857118Z   proxy | 2026/11/09 16:41:11 [005] 200 https://github.com:443/link-assistant/hive-mind/git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.5249281Z   proxy | 2026/11/09 16:41:11 [006] POST https://github.com:443/link-assistant/hive-mind/git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:11.5250078Z 2026/11/09 16:41:11 [006] * authenticating git server request (host: github.com)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:12.0270100Z   proxy | 2026/11/09 16:41:12 [006] 200 https://github.com:443/link-assistant/hive-mind/git-upload-pack
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:40.8862362Z updater | 2026/11/09 16:41:40 INFO <job_1690812806> Process PID: 996 completed with status: pid 996 exit 0
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:40.8866724Z updater | 2026/11/09 16:41:40 INFO <job_1690812806> Total execution time: 29.76 seconds
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:40.8868141Z updater | 2026/11/09 16:41:40 INFO <job_1690812806> Started process PID: 1039 with command: {} git -C /home/dependabot/dependabot-updater/repo ls-files --stage {}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.1743258Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> Process PID: 1039 completed with status: pid 1039 exit 0
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.1744261Z 2026/11/09 16:41:41 INFO <job_1690812806> Total execution time: 0.29 seconds
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.5430811Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> Started process PID: 1132 with command: {} git rev-parse HEAD {}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.5465340Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> Process PID: 1132 completed with status: pid 1132 exit 0
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.5465959Z 2026/11/09 16:41:41 INFO <job_1690812806> Total execution time: 0.0 seconds
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.9671826Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> DEBUG filter_excluded: entries=30, exclude_paths=[]
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.9681750Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> Base commit SHA: b245deb62fbbca42625753587575416c50d81727
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.9682423Z 2026/11/09 16:41:41 INFO <job_1690812806> Finished job processing
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:41.9695278Z updater | 2026/11/09 16:41:41 INFO <job_1690812806> Starting job processing
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3574899Z updater | 2026/11/09 16:41:42 INFO <job_1690812806> Started process PID: 1317 with command: {} git symbolic-ref --short refs/remotes/origin/HEAD {}
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3611960Z updater | 2026/11/09 16:41:42 INFO <job_1690812806> Process PID: 1317 completed with status: pid 1317 exit 0
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3612820Z 2026/11/09 16:41:42 INFO <job_1690812806> Total execution time: 0.0 seconds
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3626017Z updater | 2026/11/09 16:41:42 INFO <job_1690812806> Dependency submission payload:
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3626746Z {
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3626986Z   "version": 1,
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3627330Z   "sha": "b245deb62fbbca42625753587575416c50d81727",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3627808Z   "ref": "refs/heads/main",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3628264Z   "job": {
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3628630Z     "correlator": "dependabot-pip-docs/case-studies/issue-3863/raw",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3629058Z     "id": "1690812806"
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3629808Z   },
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3630166Z   "detector": {
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3630434Z     "name": "dependabot",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3630916Z     "version": "0.403.0-ddd9950ec7dc676a67c480fbc3da7b6c5db86c0e",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3631521Z     "url": "https://github.com/dependabot/dependabot-core"
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3631956Z   },
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3632247Z   "manifests": {},
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3632529Z   "metadata": {
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3632780Z     "status": "skipped",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3633007Z     "reason": "missing manifest files",
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3636743Z     "scanned_manifest_path": "pypi::/docs/case-studies/issue-3863/raw"
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3637197Z   }
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.3637409Z }
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.4548866Z   proxy | 2026/11/09 16:41:42 [008] POST /update_jobs/1690812806/create_dependency_submission
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.8911891Z   proxy | 2026/11/09 16:41:42 [008] 204 /update_jobs/1690812806/create_dependency_submission
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:42.9645569Z   proxy | 2026/11/09 16:41:42 [010] PATCH /update_jobs/1690812806/mark_as_processed
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:43.1628687Z   proxy | 2026/11/09 16:41:43 [010] 204 /update_jobs/1690812806/mark_as_processed
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:43.1632701Z updater | 2026/11/09 16:41:43 INFO <job_1690812806> Finished job processing
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:43.1890879Z updater | 2026/11/09 16:41:43 INFO Workflow summary written to /home/dependabot/dependabot-updater/output/summary.md
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:43.3194561Z Job summary written to GITHUB_STEP_SUMMARY
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:50.7988704Z Cleaned up container 3a7e780073c61ed7d3b2ec7f9ff76e3c7377d662f020ceee9613b9deaac06a43
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:50.8598104Z   proxy | 2026/11/09 16:41:50 0/6 calls cached (0%)
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:50.8598677Z   proxy | 2026/11/09 16:41:50 Posting metrics to remote API endpoint
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:51.1124793Z 🤖 ~ finished ~
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:51.1286914Z Post job cleanup.
+update-pip-graph	UNKNOWN STEP	2026-11-09T16:41:51.2515798Z Cleaning up orphan processes

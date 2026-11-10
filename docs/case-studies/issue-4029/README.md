@@ -9,7 +9,7 @@ Previous round: [issue #4025](../issue-4025/README.md) (PR #4026, merged 2026-11
 
 | #   | Requirement (issue text)                                                                       | Where it is addressed                                                    |
 | --- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD                  | Findings F1–F12 below                                                    |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD                  | Findings F1–F13 below                                                    |
 | R2  | Checks and release: failure (run 42657172126)                                                  | F1, F2, F3                                                               |
 | R3  | Cleanup Test Repositories: cancelled (run 42614826072)                                         | F5 (the ruleset part stays blocked on an administrator, B1)              |
 | R4  | E2E Hello World Matrix: skipped                                                                | F8: skipped by design, no change                                         |
@@ -265,6 +265,24 @@ release tests (`version-and-commit-2082`,
 `push-github-server-error-3552`, `test-issue-1817-push-rejection-diagnostics`)
 still pass.
 
+### F13. Native Codex build ran within 10 minutes of its timeout (false negative risk)
+
+**Root cause.** `.github/workflows/native-codex-build.yml` compiles the pinned
+Codex CLI from source on every release run that changes code, Docker or
+workflows. No build has timed out yet. But every successful arm64 build took
+103–110 minutes (x64: 77–105) against `timeout-minutes: 120`. A runner slower
+by 10 minutes would cancel a healthy build and fail `Checks and release` with
+nothing broken. The durations are in
+`dev/log/issues/4029/pulls/4030/native-codex-build-durations.txt`.
+
+**Fix.** The timeout is 150 minutes, which leaves about 40 minutes over the
+slowest build. A real hang is still stopped. Making the build itself faster (a
+Cargo cache) would change what this verified, pinned build trusts, so it is left
+to the native build owners.
+
+**Test.** `tests/native-codex-build-timeout-4029.test.mjs` requires a timeout of
+at least 30 minutes over the slowest observed build (110 minutes).
+
 ## Template comparison
 
 Every CI/CD file was compared with the four templates at js `34415b0`,
@@ -280,9 +298,10 @@ python `f28c9d8`, rust `88fd935` and cpp `29d8cf2`.
 | Unknown job results pass the status gate (F10)            | already fails closed (run 42674292671 shows an `abandoned` result)                                                          | already fails closed                                                                                 | already fails closed                                                                                                       | already fails closed                                                                                                                                         |
 
 The bodies are in `dev/log/issues/4029/pulls/4030/template-issues/`. The
-hive-mind-specific defects F1, F3, F4, F5 and F11 have no counterpart:
+hive-mind-specific defects F1, F3, F4, F5, F11 and F13 have no counterpart:
 the templates have no capability lifecycle gate, no Formal AI Draft, no
-dependency freshness gate and no test-repository cleanup.
+dependency freshness gate, no test-repository cleanup and no native source
+build.
 
 **B. Template practices adopted.**
 
@@ -338,7 +357,8 @@ enabled), cpp (`CONAN_AUDIT_PROVIDER_TOKEN_CONANCENTER` missing).
   - `workflow-git-init-default-branch-4029`;
   - `workflow-shellcheck-4025`;
   - `ci-integrity-2150`;
-  - `version-and-commit-untested-remote-4029`.
+  - `version-and-commit-untested-remote-4029`;
+  - `native-codex-build-timeout-4029`.
 
   Each new assertion fails without its fix.
 

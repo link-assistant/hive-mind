@@ -20,7 +20,10 @@ jobs:
   build:
     name: Build and exercise ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    # Issue #4029: successful arm64 builds take 103-110 minutes (x64: 77-105),
+    # so 120 left a 10-minute margin and a slower runner would turn the release
+    # red with nothing broken. 150 keeps a margin of about 40 minutes.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

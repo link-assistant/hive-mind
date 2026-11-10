@@ -16,8 +16,9 @@
  * @module token-sanitization
  */
 
-// Import shared utilities. The dependency-free core is also used directly by
-// lib.mjs, so it must not depend on this asynchronous Secretlint layer.
+// Import shared utilities. The synchronous core (on the sensitive-data-sanitizer
+// library) is also used directly by lib.mjs, so it must not depend on this
+// asynchronous Secretlint layer.
 import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
@@ -372,7 +373,7 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
 };
 
 /**
- * Run the dependency-free sanitizer without changing exact strings covered by
+ * Run the synchronous core sanitizer without changing exact strings covered by
  * the legacy local-output exclusion carve-out. Publication callers never pass
  * exclusions and therefore cannot reach this compatibility behavior.
  */
@@ -780,7 +781,8 @@ export const describeCredentialSanitizationFailure = error => {
  * Exact publication-boundary sanitizer.
  *
  * Unlike best-effort local diagnostics, outbound mutations require both the
- * synchronous maintained patterns and Secretlint to complete successfully.
+ * the synchronous core (sensitive-data-sanitizer library) and Secretlint to
+ * complete successfully.
  * The final bytes are scanned again immediately before a caller publishes
  * them. Any scanner failure or residual finding blocks publication.
  */

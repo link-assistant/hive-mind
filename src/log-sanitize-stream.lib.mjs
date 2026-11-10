@@ -37,9 +37,9 @@
  *
  * This is exactly the hold-back contract {@link createCredentialStreamSanitizer}
  * already applies to child-process output; the difference is that this module
- * runs the *full* fail-closed publication sanitizer (maintained patterns +
- * Secretlint + residual re-scan) on each released block rather than the
- * dependency-free subset.
+ * runs the *full* fail-closed publication sanitizer (sensitive-data-sanitizer
+ * library + Secretlint + residual re-scan) on each released block rather than
+ * the synchronous core alone.
  *
  * A hold is itself capped ({@link DEFAULT_MAX_HOLD_BYTES}) so a log containing a
  * stray `-----BEGIN` marker with no terminator — or one enormous line — can

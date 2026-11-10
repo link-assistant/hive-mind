@@ -463,9 +463,9 @@ const clipContextToFormat = (text, f, raw) => {
 export const findCredentialFindings = (text, options = {}) => findPolicyFindings(String(text ?? ''), options, 0);
 
 // The library refuses (ERR_LIMIT) a text with more than 4096 decodable
-// candidates in one call: a 1 MB base64 dump on a terminal, or a long log full
-// of 16+ character identifiers, would block output although it holds no
-// credential. Such a text is inspected in pieces cut at line breaks (spaces when
+// candidates in one call: a 1 MB base64 dump on a terminal, or a long log of
+// short base64 or percent-encoded text runs, would block output although it
+// holds no credential. Such a text is inspected in pieces cut at line breaks (spaces when
 // a line has none) that never fall inside a PEM block, so every multi-line
 // construct the library recognizes stays whole; wrapped base64 runs were
 // already handled across the whole text by sanitizeWrappedRuns.
@@ -572,10 +572,11 @@ const findPolicyFindings = (input, { knownSecrets = [], knownOnly = false } = {}
 };
 
 // Base64 wrapped across lines (`base64 -w 76`, PEM-style bodies) is decoded by
-// the library one line at a time: the first line is rewritten and the other
-// lines of the credential's encoding stay raw. Hive Mind's own encoded layer
-// reassembles the wrapped run, sanitizes the decoded text with this policy and
-// re-encodes it with the original wrapping. Upstream: UPSTREAM.wrappedEncoding.
+// the library as one run, but the masked payload is re-encoded as a single line:
+// the wrapping is lost and the line count of the log changes (it also reports
+// an extra overlapping finding for one of the lines). Hive Mind's own encoded
+// layer reassembles the wrapped run, sanitizes the decoded text with this policy
+// and re-encodes it with the original wrapping. Upstream: UPSTREAM.wrappedEncoding.
 const WRAPPED_ENCODINGS = Object.freeze(['base64-wrapped']);
 const sanitizeWrappedRuns = (input, options, depth) => {
   if (depth >= MAX_ENCODED_DEPTH || input.indexOf('\n') === -1) return input;
@@ -588,9 +589,10 @@ const sanitizeWrappedRuns = (input, options, depth) => {
 
 // The library re-encodes a masked encoded payload in its original encoding and
 // verifies the result decodes back. A hex payload is only recognized from 16
-// bytes on, so a masked value shorter than that (`Pla…nTr` is 9 bytes) fails the
-// check and `redact()` throws ERR_ENCODING for the whole text: one short hex
-// token blocks a complete log. Such a run is masked as it stands instead (the
+// bytes on, so a masked value shorter than that (the hex of a 16-character
+// known secret masks to `Pk7…B8y`, 9 bytes) fails the check and `sanitize()` /
+// `redact()` throw ERR_ENCODING for the whole text: one short hex token blocks
+// a complete log. Such a run is masked as it stands instead (the
 // raw encoded text gets the usual mask); every other finding keeps the
 // encoding-preserving rendering. Upstream: UPSTREAM.shortEncodedMask.
 const renderFindings = (input, findings, renderOptions) => {

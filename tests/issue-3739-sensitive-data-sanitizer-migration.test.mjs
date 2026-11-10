@@ -142,6 +142,12 @@ await test('a long list of identifiers is not masked as one encoded run; the cre
   assert.equal(output, `${lines.join('\n')}\ntoken: ghp…b4N\n`);
 });
 
+await test('a log with more than 4096 decodable runs is inspected in pieces instead of failing (ERR_LIMIT)', () => {
+  const lines = Array.from({ length: 5000 }, (_, i) => Buffer.from(`chunk number ${i} ok`).toString('base64'));
+  const output = sanitize(`${lines.join('\n')}\ntoken: ${GITHUB_TOKEN}`);
+  assert.equal(output, `${lines.join('\n')}\ntoken: ghp…b4N`);
+});
+
 await test('a short hex token is masked without blocking the whole text (ERR_ENCODING)', () => {
   const hex = Buffer.from(['Plain', 'TextPass', 'word1'].join('')).toString('hex');
   const output = sanitize(`password=${hex} and the rest stays`);

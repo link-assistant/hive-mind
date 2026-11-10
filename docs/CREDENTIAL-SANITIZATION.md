@@ -19,26 +19,31 @@ All maintained sinks use the sanitizer in `src/token-sanitization.lib.mjs`.
 - Temporary publication files and local audit sources are owner-readable only (`0600`); temporary upload directories are `0700`.
 - `--development-log` leaves raw local audit sources unchanged and stages only sanitized copies.
 
-The dependency-free synchronous core protects terminal and local log paths. Publication boundaries then run the core, known-active-token matching, Secretlint, and a residual rescan. Dangerous local-output compatibility switches do not bypass publication boundaries.
+The synchronous core runs on [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer) (`src/sensitive-data-sanitizer.lib.mjs`). It protects terminal and local log paths. At publication boundaries, Hive Mind then runs the core, known-active-token matching, Secretlint, and a residual rescan. Dangerous compatibility switches for local output do not bypass publication boundaries.
+
+- Only credentials are masked (`credentialsOnly`). E-mail addresses, account and user IDs, and GitHub logins stay readable ([#3724](https://github.com/link-assistant/hive-mind/issues/3724), rule 14).
+- Format context around a credential stays readable, and only the credential itself is masked. This covers the scheme word of an `Authorization` header (`Authorization: token ghp…b4N`, `Authorization: CustomScheme f3a…3e5`), a URL user name, cookie names, PEM markers, and webhook endpoints ([#3739](https://github.com/link-assistant/hive-mind/issues/3739)).
+- Shell expressions such as `Authorization: token $(gh auth token)` are kept, because they reference a credential without containing one.
+- Set `HIVE_MIND_SANITIZER_DEBUG=1` to trace sanitizer decisions on stderr. The trace shows rule ids, offsets, and lengths, but never the matched text.
 
 ## Covered forms
 
-The maintained patterns cover:
+The library rules (vendor formats, the Gitleaks rule set, and contextual keys), together with the Hive Mind gap detectors, cover:
 
 - GitHub, GitLab, OpenAI, Anthropic, AWS, Google/GCP, Azure, Slack, Discord, Telegram, Stripe, Twilio, SendGrid, npm, PyPI, Docker, and common CI credential formats;
 - OAuth access/refresh tokens, JWT/JWS tokens, webhook URLs, HTTP Authorization headers, and Cookie/Set-Cookie values;
 - JSON, YAML, TOML, INI, XML, environment/shell assignments, CLI flags, sensitive query parameters, connection-string passwords, and PEM private keys;
-- exact values discovered from active credential environment variables and local GitHub authentication.
+- exact values discovered from local credentials. The library collects them: credential environment variables (`knownSecretsFromEnv`), every token in the gh `hosts.yml` (`knownSecretsFromGitHubConfig`), and `gh auth token` (`knownSecretsFromGitHubAuth`). `KNOWN_LOCAL_TOKEN_ENV_VARS` lists the variables that are always read.
 
 Detection is intentionally conservative at external boundaries. A false positive may mask a credential-like value; a scanner failure blocks the publication instead of sending the original bytes.
 
-The implementation review compared external scanners such as Gitleaks and detect-secrets with the project's existing Secretlint integration. Secretlint remains the publication scanner because it is a maintained rule set that runs inside the Node.js process without adding a Go or Python runtime dependency. The synchronous maintained rules cover terminal paths where an asynchronous scanner cannot run, while Secretlint and the residual rescan provide an independent publication check.
+The implementation review ([#3739](https://github.com/link-assistant/hive-mind/issues/3739), [#3740](https://github.com/link-assistant/hive-mind/issues/3740)) moved all detection and rendering to `@link-foundation/sensitive-data-sanitizer`, so Hive Mind no longer has its own copy of the credential rules. `src/sensitive-data-sanitizer.lib.mjs` adds only the Hive Mind policy on top: gap detectors, exemptions (npm package names [#2156](https://github.com/link-assistant/hive-mind/issues/2156), token counts [#2119](https://github.com/link-assistant/hive-mind/issues/2119), configuration flags), and visible format context. Each workaround links the upstream issue that asks the library to support it (`UPSTREAM`). The [case study](./case-studies/issue-3739/README.md) lists them all. Secretlint remains the independent second scanner at publication boundaries, and `containsKnownToken` remains the independent check for known values.
 
 ## Encoded credentials
 
 A pattern scanner matches the bytes it is given, so a credential that reaches a log only in encoded form is invisible to every surface-text rule at once. That is not a hypothetical evasion: ordinary tooling encodes constantly without intending to obscure anything, and issue [#2156](https://github.com/link-assistant/hive-mind/issues/2156) is a leak caused by exactly this — a registry token endpoint echoed the supplied credential back base64-encoded inside a JSON body, which was logged, published, and revoked by GitHub's scanner. The [case study](./case-studies/issue-2156/README.md) has the full analysis.
 
-`src/encoded-credential-detection.lib.mjs` therefore decodes before matching:
+The library therefore decodes before matching (`preserveEncoding`). Two workarounds in `src/encoded-credential-detection.lib.mjs` remain until the library handles them: line-wrapped base64 and the hex of short known values ([sensitive-data-sanitizer#138](https://github.com/link-foundation/sensitive-data-sanitizer/issues/138), [#140](https://github.com/link-foundation/sensitive-data-sanitizer/issues/140)):
 
 - Bounded base64, base64url, hex, percent-encoded, byte-escape, and HTML-entity runs are decoded, and the plaintext rules run over the decoded text.
 - Base64 is read at all three byte alignments, so a credential embedded mid-blob is still found. Line-wrapped blobs are scanned as contiguous groups of base64-only lines, because every common wrapper folds its output (76 columns for MIME, 64 for PEM) and a folded blob contains no single-line run to match.
@@ -53,11 +58,12 @@ Encoded-payload detections are reported separately in the verbose sanitization s
 
 1. Verify the format in the vendor's current official security or authentication documentation. Never paste a live credential into an issue, test, log, or commit.
 2. Add only synthetic examples to `tests/test-credential-sanitization-2111.mjs`. Cover standalone, structured assignment, multiple-per-line, and chunk-split forms where applicable.
-3. Add or update the maintained pattern in `src/credential-sanitization-core.lib.mjs`.
+3. Report the missing format to [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer/issues) first. Until it is fixed there, add a gap detector or exemption in `src/sensitive-data-sanitizer.lib.mjs` with an `UPSTREAM` link, and a row in `tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs`.
 4. Run the focused security tests and the default suite:
 
    ```bash
    node tests/test-credential-sanitization-2111.mjs
+   node tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs
    node tests/test-encoded-credential-leak-2156.mjs
    node tests/test-encoded-secretlint-layer-2156.mjs
    node tests/test-require-sanitized-output-rule.mjs

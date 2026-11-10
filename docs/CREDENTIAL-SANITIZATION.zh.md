@@ -19,26 +19,31 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 - 临时发布文件和本地审计源仅允许所有者读取（`0600`）；临时上传目录权限为 `0700`。
 - `--development-log` 不修改原始本地审计源，只暂存经过清理的副本。
 
-无依赖的同步核心保护终端和本地日志路径。发布边界随后依次运行核心、已知活动 Token 匹配、Secretlint 和残留复扫。危险的本地输出兼容开关无法绕过发布边界。
+同步核心运行在 [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer)（`src/sensitive-data-sanitizer.lib.mjs`）之上，保护终端和本地日志路径。发布边界随后依次运行核心、已知活动 Token 匹配、Secretlint 和残留复扫。危险的本地输出兼容开关无法绕过发布边界。
+
+- 只掩码凭证（`credentialsOnly`）。电子邮件地址、账户和用户 ID 以及 GitHub 登录名保持可读（[#3724](https://github.com/link-assistant/hive-mind/issues/3724)，规则 14）。
+- 凭证周围的格式上下文保持可读，只掩码凭证本身：`Authorization` 头的方案词（`Authorization: token ghp…b4N`、`Authorization: CustomScheme f3a…3e5`）、URL 用户名、Cookie 名称、PEM 标记和 Webhook 端点（[#3739](https://github.com/link-assistant/hive-mind/issues/3739)）。
+- `Authorization: token $(gh auth token)` 这类 Shell 表达式会保留：它们引用凭证，但不包含凭证。
+- 设置 `HIVE_MIND_SANITIZER_DEBUG=1` 可在 stderr 中跟踪清理决策：规则 ID、偏移量和长度，从不输出匹配的文本。
 
 ## 覆盖形式
 
-维护的规则覆盖：
+库规则（供应商格式、Gitleaks 规则集、上下文键）与 Hive Mind 的补充检测器共同覆盖：
 
 - GitHub、GitLab、OpenAI、Anthropic、AWS、Google/GCP、Azure、Slack、Discord、Telegram、Stripe、Twilio、SendGrid、npm、PyPI、Docker 和常见 CI 凭证格式；
 - OAuth 访问/刷新 Token、JWT/JWS Token、Webhook URL、HTTP Authorization 标头以及 Cookie/Set-Cookie 值；
 - JSON、YAML、TOML、INI、XML、环境变量/shell 赋值、CLI 参数、敏感查询参数、连接字符串密码和 PEM 私钥；
-- 从活动凭证环境变量和本地 GitHub 身份验证中发现的精确值。
+- 由库收集的本地凭证精确值：凭证环境变量（`knownSecretsFromEnv`）、gh `hosts.yml` 中的每个 Token（`knownSecretsFromGitHubConfig`）以及 `gh auth token`（`knownSecretsFromGitHubAuth`）。`KNOWN_LOCAL_TOKEN_ENV_VARS` 列出始终读取的变量。
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-实现评审比较了 Gitleaks、detect-secrets 等外部扫描器和项目现有的 Secretlint 集成。Secretlint 仍作为发布扫描器，因为它提供维护中的规则集，可在 Node.js 进程内运行，而无需增加 Go 或 Python 运行时依赖。同步维护规则覆盖无法运行异步扫描器的终端路径，Secretlint 和残留复扫则提供独立的发布检查。
+实现评审（[#3739](https://github.com/link-assistant/hive-mind/issues/3739)、[#3740](https://github.com/link-assistant/hive-mind/issues/3740)）把所有检测和渲染迁移到 `@link-foundation/sensitive-data-sanitizer`，Hive Mind 不再维护自己的凭证规则副本。`src/sensitive-data-sanitizer.lib.mjs` 只在其上添加 Hive Mind 策略：补充检测器、豁免（npm 包名 [#2156](https://github.com/link-assistant/hive-mind/issues/2156)、Token 计数 [#2119](https://github.com/link-assistant/hive-mind/issues/2119)、配置标志）和可见的格式上下文。每个变通方案都链接到请求库支持它的上游 issue（`UPSTREAM`），完整列表见[案例研究](./case-studies/issue-3739/README.md)。Secretlint 仍是发布边界上独立的第二扫描器，`containsKnownToken` 仍是对已知值的独立检查。
 
 ## 编码凭证
 
 规则扫描器只匹配交给它的字节，因此仅以编码形式进入日志的凭证会同时对所有基于表层文本的规则不可见。这并非假想的绕过手段：普通工具在毫无隐藏意图的情况下也会不断进行编码，而 issue [#2156](https://github.com/link-assistant/hive-mind/issues/2156) 正是由此导致的泄露——镜像仓库的 Token 端点把收到的凭证以 base64 编码原样放回 JSON 响应体中，该响应被写入日志、被发布，随后由 GitHub 的扫描器撤销。完整分析见[案例研究](./case-studies/issue-2156/README.md)。
 
-因此 `src/encoded-credential-detection.lib.mjs` 会先解码再匹配：
+因此库会先解码再匹配（`preserveEncoding`）。在库支持之前，`src/encoded-credential-detection.lib.mjs` 中保留两个变通方案：按行折叠的 base64 和短已知值的 hex（[sensitive-data-sanitizer#138](https://github.com/link-foundation/sensitive-data-sanitizer/issues/138)、[#140](https://github.com/link-foundation/sensitive-data-sanitizer/issues/140)）：
 
 - 长度受限的 base64、base64url、hex、百分号编码、字节转义和 HTML 实体序列会被解码，明文规则在解码后的文本上运行。
 - base64 按三种字节对齐方式读取，因此嵌在大块数据中间的凭证同样能被找到。折行的数据块按连续的纯 base64 行分组扫描，因为常见工具都会折行输出（MIME 为 76 列，PEM 为 64 列），折行后的数据块中不存在可供匹配的单行序列。
@@ -53,11 +58,12 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 1. 在供应商当前的官方安全或身份验证文档中验证格式。切勿将真实凭证粘贴到 issue、测试、日志或提交中。
 2. 仅向 `tests/test-credential-sanitization-2111.mjs` 添加合成示例。根据需要覆盖独立值、结构化赋值、单行多值和跨数据块拆分形式。
-3. 在 `src/credential-sanitization-core.lib.mjs` 中添加或更新维护的规则。
+3. 先向 [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer/issues) 报告缺失的格式。在上游修复之前，在 `src/sensitive-data-sanitizer.lib.mjs` 中添加带 `UPSTREAM` 链接的补充检测器或豁免，并在 `tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs` 中添加一行测试。
 4. 运行重点安全测试和默认测试套件：
 
    ```bash
    node tests/test-credential-sanitization-2111.mjs
+   node tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs
    node tests/test-encoded-credential-leak-2156.mjs
    node tests/test-encoded-secretlint-layer-2156.mjs
    node tests/test-require-sanitized-output-rule.mjs

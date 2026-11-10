@@ -59,13 +59,25 @@
     {
       "name": "image",
       "length": 200027,
-      "ms": 399,
+      "ms": 269,
+      "preserved": true
+    },
+    {
+      "name": "image-1",
+      "length": 627391,
+      "ms": 286,
+      "preserved": true
+    },
+    {
+      "name": "image-2",
+      "length": 1000027,
+      "ms": 552,
       "preserved": true
     },
     {
       "name": "wrapped",
       "length": 194527,
-      "ms": 1804,
+      "ms": 1370,
       "preserved": true
     }
   ],

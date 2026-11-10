@@ -36,13 +36,15 @@ export function selectDispatchedRuns(runs, { sha, workflows }) {
   });
 }
 
-const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'stale']);
+// Issue #4029: only these conclusions count as passing. Anything else,
+// including a conclusion GitHub adds later or a completed run without one, is a
+// failure, so the mirrored check fails closed instead of turning green.
+const PASSING_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
 
 const stateFor = run => {
   if (run.status !== 'completed') return 'pending';
   if (run.conclusion === 'cancelled') return 'error';
-  if (FAILED_CONCLUSIONS.has(run.conclusion)) return 'failure';
-  return 'success';
+  return PASSING_CONCLUSIONS.has(run.conclusion) ? 'success' : 'failure';
 };
 
 /**

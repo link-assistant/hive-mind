@@ -48,6 +48,8 @@ test('each run becomes a commit status that links it', () => {
   assert.equal(commitStatusForRun({ workflow: 'release.yml', run: run({ status: 'queued', conclusion: null }) }).description, 'Checks and release: queued');
   for (const conclusion of ['failure', 'timed_out', 'startup_failure', 'action_required', 'stale']) assert.equal(commitStatusForRun({ workflow: 'release.yml', run: run({ conclusion }) }).state, 'failure', conclusion);
   for (const conclusion of ['neutral', 'skipped']) assert.equal(commitStatusForRun({ workflow: 'release.yml', run: run({ conclusion }) }).state, 'success', conclusion);
+  // Issue #4029: an unknown or missing conclusion fails closed.
+  for (const conclusion of ['abandoned', null]) assert.equal(commitStatusForRun({ workflow: 'release.yml', run: run({ conclusion }) }).state, 'failure', String(conclusion));
   assert.equal(commitStatusForRun({ workflow: 'release.yml', run: run({ conclusion: 'cancelled' }) }).state, 'error');
   assert.ok(commitStatusForRun({ workflow: 'release.yml', run: run({ name: 'x'.repeat(300) }) }).description.length <= 140, 'GitHub limits a status description to 140 characters');
 });

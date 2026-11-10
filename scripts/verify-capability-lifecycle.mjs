@@ -50,7 +50,7 @@ import { createRequire } from 'node:module';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startSyntheticVendorProvider } from './capability-lifecycle-provider.lib.mjs';
-import { assertNoCapabilityTraffic, captureCanonicalState, classifyCapabilityTraffic, compareCanonicalState, scanCapabilityManifest } from './capability-lifecycle-state.lib.mjs';
+import { assertNoCapabilityTraffic, captureCanonicalState, classifyCapabilityTraffic, codexStockRefusalExpected, compareCanonicalState, scanCapabilityManifest } from './capability-lifecycle-state.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const launcher = process.argv[2] || fileURLToPath(new URL('../src/hive.mjs', import.meta.url));
@@ -227,7 +227,7 @@ async function checkpoint(phase, { contentOnly = [], unpinnedCodex = null } = {}
     const { findings } = await runAgentConfigAudit({ homeDir: home, env: {}, autoRepair: false, requireClean: true });
     assert.equal(findings.length, 0, `${phase}: production audit reported ${findings.map(finding => `${finding.tool}:${finding.kind}`).join(', ')}`);
   } catch (error) {
-    if (!(unpinnedCodex && unpinnedCodex !== CODEX_STOCK_SKILLS.cliVersion && error instanceof CodexStockBaselineError)) throw error;
+    if (!(codexStockRefusalExpected(unpinnedCodex, CODEX_STOCK_SKILLS.cliVersion) && error instanceof CodexStockBaselineError)) throw error;
     audit = `launch refused on the unpinned Codex ${unpinnedCodex} stock runtime (typed fail-closed, no repair)`;
   }
   const traffic = classifyCapabilityTraffic(provider.requests.slice(phaseStart), provider.tunnels);
@@ -318,9 +318,10 @@ try {
   else {
     const bunInstall = path.join(fixture, 'bun');
     const updaterEnv = { ...env, BUN_INSTALL: bunInstall, PATH: `${path.join(home, '.local/bin')}:${path.join(bunInstall, 'bin')}:${env.PATH}`, HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE: '1' };
-    // Stage the previous stable release of each CLI inside the synthetic home
-    // so the updater really replaces both binaries instead of reporting them
-    // current (the image always ships the latest).
+    // Stage the release before the image's one for each CLI inside the
+    // synthetic home so the updater really replaces both binaries instead of
+    // reporting them current. The updater installs npm `latest`, which is not
+    // the image's pinned Codex once a newer release ships (issue #4029).
     beginPhase();
     const previous = {};
     for (const [id, pkg, current] of [
@@ -356,7 +357,17 @@ try {
     await checkpoint('P3 idle CLI updater (claude update / bun install -g)', { unpinnedCodex: previous.codex });
     beginPhase();
     await nativeStartup('P3 updated', home, updaterEnv);
-    await checkpoint('P3 first native start with the updated binaries');
+    // A `latest` Codex other than the pinned baseline materializes its own stock
+    // skills; production must refuse it (typed, no repair). Issue #4029.
+    const codexUpdatedTo = updated.updated.find(entry => entry.id === 'codex')?.to;
+    await checkpoint('P3 first native start with the updated binaries', { unpinnedCodex: codexUpdatedTo });
+    if (codexStockRefusalExpected(codexUpdatedTo, CODEX_STOCK_SKILLS.cliVersion)) {
+      // The documented recovery: start the image's pinned binaries, which
+      // rewrite the verified stock runtime, so P4+ begin from the baseline.
+      beginPhase();
+      await nativeStartup('P3 restored pinned', home, env);
+      await checkpoint(`P3 pinned image binaries restored the stock runtime after codex ${codexUpdatedTo}`);
+    }
   }
 
   // ------------------------------------------------ P4 task completion

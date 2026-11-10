@@ -30,8 +30,9 @@
  */
 
 import { createRequire } from 'node:module';
+import { TextDecoder } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
+import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
 
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 
@@ -52,6 +53,9 @@ export const UPSTREAM = Object.freeze({
   candidateLimit: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-candidate-limit',
   pemSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-pem-span',
   shortEncodedMask: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-short-encoded-mask',
+  lineContextSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-line-context-span',
+  encodedLimitLines: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-encoded-limit-lines',
+  shortHexKnownSecret: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-short-hex-known-secret',
 });
 
 const DEBUG = /^(?:1|true|yes)$/i.test(process.env.HIVE_MIND_SANITIZER_DEBUG || '');
@@ -90,7 +94,9 @@ export const loadSensitiveDataSanitizer = () => {
 
 /** Placeholders produced by `hive-mask`: never a credential, never re-masked. */
 const MASK_PLACEHOLDER = /…|\[REDACTED\]/u;
-const MASKED_VALUE = /^(?:\[REDACTED\]|[^\s]{0,3}…[^\s]{0,3})$/u;
+// A run of asterisks is the mask of other tools (GitHub Actions' `***`,
+// Hive Mind's docker argv masking): already masked, nothing left to protect.
+const MASKED_VALUE = /^(?:\[REDACTED\]|[^\s]{0,3}…[^\s]{0,3}|\*{3,})$/u;
 
 // Bounded affixes keep these expressions linear on long identifier-shaped runs
 // (a 64 KB base64 blob took 19 s per rule with unbounded affixes).
@@ -150,13 +156,7 @@ const ANGLE_VALUE = new RegExp(`(?<![A-Za-z0-9_.-])${SENSITIVE_KEY}(?:${QUOTE})?
 // (`--max-tokens 4096`, `--tokens-budget-stats`) are exempt (issue #3445).
 const PLURAL_CREDENTIAL_FLAG = /--(?:[a-z0-9]+[-_.])*?(?:access|refresh|auth|session|sas|api)[-_.]?(?:tokens|keys|secrets)(?:\s+|=)(?!["'-])([^\s"'\r\n]+)/gi;
 
-export const HIVE_GAP_DETECTORS = Object.freeze([
-  regexDetector('hive-caps-marker', CAPS_MARKER, match => (MASK_PLACEHOLDER.test(match[0]) ? null : finding(match.index, match.index + match[0].length, 'hive-caps-marker'))),
-  regexDetector('hive-xml-element', XML_ELEMENT, match => valueFinding(match, match[2].trim(), 'hive-xml-element')),
-  regexDetector('hive-hash-rocket', HASH_ROCKET, match => valueFinding(match, match[2] ?? match[3], 'hive-hash-rocket')),
-  regexDetector('hive-angle-value', ANGLE_VALUE, match => valueFinding(match, match[1], 'hive-angle-value')),
-  regexDetector('hive-plural-flag', PLURAL_CREDENTIAL_FLAG, match => valueFinding(match, match[1], 'hive-plural-flag')),
-]);
+export const HIVE_GAP_DETECTORS = Object.freeze([regexDetector('hive-caps-marker', CAPS_MARKER, match => (MASK_PLACEHOLDER.test(match[0]) ? null : finding(match.index, match.index + match[0].length, 'hive-caps-marker'))), regexDetector('hive-xml-element', XML_ELEMENT, match => valueFinding(match, match[2].trim(), 'hive-xml-element')), regexDetector('hive-hash-rocket', HASH_ROCKET, match => valueFinding(match, match[2] ?? match[3], 'hive-hash-rocket')), regexDetector('hive-angle-value', ANGLE_VALUE, match => valueFinding(match, match[1], 'hive-angle-value')), regexDetector('hive-plural-flag', PLURAL_CREDENTIAL_FLAG, match => valueFinding(match, match[1], 'hive-plural-flag'))]);
 
 // ---------------------------------------------------------------------------
 // 2. Exemptions
@@ -293,7 +293,7 @@ const exemptionReason = (text, f, options, depth) => {
   if (isPlaceholderValue(value)) return 'masked-placeholder';
   // A re-encoded mask is not re-masked either. Upstream: UPSTREAM.idempotency.
   if (isEncodedMask(value, options, depth)) return 'masked-encoded-placeholder';
-  if (f.rule === 'known') return null;
+  if (f.rule === 'known-secret') return null;
   const bare = value.replace(TRAILING_CLOSING_PUNCTUATION, '');
   if (KEYWORD_VALUE.test(value) || KEYWORD_VALUE.test(bare)) return 'keyword';
   if (VERSION_RANGE_VALUE.test(value)) return 'version-range';
@@ -374,6 +374,12 @@ const trimPiece = (text, piece) => {
   if (trailing && !value.slice(0, -trailing[0].length).includes('`')) end -= trailing[0].length;
   // A cookie piece ends at the `;` separator.
   if (piece.cookie) end = start + text.slice(start, end).replace(/[;\s]+$/, '').length;
+  // Sentence punctuation after a value (`token ghp_….`, `key: abc…xyz, then`)
+  // ends the sentence, not the credential. Upstream: UPSTREAM.lineContextSpan.
+  if (end === text.length || /\s/.test(text[end])) {
+    const punctuation = /[.,;!?]+$/.exec(text.slice(start, end));
+    if (punctuation && end - start - punctuation[0].length >= 8) end -= punctuation[0].length;
+  }
   return { ...piece, start, end };
 };
 
@@ -402,13 +408,13 @@ const sanitizers = new Map();
 
 const knownSecretList = knownSecrets => [...new Set((knownSecrets || []).map(token => (typeof token === 'string' ? token : token?.value)).filter(value => typeof value === 'string' && value.length > 0 && !MASK_PLACEHOLDER.test(value)))].sort();
 
-const getSanitizer = secrets => {
-  const key = secrets.join('\u0000');
+const getSanitizer = (secrets, knownOnly = false) => {
+  const key = `${knownOnly ? 'known' : 'all'}\u0000${secrets.join('\u0000')}`;
   let entry = sanitizers.get(key);
   if (!entry) {
     const { createSyncSanitizer } = loadSensitiveDataSanitizer();
-    const detectOptions = { ...BASE_OPTIONS, knownSecrets: secrets };
-    entry = { detector: createSyncSanitizer(detectOptions), renderOptions: { ...RENDER_OPTIONS, knownSecrets: secrets } };
+    const detectOptions = { ...BASE_OPTIONS, knownSecrets: secrets, knownOnly };
+    entry = { detector: createSyncSanitizer(detectOptions), renderOptions: { ...RENDER_OPTIONS, knownSecrets: secrets, knownOnly } };
     if (sanitizers.size >= MAX_CACHED_SANITIZERS) sanitizers.delete(sanitizers.keys().next().value);
     sanitizers.set(key, entry);
   }
@@ -427,6 +433,27 @@ const clipPem = (text, f) => {
   PEM_END.lastIndex = f.start;
   const end = PEM_END.exec(text);
   return end && end.index < f.end && end.index + end[0].length < f.end ? { ...f, end: end.index + end[0].length } : f;
+};
+
+// A `key: value` context value runs to the end of the line, so a passphrase
+// with spaces is masked whole. When the value is a complete vendor-format
+// credential (`Token: ghp_…, then …`), the line goes on with prose that the
+// library masks with it. A context finding that starts exactly where a
+// format finding starts, and continues past it only after a delimiter, ends
+// with that credential. Upstream: UPSTREAM.lineContextSpan.
+// A value that already starts with a Hive mask (the same line on the next
+// fixed-point pass) ends there too, so sanitizing stays idempotent.
+const LEADING_MASK = /^(?:\[REDACTED\]|[^\s…]{0,3}…[^\s…]{0,3})/u;
+const clipContextToFormat = (text, f, raw) => {
+  if (f.rule !== 'context') return f;
+  const endsValue = end => end > f.start && end < f.end && /^[.,;:!?)\]]*\s/u.test(text.slice(end, f.end));
+  // The shortest complete credential: a truncated format match (gitleaks'
+  // 40-character github-pat) is not followed by a delimiter.
+  const inner = raw.filter(other => other.category === 'credential' && other.rule !== 'context' && other.rule !== 'cookie' && other.start === f.start && endsValue(other.end)).sort((a, b) => a.end - b.end)[0];
+  const end = inner ? inner.end : f.start + (LEADING_MASK.exec(text.slice(f.start, f.end))?.[0].length ?? 0);
+  if (!endsValue(end)) return f;
+  trace('clip-context', { rule: inner?.rule ?? 'mask', start: f.start, length: f.end - f.start, kept: end - f.start });
+  return { ...f, end };
 };
 
 /**
@@ -472,10 +499,56 @@ const inspectWithinLimits = (detector, text, offset = 0) => {
   }
 };
 
-const findPolicyFindings = (input, { knownSecrets = [] } = {}, depth = 0) => {
+// A run of 16+ character base64-alphabet lines longer than 8192 characters
+// gets one `encoded-limit` finding over the whole run, because the library
+// does not decode runs that long. A list of commit SHAs or generated ids is
+// such a run, so a `git rev-list` of 250 commits was masked completely. Hive
+// Mind's wrapped layer (sanitizeWrappedRuns) has already decoded and sanitized
+// every genuine wrapped payload up to its 256 KiB bound across the whole text,
+// so within that bound the run is inspected again in line-aligned pieces the
+// library can decode (each line is still decoded on its own). Longer runs keep
+// the fail-closed limit finding. Upstream: UPSTREAM.encodedLimitLines.
+const MAX_LIMITED_RUN_PIECE = 4096;
+const MAX_REINSPECTED_LIMITED_RUN = 256 * 1024;
+const reinspectLimitedRun = (detector, input, f) => {
+  if (f.rule !== 'encoded-limit' || f.end - f.start > MAX_REINSPECTED_LIMITED_RUN || input.lastIndexOf('\n', f.end - 1) < f.start) return [f];
+  const findings = [];
+  for (let start = f.start; start < f.end;) {
+    let end = Math.min(f.end, start + MAX_LIMITED_RUN_PIECE);
+    if (end < f.end) {
+      const lineEnd = input.lastIndexOf('\n', end - 1);
+      if (lineEnd <= start) return [f];
+      end = lineEnd + 1;
+    }
+    findings.push(...inspectWithinLimits(detector, input.slice(start, end), start));
+    start = end;
+  }
+  trace('reinspect-limited-run', { start: f.start, length: f.end - f.start, findings: findings.length });
+  return findings.some(finding => finding.rule === 'encoded-limit') ? [f] : findings;
+};
+
+// The library finds the hex form of a known secret only from 16 bytes on (its
+// hex runs start at 32 digits), so the hex of a 12 to 15 character secret stayed
+// raw. Hive Mind's exact encoded matcher (#2156, which skips values below 12
+// characters, as before the migration) supplies those occurrences when the
+// library has nothing there. Upstream: UPSTREAM.shortHexKnownSecret.
+const MIN_LIBRARY_HEX_SECRET = 16;
+const shortKnownSecretFindings = (input, secrets, raw) => {
+  const short = secrets.filter(value => value.length < MIN_LIBRARY_HEX_SECRET);
+  if (short.length === 0) return [];
+  const findings = findEncodedKnownTokenRuns(input, short)
+    .filter(run => !raw.some(f => f.start < run.end && run.start < f.end))
+    .map(run => ({ ...finding(run.start, run.end, 'known-secret'), encoding: run.encoding }));
+  if (findings.length > 0) trace('short-known-secret', { findings: findings.length, encodings: [...new Set(findings.map(f => f.encoding))] });
+  return findings;
+};
+
+const findPolicyFindings = (input, { knownSecrets = [], knownOnly = false } = {}, depth = 0) => {
   if (!input) return [];
-  const { detector } = getSanitizer(knownSecretList(knownSecrets));
-  const raw = inspectWithinLimits(detector, input);
+  const secrets = knownSecretList(knownSecrets);
+  const { detector } = getSanitizer(secrets, knownOnly);
+  const inspected = inspectWithinLimits(detector, input).flatMap(f => reinspectLimitedRun(detector, input, f));
+  const raw = [...inspected, ...shortKnownSecretFindings(input, secrets, inspected)];
   if (raw.length === 0) return [];
   const ranges = visibleRanges(input);
   const result = [];
@@ -483,10 +556,10 @@ const findPolicyFindings = (input, { knownSecrets = [] } = {}, depth = 0) => {
     if (f.category !== 'credential') continue;
     const pem = isPem(input, f);
     const cookie = f.rule === 'cookie' || (f.rule === 'context' && raw.some(other => other.rule === 'cookie' && other.start === f.start));
-    for (const piece of subtractRanges(pem ? clipPem(input, f) : f, ranges)) {
+    for (const piece of subtractRanges(pem ? clipPem(input, f) : clipContextToFormat(input, f, raw), ranges)) {
       const trimmed = trimPiece(input, { ...piece, cookie });
       if (trimmed.end <= trimmed.start) continue;
-      const reason = exemptionReason(input, trimmed, { knownSecrets }, depth);
+      const reason = exemptionReason(input, trimmed, { knownSecrets, knownOnly }, depth);
       if (reason) {
         trace('exempt', { rule: f.rule, reason, start: trimmed.start, length: trimmed.end - trimmed.start });
         continue;
@@ -545,12 +618,20 @@ const renderFindings = (input, findings, renderOptions) => {
 /**
  * One sanitization pass: Hive Mind's wrapped-base64 layer, library detection,
  * Hive Mind policy, library rendering.
+ *
+ * Options:
+ * - `knownSecrets`: exact values masked wherever they appear, plain or encoded.
+ * - `knownOnly`: mask only `knownSecrets` (and their encoded copies), no
+ *   pattern detection; the `skipOutputSanitization` mode of sanitizeOutput.
+ * - `onFindings`: `count => void`, the number of findings masked by this pass.
  */
 export const sanitizeWithPolicy = (text, options = {}, depth = 0) => {
-  const { knownSecrets = [] } = options;
+  const { knownSecrets = [], knownOnly = false } = options;
+  if (knownOnly && knownSecrets.length === 0) return String(text ?? '');
   const input = sanitizeWrappedRuns(String(text ?? ''), options, depth);
-  const findings = findPolicyFindings(input, { knownSecrets }, depth);
+  const findings = findPolicyFindings(input, { knownSecrets, knownOnly }, depth);
   if (findings.length === 0) return input;
-  const { renderOptions } = getSanitizer(knownSecretList(knownSecrets));
+  if (depth === 0 && typeof options.onFindings === 'function') options.onFindings(findings.length);
+  const { renderOptions } = getSanitizer(knownSecretList(knownSecrets), knownOnly);
   return renderFindings(input, findings, renderOptions);
 };

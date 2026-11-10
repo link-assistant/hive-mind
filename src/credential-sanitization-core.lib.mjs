@@ -62,18 +62,23 @@ const MAX_SANITIZATION_PASSES = 3;
  * - `includeEnvironmentCredentials` (default true): mask the values of
  *   credential-named environment variables wherever they appear.
  * - `knownTokens`: additional exact values (strings or `{value}` objects).
+ * - `knownOnly`: mask only the known values (plain and encoded), no pattern
+ *   detection.
+ * - `onFindings`: `count => void`, called with the number of masked findings
+ *   of every pass that masks something (value-free, for statistics).
  *
  * @param {string} input
- * @param {{includeEnvironmentCredentials?: boolean, knownTokens?: Array<string|{value: string}>}} [options]
+ * @param {{includeEnvironmentCredentials?: boolean, knownTokens?: Array<string|{value: string}>, knownOnly?: boolean, onFindings?: (count: number) => void}} [options]
  * @returns {string}
  */
 export const sanitizeCredentialText = (input, options = {}) => {
   const knownSecrets = collectKnownTokenValues(options);
+  const policyOptions = { knownSecrets, knownOnly: options.knownOnly === true, onFindings: options.onFindings };
   let previous = String(input ?? '');
-  let output = sanitizeWithPolicy(previous, { knownSecrets });
+  let output = sanitizeWithPolicy(previous, policyOptions);
   for (let pass = 1; pass < MAX_SANITIZATION_PASSES && output !== previous; pass++) {
     previous = output;
-    output = sanitizeWithPolicy(previous, { knownSecrets });
+    output = sanitizeWithPolicy(previous, policyOptions);
   }
   return output;
 };

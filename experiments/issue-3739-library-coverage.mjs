@@ -73,7 +73,11 @@ const cases = [
 let misses = 0;
 for (const [rule, input, secret] of cases) {
   let out;
-  try { out = lib.sanitize(input).text; } catch (e) { out = `ERR ${e.code}`; }
+  try {
+    out = lib.sanitize(input).text;
+  } catch (e) {
+    out = `ERR ${e.code}`;
+  }
   const ok = !out.includes(secret);
   if (!ok) misses++;
   console.log(`${ok ? 'ok  ' : 'MISS'} ${rule}: ${JSON.stringify(out)}`);

@@ -10,6 +10,7 @@
 import path from 'node:path';
 
 import { extractTaskRefsFromCommand } from './cleanup.lib.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 
 const AGENT_KINDS = ['claude', 'codex', 'gemini', 'qwen', 'opencode'];
 const RUNNING_STATUSES = new Set(['executing', 'running']);
@@ -116,24 +117,16 @@ export function detectAgentKind(processRecord) {
 /**
  * Synchronous redaction for process command lines and log snippets. Process
  * debugging runs inside cleanup, so it cannot rely on async full-log
- * sanitizers. Keep this conservative and token-shape based.
+ * sanitizers. Issues #3739/#3740: the rules are the shared synchronous
+ * @link-foundation/sensitive-data-sanitizer engine, so command lines get the
+ * same coverage (vendor formats, `Authorization: <scheme> <value>` with the
+ * scheme kept, `--token=` flags, credential environment values) as logs.
  *
  * @param {string} text
  * @returns {string}
  */
 export function redactProcessText(text) {
-  let out = String(text ?? '');
-  out = out.replace(/\b(\d{6,12}):([A-Za-z0-9_-]{20,})\b/g, '$1:[REDACTED]');
-  out = out.replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, 'github_pat_[REDACTED]');
-  out = out.replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, match => `${match.slice(0, 4)}[REDACTED]`);
-  out = out.replace(/\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, 'sk-ant-[REDACTED]');
-  out = out.replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, 'sk-[REDACTED]');
-  out = out.replace(/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/g, match => `${match.slice(0, 5)}[REDACTED]`);
-  out = out.replace(/\bnpm_[A-Za-z0-9]{20,}\b/g, 'npm_[REDACTED]');
-  out = out.replace(/\bhf_[A-Za-z0-9]{20,}\b/g, 'hf_[REDACTED]');
-  out = out.replace(/(Authorization:\s*Bearer\s+)([A-Za-z0-9._~+/=-]{10,})/gi, '$1[REDACTED]');
-  out = out.replace(/((?:api[_-]?key|token|secret|password|bot[_-]?token)\s*[:=]\s*['"]?)([A-Za-z0-9._~+/:=-]{12,})(['"]?)/gi, '$1[REDACTED]$3');
-  return out;
+  return sanitizeCredentialText(String(text ?? ''));
 }
 
 /**

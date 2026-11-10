@@ -23,6 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -60,11 +61,18 @@ export const dockerOk = async (run, args, options) => {
  * because it describes the failure without the command line, but stderr is
  * empty when the process is killed on a timeout — so whatever survives is
  * masked before anyone reads it.
+ *
+ * Every `--env` value is dropped (docker argv policy: any of them may be a
+ * secret the shape rules cannot recognize); everything else, stderr included,
+ * goes through the shared @link-foundation/sensitive-data-sanitizer engine
+ * (#3739/#3740) like any other text meant for a human.
  */
 const maskDockerArgvSecrets = text =>
-  String(text ?? '')
-    .replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***')
-    .replace(/(--(?:api-key|token|secret|password)[= ])(\S+)/g, '$1***');
+  sanitizeCredentialText(
+    String(text ?? '')
+      .replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***')
+      .replace(/(--(?:api-key|token|secret|password)[= ])(\S+)/g, '$1***')
+  );
 
 /** The message a failed `docker` invocation should be reported with. */
 export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.toString?.().trim() || error?.message || String(error));

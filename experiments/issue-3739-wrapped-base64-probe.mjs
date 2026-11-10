@@ -12,7 +12,11 @@ const s = lib.createSyncSanitizer({ credentialsOnly: true, preserveEncoding: tru
 console.log(JSON.stringify(text));
 for (const f of s.inspect(text)) console.log(f.rule, f.type, f.start, f.end, JSON.stringify(text.slice(f.start, f.end)));
 let out;
-try { out = s.sanitize(text); } catch (e) { out = `${e.code}: ${e.message}`; }
-console.log(JSON.stringify(typeof out === 'string' ? out : out.text ?? out));
+try {
+  out = s.sanitize(text);
+} catch (e) {
+  out = `${e.code}: ${e.message}`;
+}
+console.log(JSON.stringify(typeof out === 'string' ? out : (out.text ?? out)));
 const leaked = wrapped.split('\n').filter(line => String(out?.text ?? out).includes(line));
 console.log('raw wrapped lines still present:', leaked.length, 'of', wrapped.split('\n').length);

@@ -47,7 +47,11 @@ const inputs = [
 for (const input of inputs) {
   const core = sanitizeCredentialText(input, { includeEnvironmentCredentials: false });
   let library;
-  try { library = lib.sanitize(input).text; } catch (error) { library = `ERR ${error.code}`; }
+  try {
+    library = lib.sanitize(input).text;
+  } catch (error) {
+    library = `ERR ${error.code}`;
+  }
   const mark = core === library ? 'same' : 'DIFF';
   console.log(`${mark}\n  in:   ${JSON.stringify(input)}\n  core: ${JSON.stringify(core)}\n  lib:  ${JSON.stringify(library)}`);
 }

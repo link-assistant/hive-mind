@@ -8,12 +8,30 @@ for (const t of [`body ${b64} end`, `x=${encodeURIComponent('password=' + R)}`, 
   try {
     const out = pe.sanitize(t).text;
     const m = out.match(/[A-Za-z0-9+/=%]{20,}/);
-    console.log(JSON.stringify(out), m ? '\n   decoded:' + (() => { try { return Buffer.from(m[0], 'base64').toString(); } catch { return '?'; } })() : '');
-  } catch (e) { console.log('ERR', e.code, e.message); }
+    console.log(
+      JSON.stringify(out),
+      m
+        ? '\n   decoded:' +
+            (() => {
+              try {
+                return Buffer.from(m[0], 'base64').toString();
+              } catch {
+                return '?';
+              }
+            })()
+        : ''
+    );
+  } catch (e) {
+    console.log('ERR', e.code, e.message);
+  }
 }
 const plain = createSyncSanitizer({ credentialsOnly: true });
 const t = `Authorization: token ${R}`;
 const f = plain.inspect(t);
 console.log(f);
 const adjusted = f.map(x => ({ ...x, start: x.start + (t.slice(x.start, x.end).match(/^[A-Za-z][\w-]*[ \t]+/)?.[0].length ?? 0) }));
-try { console.log(redact(t, adjusted, { credentialsOnly: true, transformation: { mode: 'hive-mask' } })); } catch (e) { console.log('ERR', e.code, e.message); }
+try {
+  console.log(redact(t, adjusted, { credentialsOnly: true, transformation: { mode: 'hive-mask' } }));
+} catch (e) {
+  console.log('ERR', e.code, e.message);
+}

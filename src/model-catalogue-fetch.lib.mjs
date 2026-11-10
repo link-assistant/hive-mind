@@ -20,6 +20,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { assertTokenFreeUrl } from './model-catalogue-sources.lib.mjs';
 import { normalizeCodexReasoningCapabilities, normalizeReasoningCapabilities } from './model-reasoning.lib.mjs';
 import { ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_PORT } from './router-isolation.lib.mjs';
@@ -244,11 +245,15 @@ const scrubRouterToken = (error, token) => {
   return error;
 };
 
-/** Replace a leased token wherever it survived into text meant for a human. */
+/**
+ * Replace a leased token wherever it survived into text meant for a human:
+ * verbatim and encoded (base64, hex, percent), by the shared
+ * @link-foundation/sensitive-data-sanitizer known-secret matcher (#3739/#3740).
+ */
 const redactRouterToken = (text, token) => {
   const secret = String(token || '');
   if (secret.length < 8) return text;
-  return String(text).split(secret).join('***');
+  return sanitizeCredentialText(String(text), { includeEnvironmentCredentials: false, knownTokens: [secret], knownOnly: true });
 };
 
 /**

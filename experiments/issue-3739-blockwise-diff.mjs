@@ -19,8 +19,13 @@ await fs.writeFile(path.join(dir, 'c.log'), corpus);
 const whole = await sanitizeForPublication(corpus);
 await sanitizeLogFileToFile({ sourcePath: path.join(dir, 'c.log'), destPath: path.join(dir, 'o.log'), chunkBytes: 4096 });
 const streamed = await fs.readFile(path.join(dir, 'o.log'), 'utf8');
-const a = whole.split('\n'), b = streamed.split('\n');
+const a = whole.split('\n'),
+  b = streamed.split('\n');
 let shown = 0;
-for (let i = 0; i < Math.max(a.length, b.length) && shown < 10; i++) if (a[i] !== b[i]) { console.log(i, '\n whole:', JSON.stringify(a[i]), '\n strm: ', JSON.stringify(b[i])); shown++; }
+for (let i = 0; i < Math.max(a.length, b.length) && shown < 10; i++)
+  if (a[i] !== b[i]) {
+    console.log(i, '\n whole:', JSON.stringify(a[i]), '\n strm: ', JSON.stringify(b[i]));
+    shown++;
+  }
 console.log('identical:', whole === streamed);
 await fs.rm(dir, { recursive: true });

@@ -1,0 +1,336 @@
+cleanup	Set up job	﻿2026-11-10T06:19:56.1435905Z Current runner version: '2.338.2'
+cleanup	Set up job	2026-11-10T06:19:56.1463152Z ##[group]Runner Image Provisioner
+cleanup	Set up job	2026-11-10T06:19:56.1464105Z Hosted Compute Agent
+cleanup	Set up job	2026-11-10T06:19:56.1464735Z Version: 20261028.624
+cleanup	Set up job	2026-11-10T06:19:56.1465404Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+cleanup	Set up job	2026-11-10T06:19:56.1466209Z Build Date: 2026-10-28T21:51:42Z
+cleanup	Set up job	2026-11-10T06:19:56.1466894Z Worker ID: {6c80b121-58c7-4298-a67b-2a191935c504}
+cleanup	Set up job	2026-11-10T06:19:56.1467668Z Region: westus2
+cleanup	Set up job	2026-11-10T06:19:56.1468235Z Cloud: Azure
+cleanup	Set up job	2026-11-10T06:19:56.1468812Z ##[endgroup]
+cleanup	Set up job	2026-11-10T06:19:56.1470331Z ##[group]Operating System
+cleanup	Set up job	2026-11-10T06:19:56.1471210Z Ubuntu
+cleanup	Set up job	2026-11-10T06:19:56.1471730Z 24.04.5
+cleanup	Set up job	2026-11-10T06:19:56.1472319Z LTS
+cleanup	Set up job	2026-11-10T06:19:56.1472863Z ##[endgroup]
+cleanup	Set up job	2026-11-10T06:19:56.1473453Z ##[group]Runner Image
+cleanup	Set up job	2026-11-10T06:19:56.1474071Z Image: ubuntu-24.04
+cleanup	Set up job	2026-11-10T06:19:56.1474657Z Version: 20261101.360.1
+cleanup	Set up job	2026-11-10T06:19:56.1475785Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md
+cleanup	Set up job	2026-11-10T06:19:56.1477932Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261101.360
+cleanup	Set up job	2026-11-10T06:19:56.1478952Z ##[endgroup]
+cleanup	Set up job	2026-11-10T06:19:56.1480373Z ##[group]GITHUB_TOKEN Permissions
+cleanup	Set up job	2026-11-10T06:19:56.1482910Z Actions: read
+cleanup	Set up job	2026-11-10T06:19:56.1483522Z Contents: write
+cleanup	Set up job	2026-11-10T06:19:56.1484189Z Issues: write
+cleanup	Set up job	2026-11-10T06:19:56.1484740Z Metadata: read
+cleanup	Set up job	2026-11-10T06:19:56.1485332Z PullRequests: write
+cleanup	Set up job	2026-11-10T06:19:56.1486203Z ##[endgroup]
+cleanup	Set up job	2026-11-10T06:19:56.1488506Z Secret source: Actions
+cleanup	Set up job	2026-11-10T06:19:56.1489585Z Cache mode: write
+cleanup	Set up job	2026-11-10T06:19:56.1490282Z Prepare workflow directory
+cleanup	Set up job	2026-11-10T06:19:56.1908408Z Prepare all required actions
+cleanup	Set up job	2026-11-10T06:19:56.1957859Z Getting action download info
+cleanup	Set up job	2026-11-10T06:19:56.5324126Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+cleanup	Set up job	2026-11-10T06:19:57.0974285Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+cleanup	Set up job	2026-11-10T06:19:57.3870414Z Complete job name: cleanup
+cleanup	Run actions/checkout@v7	﻿2026-11-10T06:19:57.4807318Z ##[group]Run actions/checkout@v7
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4808317Z with:
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4808822Z   persist-credentials: false
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4809426Z   repository: link-assistant/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4813706Z   token: ***
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4814194Z   ssh-strict: true
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4814673Z   ssh-user: git
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4815144Z   clean: true
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4815631Z   sparse-checkout-cone-mode: true
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4816200Z   fetch-depth: 1
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4816668Z   fetch-tags: false
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4817152Z   show-progress: true
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4817651Z   lfs: false
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4818116Z   submodules: false
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4818610Z   set-safe-directory: true
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4819173Z   allow-unsafe-pr-checkout: false
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4820019Z env:
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4820500Z   GIT_CONFIG_COUNT: 1
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4821219Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4821851Z   GIT_CONFIG_VALUE_0: main
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:57.4822419Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.5598145Z Syncing repository: link-assistant/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.5599672Z ##[group]Getting Git version info
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.5600166Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.5601266Z [command]/usr/bin/git version
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8274318Z git version 2.56.0
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8297121Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8310097Z Temporarily overriding HOME='/home/runner/work/_temp/2afb8615-2410-4db1-887e-489b2461d8ee' before making global git config changes
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8312187Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8317774Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8550293Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8554428Z ##[group]Determining repository object format
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8556100Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8556734Z ##[group]Initializing the repository
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.8560543Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9072181Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9087166Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9314248Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9315534Z ##[group]Disabling automatic garbage collection
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9319256Z [command]/usr/bin/git config --local gc.auto 0
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9367398Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9368928Z ##[group]Setting up auth
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9369670Z Removing SSH command configuration
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9375682Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	Run actions/checkout@v7	2026-11-10T06:19:59.9425592Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1281399Z Removing HTTP extra header
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1289112Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1341932Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1612159Z Removing includeIf entries pointing to credentials config files
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1621192Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1690652Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.1979453Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2043275Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2094651Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2141383Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2185656Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2227460Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2227884Z ##[group]Fetching the repository
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:00.2234952Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +b245deb62fbbca42625753587575416c50d81727:refs/remotes/origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9479764Z From https://github.com/link-assistant/hive-mind
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9481640Z  * [new ref]         b245deb62fbbca42625753587575416c50d81727 -> origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9491138Z [command]/usr/bin/git branch --list --remote origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9533312Z   origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9541294Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9577018Z b245deb62fbbca42625753587575416c50d81727
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9591123Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9591777Z ##[group]Determining the checkout info
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9592527Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9593585Z [command]/usr/bin/git sparse-checkout disable
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9745759Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9781429Z ##[group]Checking out the ref
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:18.9785565Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.3018982Z Updating files:  21% (2220/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.3698402Z Updating files:  22% (2278/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.4102250Z Updating files:  23% (2382/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.4334232Z Updating files:  24% (2485/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.5119774Z Updating files:  25% (2589/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.5566789Z Updating files:  26% (2693/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.5753695Z Updating files:  27% (2796/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.6679893Z Updating files:  28% (2900/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.7746345Z Updating files:  29% (3003/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:20.8457206Z Updating files:  30% (3107/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.0097145Z Updating files:  31% (3210/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.0563892Z Updating files:  31% (3270/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.1337121Z Updating files:  32% (3314/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.2100331Z Updating files:  33% (3417/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.2530142Z Updating files:  34% (3521/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.3355378Z Updating files:  35% (3624/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.3982422Z Updating files:  36% (3728/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.4301910Z Updating files:  37% (3831/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.4581829Z Updating files:  38% (3935/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.5039732Z Updating files:  39% (4039/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.5206768Z Updating files:  40% (4142/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.6357974Z Updating files:  41% (4246/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.6622045Z Updating files:  42% (4349/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.7362138Z Updating files:  43% (4453/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.7498254Z Updating files:  44% (4556/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.7943925Z Updating files:  45% (4660/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.8276735Z Updating files:  46% (4763/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.8386777Z Updating files:  47% (4867/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.9366981Z Updating files:  48% (4970/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:21.9812159Z Updating files:  49% (5074/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.0036576Z Updating files:  50% (5177/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.1149982Z Updating files:  50% (5185/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.1361736Z Updating files:  51% (5281/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.1972832Z Updating files:  52% (5385/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.2454745Z Updating files:  53% (5488/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.2614342Z Updating files:  54% (5592/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.3248868Z Updating files:  55% (5695/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.3397584Z Updating files:  56% (5799/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.3455926Z Updating files:  57% (5902/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.3580444Z Updating files:  58% (6006/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.4692731Z Updating files:  59% (6109/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.5991033Z Updating files:  60% (6213/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.6121506Z Updating files:  61% (6316/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.6359542Z Updating files:  62% (6420/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.6526242Z Updating files:  63% (6524/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.6959671Z Updating files:  64% (6627/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.7322300Z Updating files:  65% (6731/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.7405977Z Updating files:  66% (6834/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:22.8491374Z Updating files:  67% (6938/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.0585375Z Updating files:  68% (7041/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.1093525Z Updating files:  68% (7103/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.1572375Z Updating files:  69% (7145/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.1944049Z Updating files:  70% (7248/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2000548Z Updating files:  71% (7352/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2059633Z Updating files:  72% (7455/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2110235Z Updating files:  73% (7559/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2178216Z Updating files:  74% (7662/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2649109Z Updating files:  75% (7766/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2706280Z Updating files:  76% (7870/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2769325Z Updating files:  77% (7973/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2848774Z Updating files:  78% (8077/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2906160Z Updating files:  79% (8180/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.2976609Z Updating files:  80% (8284/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3029910Z Updating files:  81% (8387/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3090653Z Updating files:  82% (8491/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3144584Z Updating files:  83% (8594/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3200187Z Updating files:  84% (8698/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3276461Z Updating files:  85% (8801/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3347184Z Updating files:  86% (8905/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3435689Z Updating files:  87% (9008/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3529148Z Updating files:  88% (9112/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3616782Z Updating files:  89% (9216/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3721031Z Updating files:  90% (9319/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3808526Z Updating files:  91% (9423/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3885170Z Updating files:  92% (9526/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.3954551Z Updating files:  93% (9630/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4026888Z Updating files:  94% (9733/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4105336Z Updating files:  95% (9837/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4183933Z Updating files:  96% (9940/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4260130Z Updating files:  97% (10044/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4346673Z Updating files:  98% (10147/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4419400Z Updating files:  99% (10251/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4420267Z Updating files: 100% (10354/10354)
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4421513Z Updating files: 100% (10354/10354), done.
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4672881Z Reset branch 'main'
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4728054Z branch 'main' set up to track 'origin/main'.
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.4938621Z ##[endgroup]
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5008183Z [command]/usr/bin/git log -1 --format=%H
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5049964Z b245deb62fbbca42625753587575416c50d81727
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5061815Z ##[group]Removing auth
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5062201Z Removing SSH command configuration
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5065885Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5115432Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5380338Z Removing HTTP extra header
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5385787Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5431276Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5694808Z Removing includeIf entries pointing to credentials config files
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5699679Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5747251Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5748300Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5748868Z includeif.gitdir:/github/workspace/.git.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5749658Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5761550Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5797117Z /home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5813696Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-24d0bba3\-8e91\-45f0\-a772\-f96af9955d3d\.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5855864Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5906159Z /home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5908601Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-24d0bba3\-8e91\-45f0\-a772\-f96af9955d3d\.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5953767Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5989085Z /github/runner_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.5997505Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-24d0bba3\-8e91\-45f0\-a772\-f96af9955d3d\.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6043675Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6077980Z /github/runner_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6085303Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-24d0bba3\-8e91\-45f0\-a772\-f96af9955d3d\.config
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6130712Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6389148Z Removing credentials config '/home/runner/work/_temp/git-credentials-24d0bba3-8e91-45f0-a772-f96af9955d3d.config'
+cleanup	Run actions/checkout@v7	2026-11-10T06:20:23.6398494Z ##[endgroup]
+cleanup	Run actions/setup-node@v7	﻿2026-11-10T06:20:23.6740439Z ##[group]Run actions/setup-node@v7
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6740729Z with:
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6741169Z   node-version: 24.x
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6741389Z   check-latest: false
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6743719Z   token: ***
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6743941Z   package-manager-cache: true
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6744181Z env:
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6744358Z   GIT_CONFIG_COUNT: 1
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6744582Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6744850Z   GIT_CONFIG_VALUE_0: main
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.6745068Z ##[endgroup]
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:23.8311865Z Found in cache @ /opt/hostedtoolcache/node/24.22.2/x64
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:24.5142154Z ##[group]Environment details
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3572554Z node: v24.22.2
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3573091Z npm: 11.19.1
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3573457Z yarn: 1.22.22
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3574144Z ##[endgroup]
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3579487Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.3600266Z [command]/opt/hostedtoolcache/node/24.22.2/x64/bin/npm config get cache
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:26.6832691Z /home/runner/.npm
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.0045429Z Cache hit for: node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.5983259Z Received 687 of 687 (100.0%), 0.0 MBs/sec
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.5984021Z Cache Size: ~0 MB (687 B)
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.6010470Z [command]/usr/bin/tar -xf /home/runner/work/_temp/0721b7fe-2e5f-455f-ac86-56bf2510a66f/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.6072363Z Cache restored successfully
+cleanup	Run actions/setup-node@v7	2026-11-10T06:20:27.6077213Z Cache restored from key: node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6
+cleanup	Install automation dependencies	﻿2026-11-10T06:20:27.6235299Z ##[group]Run npm ci --omit=dev --ignore-scripts
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6235771Z ^[[36;1mnpm ci --omit=dev --ignore-scripts^[[0m
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6341280Z shell: /usr/bin/bash -e {0}
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6341594Z env:
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6341844Z   GIT_CONFIG_COUNT: 1
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6342130Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6342460Z   GIT_CONFIG_VALUE_0: main
+cleanup	Install automation dependencies	2026-11-10T06:20:27.6342731Z ##[endgroup]
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1488876Z 
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1499335Z added 279 packages, and audited 280 packages in 8s
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1499790Z 
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1500058Z 74 packages are looking for funding
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1500422Z   run `npm fund` for details
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1501862Z 
+cleanup	Install automation dependencies	2026-11-10T06:20:36.1502059Z found 0 vulnerabilities
+cleanup	Resolve GitHub credentials	﻿2026-11-10T06:20:36.2354737Z Prepare all required actions
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.2355330Z Getting action download info
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.3479991Z Download action repository 'actions/create-github-app-token@v3' (SHA:64ab729a6294000f5aa4a4bc0b73d1f32bc45510)
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5913381Z ##[group]Run ./.github/actions/resolve-github-token
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5913720Z with:
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5916146Z   default-token: ***
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5916395Z   repository-operations: true
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5916658Z   owner: link-assistant
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5916873Z env:
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5917066Z   GIT_CONFIG_COUNT: 1
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5917302Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5917573Z   GIT_CONFIG_VALUE_0: main
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5917796Z ##[endgroup]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5977515Z ##[start-action display=Mint installation token;id=gh.app]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5989660Z ##[end-action id=gh.app;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5991893Z ##[start-action display=Mint repository administration token;id=gh.admin]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.5997233Z ##[end-action id=gh.admin;outcome=skipped;conclusion=skipped;duration_ms=0]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6006534Z ##[start-action display=Resolve and report credentials;id=gh.resolve]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6031144Z ##[group]Run node "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6031712Z ^[[36;1mnode "$ACTION_PATH/../../../scripts/resolve-automation-token.mjs"^[[0m
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6053447Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6053789Z env:
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6053988Z   GIT_CONFIG_COUNT: 1
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6054228Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6054504Z   GIT_CONFIG_VALUE_0: main
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6054733Z   RESOLVED_APP_TOKEN: 
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6054973Z   APP_ADMINISTRATION_GRANTED: false
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6055237Z   AUTOMATION_TOKEN: 
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6057625Z   DEFAULT_TOKEN: ***
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6057874Z   AUTOMATION_OWNER: link-assistant
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6058322Z   ACTION_PATH: /home/runner/work/hive-mind/hive-mind/./.github/actions/resolve-github-token
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6058774Z ##[endgroup]
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6409902Z GitHub credentials: layer default (built-in github.token; optional credentials unavailable); pull request checks through dispatch-checks.
+cleanup	Resolve GitHub credentials	2026-11-10T06:20:36.6485832Z ##[end-action id=gh.resolve;outcome=success;conclusion=success;duration_ms=47]
+cleanup	Clean stale branches, issues and pull requests	﻿2026-11-10T06:20:36.6542048Z ##[group]Run node scripts/cleanup-task-fixtures.mjs
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6542466Z ^[[36;1mnode scripts/cleanup-task-fixtures.mjs^[[0m
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6562465Z shell: /usr/bin/bash -e {0}
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6562714Z env:
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6562913Z   GIT_CONFIG_COUNT: 1
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6563156Z   GIT_CONFIG_KEY_0: init.defaultBranch
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6563437Z   GIT_CONFIG_VALUE_0: main
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6565842Z   GH_TOKEN: ***
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6566064Z   CLEANUP_DRY_RUN: true
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6566302Z   CLEANUP_TIME_BUDGET_MINUTES: 10
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6566559Z   CLEANUP_VERBOSE: false
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:36.6566784Z ##[endgroup]
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:20:47.9214561Z Fixture branches: 1108, stale: 1108 (10s)
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:21:03.4874531Z Pull requests scanned: 2060 (26s)
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:21:04.5234459Z Ruleset 21204104 (no-destruction-possible) forbids deleting every branch; no fixture branch can be deleted (27s)
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:21:04.5235603Z Stale fixture branches: 1380 (27s)
+cleanup	Clean stale branches, issues and pull requests	2026-11-10T06:21:04.5257231Z ##[warning]1380 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 1375 more). Removing them requires a ruleset exclusion, or a bypass for the cleanup token, that covers these disposable branches; this cleanup deletes them once the rule allows it.
+cleanup	Post Resolve GitHub credentials	﻿2026-11-10T06:21:04.5717985Z Post job cleanup.
+cleanup	Post Run actions/setup-node@v7	﻿2026-11-10T06:21:04.5771406Z Post job cleanup.
+cleanup	Post Run actions/setup-node@v7	2026-11-10T06:21:04.6937246Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6, not saving cache.
+cleanup	Post Run actions/checkout@v7	﻿2026-11-10T06:21:04.7088895Z Post job cleanup.
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8039707Z [command]/usr/bin/git version
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8118059Z git version 2.56.0
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8164971Z Temporarily overriding HOME='/home/runner/work/_temp/58c8f8e9-1fe3-4a6c-a4c0-1f725e9519c4' before making global git config changes
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8166621Z Adding repository directory to the temporary git global config as a safe directory
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8171777Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8208608Z Removing SSH command configuration
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8216226Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8257323Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8551065Z Removing HTTP extra header
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8558254Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8603687Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8916701Z Removing includeIf entries pointing to credentials config files
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8917587Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+cleanup	Post Run actions/checkout@v7	2026-11-10T06:21:04.8962040Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+cleanup	Complete job	﻿2026-11-10T06:21:04.9387403Z Cleaning up orphan processes

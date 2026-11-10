@@ -9,4 +9,7 @@ Fix false CI signals found in #4029:
 - **Freshness gate.** azure/setup-helm v5.1.0 and lino-objects-codec 0.9.6 keep it green.
 - **Formal AI Draft.** Dispatched checks are no longer left `pending` forever: the reporter waits up to 200 minutes and then posts a terminal status.
 - **Cleanup.** The log explains why the stale branch count exceeds the fixture count.
+- **Status gate.** A job with an unknown result (for example `abandoned`) or no result now fails the pipeline instead of passing it.
+- **Formal AI Draft conclusions.** Only `success`, `neutral` and `skipped` are mirrored as green; any other conclusion is a failure.
+- **Release.** If main gained untested source changes while a release run was testing its commit, the release no longer rebases onto them and publishes. The run for the newer commit tests and releases them.
 - **Noise.** Every workflow that checks out sets `init.defaultBranch`, which removes the `git init` hints. ShellCheck runs from a pinned venv instead of `pipx run`, which removes the PATH warning.

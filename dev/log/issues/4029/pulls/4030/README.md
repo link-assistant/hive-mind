@@ -23,4 +23,5 @@ The analysis is in [`docs/case-studies/issue-4029/README.md`](../../../../../doc
 | `local-lifecycle-before-fix.txt`, `local-lifecycle-after-fix.txt` | The full lifecycle gate run locally in the image, without and with the fix (F1)                     |
 | `release-dispatch-durations.txt`                         | Durations of release runs dispatched by drafts (up to 137 minutes) (F4)                                     |
 | `stale-pending-status-correction.txt`                    | The fixed reporter correcting 4 stale `pending` statuses (F4)                                               |
+| `template-issues/`                                       | Bodies of the 7 issues filed in the link-foundation templates                                               |
 | `sessions/`                                              | Automated solver session logs                                                                               |

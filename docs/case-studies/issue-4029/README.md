@@ -9,7 +9,7 @@ Previous round: [issue #4025](../issue-4025/README.md) (PR #4026, merged 2026-11
 
 | #   | Requirement (issue text)                                                                       | Where it is addressed                                                    |
 | --- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD                  | Findings F1–F9 below                                                     |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD                  | Findings F1–F12 below                                                    |
 | R2  | Checks and release: failure (run 42657172126)                                                  | F1, F2, F3                                                               |
 | R3  | Cleanup Test Repositories: cancelled (run 42614826072)                                         | F5 (the ruleset part stays blocked on an administrator, B1)              |
 | R4  | E2E Hello World Matrix: skipped                                                                | F8: skipped by design, no change                                         |
@@ -216,9 +216,96 @@ label will migrate to Ubuntu 26`. It comes from GitHub's managed
   no warning or error annotations (`annotations-b245deb.txt`,
   `check-runs-b245deb.tsv`).
 
+### F10. Status gate passed jobs with an unknown result (false positive)
+
+**Root cause.** `scripts/check-pipeline-status.sh` collected only `failure` and
+`cancelled` results. A job whose result is anything else passed the gate, even
+though it never ran to completion. The js template's run 42674292671 shows a
+real case: its zizmor job ended with the result `abandoned`.
+
+**Fix.** The gate lists every result other than `success`, `skipped`,
+`failure` or `cancelled` (or a job without a result) and fails with
+`Pipeline has jobs that neither succeeded nor were skipped: ...`.
+
+**Test.** `tests/ci-integrity-2150.test.mjs` (`abandoned` and a missing result).
+
+### F11. Formal AI Draft mirrored an unknown conclusion as green (false positive)
+
+**Root cause.** `stateFor` in `scripts/formal-ai-draft-checks.lib.mjs` mapped
+only a list of failing conclusions to `failure`. Any other conclusion, including
+one GitHub adds later or a completed run without one, was posted as `success`.
+
+**Fix.** Only `success`, `neutral` and `skipped` pass. `cancelled` stays
+`error`, and everything else is `failure`.
+
+**Test.** `tests/formal-ai-draft-checks-3248.test.mjs` (`abandoned` and `null`).
+
+### F12. A release could publish main commits its run never tested (false positive)
+
+**Root cause.** When main moved while a release run tested its commit,
+`versionAndCommit` (`scripts/version-and-commit.lib.mjs`) rebased onto the new
+main, versioned it and published it. The new commits had not been through that
+run's checks, yet the release reported success. The js template instead refuses
+to release when main changed after validation.
+
+**Fix.** Before rebasing, the release lists what changed on main
+(`git diff --name-only <tested> <main>`). Release metadata (a previous attempt's
+bump, or another run's) and documentation are still picked up as before. Any
+other change ends the job with a `::notice::` and without versioning or
+publishing. Main runs queue instead of cancelling each other, so the run for the
+newer commit tests that source and releases it. A dispatched instant release
+fails with "Dispatch the release again on the current main" instead of being
+dropped silently. A commit that touches only files outside the release trigger
+(for example a `.txt` file) delays the release to the next code push; it does
+not lose it, because the changeset stays on main.
+
+**Test.** `tests/version-and-commit-untested-remote-4029.test.mjs`. The existing
+release tests (`version-and-commit-2082`,
+`test-issue-2189-changesets-3-version-guard`, `release-direct-commit-2402`,
+`push-github-server-error-3552`, `test-issue-1817-push-rejection-diagnostics`)
+still pass.
+
 ## Template comparison
 
-TEMPLATE_COMPARISON_PLACEHOLDER
+Every CI/CD file was compared with the four templates at js `34415b0`,
+python `f28c9d8`, rust `88fd935` and cpp `29d8cf2`.
+
+**A. Defects hive-mind fixes here, and whether the templates have them.** Where a template has one, it is reported there.
+
+| Defect                                                    | js                                                                                                                          | python                                                                                               | rust                                                                                                                       | cpp                                                                                                                                                          |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `git init` "master" hints (F6)                            | [#295](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/295) (run 42674292426, 4 hints) | none                                                                                                 | none                                                                                                                       | none                                                                                                                                                         |
+| pipx "already on your PATH" warning (F7)                  | [#294](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/294)                            | [#144](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/144) | [#234](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/234)                         | no ShellCheck job                                                                                                                                            |
+| Change detection skips files a gate checks (the F2 class) | [#296](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/296) (`examples/*.js`)          | latent only (no Dockerfile or requirements file)                                                     | [#235](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/235) (last-commit-only diff) | [#22](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/22) (observed: Dependabot PR #21 green with every check skipped) |
+| Unknown job results pass the status gate (F10)            | already fails closed (run 42674292671 shows an `abandoned` result)                                                          | already fails closed                                                                                 | already fails closed                                                                                                       | already fails closed                                                                                                                                         |
+
+The bodies are in `dev/log/issues/4029/pulls/4030/template-issues/`. The
+hive-mind-specific defects F1, F3, F4, F5 and F11 have no counterpart:
+the templates have no capability lifecycle gate, no Formal AI Draft, no
+dependency freshness gate and no test-repository cleanup.
+
+**B. Template practices adopted.**
+
+- Fail closed on unknown job results (all four `check-pipeline-status.sh` treat
+  anything other than `success`, `skipped` or `cancelled` as failed): F10, and
+  the same idea for Formal AI conclusions: F11.
+- Do not release source that the run did not validate (js
+  `scripts/version-and-commit.mjs`: "Remote main changed after validation; rerun
+  CI on current main."): F12.
+
+**B'. Template practices not adopted, and why.**
+
+- `concurrency.queue: max` for writer groups. On main a newer pending run
+  replaces an older pending one. This happened once in the last month (run
+  40758650267). With F12 that run's changes are released by the newer run, so
+  nothing is lost.
+- A per-job "tool installed" check and a GitHub Pages pre-check. hive-mind
+  pins its tools in the image and has no Pages deploy.
+
+**C. Red template runs caused by configuration, not by CI logic.** No issue
+filed, because the fix is a repository setting: js (no `NPM_TOKEN`), python
+(PyPI trusted publisher not set up, HTTP 422), rust (GitHub Pages not
+enabled), cpp (`CONAN_AUDIT_PROVIDER_TOKEN_CONANCENTER` missing).
 
 ## Upstream
 
@@ -249,7 +336,9 @@ TEMPLATE_COMPARISON_PLACEHOLDER
   - `formal-ai-draft-checks-3248`;
   - `cleanup-task-fixtures-budget-4025`;
   - `workflow-git-init-default-branch-4029`;
-  - `workflow-shellcheck-4025`.
+  - `workflow-shellcheck-4025`;
+  - `ci-integrity-2150`;
+  - `version-and-commit-untested-remote-4029`.
 
   Each new assertion fails without its fix.
 

@@ -41,21 +41,21 @@ export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data
  * code comments, docs and tests; see docs/case-studies/issue-3739.
  */
 export const UPSTREAM = Object.freeze({
-  authorizationScheme: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-authorization-scheme',
-  digestAuthorization: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-digest',
-  idempotency: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-idempotency',
-  exemptionHook: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-exemption-hook',
-  configurationFlags: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-config-flags',
-  formatContext: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-format-context',
-  missedShapes: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-missed-shapes',
-  syncLoading: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-sync-loading',
-  wrappedEncoding: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-wrapped-encoding',
-  candidateLimit: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-candidate-limit',
-  pemSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-pem-span',
-  shortEncodedMask: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-short-encoded-mask',
-  lineContextSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-line-context-span',
-  encodedLimitLines: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-encoded-limit-lines',
-  shortHexKnownSecret: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/TBD-short-hex-known-secret',
+  authorizationScheme: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/131',
+  digestAuthorization: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/131',
+  idempotency: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/133',
+  exemptionHook: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/135',
+  configurationFlags: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/134',
+  formatContext: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/132',
+  missedShapes: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/136',
+  syncLoading: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/137',
+  wrappedEncoding: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/138',
+  candidateLimit: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/139',
+  pemSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/132',
+  shortEncodedMask: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/140',
+  lineContextSpan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/132',
+  encodedLimitLines: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/139',
+  shortHexKnownSecret: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/140',
 });
 
 const DEBUG = /^(?:1|true|yes)$/i.test(process.env.HIVE_MIND_SANITIZER_DEBUG || '');

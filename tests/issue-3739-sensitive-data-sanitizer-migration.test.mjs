@@ -61,7 +61,7 @@ await test('the library loads synchronously', () => {
 
 await test('every workaround names the upstream issue it waits for', () => {
   assert.ok(Object.keys(UPSTREAM).length > 0);
-  for (const [key, url] of Object.entries(UPSTREAM)) assert.match(url, /^https:\/\/github\.com\/link-foundation\/sensitive-data-sanitizer\/issues\//, key);
+  for (const [key, url] of Object.entries(UPSTREAM)) assert.match(url, /^https:\/\/github\.com\/link-foundation\/sensitive-data-sanitizer\/issues\/\d+$/, key);
 });
 
 console.log('\n2. Issue #3739: the Authorization scheme stays, the value is masked\n');

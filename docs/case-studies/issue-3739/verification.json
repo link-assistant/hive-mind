@@ -3,7 +3,9 @@
   "libraryOnlyAudit": {
     "fixedAndWorkaroundRemoved": [148, 149],
     "reproducingGapsWithRetainedWorkarounds": [150, 151, 152, 153, 154, 162],
-    "binaryFixWithRemainingTextBoundaryReport": { "149": 162 },
+    "binaryFixWithRemainingTextBoundaryReport": {
+      "149": 162
+    },
     "probeCount": 8
   },
   "testFileCount": 45,
@@ -106,5 +108,13 @@
       "samples": 24,
       "allPreserved": true
     }
+  },
+  "ciFreshnessFollowup": {
+    "run": 42923011298,
+    "head": "678eaa6349719c12c8237c97a0a06cf9ac7ac6ae",
+    "logLine": 3998,
+    "failure": "Dependency freshness: minimatch 11.0.6 -> 11.0.7",
+    "correction": "Refresh the one allowed-range lockfile entry without changing declarations or bypassing the existing gate",
+    "testsAndNativeBuilds": "Skipped because detection failed; rerun required"
   }
 }

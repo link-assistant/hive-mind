@@ -58,7 +58,7 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 1. 在供应商当前的官方安全或身份验证文档中验证格式。切勿将真实凭证粘贴到 issue、测试、日志或提交中。
 2. 仅向 `tests/test-credential-sanitization-2111.mjs` 添加合成示例。根据需要覆盖独立值、结构化赋值、单行多值和跨数据块拆分形式。
-3. 先向 [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer/issues) 报告缺失的格式。在上游修复之前，在 `src/sensitive-data-sanitizer.lib.mjs` 中添加带 `UPSTREAM` 链接的补充检测器或豁免，并在 `tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs` 中添加一行测试。
+3. 先向 [`@link-foundation/sensitive-data-sanitizer`](https://github.com/link-foundation/sensitive-data-sanitizer/issues) 报告缺失的格式。在上游修复之前，在 `src/sensitive-data-sanitizer.lib.mjs` 中添加使用库原生检测和渲染、带 `UPSTREAM` 链接的狭义变通方案，并在 `tests/issue-3739-sensitive-data-sanitizer-migration.test.mjs` 中添加一行测试。
 4. 运行重点安全测试和默认测试套件：
 
    ```bash

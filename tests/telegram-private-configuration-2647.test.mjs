@@ -9,10 +9,11 @@ import { loadTelegramConfiguration, moveTelegramSecretsOffArgv } from '../src/te
 const secret = ['ghp_', 'Zx9Qw7Er5Ty3Ui1Op0As', '2Df4Gh6Jk8Lz0Xc2Vb4N'].join('');
 
 test('inline Telegram configuration and token options leave OS argv after execve (#2647)', { timeout: 15000 }, () => {
-  for (const args of [['--configuration', `TELEGRAM_BOT_TOKEN: ${secret}`], [`--configuration=TELEGRAM_BOT_TOKEN: ${secret}`], ['-c', `TELEGRAM_BOT_TOKEN: ${secret}`], ['--token', secret], [`--token=${secret}`], ['-t', secret], [`-t${secret}`], [`-cTELEGRAM_BOT_TOKEN: ${secret}`]]) {
+  for (const args of [['--configuration', `TELEGRAM_BOT_TOKEN: ${secret}`], [`--configuration=TELEGRAM_BOT_TOKEN: ${secret}`], ['-c', `TELEGRAM_BOT_TOKEN: ${secret}`], ['--token', secret], [`--token=${secret}`], ['-t', secret], [`-t${secret}`], [`-cTELEGRAM_BOT_TOKEN: ${secret}`], ['-vt', secret], [`-vt${secret}`], ['-vc', `TELEGRAM_BOT_TOKEN: ${secret}`], [`-vcTELEGRAM_BOT_TOKEN: ${secret}`]]) {
     const child = spawnSync(process.execPath, ['experiments/issue-3739/private-argv-fixture.mjs', ...args], { encoding: 'utf8' });
     assert.equal(child.status, 0, child.stderr);
     assert.equal(JSON.parse(child.stdout).privateArgv, true);
+    if (args[0].startsWith('-v')) assert.equal(JSON.parse(child.stdout).verbose, true);
   }
   let called = false;
   assert.equal(
@@ -26,6 +27,7 @@ test('inline Telegram configuration and token options leave OS argv after execve
     false
   );
   assert.equal(called, false);
+  assert.equal(moveTelegramSecretsOffArgv({ argv: ['node', 'bot.mjs', '--', '--token', 'positional-value'], env: {}, execve: () => assert.fail('positional arguments must retain their meaning') }), false);
 });
 
 test('file and inline configuration populate all defaults; explicit token retains priority', async () => {

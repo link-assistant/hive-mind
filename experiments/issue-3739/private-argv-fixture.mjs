@@ -4,4 +4,4 @@ import { moveTelegramSecretsOffArgv } from '../../src/telegram-private-configura
 moveTelegramSecretsOffArgv({ warn: () => {} });
 const value = process.env.HIVE_MIND_TELEGRAM_CLI_CONFIGURATION || process.env.HIVE_MIND_TELEGRAM_CLI_TOKEN;
 const cmdline = process.platform === 'linux' ? readFileSync('/proc/self/cmdline', 'utf8') : process.argv.join('\0');
-console.log(JSON.stringify({ privateArgv: !!value && !cmdline.includes(value) && !cmdline.includes('ghp_') }));
+console.log(JSON.stringify({ privateArgv: !!value && !cmdline.includes(value) && !cmdline.includes('ghp_'), verbose: process.argv.includes('-v') }));

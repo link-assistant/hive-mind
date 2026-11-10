@@ -6,8 +6,20 @@ export function moveTelegramSecretsOffArgv({ argv = process.argv, env = process.
   const nextEnv = { ...env };
   let changed = false;
   for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === '--') {
+      clean.push(...argv.slice(i));
+      break;
+    }
     let match = /^(--configuration|--token|-c|-t)(?:=(.*))?$/s.exec(argv[i]);
-    if (!match && /^-[ct]./s.test(argv[i])) match = [argv[i], argv[i].slice(0, 2), argv[i].slice(2).replace(/^=/, '')];
+    if (!match) {
+      // yargs accepts grouped boolean aliases before a string option, such as
+      // `-vt value`. Keep those flags while transporting the private value.
+      const grouped = /^-([hv]*)([ct])(.*)$/s.exec(argv[i]);
+      if (grouped) {
+        if (grouped[1]) clean.push(`-${grouped[1]}`);
+        match = [argv[i], `-${grouped[2]}`, grouped[3] ? grouped[3].replace(/^=/, '') : undefined];
+      }
+    }
     if (!match) {
       clean.push(argv[i]);
       continue;

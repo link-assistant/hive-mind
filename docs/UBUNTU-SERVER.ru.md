@@ -66,8 +66,9 @@
    ```
    screen -R bot # Enter new screen for bot
 
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+   umask 077
+   cat > bot.lenv <<'LENV'
+     TELEGRAM_BOT_TOKEN: YOUR_TELEGRAM_BOT_TOKEN
      TELEGRAM_ALLOWED_CHATS:
        -1002975819706
        -1002861722681
@@ -83,7 +84,9 @@
        --verbose
        --no-tool-check
      TELEGRAM_BOT_VERBOSE: true
-   "
+   LENV
+   chmod 600 bot.lenv
+   hive-telegram-bot --configuration-file bot.lenv
 
    # Press CTRL + A + D for detach from screen
    ```

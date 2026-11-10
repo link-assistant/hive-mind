@@ -66,6 +66,22 @@ export function missingRunStatus(workflow, description) {
   return { state: 'error', context: contextFor(workflow), description: truncate(description) };
 }
 
+/**
+ * The status for a run still unfinished when the reporter stops following it.
+ *
+ * Issue #4029: the reporter used to leave such a run `pending` "until the next
+ * report", but nothing reports again, so the draft head kept a pending check
+ * forever (release run 42614946918 succeeded at 109 minutes, after the
+ * 80-minute deadline, and cdeb7d0 still shows `pending`). `error` says the
+ * result is unknown, names the elapsed time and links the run.
+ *
+ * @param {{workflow: string, run: object}} entry
+ * @param {number} minutes how long the reporter followed the run
+ */
+export function unfinishedRunStatus({ workflow, run }, minutes) {
+  return { state: 'error', context: contextFor(workflow), description: truncate(`${run.name || workflow}: still ${run.status} after ${minutes} min; open the run for its result`), target_url: run.html_url };
+}
+
 /** True once every workflow has a run and every run has completed. */
 export const allRunsCompleted = selected => selected.every(({ run }) => run?.status === 'completed');
 

@@ -12,7 +12,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { allRunsCompleted, CHECK_STATUS_CONTEXT_PREFIX, commitStatusForRun, missingRunStatus, selectDispatchedRuns, statusKey } from '../scripts/formal-ai-draft-checks.lib.mjs';
+import { readFileSync } from 'node:fs';
+
+import { allRunsCompleted, CHECK_STATUS_CONTEXT_PREFIX, commitStatusForRun, missingRunStatus, selectDispatchedRuns, statusKey, unfinishedRunStatus } from '../scripts/formal-ai-draft-checks.lib.mjs';
 
 const SHA = '0123456789abcdef0123456789abcdef01234567';
 const WORKFLOWS = ['release.yml', 'security.yml'];
@@ -64,4 +66,25 @@ test('a status is posted again only when it changes', () => {
   const pending = commitStatusForRun({ workflow: 'release.yml', run: run({ status: 'in_progress', conclusion: null }) });
   assert.equal(statusKey(pending), statusKey({ ...pending }));
   assert.notEqual(statusKey(pending), statusKey(commitStatusForRun({ workflow: 'release.yml', run: run() })));
+});
+
+// Issue #4029: release run 42614946918 finished green after 109 minutes, past
+// the 80-minute deadline, and its draft head kept `pending` forever.
+test('a run still unfinished at the deadline gets a terminal status, not pending forever', () => {
+  const status = unfinishedRunStatus({ workflow: 'release.yml', run: run({ status: 'in_progress', conclusion: null }) }, 200);
+  assert.deepEqual(status, { state: 'error', context: 'dispatched / release.yml', description: 'Checks and release: still in_progress after 200 min; open the run for its result', target_url: run().html_url });
+  const script = readFileSync(new URL('../scripts/formal-ai-draft-checks.mjs', import.meta.url), 'utf8');
+  assert.match(script, /run\.status !== 'completed'\) await post\(unfinishedRunStatus\(/u);
+  assert.doesNotMatch(script, /until the next report/u);
+});
+
+test('the reporter follows dispatched runs longer than the slowest observed release run', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/formal-ai-draft.yml', import.meta.url), 'utf8');
+  const job = workflow.slice(workflow.indexOf('\n  report-checks:'));
+  const timeout = Number(/timeout-minutes: (\d+)/u.exec(job)[1]);
+  const deadline = Number(/CHECKS_DEADLINE_MINUTES: '(\d+)'/u.exec(job)[1]);
+  // Dispatched release runs took up to 137 minutes (run 39215011890).
+  assert.ok(deadline >= 150, `deadline ${deadline} min`);
+  // Setup and the final post must fit between the deadline and the job timeout.
+  assert.ok(timeout >= deadline + 10, `timeout ${timeout} min, deadline ${deadline} min`);
 });

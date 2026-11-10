@@ -204,7 +204,9 @@ jobs:
     needs: draft
     if: ${{ !cancelled() && needs.draft.outputs.checks_dispatched == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # Dispatched release runs take up to ~140 min (issue #4029,
+    # dev/log/issues/4029/pulls/4030/release-dispatch-durations.txt).
+    timeout-minutes: 215
     permissions:
       contents: read
       actions: read
@@ -222,5 +224,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHECKS_REF: ${{ needs.draft.outputs.head_branch }}
-          CHECKS_DEADLINE_MINUTES: '80'
+          CHECKS_DEADLINE_MINUTES: '200'
         run: node scripts/formal-ai-draft-checks.mjs

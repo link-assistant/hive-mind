@@ -22,6 +22,11 @@ concurrency:
   group: native-qwen-auth-experiment-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Quiets the `git init` "Using 'master'" hint from checkout (issue #4029).
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 jobs:
   native-credential-reads:
     runs-on: ubuntu-24.04

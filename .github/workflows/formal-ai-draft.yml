@@ -64,6 +64,11 @@ on:
 permissions:
   contents: read
 
+# Quiets the `git init` "Using 'master'" hint from checkout (issue #4029).
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 jobs:
   health:
     # A caller's own schedule does not check this repository's drafts.

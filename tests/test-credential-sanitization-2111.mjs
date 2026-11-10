@@ -75,9 +75,12 @@ assert.ok(acceptanceOutput.includes('A=SYN…456 B=SYN…321'), 'multiple creden
 assert.ok(acceptanceOutput.includes('SHORT_PASSWORD=[REDACTED]'));
 assert.ok(acceptanceOutput.includes('unrelated-before'));
 assert.ok(acceptanceOutput.includes('unrelated-after'));
-assert.equal(sanitizeCredentialText('{"authorization":"Bearer opaque-authorization-secret"}'), '{"authorization":"Bea…ret"}');
+// Issue #3739: the authorization scheme is kept and only the credential is masked.
+assert.equal(sanitizeCredentialText('{"authorization":"Bearer opaque-authorization-secret"}'), '{"authorization":"Bearer opa…ret"}');
 assert.equal(sanitizeCredentialText('Authorization: Bearer ghp…456'), 'Authorization: Bearer ghp…456');
-assert.equal(sanitizeCredentialText('SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'SharedAccessSignature sr=…456');
+// Issue #3739: a bare SAS token masks its signature, the credential; the
+// resource (`sr`) and expiry (`se`) are not secrets.
+assert.equal(sanitizeCredentialText('SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'SharedAccessSignature sr=namespace&sig=abc…456&se=123456');
 assert.equal(sanitizeCredentialText('Authorization: SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'Authorization: SharedAccessSignature sr=…456');
 assert.equal(await sanitizeOutput(acceptanceOutput), acceptanceOutput, 'sanitization must be idempotent');
 
@@ -156,7 +159,8 @@ assert.ok(streamedPem.includes('-----BEGIN PRIVATE KEY-----\n[REDACTED]\n-----EN
 const interruptedPemStream = createCredentialStreamSanitizer();
 const interruptedPem = [interruptedPemStream.write('-----BEGIN RSA PRIVATE KEY-----\n'), interruptedPemStream.write('SYNTHETIC_UNTERMINATED_KEY_MATERIAL_123456789\n'), interruptedPemStream.flush()].join('');
 assertSanitized(interruptedPem, ['SYNTHETIC_UNTERMINATED_KEY_MATERIAL_123456789']);
-assert.equal(interruptedPem, '-----BEGIN RSA PRIVATE KEY-----\n[REDACTED]');
+// Issue #3739: the key material is masked and the record keeps its newline.
+assert.equal(interruptedPem, '-----BEGIN RSA PRIVATE KEY-----\n[REDACTED]\n');
 
 // Buffer chunks can split a UTF-8 code point as well as a credential. Preserve
 // the surrounding diagnostic text while still masking the credential.

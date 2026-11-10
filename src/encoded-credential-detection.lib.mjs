@@ -929,16 +929,22 @@ const decoderFor = encoding => DECODERS.find(decoder => decoder.encoding === enc
  *   values we hold locally; their encoded forms are matched exactly, without
  *   relying on the decode step
  * @param {string} [options.redactedMarker]
+ * @param {string[]} [options.encodings] only handle runs with these encoding
+ *   tags (default: all)
  * @returns {string}
  */
 export const sanitizeEncodedCredentials = (input, options = {}) => {
   const text = String(input ?? '');
-  const { sanitizePlaintext, knownTokens = [], redactedMarker = '[REDACTED]' } = options;
+  const { sanitizePlaintext, knownTokens = [], redactedMarker = '[REDACTED]', encodings = null } = options;
   if (text.length === 0 || typeof sanitizePlaintext !== 'function') return text;
+  // Issue #3739: callers that delegate most encodings elsewhere restrict this
+  // layer to the ones they still need (`encodings: ['base64-wrapped']`).
+  const handles = encoding => !Array.isArray(encodings) || encodings.includes(encoding);
 
   const replacements = [];
 
   for (const { start, end, encoding, run, decoded } of findDecodableRuns(text)) {
+    if (!handles(encoding)) continue;
     const sanitized = sanitizePlaintext(decoded);
     if (sanitized === decoded) continue;
 
@@ -954,7 +960,8 @@ export const sanitizeEncodedCredentials = (input, options = {}) => {
 
   // Exact encoded forms of credentials we already hold are matched without
   // decoding, which also covers runs too large to decode in full.
-  for (const { start, end } of findEncodedKnownTokenRuns(text, knownTokens)) {
+  for (const { start, end, encoding } of findEncodedKnownTokenRuns(text, knownTokens)) {
+    if (!handles(encoding)) continue;
     replacements.push({ start, end, replacement: redactedMarker });
   }
 

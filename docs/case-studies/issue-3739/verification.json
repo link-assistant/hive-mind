@@ -1,5 +1,5 @@
 {
-  "libraryVersion": "0.21.8",
+  "libraryVersion": "0.22.0",
   "libraryOnlyAudit": {
     "fixedAndWorkaroundRemoved": [148, 149, 150, 151, 152, 153, 154],
     "reproducingGapsWithRetainedWorkarounds": [162],
@@ -95,9 +95,9 @@
     "allFinalFocusedFilesPass": true
   },
   "ciEvidence": {
-    "libraryVersion": "0.21.8",
+    "libraryVersion": "0.22.0",
     "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
-    "details": "The full suite and native builds run on final 0.21.8 source; current-head conclusions are recorded in PR #3741."
+    "details": "The full suite and native builds run on final 0.22.0 source; current-head conclusions are recorded in PR #3741."
   },
   "ciFollowup": {
     "run": 42882837227,
@@ -223,7 +223,7 @@
     "allFocusedFilesPass": true,
     "dependencyFreshness": "passed with no stale declarations or lockfile entries"
   },
-  "latestLibraryFollowup": {
+  "nativePoliciesLibraryFollowup": {
     "publishedVersion": "0.21.8",
     "publishedAt": "2026-11-11T04:32:42.408Z",
     "includedPrivateKeyVersion": "0.21.7",
@@ -242,6 +242,27 @@
       "conclusion": "success"
     },
     "discoveredDuringRun": 42955909971,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "latestLibraryFollowup": {
+    "publishedVersion": "0.22.0",
+    "publishedAt": "2026-11-11T05:13:16.501Z",
+    "upstreamPullRequest": 147,
+    "removedWorkarounds": [],
+    "audit": "Seven upstream corrections and one remaining reproducing gap across eight library-only probes",
+    "apiReview": "Synchronous credentials API preserved; native PRIVATE_KEY policy compatible; new provider verification and Betterleaks detection require explicit opt-in",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.8",
+    "previousVersionFullSuite": {
+      "run": 42960687262,
+      "job": 130327436408,
+      "files": 796,
+      "summaryLogLine": 24483,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42960687262,
     "allFocusedFilesPass": true,
     "dependencyFreshness": "passed with no stale declarations or lockfile entries"
   }

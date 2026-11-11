@@ -12,11 +12,10 @@ import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credent
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
 // regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2,
-// #149 in 0.21.3 and #153 in 0.21.4.
+// #149 in 0.21.3, #153 in 0.21.4 and #152 in 0.21.5.
 export const UPSTREAM = Object.freeze({
   constructorKeyword: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/150',
   markdownValues: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/151',
-  overlappingScheme: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/152',
   privateKeyType: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/154',
   wrappedTextBoundary: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/162',
 });
@@ -59,8 +58,6 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
           (finding.rule === 'context' && text.slice(finding.start, finding.end) === 'new' && /^new\s+[A-Za-z_$][\w$.]*\s*\(/.test(text.slice(finding.start))) ||
           // Upstream #151: a Markdown delimiter is not part of a template/flag.
           (finding.rule === 'context' && markdownValueExemption(finding, text)) ||
-          // Upstream #152: another rule must not mask the header's scheme.
-          authorizationSchemeExemption(finding, text) ||
           // Upstream #162: retain only complete, independently framed text
           // views that this configured engine has already inspected as clean.
           (state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end)),
@@ -87,8 +84,6 @@ const privateKeyTypes = text => {
     .filter(finding => /(?:^|[/-])private-key$/.test(finding.rule))
     .map(finding => ({ ...finding, type: 'PRIVATE_KEY' }));
 };
-
-const authorizationSchemeExemption = (finding, text) => /^[A-Za-z][A-Za-z0-9+.-]*$/.test(text.slice(finding.start, finding.end)) && /\bauthorization(?:\\?["'])?\s*[:=]\s*(?:\\?["'])?$/i.test(text.slice(Math.max(0, finding.start - 64), finding.start)) && /^[ \t]+\S/.test(text.slice(finding.end));
 
 const markdownValueExemption = (finding, text) => {
   const value = text.slice(finding.start, finding.end).replace(/`\s*$/, '');

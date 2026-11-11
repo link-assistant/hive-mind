@@ -16,7 +16,7 @@ Objective: complete issues #3739 and #3740, all open sanitization issues identif
 - [x] Keep all affected documentation, translations, tracing (off by default) and changesets consistent.
 - [x] Add minimal reproducing regression tests and run focused checks sequentially; save substantial output to files; use CI for full suites/native builds.
 - [x] Merge current main without rewriting history; review the complete PR diff for scope and regressions; commit atomic changes and push only issue-3739-dd36d9843cea.
-- [ ] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
+- [x] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
 
 ## Discovery record
 
@@ -31,3 +31,5 @@ All 42 original files in `experiments/issue-3739-sanitizer-tests.txt` passed seq
 After adopting 0.21.2 and removing the obsolete #148 exemption, all 45 focused files passed again against the verified installed package. Focused ESLint, formatting, translation sync and changeset validation also passed. The earlier corrected 795-file CI suite passes on `43a32bbb2`; final package and current-head workflow results remain required before readiness.
 
 On 0.21.3, removing the wrapped workaround reproduced the #162 failure in `test-encoded-credential-leak-2156.mjs`. After narrowing it to complete verified-clean canonical text, all 45 focused files pass. The strengthened regressions verify complete decoded JSON and surrounding prose, whole-text/stream equality, and native credential detection in binary following invalid UTF-8. All four bounded production-size image/wrapped probes pass byte for byte. The eight library-only probes confirm the two upstream corrections and six remaining gaps. Current-head full CI remains required before readiness.
+
+Final source verification: all 30 checks on `8b1ad4d95` pass in [run 42924810985](https://github.com/link-assistant/hive-mind/actions/runs/42924810985), including all 795 default-suite files, both native compilations, the actual npm artifact and both installed runtime checks. The final commit records evidence only; current-head CI and readiness are linked in PR #3741. Main remains merged, final comment checks found no new feedback, and no source or dependency edits follow the successful full run.

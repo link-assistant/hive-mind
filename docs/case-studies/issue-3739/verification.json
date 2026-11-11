@@ -94,7 +94,45 @@
     "finalFocusedFileCount": 45,
     "allFinalFocusedFilesPass": true
   },
-  "ciEvidence": "See PR #3741 for current-head workflow results; local runs intentionally avoid full builds.",
+  "ciEvidence": {
+    "sourceHead": "8b1ad4d953f0ebd1e47c7083be617dcafd471ed0",
+    "libraryVersion": "0.21.3",
+    "run": 42924810985,
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/42924810985",
+    "workflowConclusion": "success",
+    "passedChecks": 30,
+    "defaultSuite": {
+      "job": 130211664116,
+      "testFiles": 795,
+      "conclusion": "success",
+      "summaryLogLine": 24471,
+      "migrationLogLine": 3413,
+      "openIssuesLogLine": 7455,
+      "privateConfigurationLogLine": 8284,
+      "wrappedTextLogLine": 10374
+    },
+    "nativeX64": {
+      "job": 130209733369,
+      "conclusion": "success"
+    },
+    "nativeArm64": {
+      "job": 130209733281,
+      "conclusion": "success"
+    },
+    "actualNpmArtifact": {
+      "job": 130256886464,
+      "conclusion": "success"
+    },
+    "installedRuntimeX64": {
+      "job": 130257397632,
+      "conclusion": "success"
+    },
+    "installedRuntimeArm64": {
+      "job": 130257397609,
+      "conclusion": "success"
+    },
+    "evidenceOnlyFollowup": "Current-head checks are linked in PR #3741; source and dependency files are unchanged after this successful run."
+  },
   "ciFollowup": {
     "run": 42882837227,
     "head": "43c2dcac39ec60ae6c42f6ce4bf9de61546ccab5",
@@ -115,6 +153,6 @@
     "logLine": 3998,
     "failure": "Dependency freshness: minimatch 11.0.6 -> 11.0.7",
     "correction": "Refresh the one allowed-range lockfile entry without changing declarations or bypassing the existing gate",
-    "testsAndNativeBuilds": "Skipped because detection failed; rerun required"
+    "testsAndNativeBuilds": "Skipped in that first attempt; all pass in corrected run 42924810985"
   }
 }

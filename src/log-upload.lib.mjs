@@ -538,7 +538,10 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       operation: 'gh_upload_log_command',
     });
     // Issue #2397: name the sanitizer stage/rule that blocked publication.
-    const errorDescription = describeCredentialSanitizationFailure(error);
+    // Issue #1212: a full disk while writing the private sanitized copy gets the
+    // same actionable advice as the outer handler in github.lib.mjs, because this
+    // failure reason is what the "Log Upload Failed" comment shows.
+    const errorDescription = lib.isENOSPC(error) ? `${describeCredentialSanitizationFailure(error)} (no space left on device for the sanitized log copy; free disk space and retry)` : describeCredentialSanitizationFailure(error);
     await log(`  ❌ Error running gh-upload-log: ${errorDescription}`);
     result.failureReason = result.failureReason || errorDescription;
     return result;

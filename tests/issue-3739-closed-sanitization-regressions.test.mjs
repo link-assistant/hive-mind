@@ -171,6 +171,7 @@ await test('#1212: ENOSPC during the --attach-logs sanitize uploads nothing and 
   assert.equal(result.success, false);
   assert.ok(isENOSPC(result.failureReason), result.failureReason);
   assert.match(result.failureReason, /no space left on device/i);
+  assert.match(result.failureReason, /free disk space and retry/i, 'the comment carries the actionable advice');
   assert.ok(!result.failureReason.includes(GHO_TOKEN));
   const leftover = readdirSync(tmpdir()).filter(name => name.startsWith('hive-mind-log-upload-') && !privateBefore.has(name));
   assert.deepEqual(leftover, [], 'the private sanitized copy must be removed');

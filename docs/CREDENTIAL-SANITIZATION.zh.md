@@ -37,13 +37,13 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-库 0.22.0 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141 和 #148–#154 的旧变通方案已删除。唯一剩余的折行文本边界问题已报告为上游 #162，并记录在[案例研究](./case-studies/issue-3739/README.md)中。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
+库 0.22.1 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除；适配器中不再保留变通方案，详见[案例研究](./case-studies/issue-3739/README.md)。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 
 规则扫描器只匹配交给它的字节，因此仅以编码形式进入日志的凭证会同时对所有基于表层文本的规则不可见。这并非假想的绕过手段：普通工具在毫无隐藏意图的情况下也会不断进行编码，而 issue [#2156](https://github.com/link-assistant/hive-mind/issues/2156) 正是由此导致的泄露——镜像仓库的 Token 端点把收到的凭证以 base64 编码原样放回 JSON 响应体中，该响应被写入日志、被发布，随后由 GitHub 的扫描器撤销。完整分析见[案例研究](./case-studies/issue-2156/README.md)。
 
-库会先解码再匹配（`preserveEncoding`）。0.21.4 原生保留短编码掩码，并将配置的策略应用于有界的转义 JSON 视图（#153）；两个本地豁免均已删除。0.21.3 已解决 [#149](https://github.com/link-foundation/sensitive-data-sanitizer/issues/149) 的二进制情形：保留有界的无害折行二进制载荷并检测嵌入的凭证；二进制豁免已删除。[#162](https://github.com/link-foundation/sensitive-data-sanitizer/issues/162) 仍需要预处理以区分折行文本与后续文字。保留的预处理将凭证判断交给库，验证重新编码，只豁免经配置引擎检查为干净、完整且规范的 256 KiB 以内文本块。明文和精确已知秘密匹配仍生效；更大的未检查块仍采用故障关闭策略。短已知秘密的 hex 也由库原生支持。独立解码器仍用于 Secretlint 和已知 Token 验证：
+库会先解码再匹配（`preserveEncoding`）。0.21.4 原生保留短编码掩码，并将配置的策略应用于有界的转义 JSON 视图（#153）；两个本地豁免均已删除。0.21.3 已解决 [#149](https://github.com/link-foundation/sensitive-data-sanitizer/issues/149) 的二进制情形：保留有界的无害折行二进制载荷并检测嵌入的凭证；二进制豁免已删除。0.22.1 已解决 [#162](https://github.com/link-foundation/sensitive-data-sanitizer/issues/162)：在后续文字之前恢复完整的无填充折行 base64 文本，因此本地折行文本预处理已删除。短已知秘密的 hex 也由库原生支持。独立解码器仍用于 Secretlint 和已知 Token 验证：
 
 - 长度受限的 base64、base64url、hex、百分号编码、字节转义和 HTML 实体序列会被解码，明文规则在解码后的文本上运行。
 - base64 按三种字节对齐方式读取，因此嵌在大块数据中间的凭证同样能被找到。折行的数据块按连续的纯 base64 行分组扫描，因为常见工具都会折行输出（MIME 为 76 列，PEM 为 64 列），折行后的数据块中不存在可供匹配的单行序列。

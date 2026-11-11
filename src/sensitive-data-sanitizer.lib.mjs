@@ -7,16 +7,13 @@
  * Set HIVE_MIND_SANITIZER_DEBUG=1 for value-free tracing (off by default).
  */
 import { createRequire } from 'node:module';
-import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
 
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
 // regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2,
 // #149 in 0.21.3, #153 in 0.21.4, #152 in 0.21.5, #151 in 0.21.6,
-// #154 in 0.21.7 and #150 in 0.21.8.
-export const UPSTREAM = Object.freeze({
-  wrappedTextBoundary: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/162',
-});
+// #154 in 0.21.7, #150 in 0.21.8 and #162 in 0.22.1, so no workaround remains.
+export const UPSTREAM = Object.freeze({});
 const require = createRequire(import.meta.url);
 let library;
 export const loadSensitiveDataSanitizer = () => (library ??= require(`${SENSITIVE_DATA_SANITIZER_PACKAGE}/credentials`));
@@ -41,76 +38,29 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
   const secrets = [...new Set(knownSecrets.map(token => (typeof token === 'string' ? token : token?.value)).filter(value => typeof value === 'string' && value.length > 0))].sort();
   // JSON encoding avoids collisions between token lists containing separators.
   const key = JSON.stringify([knownOnly, secrets]);
-  let engine = sanitizers.get(key);
-  if (!engine) {
-    const state = { wrappedText: false, text: null, ranges: [] };
-    engine = {
-      state,
-      sanitizer: loadSensitiveDataSanitizer().createSyncSanitizer({
-        credentialsOnly: true,
-        knownSecrets: secrets,
-        knownOnly,
-        preserveEncoding: true,
-        exempt: (finding, text) =>
-          // Upstream #162: retain only complete, independently framed text
-          // views that this configured engine has already inspected as clean.
-          state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end),
-        transformation: { mode: 'hive-mask' },
-        transformations: { PRIVATE_KEY: { mode: 'redact' } },
-        ...(DEBUG ? { debug: trace } : {}),
-      }),
-    };
+  let sanitizer = sanitizers.get(key);
+  if (!sanitizer) {
+    sanitizer = loadSensitiveDataSanitizer().createSyncSanitizer({
+      credentialsOnly: true,
+      knownSecrets: secrets,
+      knownOnly,
+      preserveEncoding: true,
+      transformation: { mode: 'hive-mask' },
+      transformations: { PRIVATE_KEY: { mode: 'redact' } },
+      ...(DEBUG ? { debug: trace } : {}),
+    });
     if (sanitizers.size >= MAX_CACHED_SANITIZERS) sanitizers.delete(sanitizers.keys().next().value);
-    sanitizers.set(key, engine);
+    sanitizers.set(key, sanitizer);
   }
-  return engine;
-};
-
-const cleanWrappedTextRanges = (engine, text) => {
-  const state = engine.state;
-  if (state.text !== text) {
-    state.text = text;
-    state.ranges = [];
-    const previous = state.wrappedText;
-    state.wrappedText = false;
-    try {
-      state.ranges = findDecodableRuns(text)
-        .filter(({ encoding, run, decoded }) => encoding === 'base64-wrapped' && run.length <= 256 * 1024 && Buffer.from(decoded).toString('base64url') === run.replace(/\s/g, '').replace(/=+$/, '').replaceAll('+', '-').replaceAll('/', '_'))
-        .filter(({ decoded }) => engine.sanitizer.inspect(decoded).length === 0)
-        .map(({ start, end }) => ({ start, end }));
-    } finally {
-      state.wrappedText = previous;
-    }
-  }
-  return state.ranges;
+  return sanitizer;
 };
 
 /** Value-free findings; offsets are UTF-16 code units. */
-export const findCredentialFindings = (text, options = {}) => getSanitizer(options).sanitizer.inspect(String(text ?? ''));
+export const findCredentialFindings = (text, options = {}) => getSanitizer(options).inspect(String(text ?? ''));
 
 /** Includes the library's own residual verification, including decoded views. */
-export const sanitizeWithPolicy = (text, options = {}, depth = 0) => {
-  let input = String(text ?? '');
-  const engine = getSanitizer(options);
-  const previous = engine.state.wrappedText;
-  const wrappedText = depth < 3 && input.includes('\n');
-  // Upstream #162: disambiguate wrapped text from following prose, sanitize
-  // its decoded content natively and verify the original wrapping on rebuild.
-  // Binary payloads use the native 0.21.3 detector without an exemption.
-  if (wrappedText)
-    input = sanitizeEncodedCredentials(input, {
-      encodings: ['base64-wrapped'],
-      knownTokens: options.knownSecrets ?? [],
-      sanitizePlaintext: decoded => sanitizeWithPolicy(decoded, options, depth + 1),
-    });
-  try {
-    engine.state.wrappedText = wrappedText;
-    const result = engine.sanitizer.sanitize(input);
-    if ((result.redactions > 0 || input !== String(text ?? '')) && typeof options.onFindings === 'function') options.onFindings(Math.max(1, result.redactions));
-    return result.text;
-  } finally {
-    engine.state.wrappedText = previous;
-    engine.state.text = null;
-    engine.state.ranges = [];
-  }
+export const sanitizeWithPolicy = (text, options = {}) => {
+  const result = getSanitizer(options).sanitize(String(text ?? ''));
+  if (result.redactions > 0 && typeof options.onFindings === 'function') options.onFindings(result.redactions);
+  return result.text;
 };

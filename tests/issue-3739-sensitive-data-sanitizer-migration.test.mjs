@@ -65,7 +65,8 @@ await test('the library loads synchronously', () => {
 });
 
 await test('every workaround names the upstream issue it waits for', () => {
-  assert.ok(Object.keys(UPSTREAM).length > 0);
+  // Empty since 0.22.1 fixed #162; a new workaround must add its upstream link.
+  assert.ok(Object.isFrozen(UPSTREAM));
   for (const [key, url] of Object.entries(UPSTREAM)) assert.match(url, /^https:\/\/github\.com\/link-foundation\/sensitive-data-sanitizer\/issues\/\d+$/, key);
 });
 

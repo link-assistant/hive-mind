@@ -18,6 +18,7 @@
  */
 
 import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
+import { GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { LOG_UPLOAD_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -138,13 +139,25 @@ export const buildLogUploadFailureComment = ({ errorMessage = null, failureReaso
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
   // A removed container leaves no file to run gh-upload-log on.
+  // Issue #4042: when gh-upload-log's own sanitizer refused the file, the same
+  // command refuses it again, so suggest bounded parts (GNU `split --line-bytes`
+  // also cuts lines longer than the part size) instead.
+  const visibility = isPublic ? '--public' : '--private';
+  const refusal = detectGhUploadLogSanitizerRefusal(failureReason);
   const publishHint =
     location?.kind === 'ephemeral-container'
       ? ''
-      : `
+      : refusal
+        ? `
+gh-upload-log's own sanitizer refused this file (\`${refusal}\`), so running \`gh-upload-log\` on it again fails the same way (${GH_UPLOAD_LOG_REFUSAL_ISSUE_URL}). Parts of at most 20 MB, with longer lines cut, get past its 64 MiB record limit; a refusal caused by dense base64 needs that upstream fix:
+\`\`\`bash
+split --line-bytes=20M --numeric-suffixes=1 --additional-suffix=.log "${logFile}" "${logFile}.part-"
+for part in "${logFile}".part-*.log; do gh-upload-log "$part" ${visibility}; done
+\`\`\``
+        : `
 To publish it from there:
 \`\`\`bash
-gh-upload-log "${logFile}" ${isPublic ? '--public' : '--private'}
+gh-upload-log "${logFile}" ${visibility}
 \`\`\``;
   return `${heading}
 The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}

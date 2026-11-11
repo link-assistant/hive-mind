@@ -212,5 +212,15 @@
       "conclusion": "success"
     },
     "discoveredDuringRun": 42941141733
+  },
+  "ciProcessExitFollowup": {
+    "libraryVersion": "0.21.6",
+    "run": 42953672219,
+    "head": "955fd7fc9f0b861277a47e817f71319c03b5e596",
+    "failedFile": "issue-3785-router-claude-native-lifetime.test.mjs",
+    "logLines": [4820, 24488],
+    "cause": "A fixture exits between opening and reading /proc/<pid>/stat; Linux returns ESRCH rather than ENOENT",
+    "correction": "Share the native fixture liveness helper between Agent and Claude; treat ENOENT and ESRCH as stopped while propagating unexpected errors",
+    "regression": "issue-3785-process-liveness.test.mjs deterministically fails with ESRCH before the correction and passes afterward; both real native lifetime fixtures also pass"
   }
 }

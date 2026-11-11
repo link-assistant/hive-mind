@@ -16,7 +16,7 @@ Objective: complete issues #3739 and #3740, all open sanitization issues identif
 - [x] Keep all affected documentation, translations, tracing (off by default) and changesets consistent.
 - [x] Add minimal reproducing regression tests and run focused checks sequentially; save substantial output to files; use CI for full suites/native builds.
 - [x] Merge current main without rewriting history; review the complete PR diff for scope and regressions; commit atomic changes and push only issue-3739-dd36d9843cea.
-- [x] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
+- [ ] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
 
 ## Discovery record
 
@@ -41,3 +41,5 @@ On 0.21.4, all 795 default-suite files pass (run 42941141733, saved job log line
 On 0.21.5, all 795 default-suite files pass (run 42947616282, saved job log line 24471). The subsequently published 0.21.6 and upstream PR #158 were read; the obsolete Markdown-value exemption is removed. Six focused policy files replace repeated local runs of the full 45-file matrix for these small policy updates; CI still runs every default-suite file and native check before readiness. The historical 45-file matrix and stream timings remain explicitly labelled with their measured 0.21.5 version.
 
 Installed 0.21.6 passes all six focused policy files and all associated lint, formatting, translation, changeset and freshness checks. The eight library-only probes confirm five upstream corrections and three remaining gaps. Final current-head CI is still required before readiness.
+
+The first 0.21.6 full suite exposed a separate native fixture process-exit race: Linux returned `ESRCH` while reading `/proc/<pid>/stat` (run 42953672219, saved log lines 4820 and 24488). The Agent and Claude fixtures now share a liveness helper that treats `ENOENT` and `ESRCH` as stopped and propagates other errors. A deterministic regression fails before this correction and passes afterward; both actual native lifetime fixtures are rerun. Current-head full CI remains required before readiness.

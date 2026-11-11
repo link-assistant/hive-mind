@@ -1,8 +1,8 @@
 {
-  "libraryVersion": "0.21.6",
+  "libraryVersion": "0.21.8",
   "libraryOnlyAudit": {
-    "fixedAndWorkaroundRemoved": [148, 149, 151, 152, 153],
-    "reproducingGapsWithRetainedWorkarounds": [150, 154, 162],
+    "fixedAndWorkaroundRemoved": [148, 149, 150, 151, 152, 153, 154],
+    "reproducingGapsWithRetainedWorkarounds": [162],
     "binaryFixWithRemainingTextBoundaryReport": {
       "149": 162
     },
@@ -95,9 +95,9 @@
     "allFinalFocusedFilesPass": true
   },
   "ciEvidence": {
-    "libraryVersion": "0.21.6",
+    "libraryVersion": "0.21.8",
     "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
-    "details": "The full suite and native builds run on final 0.21.6 source; current-head conclusions are recorded in PR #3741."
+    "details": "The full suite and native builds run on final 0.21.8 source; current-head conclusions are recorded in PR #3741."
   },
   "ciFollowup": {
     "run": 42882837227,
@@ -159,26 +159,6 @@
       "conclusion": "success"
     }
   },
-  "latestLibraryFollowup": {
-    "publishedVersion": "0.21.6",
-    "publishedAt": "2026-11-11T03:17:13.552Z",
-    "upstreamPullRequest": 158,
-    "removedWorkarounds": ["markdownValueExemption"],
-    "audit": "Five upstream corrections and three remaining reproducing gaps across eight library-only probes",
-    "focusedTestFiles": 6,
-    "testList": "experiments/issue-3739/latest-policy-tests.txt",
-    "previousVersion": "0.21.5",
-    "previousVersionFullSuite": {
-      "run": 42947616282,
-      "job": 130291098365,
-      "files": 795,
-      "summaryLogLine": 24471,
-      "conclusion": "success"
-    },
-    "discoveredDuringRun": 42947616282,
-    "allFocusedFilesPass": true,
-    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
-  },
   "encodedMaskLibraryFollowup": {
     "run": 42940053599,
     "head": "82a22752f5a3a4e8f79d2a38b019e94a55f813e9",
@@ -222,5 +202,47 @@
     "cause": "A fixture exits between opening and reading /proc/<pid>/stat; Linux returns ESRCH rather than ENOENT",
     "correction": "Share the native fixture liveness helper between Agent and Claude; treat ENOENT and ESRCH as stopped while propagating unexpected errors",
     "regression": "issue-3785-process-liveness.test.mjs deterministically fails with ESRCH before the correction and passes afterward; both real native lifetime fixtures also pass"
+  },
+  "markdownLibraryFollowup": {
+    "publishedVersion": "0.21.6",
+    "publishedAt": "2026-11-11T03:17:13.552Z",
+    "upstreamPullRequest": 158,
+    "removedWorkarounds": ["markdownValueExemption"],
+    "audit": "Five upstream corrections and three remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.5",
+    "previousVersionFullSuite": {
+      "run": 42947616282,
+      "job": 130291098365,
+      "files": 795,
+      "summaryLogLine": 24471,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42947616282,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "latestLibraryFollowup": {
+    "publishedVersion": "0.21.8",
+    "publishedAt": "2026-11-11T04:32:42.408Z",
+    "includedPrivateKeyVersion": "0.21.7",
+    "includedPrivateKeyPublishedAt": "2026-11-11T04:05:11.664Z",
+    "upstreamPullRequests": [161, 156],
+    "removedWorkarounds": ["privateKeyTypes", "constructorKeyword exemption"],
+    "audit": "Seven upstream corrections and one remaining reproducing gap across eight library-only probes",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.6",
+    "previousVersionFullSuite": {
+      "run": 42955909971,
+      "job": 130311812711,
+      "files": 796,
+      "summaryLogLine": 24483,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42955909971,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
   }
 }

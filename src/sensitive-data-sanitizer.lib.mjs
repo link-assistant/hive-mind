@@ -12,10 +12,9 @@ import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credent
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
 // regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2,
-// #149 in 0.21.3, #153 in 0.21.4, #152 in 0.21.5 and #151 in 0.21.6.
+// #149 in 0.21.3, #153 in 0.21.4, #152 in 0.21.5, #151 in 0.21.6,
+// #154 in 0.21.7 and #150 in 0.21.8.
 export const UPSTREAM = Object.freeze({
-  constructorKeyword: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/150',
-  privateKeyType: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/154',
   wrappedTextBoundary: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/162',
 });
 const require = createRequire(import.meta.url);
@@ -53,16 +52,10 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
         knownOnly,
         preserveEncoding: true,
         exempt: (finding, text) =>
-          // Upstream #150: retain `new` only in an actual constructor call.
-          (finding.rule === 'context' && text.slice(finding.start, finding.end) === 'new' && /^new\s+[A-Za-z_$][\w$.]*\s*\(/.test(text.slice(finding.start))) ||
           // Upstream #162: retain only complete, independently framed text
           // views that this configured engine has already inspected as clean.
-          (state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end)),
+          state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end),
         transformation: { mode: 'hive-mask' },
-        // Upstream #154: correct the type on native findings, so native merging
-        // selects full redaction for key bodies. No custom rendering callback:
-        // those also change the library's encoded-mask confirmation behavior.
-        detectors: knownOnly ? [] : [{ detect: privateKeyTypes }],
         transformations: { PRIVATE_KEY: { mode: 'redact' } },
         ...(DEBUG ? { debug: trace } : {}),
       }),
@@ -71,15 +64,6 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
     sanitizers.set(key, engine);
   }
   return engine;
-};
-
-const privateKeyTypes = text => {
-  // Framing is only a fast path; all credential spans come from the library.
-  if (!text.includes('-----BEGIN ') && !text.includes('PuTTY-User-Key-File-')) return [];
-  return loadSensitiveDataSanitizer()
-    .inspect(text)
-    .filter(finding => /(?:^|[/-])private-key$/.test(finding.rule))
-    .map(finding => ({ ...finding, type: 'PRIVATE_KEY' }));
 };
 
 const cleanWrappedTextRanges = (engine, text) => {

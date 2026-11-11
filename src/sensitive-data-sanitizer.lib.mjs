@@ -11,13 +11,12 @@ import { findDecodableRuns, sanitizeEncodedCredentials } from './encoded-credent
 
 export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data-sanitizer';
 // Remaining library gaps must link an upstream report here and have a focused
-// regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2
-// and #149 in 0.21.3.
+// regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2,
+// #149 in 0.21.3 and #153 in 0.21.4.
 export const UPSTREAM = Object.freeze({
   constructorKeyword: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/150',
   markdownValues: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/151',
   overlappingScheme: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/152',
-  encodedMask: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/153',
   privateKeyType: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/154',
   wrappedTextBoundary: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/162',
 });
@@ -47,7 +46,7 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
   const key = JSON.stringify([knownOnly, secrets]);
   let engine = sanitizers.get(key);
   if (!engine) {
-    const state = { wrappedText: false, text: null, ranges: [], exemptionDepth: 0 };
+    const state = { wrappedText: false, text: null, ranges: [] };
     engine = {
       state,
       sanitizer: loadSensitiveDataSanitizer().createSyncSanitizer({
@@ -62,11 +61,6 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
           (finding.rule === 'context' && markdownValueExemption(finding, text)) ||
           // Upstream #152: another rule must not mask the header's scheme.
           authorizationSchemeExemption(finding, text) ||
-          // Upstream #153: short re-encoded masks fall below native decode limits.
-          encodedMaskExemption(text.slice(finding.start, finding.end)) ||
-          // The native escaped-JSON detector does not apply exemptions to its
-          // decoded findings. Verify already-clean views with the same policy.
-          (finding.rule === 'encoded' && cleanEscapedView(engine, text.slice(finding.start, finding.end))) ||
           // Upstream #162: retain only complete, independently framed text
           // views that this configured engine has already inspected as clean.
           (state.wrappedText && ['encoded', 'encoded-limit'].includes(finding.rule) && cleanWrappedTextRanges(engine, text).some(range => range.start <= finding.start && range.end >= finding.end)),
@@ -85,19 +79,6 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
   return engine;
 };
 
-const cleanEscapedView = (engine, value) => {
-  if (engine.state.exemptionDepth >= 3 || value.length > 256 * 1024 || !value.includes('\\')) return false;
-  engine.state.exemptionDepth++;
-  try {
-    const decoded = JSON.parse(`"${value}"`);
-    return decoded !== value && engine.sanitizer.inspect(decoded).length === 0;
-  } catch {
-    return false;
-  } finally {
-    engine.state.exemptionDepth--;
-  }
-};
-
 const privateKeyTypes = text => {
   // Framing is only a fast path; all credential spans come from the library.
   if (!text.includes('-----BEGIN ') && !text.includes('PuTTY-User-Key-File-')) return [];
@@ -108,13 +89,6 @@ const privateKeyTypes = text => {
 };
 
 const authorizationSchemeExemption = (finding, text) => /^[A-Za-z][A-Za-z0-9+.-]*$/.test(text.slice(finding.start, finding.end)) && /\bauthorization(?:\\?["'])?\s*[:=]\s*(?:\\?["'])?$/i.test(text.slice(Math.max(0, finding.start - 64), finding.start)) && /^[ \t]+\S/.test(text.slice(finding.end));
-
-const encodedMaskExemption = value => {
-  if (value.length > 64 || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(value)) return false;
-  const bytes = Buffer.from(value, 'base64');
-  if (bytes.toString('base64').replace(/=+$/, '') !== value.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '')) return false;
-  return /^(?:\[REDACTED\]|[^\s…]{0,3}…[^\s…]{0,3})$/u.test(bytes.toString('utf8'));
-};
 
 const markdownValueExemption = (finding, text) => {
   const value = text.slice(finding.start, finding.end).replace(/`\s*$/, '');

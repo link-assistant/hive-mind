@@ -1,8 +1,8 @@
 {
-  "libraryVersion": "0.21.3",
+  "libraryVersion": "0.21.4",
   "libraryOnlyAudit": {
-    "fixedAndWorkaroundRemoved": [148, 149],
-    "reproducingGapsWithRetainedWorkarounds": [150, 151, 152, 153, 154, 162],
+    "fixedAndWorkaroundRemoved": [148, 149, 153],
+    "reproducingGapsWithRetainedWorkarounds": [150, 151, 152, 154, 162],
     "binaryFixWithRemainingTextBoundaryReport": {
       "149": 162
     },
@@ -63,25 +63,25 @@
     {
       "name": "image",
       "length": 200027,
-      "ms": 255,
+      "ms": 422,
       "preserved": true
     },
     {
       "name": "image-1",
       "length": 627391,
-      "ms": 308,
+      "ms": 325,
       "preserved": true
     },
     {
       "name": "image-2",
       "length": 1000027,
-      "ms": 555,
+      "ms": 579,
       "preserved": true
     },
     {
       "name": "wrapped",
       "length": 194527,
-      "ms": 1583,
+      "ms": 1782,
       "preserved": true
     }
   ],
@@ -95,6 +95,33 @@
     "allFinalFocusedFilesPass": true
   },
   "ciEvidence": {
+    "libraryVersion": "0.21.4",
+    "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
+    "details": "The full suite and native builds run on final 0.21.4 source; current-head conclusions are recorded in PR #3741."
+  },
+  "ciFollowup": {
+    "run": 42882837227,
+    "head": "43c2dcac39ec60ae6c42f6ce4bf9de61546ccab5",
+    "suiteFiles": 795,
+    "failedFiles": 4,
+    "logLines": [7463, 8204, 8242, 16961],
+    "corrections": ["Repeatable binary fixture with an explicit vendor-key-in-image masking assertion", "Private environment token inputs preserve the bot harness IPC channel", "Sentry pin assertions follow the required 11.12.0 update"],
+    "focusedReruns": "All four corrected test files pass; focused ESLint and formatting pass",
+    "boundedBinaryProbe": {
+      "seeds": 12,
+      "samples": 24,
+      "allPreserved": true
+    }
+  },
+  "ciFreshnessFollowup": {
+    "run": 42923011298,
+    "head": "678eaa6349719c12c8237c97a0a06cf9ac7ac6ae",
+    "logLine": 3998,
+    "failure": "Dependency freshness: minimatch 11.0.6 -> 11.0.7",
+    "correction": "Refresh the one allowed-range lockfile entry without changing declarations or bypassing the existing gate",
+    "testsAndNativeBuilds": "Skipped in that first attempt; all pass in corrected run 42924810985"
+  },
+  "previousLibraryCiEvidence": {
     "sourceHead": "8b1ad4d953f0ebd1e47c7083be617dcafd471ed0",
     "libraryVersion": "0.21.3",
     "run": 42924810985,
@@ -130,29 +157,19 @@
     "installedRuntimeArm64": {
       "job": 130257397609,
       "conclusion": "success"
-    },
-    "evidenceOnlyFollowup": "Current-head checks are linked in PR #3741; source and dependency files are unchanged after this successful run."
-  },
-  "ciFollowup": {
-    "run": 42882837227,
-    "head": "43c2dcac39ec60ae6c42f6ce4bf9de61546ccab5",
-    "suiteFiles": 795,
-    "failedFiles": 4,
-    "logLines": [7463, 8204, 8242, 16961],
-    "corrections": ["Repeatable binary fixture with an explicit vendor-key-in-image masking assertion", "Private environment token inputs preserve the bot harness IPC channel", "Sentry pin assertions follow the required 11.12.0 update"],
-    "focusedReruns": "All four corrected test files pass; focused ESLint and formatting pass",
-    "boundedBinaryProbe": {
-      "seeds": 12,
-      "samples": 24,
-      "allPreserved": true
     }
   },
-  "ciFreshnessFollowup": {
-    "run": 42923011298,
-    "head": "678eaa6349719c12c8237c97a0a06cf9ac7ac6ae",
-    "logLine": 3998,
-    "failure": "Dependency freshness: minimatch 11.0.6 -> 11.0.7",
-    "correction": "Refresh the one allowed-range lockfile entry without changing declarations or bypassing the existing gate",
-    "testsAndNativeBuilds": "Skipped in that first attempt; all pass in corrected run 42924810985"
+  "latestLibraryFollowup": {
+    "run": 42940053599,
+    "head": "82a22752f5a3a4e8f79d2a38b019e94a55f813e9",
+    "logLines": [3999, 4000, 4001],
+    "publishedVersion": "0.21.4",
+    "publishedAt": "2026-11-11T01:18:56Z",
+    "upstreamPullRequest": 160,
+    "removedWorkarounds": ["encodedMaskExemption", "cleanEscapedView"],
+    "audit": "Three upstream corrections and five remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 45,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
   }
 }

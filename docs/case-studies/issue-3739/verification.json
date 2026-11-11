@@ -1,8 +1,8 @@
 {
-  "libraryVersion": "0.21.5",
+  "libraryVersion": "0.21.6",
   "libraryOnlyAudit": {
-    "fixedAndWorkaroundRemoved": [148, 149, 152, 153],
-    "reproducingGapsWithRetainedWorkarounds": [150, 151, 154, 162],
+    "fixedAndWorkaroundRemoved": [148, 149, 151, 152, 153],
+    "reproducingGapsWithRetainedWorkarounds": [150, 154, 162],
     "binaryFixWithRemainingTextBoundaryReport": {
       "149": 162
     },
@@ -95,9 +95,9 @@
     "allFinalFocusedFilesPass": true
   },
   "ciEvidence": {
-    "libraryVersion": "0.21.5",
+    "libraryVersion": "0.21.6",
     "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
-    "details": "The full suite and native builds run on final 0.21.5 source; current-head conclusions are recorded in PR #3741."
+    "details": "The full suite and native builds run on final 0.21.6 source; current-head conclusions are recorded in PR #3741."
   },
   "ciFollowup": {
     "run": 42882837227,
@@ -160,6 +160,41 @@
     }
   },
   "latestLibraryFollowup": {
+    "publishedVersion": "0.21.6",
+    "publishedAt": "2026-11-11T03:17:13.552Z",
+    "upstreamPullRequest": 158,
+    "removedWorkarounds": ["markdownValueExemption"],
+    "audit": "Five upstream corrections and three remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.5",
+    "previousVersionFullSuite": {
+      "run": 42947616282,
+      "job": 130291098365,
+      "files": 795,
+      "summaryLogLine": 24471,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42947616282,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "encodedMaskLibraryFollowup": {
+    "run": 42940053599,
+    "head": "82a22752f5a3a4e8f79d2a38b019e94a55f813e9",
+    "logLines": [3999, 4000, 4001],
+    "publishedVersion": "0.21.4",
+    "publishedAt": "2026-11-11T01:18:56Z",
+    "upstreamPullRequest": 160,
+    "removedWorkarounds": ["encodedMaskExemption", "cleanEscapedView"],
+    "audit": "Three upstream corrections and five remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 45,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "localMatrixLibraryVersion": "0.21.5",
+  "finiteStreamProbeLibraryVersion": "0.21.5",
+  "authorizationLibraryFollowup": {
     "publishedVersion": "0.21.5",
     "publishedAt": "2026-11-11T02:20:33Z",
     "upstreamPullRequest": 159,
@@ -177,18 +212,5 @@
       "conclusion": "success"
     },
     "discoveredDuringRun": 42941141733
-  },
-  "encodedMaskLibraryFollowup": {
-    "run": 42940053599,
-    "head": "82a22752f5a3a4e8f79d2a38b019e94a55f813e9",
-    "logLines": [3999, 4000, 4001],
-    "publishedVersion": "0.21.4",
-    "publishedAt": "2026-11-11T01:18:56Z",
-    "upstreamPullRequest": 160,
-    "removedWorkarounds": ["encodedMaskExemption", "cleanEscapedView"],
-    "audit": "Three upstream corrections and five remaining reproducing gaps across eight library-only probes",
-    "focusedTestFiles": 45,
-    "allFocusedFilesPass": true,
-    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
   }
 }

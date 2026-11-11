@@ -221,10 +221,7 @@ Modify the error detection logic to recognize this specific pattern:
 // In claude.lib.mjs, after detecting error_during_execution
 if (data.type === 'result') {
   // Check if this is the "ghost" error that follows a success
-  if (data.subtype === 'error_during_execution' &&
-      data.num_turns === 0 &&
-      data.duration_ms === 0 &&
-      previousResultWasSuccess) {
+  if (data.subtype === 'error_during_execution' && data.num_turns === 0 && data.duration_ms === 0 && previousResultWasSuccess) {
     // This is the spurious second result - ignore it
     await log('⚠️ Ignoring spurious error result (known Claude CLI bug)', { verbose: true });
     continue;

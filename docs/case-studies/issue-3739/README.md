@@ -121,6 +121,8 @@ All 1,970 issues and 2,065 PRs were dumped with bodies, and issue comments were 
   - #3742 (#3740)
   - #3748 (#3747)
 
+CI follow-up: the `f50c06026` run failed only at dependency freshness ([run 43089952168](https://github.com/link-assistant/hive-mind/actions/runs/43089952168), detection job log lines 3999–4007). Node 26.13.1, prettier 3.10.0, brace-expansion 5.0.13, glob 14.0.5 and minimatch 11.0.8 had been published after the previous run. All of them are updated. Prettier 3.10.0 measures Devanagari width differently, so it re-pads tables in 14 Hindi documents. The language-sync check required every sibling to change when one did, so it now ignores changes that only re-pad whitespace or table separators, compared against the same base the diff uses. Any change to a cell, row or alignment still counts, and a self-test pins both cases.
+
 `gh-upload-log` remains the only consumer with its own older sanitizer. Every Hive Mind path uses 0.22.1, and Hive Mind's output is already sanitized before `gh-upload-log` sees it. A refusal therefore costs a slower publication path, never an unsanitized one.
 
 ## Verification

@@ -24,7 +24,19 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 - 只掩码凭证（`credentialsOnly`）。电子邮件地址、账户和用户 ID 以及 GitHub 登录名保持可读（[#3724](https://github.com/link-assistant/hive-mind/issues/3724)，规则 14）。
 - 凭证周围的格式上下文保持可读，只掩码凭证本身：`Authorization` 头的方案词（`Authorization: token ghp…b4N`、`Authorization: CustomScheme f3a…3e5`）、URL 用户名、Cookie 名称、PEM 标记和 Webhook 端点（[#3739](https://github.com/link-assistant/hive-mind/issues/3739)）。
 - `Authorization: token $(gh auth token)` 这类 Shell 表达式会保留：它们引用凭证，但不包含凭证。
+- 选项占位符（如 `--secrets <path>`、`--password <value>` 和 `[file]`）以及 `${{ secrets.GITHUB_TOKEN }}` 这类表达式保持不变。同一选项后的真实值会被掩码：`--password Xy7…R8k`（[#4043](https://github.com/link-assistant/hive-mind/issues/4043)）。
 - 设置 `HIVE_MIND_SANITIZER_DEBUG=1` 可在 stderr 中跟踪清理决策：规则 ID、输入长度、轮次和计数，从不输出匹配的文本。
+
+## 通过 gh-upload-log 上传日志
+
+Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 使用自己固定的库版本（`gh-upload-log` 0.13.1 中为 0.12.1）再次清理副本。第二次清理可能拒绝 Hive Mind 已清理过的文件：`Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`。
+
+- 拒绝（`Sanitization failed (ERR_…)`）是确定性的，因此 Hive Mind 不会重试。拒绝只记录一次：整个日志改为分片重新发送，被拒绝的分片转到 pull request 分支回退发布（[#4042](https://github.com/link-assistant/hive-mind/issues/4042)）。网络和服务器错误仍会退避重试。
+- 分片按行对齐。超过分片上限（最多 48 MiB，低于 64 MiB 记录限制）的单行会在 UTF-8 字符边界处切开，日志会报告切开的行数。各分片拼接后与清理后的日志完全一致。
+- 如果失败评论是由拒绝引起的，它会建议将日志拆分为 20 MB 的分片，而不是再次运行被拒绝的同一命令。
+- 已知限制：固定的 0.12.1 检测器在一个区域内出现超过 4096 个密集 base64 候选时也会拒绝，与分片大小无关。这种情况需要 `gh-upload-log` 采用最新的库（[gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)）；在此之前，此类日志通过分支回退发布。
+- 含有大量已掩码凭证的日志，清理速度约比普通文本慢 10 倍（[sensitive-data-sanitizer#168](https://github.com/link-foundation/sensitive-data-sanitizer/issues/168)）。
+- 如果写入清理副本时磁盘已满，失败原因会提示释放磁盘空间后重试（[#1212](https://github.com/link-assistant/hive-mind/issues/1212)）。
 
 ## 覆盖形式
 

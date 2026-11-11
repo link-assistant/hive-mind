@@ -24,7 +24,19 @@ Synchronous core [`@link-foundation/sensitive-data-sanitizer`](https://github.co
 - केवल credentials mask होते हैं (`credentialsOnly`)। E-mail addresses, account और user IDs तथा GitHub logins पढ़ने योग्य रहते हैं ([#3724](https://github.com/link-assistant/hive-mind/issues/3724), rule 14)।
 - Credential के आसपास का format context पढ़ने योग्य रहता है और केवल credential mask होता है: `Authorization` header का scheme word (`Authorization: token ghp…b4N`, `Authorization: CustomScheme f3a…3e5`), URL user name, cookie names, PEM markers और webhook endpoints ([#3739](https://github.com/link-assistant/hive-mind/issues/3739))।
 - `Authorization: token $(gh auth token)` जैसे shell expressions बने रहते हैं: वे credential का reference देते हैं, उसे contain नहीं करते।
+- `--secrets <path>`, `--password <value>` और `[file]` जैसे option placeholders, और `${{ secrets.GITHUB_TOKEN }}` जैसे expressions अपरिवर्तित रहते हैं। उसी option के बाद आने वाला असली value mask होता है: `--password Xy7…R8k` ([#4043](https://github.com/link-assistant/hive-mind/issues/4043))।
 - `HIVE_MIND_SANITIZER_DEBUG=1` stderr पर sanitizer decisions trace करता है: rule ids, input lengths, rounds और counts, matched text कभी नहीं।
+
+## gh-upload-log के ज़रिए log upload
+
+Hive Mind `gh-upload-log` को call करने से पहले log sanitize करता है। फिर `gh-upload-log` अपनी pinned library (`gh-upload-log` 0.13.1 में 0.12.1) से copy को दोबारा sanitize करता है। यह दूसरा pass ऐसी file को refuse कर सकता है जिसे Hive Mind पहले ही साफ़ कर चुका है: `Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`।
+
+- Refusal (`Sanitization failed (ERR_…)`) deterministic है, इसलिए Hive Mind उसे retry नहीं करता। Refusal एक बार log होता है: पूरा log parts में दोबारा भेजा जाता है, और refused part pull-request branch fallback में जाता है ([#4042](https://github.com/link-assistant/hive-mind/issues/4042))। Network और server errors अब भी backoff के साथ retry होते हैं।
+- Parts line-aligned होते हैं। Part cap (अधिकतम 48 MiB, 64 MiB record limit से कम) से लंबी एक line UTF-8 character boundary पर काटी जाती है, और log बताता है कि कितनी lines काटी गईं। Parts जोड़ने पर बिल्कुल वही sanitized log मिलता है।
+- अगर failure comment refusal के कारण है, तो वह refused command दोबारा चलाने के बजाय log को 20 MB parts में बाँटने का सुझाव देता है।
+- ज्ञात सीमा: pinned 0.12.1 detector एक region में 4096 से अधिक dense base64 candidates होने पर भी refuse करता है, part size चाहे जो हो। इसके लिए `gh-upload-log` को current library अपनानी होगी ([gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)); तब तक ऐसे logs branch fallback से publish होते हैं।
+- पहले से masked credentials से भरे logs plain text की तुलना में लगभग 10 गुना धीमे sanitize होते हैं ([sensitive-data-sanitizer#168](https://github.com/link-foundation/sensitive-data-sanitizer/issues/168))।
+- अगर sanitized copy लिखते समय disk भर जाए, तो failure reason disk space खाली करके retry करने को कहता है ([#1212](https://github.com/link-assistant/hive-mind/issues/1212))।
 
 ## Covered forms
 

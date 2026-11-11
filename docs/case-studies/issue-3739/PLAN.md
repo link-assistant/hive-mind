@@ -16,6 +16,8 @@ Objective: complete issues #3739 and #3740, all open sanitization issues identif
 - [x] Keep all affected documentation, translations, tracing (off by default) and changesets consistent.
 - [x] Add minimal reproducing regression tests and run focused checks sequentially; save substantial output to files; use CI for full suites/native builds.
 - [x] Merge current main without rewriting history; review the complete PR diff for scope and regressions; commit atomic changes and push only issue-3739-dd36d9843cea.
+- [x] November 11 review: fix the sanitization faults in router#785 (#4042: no retries of deterministic gh-upload-log refusals, bounded UTF-8-safe parts, accurate failure hint) and report the remaining gh-upload-log and library gaps upstream (gh-upload-log#63, sensitive-data-sanitizer#168).
+- [x] November 11 review: audit all issues and PRs for sanitization, file the unreported placeholder false positive (#4043), add regressions for closed issues that lacked them, and extract non-sanitization parts (#4044–#4047).
 - [ ] Update PR title/description, reproduction/validation evidence and positive closing references for every completed required issue; check all current-commit CI workflows, clean working tree, and mark PR ready.
 
 ## Discovery record
@@ -49,3 +51,5 @@ Releases 0.21.7 and 0.21.8 were published during the corrected 0.21.6 native bui
 Adopt 0.22.0 after reviewing upstream PR #147 and its relevant source/API changes. The 0.21.8 full suite passes all 796 files (run 42960687262, saved log line 24483). The synchronous credentials API and native per-type policy are compatible; provider verification and external Betterleaks detection require explicit opt-in. The eight library-only probes confirm seven resolved gaps and #162 remaining. All six policy files pass on installed 0.22.0, as do formatting, translation sync, changeset validation and dependency freshness. Require all current-head CI before readiness.
 
 Adopt 0.22.1 after reviewing upstream PRs #163 and #167. Remove the #162 wrapped-text prepass and leave `UPSTREAM` empty. Rerun all eight library-only probes and the 45-file sanitizer matrix on the installed release, with #2156 as the regression. Require all current-head CI before readiness.
+
+November 11 review: router#785 showed `gh-upload-log`'s own pinned 0.12.1 sanitizer refusing a log that Hive Mind had already sanitized. Refusals are now detected and not retried, parts are capped at 48 MiB with UTF-8-safe cuts, and the failure comment suggests a command that works. Dense-base64 refusals remain blocked on gh-upload-log#63, and those logs use the branch fallback. The audit of 1,970 issues and 2,065 PRs added #4043 and seven closed-issue regressions, and extracted #4044–#4047. All 47 focused files are listed in `experiments/issue-3739-sanitizer-tests.txt`.

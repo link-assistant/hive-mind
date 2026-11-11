@@ -278,5 +278,43 @@
       "allFocusedFilesPass": true,
       "dependencyFreshness": "passed with no stale declarations or lockfile entries"
     }
+  },
+  "november11Review": {
+    "request": "https://github.com/link-assistant/hive-mind/pull/3741#issuecomment-6804827064",
+    "routerComments": ["https://github.com/link-assistant/router/pull/785#issuecomment-6794876904", "https://github.com/link-assistant/router/pull/785#issuecomment-6794877008", "https://github.com/link-assistant/router/pull/785#issuecomment-6794877572"],
+    "newSanitizationIssuesClosedHere": [4042, 4043],
+    "extractedNonSanitizationIssues": {
+      "4044": "command-stream 0x1fffffe8 capture and duplicate failure comment",
+      "4045": "Codex fsck gitattributesMissing",
+      "4046": "branch log fallback over 100 MB",
+      "4047": "SDK debug opt-in split from #2837"
+    },
+    "upstreamReports": {
+      "gh-upload-log#63": "pinned 0.12.1 ERR_LIMIT refusal, 64 MiB record limit, ambiguous error; blocked upstream for dense base64",
+      "sensitive-data-sanitizer#168": "masked text ~10x slower in 0.22.1"
+    },
+    "blockedUpstream": "Dense-base64 regions (>4096 encoded candidates) are refused by gh-upload-log's pinned sanitizer whatever the part size; such logs use the pull-request branch fallback until gh-upload-log adopts a current library",
+    "audit": {
+      "issuesDumped": 1970,
+      "pullRequestsDumped": 2065,
+      "sanitizationIssues": 32,
+      "sanitizationPullRequests": 30,
+      "partialOpenNotLinked": [3723, 3630, 3724],
+      "supersededOpenPullRequests": [2648, 2849, 2850, 3742, 3748],
+      "closedIssuesGivenRegressions": [66, 580, 1076, 1088, 1212, 2239, 3785]
+    },
+    "throughput": {
+      "maskLines": 200000,
+      "bytes": 9700000,
+      "ghUploadLog0121Seconds": 92.5,
+      "library0221Seconds": 83,
+      "hiveMindStreamSeconds": 78.7,
+      "libraryFileApiSeconds": 52
+    },
+    "newTests": {
+      "tests/issue-4042-gh-upload-log-sanitizer-refusal.test.mjs": 9,
+      "tests/issue-3739-closed-sanitization-regressions.test.mjs": 10
+    },
+    "focusedTestFiles": 47
   }
 }

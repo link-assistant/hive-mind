@@ -36,6 +36,12 @@ bytes (665,171,647 unpacked; `codex` linux-x64 351,203,584, linux-arm64 304,856,
 largest tarball npm is known to have accepted, `@openai/codex@0.164.0-linux-x64`, is 165,142,849
 bytes (`Content-Range` of the registry tarball).
 
+## Real-artifact replay
+
+`experiment-real-artifact-replay.txt`: the CI verify step and the installed-runtime admission
+replayed locally on the real binaries of run 43296180981 after the `verify-variant` fix (sizes of
+both variants and the main tarball, plus the refusal when the variant is missing).
+
 ## Template comparison
 
 - `experiment-template-e413-classification.txt`: the js template's classifier treats E413 as

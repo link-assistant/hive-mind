@@ -1,0 +1,16 @@
+Local replay on the real native artifacts of run 43296180981 (commit 43b6329c3, x86_64 host).
+The binaries were not executed.
+
+1. python3 -I scripts/build-native-codex.py assemble <downloads> src/native-codex/runtime
+   Assembled both verified native Codex platforms for the variant packages.
+2. python3 -I experiments/issue-3785/probe_native_codex_package.py <out>   (the CI verify job)
+   PASS: the main npm artifact carries the recipe only and pins both byte-verified native variant packages.
+   link-assistant-hive-mind-2.40.1.tgz                              2,386,235 bytes
+   link-assistant-hive-mind-2.40.1-native-codex-linux-x64.tgz     127,047,211 bytes
+   link-assistant-hive-mind-2.40.1-native-codex-linux-arm64.tgz   120,480,185 bytes
+   budget (157 MiB)                                               164,626,432 bytes
+   Before 53f7f5d45 step 2 fails as in job 131520166341 ("Unexpected native payload").
+3. experiments/issue-4050/installed-admission-replay.mjs, main + linux-x64 variant at the alias path
+   {"version":"0.164.0","sameEntrypoint":true}
+   Same layout without the variant (HIVE_MIND_NATIVE_CODEX_DEBUG=1):
+   [native-codex] Refused during packaged artifact admission (MODULE_NOT_FOUND).

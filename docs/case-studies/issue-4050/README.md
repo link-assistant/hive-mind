@@ -9,14 +9,14 @@ Previous round: [issue #4029](../issue-4029/README.md) (PR #4030, merged 2026-11
 
 | #   | Requirement (issue text)                                                                 | Where it is addressed                                    |
 | --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F8 below                                     |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F9 below                                     |
 | R2  | Checks and release: failure (`2f20280`, run 43242624306)                                 | F1, F2, F3                                               |
 | R3  | Formal AI Draft: failure (`2f20280`, run 43263266558)                                    | F4 (true positive caused by F1), F5                      |
 | R4  | E2E Hello World Matrix: skipped (`d225236`, run 43271477613)                             | F7: skipped by design, no change                         |
 | R5  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)              |
 | R6  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Fail-fast gates, annotations, tests; principle 16 update |
 | R7  | Collect logs into `dev/log/issues/4050/pulls/4051`; timeline; root causes; online facts  | This file and the evidence folder                        |
-| R8  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1, F3 debug switches; [Upstream](#upstream)             |
+| R8  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1, F3, F9 debug switches; [Upstream](#upstream)         |
 
 ## Timeline (UTC)
 
@@ -31,6 +31,7 @@ Previous round: [issue #4029](../issue-4029/README.md) (PR #4030, merged 2026-11
 | 2026-11-12 17:37 | E2E Hello World Matrix 43271477613 (`workflow_run`) is skipped: `vars.ENABLE_REAL_GITHUB_E2E` is not set.                                                                                    |
 | 2026-11-12 17:54 | Issue #4050 is opened. Formal AI Draft 43274283479 fails to pull `konard/hive-mind:2.40.1` and warns "No files were found with the provided path ... No artifacts will be uploaded".         |
 | 2026-11-12 17:56 | The first PR run (43274680732) fails `detect-changes`: "STALE package-lock.json#enhanced-resolve: enhanced-resolve 5.26.2 -> 5.27.0".                                                        |
+| 2026-11-12 19:14 | PR run 43285491341: `test-suites` fails `issue-3445-release-notes-not-masked`; the 2.40.1 CHANGELOG line (`b83e3e0`) is masked by the publication sanitizer. The same test fails on main.    |
 
 ## Findings, root causes and fixes
 
@@ -110,6 +111,30 @@ GitHub E2E is opt-in through `vars.ENABLE_REAL_GITHUB_E2E` (#4017). No change.
 | "The ubuntu-latest label will migrate to Ubuntu 26" on Dependabot and dependency-graph runs | Emitted by GitHub-managed workflows; not configurable here.                                                                                                                                            |
 | Cleanup: "1380 fixture branch(es) retained by a repository rule that prohibits deletion"    | **Blocked (B1):** needs a repository administrator to add a bypass or narrow ruleset 21204104, unchanged since issues #4025 and #4029.                                                                 |
 
+### F9. Release-note placeholder masked by the publication sanitizer (false positive)
+
+**Evidence.** `ci/test-suites-131419970048.log.gz` (run 43285491341): the 3445 regression test
+reports that `sanitizeForPublication(CHANGELOG.md)` changed one line. The 2.40.1 entry added in
+`b83e3e0` reads "the credential in `` `Authorization: token <value>` ``"; the published text was
+"`` `Authorization: token [REDACTED] ``", with the closing backtick eaten.
+`experiment-authorization-code-span-before.txt` shows the library masking every placeholder that
+closes a code span (`<token>`, `$TOKEN`, `${TOKEN}`) while keeping the same value inside quotes.
+
+**Root cause.** In `@link-foundation/sensitive-data-sanitizer` 0.22.3, the `authorization` rule
+ends a value at control characters, whitespace, `"`, `'`, `\` and `,`, but not at a backtick. The
+value read is ``<value>` ``, which `isPlaceholderToken` does not recognise, so it is masked and the
+backtick goes with it. Reported upstream as
+[sensitive-data-sanitizer#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177)
+with a reproduction, a workaround and a suggested one-character fix.
+
+**Fix.** `src/sensitive-data-sanitizer.lib.mjs` passes an `exempt` hook that keeps a value only
+when it is exactly one complete template (`<name>`, `$NAME`, `${NAME}`) followed by the backtick
+that closes a code span opened earlier on the same line after an `Authorization:` header. Known
+secrets are never offered to the hook, and real tokens in code spans stay masked
+(`tests/authorization-code-span-placeholder-4050.test.mjs`). `HIVE_MIND_SANITIZER_DEBUG=1` (off by
+default) traces each exemption as `exempt:code-span-authorization-placeholder`. The workaround is
+listed in `UPSTREAM.authorizationCodeSpanPlaceholder` for removal once #177 ships.
+
 ## Template comparison
 
 | Template | Same defect?                                                                                         | Action                                                                                                              |
@@ -127,6 +152,7 @@ with this repository's classifier.
 
 - npm registry: no documented limit; nothing to report. The design follows `@openai/codex`.
 - `actions/download-artifact` DEP0005: already tracked (F8).
+- `@link-foundation/sensitive-data-sanitizer`: [#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177), an Authorization value is not ended at a Markdown backtick (F9). Body: `dev/log/issues/4050/pulls/4051/upstream-issues/`.
 
 ## Sources
 
@@ -143,4 +169,6 @@ with this repository's classifier.
 - `node tests/cicd-best-practices-tarball-size-4050.test.mjs`: principle 16 in all four languages.
 - `python3 -I experiments/issue-3785/test_native_codex_build.py`: `verify-package` / `verify-variant`.
 - `experiments/issue-4050/fake-registry-variant-install.mjs`: installs main plus variant from a local fake registry with npm and Bun and checks that the alias resolves from the main package.
+- `node --test tests/authorization-code-span-placeholder-4050.test.mjs` and `node tests/issue-3445-release-notes-not-masked.test.mjs`: placeholders kept, real tokens masked, CHANGELOG published unchanged.
+- `node experiments/issue-4050/changelog-sanitizer-diff.mjs`: lists CHANGELOG lines the publication sanitizer would change (0 after the fix).
 - CI on PR #4051: `native-codex-build` assemble and installed-runtime jobs, `docker-pr-check`.

@@ -1,0 +1,25 @@
+43242624306	push	failure	2026-11-12T14:57:38Z	2f20280c6	Merge pull request #3741 from link-assistant/issue-3739-dd36
+42805396999	push	failure	2026-11-10T11:11:19Z	bcb289b39	Merge pull request #4030 from link-assistant/issue-4029-ba25
+42657172126	push	failure	2026-11-09T16:40:37Z	b245deb62	Merge pull request #4026 from link-assistant/issue-4025-c651
+42609000121	push	failure	2026-11-09T11:25:59Z	e1f89c0d7	Merge pull request #3786 from link-assistant/issue-3785-4c28
+42570340658	push	failure	2026-11-09T05:58:59Z	c6e68bc4f	Merge pull request #4024 from link-assistant/issue-4023-a577
+42128193502	push	success	2026-11-05T23:15:16Z	faf28338e	fix(queue): count active tasks instead of idle vendor servic
+41809816972	push	success	2026-11-04T09:46:27Z	e71b94105	ci: extract source test runner below workflow warning limit 
+41801786544	push	failure	2026-11-04T08:44:11Z	c85adb460	fix: make real E2E opt-in and verify captured client output 
+41773000467	push	success	2026-11-04T04:24:21Z	c27e41372	fix: preserve selected Formal AI runtime and package E2E pro
+41326648520	push	success	2026-11-01T16:30:11Z	d0e8a6109	Merge pull request #3864 from link-assistant/issue-3863-e5ad
+41241761204	push	success	2026-10-31T21:03:19Z	eb18131ca	Merge pull request #3923 from link-assistant/issue-3922-5059
+40758650267	push	cancelled	2026-10-28T19:55:32Z	433ea4618	Merge pull request #3838 from link-assistant/issue-3837-f745
+40679568735	push	success	2026-10-28T11:23:24Z	4544befd2	Merge pull request #3832 from link-assistant/issue-3831-289f
+40122034663	push	success	2026-10-24T18:43:48Z	5fd1e1e23	Merge pull request #3762 from link-assistant/issue-3759-54e1
+39851190071	push	success	2026-10-22T20:42:39Z	d60ffcd41	Merge pull request #3686 from link-assistant/issue-3684-e1ab
+39583654354	push	success	2026-10-21T10:18:44Z	e6bc760cb	Merge pull request #3585 from link-assistant/issue-3583-6afa
+39498206656	push	success	2026-10-20T21:10:33Z	74cfa4e9c	Merge pull request #3571 from link-assistant/issue-3570-e9eb
+39466300302	push	success	2026-10-20T17:27:56Z	f2253a7e7	Merge pull request #3553 from link-assistant/issue-3552-3292
+39116893209	push	success	2026-10-18T09:50:08Z	7e9dd9a71	Merge pull request #3507 from link-assistant/issue-3505-7dc6
+39056266072	push	success	2026-10-17T18:01:10Z	45f71b6b0	Merge pull request #3446 from link-assistant/issue-3445-7cd6
+39047531462	push	success	2026-10-17T16:00:36Z	4fc7d371a	Merge pull request #3470 from link-assistant/issue-3469-80e8
+39017225103	push	success	2026-10-17T08:24:11Z	a8b931f3e	Merge pull request #3414 from link-assistant/issue-3413-8b69
+38950801187	push	success	2026-10-16T18:53:31Z	f309edeb0	Merge pull request #3390 from link-assistant/issue-3282-edd2
+38761860505	push	success	2026-10-15T15:36:44Z	cd4010072	Merge pull request #3327 from link-assistant/issue-3326-eed8
+38733157620	push	success	2026-10-15T12:14:35Z	bcfff45f2	Merge pull request #3295 from link-assistant/issue-3282-63c2

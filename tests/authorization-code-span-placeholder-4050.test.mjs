@@ -65,6 +65,13 @@ test('#4050: the exemption needs an opening backtick, a complete template and th
   assert.equal(at('`password: <value>`', '<value>`'), false);
   // The code span must open on the same line.
   assert.equal(at('`\nAuthorization: token <value>`', '<value>`'), false);
+  // Never broader than the library: a template-shaped value it masks without a
+  // backtick (here a synthetic AWS key id) is not exempt inside a code span either.
+  const aws = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+  for (const value of [`$${aws}`, `<${aws}>`]) {
+    assert.equal(at(`\`Authorization: token ${value}\``, `${value}\``), false, value);
+    assert.ok(!sanitizeWithPolicy(`\`Authorization: token ${value}\``).includes(aws), value);
+  }
 });
 
 test('#4050: a value declared as a known secret is never exempt', () => {

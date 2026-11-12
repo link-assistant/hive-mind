@@ -47,17 +47,26 @@ const trace = event => {
 // the library's own placeholder exemption misses it and the backtick is eaten
 // (the 2.40.1 release note, issue #4050). Keep only a value that is exactly one
 // complete template followed by the closing backtick of a code span opened
-// earlier on the same line. Known secrets are never offered to `exempt`.
+// earlier on the same line, and only if the library itself keeps that value when
+// no backtick follows it, so the exemption is never broader than upstream's own
+// placeholder rule. Known secrets are never offered to `exempt`.
+let parityChecker;
+const libraryKeepsPlainValue = value => {
+  parityChecker ??= loadSensitiveDataSanitizer().createSyncSanitizer({ credentialsOnly: true });
+  const plain = `Authorization: token ${value}`;
+  return parityChecker.sanitize(plain).text === plain;
+};
 const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})`$/;
 const AUTHORIZATION_PREFIX = /(?:Proxy-)?Authorization[ \t]*:[ \t]*(?:[A-Za-z][\w-]*[ \t]+)?$/i;
 export const isCodeSpanAuthorizationPlaceholder = (finding, text) => {
   if (finding.rule !== 'authorization' && finding.rule !== 'context') return false;
-  if (!CODE_SPAN_PLACEHOLDER.test(text.slice(finding.start, finding.end))) return false;
+  const value = text.slice(finding.start, finding.end);
+  if (!CODE_SPAN_PLACEHOLDER.test(value)) return false;
   const before = text.slice(text.lastIndexOf('\n', finding.start - 1) + 1, finding.start);
   if (!AUTHORIZATION_PREFIX.test(before)) return false;
   let backticks = 0;
   for (const char of before) if (char === '`') backticks++;
-  return backticks % 2 === 1;
+  return backticks % 2 === 1 && libraryKeepsPlainValue(value.slice(0, -1));
 };
 const exempt = (finding, text) => {
   const kept = isCodeSpanAuthorizationPlaceholder(finding, text);

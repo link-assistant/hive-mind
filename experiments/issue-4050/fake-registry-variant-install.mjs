@@ -19,7 +19,6 @@
  *
  * Usage: node experiments/issue-4050/fake-registry-variant-install.mjs [--keep]
  */
-import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -27,7 +26,6 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 
 const keep = process.argv.includes('--keep');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-4050-variants-'));
@@ -196,7 +194,12 @@ try {
     await run('npm', ['install', '--prefix', fileInstall, '--ignore-scripts', '--omit=optional', mainPacked.file, `${alias(platform)}@file:${tarballs[`${VERSION}-native-codex-${platform}`]}`], { env: npmEnv });
     checkInstall('npm alias@file: with --omit=optional', path.join(fileInstall, 'node_modules'));
   } catch (error) {
-    record(`npm alias@file: install (${String(error.stderr || error.message).split('\n').find(Boolean)})`, false);
+    record(
+      `npm alias@file: install (${String(error.stderr || error.message)
+        .split('\n')
+        .find(Boolean)})`,
+      false
+    );
   }
 } finally {
   server.close();

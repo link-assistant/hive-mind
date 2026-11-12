@@ -96,8 +96,18 @@ mkdirSync(hostLogDir, { recursive: true });
 // failure looks like the model's rather than the mount's.
 chmodSync(hostLogDir, 0o777);
 
+// A draft that fails before solve starts (an image that is not published, a
+// missing binary artifact) used to leave the log directory empty, so the upload
+// step warned "No files were found" and the artifact held no record of why
+// (issue #4050, run 43274283479). The failure itself is now that record.
+const DRAFT_FAILURE_LOG = 'formal-ai-draft-failure.log';
 const fail = message => {
   console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, message));
+  try {
+    appendFileSync(join(hostLogDir, DRAFT_FAILURE_LOG), `${new Date().toISOString()} ${message}\n`);
+  } catch (error) {
+    console.log(`Could not record the failure in ${hostLogDir}: ${error.message}`);
+  }
   process.exit(1);
 };
 

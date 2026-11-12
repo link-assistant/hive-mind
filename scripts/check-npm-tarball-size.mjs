@@ -4,9 +4,9 @@
  *
  * npm documents no publish size limit. The budget sits inside the range the
  * registry is known to accept: @openai/codex@0.164.0-linux-x64 (165,142,849
- * bytes) was published, while @link-assistant/hive-mind@2.40.0 (249,485,829
- * bytes, both native Codex platforms in one tarball) was refused three times
- * with "E413 413 Payload Too Large" after ~87 s per upload attempt. Failing
+ * bytes) was published, while @link-assistant/hive-mind@2.40.1 (249,862,346
+ * bytes, both native Codex platforms in one tarball; 2.40.0 was 249,847,872)
+ * was refused three times with "E413 413 Payload Too Large". Failing
  * locally takes seconds and says which file to move out of the tarball.
  *
  * Usage:

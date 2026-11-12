@@ -1,7 +1,7 @@
 /**
  * @hive-mind-test-suite default
  *
- * Issue #4050. npm refused the 249,485,829-byte 2.40.0 and 2.40.1 tarballs with
+ * Issue #4050. npm refused the 2.40.0 and 2.40.1 tarballs (249,847,872 and 249,862,346 bytes) with
  * E413 after every build had passed, so no release, image or Formal AI draft
  * could follow. Principle 16 records the lesson in every language; commands,
  * error texts, sizes and file names are the same anchors in each file.
@@ -19,7 +19,7 @@ for (const guidePath of guidePaths) {
   assert.ok(publish, `${guidePath} has principle 16`);
   assert.match(publish, /#4050/, `${guidePath} links the evidence`);
   assert.match(publish, /E413 Payload Too Large/, `${guidePath} quotes the refusal`);
-  assert.match(publish, /249,485,829/, `${guidePath} quotes the refused size`);
+  assert.match(publish, /249,862,346/, `${guidePath} quotes the refused size`);
   assert.match(publish, /165,142,849/, `${guidePath} quotes the largest accepted size`);
   assert.match(publish, /npm pack --dry-run --json \| node scripts\/check-npm-tarball-size\.mjs --stdin/, `${guidePath} says how to measure`);
   assert.match(publish, /optionalDependencies/, `${guidePath} names the fix`);

@@ -5,7 +5,7 @@
  * Since issue #4050 the main tarball carries the native Codex recipe but no
  * executable: it must pin both per-platform variant packages (published by
  * `scripts/native-codex-packages.mjs publish` just before this step) and fit
- * the npm publish budget, which the 249,485,829-byte 2.40.0 tarball did not.
+ * the npm publish budget, which the 249,862,346-byte 2.40.1 tarball did not.
  */
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';

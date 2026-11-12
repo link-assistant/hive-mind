@@ -422,7 +422,7 @@ def verify_variant(archive, platform, name, version):
 def verify_package(archive, wired=True):
     """The main npm artifact ships the recipe, never the executables (issue #4050).
 
-    Both platforms in one tarball (249,485,829 bytes) were refused by npm with
+    Both platforms in one tarball (249,862,346 bytes) were refused by npm with
     E413; each executable now ships in its own variant package, which the main
     package lists under optionalDependencies at publication. An unwired archive
     (a pull request or CI build) must not pin variants that were never published.

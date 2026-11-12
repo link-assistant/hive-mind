@@ -1,8 +1,8 @@
 # Native Codex npm packages
 
-Issue #4050. Version 2.40.0 bundled both native Codex executables in the main
-npm tarball, making it 249,485,829 bytes. npm refused it with
-`E413 413 Payload Too Large`. Version 2.40.1 failed the same way. Neither
+Issue #4050. Versions 2.40.0 and 2.40.1 bundled both native Codex executables
+in the main npm tarball, making it 249,847,872 and 249,862,346 bytes. npm
+refused both with `E413 413 Payload Too Large`. Neither
 version was published, so no Docker image was built and the Formal AI draft
 workflow could not pull one.
 

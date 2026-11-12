@@ -400,7 +400,7 @@ class NativeArtifactAssembly(unittest.TestCase):
         return out / json.loads(packed.stdout)[0]["filename"]
 
     def test_actual_npm_file_allowlist_ships_recipe_and_pins_variants(self):
-        """Issue #4050: the executables left the 249,485,829-byte main tarball."""
+        """Issue #4050: the executables left the 249,862,346-byte main tarball."""
         package = self.root / "package"
         package.mkdir()
         shutil.copyfile(ROOT / "package.json", package / "package.json")

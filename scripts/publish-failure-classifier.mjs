@@ -169,7 +169,7 @@ export function buildAuthFailureGuidance(packageName) {
  *
  * npm does not document the limit. It accepted @openai/codex@0.164.0-linux-x64
  * (165,142,849 bytes) and refused @link-assistant/hive-mind@2.40.1
- * (249,485,829 bytes), so `scripts/check-npm-tarball-size.mjs` keeps every
+ * (249,862,346 bytes), so `scripts/check-npm-tarball-size.mjs` keeps every
  * tarball this repository publishes below a 160 MiB budget.
  *
  * @param {string} packageName - The package that failed to publish.

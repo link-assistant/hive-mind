@@ -1,5 +1,5 @@
 /** @hive-mind-test-suite default */
-// Issue #4050: npm refused the 249,485,829-byte main tarball (E413) because it
+// Issue #4050: npm refused the 249,862,346-byte main tarball (E413) because it
 // bundled both native Codex executables. They are now per-platform variant
 // versions of the same package, installed as optional dependency aliases.
 import assert from 'node:assert/strict';
@@ -26,14 +26,14 @@ const temporary = async t => {
 };
 
 test('the budget stays below the largest tarball npm is known to accept', () => {
-  // @openai/codex@0.164.0-linux-x64 (165,142,849 bytes) was accepted; 249,485,829 was refused.
+  // @openai/codex@0.164.0-linux-x64 (165,142,849 bytes) was accepted; 249,862,346 was refused.
   assert.ok(NPM_TARBALL_BUDGET_BYTES < 165142849);
   assert.deepEqual(
     findOversizedTarballs([
-      { filename: 'a.tgz', size: 249485829 },
+      { filename: 'a.tgz', size: 249862346 },
       { filename: 'b.tgz', size: 1024 },
     ]),
-    [{ filename: 'a.tgz', size: 249485829 }]
+    [{ filename: 'a.tgz', size: 249862346 }]
   );
   assert.equal(findOversizedTarballs([{ filename: 'unknown.tgz' }]).length, 1, 'an unknown size is never admitted');
 });
@@ -42,15 +42,15 @@ test('an oversized tarball fails fast with an annotation naming the largest file
   const errors = [];
   const entry = {
     name: main.name,
-    version: '2.40.0',
-    size: 249485829,
+    version: '2.40.1',
+    size: 249862346,
     files: [
       { path: 'src/native-codex/runtime/linux-x64/codex', size: 160000000 },
       { path: 'README.md', size: 10 },
     ],
   };
   assert.equal(checkNpmTarballSizes([entry], { log() {}, error: message => errors.push(message) }), 1);
-  assert.match(errors[0], /^::error title=npm tarball over the publish budget::@link-assistant\/hive-mind@2\.40\.0 is 249485829 bytes/u);
+  assert.match(errors[0], /^::error title=npm tarball over the publish budget::@link-assistant\/hive-mind@2\.40\.1 is 249862346 bytes/u);
   assert.ok(errors[0].indexOf('linux-x64/codex') < errors[0].indexOf('README.md'), 'largest file first');
   assert.ok(formatOversizedReport([entry]).includes('src/native-codex/PACKAGES.md'));
   assert.equal(checkNpmTarballSizes([], { log() {}, error() {} }), 1, 'nothing to check is a failure, not a pass');

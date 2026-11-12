@@ -3,7 +3,7 @@
  * Publish the native Codex executables as per-platform variant versions of this
  * package (issue #4050).
  *
- * Both executables in one tarball made @link-assistant/hive-mind 249,485,829
+ * Both executables in one tarball made @link-assistant/hive-mind 249,862,346
  * bytes, which npm refused with "E413 413 Payload Too Large", so 2.40.0 and
  * 2.40.1 never reached the registry and no Docker image was built. Like
  * @openai/codex, each platform is now its own version of the same package name:

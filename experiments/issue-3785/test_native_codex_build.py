@@ -464,5 +464,35 @@ class NativeArtifactAssembly(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "manifest differs"):
             BUILD.verify_variant(self.pack(stage), "linux-x64", main["name"], main["version"])
 
+    def test_variant_admits_an_executable_larger_than_the_other_file_limit(self):
+        """Issue #4050, job 131520166341: the real 351,203,584-byte linux-x64 codex was
+        refused because only names ending in "/codex" got the executable size limit."""
+        binary = self.x64 / "codex"
+        payload = binary.read_bytes() + bytes(BUILD.VARIANT_FILE_LIMIT + 1 - binary.stat().st_size)
+        binary.write_bytes(payload)
+        manifest = json.loads((self.x64 / "manifest.json").read_text())
+        manifest["binary"] = {"sha256": BUILD.sha256(binary), "bytes": len(payload)}
+        (self.x64 / "manifest.json").unlink()
+        BUILD.write_json(self.x64 / "manifest.json", manifest)
+        runtime = self.root / "assembled-large"
+        BUILD.assemble(self.artifacts, runtime)
+        variants = self.root / "variants-large"
+        subprocess.run(["node", str(ROOT / "scripts/native-codex-packages.mjs"), "pack", str(variants),
+                        "--runtime", str(runtime), "--no-verify"],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        main = json.loads((ROOT / "package.json").read_text())
+        entry = next(item for item in json.loads((variants / "variants.json").read_text())
+                     if item["platform"] == "linux-x64")
+        BUILD.verify_variant(Path(entry["archive"]), "linux-x64", main["name"], main["version"])
+        # Other runtime files keep the small limit.
+        stage = self.root / "large-license"
+        shutil.copytree(runtime / "linux-x64", stage / "runtime/linux-x64")
+        (stage / "runtime/linux-x64/licenses/LICENSE").write_bytes(bytes(BUILD.VARIANT_FILE_LIMIT + 1))
+        (stage / "package.json").write_text(json.dumps({
+            "name": main["name"], "version": main["version"] + "-native-codex-linux-x64",
+            "os": ["linux"], "cpu": ["x64"], "files": ["runtime"]}))
+        with self.assertRaisesRegex(ValueError, "Unexpected native payload"):
+            BUILD.verify_variant(self.pack(stage), "linux-x64", main["name"], main["version"])
+
 if __name__ == "__main__":
     unittest.main()

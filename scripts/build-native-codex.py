@@ -359,13 +359,18 @@ VARIANT_FILE_LIMIT = 4 * 1024 * 1024
 
 
 def extract_members(package, members, prefix, allowed, recipe, root):
-    """Copy admitted tar members below root; reject anything unexpected."""
+    """Copy admitted tar members below root; reject anything unexpected.
+
+    Names are relative to one platform's runtime, so the executable is exactly
+    "codex", as in verify_artifact. Only it may exceed VARIANT_FILE_LIMIT; the
+    real linux-x64 binary is 351,203,584 bytes (issue #4050, job 131520166341).
+    """
     seen = set()
     for member in members:
         name = member.name[len(prefix):]
         if (name not in allowed or name in seen or not member.isfile()
                 or member.size <= 0 or member.size > (
-                    recipe["maxBinaryBytes"] if name.endswith("/codex") else VARIANT_FILE_LIMIT)):
+                    recipe["maxBinaryBytes"] if name == "codex" else VARIANT_FILE_LIMIT)):
             raise ValueError("Unexpected native payload in the npm artifact.")
         seen.add(name)
         destination = root / name

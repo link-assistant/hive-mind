@@ -15,7 +15,8 @@ const output = path.resolve(process.argv[3]);
 await fs.mkdir(output, { mode: 0o700 });
 const { installNativeCodexRuntime, verifyNativeCodexRuntime } = await import(pathToFileURL(path.join(installed, 'src/native-codex-runtime.lib.mjs')));
 const { installNativeCodexCommand, verifyNativeCodexCommand } = await import(pathToFileURL(path.join(installed, 'src/native-codex-command.lib.mjs')));
-const source = path.join(installed, 'src/native-codex/runtime', `linux-${process.arch}`);
+// Issue #4050: the executable is installed as the variant alias beside the main package.
+const source = path.join(path.dirname(installed), `hive-mind-native-codex-linux-${process.arch}`, 'runtime', `linux-${process.arch}`);
 const sourceBefore = await fs.stat(path.join(source, 'codex'));
 const destination = path.join(output, 'runtime');
 const ready = await installNativeCodexRuntime({ destination });

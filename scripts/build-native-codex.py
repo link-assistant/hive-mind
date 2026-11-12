@@ -419,12 +419,13 @@ def verify_variant(archive, platform, name, version):
     print("Verified the complete " + platform + " native Codex variant package.")
 
 
-def verify_package(archive):
+def verify_package(archive, wired=True):
     """The main npm artifact ships the recipe, never the executables (issue #4050).
 
     Both platforms in one tarball (249,485,829 bytes) were refused by npm with
     E413; each executable now ships in its own variant package, which the main
-    package lists under optionalDependencies at publication.
+    package lists under optionalDependencies at publication. An unwired archive
+    (a pull request or CI build) must not pin variants that were never published.
     """
     recipe, _ = load_recipe()
     with tarfile.open(archive, "r:gz") as package:
@@ -438,7 +439,13 @@ def verify_package(archive):
     for platform in recipe["targets"]:
         alias, version = variant_identity(manifest["name"], manifest["version"], platform)
         expected[alias] = "npm:" + manifest["name"] + "@" + version
-    if manifest.get("optionalDependencies", {}) != expected:
+    pinned = manifest.get("optionalDependencies", {})
+    if not wired:
+        if any(alias in pinned for alias in expected):
+            raise ValueError("The unwired npm artifact already pins native variant packages.")
+        print("Verified the unwired npm artifact carries the native Codex recipe and no executable.")
+        return
+    if pinned != expected:
         raise ValueError("The npm artifact does not pin both native variant packages.")
     print("Verified the npm artifact pins both native Codex variant packages and bundles neither.")
 
@@ -451,6 +458,7 @@ def main():
     assembly.add_argument("output", type=Path)
     package = subcommands.add_parser("verify-package")
     package.add_argument("archive", type=Path)
+    package.add_argument("--unwired", action="store_true")
     variant = subcommands.add_parser("verify-variant")
     variant.add_argument("archive", type=Path)
     variant.add_argument("platform", choices=("linux-x64", "linux-arm64"))
@@ -468,7 +476,7 @@ def main():
         assemble(arguments.artifacts.resolve(strict=True), arguments.output.absolute())
         return
     if arguments.command == "verify-package":
-        verify_package(arguments.archive.resolve(strict=True))
+        verify_package(arguments.archive.resolve(strict=True), wired=not arguments.unwired)
         return
     if arguments.command == "verify-variant":
         verify_variant(arguments.archive.resolve(strict=True), arguments.platform,

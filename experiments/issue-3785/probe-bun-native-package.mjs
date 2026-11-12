@@ -21,17 +21,22 @@ try {
     await fs.cp(path.join(root, 'src'), path.join(source, 'src'), { recursive: true });
     const env = { ...process.env, BUN_INSTALL: path.join(root, 'bun'), BUN_INSTALL_CACHE_DIR: path.join(root, 'cache'), PATH: `${path.join(root, 'bun/bin')}:${process.env.PATH}` };
     const version = '0.0.0-synthetic';
-    await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ name: '@link-assistant/hive-mind', version, type: 'module', bin: { hive: 'src/hive.mjs' } }));
+    await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ name: '@link-assistant/hive-mind', version, type: 'module', bin: { hive: 'src/hive.mjs' }, files: ['src', '!src/native-codex/runtime'] }));
     await fs.writeFile(path.join(source, 'src/hive.mjs'), `#!/usr/bin/env node\nconsole.log('${version}');\n`, { mode: 0o755 });
     for (const name of ['verify-agent-runtime.mjs', 'codex-stock-skills-0.164.0.json', 'install-native-gemini.mjs', 'install-native-codex.mjs', 'native-gemini/recipe/manifest.json']) {
       const target = path.join(source, 'src', name);
       await fs.mkdir(path.dirname(target), { recursive: true });
       await fs.writeFile(target, '{}\n');
     }
+    // Issue #4050: the assembled runtime stays in the source tree; the installer
+    // packs the current platform's variant from it with the real packaging script.
+    await fs.cp(fixture.runtime, path.join(source, 'src/native-codex/runtime', `linux-${process.arch}`), { recursive: true });
     const other = process.arch === 'x64' ? 'arm64' : 'x64';
     const otherRoot = path.join(source, 'src/native-codex/runtime', `linux-${other}`);
     await fs.mkdir(otherRoot, { recursive: true });
     for (const name of ['codex', 'manifest.json']) await fs.writeFile(path.join(otherRoot, name), '{}\n');
+    await fs.mkdir(path.join(source, 'scripts'));
+    for (const name of ['native-codex-packages.mjs', 'check-npm-tarball-size.mjs', 'publish-failure-classifier.mjs', 'publish-to-npm.mjs']) await fs.copyFile(path.join(repository, 'scripts', name), path.join(source, 'scripts', name));
 
     const stock = path.join(root, 'stock');
     await fs.mkdir(path.join(stock, 'bin'), { recursive: true });
@@ -49,11 +54,13 @@ try {
     const stockRoot = path.join(installed, '@openai/codex');
     const hiveRoot = path.join(installed, '@link-assistant/hive-mind');
     const stockMetadata = await fs.stat(path.join(stockRoot, 'package.json'));
-    const nativeBinary = path.join(hiveRoot, 'src/native-codex/runtime', `linux-${process.arch}`, 'codex');
+    const nativeBinary = path.join(installed, `@link-assistant/hive-mind-native-codex-linux-${process.arch}`, 'runtime', `linux-${process.arch}`, 'codex');
+    await assert.rejects(fs.lstat(path.join(hiveRoot, 'src/native-codex/runtime')), { code: 'ENOENT' }, 'The main package must not carry native executables.');
+    await assert.rejects(fs.lstat(path.join(installed, `@link-assistant/hive-mind-native-codex-linux-${other}`)), { code: 'ENOENT' }, "Only the image's own platform variant is installed.");
     const payload = await fs.stat(nativeBinary);
     console.log(JSON.stringify({ layout, stockMetadataLinks: stockMetadata.nlink, nativePayloadLinks: payload.nlink }));
     assert.equal(stockMetadata.nlink, 1, 'Pinned stock metadata must have independent cache bytes.');
-    assert.equal(payload.nlink, 1, 'Bundled native payloads must have independent cache bytes.');
+    assert.equal(payload.nlink, 1, 'Variant native payloads must have independent bytes.');
     const api = await import(pathToFileURL(path.join(hiveRoot, 'src/native-codex-command.lib.mjs')));
     const command = path.join(env.BUN_INSTALL, 'bin/codex');
     const stockBefore = await fs.readFile(path.join(stockRoot, 'bin/codex.js'));

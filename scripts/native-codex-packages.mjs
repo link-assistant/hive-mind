@@ -17,7 +17,10 @@
  * package name could not be bootstrapped by the release workflow.
  *
  * Commands (all paths absolute or relative to the working directory):
- *   pack <out-dir> [--runtime <dir>]  stage, pack, size-check and byte-verify each variant
+ *   pack <out-dir> [--runtime <dir>] [--platform <p>] [--no-verify]
+ *                                     stage, pack, size-check and byte-verify each variant
+ *                                     (--no-verify skips the Python byte check; the image
+ *                                     build admits the same bytes in install-native-codex.mjs)
  *   wire [<package-dir>]              add the optionalDependencies (publication only; never committed)
  *   publish [<out-dir>] [--runtime <dir>]  pack, publish each missing variant, then wire
  *
@@ -81,7 +84,10 @@ async function copyRuntime(source, destination, top = true) {
 
 export async function packVariants({ out, runtime = path.join(repository, 'src/native-codex/runtime'), main, platforms, verify = true, budget = NPM_TARBALL_BUDGET_BYTES, log = console.log } = {}) {
   main ??= JSON.parse(await fs.readFile(path.join(repository, 'package.json'), 'utf8'));
-  platforms ??= await readPlatforms();
+  const known = await readPlatforms();
+  platforms ??= known;
+  const unknown = platforms.filter(platform => !known.includes(platform));
+  if (unknown.length || !platforms.length) throw new Error(`Unsupported native Codex platforms: ${JSON.stringify(unknown)}; the recipe builds ${known.join(', ')}.`);
   await fs.mkdir(out, { recursive: true });
   const packed = [];
   for (const platform of platforms) {
@@ -105,7 +111,7 @@ export async function packVariants({ out, runtime = path.join(repository, 'src/n
   await fs.writeFile(
     path.join(out, 'variants.json'),
     `${JSON.stringify(
-      packed.map(({ files, ...variant }) => variant),
+      packed.map(({ files: _files, ...variant }) => variant),
       null,
       2
     )}\n`
@@ -148,22 +154,24 @@ export async function publishVariants(variants, { runner = runCommand, env = pro
   }
 }
 
-const option = (args, name) => {
+const option = (args, name, resolve = path.resolve) => {
   const index = args.indexOf(name);
-  return index === -1 ? undefined : path.resolve(args[index + 1]);
+  return index === -1 ? undefined : resolve(args[index + 1]);
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const [command, target, ...rest] = process.argv.slice(2);
   try {
-    if (command === 'pack' && target) await packVariants({ out: path.resolve(target), runtime: option(rest, '--runtime') });
-    else if (command === 'wire') await wirePackage(target ? path.resolve(target) : repository);
+    if (command === 'pack' && target) {
+      const platform = option(rest, '--platform', value => value);
+      await packVariants({ out: path.resolve(target), runtime: option(rest, '--runtime'), platforms: platform ? [platform] : undefined, verify: !rest.includes('--no-verify') });
+    } else if (command === 'wire') await wirePackage(target ? path.resolve(target) : repository);
     else if (command === 'publish') {
       const out = target && !target.startsWith('--') ? path.resolve(target) : await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-native-codex-packages-'));
       await publishVariants(await packVariants({ out, runtime: option(target?.startsWith('--') ? [target, ...rest] : rest, '--runtime') }));
       await wirePackage(repository);
     } else {
-      console.error('Usage: native-codex-packages.mjs pack <out-dir> [--runtime <dir>] | wire [<package-dir>] | publish [<out-dir>] [--runtime <dir>]');
+      console.error('Usage: native-codex-packages.mjs pack <out-dir> [--runtime <dir>] [--platform <p>] [--no-verify] | wire [<package-dir>] | publish [<out-dir>] [--runtime <dir>]');
       process.exitCode = 2;
     }
   } catch (error) {

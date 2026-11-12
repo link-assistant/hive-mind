@@ -23,6 +23,7 @@ Analysis: [`docs/case-studies/issue-4050/README.md`](../../../../../../docs/case
 | 43274680732 | `ci-logs/checks-and-release-43274680732-pr-detect-changes.log.gz`: stale `enhanced-resolve` lockfile entry on the first PR run          |
 | 131402717407 | `ci/lint-131402717407.log.gz`: PR lint job failing on an unformatted experiment (fixed in `a03681cd9`)                                |
 | 131419970048 | `ci/test-suites-131419970048.log.gz` (run 43285491341): `issue-3445-release-notes-not-masked` fails on the 2.40.1 CHANGELOG line (F9) |
+| 131520166341 | `ci/native-codex-verify-131520166341.log.gz` (run 43296180981): `verify-variant` refused the real linux-x64 binary as "Unexpected native payload" (4 MiB limit for other files applied to `codex`) |
 
 `recent-runs.tsv` and `release-runs-main.tsv` list the surrounding runs (id, event, conclusion,
 time, commit); `annotations-other-runs.txt` holds the Dependabot, Cleanup and E2E annotations.

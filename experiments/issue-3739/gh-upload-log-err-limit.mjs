@@ -23,6 +23,17 @@ const cases = {
   'base64-lines-5000': () => Array.from({ length: 5000 }, (_, i) => base64Line(i)).join('\n') + '\n',
   // Upstream #139: many identifier lines (git rev-list output).
   'hex-lines-20000': () => Array.from({ length: 20000 }, (_, i) => (i.toString(16).padStart(8, '0') + 'f'.repeat(32)).slice(0, 40)).join('\n') + '\n',
+  // A 4 MiB letter run (zero-filled binary as base64) next to a line with a
+  // non-Latin-1 character and a credential word (sensitive-data-sanitizer
+  // issue filed from Hive Mind PR #3741): the key scan overflows V8's
+  // regular-expression stack on two-byte strings.
+  'two-byte-letter-run-4mib': () => `${'A'.repeat(4 * 1024 * 1024)}\n🔐 token refreshed\n`,
+  // The same run far (9 MiB) from any non-Latin-1 character.
+  'two-byte-letter-run-4mib-far': () => `🔐 token refreshed\n${'ascii log line\n'.repeat(600 * 1024)}${'A'.repeat(4 * 1024 * 1024)}\n${'ascii log line\n'.repeat(600 * 1024)}🔐 token refreshed\n`,
+  // How Hive Mind's part splitter isolates such a run: a part with the
+  // non-Latin-1 text and at most 1 MiB of the run, and a part with only the run.
+  'two-byte-letter-run-part-head': () => `🔐 token refreshed\n{"type":"image","data":"${'A'.repeat(1024 * 1024)}`,
+  'two-byte-letter-run-part-rest': () => `${'A'.repeat(15 * 1024 * 1024)}"}\n`,
   // Hive Mind-style masks already present in a sanitized log.
   'masks-200000': () => Array.from({ length: 200000 }, (_, i) => `line ${i} token ghp…b4N and Bearer 012…567`).join('\n') + '\n',
 };

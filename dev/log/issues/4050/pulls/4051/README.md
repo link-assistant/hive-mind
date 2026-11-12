@@ -50,6 +50,9 @@ bytes (`Content-Range` of the registry tarball).
   `experiments/issue-4050/authorization-placeholder-probe.mjs` without and with the `exempt` hook.
   Before: one CHANGELOG line changed. After: none. The upstream library still masks the samples;
   the adapter keeps the placeholders and masks the synthetic token.
+- `experiment-authorization-placeholder-parity.txt`: the exemption keeps a code-span value only
+  when the library keeps the same value with no backtick (no `BROADER` line), and the
+  template-shaped values the library masks (synthetic `ghp_` token, AWS key id) stay masked.
 - `upstream-issues/sensitive-data-sanitizer-authorization-backtick.md`: body of
   [sensitive-data-sanitizer#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177);
   `upstream-issues/filed.txt` records the URL.

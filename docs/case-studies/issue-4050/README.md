@@ -129,7 +129,9 @@ with a reproduction, a workaround and a suggested one-character fix.
 
 **Fix.** `src/sensitive-data-sanitizer.lib.mjs` passes an `exempt` hook that keeps a value only
 when it is exactly one complete template (`<name>`, `$NAME`, `${NAME}`) followed by the backtick
-that closes a code span opened earlier on the same line after an `Authorization:` header. Known
+that closes a code span opened earlier on the same line after an `Authorization:` header. The hook also
+asks the library whether it keeps the same value when no backtick follows it, so it is never
+broader than upstream's own placeholder rule (`experiments/issue-4050/placeholder-parity-probe.mjs`). Known
 secrets are never offered to the hook, and real tokens in code spans stay masked
 (`tests/authorization-code-span-placeholder-4050.test.mjs`). `HIVE_MIND_SANITIZER_DEBUG=1` (off by
 default) traces each exemption as `exempt:code-span-authorization-placeholder`. The workaround is

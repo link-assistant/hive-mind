@@ -97,9 +97,9 @@
     "upstreamPullRequest": 163
   },
   "ciEvidence": {
-    "libraryVersion": "0.22.1",
+    "libraryVersion": "0.22.3",
     "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
-    "details": "The full suite and native builds run on final 0.22.1 source; current-head conclusions are recorded in PR #3741."
+    "details": "The full suite and native builds run on final 0.22.3 source; current-head conclusions are recorded in PR #3741."
   },
   "ciFollowup": {
     "run": 42882837227,

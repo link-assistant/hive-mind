@@ -7,13 +7,22 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBinaryBytes } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'native-codex-identity-fixture-'));
+// Issue #4050: the executable lives in the per-platform variant version of the
+// package, installed under its optional-dependency alias next to the main one.
+export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBinaryBytes, variantVersion } = {}) {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'native-codex-identity-fixture-')));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const src = path.join(root, 'src');
   const platform = `linux-${process.arch}`;
   const native = path.join(src, 'native-codex');
-  const runtime = path.join(native, 'runtime', platform);
+  const name = '@link-assistant/hive-mind';
+  const version = '1.2.3';
+  await fs.mkdir(native, { recursive: true });
+  await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({ name, version, type: 'module' }));
+  const variant = path.join(root, 'node_modules', `${name}-native-codex-${platform}`);
+  await fs.mkdir(variant, { recursive: true });
+  await fs.writeFile(path.join(variant, 'package.json'), JSON.stringify({ name, version: variantVersion ?? `${version}-native-codex-${platform}`, os: ['linux'], cpu: [process.arch], files: ['runtime'] }));
+  const runtime = path.join(variant, 'runtime', platform);
   await fs.mkdir(path.join(runtime, 'licenses'), { recursive: true });
   await fs.copyFile(new URL('../../src/native-codex-runtime.lib.mjs', import.meta.url), path.join(src, 'native-codex-runtime.lib.mjs'));
   const recipe = JSON.parse(await fs.readFile(new URL('../../src/native-codex/recipe.json', import.meta.url), 'utf8'));
@@ -43,5 +52,5 @@ export async function nativeCodexPackagingFixture(t, { binaryBytes = 128, maxBin
   for (const name of ['native-codex-command.lib.mjs', 'native-agent-command.lib.mjs']) await fs.copyFile(new URL(`../../src/${name}`, import.meta.url), path.join(src, name));
   const commandApi = await import(pathToFileURL(path.join(src, 'native-codex-command.lib.mjs')));
   const api = await import(pathToFileURL(path.join(src, 'native-codex-runtime.lib.mjs')));
-  return { root, runtime, api, commandApi, destination: path.join(root, 'native') };
+  return { root, runtime, variant, api, commandApi, destination: path.join(root, 'native') };
 }

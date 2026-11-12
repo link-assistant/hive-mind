@@ -11,6 +11,8 @@ test('native build and request inputs invalidate image evidence', { timeout: 100
   for (const name of [
     'scripts/build-native-codex.py',
     'scripts/verify-native-codex-publish.mjs',
+    'scripts/native-codex-packages.mjs',
+    'scripts/check-npm-tarball-size.mjs',
     'experiments/issue-3785/native-codex/canonical_auth.rs',
     'experiments/issue-3785/test_native_codex_build.py',
     'experiments/issue-3785/probe-cargo-executable-hardlink.py',
@@ -56,8 +58,13 @@ test('publication checks the actual npm artifact after any pull or version commi
   const command = pkg.scripts['changeset:publish'];
   assert.ok(command.includes('node scripts/verify-native-codex-publish.mjs'));
   assert.ok(command.indexOf('verify-native-codex-publish.mjs') < command.indexOf('changeset publish'));
+  // Issue #4050: the variants are published, and pinned, before the main tarball is checked.
+  assert.ok(command.includes('node scripts/native-codex-packages.mjs publish'));
+  assert.ok(command.indexOf('native-codex-packages.mjs publish') < command.indexOf('verify-native-codex-publish.mjs'));
+  assert.ok(pkg.files.includes('!src/native-codex/runtime'), 'the main tarball must never bundle the executables again');
   const check = await read('scripts/verify-native-codex-publish.mjs');
-  assert.ok(check.includes("'pack', '--ignore-scripts', '--silent'"));
+  assert.ok(check.includes("'pack', '--ignore-scripts', '--json'"));
+  assert.ok(check.includes('checkNpmTarballSizes'));
   assert.ok(check.includes("'verify-package'"));
   assert.ok(check.includes('finally'));
 });

@@ -352,38 +352,95 @@ def assemble(artifacts, output):
     finally:
         if staging.exists():
             shutil.rmtree(staging)
-    print("Assembled both verified native Codex platforms for the npm artifact.")
+    print("Assembled both verified native Codex platforms for the variant packages.")
+
+
+VARIANT_FILE_LIMIT = 4 * 1024 * 1024
+
+
+def extract_members(package, members, prefix, allowed, recipe, root):
+    """Copy admitted tar members below root; reject anything unexpected."""
+    seen = set()
+    for member in members:
+        name = member.name[len(prefix):]
+        if (name not in allowed or name in seen or not member.isfile()
+                or member.size <= 0 or member.size > (
+                    recipe["maxBinaryBytes"] if name.endswith("/codex") else VARIANT_FILE_LIMIT)):
+            raise ValueError("Unexpected native payload in the npm artifact.")
+        seen.add(name)
+        destination = root / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with package.extractfile(member) as reader, destination.open("xb") as writer:
+            shutil.copyfileobj(reader, writer, 64 * 1024)
+        destination.chmod(member.mode & 0o777)
+    return seen
+
+
+def read_member_json(package, name):
+    member = package.getmember(name)
+    if not member.isfile() or member.size <= 0 or member.size > VARIANT_FILE_LIMIT:
+        raise ValueError("Unexpected npm package manifest.")
+    with package.extractfile(member) as reader:
+        return json.loads(reader.read())
+
+
+def variant_identity(name, version, platform):
+    return name + "-native-codex-" + platform, version + "-native-codex-" + platform
+
+
+def verify_variant(archive, platform, name, version):
+    """One platform's executable package: exactly its runtime, nothing else (issue #4050)."""
+    recipe, digest = load_recipe()
+    if platform not in recipe["targets"]:
+        raise ValueError("Unsupported native platform.")
+    prefix = "package/runtime/" + platform + "/"
+    allowed = set(artifact_paths(recipe))
+    with tempfile.TemporaryDirectory(prefix="native-codex-variant-") as temporary:
+        root = Path(temporary) / platform
+        with tarfile.open(archive, "r:gz") as package:
+            members = package.getmembers()
+            payload = [member for member in members if member.name.startswith(prefix)]
+            others = {member.name for member in members if not member.name.startswith(prefix)}
+            if others != {"package/package.json"}:
+                raise ValueError("The native variant package carries files outside its runtime.")
+            manifest = read_member_json(package, "package/package.json")
+            _, expected_version = variant_identity(name, version, platform)
+            if (manifest.get("name") != name or manifest.get("version") != expected_version
+                    or manifest.get("os") != ["linux"]
+                    or manifest.get("cpu") != [platform.split("-", 1)[1]]
+                    or any(key in manifest for key in ("scripts", "bin", "dependencies",
+                                                       "optionalDependencies"))):
+                raise ValueError("The native variant package manifest differs from its platform.")
+            root.mkdir()
+            seen = extract_members(package, payload, prefix, allowed, recipe, root)
+        if seen != allowed:
+            raise ValueError("The native variant package omitted a required runtime file.")
+        verify_artifact(root, recipe, digest, platform, executable=True)
+    print("Verified the complete " + platform + " native Codex variant package.")
 
 
 def verify_package(archive):
-    """Check the actual npm file allowlist and bytes without running either CLI."""
-    recipe, digest = load_recipe()
-    prefix = "package/src/native-codex/runtime/"
-    allowed = {platform + "/" + name for platform in recipe["targets"]
-               for name in artifact_paths(recipe)}
-    seen = set()
-    with tempfile.TemporaryDirectory(prefix="native-codex-package-") as temporary:
-        root = Path(temporary)
-        with tarfile.open(archive, "r:gz") as package:
-            for member in package:
-                if not member.name.startswith(prefix):
-                    continue
-                name = member.name[len(prefix):]
-                if (name not in allowed or name in seen or not member.isfile()
-                        or member.size <= 0 or member.size > (
-                            recipe["maxBinaryBytes"] if name.endswith("/codex") else 4 * 1024 * 1024)):
-                    raise ValueError("Unexpected native payload in the npm artifact.")
-                seen.add(name)
-                destination = root / name
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                with package.extractfile(member) as reader, destination.open("xb") as writer:
-                    shutil.copyfileobj(reader, writer, 64 * 1024)
-                destination.chmod(member.mode & 0o777)
-        if seen != allowed:
-            raise ValueError("The actual npm file allowlist omitted a native platform or required file.")
-        for platform in recipe["targets"]:
-            verify_artifact(root / platform, recipe, digest, platform, executable=True)
-    print("Verified both complete native platforms in the actual npm artifact.")
+    """The main npm artifact ships the recipe, never the executables (issue #4050).
+
+    Both platforms in one tarball (249,485,829 bytes) were refused by npm with
+    E413; each executable now ships in its own variant package, which the main
+    package lists under optionalDependencies at publication.
+    """
+    recipe, _ = load_recipe()
+    with tarfile.open(archive, "r:gz") as package:
+        names = set(package.getnames())
+        if any(name.startswith("package/src/native-codex/runtime") for name in names):
+            raise ValueError("The npm artifact bundles native executables; publish them as variant packages.")
+        if "package/src/native-codex/recipe.json" not in names:
+            raise ValueError("The npm artifact omitted the native Codex recipe.")
+        manifest = read_member_json(package, "package/package.json")
+    expected = {}
+    for platform in recipe["targets"]:
+        alias, version = variant_identity(manifest["name"], manifest["version"], platform)
+        expected[alias] = "npm:" + manifest["name"] + "@" + version
+    if manifest.get("optionalDependencies", {}) != expected:
+        raise ValueError("The npm artifact does not pin both native variant packages.")
+    print("Verified the npm artifact pins both native Codex variant packages and bundles neither.")
 
 
 def main():
@@ -394,6 +451,11 @@ def main():
     assembly.add_argument("output", type=Path)
     package = subcommands.add_parser("verify-package")
     package.add_argument("archive", type=Path)
+    variant = subcommands.add_parser("verify-variant")
+    variant.add_argument("archive", type=Path)
+    variant.add_argument("platform", choices=("linux-x64", "linux-arm64"))
+    variant.add_argument("name")
+    variant.add_argument("version")
     for command in ("prepare", "verify-source", "build"):
         sub = subcommands.add_parser(command)
         sub.add_argument("source", type=Path)
@@ -407,6 +469,10 @@ def main():
         return
     if arguments.command == "verify-package":
         verify_package(arguments.archive.resolve(strict=True))
+        return
+    if arguments.command == "verify-variant":
+        verify_variant(arguments.archive.resolve(strict=True), arguments.platform,
+                       arguments.name, arguments.version)
         return
     root = arguments.source.resolve(strict=True)
     state = arguments.state.absolute()

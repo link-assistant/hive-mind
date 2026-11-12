@@ -1,16 +1,31 @@
-/** Admit and install the native executable from this package's build outputs. */
+/** Admit and install the native executable from this package's build outputs.
+ *
+ * The executables ship in per-platform variant versions of this same package
+ * (`<version>-native-codex-<platform>`), installed as the optional dependency
+ * alias `<name>-native-codex-<platform>`: both platforms in one tarball exceeded
+ * npm's publish size limit (E413, issue #4050). This package's recipe stays the
+ * trust anchor, and the variant must be the exact immutable version published
+ * with this package. See docs/NATIVE-CODEX-PACKAGES.md.
+ */
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 const bundled = fileURLToPath(new URL('./native-codex/', import.meta.url));
+const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const refusal = () => new Error('The pinned native Codex runtime could not be verified; installation and execution were refused.');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const identity = info => `${info.dev}:${info.ino}`;
 const revision = info => `${identity(info)}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+// Off by default: refusals never name paths. HIVE_MIND_NATIVE_CODEX_DEBUG=1 adds
+// the phase and the error code, e.g. MODULE_NOT_FOUND for a missing variant.
+const debug = (phase, error) => {
+  if (process.env.HIVE_MIND_NATIVE_CODEX_DEBUG === '1') console.error(`[native-codex] Refused during ${phase}${error?.code ? ` (${error.code})` : ''}.`);
+};
 const safeName = name => typeof name === 'string' && name.length > 0 && !name.includes('\\') && !name.includes('\0') && !path.posix.isAbsolute(name) && name.split('/').every(part => part && part !== '.' && part !== '..');
 
 async function read(file, { max = 4194304, size, digest, metadata = true, executable = false } = {}) {
@@ -115,19 +130,40 @@ async function verify(root, prepared, expectedManifest) {
   return { root, entrypoint: path.join(root, 'codex'), version: data.version, platform, manifestSha256: manifestInput.digest };
 }
 
+/** The variant package directory for `platform`, installed beside this package. */
+export function nativeCodexPackageName(name, platform) {
+  return `${name}-native-codex-${platform}`;
+}
+
+export function nativeCodexPackageVersion(version, platform) {
+  return `${version}-native-codex-${platform}`;
+}
+
+async function packaged(platform) {
+  const main = JSON.parse((await read(path.join(packageRoot, 'package.json'))).bytes);
+  if (typeof main.name !== 'string' || typeof main.version !== 'string') throw refusal();
+  const manifest = createRequire(import.meta.url).resolve(`${nativeCodexPackageName(main.name, platform)}/package.json`);
+  const variant = JSON.parse((await read(manifest)).bytes);
+  if (variant.name !== main.name || variant.version !== nativeCodexPackageVersion(main.version, platform)) throw refusal();
+  return path.join(path.dirname(manifest), 'runtime', platform);
+}
+
 async function bundle(platform) {
   const prepared = await recipe(platform);
-  const root = path.join(bundled, 'runtime', platform);
+  const root = await packaged(platform);
   return { prepared, verified: await verify(root, prepared) };
 }
 
 /** The installed generation must match this npm package's admitted manifest. */
 export async function verifyNativeCodexRuntime(root, { platform = `linux-${process.arch}` } = {}) {
+  let phase = 'packaged artifact admission';
   try {
     const { prepared, verified } = await bundle(platform);
+    phase = 'installed generation admission';
     const selected = await fs.realpath(root);
     return await verify(selected, prepared, verified.manifestSha256);
-  } catch {
+  } catch (error) {
+    debug(phase, error);
     throw refusal();
   }
 }
@@ -167,7 +203,7 @@ async function copy(source, target, mode, max) {
 export async function installNativeCodexRuntime({ destination, platform = `linux-${process.arch}` } = {}) {
   let generation;
   let published = false;
-  let phase = 'bundled artifact admission';
+  let phase = 'packaged artifact admission';
   try {
     const { prepared, verified } = await bundle(platform);
     phase = 'destination admission';
@@ -193,8 +229,8 @@ export async function installNativeCodexRuntime({ destination, platform = `linux
     await fs.symlink(path.basename(generation), destination, 'dir');
     published = true;
     return installed;
-  } catch {
-    if (process.env.HIVE_MIND_NATIVE_CODEX_DEBUG === '1') console.error(`[native-codex] Refused during ${phase}.`);
+  } catch (error) {
+    debug(phase, error);
     throw refusal();
   } finally {
     if (generation && !published)

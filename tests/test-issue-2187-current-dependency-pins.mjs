@@ -29,11 +29,11 @@ const expected = {
   jscpdThreshold: 12,
   lintStaged: '17.6.0',
   node: '26.13.1',
-  prettier: '3.10.0',
+  prettier: '3.10.1',
   sentry: '11.12.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.43.0',
-  useM: '8.17.0',
+  useM: '8.17.1',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];

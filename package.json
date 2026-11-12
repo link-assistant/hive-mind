@@ -78,7 +78,7 @@
     "husky": "^9.1.7",
     "jscpd": "^5.4.3",
     "lint-staged": "^17.6.0",
-    "prettier": "^3.10.0",
+    "prettier": "^3.10.1",
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {

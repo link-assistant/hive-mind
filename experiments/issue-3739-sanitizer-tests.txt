@@ -45,3 +45,4 @@ telegram-handler-nonblocking-3206.test.mjs
 test-issue-2187-current-dependency-pins.mjs
 issue-3739-closed-sanitization-regressions.test.mjs
 issue-4042-gh-upload-log-sanitizer-refusal.test.mjs
+issue-4049-long-run-sanitization.test.mjs

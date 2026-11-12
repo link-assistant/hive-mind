@@ -65,7 +65,8 @@ await test('the library loads synchronously', () => {
 });
 
 await test('every workaround names the upstream issue it waits for', () => {
-  // Empty since 0.22.1 fixed #162; a new workaround must add its upstream link.
+  // 0.22.1 fixed #162; #172 (long letter runs in two-byte text) still needs a
+  // workaround and #173 (long credential values scan slowly) is a documented limit.
   assert.ok(Object.isFrozen(UPSTREAM));
   for (const [key, url] of Object.entries(UPSTREAM)) assert.match(url, /^https:\/\/github\.com\/link-foundation\/sensitive-data-sanitizer\/issues\/\d+$/, key);
 });
@@ -240,7 +241,7 @@ const withEnv = async (env, fn) => {
   }
 };
 
-await test('credential-named environment values are selected; configuration values are not (UPSTREAM.environmentSelection)', () => {
+await test('credential-named environment values are selected; configuration values are not (upstream #141, fixed natively)', () => {
   const credentials = { PGPASSWORD: `pg-${OPAQUE}`, GITHUBTOKEN: `gt-${OPAQUE}`, SESSION_COOKIE: `ck-${OPAQUE}`, GITHUB_PAT: `pat-${OPAQUE}`, AWS_SECRET_ACCESS_KEY: `aws-${OPAQUE}` };
   const configuration = { HIVE_MIND_ROUTER_AUTH_GUARD: '0', MAX_TOKEN_COUNT: '4096', TOKEN_LIMIT: '512', SSH_KEY_PATH: '/tmp/key-path-value', SECRET_NAME: 'name-value', GIT_CONFIG_KEY_0: 'http.extraheader', AWS_ACCESS_KEY_ID: 'id-value' };
   const values = new Set(credentialEnvironmentValues({ ...credentials, ...configuration, HOME: '/home/user' }));

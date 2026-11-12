@@ -112,12 +112,12 @@ GitHub E2E is opt-in through `vars.ENABLE_REAL_GITHUB_E2E` (#4017). No change.
 
 ## Template comparison
 
-| Template | Same defect?                                                                                         | Action                            |
-| -------- | ---------------------------------------------------------------------------------------------------- | --------------------------------- |
-| js       | Yes: `NON_RETRYABLE_PATTERNS` lacks E413 (probe below prints `false`), and there is no tarball gate. | Issue filed (see evidence README) |
-| python   | No upload size gate; PyPI refuses files above 100 MB with `400 File too large`.                      | Issue filed                       |
-| cpp      | No `.nupkg` size gate; nuget.org refuses packages above 250 MB with 413.                             | Issue filed                       |
-| rust     | No: `scripts/check-crate-size.rs` gates crates.io's 10 MiB limit before `cargo publish`.             | None                              |
+| Template | Same defect?                                                                                         | Action                                                                                                              |
+| -------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| js       | Yes: `NON_RETRYABLE_PATTERNS` lacks E413 (probe below prints `false`), and there is no tarball gate. | [js-template#298](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/298)         |
+| python   | No upload size gate; PyPI refuses files above 100 MB with `400 File too large`.                      | [python-template#146](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/146) |
+| cpp      | No `.nupkg` size gate; nuget.org refuses packages above 250 MB with 413.                             | [cpp-template#23](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/23)         |
+| rust     | No: `scripts/check-crate-size.rs` gates crates.io's 10 MiB limit before `cargo publish`.             | None                                                                                                                |
 
 Probe: `node experiments/issue-4050/template-e413-classification.mjs <classifier.mjs>` prints
 `{"nonRetryable":{"changesetLine":false,"npmError":false}}` for the js template and `true` for both

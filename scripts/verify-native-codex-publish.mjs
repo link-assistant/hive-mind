@@ -27,7 +27,7 @@ try {
   console.log('Verified the npm publication artifact pins both native Codex variant packages and bundles neither.');
 } catch (error) {
   console.error(`Native Codex publication refused: ${error.stderr?.trim() || error.message}`);
-  console.error('Publish both variant packages first: node scripts/native-codex-packages.mjs publish (see docs/NATIVE-CODEX-PACKAGES.md).');
+  console.error('Publish both variant packages first: node scripts/native-codex-packages.mjs publish (see src/native-codex/PACKAGES.md).');
   process.exitCode = 1;
 } finally {
   await fs.rm(temporary, { recursive: true, force: true });

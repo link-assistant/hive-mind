@@ -176,7 +176,7 @@ export function buildAuthFailureGuidance(packageName) {
  * @returns {string}
  */
 export function buildPayloadTooLargeGuidance(packageName) {
-  return ['', '=== NPM PUBLISH REJECTED: TARBALL TOO LARGE (E413) ===', '', `The registry refused ${packageName} with "413 Payload Too Large". The same`, 'tarball is refused the same way on every attempt, so it was not retried.', '', 'Find what grew:', '  npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin', '', 'SOLUTION: move large platform-specific payloads (native binaries) into', 'per-platform packages that the main package lists as optionalDependencies,', 'the way @openai/codex publishes its native builds (docs/NATIVE-CODEX-PACKAGES.md).', 'Each tarball must stay below the budget in scripts/check-npm-tarball-size.mjs.', ''].join('\n');
+  return ['', '=== NPM PUBLISH REJECTED: TARBALL TOO LARGE (E413) ===', '', `The registry refused ${packageName} with "413 Payload Too Large". The same`, 'tarball is refused the same way on every attempt, so it was not retried.', '', 'Find what grew:', '  npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin', '', 'SOLUTION: move large platform-specific payloads (native binaries) into', 'per-platform packages that the main package lists as optionalDependencies,', 'the way @openai/codex publishes its native builds (src/native-codex/PACKAGES.md).', 'Each tarball must stay below the budget in scripts/check-npm-tarball-size.mjs.', ''].join('\n');
 }
 
 /**

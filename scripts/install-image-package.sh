@@ -20,7 +20,7 @@ for package_file in src/hive.mjs src/verify-agent-runtime.mjs src/codex-stock-sk
 done
 # The executables must never return to the main tarball (npm refused it with E413).
 if grep -q '^package/src/native-codex/runtime/' <<<"$package_files"; then
-  echo "ERROR: the main npm tarball bundles native Codex executables; see docs/NATIVE-CODEX-PACKAGES.md" >&2
+  echo "ERROR: the main npm tarball bundles native Codex executables; see src/native-codex/PACKAGES.md" >&2
   exit 1
 fi
 case "$(uname -m)" in

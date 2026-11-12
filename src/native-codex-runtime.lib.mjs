@@ -5,7 +5,7 @@
  * alias `<name>-native-codex-<platform>`: both platforms in one tarball exceeded
  * npm's publish size limit (E413, issue #4050). This package's recipe stays the
  * trust anchor, and the variant must be the exact immutable version published
- * with this package. See docs/NATIVE-CODEX-PACKAGES.md.
+ * with this package. See src/native-codex/PACKAGES.md.
  */
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';

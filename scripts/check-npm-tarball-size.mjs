@@ -39,7 +39,7 @@ export function formatOversizedReport(oversized, budget = NPM_TARBALL_BUDGET_BYT
       const size = Number.isSafeInteger(entry.size) ? `${entry.size} bytes (${mib(entry.size)})` : 'an unknown size';
       const lines = [`::error title=npm tarball over the publish budget::${label} is ${size}; the budget is ${budget} bytes (${mib(budget)}). npm rejects oversized uploads with E413 (issue #4050).`];
       for (const file of largestFiles(entry)) lines.push(`  ${file.path}: ${file.size} bytes`);
-      lines.push('  Move large native payloads into per-platform packages; see docs/NATIVE-CODEX-PACKAGES.md.');
+      lines.push('  Move large native payloads into per-platform packages; see src/native-codex/PACKAGES.md.');
       return lines.join('\n');
     })
     .join('\n');

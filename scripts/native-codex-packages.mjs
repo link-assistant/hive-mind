@@ -25,7 +25,7 @@
  *   publish [<out-dir>] [--runtime <dir>]  pack, publish each missing variant, then wire
  *
  * HIVE_MIND_PUBLISH_VERBOSE=true shows the raw `npm view` probe output.
- * See docs/NATIVE-CODEX-PACKAGES.md.
+ * See src/native-codex/PACKAGES.md.
  */
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';

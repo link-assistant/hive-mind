@@ -52,7 +52,7 @@ test('an oversized tarball fails fast with an annotation naming the largest file
   assert.equal(checkNpmTarballSizes([entry], { log() {}, error: message => errors.push(message) }), 1);
   assert.match(errors[0], /^::error title=npm tarball over the publish budget::@link-assistant\/hive-mind@2\.40\.0 is 249485829 bytes/u);
   assert.ok(errors[0].indexOf('linux-x64/codex') < errors[0].indexOf('README.md'), 'largest file first');
-  assert.ok(formatOversizedReport([entry]).includes('docs/NATIVE-CODEX-PACKAGES.md'));
+  assert.ok(formatOversizedReport([entry]).includes('src/native-codex/PACKAGES.md'));
   assert.equal(checkNpmTarballSizes([], { log() {}, error() {} }), 1, 'nothing to check is a failure, not a pass');
   assert.equal(checkNpmTarballSizes([{ ...entry, size: 1024 }], quiet), 0);
 });

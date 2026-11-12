@@ -45,9 +45,8 @@ for (const input of ARROW_AND_HASH_ROCKET_CASES) {
 }
 
 await test('an arrow function with a sensitive parameter name no longer blocks publication', async () => {
-  const output = await sanitizeForPublication('const f = token => !token;\n');
-  assert.ok(!output.includes('!token'), 'the value is still masked');
-  assert.match(output, /token => /, 'the arrow is kept intact');
+  const input = 'const f = token => !token;\n';
+  assert.equal(await sanitizeForPublication(input), input, 'a JavaScript expression carries no credential');
 });
 
 await test("a hash-rocket keeps its separator and still masks the value: { 'password' => 'hunter2' }", () => {

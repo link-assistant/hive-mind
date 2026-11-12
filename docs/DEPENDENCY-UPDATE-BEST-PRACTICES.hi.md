@@ -17,14 +17,14 @@
 
 "सभी" का अर्थ शाब्दिक है। dependency वह हर चीज़ है जिसे build repository के बाहर से लेता है:
 
-| श्रेणी                         | उदाहरण                                                                        |
+| श्रेणी                           | उदाहरण                                                                        |
 | ------------------------------ | ----------------------------------------------------------------------------- |
 | Runtime dependencies           | `dependencies`, `[dependencies]`, `require`, `install_requires`               |
 | Development dependencies       | test runners, linters, formatters, type checkers, build plugins               |
 | Lockfile की transitive entries | `package-lock.json`, `Cargo.lock`, `uv.lock`, `composer.lock`, `Gemfile.lock` |
 | Base images                    | हर `Dockerfile`, `docker-compose.yml`, `devcontainer.json` का हर `FROM`       |
 | CI/CD actions                  | `.github/workflows/*.yml` और composite `action.yml` का हर `uses:`             |
-| Toolchains और भाषा के pins     | `engines`, `rust-version`, `go` directive, `TargetFramework`, `.nvmrc`        |
+| Toolchains और भाषा के pins      | `engines`, `rust-version`, `go` directive, `TargetFramework`, `.nvmrc`        |
 | Infrastructure modules         | Terraform modules और providers, Helm chart dependencies, git submodules       |
 | Pre-commit hooks               | `.pre-commit-config.yaml` की revisions                                        |
 
@@ -34,23 +34,23 @@
 
 अधिकांश package managers का डिफ़ॉल्ट कमांड जानबूझकर manifest में पहले से लिखी बाधाओं के **भीतर** ही रहता है, इसलिए वह कभी major संस्करण पार नहीं करता। दाईं ओर का कॉलम वह कमांड है जो वास्तव में बाधाओं को फिर से लिखता है। हर कमांड को उसी tool के अपने दस्तावेज़ के विरुद्ध सत्यापित किया गया है; उद्धरण [`docs/case-studies/issue-2184/data/ecosystem-update-commands.json`](./case-studies/issue-2184/data/ecosystem-update-commands.json) में हैं।
 
-| Ecosystem             | बाधाओं के भीतर रहता है           | नवीनतम तक अपडेट करता है, major पार करते हुए                                          |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| JavaScript/TypeScript | `npm update`                     | `npx npm-check-updates -u && npm install`                                            |
-| Python                | `pip install -U`                 | `uv lock --upgrade` • `pip-compile --upgrade` • `poetry update`                      |
-| Rust                  | `cargo update`                   | `cargo upgrade --incompatible && cargo update` (cargo-edit)                          |
-| Go                    | —                                | `go get -u ./... && go mod tidy`                                                     |
-| C#/.NET               | `dotnet list package --outdated` | `dotnet outdated -u` (dotnet-outdated)                                               |
-| Java/Kotlin/Scala     | `./gradlew dependencyUpdates`    | `mvn versions:use-latest-releases versions:update-properties`                        |
+| Ecosystem             | बाधाओं के भीतर रहता है              | नवीनतम तक अपडेट करता है, major पार करते हुए                                             |
+| --------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | `npm update`                     | `npx npm-check-updates -u && npm install`                                           |
+| Python                | `pip install -U`                 | `uv lock --upgrade` • `pip-compile --upgrade` • `poetry update`                     |
+| Rust                  | `cargo update`                   | `cargo upgrade --incompatible && cargo update` (cargo-edit)                         |
+| Go                    | —                                | `go get -u ./... && go mod tidy`                                                    |
+| C#/.NET               | `dotnet list package --outdated` | `dotnet outdated -u` (dotnet-outdated)                                              |
+| Java/Kotlin/Scala     | `./gradlew dependencyUpdates`    | `mvn versions:use-latest-releases versions:update-properties`                       |
 | PHP                   | `composer update`                | पहले `composer require vendor/pkg:^X`, फिर `composer update --with-all-dependencies` |
-| Ruby                  | `bundle update`                  | Gemfile की बाधाएँ बढ़ाने के बाद `bundle update --all`                                |
-| Elixir/Erlang         | `mix deps.update --all`          | `mix.exs` संपादित करें, फिर `mix deps.update --all`                                  |
-| Dart/Flutter          | `dart pub upgrade`               | `dart pub upgrade --major-versions`                                                  |
-| Swift                 | `swift package update`           | `Package.swift` की requirements संपादित करें, फिर `swift package update`             |
-| Haskell               | `cabal outdated`                 | `cabal update` • `stack upgrade --resolver latest`                                   |
-| GitHub Actions        | —                                | हर `uses:` को नवीनतम release तक बढ़ाएँ (tag या pinned digest)                        |
-| Docker                | —                                | हर `FROM` tag बढ़ाएँ और digest फिर से pin करें                                       |
-| Infrastructure        | —                                | `terraform init -upgrade` • `helm dependency update` • `pre-commit autoupdate`       |
+| Ruby                  | `bundle update`                  | Gemfile की बाधाएँ बढ़ाने के बाद `bundle update --all`                                   |
+| Elixir/Erlang         | `mix deps.update --all`          | `mix.exs` संपादित करें, फिर `mix deps.update --all`                                    |
+| Dart/Flutter          | `dart pub upgrade`               | `dart pub upgrade --major-versions`                                                 |
+| Swift                 | `swift package update`           | `Package.swift` की requirements संपादित करें, फिर `swift package update`               |
+| Haskell               | `cabal outdated`                 | `cabal update` • `stack upgrade --resolver latest`                                  |
+| GitHub Actions        | —                                | हर `uses:` को नवीनतम release तक बढ़ाएँ (tag या pinned digest)                         |
+| Docker                | —                                | हर `FROM` tag बढ़ाएँ और digest फिर से pin करें                                           |
+| Infrastructure        | —                                | `terraform init -upgrade` • `helm dependency update` • `pre-commit autoupdate`      |
 
 उस तालिका में तीन जाल छिपे हैं:
 

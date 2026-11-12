@@ -18,6 +18,7 @@
  */
 
 import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
+import { GH_UPLOAD_LOG_FIXED_VERSION, GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL, GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { LOG_UPLOAD_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -138,13 +139,29 @@ export const buildLogUploadFailureComment = ({ errorMessage = null, failureReaso
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
   // A removed container leaves no file to run gh-upload-log on.
+  // Issue #4042: when gh-upload-log's own sanitizer refused the file, the same
+  // command refuses it again, so suggest bounded parts (GNU `split --line-bytes`
+  // also cuts lines longer than the part size) instead. ERR_LIMIT only comes
+  // from gh-upload-log 0.13.1 and older, which an upgrade fixes; ERR_SANITIZATION
+  // is the long-run bug (sanitizer #172) that the automatic part upload isolates.
+  const visibility = isPublic ? '--public' : '--private';
+  const refusal = detectGhUploadLogSanitizerRefusal(failureReason);
+  // A 2 MiB part never holds enough of one run to trigger sanitizer #172.
+  const partSize = refusal === 'ERR_SANITIZATION' ? '2M' : '20M';
   const publishHint =
     location?.kind === 'ephemeral-container'
       ? ''
-      : `
+      : refusal
+        ? `
+gh-upload-log's own sanitizer refused this file (\`${refusal}\`), so running \`gh-upload-log\` on it again fails the same way. ${refusal === 'ERR_LIMIT' ? `That refusal comes from gh-upload-log 0.13.1 or older (${GH_UPLOAD_LOG_REFUSAL_ISSUE_URL}); upgrade it to ${GH_UPLOAD_LOG_FIXED_VERSION} or later (\`npm install -g gh-upload-log@latest\`), which removes the 64 MiB record and dense base64 limits. Without the upgrade, parts of at most 20 MB, with longer lines cut, get past the record limit:` : refusal === 'ERR_SANITIZATION' ? `A long run of letters or digits (such as zero-filled binary as base64) next to non-ASCII text triggers it (${GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL}); parts of at most 2 MiB stay below that size:` : 'Parts of at most 20 MB may still be accepted:'}
+\`\`\`bash
+split --line-bytes=${partSize} --numeric-suffixes=1 --additional-suffix=.log "${logFile}" "${logFile}.part-"
+for part in "${logFile}".part-*.log; do gh-upload-log "$part" ${visibility}; done
+\`\`\``
+        : `
 To publish it from there:
 \`\`\`bash
-gh-upload-log "${logFile}" ${isPublic ? '--public' : '--private'}
+gh-upload-log "${logFile}" ${visibility}
 \`\`\``;
   return `${heading}
 The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}

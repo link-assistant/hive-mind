@@ -1,0 +1,366 @@
+{
+  "libraryVersion": "0.22.3",
+  "libraryOnlyAudit": {
+    "fixedAndWorkaroundRemoved": [148, 149, 150, 151, 152, 153, 154, 162],
+    "reproducingGapsWithRetainedWorkarounds": [],
+    "binaryFixWithRemainingTextBoundaryReport": {
+      "149": 162
+    },
+    "probeCount": 8
+  },
+  "testFileCount": 45,
+  "testFiles": {
+    "anonymous-clone-auth-2192.test.mjs": 0,
+    "formal-ai-sidecar-lease-3210.test.mjs": 0,
+    "issue-2397-known-token-consistency.test.mjs": 0,
+    "issue-2397-sanitization-failure-diagnostics.test.mjs": 0,
+    "issue-2397-sanitizer-idempotency.test.mjs": 0,
+    "issue-2400-keyword-assignment-not-masked.test.mjs": 0,
+    "issue-2400-secretlint-profiler-disabled.test.mjs": 0,
+    "issue-2526-model-capabilities.test.mjs": 0,
+    "issue-3445-release-notes-not-masked.test.mjs": 0,
+    "issue-3739-sensitive-data-sanitizer-migration.test.mjs": 0,
+    "issue-3785-codex-model-catalogue-admission.test.mjs": 0,
+    "no-unescaped-telegram-markdown-rule-3505.test.mjs": 0,
+    "pr-description-preservation-2549.test.mjs": 0,
+    "secret-scan-2198.test.mjs": 0,
+    "sha-commit-evidence-3922.test.mjs": 0,
+    "telegram-handler-watchdog-3206.test.mjs": 0,
+    "telegram-rate-limit-governor.test.mjs": 0,
+    "telegram-slow-commands-detached-3206.test.mjs": 0,
+    "test-credential-sanitization-2111.mjs": 0,
+    "test-encoded-credential-leak-2156.mjs": 0,
+    "test-encoded-secretlint-layer-2156.mjs": 0,
+    "test-interactive-mode-images.mjs": 0,
+    "test-issue-1851-process-debug.mjs": 0,
+    "test-issue-2130-log-noise.mjs": 0,
+    "test-issue-2189-bounded-log-memory.mjs": 0,
+    "test-issue-2189-bounded-sanitize-worker.mjs": 0,
+    "test-issue-2189-sentry-log-sanitization.mjs": 0,
+    "test-issue-2202-model-catalogue.mjs": 0,
+    "test-output-sanitization-options-1745.mjs": 0,
+    "test-post-finish-sweep-1745.mjs": 0,
+    "test-require-sanitized-output-rule.mjs": 0,
+    "test-sanitization-stats-1745.mjs": 0,
+    "test-telegram-auth-command.mjs": 0,
+    "test-token-leak-issue-1745.mjs": 0,
+    "test-token-sanitization.mjs": 0,
+    "test-token-telemetry-sanitization-2119.mjs": 0,
+    "sanitizer-open-issues-3741.test.mjs": 0,
+    "telegram-private-configuration-2647.test.mjs": 0,
+    "test-telegram-config.mjs": 0,
+    "test-development-log-before-readiness-2048.mjs": 0,
+    "test-development-log-multi-session-2090.mjs": 0,
+    "test-development-log-option-1596.mjs": 0,
+    "telegram-event-loop-watchdog-3278.test.mjs": 0,
+    "telegram-handler-nonblocking-3206.test.mjs": 0,
+    "test-issue-2187-current-dependency-pins.mjs": 0
+  },
+  "openIssueRegressionCount": 6,
+  "focusedEslint": "passed",
+  "changesetValidation": "passed",
+  "finiteStreamProbes": [
+    {
+      "name": "image",
+      "length": 200027,
+      "ms": 254,
+      "preserved": true
+    },
+    {
+      "name": "image-1",
+      "length": 627391,
+      "ms": 271,
+      "preserved": true
+    },
+    {
+      "name": "image-2",
+      "length": 1000027,
+      "ms": 603,
+      "preserved": true
+    },
+    {
+      "name": "wrapped",
+      "length": 194527,
+      "ms": 1538,
+      "preserved": true
+    }
+  ],
+  "wrappedTextFollowup": {
+    "initialFailedFile": "test-encoded-credential-leak-2156.mjs",
+    "cause": "Following prose extends an unpadded wrapped candidate; individual-line masking corrupts complete JSON",
+    "upstreamReport": 162,
+    "binaryExemptions": "removed; native 0.21.3 inspects embedded credentials",
+    "textExemptions": "removed in 0.22.1; upstream #162 recovers complete unpadded wrapped text before following prose",
+    "finalFocusedFileCount": 45,
+    "allFinalFocusedFilesPass": true,
+    "fixedInVersion": "0.22.1",
+    "upstreamPullRequest": 163
+  },
+  "ciEvidence": {
+    "libraryVersion": "0.22.3",
+    "currentHeadResults": "https://github.com/link-assistant/hive-mind/pull/3741/checks",
+    "details": "The full suite and native builds run on final 0.22.3 source; current-head conclusions are recorded in PR #3741."
+  },
+  "ciFollowup": {
+    "run": 42882837227,
+    "head": "43c2dcac39ec60ae6c42f6ce4bf9de61546ccab5",
+    "suiteFiles": 795,
+    "failedFiles": 4,
+    "logLines": [7463, 8204, 8242, 16961],
+    "corrections": ["Repeatable binary fixture with an explicit vendor-key-in-image masking assertion", "Private environment token inputs preserve the bot harness IPC channel", "Sentry pin assertions follow the required 11.12.0 update"],
+    "focusedReruns": "All four corrected test files pass; focused ESLint and formatting pass",
+    "boundedBinaryProbe": {
+      "seeds": 12,
+      "samples": 24,
+      "allPreserved": true
+    }
+  },
+  "ciFreshnessFollowup": {
+    "run": 42923011298,
+    "head": "678eaa6349719c12c8237c97a0a06cf9ac7ac6ae",
+    "logLine": 3998,
+    "failure": "Dependency freshness: minimatch 11.0.6 -> 11.0.7",
+    "correction": "Refresh the one allowed-range lockfile entry without changing declarations or bypassing the existing gate",
+    "testsAndNativeBuilds": "Skipped in that first attempt; all pass in corrected run 42924810985"
+  },
+  "previousLibraryCiEvidence": {
+    "sourceHead": "8b1ad4d953f0ebd1e47c7083be617dcafd471ed0",
+    "libraryVersion": "0.21.3",
+    "run": 42924810985,
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/42924810985",
+    "workflowConclusion": "success",
+    "passedChecks": 30,
+    "defaultSuite": {
+      "job": 130211664116,
+      "testFiles": 795,
+      "conclusion": "success",
+      "summaryLogLine": 24471,
+      "migrationLogLine": 3413,
+      "openIssuesLogLine": 7455,
+      "privateConfigurationLogLine": 8284,
+      "wrappedTextLogLine": 10374
+    },
+    "nativeX64": {
+      "job": 130209733369,
+      "conclusion": "success"
+    },
+    "nativeArm64": {
+      "job": 130209733281,
+      "conclusion": "success"
+    },
+    "actualNpmArtifact": {
+      "job": 130256886464,
+      "conclusion": "success"
+    },
+    "installedRuntimeX64": {
+      "job": 130257397632,
+      "conclusion": "success"
+    },
+    "installedRuntimeArm64": {
+      "job": 130257397609,
+      "conclusion": "success"
+    }
+  },
+  "encodedMaskLibraryFollowup": {
+    "run": 42940053599,
+    "head": "82a22752f5a3a4e8f79d2a38b019e94a55f813e9",
+    "logLines": [3999, 4000, 4001],
+    "publishedVersion": "0.21.4",
+    "publishedAt": "2026-11-11T01:18:56Z",
+    "upstreamPullRequest": 160,
+    "removedWorkarounds": ["encodedMaskExemption", "cleanEscapedView"],
+    "audit": "Three upstream corrections and five remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 45,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "localMatrixLibraryVersion": "0.21.5",
+  "finiteStreamProbeLibraryVersion": "0.21.5",
+  "authorizationLibraryFollowup": {
+    "publishedVersion": "0.21.5",
+    "publishedAt": "2026-11-11T02:20:33Z",
+    "upstreamPullRequest": 159,
+    "removedWorkarounds": ["authorizationSchemeExemption"],
+    "audit": "Four upstream corrections and four remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 45,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries",
+    "previousVersion": "0.21.4",
+    "previousVersionFullSuite": {
+      "run": 42941141733,
+      "job": 130264028476,
+      "files": 795,
+      "summaryLogLine": 24479,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42941141733
+  },
+  "ciProcessExitFollowup": {
+    "libraryVersion": "0.21.6",
+    "run": 42953672219,
+    "head": "955fd7fc9f0b861277a47e817f71319c03b5e596",
+    "failedFile": "issue-3785-router-claude-native-lifetime.test.mjs",
+    "logLines": [4820, 24488],
+    "cause": "A fixture exits between opening and reading /proc/<pid>/stat; Linux returns ESRCH rather than ENOENT",
+    "correction": "Share the native fixture liveness helper between Agent and Claude; treat ENOENT and ESRCH as stopped while propagating unexpected errors",
+    "regression": "issue-3785-process-liveness.test.mjs deterministically fails with ESRCH before the correction and passes afterward; both real native lifetime fixtures also pass"
+  },
+  "markdownLibraryFollowup": {
+    "publishedVersion": "0.21.6",
+    "publishedAt": "2026-11-11T03:17:13.552Z",
+    "upstreamPullRequest": 158,
+    "removedWorkarounds": ["markdownValueExemption"],
+    "audit": "Five upstream corrections and three remaining reproducing gaps across eight library-only probes",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.5",
+    "previousVersionFullSuite": {
+      "run": 42947616282,
+      "job": 130291098365,
+      "files": 795,
+      "summaryLogLine": 24471,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42947616282,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "nativePoliciesLibraryFollowup": {
+    "publishedVersion": "0.21.8",
+    "publishedAt": "2026-11-11T04:32:42.408Z",
+    "includedPrivateKeyVersion": "0.21.7",
+    "includedPrivateKeyPublishedAt": "2026-11-11T04:05:11.664Z",
+    "upstreamPullRequests": [161, 156],
+    "removedWorkarounds": ["privateKeyTypes", "constructorKeyword exemption"],
+    "audit": "Seven upstream corrections and one remaining reproducing gap across eight library-only probes",
+    "focusedTestFiles": 6,
+    "testList": "experiments/issue-3739/latest-policy-tests.txt",
+    "previousVersion": "0.21.6",
+    "previousVersionFullSuite": {
+      "run": 42955909971,
+      "job": 130311812711,
+      "files": 796,
+      "summaryLogLine": 24483,
+      "conclusion": "success"
+    },
+    "discoveredDuringRun": 42955909971,
+    "allFocusedFilesPass": true,
+    "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+  },
+  "latestLibraryFollowup": {
+    "publishedVersion": "0.22.1",
+    "publishedAt": "2026-11-11T09:38:46.054Z",
+    "upstreamPullRequests": [163, 167],
+    "removedWorkarounds": ["wrappedTextBoundary (#162)"],
+    "audit": "All eight library-only probes pass; no adapter workaround remains",
+    "focusedTestFiles": 45,
+    "testList": "experiments/issue-3739-sanitizer-tests.txt",
+    "allFocusedFilesPass": true,
+    "previousVersion": "0.22.0",
+    "previous": {
+      "publishedVersion": "0.22.0",
+      "publishedAt": "2026-11-11T05:13:16.501Z",
+      "upstreamPullRequest": 147,
+      "removedWorkarounds": [],
+      "audit": "Seven upstream corrections and one remaining reproducing gap across eight library-only probes",
+      "apiReview": "Synchronous credentials API preserved; native PRIVATE_KEY policy compatible; new provider verification and Betterleaks detection require explicit opt-in",
+      "focusedTestFiles": 6,
+      "testList": "experiments/issue-3739/latest-policy-tests.txt",
+      "previousVersion": "0.21.8",
+      "previousVersionFullSuite": {
+        "run": 42960687262,
+        "job": 130327436408,
+        "files": 796,
+        "summaryLogLine": 24483,
+        "conclusion": "success"
+      },
+      "discoveredDuringRun": 42960687262,
+      "allFocusedFilesPass": true,
+      "dependencyFreshness": "passed with no stale declarations or lockfile entries"
+    }
+  },
+  "november11Review": {
+    "request": "https://github.com/link-assistant/hive-mind/pull/3741#issuecomment-6804827064",
+    "routerComments": ["https://github.com/link-assistant/router/pull/785#issuecomment-6794876904", "https://github.com/link-assistant/router/pull/785#issuecomment-6794877008", "https://github.com/link-assistant/router/pull/785#issuecomment-6794877572"],
+    "newSanitizationIssuesClosedHere": [4042, 4043],
+    "extractedNonSanitizationIssues": {
+      "4044": "command-stream 0x1fffffe8 capture and duplicate failure comment",
+      "4045": "Codex fsck gitattributesMissing",
+      "4046": "branch log fallback over 100 MB",
+      "4047": "SDK debug opt-in split from #2837"
+    },
+    "upstreamReports": {
+      "gh-upload-log#63": "pinned 0.12.1 ERR_LIMIT refusal, 64 MiB record limit, ambiguous error; blocked upstream for dense base64",
+      "sensitive-data-sanitizer#168": "masked text ~10x slower in 0.22.1"
+    },
+    "blockedUpstream": "Dense-base64 regions (>4096 encoded candidates) are refused by gh-upload-log's pinned sanitizer whatever the part size; such logs use the pull-request branch fallback until gh-upload-log adopts a current library",
+    "audit": {
+      "issuesDumped": 1970,
+      "pullRequestsDumped": 2065,
+      "sanitizationIssues": 32,
+      "sanitizationPullRequests": 30,
+      "partialOpenNotLinked": [3723, 3630, 3724],
+      "supersededOpenPullRequests": [2648, 2849, 2850, 3742, 3748],
+      "closedIssuesGivenRegressions": [66, 580, 1076, 1088, 1212, 2239, 3785]
+    },
+    "throughput": {
+      "maskLines": 200000,
+      "bytes": 9700000,
+      "ghUploadLog0121Seconds": 92.5,
+      "library0221Seconds": 83,
+      "hiveMindStreamSeconds": 78.7,
+      "libraryFileApiSeconds": 52
+    },
+    "newTests": {
+      "tests/issue-4042-gh-upload-log-sanitizer-refusal.test.mjs": 9,
+      "tests/issue-3739-closed-sanitization-regressions.test.mjs": 10
+    },
+    "focusedTestFiles": 47
+  },
+  "november12Review": {
+    "request": "https://github.com/link-assistant/hive-mind/pull/3741#issuecomment-6821030154",
+    "libraryVersion": "0.22.3",
+    "fixedUpstreamWithoutWorkaround": {
+      "168": "0.22.2",
+      "170": "0.22.3"
+    },
+    "newSanitizationIssuesClosedHere": [4049],
+    "notSanitizationNotLinked": [4048],
+    "upstreamReports": {
+      "sensitive-data-sanitizer#172": "credentialPrefix overflows V8's regexp stack on a ~4 MiB letter/digit run in two-byte text; adapter long-run fallback and upload-part isolation",
+      "sensitive-data-sanitizer#173": "credential keyword + one long value scans at ~12 us/char (generic-api-key capture group); documented performance limit",
+      "sensitive-data-sanitizer#172#issuecomment-6823104751": "gh-upload-log 0.13.2 refuses files because of #172"
+    },
+    "upstreamResolved": {
+      "gh-upload-log#63": "0.13.2: no 64 MiB record or dense-base64 limit, retryable|not retryable marker"
+    },
+    "longRunPipelineProbe": {
+      "runMiB": 12,
+      "cases": 17,
+      "stages": 8,
+      "passed": 136,
+      "failed": 0
+    },
+    "ghUploadLog0132": {
+      "wholeFileWithRunAndEmoji": "ERR_SANITIZATION",
+      "runFarFromNonAscii": "ok",
+      "isolatedParts": {
+        "parts": 3,
+        "isolatingCuts": 2,
+        "allPassed": true
+      }
+    },
+    "longValueTimingsMs": {
+      "password=64KiB": 1260,
+      "password=256KiB": 3260,
+      "password=1MiB": 13376,
+      "bearer1MiB": 528
+    },
+    "newTests": {
+      "tests/issue-4049-long-run-sanitization.test.mjs": 8,
+      "tests/issue-4042-gh-upload-log-sanitizer-refusal.test.mjs": 13
+    },
+    "focusedTestFiles": 48,
+    "focusedTestFilesPassed": 48
+  }
+}

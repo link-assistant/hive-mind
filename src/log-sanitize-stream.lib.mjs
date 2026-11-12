@@ -37,9 +37,9 @@
  *
  * This is exactly the hold-back contract {@link createCredentialStreamSanitizer}
  * already applies to child-process output; the difference is that this module
- * runs the *full* fail-closed publication sanitizer (maintained patterns +
- * Secretlint + residual re-scan) on each released block rather than the
- * dependency-free subset.
+ * runs the *full* fail-closed publication sanitizer (sensitive-data-sanitizer
+ * library + Secretlint + residual re-scan) on each released block rather than
+ * the synchronous core alone.
  *
  * A hold is itself capped ({@link DEFAULT_MAX_HOLD_BYTES}) so a log containing a
  * stray `-----BEGIN` marker with no terminator — or one enormous line — can
@@ -52,7 +52,8 @@
 
 import fsPromises from 'node:fs/promises';
 import { StringDecoder } from 'node:string_decoder';
-import { wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
+import { previousRecordSeparator, wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
+import { findCredentialFindings } from './sensitive-data-sanitizer.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 /** Bytes read from the source per iteration. */
@@ -84,7 +85,7 @@ export function computeReleaseBoundary(pending) {
     if (endIndex < 0) return begin.index;
     return endIndex + endMarker.length;
   }
-  const boundary = Math.max(pending.lastIndexOf('\n'), pending.lastIndexOf('\r'));
+  const boundary = previousRecordSeparator(pending);
   if (boundary < 0) return 0;
   const releaseEnd = wrappedBase64HoldStart(pending, boundary + 1) ?? boundary + 1;
   return Math.max(0, releaseEnd);
@@ -149,7 +150,7 @@ export async function forEachLogBlock(sourcePath, onBlock, options = {}) {
       if (boundary <= 0 && pending.length > holdCap) {
         // Never grow without bound: fall back to the last record boundary, or
         // the whole buffer when the file has no record boundary at all.
-        const lastRecord = Math.max(pending.lastIndexOf('\n'), pending.lastIndexOf('\r'));
+        const lastRecord = previousRecordSeparator(pending);
         boundary = lastRecord >= 0 ? lastRecord + 1 : pending.length;
         stats.forcedReleases += 1;
       }
@@ -261,19 +262,27 @@ export async function sanitizeLogFileToFile(options = {}) {
  * @param {string} filePath
  * @param {object} [options] - Also accepts every {@link forEachLogBlock} option
  * @param {Function} [options.sanitize=sanitizeForPublication]
- * @returns {Promise<{blockIndex: number, length: number}|null>} `null` when clean
+ * @returns {Promise<{blockIndex: number, length: number, line: number, ruleId: string}|null>} `null` when clean
  */
 export async function findResidualCredentialBlock(filePath, options = {}) {
   const { sanitize = sanitizeForPublication, ...walkOptions } = options;
   let residual = null;
   let blockIndex = 0;
+  let lineOffset = 0;
   await forEachLogBlock(
     filePath,
     async text => {
       blockIndex += 1;
       const sanitized = String(await sanitize(text));
-      if (sanitized === text) return;
-      residual = { blockIndex, length: text.length };
+      if (sanitized === text) {
+        lineOffset += (text.match(/\r\n|\r|\n/g) || []).length;
+        return;
+      }
+      let changed = 0;
+      while (changed < Math.min(text.length, sanitized.length) && text[changed] === sanitized[changed]) changed++;
+      const line = lineOffset + (text.slice(0, changed).match(/\r\n|\r|\n/g) || []).length + 1;
+      const finding = findCredentialFindings(text).find(item => item.start <= changed && item.end > changed);
+      residual = { blockIndex, length: text.length, line, ruleId: finding?.rule ?? 'publication-sanitizer' };
       return false;
     },
     walkOptions

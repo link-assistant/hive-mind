@@ -10,6 +10,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/3206
  */
 
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { extractCommandFromText } from './telegram-message-filters.lib.mjs';
 import { isTelegramFormattingError, isTelegramMessageTooLongError, safeReply as defaultSafeReply, TELEGRAM_TEXT_LIMIT } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError } from './telegram-rate-limit.lib.mjs';
@@ -30,11 +31,11 @@ export function isTelegrafHandlerTimeoutError(error) {
   return error.name === 'TimeoutError' || error.constructor?.name === 'TimeoutError' || error.name === 'Error';
 }
 
+// Issues #3739/#3740: error details shown in the chat go through the shared
+// @link-foundation/sensitive-data-sanitizer engine, like every other text
+// Hive Mind publishes.
 function redactSecrets(text) {
-  return text
-    .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-    .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-    .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
+  return sanitizeCredentialText(text);
 }
 
 function logInputContext({ ctx, errorKind, failedCommand, logger }) {

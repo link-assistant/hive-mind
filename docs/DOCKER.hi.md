@@ -163,12 +163,12 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 
 Passthrough इन environment variables से नियंत्रित होता है (`box-dind` द्वारा honor किए जाते हैं):
 
-| Variable                           | Default                     | उद्देश्य                                                                             |
-| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।       |
-| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।     |
+| Variable                           | Default                     | उद्देश्य                                                                              |
+| ---------------------------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।        |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।         |
 | `DIND_HOST_PASSTHROUGH_IMAGES`     | _(खाली = कोई भी)_           | space-separated image-name allowlist, जैसे `konard/hive-mind konard/hive-mind-dind`। |
-| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                    |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                   |
 
 default `public` mode में, केवल वे images copy होती हैं जिनमें public registry का digest होता है,
 इसलिए host copy एक pulled/pushed image होनी चाहिए (केवल local `docker build` से बनी, बिना

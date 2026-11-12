@@ -16,6 +16,12 @@ export const createYargsConfig = yargsInstance =>
       alias: 'c',
       default: getenv('TELEGRAM_CONFIGURATION', ''),
     })
+    .option('configurationFile', {
+      type: 'string',
+      description: 'Path to a private LINO configuration file (chmod 600)',
+      alias: 'configuration-file',
+      default: getenv('HIVE_MIND_CONFIGURATION_FILE', ''),
+    })
     .option('token', {
       type: 'string',
       description: 'Telegram bot token from @BotFather',

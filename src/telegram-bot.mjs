@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { loadTelegramConfiguration, moveTelegramSecretsOffArgv } from './telegram-private-configuration.lib.mjs';
+moveTelegramSecretsOffArgv();
+
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { maskToken, setupStdioLogInterceptor } from './lib.mjs';
 
@@ -31,12 +34,11 @@ const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // issue #2085
 const { validateCommandOverrides } = await import('./telegram-overrides-validation.lib.mjs'); // issue #2198
-const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
-
-// Configuration priority: CLI option > --configuration LINO > .lenv > .env
-if (config.configuration) {
-  await loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
-}
+// Configuration priority: token option > inline LINO > explicit file > .lenv > .env.
+const config = await loadTelegramConfiguration({
+  parse: () => createTelegramYargsConfig(yargs(hideBin(process.argv))).parse(),
+  loadConfiguration: configuration => loadLenvConfig({ configuration, override: true, quiet: true }),
+});
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
@@ -46,7 +48,7 @@ const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closin
 const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
 applyIssueClosingEnvironment(config);
 if (!BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
+  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
 }
 
@@ -1073,7 +1075,7 @@ bot.catch(handleUpdateError);
 let isShuttingDown = false;
 
 console.log('🤖 SwarmMindBot is starting...');
-console.log('Bot token:', BOT_TOKEN.substring(0, 10) + '...');
+console.log('Bot token:', maskToken(BOT_TOKEN));
 if (allowedChats && allowedChats.length > 0) {
   console.log('Allowed chats (lino):', lino.format(allowedChats));
 } else {

@@ -104,11 +104,13 @@ function runBot(sandbox) {
     let output = '';
     const harness = join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs');
     const monitor = join(root, 'tests/fixtures/issue-3278/loop-monitor.mjs');
-    const child = spawn(process.execPath, ['--import', harness, '--import', monitor, join(root, 'src/telegram-bot.mjs'), '--token', '3278:test-token', '--isolation', 'docker'], {
+    const child = spawn(process.execPath, ['--import', harness, '--import', monitor, join(root, 'src/telegram-bot.mjs'), '--isolation', 'docker'], {
       cwd: sandbox.home,
       env: cleanEnv({
         HOME: sandbox.home,
         PATH: `${sandbox.bin}:${process.env.PATH}`,
+        // Private environment input avoids execve, which closes the IPC fd.
+        TELEGRAM_BOT_TOKEN: '3278:test-token',
         // The tester owns the chat, so owner-only commands do their real work.
         HIVE_HARNESS_MEMBER_STATUS: 'creator',
         HIVE_HARNESS_BATCHES: JSON.stringify([{ atMs: 100, updates: [...COMMANDS.map((text, index) => commandUpdate(index + 1, text)), commandUpdate(COMMANDS.length + 1, '/auth --status claude', PRIVATE)] }]),

@@ -2,6 +2,7 @@ import { promptText } from './prompt-text.lib.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
@@ -286,7 +287,7 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
   };
 };
 
-const verifyDevelopmentLogDirectory = async directoryPath => {
+export const verifyDevelopmentLogDirectory = async (directoryPath, { repair = true } = {}) => {
   const entries = await fs.readdir(directoryPath, { recursive: true, withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile()) continue;
@@ -295,9 +296,27 @@ const verifyDevelopmentLogDirectory = async directoryPath => {
     // Issue #2189: rescan block by block. Reading each artifact back whole made
     // the verification cost as much heap as the artifact — on top of the copy
     // that had just been written.
-    const residual = await findResidualCredentialBlock(filePath);
+    let residual = await findResidualCredentialBlock(filePath);
+    if (residual && repair) {
+      // #2841: evidence written by the AI belongs to the staged directory too.
+      // Sanitize in bounded memory to a private sibling, verify it, then replace
+      // atomically. A failure preserves the original evidence for diagnosis.
+      const temporaryPath = `${filePath}.${randomUUID()}.sanitized`;
+      try {
+        await sanitizeIntoPublicationFile({ sourcePath: filePath, destinationPath: temporaryPath });
+        const remaining = await findResidualCredentialBlock(temporaryPath);
+        if (!remaining) {
+          await fs.rename(temporaryPath, filePath);
+          residual = null;
+        } else residual = remaining;
+      } catch {
+        throw new Error(`Development-log credential repair failed for ${filePath}:${residual.line} (rule ${residual.ruleId}).`);
+      } finally {
+        await fs.rm(temporaryPath, { force: true });
+      }
+    }
     if (residual) {
-      throw new Error('Development-log publication rescan found residual credential material.');
+      throw new Error(`Development-log publication rescan found residual credential material in ${filePath}:${residual.line} (rule ${residual.ruleId}).`);
     }
     await fs.chmod(filePath, 0o600);
   }

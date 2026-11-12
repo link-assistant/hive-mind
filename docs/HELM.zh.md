@@ -136,8 +136,9 @@ command:
     echo "$GITHUB_TOKEN" | gh auth login --with-token
 
     # Start the telegram bot
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
+    umask 077
+    configuration_file=$(mktemp)
+    cat > "$configuration_file" <<'LENV'
       TELEGRAM_ALLOWED_CHATS:
         -1002975819706
       TELEGRAM_HIVE_OVERRIDES:
@@ -146,10 +147,15 @@ command:
         --attach-logs
         --verbose
       TELEGRAM_BOT_VERBOSE: true
-    "
+    LENV
+    hive-telegram-bot --configuration-file "$configuration_file"
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  - name: TELEGRAM_BOT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hive-telegram-bot
+        key: token
 ```
 
 ### 自动扩缩容
@@ -271,7 +277,7 @@ command:
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:

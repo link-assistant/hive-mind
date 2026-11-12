@@ -56,10 +56,16 @@ const base64 = value => Buffer.from(value).toString('base64');
   assert.ok(!sanitized.includes(encoded), 'the base64 copy of the token must not survive either');
 
   // The debug contract survives encoding. Which layer gets there first is not
-  // fixed — here the escaped-JSON assignment rule masks the run in place before
-  // anything decodes it — so what is pinned is the guarantee both layers owe:
-  // the record keeps its structure and shows the credential's ends.
-  assert.match(sanitized, /\\"token\\":\\"Z2h…[^"\\]*\\"/, `the record must keep its shape around a masked run: ${sanitized}`);
+  // fixed — an assignment rule may mask the encoded text itself (`Z2h…`), or
+  // the decoder may mask the decoded token and re-encode it in place (issue
+  // #3739: @link-foundation/sensitive-data-sanitizer with preserveEncoding,
+  // `Z2hv4oCmOTk5` is base64 for `gho…999`) — so what is pinned is the
+  // guarantee both layers owe: the record keeps its structure and shows the
+  // credential's ends.
+  const maskedRun = /\\"token\\":\\"([^"\\]*)\\"/.exec(sanitized)?.[1];
+  assert.ok(maskedRun, `the record must keep its shape around a masked run: ${sanitized}`);
+  const shown = maskedRun.includes('…') ? maskedRun : Buffer.from(maskedRun, 'base64').toString('utf8');
+  assert.ok(/^(?:Z2h|gho)…/.test(shown), `the masked run must show the credential's ends: ${sanitized}`);
   assert.ok(sanitized.startsWith(`[INFO] "content": "token len ${SYNTHETIC_GHO.length}`), 'surrounding log content must be untouched');
 }
 

@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { $ as nativeDollar } from 'command-stream';
+import { isFixtureProcessAlive as alive } from './process-liveness.mjs';
 import { buildRouterTaskEnv } from '../../src/router-isolation.lib.mjs';
 import { ROUTER_ROUTE_DIALECTS } from '../../src/router-routes.lib.mjs';
 
@@ -22,16 +23,6 @@ globalThis.use = async name => {
 };
 const { executeClaudeCommand } = await import('../../src/claude.lib.mjs');
 const fixture = fileURLToPath(new URL('./router-lifetime-native-fixture.mjs', import.meta.url));
-
-function alive(pid) {
-  if (!pid) return false;
-  try {
-    return !/^\d+ \(.+\) Z /.test(fs.readFileSync(`/proc/${pid}/stat`, 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return false;
-    throw error;
-  }
-}
 
 for (const security of [true, false])
   test(`Router Claude live input stops the real native group on ${security ? 'security refusal' : 'abandoned logging'}`, { timeout: 10_000, skip: process.platform !== 'linux' }, async t => {

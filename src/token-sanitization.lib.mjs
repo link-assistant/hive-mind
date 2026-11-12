@@ -1,34 +1,33 @@
 #!/usr/bin/env node
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
- * Token sanitization utilities for log content
- * Dual approach: Uses both secretlint AND custom patterns for comprehensive coverage
+ * Token sanitization utilities for log content.
  *
- * Architecture:
- * 1. Custom patterns (our logic) - patterns we define and maintain
- * 2. Secretlint patterns - battle-tested community patterns
- *
- * Both approaches run independently, and if only one detects a secret,
- * a warning is logged (especially when secretlint finds something our logic misses).
- * This helps us improve our custom patterns over time.
+ * Architecture (issues #3739 and #3740):
+ * 1. @link-foundation/sensitive-data-sanitizer is the detection and masking
+ *    engine, through Hive Mind's policy in ./sensitive-data-sanitizer.lib.mjs
+ *    (credentials only, known local tokens plain and encoded).
+ * 2. Secretlint runs independently over the result, plain and decoded, as the
+ *    second opinion; anything it still finds is masked and reported as a gap of
+ *    the engine (rule ids only).
+ * 3. Hive Mind's own integration rules stay here: the #1745 user-content
+ *    carve-out, the #3922 40-character hex heuristic, statistics, and the
+ *    fail-closed publication boundary with its residual scans.
  *
  * @module token-sanitization
  */
 
-// Import shared utilities. The dependency-free core is also used directly by
-// lib.mjs, so it must not depend on this asynchronous Secretlint layer.
+// Import shared utilities. The synchronous core (on the sensitive-data-sanitizer
+// library) is also used directly by lib.mjs, so it must not depend on this
+// asynchronous Secretlint layer.
 import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
+import { findCredentialFindings, loadSensitiveDataSanitizer } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
 import { reportError } from './sentry.lib.mjs';
 
 export { createCredentialStreamSanitizer };
 
-import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726)
-import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: never mirror the call that discovers which secrets must be masked
 // Dynamic imports for runtime dependencies
-const getOsModule = async () => (await import('os')).default;
-const getPathModule = async () => (await import('path')).default;
 const getFsModule = async () => (await import('fs')).promises;
 
 // Lazy-loaded secretlint modules (initialized on first use)
@@ -120,7 +119,7 @@ const initSecretlint = async () => {
 
     return true;
   } catch (_error) {
-    // secretlint not available - fall back to custom patterns only
+    // Local diagnostics retain the library pass; publication stays blocked.
     if (global.verboseMode) {
       await log('  ⚠️  Secretlint is not available; publication boundaries will remain blocked.', { verbose: true });
     }
@@ -162,8 +161,8 @@ const SAFE_CONTEXT_PATTERNS = [
   /\b[a-f0-9]{7,40}\s+Author:/i,
 ];
 
-// Note: Custom token patterns are now defined in detectSecretsWithCustomPatterns()
-// with named patterns for tracking and comparison with secretlint results.
+// Issue #3740: credential formats are the engine's
+// (@link-foundation/sensitive-data-sanitizer); see detectSecretsWithLibrary().
 
 /**
  * Check if a token matches any safe pattern (not a sensitive token)
@@ -214,110 +213,42 @@ export const hexHasCommitEvidence = (content, hexString) => {
 };
 
 /**
- * Get GitHub tokens from local config files
+ * GitHub tokens stored in gh's hosts.yml (every host and account), read by the
+ * library's knownSecretsFromGitHubConfig (issue #3740). It honors GH_CONFIG_DIR
+ * and XDG_CONFIG_HOME. A missing file gives no tokens; an unreadable or
+ * malformed one gives none either (the library fails closed with ERR_AUTH), and
+ * the active token still comes from {@link getGitHubTokensFromCommand}.
  * @returns {Promise<string[]>} Array of tokens found
  */
 export const getGitHubTokensFromFiles = async () => {
-  const os = await getOsModule();
-  const path = await getPathModule();
-  const fs = await getFsModule();
-  const tokens = [];
-
   try {
-    // Check ~/.config/gh/hosts.yml
-    const hostsFile = path.join(os.homedir(), '.config/gh/hosts.yml');
-    if (
-      await fs
-        .access(hostsFile)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      const hostsContent = await fs.readFile(hostsFile, 'utf8');
-
-      // Look for oauth_token and api_token patterns
-      const oauthMatches = hostsContent.match(/oauth_token:\s*([^\s\n]+)/g);
-      if (oauthMatches) {
-        for (const match of oauthMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-
-      const apiMatches = hostsContent.match(/api_token:\s*([^\s\n]+)/g);
-      if (apiMatches) {
-        for (const match of apiMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
+    return await loadSensitiveDataSanitizer().knownSecretsFromGitHubConfig();
   } catch (error) {
-    // File access errors are expected when config doesn't exist
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_file_access',
-        level: 'debug',
-      });
-    }
+    if (global.verboseMode) reportError(error, { context: 'github_token_file_access', level: 'debug' });
+    return [];
   }
-
-  return tokens;
 };
 
 /**
- * Get GitHub tokens from gh command output
+ * The active GitHub token, from `gh auth token` through the library's
+ * knownSecretsFromGitHubAuth (issue #3740). It is found even when gh keeps it
+ * in the system keyring, where hosts.yml has no token; the previous scan of
+ * `gh auth status` found nothing there, because gh prints that token masked.
+ * The command's output is never mirrored or logged (issue #2130). Cached for the
+ * process.
  * @returns {Promise<string[]>} Array of tokens found
  */
 export const getGitHubTokensFromCommand = async () => {
-  if (githubCommandTokensCache) {
-    return [...githubCommandTokensCache];
-  }
-  if (typeof globalThis.use === 'undefined') {
-    await ensureUseM();
-  }
-  const $ = wrapDollarWithGhRetry((await globalThis.use('command-stream')).$);
-  const tokens = [];
-
-  try {
-    // Run gh auth status to get token info.
-    // Issue #2130: never mirror this. The whole point of the call is to learn
-    // which secrets have to be masked, so its output is the one thing that is
-    // guaranteed to be unmasked at this moment - and it was being echoed into
-    // the log that later gets attached to the pull request.
-    const authResult = await $(QUIET_PROBE)`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
-    const authOutput = authResult.stdout?.toString() + authResult.stderr?.toString() || '';
-
-    // Look for token patterns in the output
-    const tokenPatterns = [/(?:token|oauth|api)[:\s]*([a-zA-Z0-9_]{20,})/gi, /gh[pou]_[a-zA-Z0-9_]{20,}/gi];
-
-    for (const pattern of tokenPatterns) {
-      const matches = authOutput.match(pattern);
-      if (matches) {
-        for (let match of matches) {
-          // Clean up the match
-          const token = match.replace(/^(?:token|oauth|api)[:\s]*/, '').trim();
-          if (token && token.length >= 20 && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // Command errors are expected when gh is not configured
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_gh_auth',
-        level: 'debug',
-      });
+  if (!githubCommandTokensCache) {
+    try {
+      githubCommandTokensCache = await loadSensitiveDataSanitizer().knownSecretsFromGitHubAuth();
+    } catch (error) {
+      // gh is missing or not signed in.
+      if (global.verboseMode) reportError(error, { context: 'github_token_gh_auth', level: 'debug' });
+      githubCommandTokensCache = [];
     }
   }
-
-  githubCommandTokensCache = [...tokens];
-  return tokens;
+  return [...githubCommandTokensCache];
 };
 
 /**
@@ -381,102 +312,36 @@ const detectSecretsWithSecretlint = async (content, options = {}) => {
 };
 
 /**
- * Use custom patterns to detect secrets in content
+ * Detect credentials with the engine (@link-foundation/sensitive-data-sanitizer
+ * through Hive Mind's policy). Issue #3740: this replaces Hive Mind's own list
+ * of vendor patterns, which duplicated the library's rules.
+ *
+ * Findings that are already masked are not returned (the policy exempts them).
+ *
  * @param {string} content - Content to scan
- * @returns {Array<{start: number, end: number, token: string, patternName: string}>} Array of detected secrets with pattern info
+ * @returns {Array<{start: number, end: number, token: string, patternName: string, source: string}>}
  */
-const detectSecretsWithCustomPatterns = content => {
-  const secrets = [];
-
-  // Named custom patterns for tracking what detected what
-  const namedPatterns = [
-    // OpenAI patterns
-    { name: 'openai-project', pattern: /\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]*T3BlbkFJ[A-Za-z0-9_-]+/g },
-
-    // Anthropic patterns
-    { name: 'anthropic-claude', pattern: /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{20,}/g },
-
-    // GitHub patterns
-    { name: 'github-pat', pattern: /\bgithub_pat_[a-zA-Z0-9_]{20,}/g },
-    { name: 'github-server', pattern: /\bghs_[a-zA-Z0-9_]{20,}/g },
-    { name: 'github-refresh', pattern: /\bghr_[a-zA-Z0-9_]{20,}/g },
-    { name: 'github-ghp', pattern: /\bghp_[a-zA-Z0-9_]{20,}/g },
-    { name: 'github-gho', pattern: /\bgho_[a-zA-Z0-9_]{20,}/g },
-    { name: 'github-ghu', pattern: /\bghu_[a-zA-Z0-9_]{20,}/g },
-
-    // AWS patterns
-    { name: 'aws-key', pattern: /\b(?:A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b/g },
-
-    // Stripe patterns
-    { name: 'stripe', pattern: /\b(?:sk_live_|sk_test_|pk_live_|pk_test_)[a-zA-Z0-9]{20,}/g },
-
-    // SendGrid patterns
-    { name: 'sendgrid', pattern: /\bSG\.[a-zA-Z0-9_-]{15,}\.[a-zA-Z0-9_-]{30,}/g },
-
-    // Twilio patterns
-    { name: 'twilio', pattern: /\bSK[a-f0-9]{32}\b/g },
-
-    // Mailchimp patterns
-    { name: 'mailchimp', pattern: /\b[a-f0-9]{32}-us[0-9]{1,2}\b/g },
-
-    // Square patterns
-    { name: 'square', pattern: /\bsq0(?:atp|csp)-[a-zA-Z0-9_-]{22,}/g },
-
-    // Databricks patterns
-    { name: 'databricks', pattern: /\bdapi[a-f0-9]{32}\b/g },
-
-    // PyPI patterns
-    { name: 'pypi', pattern: /\bpypi-[A-Za-z0-9_-]{50,}/g },
-
-    // Discord patterns
-    { name: 'discord', pattern: /\b[MN][A-Za-z0-9_-]{23,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{20,}/g },
-
-    // Telegram patterns
-    { name: 'telegram', pattern: /\b[0-9]{8,10}:[a-zA-Z0-9_-]{30,}/g },
-
-    // Google / Gemini patterns
-    { name: 'google-gemini', pattern: /\bAIza[0-9A-Za-z_-]{32,40}\b/g },
-
-    // HuggingFace patterns
-    { name: 'huggingface', pattern: /\bhf_[a-zA-Z0-9]{30,}/g },
-
-    // Slack patterns (not all covered by secretlint preset)
-    { name: 'slack-xoxb', pattern: /\bxoxb-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{20,}/g },
-    { name: 'slack-xoxp', pattern: /\bxoxp-[0-9]{10,}-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{20,}/g },
-
-    // npm patterns
-    { name: 'npm', pattern: /\bnpm_[a-zA-Z0-9]{30,}/g },
-
-    // Shopify patterns
-    { name: 'shopify', pattern: /\bshpat_[a-f0-9]{32}\b/g },
-  ];
-
-  for (const { name, pattern } of namedPatterns) {
-    pattern.lastIndex = 0;
-    let match;
-    while ((match = pattern.exec(content)) !== null) {
-      const token = match[0];
-      // Skip if already masked (contains consecutive asterisks)
-      if (/\*{3,}/.test(token) || token.includes('[REDACTED]') || /…/.test(token)) {
-        continue;
-      }
-      secrets.push({
-        start: match.index,
-        end: match.index + token.length,
-        token,
-        patternName: name,
-        source: 'custom',
-      });
-    }
-  }
-
-  return secrets;
+const detectSecretsWithLibrary = content => {
+  const text = String(content ?? '');
+  return findCredentialFindings(text).map(finding => ({
+    start: finding.start,
+    end: finding.end,
+    token: text.slice(finding.start, finding.end),
+    patternName: finding.rule,
+    source: 'sensitive-data-sanitizer',
+  }));
 };
 
 /**
- * Compare detection results from both approaches and log warnings
+ * @deprecated Kept for callers of the former custom-pattern detector; it is
+ * the engine now. Use {@link detectSecretsWithLibrary}.
+ */
+const detectSecretsWithCustomPatterns = detectSecretsWithLibrary;
+
+/**
+ * Compare detection results of Secretlint and the engine
  * @param {Array} secretlintSecrets - Secrets detected by secretlint
- * @param {Array} customSecrets - Secrets detected by custom patterns
+ * @param {Array} customSecrets - Secrets detected by the engine ({@link detectSecretsWithLibrary})
  * @returns {Promise<{secretlintOnly: Array, customOnly: Array, both: Array}>}
  */
 const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
@@ -488,7 +353,7 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
   const secretlintTokens = new Map(secretlintSecrets.map(s => [s.token, s]));
   const customTokens = new Map(customSecrets.map(s => [s.token, s]));
 
-  // Find secretlint-only detections (our custom patterns missed these)
+  // Find secretlint-only detections (the engine missed these)
   for (const [token, secret] of secretlintTokens) {
     if (!customTokens.has(token)) {
       secretlintOnly.push(secret);
@@ -508,13 +373,13 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
 };
 
 /**
- * Run the dependency-free sanitizer without changing exact strings covered by
+ * Run the synchronous core sanitizer without changing exact strings covered by
  * the legacy local-output exclusion carve-out. Publication callers never pass
  * exclusions and therefore cannot reach this compatibility behavior.
  */
-const sanitizeCredentialTextPreservingExclusions = (input, excludedSet) => {
+const sanitizeCredentialTextPreservingExclusions = (input, excludedSet, options = {}) => {
   const text = String(input ?? '');
-  if (excludedSet.size === 0) return sanitizeCredentialText(text);
+  if (excludedSet.size === 0) return sanitizeCredentialText(text, options);
 
   const excludedTokens = [...excludedSet].sort((a, b) => b.length - a.length);
   let output = '';
@@ -533,42 +398,15 @@ const sanitizeCredentialTextPreservingExclusions = (input, excludedSet) => {
     }
 
     if (nextIndex === -1) {
-      output += sanitizeCredentialText(text.slice(cursor));
+      output += sanitizeCredentialText(text.slice(cursor), options);
       break;
     }
 
-    output += sanitizeCredentialText(text.slice(cursor, nextIndex));
+    output += sanitizeCredentialText(text.slice(cursor, nextIndex), options);
     output += nextToken;
     cursor = nextIndex + nextToken.length;
   }
 
-  return output;
-};
-
-// ---------------------------------------------------------------------------
-// Issue #2156 — known-local tokens that only appear in an encoded form
-// ---------------------------------------------------------------------------
-// The leak in this issue was a `gho_` token that the GHCR token endpoint echoed
-// back base64-encoded inside a JSON body. Every masking layer we had compared
-// bytes literally, so the encoded copy walked straight through. These helpers
-// mask the *encoded* occurrences of tokens we already hold locally.
-// ---------------------------------------------------------------------------
-
-/** Encoded-scan recursion limit: base64-of-base64-of-base64 and no deeper. */
-const MAX_ENCODED_KNOWN_TOKEN_DEPTH = 2;
-
-/**
- * Replace every verbatim occurrence of the supplied token values.
- *
- * @param {string} text
- * @param {Array<string>} values already filtered and de-duplicated
- * @returns {string}
- */
-const maskKnownTokenValues = (text, values) => {
-  let output = text;
-  for (const value of values) {
-    if (output.includes(value)) output = output.split(value).join(maskToken(value));
-  }
   return output;
 };
 
@@ -593,28 +431,24 @@ const isMaskableTokenValue = value => typeof value === 'string' && value.length 
 const usableTokenValues = (tokens, excludedSet) => [...new Set((tokens || []).map(t => (typeof t === 'string' ? t : t?.value)).filter(isMaskableTokenValue))].filter(value => !excludedSet?.has(value));
 
 /**
- * Mask encoded occurrences of known-local tokens.
+ * Mask known-local token values wherever they appear, verbatim or encoded.
  *
- * Decoded payloads are rebuilt rather than dropped: a base64 blob that merely
- * *contains* the token keeps its other fields and stays parseable, and the
- * masked token retains its first/last characters for debugging — the same
- * contract plaintext masking has always offered.
+ * Issue #2156: the leak was a `gho_` token the GHCR token endpoint echoed back
+ * base64-encoded inside a JSON body. The engine's known-secret detection
+ * decodes base64, hex, percent, escape and entity encodings (nested too), masks
+ * the value inside the decoded payload and re-encodes it, so the payload keeps
+ * its other fields and the mask keeps its first and last characters.
  *
  * @param {string} text
  * @param {Array<string>} values from {@link usableTokenValues}
- * @param {number} [depth] internal recursion counter
- * @returns {string}
+ * @returns {{text: string, masked: number}} `masked` counts the values found verbatim (at least one when only encoded copies were masked)
  */
-const maskEncodedKnownTokens = (text, values, depth = 0) => {
-  if (values.length === 0) return text;
-  return sanitizeEncodedCredentials(text, {
-    knownTokens: values,
-    sanitizePlaintext: decoded => {
-      const masked = maskKnownTokenValues(decoded, values);
-      // Peel nested encodings so base64-of-base64 is covered too.
-      return depth >= MAX_ENCODED_KNOWN_TOKEN_DEPTH ? masked : maskEncodedKnownTokens(masked, values, depth + 1);
-    },
-  });
+const maskKnownTokens = (text, values) => {
+  if (values.length === 0) return { text, masked: 0 };
+  const output = sanitizeCredentialText(text, { includeEnvironmentCredentials: false, knownTokens: values, knownOnly: true });
+  if (output === text) return { text, masked: 0 };
+  const verbatim = values.filter(value => text.includes(value)).length;
+  return { text: output, masked: Math.max(verbatim, 1) };
 };
 
 /**
@@ -681,11 +515,13 @@ const maskEncodedSecretsWithSecretlint = async (text, excludedSet) => {
 };
 
 /**
- * Sanitize arbitrary outbound output by masking sensitive tokens while avoiding false positives
- * Uses DUAL APPROACH: Both secretlint AND custom patterns run independently
+ * Sanitize arbitrary outbound output by masking sensitive tokens while avoiding false positives.
  *
- * If only secretlint detects a secret (but our custom patterns miss it),
- * a warning is logged so we can improve our patterns.
+ * Known local tokens are masked first (verbatim and encoded), then the engine
+ * (@link-foundation/sensitive-data-sanitizer with Hive Mind's policy) masks
+ * every credential it detects. Secretlint then runs independently over the
+ * result, plain and decoded; what it still finds is masked and, in verbose
+ * mode, reported as a gap of the engine (rule ids only).
  *
  * @param {string} output - The output to sanitize
  * @param {Object} options - Optional configuration
@@ -701,15 +537,14 @@ export const sanitizeOutput = async (output, options = {}) => {
   const excludedSet = new Set((excludeTokens || []).filter(t => typeof t === 'string' && t.length > 0));
   const isExcluded = token => excludedSet.has(token);
 
-  // Statistics for dual approach
+  // Statistics for the verbose summary
   const stats = {
     knownTokens: 0,
     secretlintDetections: 0,
     encodedSecretlintDetections: 0,
     encodedSecretlintRuleIds: [],
-    customDetections: 0,
+    engineDetections: 0,
     secretlintOnlyWarnings: [],
-    customOnlyDetections: [],
   };
 
   try {
@@ -722,32 +557,18 @@ export const sanitizeOutput = async (output, options = {}) => {
       const envTokens = getEnvironmentTokens().map(({ value }) => value);
       const allKnownTokens = [...new Set([...fileTokens, ...commandTokens, ...envTokens])];
 
-      // Mask known tokens first
+      // Issue #1745: tokens the user typed themselves stay as they are.
       for (const token of allKnownTokens) {
-        if (isMaskableTokenValue(token)) {
-          if (isExcluded(token)) {
-            sanitizationStats.excluded++;
-            continue;
-          }
-          if (sanitized.includes(token)) {
-            const maskedToken = maskToken(token);
-            sanitized = sanitized.split(token).join(maskedToken);
-            stats.knownTokens++;
-            sanitizationStats.knownTokenMasks++;
-            sanitizationStats.totalMasked++;
-          }
-        }
+        if (isMaskableTokenValue(token) && isExcluded(token)) sanitizationStats.excluded++;
       }
 
-      // Issue #2156: the same tokens, base64/hex/percent-encoded. Byte-for-byte
-      // comparison above cannot see those copies.
-      const encodableTokens = usableTokenValues(allKnownTokens, excludedSet);
-      const beforeEncoded = sanitized;
-      sanitized = maskEncodedKnownTokens(sanitized, encodableTokens);
-      if (sanitized !== beforeEncoded) {
-        stats.knownTokens++;
-        sanitizationStats.knownTokenMasks++;
-        sanitizationStats.totalMasked++;
+      // Mask known tokens first, verbatim and (issue #2156) encoded.
+      const known = maskKnownTokens(sanitized, usableTokenValues(allKnownTokens, excludedSet));
+      if (known.masked > 0) {
+        sanitized = known.text;
+        stats.knownTokens += known.masked;
+        sanitizationStats.knownTokenMasks += known.masked;
+        sanitizationStats.totalMasked += known.masked;
       }
     }
 
@@ -755,73 +576,54 @@ export const sanitizeOutput = async (output, options = {}) => {
       return sanitized;
     }
 
-    // Always apply the dependency-free structured/vendor pass before optional
-    // scanners. Record custom-pattern matches before that pass because the
-    // core deliberately masks them first; otherwise the legacy local-output
-    // summary counters would no longer observe those replacements.
-    const preCoreCustomSecrets = detectSecretsWithCustomPatterns(sanitized);
-    let corePatternMasks = 0;
-    for (const secret of preCoreCustomSecrets) {
-      if (isExcluded(secret.token)) continue;
-      if (sanitizeCredentialText(secret.token, { includeEnvironmentCredentials: false }) !== secret.token) {
-        corePatternMasks++;
-      }
+    // Step 2: the engine (@link-foundation/sensitive-data-sanitizer with Hive
+    // Mind's policy), always, before the optional scanner.
+    let engineMasks = 0;
+    const beforeEngine = sanitized;
+    sanitized = sanitizeCredentialTextPreservingExclusions(sanitized, excludedSet, {
+      onFindings: count => {
+        engineMasks += count;
+      },
+    });
+    if (sanitized !== beforeEngine) {
+      // Every masking event counts once in the operator-facing summary.
+      const engineMaskCount = Math.max(engineMasks, 1);
+      stats.engineDetections += engineMaskCount;
+      sanitizationStats.patternMasks += engineMaskCount;
+      sanitizationStats.totalMasked += engineMaskCount;
     }
 
-    const beforeCore = sanitized;
-    sanitized = sanitizeCredentialTextPreservingExclusions(sanitized, excludedSet);
-    if (sanitized !== beforeCore) {
-      // Structured credentials that do not have a standalone vendor pattern
-      // still count as one sanitization event for the operator-facing summary.
-      const coreMaskCount = Math.max(corePatternMasks, 1);
-      sanitizationStats.patternMasks += coreMaskCount;
-      sanitizationStats.totalMasked += coreMaskCount;
-    }
+    // Step 3: Secretlint, independently, over the engine's result. What it
+    // still finds is a gap of the engine (or a #1745 carve-out); the engine is
+    // asked again only then, to tell the two apart.
+    const secretlintSecrets = await detectSecretsWithSecretlint(sanitized);
+    const engineSecrets = secretlintSecrets.length > 0 ? detectSecretsWithLibrary(sanitized) : [];
+    const { secretlintOnly } = await compareDetectionResults(
+      secretlintSecrets.filter(secret => !isExcluded(secret.token)),
+      engineSecrets
+    );
 
-    // Step 2: DUAL APPROACH - Run both detection methods independently
-    const [secretlintSecrets, customSecrets] = await Promise.all([detectSecretsWithSecretlint(sanitized), Promise.resolve(detectSecretsWithCustomPatterns(sanitized))]);
-
-    // Compare results to find discrepancies
-    const { secretlintOnly, customOnly } = await compareDetectionResults(secretlintSecrets, customSecrets);
-
-    // Log warnings for secretlint-only detections (our patterns should catch these)
+    // Log warnings for secretlint-only detections (the engine should catch these)
     if (warnOnMismatch && secretlintOnly.length > 0) {
       stats.secretlintOnlyWarnings = secretlintOnly;
-      await log(`  ⚠️  PATTERN GAP: Secretlint found ${secretlintOnly.length} secret(s) that our custom patterns missed:`, { verbose: true });
+      await log(`  ⚠️  PATTERN GAP: Secretlint found ${secretlintOnly.length} secret(s) that @link-foundation/sensitive-data-sanitizer missed:`, { verbose: true });
       for (const secret of secretlintOnly) {
         // Rule identifiers are useful diagnostics; token previews are not.
         await log(`      • Rule: ${secret.ruleId}`, { verbose: true });
       }
-      await log(`      Consider adding custom patterns for these secret types to improve our detection.`, { verbose: true });
+      await log(`      Consider reporting these secret types at https://github.com/link-foundation/sensitive-data-sanitizer/issues.`, { verbose: true });
     }
 
-    // Log info about custom-only detections (we catch things secretlint doesn't)
-    if (warnOnMismatch && customOnly.length > 0) {
-      stats.customOnlyDetections = customOnly;
-      await log(`  ℹ️  CUSTOM ADVANTAGE: Our patterns found ${customOnly.length} secret(s) that secretlint missed:`, { verbose: true });
-      for (const secret of customOnly) {
-        await log(`      • Pattern: ${secret.patternName}`, { verbose: true });
-      }
-    }
-
-    // Step 3: Merge all unique secrets from both sources for masking
+    // Only Secretlint's own findings are masked here. The engine already ran
+    // in Step 2 around the #1745 carve-out; its second look above is for the
+    // gap report only. Masking its spans again would undo the carve-out, since
+    // a `token: <value>` line context can cover an excluded value (#3739).
     const allSecrets = new Map();
-
-    // Add secretlint detections
     for (const secret of secretlintSecrets) {
       const key = `${secret.start}-${secret.end}`;
-      allSecrets.set(key, secret);
-      stats.secretlintDetections++;
+      if (!allSecrets.has(key)) allSecrets.set(key, secret);
     }
-
-    // Add custom detections (won't duplicate if same position)
-    for (const secret of customSecrets) {
-      const key = `${secret.start}-${secret.end}`;
-      if (!allSecrets.has(key)) {
-        allSecrets.set(key, secret);
-      }
-      stats.customDetections++;
-    }
+    stats.secretlintDetections += secretlintSecrets.length;
 
     // Apply all detections (from end to start to preserve positions)
     const sortedSecrets = [...allSecrets.values()].sort((a, b) => b.start - a.start);
@@ -894,15 +696,15 @@ export const sanitizeOutput = async (output, options = {}) => {
     }
 
     // Summary logging
-    const totalMasked = allSecrets.size + hexReplacements.length + stats.knownTokens + stats.encodedSecretlintDetections;
+    const totalMasked = stats.engineDetections + allSecrets.size + hexReplacements.length + stats.knownTokens + stats.encodedSecretlintDetections;
     if (global.verboseMode && totalMasked > 0) {
-      await log(`  🔒 Sanitized ${totalMasked} secrets using dual approach:`, { verbose: true });
+      await log(`  🔒 Sanitized ${totalMasked} secrets:`, { verbose: true });
       await log(`      • Known tokens: ${stats.knownTokens}`, { verbose: true });
       await log(`      • Secretlint: ${stats.secretlintDetections} detections`, { verbose: true });
       if (stats.encodedSecretlintDetections > 0) {
         await log(`      • Secretlint (encoded payloads): ${stats.encodedSecretlintDetections} run(s) [${stats.encodedSecretlintRuleIds.join(', ')}]`, { verbose: true });
       }
-      await log(`      • Custom patterns: ${stats.customDetections} detections`, { verbose: true });
+      await log(`      • @link-foundation/sensitive-data-sanitizer: ${stats.engineDetections} detections`, { verbose: true });
       await log(`      • Hex tokens: ${hexReplacements.length}`, { verbose: true });
       if (stats.secretlintOnlyWarnings.length > 0) {
         await log(`      ⚠️  Pattern gaps to address: ${stats.secretlintOnlyWarnings.length}`, { verbose: true });
@@ -979,7 +781,8 @@ export const describeCredentialSanitizationFailure = error => {
  * Exact publication-boundary sanitizer.
  *
  * Unlike best-effort local diagnostics, outbound mutations require both the
- * synchronous maintained patterns and Secretlint to complete successfully.
+ * synchronous core (sensitive-data-sanitizer library) and Secretlint to
+ * complete successfully.
  * The final bytes are scanned again immediately before a caller publishes
  * them. Any scanner failure or residual finding blocks publication.
  */
@@ -1056,7 +859,7 @@ export const writeSanitizedPublicationFile = async (filePath, input) => {
 };
 
 // Export detection functions for testing and visibility
-export { detectSecretsWithSecretlint, detectSecretsWithCustomPatterns, compareDetectionResults };
+export { detectSecretsWithSecretlint, detectSecretsWithLibrary, detectSecretsWithCustomPatterns, compareDetectionResults };
 
 /**
  * Backward-compatible alias for older log-specific call sites.
@@ -1114,19 +917,14 @@ export const KNOWN_LOCAL_TOKEN_ENV_VARS = Object.freeze([
  * @returns {Array<{name: string, value: string}>} entries with non-empty values
  */
 export const getEnvironmentTokens = () => {
-  const out = [];
-  for (const name of KNOWN_LOCAL_TOKEN_ENV_VARS) {
-    const value = process.env[name];
-    if (typeof value === 'string' && value.length > 0) {
-      out.push({ name, value });
-    }
-  }
-  return out;
+  // The library reads the explicit selection (issue #3740).
+  const { knownSecretsFromEnv } = loadSensitiveDataSanitizer();
+  return KNOWN_LOCAL_TOKEN_ENV_VARS.flatMap(name => knownSecretsFromEnv(process.env, [name]).map(value => ({ name, value })));
 };
 
 /**
  * Build the union of every known-local token: env vars + GitHub tokens we
- * already discover via `gh auth status` / hosts.yml (existing helpers).
+ * discover through the library: `gh auth token` and every hosts.yml token.
  *
  * Each entry is `{ source, name, value }` where `source` is 'env' | 'gh-files'
  * | 'gh-command'. The `name` field is human-readable for debug logs but is
@@ -1175,12 +973,20 @@ export const getAllKnownLocalTokens = async () => {
  * @param {string} text
  * @param {Array<{value: string, name?: string, source?: string}>} [tokens]
  *   Pre-fetched token list (if you already called getAllKnownLocalTokens).
- *   Pass an explicit list to avoid re-running `gh auth status` per check.
+ *   Pass an explicit list to avoid re-reading the local tokens per check.
  * Issue #2156: a token that appears only base64/hex/percent-encoded is a leak
  * just the same — GitHub's own secret scanning decodes before matching, which
  * is exactly how the revocation in that issue was triggered. Encoded hits are
  * reported with the encoding that matched so operators can tell the two cases
  * apart in the fail-closed publication error path.
+ *
+ * Issue #3739 / #3740: masking runs on @link-foundation/sensitive-data-sanitizer,
+ * but this check deliberately does not. It is the independent verifier after
+ * the masking step: a plain substring test plus Hive Mind's own decoder
+ * (`findEncodedKnownTokenRuns`), so a known value that the library engine
+ * misses is still caught here instead of being confirmed by the same engine
+ * that missed it. It also names the encoding (`base64`, `hex`, ...), which the
+ * library's `rule: 'encoded'` findings do not.
  *
  * @returns {Promise<Array<{name: string, source: string, encoding: string}>>}
  *   list of token identifiers that were found in the text (NOT the values
@@ -1230,27 +1036,19 @@ export const sanitizeCommentBody = async (body, options = {}) => {
   if (!options.skipActiveTokensOutputSanitization) {
     const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
     for (const { value } of knownTokens) {
-      if (isMaskableTokenValue(value) && sanitized.includes(value)) {
-        if (excludedSet.has(value)) {
-          sanitizationStats.excluded++;
-          continue;
-        }
-        sanitized = sanitized.split(value).join(maskToken(value));
-        sanitizationStats.knownTokenMasks++;
-        sanitizationStats.totalMasked++;
-      }
+      if (isMaskableTokenValue(value) && excludedSet.has(value) && sanitized.includes(value)) sanitizationStats.excluded++;
     }
 
-    // Issue #2156: the same tokens, re-encoded (base64/hex/percent/escapes).
-    const beforeEncoded = sanitized;
-    sanitized = maskEncodedKnownTokens(sanitized, usableTokenValues(knownTokens, excludedSet));
-    if (sanitized !== beforeEncoded) {
-      sanitizationStats.knownTokenMasks++;
-      sanitizationStats.totalMasked++;
+    // Verbatim and (issue #2156) re-encoded: base64/hex/percent/escapes.
+    const known = maskKnownTokens(sanitized, usableTokenValues(knownTokens, excludedSet));
+    if (known.masked > 0) {
+      sanitized = known.text;
+      sanitizationStats.knownTokenMasks += known.masked;
+      sanitizationStats.totalMasked += known.masked;
     }
   }
 
-  // Pass 2: regex + secretlint sweep for anything else.
+  // Pass 2: engine + secretlint sweep for anything else.
   sanitized = await sanitizeOutput(sanitized, {
     warnOnMismatch: false,
     skipOutputSanitization: options.skipOutputSanitization,
@@ -1289,11 +1087,11 @@ export const sanitizeCommentBody = async (body, options = {}) => {
 export const extractTokensFromUserContent = async (text, options = {}) => {
   if (typeof text !== 'string' || text.length === 0) return [];
 
-  const customSecrets = detectSecretsWithCustomPatterns(text);
+  const engineSecrets = detectSecretsWithLibrary(text);
   const secretlintSecrets = await detectSecretsWithSecretlint(text);
 
   const tokens = new Set();
-  for (const s of [...customSecrets, ...secretlintSecrets]) {
+  for (const s of [...engineSecrets, ...secretlintSecrets]) {
     if (s.token && s.token.length >= 12) {
       tokens.add(s.token);
     }
@@ -1331,6 +1129,7 @@ export default {
   sanitizeOutput,
   sanitizeLogContent,
   detectSecretsWithSecretlint,
+  detectSecretsWithLibrary,
   detectSecretsWithCustomPatterns,
   compareDetectionResults,
   getEnvironmentTokens,

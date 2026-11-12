@@ -12,16 +12,16 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## क्या बदलता है
 
-|                          | डिफ़ॉल्ट                          | `--use-router` के साथ                                                            |
-| ------------------------ | --------------------------------- | -------------------------------------------------------------------------------- |
-| वेंडर क्रेडेंशियल        | कार्य में bind-mount किया जाता है | केवल sidecar में mount किया जाता है                                              |
-| कार्य का मॉडल endpoint   | api.anthropic.com                 | `https://link-assistant-router`                                                  |
-| कार्य का GitHub endpoint | सीधे api.github.com               | api.github.com, जो कंटेनर के भीतर राउटर पर हल होता है                            |
-| कार्य का git remote      | github.com                        | `https://link-assistant-router/git/<owner>/<repo>`                               |
-| कार्य का क्रेडेंशियल     | सदस्यता स्वयं                     | केवल उसी कार्य के लिए जारी `la_sk_…` टोकन                                        |
-| टोकन की अवधि             | —                                 | कार्य का कंटेनर बंद होते ही रद्द; 24 घंटे / 5000 अनुरोध की सीमाएँ केवल बैकअप हैं |
-| अनुरोध लॉग               | कोई नहीं                          | प्रति टोकन एक redacted JSONL फ़ाइल, रद्दीकरण के बाद भी सुरक्षित                  |
-| नेटवर्क                  | कार्य का अपना                     | कार्य आंतरिक `hive-mind-router` नेटवर्क से भी जुड़ता है                          |
+|                         | डिफ़ॉल्ट                        | `--use-router` के साथ                                               |
+| ----------------------- | ----------------------------- | ------------------------------------------------------------------ |
+| वेंडर क्रेडेंशियल             | कार्य में bind-mount किया जाता है | केवल sidecar में mount किया जाता है                                    |
+| कार्य का मॉडल endpoint   | api.anthropic.com             | `https://link-assistant-router`                                    |
+| कार्य का GitHub endpoint | सीधे api.github.com            | api.github.com, जो कंटेनर के भीतर राउटर पर हल होता है                  |
+| कार्य का git remote      | github.com                    | `https://link-assistant-router/git/<owner>/<repo>`                 |
+| कार्य का क्रेडेंशियल         | सदस्यता स्वयं                    | केवल उसी कार्य के लिए जारी `la_sk_…` टोकन                             |
+| टोकन की अवधि            | —                             | कार्य का कंटेनर बंद होते ही रद्द; 24 घंटे / 5000 अनुरोध की सीमाएँ केवल बैकअप हैं |
+| अनुरोध लॉग               | कोई नहीं                       | प्रति टोकन एक redacted JSONL फ़ाइल, रद्दीकरण के बाद भी सुरक्षित          |
+| नेटवर्क                   | कार्य का अपना                  | कार्य आंतरिक `hive-mind-router` नेटवर्क से भी जुड़ता है                    |
 
 विकल्प के बिना कुछ नहीं बदलता। डिफ़ॉल्ट रास्ता जान-बूझकर अछूता है: यह वैकल्पिक आइसोलेशन है, माइग्रेशन नहीं।
 
@@ -53,25 +53,25 @@ node examples/collect-logs.mjs --out ./audit
 
 ## कॉन्फ़िगरेशन
 
-| वेरिएबल                                   | अर्थ                                                                                                                                                 |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`                  | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                                                              |
-| `HIVE_MIND_ROUTER_URL`                    | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए                                      |
-| `HIVE_MIND_ROUTER_TOKEN`                  | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                                                                    |
-| `HIVE_MIND_ROUTER_SIDECAR=0`              | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                                                      |
-| `HIVE_MIND_ROUTER_IMAGE`                  | राउटर image बदलें                                                                                                                                    |
-| `HIVE_MIND_ROUTER_ROUTES`                 | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`                                                |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | केवल sidecar संसाधन सीमाएँ; अनुमत विकल्प और स्थायी वॉल्यूम जाँच [अंग्रेज़ी विन्यास](ROUTER.md#configuration) में हैं                                 |
-| `CODEX_CLIENT_VERSION`                    | Codex क्लाइंट का वह संस्करण जो राउटर ChatGPT बैकएंड को बताता है; न देने पर उसका अपना हालिया डिफ़ॉल्ट चलता है                                         |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`           | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                                                                 |
-| `HIVE_MIND_ROUTER_GH_HOST`                | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                                                       |
-| `HIVE_MIND_ROUTER_GITHUB=0`               | GitHub ट्रैफ़िक को बिल्कुल route न करें; कार्य अपना `gh` क्रेडेंशियल रखता है                                                                         |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`       | कार्य के अंत में session डेटा संग्रहित न करें                                                                                                        |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`           | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                                                       |
-| `HIVE_MIND_GIT_HOOKS_DIR`                 | उत्पन्न `pre-push` पहरे को रखने वाली होस्ट डायरेक्टरी (डिफ़ॉल्ट `~/.hive-mind/git-hooks`)                                                            |
-| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | routed कार्य को फिर भी force push या remote ref हटाने दें                                                                                            |
+| वेरिएबल                                    | अर्थ                                                                                                                               |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`                  | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                                                      |
+| `HIVE_MIND_ROUTER_URL`                    | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए                             |
+| `HIVE_MIND_ROUTER_TOKEN`                  | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                                                    |
+| `HIVE_MIND_ROUTER_SIDECAR=0`              | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                                                |
+| `HIVE_MIND_ROUTER_IMAGE`                  | राउटर image बदलें                                                                                                                   |
+| `HIVE_MIND_ROUTER_ROUTES`                 | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`                                     |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | केवल sidecar संसाधन सीमाएँ; अनुमत विकल्प और स्थायी वॉल्यूम जाँच [अंग्रेज़ी विन्यास](ROUTER.md#configuration) में हैं                                |
+| `CODEX_CLIENT_VERSION`                    | Codex क्लाइंट का वह संस्करण जो राउटर ChatGPT बैकएंड को बताता है; न देने पर उसका अपना हालिया डिफ़ॉल्ट चलता है                                  |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`           | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                                                      |
+| `HIVE_MIND_ROUTER_GH_HOST`                | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                                           |
+| `HIVE_MIND_ROUTER_GITHUB=0`               | GitHub ट्रैफ़िक को बिल्कुल route न करें; कार्य अपना `gh` क्रेडेंशियल रखता है                                                                   |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`       | कार्य के अंत में session डेटा संग्रहित न करें                                                                                               |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`           | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                                                 |
+| `HIVE_MIND_GIT_HOOKS_DIR`                 | उत्पन्न `pre-push` पहरे को रखने वाली होस्ट डायरेक्टरी (डिफ़ॉल्ट `~/.hive-mind/git-hooks`)                                                  |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | routed कार्य को फिर भी force push या remote ref हटाने दें                                                                             |
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | वह नेटवर्क जिससे पहले से bind हो चुका sidecar upstream पहुँच के लिए बाद में जोड़ा जाता है (डिफ़ॉल्ट `bridge`; `--internal` नेटवर्क अस्वीकार होता है) |
-| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | पहरा क्रेडेंशियल फ़ाइलें कितनी बार दोबारा पढ़े, मिलीसेकंड में (डिफ़ॉल्ट `1000`, सीमा `100`–`1000`)                                                   |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | पहरा क्रेडेंशियल फ़ाइलें कितनी बार दोबारा पढ़े, मिलीसेकंड में (डिफ़ॉल्ट `1000`, सीमा `100`–`1000`)                                               |
 
 ### Signing secret
 
@@ -87,15 +87,15 @@ node examples/collect-logs.mjs --out ./audit
 
 राउटर `1.0.0` ने हर सार्वजनिक route बदल दिया और पुराने हटा दिए, इसलिए दोनों पीढ़ियों में **कोई भी** पथ साझा नहीं है। `0.119.0` और `1.2.0` को साथ-साथ जाँचने पर ([`experiments/issue-2202/compare-router-routes.sh`](../experiments/issue-2202/compare-router-routes.sh)) दोनों स्तंभ पूरी तरह अलग निकलते हैं — जो पथ एक पर उत्तर देता है वह दूसरे पर `404` है:
 
-| उद्देश्य           | `legacy` (राउटर `< 1.0`) | `canonical` (राउटर `>= 1.0`)       |
+| उद्देश्य              | `legacy` (राउटर `< 1.0`) | `canonical` (राउटर `>= 1.0`)       |
 | ------------------ | ------------------------ | ---------------------------------- |
-| स्वास्थ्य          | `/health`                | `/api/health`                      |
+| स्वास्थ्य             | `/health`                | `/api/health`                      |
 | Claude / Anthropic | `/` (root)               | `/api/services/anthropic`          |
 | Codex, OpenAI      | `/v1`                    | `/api/services/codex/v1`           |
 | GitHub REST        | `/api/v3`                | `/api/services/github/api/v3`      |
 | GitHub GraphQL     | `/api/graphql`           | `/api/services/github/api/graphql` |
-| git ट्रांसपोर्ट    | `/git/`                  | `/api/services/github/git/`        |
-| टोकन प्रबंधन       | —                        | `/api/management/tokens`           |
+| git ट्रांसपोर्ट       | `/git/`                  | `/api/services/github/git/`        |
+| टोकन प्रबंधन         | —                        | `/api/management/tokens`           |
 
 Hive Mind दोनों बोलियाँ बोलता है और `HIVE_MIND_ROUTER_IMAGE` के टैग से एक चुनता है: major `0` का अर्थ `legacy`, `1` और उससे ऊपर का अर्थ `canonical`। जिस टैग में संस्करण नहीं है — digest, या `latest` — उसे `canonical` माना जाता है; कुछ और कहना हो तो `HIVE_MIND_ROUTER_ROUTES` सेट करें। बाकी कुछ बदलना नहीं पड़ता: स्वास्थ्य जाँच, हर उपकरण का base URL, Codex का `config.toml`, git का `insteadOf` उपसर्ग और मॉडल-कैटलॉग endpoint — सब बोली से ही निकलते हैं।
 
@@ -109,11 +109,11 @@ Hive Mind दोनों बोलियाँ बोलता है और `H
 
 issue की आवश्यकता R13 यह कहती है कि एजेंटों से डेटा नष्ट करने की भौतिक क्षमता ही छीन ली जाए। तीन परतें मिलकर इसे ढँकती हैं; इनके बाद केवल `--no-verify` के साथ किया गया force push ही रिमोट तक पहुँच पाता है।
 
-| परत                                                            | क्या कवर करती है                                                                                                                               | कैसे बायपास होती है                                             |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| रिमोट पर [branch protection](./BRANCH_PROTECTION_POLICY.hi.md) | संरक्षित branch का force push और deletion                                                                                                      | कार्य के भीतर से बायपास नहीं होती                               |
-| हर routed कार्य में `pre-push` hook                            | किसी भी remote ref का deletion, और ऐसा हर push जो रिमोट पर पहले से मौजूद commit को गिरा दे — यही `git reset --hard` + `push --force` का रूप है | `git push --no-verify`                                          |
-| राउटर से होकर जाने वाला git transport                          | ref का **deletion** और **non-fast-forward** update, जिन्हें राउटर स्वयं HTTP 403 से मना कर देता है — कार्य के भीतर से बायपास नहीं होता         | राउटर पर संचालक द्वारा किसी नामित ref के लिए रखा गया allow नियम |
+| परत                                                            | क्या कवर करती है                                                                                                                           | कैसे बायपास होती है                                             |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| रिमोट पर [branch protection](./BRANCH_PROTECTION_POLICY.hi.md) | संरक्षित branch का force push और deletion                                                                                                  | कार्य के भीतर से बायपास नहीं होती                                |
+| हर routed कार्य में `pre-push` hook                               | किसी भी remote ref का deletion, और ऐसा हर push जो रिमोट पर पहले से मौजूद commit को गिरा दे — यही `git reset --hard` + `push --force` का रूप है | `git push --no-verify`                                       |
+| राउटर से होकर जाने वाला git transport                            | ref का **deletion** और **non-fast-forward** update, जिन्हें राउटर स्वयं HTTP 403 से मना कर देता है — कार्य के भीतर से बायपास नहीं होता               | राउटर पर संचालक द्वारा किसी नामित ref के लिए रखा गया allow नियम |
 
 Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`) में बनता है और कार्य में **केवल-पढ़ने** के लिए माउंट होता है, इसलिए कार्य उसी नियम को नहीं बदल सकता जिससे वह बँधा है। Git को उस तक `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` से भेजा जाता है, `git config --global` से नहीं, क्योंकि कंटेनर का `~/.gitconfig` होस्ट से माउंट की गई, संचालक की अपनी फ़ाइल है।
 

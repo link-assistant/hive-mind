@@ -78,7 +78,7 @@ function commandUpdate(id, text) {
 function cleanEnv(overrides) {
   const env = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY)/.test(key)) continue;
+    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY|CODEX_|CLAUDE_|ANTHROPIC_|OPENAI_|XDG_)/.test(key)) continue;
     env[key] = value;
   }
   return { ...env, ...overrides };
@@ -92,11 +92,13 @@ function runBot({ sandbox, batches, watch, deadlineMs }) {
   return new Promise(resolve => {
     const events = [];
     let output = '';
-    const child = spawn(process.execPath, ['--import', join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs'), join(root, 'src/telegram-bot.mjs'), '--token', '3206:test-token', '--isolation', 'docker'], {
+    const child = spawn(process.execPath, ['--import', join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs'), join(root, 'src/telegram-bot.mjs'), '--isolation', 'docker'], {
       cwd: sandbox.home,
       env: cleanEnv({
         HOME: sandbox.home,
         PATH: `${sandbox.bin}:${process.env.PATH}`,
+        // Keep the harness IPC channel by using the private input path.
+        TELEGRAM_BOT_TOKEN: '3206:test-token',
         HIVE_HARNESS_BATCHES: JSON.stringify(batches),
         // Host load must not route the command into the queue.
         HIVE_MIND_CPU_THRESHOLD: '1000',

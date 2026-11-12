@@ -75,9 +75,12 @@ assert.ok(acceptanceOutput.includes('A=SYN…456 B=SYN…321'), 'multiple creden
 assert.ok(acceptanceOutput.includes('SHORT_PASSWORD=[REDACTED]'));
 assert.ok(acceptanceOutput.includes('unrelated-before'));
 assert.ok(acceptanceOutput.includes('unrelated-after'));
-assert.equal(sanitizeCredentialText('{"authorization":"Bearer opaque-authorization-secret"}'), '{"authorization":"Bea…ret"}');
+// Issue #3739: the authorization scheme is kept and only the credential is masked.
+assert.equal(sanitizeCredentialText('{"authorization":"Bearer opaque-authorization-secret"}'), '{"authorization":"Bearer opa…ret"}');
 assert.equal(sanitizeCredentialText('Authorization: Bearer ghp…456'), 'Authorization: Bearer ghp…456');
-assert.equal(sanitizeCredentialText('SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'SharedAccessSignature sr=…456');
+// Issue #3739: a bare SAS token masks its signature, the credential; the
+// resource (`sr`) and expiry (`se`) are not secrets.
+assert.equal(sanitizeCredentialText('SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'SharedAccessSignature sr=namespace&sig=abc…456&se=123456');
 assert.equal(sanitizeCredentialText('Authorization: SharedAccessSignature sr=namespace&sig=abcdefghijklmnopqrstuvwxyz123456&se=123456'), 'Authorization: SharedAccessSignature sr=…456');
 assert.equal(await sanitizeOutput(acceptanceOutput), acceptanceOutput, 'sanitization must be idempotent');
 
@@ -156,7 +159,8 @@ assert.ok(streamedPem.includes('-----BEGIN PRIVATE KEY-----\n[REDACTED]\n-----EN
 const interruptedPemStream = createCredentialStreamSanitizer();
 const interruptedPem = [interruptedPemStream.write('-----BEGIN RSA PRIVATE KEY-----\n'), interruptedPemStream.write('SYNTHETIC_UNTERMINATED_KEY_MATERIAL_123456789\n'), interruptedPemStream.flush()].join('');
 assertSanitized(interruptedPem, ['SYNTHETIC_UNTERMINATED_KEY_MATERIAL_123456789']);
-assert.equal(interruptedPem, '-----BEGIN RSA PRIVATE KEY-----\n[REDACTED]');
+// Issue #3739: the key material is masked and the record keeps its newline.
+assert.equal(interruptedPem, '-----BEGIN RSA PRIVATE KEY-----\n[REDACTED]\n');
 
 // Buffer chunks can split a UTF-8 code point as well as a credential. Preserve
 // the surrounding diagnostic text while still masking the credential.
@@ -343,12 +347,12 @@ try {
   assert.ok(stagedBytes.includes('API_TOKEN=SYN…456'));
   assert.equal(await readFile(sourceLog, 'utf8'), `API_TOKEN=${alpha}\n`, 'staging must not modify the local audit source');
 
-  // A future raw file accidentally added beneath the broad artifact directory
-  // must block the entire staging attempt.
+  // #2841: evidence added by the AI is sanitized and verified before staging,
+  // so a repairable credential does not discard the whole session.
   const roguePath = join(repositoryPath, committed.relativeDirectory, 'raw-retry.log');
   await writeFile(roguePath, `API_TOKEN=${alpha}\n`, { mode: 0o600 });
   let stagingAttempted = false;
-  const blocked = await collectAndCommitDevelopmentLogArtifacts({
+  const repaired = await collectAndCommitDevelopmentLogArtifacts({
     enabled: true,
     repositoryPath,
     logFile: sourceLog,
@@ -358,14 +362,19 @@ try {
     sessionId: 'blocked-session',
     branchName: 'issue-2111-test',
     rawCommand: 'solve --development-log',
-    $: () => {
+    $: options => {
       stagingAttempted = true;
-      return async () => ({ code: 0, stdout: '', stderr: '' });
+      const run = gitRunner(options);
+      return async (strings, ...values) => {
+        assertSanitized(await readFile(roguePath, 'utf8'), [alpha]);
+        return run(strings, ...values);
+      };
     },
     log: async () => {},
   });
-  assert.equal(blocked.skipped, 'error');
-  assert.equal(stagingAttempted, false, 'residual scan must run before git add');
+  assert.equal(repaired.committed, true);
+  assert.equal(stagingAttempted, true);
+  assert.equal(await readFile(roguePath, 'utf8'), 'API_TOKEN=SYN…456\n');
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

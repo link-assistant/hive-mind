@@ -120,7 +120,8 @@ test('redactAuthOutput masks common token shapes', () => {
   const redacted = redactAuthOutput('Token: gho_abcdefghijklmnopqrstuvwxyz0123456789 and sk-proj-abcdefghijklmnopqrstuvwxyz');
   assert(!redacted.includes('gho_abcdefghijklmnopqrstuvwxyz0123456789'));
   assert(!redacted.includes('sk-proj-abcdefghijklmnopqrstuvwxyz'));
-  assert.match(redacted, /\[REDACTED_TOKEN\]/);
+  // Issues #3739/#3740: the shared engine's mask keeps three characters of each end.
+  assert.equal(redacted, 'Token: gho…789 and sk-…xyz');
 });
 
 test('extractAuthStartDetails captures URLs and device codes', () => {
@@ -132,7 +133,8 @@ test('extractAuthStartDetails captures URLs and device codes', () => {
 test('formatAuthStatusMessage includes provider and sanitized output', () => {
   const message = formatAuthStatusMessage('gh', { code: 0, stdout: 'Logged in\nToken: ghp_secretsecretsecretsecretsecretsecret', stderr: '' });
   assert.match(message, /gh auth status/);
-  assert.match(message, /\[REDACTED_TOKEN\]/);
+  assert.match(message, /Token: ghp…ret/);
+  assert(!message.includes('ghp_secretsecretsecretsecretsecretsecret'));
   assert(!message.includes('ghp_secret'));
 });
 

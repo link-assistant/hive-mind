@@ -66,8 +66,9 @@
    ```
    screen -R bot # 进入机器人的新 screen 会话
 
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+   umask 077
+   cat > bot.lenv <<'LENV'
+     TELEGRAM_BOT_TOKEN: YOUR_TELEGRAM_BOT_TOKEN
      TELEGRAM_ALLOWED_CHATS:
        -1002975819706
        -1002861722681
@@ -83,7 +84,9 @@
        --verbose
        --no-tool-check
      TELEGRAM_BOT_VERBOSE: true
-   "
+   LENV
+   chmod 600 bot.lenv
+   hive-telegram-bot --configuration-file bot.lenv
 
    # 按 CTRL + A + D 从 screen 会话中分离
    ```
@@ -93,7 +96,10 @@
    ```
    screen -R bot # 进入机器人的新 screen 会话
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   read -rsp "Telegram 机器人令牌：" TELEGRAM_BOT_TOKEN
+   echo
+   export TELEGRAM_BOT_TOKEN
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(

@@ -16,7 +16,7 @@
 
 # Telegram Bot Configuration
 
-TELEGRAM_BOT_TOKEN: your_bot_token_here
+TELEGRAM_BOT_TOKEN: YOUR_TELEGRAM_BOT_TOKEN
 
 # Optional: Allowed chat IDs in lino notation (Links Notation)
 # If not set, all chats are allowed

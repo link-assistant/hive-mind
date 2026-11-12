@@ -1,5 +1,5 @@
 {
-  "libraryVersion": "0.22.1",
+  "libraryVersion": "0.22.3",
   "libraryOnlyAudit": {
     "fixedAndWorkaroundRemoved": [148, 149, 150, 151, 152, 153, 154, 162],
     "reproducingGapsWithRetainedWorkarounds": [],
@@ -316,5 +316,51 @@
       "tests/issue-3739-closed-sanitization-regressions.test.mjs": 10
     },
     "focusedTestFiles": 47
+  },
+  "november12Review": {
+    "request": "https://github.com/link-assistant/hive-mind/pull/3741#issuecomment-6821030154",
+    "libraryVersion": "0.22.3",
+    "fixedUpstreamWithoutWorkaround": {
+      "168": "0.22.2",
+      "170": "0.22.3"
+    },
+    "newSanitizationIssuesClosedHere": [4049],
+    "notSanitizationNotLinked": [4048],
+    "upstreamReports": {
+      "sensitive-data-sanitizer#172": "credentialPrefix overflows V8's regexp stack on a ~4 MiB letter/digit run in two-byte text; adapter long-run fallback and upload-part isolation",
+      "sensitive-data-sanitizer#173": "credential keyword + one long value scans at ~12 us/char (generic-api-key capture group); documented performance limit",
+      "sensitive-data-sanitizer#172#issuecomment-6823104751": "gh-upload-log 0.13.2 refuses files because of #172"
+    },
+    "upstreamResolved": {
+      "gh-upload-log#63": "0.13.2: no 64 MiB record or dense-base64 limit, retryable|not retryable marker"
+    },
+    "longRunPipelineProbe": {
+      "runMiB": 12,
+      "cases": 17,
+      "stages": 8,
+      "passed": 136,
+      "failed": 0
+    },
+    "ghUploadLog0132": {
+      "wholeFileWithRunAndEmoji": "ERR_SANITIZATION",
+      "runFarFromNonAscii": "ok",
+      "isolatedParts": {
+        "parts": 3,
+        "isolatingCuts": 2,
+        "allPassed": true
+      }
+    },
+    "longValueTimingsMs": {
+      "password=64KiB": 1260,
+      "password=256KiB": 3260,
+      "password=1MiB": 13376,
+      "bearer1MiB": 528
+    },
+    "newTests": {
+      "tests/issue-4049-long-run-sanitization.test.mjs": 8,
+      "tests/issue-4042-gh-upload-log-sanitizer-refusal.test.mjs": 13
+    },
+    "focusedTestFiles": 48,
+    "focusedTestFilesPassed": 48
   }
 }

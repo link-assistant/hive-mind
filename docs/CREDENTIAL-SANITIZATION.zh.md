@@ -29,14 +29,19 @@ Hive Mind 将生成的终端输出、日志、错误报告、开发日志制品�
 
 ## 通过 gh-upload-log 上传日志
 
-Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 使用自己固定的库版本（`gh-upload-log` 0.13.1 中为 0.12.1）再次清理副本。第二次清理可能拒绝 Hive Mind 已清理过的文件：`Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`。
+Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 使用自己的库再次清理副本。在 `gh-upload-log` 0.13.1 及更早版本中，该库固定为 0.12.1，它会拒绝超过 64 MiB 的记录或密集 base64：`Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`。`gh-upload-log` 0.13.2 取消了这两项限制（[gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)），并报告 `Sanitization failed (CODE) (details); retryable|not retryable; nothing was uploaded`。
 
-- 拒绝（`Sanitization failed (ERR_…)`）是确定性的，因此 Hive Mind 不会重试。拒绝只记录一次：整个日志改为分片重新发送，被拒绝的分片转到 pull request 分支回退发布（[#4042](https://github.com/link-assistant/hive-mind/issues/4042)）。网络和服务器错误仍会退避重试。
-- 分片按行对齐。超过分片上限（最多 48 MiB，低于 64 MiB 记录限制）的单行会在 UTF-8 字符边界处切开，日志会报告切开的行数。各分片拼接后与清理后的日志完全一致。
-- 如果失败评论是由拒绝引起的，它会建议将日志拆分为 20 MB 的分片，而不是再次运行被拒绝的同一命令。
-- 已知限制：固定的 0.12.1 检测器在一个区域内出现超过 4096 个密集 base64 候选时也会拒绝，与分片大小无关。这种情况需要 `gh-upload-log` 采用最新的库（[gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)）；在此之前，此类日志通过分支回退发布。
-- 含有大量已掩码凭证的日志，清理速度约比普通文本慢 10 倍（[sensitive-data-sanitizer#168](https://github.com/link-foundation/sensitive-data-sanitizer/issues/168)）。
+- 标记为 `not retryable` 的拒绝（以及 0.13.1 及更早版本的任何拒绝）是确定性的，因此 Hive Mind 不会重试。拒绝只记录一次：整个日志改为分片重新发送，被拒绝的分片转到 pull request 分支回退发布（[#4042](https://github.com/link-assistant/hive-mind/issues/4042)）。标记为 `retryable` 的失败（`ERR_INPUT_CHANGED`、`ENOSPC`、`EAGAIN` 等）以及网络和服务器错误会退避重试。
+- 分片按行对齐。超过分片上限（最多 48 MiB，低于原先 64 MiB 记录限制）的单行会在 UTF-8 字符边界处切开，日志会报告切开的行数。各分片拼接后与清理后的日志完全一致。
+- `gh-upload-log` 0.13.2 仍会拒绝（`ERR_SANITIZATION`）约 4 MiB 的 ASCII 字母或数字串（例如以 base64 表示的全零二进制数据），只要它靠近非 ASCII 文本，例如 Hive Mind 的表情符号（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。因此任何分片都不会同时包含超过 1 MiB 的同一字符串和非 ASCII 字节；被拒绝的文件即使能放进一个分片，也会按这种方式分片重新发送，日志会报告这些额外的切分。
+- 如果失败评论是由拒绝引起的，它不会建议再次运行被拒绝的命令。对于 `ERR_LIMIT`，它建议将 `gh-upload-log` 升级到 0.13.2 或更高版本，或将日志拆分为 20 MB 的分片；对于 `ERR_SANITIZATION`，它建议使用 2 MiB 的分片。
 - 如果写入清理副本时磁盘已满，失败原因会提示释放磁盘空间后重试（[#1212](https://github.com/link-assistant/hive-mind/issues/1212)）。
+
+## 长串与长值
+
+- Hive Mind 的编码串检测器（base64、hex、百分号转义、字节转义、HTML 实体和折行 base64）是线性扫描器，因此单个数 MiB 的串（例如 JSONL 记录中的截图）不再使正则表达式栈溢出并阻止日志发布（[#4049](https://github.com/link-assistant/hive-mind/issues/4049)）。
+- 库本身在包含任何高于 U+00FF 字符的文本中，遇到约 4 MiB 的字母或数字串时仍会抛出 `ERR_SANITIZATION`（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。遇到该错误时，适配器以长串的有界窗口作为上下文清理长串之间的文本；如果凭证延伸进长串，则安全失败（fail closed）。
+- 凭证关键字后跟一个很长的值（`password=` 加 1 MiB）时，扫描速度约比普通文本慢 100 倍，约每 MiB 13 秒（[sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173)）。该值仍会被完整掩码；这是已记录的性能限制。
 
 ## 覆盖形式
 
@@ -49,7 +54,7 @@ Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-库 0.22.1 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除；适配器中不再保留变通方案，详见[案例研究](./case-studies/issue-3739/README.md)。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
+库 0.22.3 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除，0.22.2 和 0.22.3 修复了 #168（已掩码日志清理缓慢）和 #170（长的大小写混合串）。适配器中唯一保留的变通方案是 #172 的长串回退（见[长串与长值](#长串与长值)），详见[案例研究](./case-studies/issue-3739/README.md)。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 

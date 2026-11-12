@@ -29,14 +29,19 @@ The synchronous core runs on [`@link-foundation/sensitive-data-sanitizer`](https
 
 ## Log upload through gh-upload-log
 
-Hive Mind sanitizes a log before it calls `gh-upload-log`. `gh-upload-log` then sanitizes the copy again with its own pinned library (0.12.1 in `gh-upload-log` 0.13.1). That second pass can refuse a file that Hive Mind already cleaned: `Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`.
+Hive Mind sanitizes a log before it calls `gh-upload-log`. `gh-upload-log` then sanitizes the copy again with its own library. Up to `gh-upload-log` 0.13.1 that library was pinned to 0.12.1, which refused a record over 64 MiB or dense base64: `Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`. `gh-upload-log` 0.13.2 removes both limits ([gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)) and reports `Sanitization failed (CODE) (details); retryable|not retryable; nothing was uploaded`.
 
-- A refusal (`Sanitization failed (ERR_…)`) is deterministic, so Hive Mind does not retry it. It logs the refusal once and moves on: a whole log is re-sent as parts, and a refused part goes to the pull-request branch fallback ([#4042](https://github.com/link-assistant/hive-mind/issues/4042)). Network and server errors are still retried with backoff.
-- Parts are line-aligned. A single line longer than the part cap (at most 48 MiB, below the 64 MiB record limit) is cut on a UTF-8 character boundary, and the log reports how many lines were cut. The parts concatenate to the exact sanitized log.
-- If the failure comment is about a refusal, it suggests splitting the log into 20 MB parts instead of re-running the same command that was refused.
-- Known limit: the pinned 0.12.1 detector also refuses a region with more than 4096 dense base64 candidates, whatever the part size. That case needs `gh-upload-log` to adopt a current library ([gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)); until then such logs go to the branch fallback.
-- Logs full of already-masked credentials sanitize about 10 times slower than plain text ([sensitive-data-sanitizer#168](https://github.com/link-foundation/sensitive-data-sanitizer/issues/168)).
+- A refusal marked `not retryable` (and any refusal from 0.13.1 or older) is deterministic, so Hive Mind does not retry it. It logs the refusal once and moves on: a whole log is re-sent as parts, and a refused part goes to the pull-request branch fallback ([#4042](https://github.com/link-assistant/hive-mind/issues/4042)). A failure marked `retryable` (`ERR_INPUT_CHANGED`, `ENOSPC`, `EAGAIN`, …) and network or server errors are retried with backoff.
+- Parts are line-aligned. A single line longer than the part cap (at most 48 MiB, below the old 64 MiB record limit) is cut on a UTF-8 character boundary, and the log reports how many lines were cut. The parts concatenate to the exact sanitized log.
+- `gh-upload-log` 0.13.2 still refuses (`ERR_SANITIZATION`) an ASCII letter or digit run of about 4 MiB, such as zero-filled binary as base64, next to non-ASCII text such as Hive Mind's emoji ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)). So no part holds more than 1 MiB of one such run together with a non-ASCII byte, a refused file is re-sent as such parts even when it fits in one part, and the log reports these extra cuts.
+- If the failure comment is about a refusal, it does not suggest re-running the refused command. For `ERR_LIMIT` it says to upgrade `gh-upload-log` to 0.13.2 or later, or to split the log into 20 MB parts; for `ERR_SANITIZATION` it suggests 2 MiB parts.
 - If the disk fills while the sanitized copy is written, the failure reason says to free disk space and retry ([#1212](https://github.com/link-assistant/hive-mind/issues/1212)).
+
+## Long runs and long values
+
+- Hive Mind's encoded-run detectors (base64, hex, percent escapes, byte escapes, HTML entities and wrapped base64 lines) are linear scanners, so one multi-MiB run, such as a screenshot in a JSONL record, no longer overflows the regular-expression stack and blocks the log ([#4049](https://github.com/link-assistant/hive-mind/issues/4049)).
+- The library itself still throws `ERR_SANITIZATION` on a letter or digit run of about 4 MiB in text with any character above U+00FF ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)). On that error the adapter sanitizes the text between long runs, with bounded windows of the runs as context, and fails closed if a credential reaches into a run.
+- A credential keyword followed by one very long value (`password=` and 1 MiB) is scanned about 100 times slower than plain text, about 13 seconds per MiB ([sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173)). The value is still fully masked; this is a documented performance limit.
 
 ## Covered forms
 
@@ -49,7 +54,7 @@ The library rules (vendor formats, the Gitleaks rule set, and contextual keys) c
 
 Detection is intentionally conservative at external boundaries. A false positive may mask a credential-like value; a scanner failure blocks the publication instead of sending the original bytes.
 
-Library 0.22.1 owns credential rules, environment selection, format context, npm-package and token-count exemptions. The adapter lazily loads `/credentials`. Obsolete workarounds for #131–#141, #148–#154 and #162 were removed; no adapter workaround remains, as recorded in the [case study](./case-studies/issue-3739/README.md). Native `PRIVATE_KEY` findings use the library's per-type full redaction. Secretlint and `containsKnownToken` remain independent publication verifiers.
+Library 0.22.3 owns credential rules, environment selection, format context, npm-package and token-count exemptions. The adapter lazily loads `/credentials`. Obsolete workarounds for #131–#141, #148–#154 and #162 were removed, and 0.22.2 and 0.22.3 fixed #168 (slow masked logs) and #170 (long mixed-case runs). The only adapter workaround left is the long-run fallback for #172 (see [Long runs and long values](#long-runs-and-long-values)), as recorded in the [case study](./case-studies/issue-3739/README.md). Native `PRIVATE_KEY` findings use the library's per-type full redaction. Secretlint and `containsKnownToken` remain independent publication verifiers.
 
 ## Encoded credentials
 

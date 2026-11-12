@@ -29,14 +29,19 @@ Synchronous core [`@link-foundation/sensitive-data-sanitizer`](https://github.co
 
 ## gh-upload-log के ज़रिए log upload
 
-Hive Mind `gh-upload-log` को call करने से पहले log sanitize करता है। फिर `gh-upload-log` अपनी pinned library (`gh-upload-log` 0.13.1 में 0.12.1) से copy को दोबारा sanitize करता है। यह दूसरा pass ऐसी file को refuse कर सकता है जिसे Hive Mind पहले ही साफ़ कर चुका है: `Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`।
+Hive Mind `gh-upload-log` को call करने से पहले log sanitize करता है। फिर `gh-upload-log` अपनी library से copy को दोबारा sanitize करता है। `gh-upload-log` 0.13.1 तक यह library 0.12.1 पर pinned थी, जो 64 MiB से बड़े record या dense base64 को refuse करती थी: `Sanitization failed (ERR_LIMIT) (record exceeds 64 MiB or detector limit); nothing was uploaded`। `gh-upload-log` 0.13.2 दोनों limits हटाता है ([gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)) और `Sanitization failed (CODE) (details); retryable|not retryable; nothing was uploaded` report करता है।
 
-- Refusal (`Sanitization failed (ERR_…)`) deterministic है, इसलिए Hive Mind उसे retry नहीं करता। Refusal एक बार log होता है: पूरा log parts में दोबारा भेजा जाता है, और refused part pull-request branch fallback में जाता है ([#4042](https://github.com/link-assistant/hive-mind/issues/4042))। Network और server errors अब भी backoff के साथ retry होते हैं।
-- Parts line-aligned होते हैं। Part cap (अधिकतम 48 MiB, 64 MiB record limit से कम) से लंबी एक line UTF-8 character boundary पर काटी जाती है, और log बताता है कि कितनी lines काटी गईं। Parts जोड़ने पर बिल्कुल वही sanitized log मिलता है।
-- अगर failure comment refusal के कारण है, तो वह refused command दोबारा चलाने के बजाय log को 20 MB parts में बाँटने का सुझाव देता है।
-- ज्ञात सीमा: pinned 0.12.1 detector एक region में 4096 से अधिक dense base64 candidates होने पर भी refuse करता है, part size चाहे जो हो। इसके लिए `gh-upload-log` को current library अपनानी होगी ([gh-upload-log#63](https://github.com/link-foundation/gh-upload-log/issues/63)); तब तक ऐसे logs branch fallback से publish होते हैं।
-- पहले से masked credentials से भरे logs plain text की तुलना में लगभग 10 गुना धीमे sanitize होते हैं ([sensitive-data-sanitizer#168](https://github.com/link-foundation/sensitive-data-sanitizer/issues/168))।
+- `not retryable` वाला refusal (और 0.13.1 या पुराने version का कोई भी refusal) deterministic है, इसलिए Hive Mind उसे retry नहीं करता। Refusal एक बार log होता है: पूरा log parts में दोबारा भेजा जाता है, और refused part pull-request branch fallback में जाता है ([#4042](https://github.com/link-assistant/hive-mind/issues/4042))। `retryable` वाली failures (`ERR_INPUT_CHANGED`, `ENOSPC`, `EAGAIN`, …) और network या server errors backoff के साथ retry होते हैं।
+- Parts line-aligned होते हैं। Part cap (अधिकतम 48 MiB, पुरानी 64 MiB record limit से कम) से लंबी एक line UTF-8 character boundary पर काटी जाती है, और log बताता है कि कितनी lines काटी गईं। Parts जोड़ने पर बिल्कुल वही sanitized log मिलता है।
+- `gh-upload-log` 0.13.2 अब भी लगभग 4 MiB के ASCII letter या digit run (जैसे base64 में zero-filled binary) को refuse (`ERR_SANITIZATION`) करता है, जब वह non-ASCII text, जैसे Hive Mind के emoji, के पास हो ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172))। इसलिए किसी part में ऐसे एक run के 1 MiB से ज़्यादा के साथ कोई non-ASCII byte नहीं होता, refused file एक part में समा जाने पर भी ऐसे parts में दोबारा भेजी जाती है, और log इन extra cuts को report करता है।
+- अगर failure comment refusal के कारण है, तो वह refused command दोबारा चलाने का सुझाव नहीं देता। `ERR_LIMIT` के लिए वह `gh-upload-log` को 0.13.2 या नए version में upgrade करने, या log को 20 MB parts में बाँटने को कहता है; `ERR_SANITIZATION` के लिए वह 2 MiB parts सुझाता है।
 - अगर sanitized copy लिखते समय disk भर जाए, तो failure reason disk space खाली करके retry करने को कहता है ([#1212](https://github.com/link-assistant/hive-mind/issues/1212))।
+
+## Long runs और long values
+
+- Hive Mind के encoded-run detectors (base64, hex, percent escapes, byte escapes, HTML entities और wrapped base64 lines) linear scanners हैं, इसलिए कई MiB का एक run, जैसे JSONL record में screenshot, अब regular-expression stack overflow करके log को block नहीं करता ([#4049](https://github.com/link-assistant/hive-mind/issues/4049))।
+- Library ख़ुद अब भी U+00FF से ऊपर के किसी भी character वाले text में लगभग 4 MiB के letter या digit run पर `ERR_SANITIZATION` throw करती है ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172))। उस error पर adapter long runs के बीच का text runs की bounded windows को context बनाकर sanitize करता है, और अगर कोई credential run के अंदर तक जाता है तो fail closed करता है।
+- Credential keyword के बाद एक बहुत लंबी value (`password=` और 1 MiB) plain text से लगभग 100 गुना धीमी scan होती है, लगभग 13 seconds प्रति MiB ([sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173))। Value फिर भी पूरी mask होती है; यह documented performance limit है।
 
 ## Covered forms
 
@@ -49,7 +54,7 @@ Library rules (vendor formats, Gitleaks rule set और contextual keys) ये 
 
 External boundaries पर detection जानबूझकर conservative है। False positive credential-जैसे value को mask कर सकता है; scanner failure original bytes भेजने के बजाय publication block करता है।
 
-Library 0.22.1 credential rules, environment selection, format context और npm-package/token-count exemptions संभालती है। Adapter `/credentials` को lazily load करता है। #131–#141, #148–#154 और #162 के पुराने workarounds हटाए गए हैं; adapter में कोई workaround नहीं बचा है, जैसा [case study](./case-studies/issue-3739/README.md) में दर्ज है। Native `PRIVATE_KEY` findings पर library का per-type full redaction लागू होता है। Secretlint और `containsKnownToken` स्वतंत्र publication verifiers हैं।
+Library 0.22.3 credential rules, environment selection, format context और npm-package/token-count exemptions संभालती है। Adapter `/credentials` को lazily load करता है। #131–#141, #148–#154 और #162 के पुराने workarounds हटाए गए हैं, और 0.22.2 व 0.22.3 ने #168 (धीमे masked logs) और #170 (लंबे mixed-case runs) ठीक किए। Adapter में बचा एकमात्र workaround #172 का long-run fallback है ([Long runs और long values](#long-runs-और-long-values) देखें), जैसा [case study](./case-studies/issue-3739/README.md) में दर्ज है। Native `PRIVATE_KEY` findings पर library का per-type full redaction लागू होता है। Secretlint और `containsKnownToken` स्वतंत्र publication verifiers हैं।
 
 ## Encoded credentials
 

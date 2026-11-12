@@ -41,7 +41,7 @@ test('#4050: a placeholder that closes a Markdown code span is not masked', asyn
 });
 
 test('#4050: real credentials in a code span are still masked', async () => {
-  for (const line of [`\`Authorization: token ${TOKEN}\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``]) {
+  for (const line of [`\`Authorization: token ${TOKEN}\``, `\`Authorization: token <${TOKEN}>\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``]) {
     const output = await sanitizeForPublication(line, options);
     assert.ok(!output.includes(TOKEN.slice(4)), output);
   }

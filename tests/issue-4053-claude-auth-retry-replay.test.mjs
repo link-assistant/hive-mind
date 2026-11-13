@@ -17,6 +17,7 @@ process.env.HIVE_MIND_PROVIDER_STATUS_CHECK = 'false';
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { SUBSCRIPTION_BLOCKED_MARKER, formatSubscriptionErrorReport } from '../src/subscription-error.lib.mjs';
 
 const { replay, SESSION_ID } = await import('../experiments/issue-3759/replay.mjs');
@@ -44,4 +45,18 @@ test('an explicit "OAuth token revoked" still stops at once', { timeout: 30000 }
   assert.equal(calls, 1);
   assert.equal(result.subscriptionError?.verifiable, false);
   assert.ok(logs.some(line => line.startsWith(SUBSCRIPTION_BLOCKED_MARKER)));
+});
+
+test('the real Claude Code 2.1.323 stream for a Cloudflare 403 page is re-checked, not a confirmed block', { timeout: 30000 }, async () => {
+  // Recorded by experiments/issue-4053-probe-cloudflare-403.mjs: the code is on the assistant event, not on the result.
+  const recorded = await readFile(new URL('../docs/case-studies/issue-4053/data/probe/claude-2.1.323-cloudflare-403-stream.jsonl', import.meta.url), 'utf8');
+  const events = recorded
+    .split('\n')
+    .filter(Boolean)
+    .map(line => JSON.parse(line));
+  assert.equal(events.find(event => event.type === 'assistant')?.error, 'authentication_failed');
+  const { result, calls, logs } = await replay({ events });
+  assert.equal(calls, 3);
+  assert.equal(result.subscriptionError?.verification?.retries, 2);
+  assert.ok(!logs.some(line => line.includes(SUBSCRIPTION_BLOCKED_MARKER)));
 });

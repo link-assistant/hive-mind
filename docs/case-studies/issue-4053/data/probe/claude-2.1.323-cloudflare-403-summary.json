@@ -1,0 +1,17 @@
+{
+  "mode": "challenge",
+  "exitCode": 1,
+  "requests": 1,
+  "result": {
+    "is_error": true,
+    "subtype": "success",
+    "api_error_status": 403,
+    "result": "Failed to authenticate. API Error: 403 Attention Required! | Cloudflare"
+  },
+  "apiErrors": [
+    {
+      "error": "authentication_failed",
+      "text": "Failed to authenticate. API Error: 403 Attention Required! | Cloudflare"
+    }
+  ]
+}

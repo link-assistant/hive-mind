@@ -51,22 +51,27 @@ const trace = event => {
 // no backtick follows it, so the exemption is never broader than upstream's own
 // placeholder rule. Known secrets are never offered to `exempt`.
 let parityChecker;
-const libraryKeepsPlainValue = value => {
+const libraryKeepsPlainValue = (prefix, value) => {
   parityChecker ??= loadSensitiveDataSanitizer().createSyncSanitizer({ credentialsOnly: true });
-  const plain = `Authorization: token ${value}`;
+  // Re-check with the header exactly as written: with an empty value an assumed
+  // `token` scheme would itself be read as the credential.
+  const plain = `${prefix}${value}`;
   return parityChecker.sanitize(plain).text === plain;
 };
-const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})`$/;
+// An empty value (`` `Authorization:` `` naming the header in prose) is the
+// closing backtick alone; it holds no secret characters, so it is kept too.
+const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})?`$/;
 const AUTHORIZATION_PREFIX = /(?:Proxy-)?Authorization[ \t]*:[ \t]*(?:[A-Za-z][\w-]*[ \t]+)?$/i;
 export const isCodeSpanAuthorizationPlaceholder = (finding, text) => {
   if (finding.rule !== 'authorization' && finding.rule !== 'context') return false;
   const value = text.slice(finding.start, finding.end);
   if (!CODE_SPAN_PLACEHOLDER.test(value)) return false;
   const before = text.slice(text.lastIndexOf('\n', finding.start - 1) + 1, finding.start);
-  if (!AUTHORIZATION_PREFIX.test(before)) return false;
+  const prefix = AUTHORIZATION_PREFIX.exec(before);
+  if (!prefix) return false;
   let backticks = 0;
   for (const char of before) if (char === '`') backticks++;
-  return backticks % 2 === 1 && libraryKeepsPlainValue(value.slice(0, -1));
+  return backticks % 2 === 1 && libraryKeepsPlainValue(prefix[0], value.slice(0, -1));
 };
 const exempt = (finding, text) => {
   const kept = isCodeSpanAuthorizationPlaceholder(finding, text);

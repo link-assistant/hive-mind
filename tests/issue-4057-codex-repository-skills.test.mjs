@@ -89,6 +89,36 @@ test('host and out-of-checkout skills are refused with their origin', async t =>
   assert.match(validation.violations[0], /\(origin: host\)/u);
 });
 
+test('a repository skill linked from .agents/skills into .claude/skills is admitted; other checkout files are not', async t => {
+  // Hive Mind's own handoff and Playwright skills use this layout, and Codex
+  // renders the `.agents/skills` path while the file lives in `.claude/skills`.
+  const root = await tempRoot(t);
+  const codexHome = path.join(root, 'codex-home');
+  await mkdir(codexHome, { recursive: true });
+  const { projectDir } = await makeCheckout(root);
+  await write(path.join(projectDir, '.claude', 'skills', 'claude-first', 'SKILL.md'), skill('claude-first'));
+  await symlink(path.join('..', '..', '.claude', 'skills', 'claude-first'), path.join(projectDir, '.agents', 'skills', 'claude-first'));
+  const stray = await write(path.join(projectDir, 'docs', 'stray', 'SKILL.md'), skill('stray'));
+  const validation = await validateModelVisibleSkillCatalog({
+    catalog: parseModelVisibleSkillCatalog(
+      promptFor([
+        ['claude-first', path.join(projectDir, '.agents', 'skills', 'claude-first', 'SKILL.md')],
+        ['stray', stray],
+      ])
+    ),
+    codexHome,
+    projectDir,
+  });
+  assert.deepEqual(
+    validation.allowed.map(entry => [entry.name, entry.providerId]),
+    [['claude-first', 'repository']]
+  );
+  assert.deepEqual(
+    validation.rejected.map(entry => [entry.name, entry.origin]),
+    [['stray', 'checkout']]
+  );
+});
+
 test('disableScopedCodexSkills writes per-task entries idempotently and never weakens an existing one', async t => {
   const root = await tempRoot(t);
   const codexHome = path.join(root, 'codex-home');

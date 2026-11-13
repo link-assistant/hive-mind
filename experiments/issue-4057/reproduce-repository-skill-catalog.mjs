@@ -7,6 +7,8 @@
 // Optional flags:
 //   --host-skill        plant a user-level skill in `$HOME/.agents/skills` (host leak)
 //   --outside-symlink   add `.agents/skills/linked` -> a directory outside the checkout
+//   --claude-canonical  add `.agents/skills/claude-first` -> `../../.claude/skills/claude-first`
+//                       (the layout Hive Mind's own handoff/playwright skills use)
 //
 // Usage:
 //   node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill] [--outside-symlink]
@@ -26,8 +28,9 @@ const { runCodexCapabilityPreflight } = await import(path.resolve('src/codex-cap
 const binary = process.argv[2];
 const withHostSkill = process.argv.includes('--host-skill');
 const withOutsideSymlink = process.argv.includes('--outside-symlink');
+const withClaudeCanonical = process.argv.includes('--claude-canonical');
 if (!binary || !path.isAbsolute(binary)) {
-  console.error('Usage: node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill]');
+  console.error('Usage: node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill] [--outside-symlink] [--claude-canonical]');
   process.exit(2);
 }
 
@@ -54,6 +57,10 @@ await write(path.join(projectDir, 'AGENTS.md'), '# Synthetic repository\n\nFollo
 if (withOutsideSymlink) {
   await write(path.join(root, 'outside', 'linked', 'SKILL.md'), skill('linked'));
   await fs.symlink(path.join(root, 'outside', 'linked'), path.join(projectDir, '.agents', 'skills', 'linked'));
+}
+if (withClaudeCanonical) {
+  await write(path.join(projectDir, '.claude', 'skills', 'claude-first', 'SKILL.md'), skill('claude-first'));
+  await fs.symlink(path.join('..', '..', '.claude', 'skills', 'claude-first'), path.join(projectDir, '.agents', 'skills', 'claude-first'));
 }
 if (withHostSkill) await write(path.join(home, '.agents', 'skills', 'host-only-skill', 'SKILL.md'), skill('host-only-skill'));
 

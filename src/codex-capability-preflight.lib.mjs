@@ -252,7 +252,7 @@ const logModelVisibleSkills = async ({ catalog, validation, log }) => {
   // them makes a refusal diagnosable from the log alone.
   await log(`   🧭 Trusted skill roots: ${validation.trustedRoots?.join(', ') || 'none'}`, { verbose: true });
   for (const entry of validation.allowed) await log(`   ✅ Allowed skill ${entry.name} (provider=${entry.providerId}, version=${entry.version}, path=${entry.path})`, { verbose: true });
-  for (const entry of validation.rejected || []) await log(`   ⛔ Refused skill ${entry.name} (origin=${entry.origin}, path=${entry.canonical})`, { verbose: true });
+  for (const entry of validation.rejected || []) await log(`   ⛔ Refused skill ${entry.name} (origin=${entry.origin}, path=${entry.canonical}${entry.path && entry.path !== entry.canonical ? `, rendered=${entry.path}` : ''})`, { verbose: true });
 };
 
 const checkModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills = [], codexHome, projectDir, plugins = [] }) => {

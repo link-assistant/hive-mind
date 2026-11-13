@@ -172,6 +172,17 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     const candidate = canonicalProjectDir ? await canonicalPath(path.join(projectDir, relative)) : null;
     if (candidate && isWithin(candidate, canonicalProjectDir)) projectSkillsRoots.push(candidate);
   }
+  // Issue #4057: Codex renders a repository skill by the path it discovered,
+  // e.g. `.agents/skills/handoff/SKILL.md` even when that directory is a
+  // relative symlink to `.claude/skills/handoff` (Hive Mind's own handoff and
+  // Playwright skills, and repositories that keep `.claude/skills` canonical).
+  const renderedSkillRoots = projectDir ? [...new Set([projectDir, canonicalProjectDir].filter(Boolean).flatMap(root => REPOSITORY_SKILL_DIRECTORIES.map(relative => path.resolve(root, relative))))] : [];
+  const isRepositorySkill = (entry, canonical) => {
+    if (entry.name.includes(':') || path.basename(canonical) !== 'SKILL.md') return false;
+    if (projectSkillsRoots.some(root => isWithin(canonical, root) && canonical !== root)) return true;
+    const rendered = path.resolve(entry.path);
+    return Boolean(canonicalProjectDir) && isWithin(canonical, canonicalProjectDir) && renderedSkillRoots.some(root => isWithin(rendered, root) && rendered !== root);
+  };
   const systemVersion = systemRoot ? await readSystemVersion(systemRoot) : 'bundled';
 
   for (const entry of catalog?.entries || []) {
@@ -187,12 +198,12 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     if (systemRoot && isWithin(canonical, systemRoot)) {
       const relative = path.relative(systemRoot, canonical).split(path.sep);
       if (!entry.name.includes(':') && relative.length === 2 && relative[0] === entry.name && relative[1] === 'SKILL.md') provenance = { providerId: 'codex-system', version: systemVersion };
-    } else if (!entry.name.includes(':') && projectSkillsRoots.some(root => isWithin(canonical, root) && canonical !== root)) {
+    } else if (isRepositorySkill(entry, canonical)) {
       // Issue #3785: the checked-out repository owns its skills. Codex names a
       // skill by its front matter, so neither the directory name nor an issue
       // mention is required; the canonical file must stay inside the task's
       // own checkout, which excludes symlinks to host or other-task state.
-      if (path.basename(canonical) === 'SKILL.md') provenance = { providerId: 'repository', version: 'workspace' };
+      provenance = { providerId: 'repository', version: 'workspace' };
     } else if (entry.name.includes(':')) {
       provenance = await pluginProvenance({ entry, canonical, codexHome, canonicalCodexHome, selectedPlugins });
     }

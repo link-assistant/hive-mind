@@ -494,10 +494,8 @@ jobs:
     needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight, native-codex-build]
     if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && needs.docker-pr-check.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
-    # Post-publish verification may wait up to 25 minutes for npm to expose the
-    # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough. Before
-    # that, the native Codex variants must become installable (up to ~32 minutes;
-    # 2.40.2's linux-arm64 variant took 15m42s, issue #4055 F9).
+    # Native Codex variants may take ~32 minutes to become installable (#4055: 15m42s),
+    # then post-publish verification up to 25 minutes (#2923: 2.35.1 took 874s).
     timeout-minutes: 75
     outputs:
       published: ${{ steps.publish.outputs.published }}

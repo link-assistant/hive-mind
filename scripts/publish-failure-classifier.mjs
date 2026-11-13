@@ -58,6 +58,23 @@ export function detectPublishFailure(output) {
 // "Failed to publish after N attempts" message.
 export const NON_RETRYABLE_PATTERNS = ['npm error 404', 'npm error 401', 'npm error 403', 'e404', 'e401', 'e403', 'access token expired', 'eneedauth', 'you must be logged in', 'unable to authenticate'];
 
+// The registry refuses the tarball because it is too large (issue #4050). npm
+// answers the same bytes the same way every time, so a retry only spends
+// another ~90 s uploading 250 MB before failing identically: runs 42805396999
+// (2.40.0) and 43242624306 (2.40.1) each failed three times with
+// `E413: 413 Payload Too Large - PUT https://registry.npmjs.org/...`.
+export const PAYLOAD_TOO_LARGE_PATTERNS = ['e413', '413 payload too large', 'payload too large'];
+
+/**
+ * Whether the registry rejected the tarball because of its size.
+ * @param {string} output - Combined stdout and stderr (and/or error message).
+ * @returns {boolean}
+ */
+export function isPayloadTooLarge(output) {
+  const lowerOutput = String(output || '').toLowerCase();
+  return PAYLOAD_TOO_LARGE_PATTERNS.some(pattern => lowerOutput.includes(pattern));
+}
+
 /**
  * Determine whether a detected failure is caused by authentication / registry
  * configuration (and therefore should not be retried).
@@ -66,7 +83,7 @@ export const NON_RETRYABLE_PATTERNS = ['npm error 404', 'npm error 401', 'npm er
  */
 export function isNonRetryableFailure(output) {
   const lowerOutput = String(output || '').toLowerCase();
-  return NON_RETRYABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern));
+  return NON_RETRYABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern)) || isPayloadTooLarge(lowerOutput);
 }
 
 // npm's two wordings for "this exact version is already on the registry".
@@ -145,4 +162,32 @@ export function buildAuthFailureGuidance(packageName) {
     'See: https://docs.npmjs.com/trusted-publishers',
     '',
   ].join('\n');
+}
+
+/**
+ * Build an actionable explanation for an npm `E413 Payload Too Large` refusal.
+ *
+ * npm does not document the limit. It accepted @openai/codex@0.164.0-linux-x64
+ * (165,142,849 bytes) and refused @link-assistant/hive-mind@2.40.1
+ * (249,862,346 bytes), so `scripts/check-npm-tarball-size.mjs` keeps every
+ * tarball this repository publishes below a 157 MiB budget.
+ *
+ * @param {string} packageName - The package that failed to publish.
+ * @returns {string}
+ */
+export function buildPayloadTooLargeGuidance(packageName) {
+  return ['', '=== NPM PUBLISH REJECTED: TARBALL TOO LARGE (E413) ===', '', `The registry refused ${packageName} with "413 Payload Too Large". The same`, 'tarball is refused the same way on every attempt, so it was not retried.', '', 'Find what grew:', '  npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin', '', 'SOLUTION: move large platform-specific payloads (native binaries) into', 'per-platform packages that the main package lists as optionalDependencies,', 'the way @openai/codex publishes its native builds (src/native-codex/PACKAGES.md).', 'Each tarball must stay below the budget in scripts/check-npm-tarball-size.mjs.', ''].join('\n');
+}
+
+/**
+ * Pick the guidance that explains a non-retryable failure.
+ * @param {string} output - Combined stdout and stderr (and/or error message).
+ * @param {string} packageName - The package that failed to publish.
+ * @returns {{title:string, guidance:string}}
+ */
+export function describeNonRetryableFailure(output, packageName) {
+  if (isPayloadTooLarge(output)) {
+    return { title: 'npm publish rejected: tarball too large (E413)', guidance: buildPayloadTooLargeGuidance(packageName) };
+  }
+  return { title: 'npm publish rejected: authentication or registry configuration', guidance: buildAuthFailureGuidance(packageName) };
 }

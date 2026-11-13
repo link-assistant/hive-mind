@@ -392,26 +392,107 @@ class NativeArtifactAssembly(unittest.TestCase):
             BUILD.assemble(self.artifacts, self.output)
         self.assertEqual((self.output / "kept").read_text(), "existing generation\n")
 
-    def test_actual_npm_file_allowlist_retains_both_platforms(self):
+    def pack(self, directory, *extra):
+        env = {**os.environ, "NODE_OPTIONS": "--max-old-space-size=128"}
+        out = Path(tempfile.mkdtemp(prefix="pack-", dir=self.root))
+        packed = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(out), *extra],
+                                cwd=directory, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return out / json.loads(packed.stdout)[0]["filename"]
+
+    def test_actual_npm_file_allowlist_ships_recipe_and_pins_variants(self):
+        """Issue #4050: the executables left the 249,862,346-byte main tarball."""
         package = self.root / "package"
         package.mkdir()
         shutil.copyfile(ROOT / "package.json", package / "package.json")
         (package / ".gitignore").write_text("src/native-codex/runtime/\n")
         destination = package / "src/native-codex/runtime"
         destination.parent.mkdir(parents=True)
+        (destination.parent / "recipe.json").write_text(json.dumps(self.recipe))
         BUILD.assemble(self.artifacts, destination)
-        env = {**os.environ, "NODE_OPTIONS": "--max-old-space-size=128"}
-        packed = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(self.root)],
-                                cwd=package, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        archive = self.root / json.loads(packed.stdout)[0]["filename"]
-        BUILD.verify_package(archive)
-        shutil.rmtree(destination / "linux-arm64")
-        packed = subprocess.run(["npm", "pack", "--ignore-scripts", "--json", "--pack-destination", str(self.root)],
-                                cwd=package, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        archive = self.root / json.loads(packed.stdout)[0]["filename"]
-        with self.assertRaisesRegex(ValueError, "allowlist omitted"):
+        archive = self.pack(package)
+        BUILD.verify_package(archive, wired=False)
+        with self.assertRaisesRegex(ValueError, "pin both"):
             BUILD.verify_package(archive)
+        manifest = json.loads((package / "package.json").read_text())
+        name, version = manifest["name"], manifest["version"]
+        manifest["optionalDependencies"] = {
+            name + "-native-codex-" + platform: "npm:" + name + "@" + version + "-native-codex-" + platform
+            for platform in self.recipe["targets"]}
+        (package / "package.json").write_text(json.dumps(manifest))
+        BUILD.verify_package(self.pack(package))
+        with self.assertRaisesRegex(ValueError, "already pins"):
+            BUILD.verify_package(self.pack(package), wired=False)
+        del manifest["optionalDependencies"][name + "-native-codex-linux-arm64"]
+        (package / "package.json").write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "pin both"):
+            BUILD.verify_package(self.pack(package))
+        manifest["files"] = [entry for entry in manifest["files"] if not entry.startswith("!")]
+        (package / "package.json").write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "bundles native executables"):
+            BUILD.verify_package(self.pack(package))
 
+    def test_each_variant_package_carries_exactly_its_platform(self):
+        runtime = self.root / "assembled"
+        BUILD.assemble(self.artifacts, runtime)
+        variants = self.root / "variants"
+        subprocess.run(["node", str(ROOT / "scripts/native-codex-packages.mjs"), "pack", str(variants),
+                        "--runtime", str(runtime), "--no-verify"],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        main = json.loads((ROOT / "package.json").read_text())
+        packed = json.loads((variants / "variants.json").read_text())
+        self.assertEqual([entry["platform"] for entry in packed], list(self.recipe["targets"]))
+        for entry in packed:
+            BUILD.verify_variant(Path(entry["archive"]), entry["platform"], main["name"], main["version"])
+            other = "linux-arm64" if entry["platform"] == "linux-x64" else "linux-x64"
+            with self.assertRaisesRegex(ValueError, "outside its runtime|platform"):
+                BUILD.verify_variant(Path(entry["archive"]), other, main["name"], main["version"])
+            with self.assertRaisesRegex(ValueError, "manifest differs"):
+                BUILD.verify_variant(Path(entry["archive"]), entry["platform"], main["name"], "0.0.0")
+        # A variant that carries anything beyond its runtime is refused.
+        stage = self.root / "tampered"
+        shutil.copytree(runtime / "linux-x64", stage / "runtime/linux-x64")
+        manifest = {"name": main["name"], "version": main["version"] + "-native-codex-linux-x64",
+                    "os": ["linux"], "cpu": ["x64"], "files": ["runtime", "extra.js"]}
+        (stage / "package.json").write_text(json.dumps(manifest))
+        (stage / "extra.js").write_text("process.exit(1)\n")
+        with self.assertRaisesRegex(ValueError, "outside its runtime"):
+            BUILD.verify_variant(self.pack(stage), "linux-x64", main["name"], main["version"])
+        (stage / "extra.js").unlink()
+        manifest["files"] = ["runtime"]
+        manifest["scripts"] = {"postinstall": "node -e 0"}
+        (stage / "package.json").write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "manifest differs"):
+            BUILD.verify_variant(self.pack(stage), "linux-x64", main["name"], main["version"])
+
+    def test_variant_admits_an_executable_larger_than_the_other_file_limit(self):
+        """Issue #4050, job 131520166341: the real 351,203,584-byte linux-x64 codex was
+        refused because only names ending in "/codex" got the executable size limit."""
+        binary = self.x64 / "codex"
+        payload = binary.read_bytes() + bytes(BUILD.VARIANT_FILE_LIMIT + 1 - binary.stat().st_size)
+        binary.write_bytes(payload)
+        manifest = json.loads((self.x64 / "manifest.json").read_text())
+        manifest["binary"] = {"sha256": BUILD.sha256(binary), "bytes": len(payload)}
+        (self.x64 / "manifest.json").unlink()
+        BUILD.write_json(self.x64 / "manifest.json", manifest)
+        runtime = self.root / "assembled-large"
+        BUILD.assemble(self.artifacts, runtime)
+        variants = self.root / "variants-large"
+        subprocess.run(["node", str(ROOT / "scripts/native-codex-packages.mjs"), "pack", str(variants),
+                        "--runtime", str(runtime), "--no-verify"],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        main = json.loads((ROOT / "package.json").read_text())
+        entry = next(item for item in json.loads((variants / "variants.json").read_text())
+                     if item["platform"] == "linux-x64")
+        BUILD.verify_variant(Path(entry["archive"]), "linux-x64", main["name"], main["version"])
+        # Other runtime files keep the small limit.
+        stage = self.root / "large-license"
+        shutil.copytree(runtime / "linux-x64", stage / "runtime/linux-x64")
+        (stage / "runtime/linux-x64/licenses/LICENSE").write_bytes(bytes(BUILD.VARIANT_FILE_LIMIT + 1))
+        (stage / "package.json").write_text(json.dumps({
+            "name": main["name"], "version": main["version"] + "-native-codex-linux-x64",
+            "os": ["linux"], "cpu": ["x64"], "files": ["runtime"]}))
+        with self.assertRaisesRegex(ValueError, "Unexpected native payload"):
+            BUILD.verify_variant(self.pack(stage), "linux-x64", main["name"], main["version"])
 
 if __name__ == "__main__":
     unittest.main()

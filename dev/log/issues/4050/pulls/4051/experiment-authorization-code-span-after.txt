@@ -1,0 +1,18 @@
+0 line(s) changed
+library kept   "Authorization: token <value>" -> "Authorization: token <value>"
+adapter kept   "Authorization: token <value>" -> "Authorization: token <value>"
+library MASKED "`Authorization: token <value>`" -> "`Authorization: token [REDACTED]"
+adapter kept   "`Authorization: token <value>`" -> "`Authorization: token <value>`"
+library kept   "\"Authorization: token <value>\"" -> "\"Authorization: token <value>\""
+adapter kept   "\"Authorization: token <value>\"" -> "\"Authorization: token <value>\""
+library kept   "'Authorization: Bearer <token>'" -> "'Authorization: Bearer <token>'"
+adapter kept   "'Authorization: Bearer <token>'" -> "'Authorization: Bearer <token>'"
+library MASKED "`Authorization: Bearer <token>` header" -> "`Authorization: Bearer [REDACTED] header"
+adapter kept   "`Authorization: Bearer <token>` header" -> "`Authorization: Bearer <token>` header"
+library MASKED "`Authorization: Bearer $TOKEN`" -> "`Authorization: Bearer [REDACTED]"
+adapter kept   "`Authorization: Bearer $TOKEN`" -> "`Authorization: Bearer $TOKEN`"
+library MASKED "`Authorization: Bearer ${TOKEN}`" -> "`Authorization: Bearer [REDACTED]"
+adapter kept   "`Authorization: Bearer ${TOKEN}`" -> "`Authorization: Bearer ${TOKEN}`"
+library MASKED "`Authorization: token <synthetic ghp_ token>`" -> "`Authorization: token [REDACTED]"
+adapter MASKED "`Authorization: token <synthetic ghp_ token>`" -> "`Authorization: token ghp…89`"
+isPlaceholderToken("<value>") = false ; isPlaceholderToken("<value>`") = false

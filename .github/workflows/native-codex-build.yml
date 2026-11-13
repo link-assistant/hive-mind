@@ -135,7 +135,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   assemble-package:
-    name: Verify both native platforms in the actual npm artifact
+    name: Verify both native platforms in the actual npm artifacts
     needs: [build]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -154,6 +154,8 @@ jobs:
           path: ${{ runner.temp }}/native-codex-downloads
       - name: Assemble only fully verified native platform outputs
         run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"
+      # Issue #4050: each platform is its own variant package; the main tarball
+      # carries the recipe only and must fit the npm publish budget.
       - name: Verify the actual npm package contents and every native byte
         run: python3 experiments/issue-3785/probe_native_codex_package.py "$RUNNER_TEMP/native-codex-npm-package"
       - name: Preserve actual package and verification evidence
@@ -189,11 +191,16 @@ jobs:
           name: native-codex-npm-package
           path: ${{ runner.temp }}/native-codex-npm-package
       - name: Install the actual package and exercise its native admission
+        env:
+          PLATFORM: ${{ matrix.platform }}
         # The archive is built and byte-verified in this same run. Installing
         # that fresh artifact is the test; it cannot be a committed dependency.
+        # The variant is installed at the alias a release resolves from the registry.
         run: | # zizmor: ignore[adhoc-packages]
-          archive=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0].filename' "$RUNNER_TEMP/native-codex-npm-package/pack.json")
-          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$RUNNER_TEMP/native-codex-npm-package/$archive" @openai/codex@0.164.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
+          package="$RUNNER_TEMP/native-codex-npm-package"
+          archive=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0].filename' "$package/pack.json")
+          variant=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).find(entry => entry.platform === process.argv[2]).filename' "$package/variants/variants.json" "$PLATFORM")
+          npm install --prefix "$RUNNER_TEMP/codex-runtime-install" --ignore-scripts --omit=optional --no-audit --no-fund "$package/$archive" "@link-assistant/hive-mind-native-codex-$PLATFORM@file:$package/variants/$variant" @openai/codex@0.164.0 > "$RUNNER_TEMP/native-installed-package.log" 2>&1 &
           wait "$!"
           node --max-old-space-size=256 experiments/issue-3785/probe-packaged-native-codex.mjs "$RUNNER_TEMP/codex-runtime-install/node_modules/@link-assistant/hive-mind" "$RUNNER_TEMP/native-installed-generation" "$RUNNER_TEMP/codex-runtime-install/node_modules/.bin/codex" > "$RUNNER_TEMP/native-installed-controls.log" 2>&1
       - name: Preserve installed-package diagnostics

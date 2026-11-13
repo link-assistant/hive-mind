@@ -456,6 +456,7 @@ release:
 - **优先使用 trusted publishing。** 会过期的凭据就是一次等着日历日期到来的发布中断。npm（`id-token: write` + `--provenance`）和 Docker Hub（`DOCKERHUB_OIDC_CONNECTIONID`，不写 `password:`）都支持 OIDC。动手之前先检查 `ACTIONS_ID_TOKEN_REQUEST_URL`——只有在授予了 `id-token: write` 时 runner 才会注入它，这样配置只做了一半时，失败信息说的是权限，而不是 token 请求。
 - **匿名地、单独地验证发布结果。** 永远不要让发布依赖于推送的成败（一个失败的镜像不该抹掉一个好的发布），但事后一定要在不带任何凭据的情况下检查：你发布的东西能不能被拉取。带认证的检查测量的是发布者的视角；读者既拿不到那次登录，也得不到善意的假设。
 - **报告 `unknown`，而不是猜测。** 超时或返回 HTTP 429 的 registry 并没有说凭据坏了，而一次什么都没能验证的运行也不是通过。要说清楚发生的是哪一种："0 项已验证，3 项未知"是可以行动的，"没有失败"不是。
+- **上传之前先测量 tarball。** npm 以 `E413 Payload Too Large` 拒绝了 `@link-assistant/hive-mind` 2.40.0 和 2.40.1（2.40.1 的 tarball 为 249,862,346 字节），而此时所有构建都已通过；这里已知被接受的最大 tarball 是 165,142,849 字节。对实际归档设置低于该值的门禁（`npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin`），并列出其中最大的文件。E413 是确定性的，所以第一次就失败，而不是重试。把平台相关的二进制文件作为按平台拆分、由 `optionalDependencies` 固定版本的包发布，就像 `@openai/codex` 那样（#4050，`src/native-codex/PACKAGES.md`）。
 
 ### 17. 区分坏掉的 pipeline 和变化了的世界
 

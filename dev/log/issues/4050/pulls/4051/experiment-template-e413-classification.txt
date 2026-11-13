@@ -1,0 +1,5 @@
+# node experiments/issue-4050/template-e413-classification.mjs <classifier> (2026-11-12T18:54:04Z)
+js template main:
+{"exported":["NON_RETRYABLE_PATTERNS","buildAuthFailureGuidance","isNonRetryableFailure"],"nonRetryable":{"changesetLine":false,"npmError":false}}
+hive-mind PR #4051:
+{"exported":["FAILURE_PATTERNS","NON_RETRYABLE_PATTERNS","PAYLOAD_TOO_LARGE_PATTERNS","VERSION_CONFLICT_PATTERNS","buildAuthFailureGuidance","buildPayloadTooLargeGuidance","describeNonRetryableFailure","detectPublishFailure","isNonRetryableFailure","isPayloadTooLarge","isVersionConflict"],"nonRetryable":{"changesetLine":true,"npmError":true}}

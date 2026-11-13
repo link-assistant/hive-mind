@@ -17,12 +17,16 @@ retention; they are not a production runtime download service.
 The assembly job checks both platform manifests, source fingerprints, executable
 identities and every license before copying any output. It restores the known
 CLI executable modes lost by artifact downloads, then checks the assembled
-payload again. A real `npm pack` verifies both complete payloads survive the
-published package's file allowlist with identical bytes. Synthetic packaging
-unit fixtures never execute and do not establish native CLI behavior.
+payload again. Since issue #4050 each platform payload is its own npm variant
+package (`@link-assistant/hive-mind@<version>-native-codex-linux-<arch>`), and the
+main tarball carries only this recipe; see `PACKAGES.md`. A real `npm pack`
+verifies each variant carries exactly its platform's bytes, the main archive
+carries none, and the published main archive pins both variants. Synthetic
+packaging unit fixtures never execute and do not establish native CLI behavior.
 
-The installed npm module checks the current machine's complete bundled identity
-before copying into a fresh private generation. It publishes only after the
+The installed npm module resolves the current machine's variant package, which
+must pin this package's exact version, and checks its complete identity before
+copying into a fresh private generation. It publishes only after the
 copied bytes verify, preserves collisions and admits existing generations only
 when they match this package's manifest. Dependent CI jobs install the actual
 npm archive on both native machines and run authentication/model request controls
@@ -32,8 +36,9 @@ identities in `evidence/ci-f7b1f506d-native-release.txt`.
 
 The normal and instant npm release jobs, and branch-package image checks, now
 require the same successful native build and assemble its two platform artifacts.
-The publish command verifies a fresh actual npm archive after any version commit
-or pull, refusing missing platforms and stale recipe/source identities. This
+The publish command packs, byte-verifies and publishes both variants, then
+verifies a fresh actual npm archive after any version commit or pull, refusing
+bundled executables, missing variant pins and stale recipe/source identities. This
 release wiring still requires complete final image verification. Checked command
 activation is implemented in both image definitions; final image verification
 and removal of the launcher's credential copy remain required

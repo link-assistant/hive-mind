@@ -9,7 +9,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     await installNativeCodexCommand();
     console.log('Installed and verified the pinned native Codex adapter.');
   } catch {
-    console.error('Native Codex installation failed. Restore both pinned platform payloads and the upstream package-manager bin link.');
+    // Issue #4050: the executable is the optional dependency alias, not part of this package.
+    const platform = `${process.platform}-${process.arch}`;
+    console.error(`Native Codex installation failed. Install the matching optional dependency @link-assistant/hive-mind-native-codex-${platform} (do not omit optional dependencies) and restore the upstream package-manager bin link. Set HIVE_MIND_NATIVE_CODEX_DEBUG=1 to see which admission phase refused.`);
     process.exitCode = 1;
   }
 }

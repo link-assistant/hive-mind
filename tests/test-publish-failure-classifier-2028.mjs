@@ -14,7 +14,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { detectPublishFailure, isNonRetryableFailure, buildAuthFailureGuidance, FAILURE_PATTERNS, NON_RETRYABLE_PATTERNS } from '../scripts/publish-failure-classifier.mjs';
+import { detectPublishFailure, isNonRetryableFailure, isPayloadTooLarge, describeNonRetryableFailure, buildPayloadTooLargeGuidance, buildAuthFailureGuidance, FAILURE_PATTERNS, NON_RETRYABLE_PATTERNS } from '../scripts/publish-failure-classifier.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -79,6 +79,19 @@ await test('auth guidance mentions the package and the E404 bootstrap fix', asyn
   const guidance = buildAuthFailureGuidance('@link-assistant/hive-mind');
   assert.ok(guidance.includes('@link-assistant/hive-mind'));
   assert.match(guidance, /E404|NPM_TOKEN|trusted publish/i);
+});
+
+await test('classifies npm E413 Payload Too Large as non-retryable (issue #4050)', async () => {
+  const output = 'Some packages failed to publish:\n└ E413: 413 Payload Too Large - PUT https://registry.npmjs.org/@link-assistant%2fhive-mind';
+  assert.ok(detectPublishFailure(output));
+  assert.equal(isPayloadTooLarge(output), true);
+  assert.equal(isNonRetryableFailure(output), true);
+  assert.equal(isPayloadTooLarge('npm error 401 Unauthorized'), false);
+  const described = describeNonRetryableFailure(output, '@link-assistant/hive-mind');
+  assert.match(described.title, /E413/);
+  assert.match(described.guidance, /optionalDependencies/);
+  assert.match(describeNonRetryableFailure('ENEEDAUTH', 'x').guidance, /trusted publish/i);
+  assert.match(buildPayloadTooLargeGuidance('@link-assistant/hive-mind'), /@link-assistant\/hive-mind/);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

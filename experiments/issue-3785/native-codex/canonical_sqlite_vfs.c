@@ -473,6 +473,10 @@ int hive_canonical_sqlite_backup(const char *path, char *relative, size_t capaci
     const char *ending;
     if (filename(file->name, &actual, &ending) && actual == database) {
       unlock_gate();
+      /* errno names the holder for the caller's bounded wait and diagnostics:
+       * EBUSY is a handle of this process (SQLx closes connections on a
+       * worker thread, after the failed opener already returned, #4055). */
+      errno = EBUSY;
       return SQLITE_BUSY;
     }
   }
@@ -483,6 +487,7 @@ int hive_canonical_sqlite_backup(const char *path, char *relative, size_t capaci
     if (flock(database_leases[database], LOCK_SH | LOCK_NB) || !unavailable) refuse();
     check_authority();
     unlock_gate();
+    errno = EWOULDBLOCK; /* Another native process holds the database lease. */
     return SQLITE_BUSY;
   }
   check_authority();

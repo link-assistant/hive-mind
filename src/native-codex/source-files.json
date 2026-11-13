@@ -165,14 +165,14 @@
     "sha256": "5e72e09a12f1a9dea1a89d27e5f4025f96b0e4989a92c8f07680a1329b4f6d8c"
   },
   "codex-rs/state/src/sqlite/canonical_sqlite_vfs.c": {
-    "bytes": 25212,
+    "bytes": 25542,
     "mode": 420,
-    "sha256": "253903ddc980c620b42acdce3b30756a13e311d37dbbef83fb3d90dbf5bbdcd1"
+    "sha256": "601f7ecdefd13f99ad1080a2ec8d09f819a9fbc882c8f53efe4af816f68790e5"
   },
   "codex-rs/state/src/sqlite/canonical_sqlite_vfs.rs": {
-    "bytes": 4277,
+    "bytes": 6245,
     "mode": 420,
-    "sha256": "8f859355946d01e54211d90441f4a780ce64eac146744f9caba52ef3a0a664c4"
+    "sha256": "b87bc042c493b64af886d0ad7fd59ecd9ada637f9e20a4df61a65ec1099e35fe"
   },
   "codex-rs/thread-store/src/local/rollout_migration.rs": {
     "bytes": 55025,

@@ -495,8 +495,10 @@ jobs:
     if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && needs.docker-pr-check.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
     # Post-publish verification may wait up to 25 minutes for npm to expose the
-    # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough.
-    timeout-minutes: 45
+    # version (issue #2923: 2.35.1 took 874s), so 30 minutes is not enough. Before
+    # that, the native Codex variants must become installable (up to ~32 minutes;
+    # 2.40.2's linux-arm64 variant took 15m42s, issue #4055 F9).
+    timeout-minutes: 75
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -885,8 +887,8 @@ jobs:
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
     if: ${{ !cancelled() && needs.native-codex-build.result == 'success' && needs.docker-pr-check.result == 'success' && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'release' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
-    # Same 25-minute post-publish verification window as the release job (issue #2923).
-    timeout-minutes: 45
+    # Same variant and post-publish verification windows as the release job (issues #2923, #4055).
+    timeout-minutes: 75
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}

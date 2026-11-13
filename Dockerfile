@@ -374,7 +374,9 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
 
 # Activate the adapters from the installed Hive Mind artifact after global installs.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
-RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
+# Debug output prints only on a refusal: the admission phase and error code, e.g.
+# MODULE_NOT_FOUND when Bun skipped a variant npm had not finished processing (#4055).
+RUN --network=none HIVE_MIND_NATIVE_CODEX_DEBUG=1 node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

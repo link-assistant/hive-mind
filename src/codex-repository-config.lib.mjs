@@ -157,4 +157,48 @@ export async function applyRepositoryCodexConfig({ codexHome, projectDir, env = 
   return { addedServers, shadowedServers, disabledSystemSkills, repositorySkillConfigs: declaration.skillConfigs.length, plugins: declaration.plugins };
 }
 
-export default { CODEX_SYSTEM_SKILL_NAMES, applyRepositoryCodexConfig, isCodexSystemSkillsEnabled, readRepositoryCodexConfig };
+/**
+ * Switch off skills the task must not see, in the task's own CODEX_HOME only
+ * (issue #4057).
+ *
+ * Codex also discovers user-level (`$HOME/.agents/skills`) and admin-level
+ * (`/etc/codex/skills`) skills, which a per-task CODEX_HOME does not cover.
+ * Failing every run because the host has such a skill installed broke
+ * repositories whose own skills were fine; leaving the skill enabled would
+ * leak host instructions into the task. A `[[skills.config]] enabled = false`
+ * entry for each refused file, keyed by both the path Codex rendered and its
+ * canonical target, removes it from the model-visible catalog. The caller
+ * re-probes the catalog afterwards and still fails closed if anything remains.
+ *
+ * Returns the skills that received a new or changed entry; an empty result
+ * means nothing more can be done from configuration.
+ */
+export async function disableScopedCodexSkills({ codexHome, skills = [] } = {}) {
+  if (!codexHome || skills.length === 0) return [];
+  const configPath = path.join(codexHome, 'config.toml');
+  let config = {};
+  try {
+    config = parseToml(await fs.readFile(configPath, 'utf8'), { integersAsBigInt: 'asNeeded' });
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const entries = isPlainObject(config.skills) && Array.isArray(config.skills.config) ? [...config.skills.config] : [];
+  const disabled = [];
+  for (const skill of skills) {
+    let changed = false;
+    for (const target of new Set([skill.path, skill.canonical].filter(Boolean))) {
+      const existing = entries.find(entry => entry?.path === target);
+      if (existing?.enabled === false) continue;
+      if (existing) existing.enabled = false;
+      else entries.push({ path: target, enabled: false });
+      changed = true;
+    }
+    if (changed) disabled.push(skill);
+  }
+  if (disabled.length === 0) return [];
+  config.skills = { ...(isPlainObject(config.skills) ? config.skills : {}), config: entries };
+  await fs.writeFile(configPath, stringifyToml(config));
+  return disabled;
+}
+
+export default { CODEX_SYSTEM_SKILL_NAMES, applyRepositoryCodexConfig, disableScopedCodexSkills, isCodexSystemSkillsEnabled, readRepositoryCodexConfig };

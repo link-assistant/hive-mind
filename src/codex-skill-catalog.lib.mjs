@@ -109,6 +109,18 @@ const isWithin = (candidate, root) => {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 };
 
+/**
+ * Where a refused skill came from (issue #4057). `checkout` is the task's own
+ * repository, `task-codex-home` the disposable per-task CODEX_HOME, and `host`
+ * everything else: the operator's `$HOME/.agents/skills`, `/etc/codex/skills`,
+ * or a symlink leaving the checkout.
+ */
+export const skillOrigin = ({ canonical, canonicalProjectDir, canonicalCodexHome }) => {
+  if (canonicalProjectDir && isWithin(canonical, canonicalProjectDir)) return 'checkout';
+  if (canonicalCodexHome && isWithin(canonical, canonicalCodexHome)) return 'task-codex-home';
+  return 'host';
+};
+
 const canonicalPath = async target => {
   try {
     return await fs.realpath(target);
@@ -146,6 +158,10 @@ const pluginProvenance = async ({ entry, canonical, codexHome, canonicalCodexHom
 export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, projectDir, selectedPlugins = [], requiredSkills = [] }) => {
   const violations = [...(catalog?.errors || [])];
   const allowed = [];
+  // Issue #4057: entries that are refused but have a readable file are
+  // returned so the caller can switch them off in the task's own CODEX_HOME
+  // instead of failing every run on the host's user-level skills.
+  const rejected = [];
   const seen = new Map();
   const canonicalCodexHome = await canonicalPath(codexHome);
   const candidateSystemRoot = await canonicalPath(path.join(codexHome, 'skills', '.system'));
@@ -182,7 +198,9 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     }
 
     if (!provenance) {
-      violations.push(`Model-visible skill '${entry.name}' is not allowlisted for this run or resolves outside trusted repository-scoped paths: ${canonical}.`);
+      const origin = skillOrigin({ canonical, canonicalProjectDir, canonicalCodexHome });
+      violations.push(`Model-visible skill '${entry.name}' is not allowlisted for this run or resolves outside trusted repository-scoped paths: ${canonical} (origin: ${origin}).`);
+      rejected.push({ name: entry.name, path: entry.path, canonical, origin });
       continue;
     }
     allowed.push({ name: entry.name, providerId: provenance.providerId, version: provenance.version, path: canonical });
@@ -196,7 +214,8 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
   const allowedNames = new Set(allowed.map(entry => entry.name));
   const missing = requiredSkills.filter(skill => !allowedNames.has(skill.toLowerCase()));
   const fingerprint = createHash('sha256').update(JSON.stringify(allowed)).digest('hex');
-  return { allowed, fingerprint, missing, violations };
+  const trustedRoots = [...projectSkillsRoots, ...(systemRoot ? [systemRoot] : [])];
+  return { allowed, fingerprint, missing, violations, rejected, trustedRoots };
 };
 
 export default { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog };

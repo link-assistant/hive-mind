@@ -13,3 +13,5 @@
 **Visibility.** Each disagreement now logs which checks and runs disagree, together with the githubstatus.com incidents that overlap the wait. After `HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS` identical checks (default 15), one `CI wait is stuck` comment is posted on the PR.
 
 **Stopping.** A stop request now parks the auto-merge, watch and auto-continue loops, so they no longer start new checks while the interrupt handler uploads the log.
+
+The publication sanitizer also keeps an `` `Authorization:` `` header named in prose with no value (the closing backtick was read as the value and masked, which broke the 2.40.2 release note and `tests/issue-3445-release-notes-not-masked.test.mjs` on main; upstream sensitive-data-sanitizer#177).

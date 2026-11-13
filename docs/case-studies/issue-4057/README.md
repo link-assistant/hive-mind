@@ -30,7 +30,8 @@ There were two parts to the cause:
 1. **The host ran solve v2.39.14.** That version predates the #3785 fix, which admits repository
    skills by default. The fix was merged on 2026-11-09 and versioned as 2.40.0 and then 2.40.1, but
    **neither version reached npm**: the release job failed three times in a row (E413 tarball size,
-   then a native arm64 probe). npm `latest` is still 2.39.14.
+   then a native arm64 probe). npm `latest` stayed at 2.39.14 until 2.40.2 was published at
+   2026-11-13 22:14, after the failing run.
 2. **Main still had two gaps.**
    - A skill Codex discovers outside the checkout made every run fail closed, with no way to recover
      except editing the host. Examples: `$HOME/.agents/skills`, `/etc/codex/skills`, or a symlink
@@ -57,10 +58,11 @@ PR #4058 closes both gaps and makes the default fully automatic:
 | 2026-11-10 11:11 | Release run 42805396999 versions 2.40.0; `changeset publish` fails with `E413 Payload Too Large` (#4050).                                                                                                                      |
 | 2026-11-12 14:57 | Release run 43242624306 versions 2.40.1; publish fails with E413 again (#4050).                                                                                                                                                |
 | 2026-11-13 00:10 | #4050's fix (PR #4051) merges; release run 43334992149 fails in `Verified native Codex package / Build and exercise linux-arm64` (a native SQLite probe), so nothing is published. Tracked with the other CI defects in #4055. |
-| 2026-11-13 19:36 | Release run 43493862530 starts on `d1d18151d` (still building the native packages at the time of writing).                                                                                                                     |
+| 2026-11-13 19:36 | Release run 43493862530 starts on `d1d18151d`.                                                                                                                                                                                 |
 | 2026-11-13 19:57 | The failing run starts on **solve v2.39.14**. The idle updater moves codex 0.166.0 → 0.169.0.                                                                                                                                  |
 | 2026-11-13 19:59 | Preflight: "Model-visible skills (15)": 4 system skills (allowed) + 10 `.agents/skills` + 1 `.codex/skills`. 11 violations; Codex is not started.                                                                              |
 | 2026-11-13 20:06 | Issue #4057 opened.                                                                                                                                                                                                            |
+| 2026-11-13 22:14 | Release run 43493862530 publishes **2.40.2** to npm, the first published version with the #3785 repository-skill fix (RC1).                                                                                                    |
 | 2026-11-13       | PR #4058: host skills are disabled per task, `.agents/skills` → `.claude/skills` links are admitted, verbose provenance logs are added, and upstream openai/codex#61373 is filed.                                              |
 
 ## Requirements
@@ -109,16 +111,18 @@ current   allowed= a-one,a-two,c-one | violations= 0
 ```
 
 `2f6a80e38` (#3785) already fixed this on main, but releases 2.40.0 and 2.40.1 failed to publish
-(#4050: E413; then a native arm64 probe failure in run 43334992149, now tracked by #4055):
+(#4050: E413; then a native arm64 probe failure in run 43334992149, now tracked by #4055). At the
+time of the failing run:
 
 ```text
 $ npm view @link-assistant/hive-mind dist-tags
 { "latest": "2.39.14" }
 ```
 
-So "planned in #3786 but not fixed" is accurate from the user's side: the code was merged, but the
-user could not get it. This PR adds a changeset, so the next successful release carries both #3785
-and #4057.
+So "planned in #3786 but not fixed" was accurate from the user's side: the code was merged, but the
+user could not get it. Release run 43493862530 then published 2.40.2 (2026-11-13 22:14 UTC), the
+first npm version with #3785. Hosts that upgrade to 2.40.2 get RC1 fixed. RC2 and RC3 need the release
+that carries this PR's changeset.
 
 ### RC2. Host skills made every run fail closed (main gap)
 
@@ -240,8 +244,7 @@ It links the related reports openai/codex#60419 and #14316. No private data is i
 
 ## Remaining limits
 
-- **Publication.** Users get this fix only after a release publishes. The release pipeline failures
-  (#4050, now #4055) are outside this issue. Release run 43493862530 on main was still running at the
-  time of writing.
+- **Publication.** The #3785 part (RC1) is on npm as 2.40.2. The RC2/RC3 fixes reach users with the
+  next release after this PR merges. Release pipeline defects (#4050, #4055) are outside this issue.
 - **Codex that ignores the setting.** If a future Codex stops honouring `[[skills.config]]` for some
   scope, the run still fails closed, by design. The error names each skill's origin.

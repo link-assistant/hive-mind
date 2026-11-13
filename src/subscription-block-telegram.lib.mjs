@@ -31,7 +31,7 @@ const stripCapturedLogPrefix = line => line.replace(CAPTURED_LOG_PREFIX, '');
  * marker line is indented, so the block ends at the first non-indented line.
  *
  * @param {string} logText
- * @returns {null|{tool: string|null, label: string|null, message: string|null, code: string|null, reason: string|null, guidance: string[], committed: boolean|null, resumeCommand: string|null}}
+ * @returns {null|{tool: string|null, label: string|null, message: string|null, code: string|null, reason: string|null, guidance: string[], committed: boolean|null, resumeCommand: string|null, retried: string|null, statusPage: string|null}}
  */
 export function parseSubscriptionBlockFromLog(logText, { expectedTool = null } = {}) {
   if (!logText || typeof logText !== 'string') return null;
@@ -66,6 +66,8 @@ export function parseSubscriptionBlockFromLog(logText, { expectedTool = null } =
     guidance: [],
     committed: null,
     resumeCommand: null,
+    retried: null, // Issue #4053: "N time(s) over X; …" when the error was re-checked before stopping
+    statusPage: null,
   };
 
   if (expectedTool && String(parsed.tool || '').toLowerCase() !== String(expectedTool).toLowerCase()) return null;
@@ -78,6 +80,8 @@ export function parseSubscriptionBlockFromLog(logText, { expectedTool = null } =
     if (line.startsWith('Provider said:')) parsed.message = stripPrefix(line, 'Provider said:');
     else if (line.startsWith('Error code:')) parsed.code = stripPrefix(line, 'Error code:');
     else if (line.startsWith('HTTP status:')) parsed.code = `HTTP ${stripPrefix(line, 'HTTP status:')}`;
+    else if (line.startsWith('Retried:')) parsed.retried = stripPrefix(line, 'Retried:');
+    else if (line.startsWith('Status page:')) parsed.statusPage = stripPrefix(line, 'Status page:');
     else if (line.startsWith('Why this stops the run:')) parsed.reason = stripPrefix(line, 'Why this stops the run:');
     else if (line.startsWith('•')) parsed.guidance.push(line.slice(1).trim());
     else if (line.startsWith('💾')) parsed.committed = true;
@@ -104,7 +108,9 @@ export function formatSubscriptionBlockedSection(parsed, { locale = null } = {})
   if (parsed.message) body.push(`${lt('subscription_blocked_provider', {}, options)}: ${truncate(parsed.message)}`);
   if (parsed.code) body.push(`${lt('subscription_blocked_code', {}, options)}: ${parsed.code}`);
   if (parsed.reason) body.push(`${lt('subscription_blocked_reason', {}, options)}: ${parsed.reason}`);
-  body.push(lt('subscription_blocked_note', {}, options));
+  if (parsed.retried) body.push(`${lt('subscription_blocked_retried', {}, options)}: ${truncate(parsed.retried, 200)}`);
+  if (parsed.statusPage) body.push(`${lt('subscription_blocked_status', {}, options)}: ${truncate(parsed.statusPage, 300)}`);
+  body.push(lt(parsed.retried ? 'subscription_blocked_rechecked' : 'subscription_blocked_note', {}, options));
   if (parsed.guidance.length) {
     body.push('');
     body.push(`${lt('subscription_blocked_steps', {}, options)}:`);

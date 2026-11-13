@@ -291,6 +291,10 @@ en
     resource
       limit
         exceeded "Resource limit exceeded"
+    retry
+      reason
+        network "network error"
+        timeout "request timed out"
     solve
       queue
         status "Solve Queue Status"
@@ -336,6 +340,9 @@ en
         steps "What to do"
         preserved "Uncommitted work was auto-committed before stopping."
         resume "Resume after access is restored"
+        retried "Retried"
+        status "Status page"
+        rechecked "This is not a usage limit. The error was re-checked with retries before the run stopped; if the status page reports an incident, resume after it is resolved, otherwise re-login."
       detail
         ends
           label "ends {{time}}"
@@ -372,6 +379,8 @@ en
         chat "messages per chat, 1m"
         group "messages per group, 1m"
         other "other API requests, 1s"
+    temporarily
+      unavailable "{{provider}} limits are temporarily unavailable ({{reason}}). They will be retried on the next /limits call."
     trial
       ends
         label "Trial ends {{time}}"

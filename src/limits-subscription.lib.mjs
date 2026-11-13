@@ -14,12 +14,14 @@ import { CACHE_TTL, claudeLimitsAuthAdmission, codexLimitsAuthAdmission, decodeJ
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { captureLimitsAuthentication, changedLimitsAuthentication, getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
 import { getSelectedRouterLimits } from './limits-router.lib.mjs';
+import { isTemporaryLimitsHttpStatus, limitsFetchErrorCause, temporaryLimitsFailure } from './limits-unavailable.lib.mjs';
 
 const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
 
 /**
  * Render the localized "Subscription ends …" / "Trial ends …" / "Subscription: …"
- * line for a tool. Returns '' when no displayable data is present.
+ * line for a tool. Returns '' when no displayable data is present; a bare
+ * "active" status is not displayable (issue #4053).
  */
 export function formatSubscriptionLines(subscription, options = {}) {
   if (!subscription) return '';
@@ -31,8 +33,20 @@ export function formatSubscriptionLines(subscription, options = {}) {
   let line = null;
   if (subscription.endsAt) line = buildLine(subscription.endsAt, formatSubscriptionEnds);
   else if (subscription.trialEndsAt) line = buildLine(subscription.trialEndsAt, formatTrialEnds);
-  else if (subscription.status) line = formatSubscriptionStatus(subscription.status, { locale });
+  else if (displayableSubscriptionStatus(subscription.status)) line = formatSubscriptionStatus(displayableSubscriptionStatus(subscription.status), { locale });
   return line ? `${line}\n` : '';
+}
+
+/**
+ * Issue #4053: a bare "active" status says nothing the plan title does not, and it
+ * can be stale (for example a cached profile next to a usage endpoint that is
+ * failing), so it read as a guarantee nobody had checked. Only an exact end
+ * date (or an explicitly non-active status, which is a warning) is shown.
+ */
+const UNINFORMATIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
+export function displayableSubscriptionStatus(status) {
+  const text = status === null || status === undefined ? '' : String(status).trim();
+  return text && !UNINFORMATIVE_SUBSCRIPTION_STATUSES.has(text.toLowerCase()) ? text : '';
 }
 
 function humanizePlanType(planType, provider) {
@@ -58,7 +72,7 @@ function formatSubscriptionDetail(subscription, options = {}) {
 
   if (subscription.endsAt) return buildDetail(subscription.endsAt, 'subscription_detail_ends_in', 'subscription_detail_ends');
   if (subscription.trialEndsAt) return buildDetail(subscription.trialEndsAt, 'subscription_detail_trial_ends_in', 'subscription_detail_trial_ends');
-  return subscription.status ? String(subscription.status).trim() : '';
+  return displayableSubscriptionStatus(subscription.status);
 }
 
 export function formatSubscriptionHeading(provider, subscription, options = {}) {
@@ -138,9 +152,11 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
       }
       await response.body?.cancel();
       if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
+      if (isTemporaryLimitsHttpStatus(response.status)) return { ...temporaryLimitsFailure('claude', { status: response.status, statusText: response.statusText }), error: `Claude profile is temporarily unavailable: HTTP ${response.status}` };
       return {
         success: false,
         error: `Failed to fetch Claude profile: HTTP ${response.status}`,
+        httpStatus: response.status,
       };
     }
 
@@ -154,6 +170,10 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     const currentPlan = account.has_claude_max === true ? 'max' : account.has_claude_pro === true ? 'pro' : account.has_claude_max === false && account.has_claude_pro === false ? 'free' : planType;
     if (verbose) {
       console.log('[VERBOSE] /limits Claude subscription: authenticated profile received.');
+      // Issue #4053: record which billing/expiry fields the profile carries (names only, never values)
+      // so a future subscription end date can be wired up as soon as Anthropic exposes one.
+      const fieldNames = Object.keys(organization).filter(name => /subscription|billing|trial|period|renew|expir|ends|seat|tier/i.test(name));
+      console.log(`[VERBOSE] /limits Claude subscription fields: ${fieldNames.sort().join(', ') || '(none)'}`);
     }
     return {
       success: true,
@@ -168,6 +188,7 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     };
   } catch (error) {
     if (verbose) console.error('[VERBOSE] /limits subscription error:', error.name);
+    if (error?.name !== 'SyntaxError') return { ...temporaryLimitsFailure('claude', { cause: limitsFetchErrorCause(error) }), error: 'Claude profile is temporarily unavailable (network error or timeout).' };
     return { success: false, error: 'Failed to get Claude subscription info. Check connectivity and the provider response format.' };
   }
 }

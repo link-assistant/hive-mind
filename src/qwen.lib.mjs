@@ -31,6 +31,7 @@ import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolve
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { isEdgeBlockedResponse } from './subscription-error.lib.mjs'; // Issue #4053
 import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -52,6 +53,7 @@ const getCommandResultOutput = result => `${result?.stdout?.toString() || ''}${r
 
 const isQwenAuthError = output => {
   const text = (output || '').toString().toLowerCase();
+  if (isEdgeBlockedResponse(text)) return false; // Issue #4053: a CDN challenge page is transient, not an auth failure
   return text.includes('401') || text.includes('unauthorized') || text.includes('authentication') || text.includes('auth') || text.includes('login') || text.includes('api key') || text.includes('oauth free tier');
 };
 

@@ -2,7 +2,7 @@
 
 import { retryLimits } from './config.lib.mjs';
 import { resolveDefaultFallbackModel, resolveModelId } from './models/index.mjs';
-import { detectSubscriptionError, isTransientAuthError } from './subscription-error.lib.mjs';
+import { detectSubscriptionError, isEdgeBlockedResponse, isTransientAuthError } from './subscription-error.lib.mjs';
 
 const normalizeMessage = value => {
   if (value === null || value === undefined) return '';
@@ -59,6 +59,13 @@ export const classifyRetryableError = value => {
   const subscriptionError = detectSubscriptionError(message);
   if (subscriptionError) {
     return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access unavailable' };
+  }
+
+  // Issue #4053: a CDN/WAF challenge page ("API Error: 403 Attention Required! |
+  // Cloudflare") is a property of the provider's edge, not of the account. It
+  // cleared within minutes in the reported run, so it takes the transient path.
+  if (isEdgeBlockedResponse(message)) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Provider edge/CDN block (HTTP 403 challenge page)' };
   }
 
   // Issue #2161: the counterpart — Claude Code's own wording marks this
@@ -288,6 +295,7 @@ export const formatRetryDuration = ms => {
 export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErrorRetryBudgetMs, now = () => Date.now() } = {}) => {
   let startedAt = null;
   let retriesGranted = 0;
+  let recoveries = 0;
   const elapsedMs = () => (startedAt === null ? 0 : Math.max(0, now() - startedAt));
   const remainingMs = () => (budgetMs > 0 ? Math.max(0, budgetMs - elapsedMs()) : Infinity);
   return {
@@ -297,9 +305,14 @@ export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErr
     get retriesGranted() {
       return retriesGranted;
     },
+    // Number of outages ended by provider progress; lets helpers sharing this budget reset themselves (#4053).
+    get recoveries() {
+      return recoveries;
+    },
     // Genuine provider progress ends the previous continuous outage (#3831).
     recordProgress() {
       const wasRetrying = startedAt !== null;
+      if (wasRetrying) recoveries += 1;
       startedAt = null;
       retriesGranted = 0;
       return wasRetrying;

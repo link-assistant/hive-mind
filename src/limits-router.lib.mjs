@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { isRouterEnabled, resolveRouterBaseUrl } from './router-isolation.lib.mjs';
 import { formatLocalizedResetTime } from './limits-i18n.lib.mjs';
+import { isTemporaryLimitsHttpStatus, limitsFetchErrorCause, temporaryLimitsFailure } from './limits-unavailable.lib.mjs';
 
 const cached = new Map();
 const pending = new Map();
@@ -40,6 +41,8 @@ export async function getSelectedRouterLimits(tool, { env = process.env, verbose
       if (verbose) console.log(`[VERBOSE] /limits authority=router provider=${provider} HTTP ${response.status}`);
       if (!response.ok) {
         await response.body?.cancel();
+        // Issue #4053: an overloaded/unreachable authority is temporary; the next /limits call asks again.
+        if (isTemporaryLimitsHttpStatus(response.status)) return { ...temporaryLimitsFailure(tool, { status: response.status }), source: 'router' };
         return unavailable(`usage API returned HTTP ${response.status}; check the backend version and client authorization.`);
       }
       const data = await response.json();
@@ -62,16 +65,20 @@ export async function getSelectedRouterLimits(tool, { env = process.env, verbose
           limitReached: limit.limit_reached ?? null,
         })),
       };
-    } catch {
+    } catch (error) {
       // Errors/bodies from an authority can contain credentials or identifiers.
+      if (error?.name !== 'SyntaxError') return { ...temporaryLimitsFailure(tool, { cause: limitsFetchErrorCause(error) }), source: 'router' };
       return unavailable('usage request failed; check connectivity and the backend contract.');
     }
   })();
   pending.set(key, request);
   try {
     const result = await request;
-    if (cached.size >= 32) cached.delete(cached.keys().next().value);
-    cached.set(key, { at: Date.now(), result });
+    // Issue #4053: a temporary failure is not remembered, so the next /limits call asks again.
+    if (result?.failureKind !== 'temporary') {
+      if (cached.size >= 32) cached.delete(cached.keys().next().value);
+      cached.set(key, { at: Date.now(), result });
+    }
     return result;
   } finally {
     pending.delete(key);

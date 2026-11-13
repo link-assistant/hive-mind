@@ -91,7 +91,9 @@ pull request's release publishes an image. No change.
 `detect-changes` warned `library/rust 1.99 -> 1.100.0 (minor)` for
 `Dockerfile.dind:34` and `Dockerfile.formal-ai:10`. The same pin also existed in
 `Dockerfile` and `coolify/Dockerfile`. All four now use
-`rust:1.100-slim-bookworm`.
+`rust:1.100-slim-bookworm`. PR #4054 (`3b45f173c`) made the same change on
+`main` while this pull request was open. After merging `main`, this pull
+request has no Dockerfile diff left; F4 is fixed on `main`.
 
 ### F5. Warning: Dependabot `docker-compose` entry matched nothing
 

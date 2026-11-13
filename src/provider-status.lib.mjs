@@ -99,7 +99,7 @@ export const fetchProviderStatus = async (tool, { fetchImpl = globalThis.fetch, 
 
 /** One line for logs and reports, e.g. "status.claude.com: Partial System Outage — Elevated errors on claude.ai (major, investigating)". */
 export const formatProviderStatusSummary = status => {
-  if (!status) return '';
+  if (!status || status.error === 'disabled') return '';
   const host = status.pageUrl ? status.pageUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '') : 'status page';
   if (!status.ok) return `${host}: unavailable (${status.error || 'unknown error'})`;
   if (!status.hasIssues) return `${host}: ${status.description || 'All Systems Operational'}`;

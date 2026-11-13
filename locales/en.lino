@@ -340,6 +340,9 @@ en
         steps "What to do"
         preserved "Uncommitted work was auto-committed before stopping."
         resume "Resume after access is restored"
+        retried "Retried"
+        status "Status page"
+        rechecked "This is not a usage limit. The error was re-checked with retries before the run stopped; if the status page reports an incident, resume after it is resolved, otherwise re-login."
       detail
         ends
           label "ends {{time}}"

@@ -340,6 +340,9 @@ zh
         steps "如何处理"
         preserved "停止前已自动提交未提交的改动。"
         resume "恢复访问后继续"
+        retried "已重试"
+        status "状态页"
+        rechecked "这不是用量限制。停止前已通过重试再次确认该错误；如果状态页显示有事故，请在其解决后继续，否则请重新登录。"
       detail
         ends
           label "结束于 {{time}}"

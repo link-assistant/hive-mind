@@ -11,8 +11,8 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
 import { createClaudeUsageLimitEvidence } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
-import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
-import { resolveClaudeFailureEvidence } from './claude.access-error.lib.mjs';
+import { detectSubscriptionError, formatSubscriptionDetectionLine } from './subscription-error.lib.mjs'; // Issue #2161
+import { createAuthFailureRetry, resolveClaudeFailureEvidence } from './claude.access-error.lib.mjs'; // Issue #4053: auth re-check
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -210,6 +210,7 @@ export const executeClaudeCommand = async params => {
   let retryCount = 0;
   // Bound each continuous outage; provider progress starts a fresh retry window (#3831).
   const transientRetryBudget = createTransientRetryBudget();
+  const authFailureRetry = createAuthFailureRetry({ tool: 'claude', budget: transientRetryBudget, log }); // Issue #4053: re-check unconfirmed auth failures
   const retryProgress = createRetryProgressObserver({
     tool: 'claude',
     budget: transientRetryBudget,
@@ -598,7 +599,7 @@ export const executeClaudeCommand = async params => {
             });
             if (subscriptionError) {
               // Not verbose: this is the reason the whole run is about to end.
-              await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+              await log(formatSubscriptionDetectionLine(subscriptionError));
               await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
             }
           }
@@ -775,7 +776,7 @@ export const executeClaudeCommand = async params => {
                 });
                 if (subscriptionError) {
                   if (apiErrorText) lastMessage = apiErrorText;
-                  await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                  await log(formatSubscriptionDetectionLine(subscriptionError));
                   await log(`   code=${subscriptionError.code || 'n/a'} request_id=${data.request_id || 'unknown'} uuid=${data.uuid || 'unknown'}`, { verbose: true });
                 }
               }
@@ -1040,8 +1041,9 @@ export const executeClaudeCommand = async params => {
         await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
       }
       // Issues #3015/#3570/#3759: cross-check terminal evidence without publishing a work summary as an error.
-      let crossCheckedLimit;
-      if (commandFailed) ({ lastMessage, limitReached, subscriptionError, crossCheckedLimit } = await resolveClaudeFailureEvidence({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence: usageLimitEvidence, tempDir, sessionId, log }));
+      let crossCheckedLimit, retryAuth; // Issue #4053: retryAuth = unconfirmed auth failure being re-checked
+      if (commandFailed) ({ lastMessage, limitReached, subscriptionError, crossCheckedLimit, retryAuth } = await resolveClaudeFailureEvidence({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence: usageLimitEvidence, tempDir, sessionId, log, authFailureRetry, argv, waitForRetryDelay }));
+      if (retryAuth) return await executeWithRetry();
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery

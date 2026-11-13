@@ -1,7 +1,8 @@
 /** Issue #3759: recover access diagnostics when Claude omits its terminal event. */
-import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs';
+import { detectSubscriptionError, formatSubscriptionDetectionLine } from './subscription-error.lib.mjs';
 import { resolveClaudeUsageLimit } from './claude.usage-limit-sources.lib.mjs';
 import { selectClaudeFailureMessage } from './claude.process-exit.lib.mjs';
+export { createAuthFailureRetry } from './auth-failure-retry.lib.mjs'; // Issue #4053: re-exported for claude.lib.mjs
 
 export const resolveClaudeAccessError = async ({ lastMessage, evidence, transcript, log = async () => {} } = {}) => {
   const facts = evidence?.snapshot ? evidence.snapshot() : evidence || {};
@@ -35,7 +36,7 @@ export const resolveClaudeAccessError = async ({ lastMessage, evidence, transcri
 };
 
 /** Resolve terminal evidence once, sharing the bounded transcript read. */
-export const resolveClaudeFailureEvidence = async ({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence, tempDir, sessionId, log }) => {
+export const resolveClaudeFailureEvidence = async ({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence, tempDir, sessionId, log, authFailureRetry = null, argv = null, waitForRetryDelay }) => {
   lastMessage = selectClaudeFailureMessage({ lastMessage, exitCode, resultSuccessReceived, resultSummary });
   const usageLimit = !subscriptionError ? await resolveClaudeUsageLimit({ lastMessage, evidence, tempDir, sessionId, log }) : null;
   if (!subscriptionError && !resultSuccessReceived) {
@@ -43,9 +44,16 @@ export const resolveClaudeFailureEvidence = async ({ lastMessage, limitReached, 
     if (subscriptionError) {
       lastMessage = subscriptionError.message;
       limitReached = false;
-      await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+      await log(formatSubscriptionDetectionLine(subscriptionError));
     }
   }
   if (!subscriptionError && usageLimit?.isUsageLimit) [limitReached, lastMessage] = [true, usageLimit.message];
+  // Issue #4053: a generic `authentication_failed` (e.g. a Cloudflare 403 page during a provider
+  // incident) is re-checked by retrying with the session preserved before it stops the run.
+  if (subscriptionError?.verifiable && authFailureRetry) {
+    const authRetry = await authFailureRetry.retryOrConfirm(subscriptionError, { sessionId, argv, waitForRetryDelay });
+    if (authRetry.retry) return { lastMessage, limitReached, subscriptionError, crossCheckedLimit: usageLimit, retryAuth: true };
+    subscriptionError = authRetry.subscriptionError;
+  }
   return { lastMessage, limitReached, subscriptionError, crossCheckedLimit: usageLimit };
 };

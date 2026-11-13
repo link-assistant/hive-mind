@@ -74,8 +74,11 @@ export async function getSelectedRouterLimits(tool, { env = process.env, verbose
   pending.set(key, request);
   try {
     const result = await request;
-    if (cached.size >= 32) cached.delete(cached.keys().next().value);
-    cached.set(key, { at: Date.now(), result });
+    // Issue #4053: a temporary failure is not remembered, so the next /limits call asks again.
+    if (result?.failureKind !== 'temporary') {
+      if (cached.size >= 32) cached.delete(cached.keys().next().value);
+      cached.set(key, { at: Date.now(), result });
+    }
     return result;
   } finally {
     pending.delete(key);

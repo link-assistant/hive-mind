@@ -9,6 +9,8 @@
 //   --outside-symlink   add `.agents/skills/linked` -> a directory outside the checkout
 //   --claude-canonical  add `.agents/skills/claude-first` -> `../../.claude/skills/claude-first`
 //                       (the layout Hive Mind's own handoff/playwright skills use)
+//   --operator-enable   the operator config.toml re-enables host-only-skill by name
+//                       (Codex applies the last matching [[skills.config]] entry)
 //
 // Usage:
 //   node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill] [--outside-symlink]
@@ -29,8 +31,9 @@ const binary = process.argv[2];
 const withHostSkill = process.argv.includes('--host-skill');
 const withOutsideSymlink = process.argv.includes('--outside-symlink');
 const withClaudeCanonical = process.argv.includes('--claude-canonical');
+const withOperatorEnable = process.argv.includes('--operator-enable');
 if (!binary || !path.isAbsolute(binary)) {
-  console.error('Usage: node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill] [--outside-symlink] [--claude-canonical]');
+  console.error('Usage: node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <absolute native codex binary> [--host-skill] [--outside-symlink] [--claude-canonical] [--operator-enable]');
   process.exit(2);
 }
 
@@ -64,7 +67,7 @@ if (withClaudeCanonical) {
 }
 if (withHostSkill) await write(path.join(home, '.agents', 'skills', 'host-only-skill', 'SKILL.md'), skill('host-only-skill'));
 
-await fs.writeFile(path.join(canonical, 'config.toml'), 'model="gpt-5.5"\nmodel_provider="offline"\n[features]\nremote_plugin=false\napps=false\n[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n');
+await fs.writeFile(path.join(canonical, 'config.toml'), 'model="gpt-5.5"\nmodel_provider="offline"\n[features]\nremote_plugin=false\napps=false\n[model_providers.offline]\nname="Offline"\nbase_url="http://127.0.0.1:1/v1"\nwire_api="responses"\nrequires_openai_auth=false\n' + (withOperatorEnable ? '[[skills.config]]\nname="host-only-skill"\nenabled=true\n' : ''));
 await fs.writeFile(path.join(canonical, 'auth.json'), '{"OPENAI_API_KEY":"sk-SYNTHETIC"}', { mode: 0o600 });
 const env = { PATH: process.env.PATH, HOME: home, CODEX_HOME: canonical, CODEX_AUTH_HOME: canonical, RUST_LOG: 'off', GIT_CONFIG_GLOBAL: '/dev/null', HTTP_PROXY: 'http://127.0.0.1:1', HTTPS_PROXY: 'http://127.0.0.1:1', NO_PROXY: '127.0.0.1,localhost' };
 const runCommand = async ({ args, env: commandEnv, cwd }) => {

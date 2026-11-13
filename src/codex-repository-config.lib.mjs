@@ -167,7 +167,8 @@ export async function applyRepositoryCodexConfig({ codexHome, projectDir, env = 
  * repositories whose own skills were fine; leaving the skill enabled would
  * leak host instructions into the task. A `[[skills.config]] enabled = false`
  * entry for each refused file, keyed by both the path Codex rendered and its
- * canonical target, removes it from the model-visible catalog. The caller
+ * canonical target and placed after any other matching entry (Codex applies
+ * the last match), removes it from the model-visible catalog. The caller
  * re-probes the catalog afterwards and still fails closed if anything remains.
  *
  * Returns the skills that received a new or changed entry; an empty result
@@ -182,15 +183,18 @@ export async function disableScopedCodexSkills({ codexHome, skills = [] } = {}) 
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  const entries = isPlainObject(config.skills) && Array.isArray(config.skills.config) ? [...config.skills.config] : [];
+  let entries = isPlainObject(config.skills) && Array.isArray(config.skills.config) ? [...config.skills.config] : [];
   const disabled = [];
+  // Codex applies the last `[[skills.config]]` entry that matches a skill, by
+  // `path` or by `name`, so the disabling entry must be the last match.
+  const lastMatch = (target, name) => entries.findLast(entry => entry?.path === target || (typeof entry?.name === 'string' && entry.name.toLowerCase() === name));
   for (const skill of skills) {
     let changed = false;
     for (const target of new Set([skill.path, skill.canonical].filter(Boolean))) {
-      const existing = entries.find(entry => entry?.path === target);
-      if (existing?.enabled === false) continue;
-      if (existing) existing.enabled = false;
-      else entries.push({ path: target, enabled: false });
+      const last = lastMatch(target, String(skill.name || '').toLowerCase());
+      if (last?.path === target && last.enabled === false) continue;
+      entries = entries.filter(entry => entry?.path !== target);
+      entries.push({ path: target, enabled: false });
       changed = true;
     }
     if (changed) disabled.push(skill);

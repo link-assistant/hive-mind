@@ -119,10 +119,10 @@ test('a repository skill linked from .agents/skills into .claude/skills is admit
   );
 });
 
-test('disableScopedCodexSkills writes per-task entries idempotently and never weakens an existing one', async t => {
+test('disableScopedCodexSkills writes per-task entries idempotently as the last match', async t => {
   const root = await tempRoot(t);
   const codexHome = path.join(root, 'codex-home');
-  await write(path.join(codexHome, 'config.toml'), 'model = "gpt-5"\n\n[[skills.config]]\npath = "/host/b/SKILL.md"\nenabled = true\n');
+  await write(path.join(codexHome, 'config.toml'), 'model = "gpt-5"\n\n[[skills.config]]\npath = "/host/b/SKILL.md"\nenabled = true\n\n[[skills.config]]\nname = "a"\nenabled = true\n');
   const skills = [
     { name: 'a', path: '/host/link/a/SKILL.md', canonical: '/host/a/SKILL.md', origin: 'host' },
     { name: 'b', path: '/host/b/SKILL.md', canonical: '/host/b/SKILL.md', origin: 'host' },
@@ -137,10 +137,12 @@ test('disableScopedCodexSkills writes per-task entries idempotently and never we
   assert.deepEqual(
     config.skills.config.map(entry => ({ ...entry })),
     [
-      { path: '/host/b/SKILL.md', enabled: false },
+      { name: 'a', enabled: true },
       { path: '/host/link/a/SKILL.md', enabled: false },
       { path: '/host/a/SKILL.md', enabled: false },
-    ]
+      { path: '/host/b/SKILL.md', enabled: false },
+    ],
+    'the disabling entry is the last match, so an earlier enable by path or name cannot win'
   );
   assert.deepEqual(await disableScopedCodexSkills({ codexHome, skills }), [], 'nothing left to disable, so the caller fails closed');
 });

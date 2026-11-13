@@ -20,7 +20,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 434439…     | Dependabot (other 9 jobs) | success | `ci-logs/dependabot/run-*.log.gz`: `Deferring creation of a new pull request` for #2285 (F6)                                                   |
 | 43463503145 | Formal AI Draft (health)  | success | `ci-logs/run-43463503145.log.gz`: green with 12 consecutive draft failures (F2)                                                                |
 | 43491294883 | Formal AI Draft (#4055)   | failure | `ci-logs/run-43491294883.log.gz`: `DRAFT_IMAGE_UNAVAILABLE` for `konard/hive-mind:2.40.1` (F3)                                                 |
-
+| 43493862530 | Checks and release (2.40.2) | failure | `ci-logs/release-43493862530-job-132199526388.log.gz` (variants uploaded, main package published), `ci-logs/docker-arm64-43493862530-job-132204130169.log.gz`, `ci-logs/docker-dind-arm64-43493862530-job-132204130118.log.gz` (refusal), `ci-logs/docker-amd64-43493862530-job-132204130287.log.gz`, `ci-logs/npm-time-2.40.2.txt` (F9) |
 
 ## Runs of this pull request
 

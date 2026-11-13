@@ -7,36 +7,39 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 ## Requirements
 
-| #   | Requirement (issue text)                                                                 | Where it is addressed                                                      |
-| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F8, B1–B3 below                                                |
-| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                         |
-| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                               |
-| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                                |
-| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages                  |
-| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                                          |
-| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; F8; [Upstream](#upstream)              |
-| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5 (two compose dirs), F7 (5 probes), F8 (6 checks) |
+| #   | Requirement (issue text)                                                                 | Where it is addressed                                                    |
+| --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F9, B1–B3 below                                              |
+| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                       |
+| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                             |
+| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                              |
+| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages                |
+| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                                        |
+| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; F8; F9; [Upstream](#upstream)        |
+| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5, F7 (5 probes), F8 (6 checks), F9 (both waits) |
 
 ## Timeline (UTC)
 
-| When             | Event                                                                                                                                                                                                     |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-22 14:37 | Dependabot opens group pull request #2285 (`@sentry/*` to 10.75.2). It stays open; every later daily Dependabot job logs `Deferring creation of a new pull request` and passes (F6).                      |
-| 2026-11-09 05:58 | First failing Checks and release on `main` in this series (42570340658). From then on, no release succeeds, so no `konard/hive-mind:2.40.x` image is published.                                           |
-| 2026-11-11 19:39 | Six Formal AI drafts fail in one minute with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0`. The 2.40.0 streak later reaches 9 runs.                                                  |
-| 2026-11-12 17:54 | The first draft fails on `…:2.40.1`. The health check keys failures by exact text, so the 2.40.1 streak starts over at 1 and stays below the threshold of 5 (F2).                                         |
-| 2026-11-13 00:10 | PR #4051 merges as `f9ad62d`; Checks and release 43334992149 starts. `detect-changes` warns `library/rust 1.99 -> 1.100.0` for `Dockerfile.dind` and `Dockerfile.formal-ai` (F4).                         |
-| 2026-11-13 02:03 | Job `Verified native Codex package / Build and exercise linux-arm64` fails in the selected recovery scenario: `Canonical SQLite recovery requires closed database handles and no live native peers` (F1). |
-| 2026-11-13 02:03 | Pipeline Status fails; Release, Docker, DinD and Helm jobs are skipped. 2.40.1 is still unpublished.                                                                                                      |
-| 2026-11-13 12:17 | Scheduled cleanup 43418490693 warns `1380 fixture branch(es) retained by a repository rule that prohibits deletion` (B1).                                                                                 |
-| 2026-11-13 14:34 | Dependabot 43443919872 warns `Please check your configuration as there are groups where no dependencies match: - all-dependencies` for `docker_compose` (F5). All ten Dependabot jobs pass.               |
-| 2026-11-13 19:20 | Issue #4055 is opened.                                                                                                                                                                                    |
-| 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                            |
-| 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                               |
-| 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.  |
-| 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                     |
-| 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).           |
+| When             | Event                                                                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-22 14:37 | Dependabot opens group pull request #2285 (`@sentry/*` to 10.75.2). It stays open; every later daily Dependabot job logs `Deferring creation of a new pull request` and passes (F6).                              |
+| 2026-11-09 05:58 | First failing Checks and release on `main` in this series (42570340658). From then on, no release succeeds, so no `konard/hive-mind:2.40.x` image is published.                                                   |
+| 2026-11-11 19:39 | Six Formal AI drafts fail in one minute with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0`. The 2.40.0 streak later reaches 9 runs.                                                          |
+| 2026-11-12 17:54 | The first draft fails on `…:2.40.1`. The health check keys failures by exact text, so the 2.40.1 streak starts over at 1 and stays below the threshold of 5 (F2).                                                 |
+| 2026-11-13 00:10 | PR #4051 merges as `f9ad62d`; Checks and release 43334992149 starts. `detect-changes` warns `library/rust 1.99 -> 1.100.0` for `Dockerfile.dind` and `Dockerfile.formal-ai` (F4).                                 |
+| 2026-11-13 02:03 | Job `Verified native Codex package / Build and exercise linux-arm64` fails in the selected recovery scenario: `Canonical SQLite recovery requires closed database handles and no live native peers` (F1).         |
+| 2026-11-13 02:03 | Pipeline Status fails; Release, Docker, DinD and Helm jobs are skipped. 2.40.1 is still unpublished.                                                                                                              |
+| 2026-11-13 12:17 | Scheduled cleanup 43418490693 warns `1380 fixture branch(es) retained by a repository rule that prohibits deletion` (B1).                                                                                         |
+| 2026-11-13 14:34 | Dependabot 43443919872 warns `Please check your configuration as there are groups where no dependencies match: - all-dependencies` for `docker_compose` (F5). All ten Dependabot jobs pass.                       |
+| 2026-11-13 19:20 | Issue #4055 is opened.                                                                                                                                                                                            |
+| 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                                    |
+| 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                                       |
+| 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.          |
+| 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                             |
+| 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).                   |
+| 2026-11-13 22:08 | `main` run 43493862530 (PR #4054) publishes the x64 and arm64 native Codex variants of 2.40.2 at 22:08:40 and 22:09:06. npm answers `Your package is being processed`. The main package follows at 22:09:13 (F9). |
+| 2026-11-13 22:16 | npm finishes the main package (22:14:22) and the x64 variant (22:16:15). Docker jobs wait for the main package only and start building at 22:16:37.                                                               |
+| 2026-11-13 22:24 | Docker Publish (linux/arm64) and DinD (linux/arm64) install 2.40.2 at 22:24:07 without the arm64 variant, and `install-native-codex.mjs` refuses. npm finishes that variant at 22:24:48 (F9).                     |
 
 ## Findings, root causes and fixes
 
@@ -201,6 +204,68 @@ request has no Dockerfile diff left; F4 is fixed on `main`.
 - **Test.** `tests/issue-3785-process-liveness.test.mjs` now covers `D` and
   `X`; with the old helper it fails with `actual: true, expected: false` for `X`.
 
+### F9. Error: the release pinned a native Codex variant npm had not finished processing
+
+- **Evidence.** `main` run 43493862530 (PR #4054) published 2.40.2, but
+  `Docker Publish (linux/arm64)` and `Docker Publish DinD (linux/arm64)`
+  failed at `install-native-codex.mjs` with `Native Codex installation failed.
+Install the matching optional dependency
+@link-assistant/hive-mind-native-codex-linux-arm64`. No 2.40.2 image exists
+  for any platform, because the manifest job needs both. The arm64 build ran
+  `bun install -g @link-assistant/hive-mind@2.40.2` at 22:24:07 and reported
+  `190 packages installed`; the amd64 build reported 191 at 22:27:19.
+  `npm view @link-assistant/hive-mind time` (`npm-time-2.40.2.txt`) shows when
+  npm finished each version:
+
+  | Version                           | Uploaded (Release job log) | Installable (npm `time`) |
+  | --------------------------------- | -------------------------- | ------------------------ |
+  | `2.40.2-native-codex-linux-x64`   | 22:08:40                   | 22:16:15                 |
+  | `2.40.2-native-codex-linux-arm64` | 22:09:06                   | 22:24:48                 |
+  | `2.40.2`                          | 22:09:13                   | 22:14:22                 |
+
+- **Root cause.** npm processes a large tarball asynchronously: each 120 MB
+  variant upload ended with `npm notice Your package is being processed and may
+take a few minutes to become available`, and the arm64 one took 15m42s. The
+  publish command pinned both variants and published the main package at once.
+  `wait-for-npm.mjs` then checked only the main package, which was installable
+  at 22:16:37, so the Docker jobs started. Bun, like npm, skips an optional
+  dependency it cannot resolve without an error, so the arm64 image had no
+  variant. The amd64 image built later, after both variants had landed. A
+  cross-install of the same version after 22:24:48 (`bun install -g --cpu arm64
+--os linux`) installs the arm64 alias. This is a race, so the earlier
+  releases that published variants did not hit it.
+- **Fix.** The wait now happens at both layers:
+  - `scripts/native-codex-packages.mjs publish` publishes the variants, then
+    waits until each one answers `npm view <spec> dist.tarball` and the tarball
+    answers HEAD (`scripts/npm-installable.lib.mjs`). Only then does it pin the
+    variants and let `changeset publish` publish the main package. The budget is
+    66 checks with backoff from 5 s to 30 s, about 32 minutes, twice the slowest
+    variant seen. On timeout it prints `::error title=native Codex variant not
+installable::` and the main package is not published. The failure is
+    non-retryable in `publishWithRetry`, because three 32-minute waits do not
+    fit the job; a rerun skips the variants that landed.
+  - `scripts/wait-for-npm.mjs`, which the Docker and DinD publish jobs run, also reads
+    the optional dependencies of the published version and waits for every
+    variant it pins through an `npm:@link-assistant/hive-mind@…` alias.
+  - The release and instant-release timeouts rise from 45 to 75 minutes:
+    32 minutes of variant wait, 25 minutes of post-publish verification
+    (#2923), and about 6 minutes of setup and uploads.
+  - Both Dockerfiles run `install-native-codex.mjs` with
+    `HIVE_MIND_NATIVE_CODEX_DEBUG=1`. It prints nothing extra on success; on a
+    refusal it names the admission phase and the error code (`MODULE_NOT_FOUND`
+    here), which the failed builds lacked.
+- **Test.** `tests/native-codex-variant-installable-4055.test.mjs` replays the
+  2.40.2 registry timings: the publish command returns only after the arm64
+  variant is installable. Other cases cover a variant that never lands (one
+  annotated, non-retryable failure), the publish order, the timeout budgets,
+  a visible version whose tarball still returns 404, and the variants
+  `wait-for-npm.mjs` derives from the real 2.40.2 `optionalDependencies`. It
+  fails before the fix, which has no `awaitInstallableVariants`.
+- **2.40.2 images.** The fix applies from the next release. Rerunning the two
+  failed jobs of run 43493862530 would publish the 2.40.2 images now that
+  both variants are installable. That is a publication, so it is left to a
+  maintainer.
+
 ### Blocked or external, not changed
 
 | #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
@@ -230,6 +295,8 @@ Checks a–d compare this issue's findings with each template's `main`
 - F2: no template builds a repeated-failure key from error text. The nearest
   code, `js/scripts/publish-failure-classifier.mjs`, only classifies.
 - F1: hive-mind only.
+- F9: no template publishes platform variants as optional dependencies. The js
+  template's `wait-for-npm` pattern waits for the one package it publishes.
 - F7: no template bounds a compile with a tight time limit. cpp's test preset
   allows 120 s, and python's `scripts/run-with-budget-warning.sh` warns before a
   command reaches its limit.
@@ -259,6 +326,7 @@ false negatives and were not reported again:
 - Dependabot defect: <https://github.com/dependabot/dependabot-core/issues/16791>, <https://github.com/dependabot/dependabot-core/issues/12957>
 - SQLx SQLite connections run on a worker thread that closes the handle when it handles `Command::Shutdown`, after the caller has moved on: <https://github.com/launchbadge/sqlx/blob/main/sqlx-sqlite/src/connection/worker.rs>; `PoolConnection`: <https://docs.rs/sqlx-core/latest/sqlx_core/pool/struct.PoolConnection.html>
 - Linux task states in `/proc/<pid>/stat` (`X (dead)`, `Z (zombie)`): <https://github.com/torvalds/linux/blob/master/fs/proc/array.c>; `wait_task_zombie` moves `EXIT_ZOMBIE` to `EXIT_DEAD` before `release_task`: <https://github.com/torvalds/linux/blob/master/kernel/exit.c>; `proc_pid_stat(5)`: <https://man7.org/linux/man-pages/man5/proc_pid_stat.5.html>
+- npm processes large packages asynchronously (`Your package is being processed and may take a few minutes to become available`, printed by `libnpmpublish`); npm and Bun skip optional dependencies that fail to install: <https://docs.npmjs.com/cli/v11/configuring-npm/package-json#optionaldependencies>, <https://bun.sh/docs/cli/install>
 - SQLite VFS and `SQLITE_BUSY`: <https://www.sqlite.org/c3ref/vfs.html>, <https://www.sqlite.org/rescode.html#busy>
 
 ## Verification
@@ -279,3 +347,11 @@ false negatives and were not reported again:
 - ESLint 10.15.0: `node scripts/check-dependency-freshness.mjs` reports all
   declarations current; `tests/test-issue-2187-current-dependency-pins.mjs`
   passes with the updated pin.
+- F9: `tests/native-codex-variant-installable-4055.test.mjs`,
+  `tests/native-codex-packages-4050.test.mjs`,
+  `tests/publish-verification-window-2923.test.mjs`,
+  `tests/test-publish-failure-classifier-2028.mjs` and
+  `tests/test-docker-release-order.mjs` pass.
+  `node scripts/wait-for-npm.mjs --release-version 2.40.2 --max-attempts 2 --sleep-time 1`
+  against the live registry finds the main package and both pinned variants
+  installable and exits 0.

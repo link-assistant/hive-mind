@@ -1,1 +1,15 @@
-{"author":{"id":"U_kgDOEKeBfQ","is_bot":false,"login":"J-Hi","name":"John Hiler"},"body":"**Bug Description**\n⏺ Please run /login · API Error: 403 Attention Required! | Cloudflare\r\r✻ Sautéed for 0s · done 1:50 AM · 1 monitor still running\n\n**Environment Info**\n- Platform: darwin\n- Terminal: Apple_Terminal\n- Version: 2.1.323\n- Feedback ID: 2c286dc1-0b27-4bc9-ba58-9017bdb626e8\n","comments":[],"createdAt":"2026-11-13T11:07:04Z","labels":[{"id":"LA_kwDON91aY88AAAAB6DeeSQ","name":"bug","description":"Something isn't working","color":"FF6B80"},{"id":"LA_kwDON91aY88AAAAB6izDWw","name":"platform:macos","description":"Issue specifically occurs on macOS","color":"93A5FF"},{"id":"LA_kwDON91aY88AAAAB_uHfHQ","name":"area:auth","description":"","color":"ededed"},{"id":"LA_kwDON91aY88AAAACWW1hMg","name":"area:networking","description":"","color":"ededed"}],"number":109521,"state":"OPEN","title":"[Bug] API Error: 403 Attention Required! Cloudflare block prompts /login"}
+{
+  "author": { "id": "U_kgDOEKeBfQ", "is_bot": false, "login": "J-Hi", "name": "John Hiler" },
+  "body": "**Bug Description**\n⏺ Please run /login · API Error: 403 Attention Required! | Cloudflare\r\r✻ Sautéed for 0s · done 1:50 AM · 1 monitor still running\n\n**Environment Info**\n- Platform: darwin\n- Terminal: Apple_Terminal\n- Version: 2.1.323\n- Feedback ID: 2c286dc1-0b27-4bc9-ba58-9017bdb626e8\n",
+  "comments": [],
+  "createdAt": "2026-11-13T11:07:04Z",
+  "labels": [
+    { "id": "LA_kwDON91aY88AAAAB6DeeSQ", "name": "bug", "description": "Something isn't working", "color": "FF6B80" },
+    { "id": "LA_kwDON91aY88AAAAB6izDWw", "name": "platform:macos", "description": "Issue specifically occurs on macOS", "color": "93A5FF" },
+    { "id": "LA_kwDON91aY88AAAAB_uHfHQ", "name": "area:auth", "description": "", "color": "ededed" },
+    { "id": "LA_kwDON91aY88AAAACWW1hMg", "name": "area:networking", "description": "", "color": "ededed" }
+  ],
+  "number": 109521,
+  "state": "OPEN",
+  "title": "[Bug] API Error: 403 Attention Required! Cloudflare block prompts /login"
+}

@@ -19,18 +19,20 @@ A local server returns what Cloudflare returns: HTTP 403, `content-type: text/ht
 // cf403.mjs — node cf403.mjs, then in another shell:
 //   ANTHROPIC_API_KEY=dummy ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude -p hi --output-format stream-json --verbose
 import http from 'node:http';
-http.createServer((req, res) => {
-  req.resume();
-  res.writeHead(403, { 'content-type': 'text/html; charset=UTF-8', server: 'cloudflare', 'cf-mitigated': 'challenge' });
-  res.end('<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head><body>Sorry, you have been blocked</body></html>');
-}).listen(8787, '127.0.0.1');
+http
+  .createServer((req, res) => {
+    req.resume();
+    res.writeHead(403, { 'content-type': 'text/html; charset=UTF-8', server: 'cloudflare', 'cf-mitigated': 'challenge' });
+    res.end('<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head><body>Sorry, you have been blocked</body></html>');
+  })
+  .listen(8787, '127.0.0.1');
 ```
 
 With Claude Code 2.1.323 the server sees **one** request (no retry), and the stream ends with `"error":"authentication_failed"`, `api_error_status: 403` and `"Failed to authenticate. API Error: 403 Attention Required! | Cloudflare"`. The result is the same with or without `cf-mitigated`.
 
 ### Workaround (for wrappers)
 
-Treat `authentication_failed` / `permission_error` with HTTP 401/403 as *unconfirmed* unless the message names a reason, such as "OAuth token revoked", "expired", billing, or a disabled organization. Retry it a few times with backoff and with the session resumed, and keep retrying while `https://status.claude.com/api/v2/summary.json` reports an incident. In particular, an `API Error: 403` whose title is an HTML page title (`Attention Required! | Cloudflare`, `Just a moment...`) is an edge block, not a credential problem.
+Treat `authentication_failed` / `permission_error` with HTTP 401/403 as _unconfirmed_ unless the message names a reason, such as "OAuth token revoked", "expired", billing, or a disabled organization. Retry it a few times with backoff and with the session resumed, and keep retrying while `https://status.claude.com/api/v2/summary.json` reports an incident. In particular, an `API Error: 403` whose title is an HTML page title (`Attention Required! | Cloudflare`, `Just a moment...`) is an edge block, not a credential problem.
 
 ### Suggested fix
 

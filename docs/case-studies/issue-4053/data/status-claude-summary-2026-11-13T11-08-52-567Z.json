@@ -156,11 +156,7 @@
       "page_id": "tymt9n04zgry",
       "group": true,
       "only_show_if_degraded": false,
-      "components": [
-        "w14q5j51spbm",
-        "69zh8pryjjgp",
-        "csth13wtqbd6"
-      ]
+      "components": ["w14q5j51spbm", "69zh8pryjjgp", "csth13wtqbd6"]
     }
   ],
   "incidents": [

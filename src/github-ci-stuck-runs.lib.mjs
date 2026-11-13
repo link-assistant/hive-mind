@@ -64,6 +64,29 @@ export const partitionOutOfBandChecks = (checks = [], runs = []) => {
 };
 
 /**
+ * Drop the checks of out-of-band workflow runs from a commit's check list, the
+ * way GitHub leaves them out of the PR merge state. Runs are only loaded when
+ * some check is not passing, and nothing is dropped when the lookup fails or
+ * when every check would be dropped (the PR would then look check-free).
+ *
+ * @param {Array} checks - checks with `checkSuiteId`
+ * @param {Function} loadRuns - async () => workflow runs for the same SHA
+ * @returns {Promise<{ checks: Array, outOfBand: Array }>}
+ */
+export const dropOutOfBandChecks = async (checks = [], loadRuns) => {
+  const unchanged = { checks, outOfBand: [] };
+  if (!checks.some(check => check?.status !== 'completed' || check?.conclusion == null || NON_PASSING_CONCLUSIONS.has(check?.conclusion))) return unchanged;
+  const runs = await Promise.resolve()
+    .then(loadRuns)
+    .catch(() => null);
+  if (!runs) return unchanged;
+  const { outOfBand } = partitionOutOfBandChecks(checks, runs);
+  const suites = new Set(outOfBand.map(check => String(check.checkSuiteId)));
+  const kept = checks.filter(check => check?.checkSuiteId == null || !suites.has(String(check.checkSuiteId)));
+  return outOfBand.length === 0 || kept.length === 0 ? unchanged : { checks: kept, outOfBand };
+};
+
+/**
  * Milliseconds a run has been waiting without starting. For a run that never
  * started `run_started_at` equals `created_at`; after a re-run it is the start
  * of the new attempt, so a freshly re-run ghost is not judged by its original
@@ -191,6 +214,7 @@ export default {
   OUT_OF_BAND_EVENTS,
   isAuthoritativeCleanMergeState,
   partitionOutOfBandChecks,
+  dropOutOfBandChecks,
   queuedForMs,
   findGhostQueuedRuns,
   formatDuration,

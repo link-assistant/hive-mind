@@ -22,6 +22,7 @@ import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+import { dropOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
@@ -358,6 +359,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
         conclusion: check.conclusion,
         type: 'check_run',
         description: check.output?.title || check.output?.summary || null,
+        checkSuiteId: check.check_suite?.id ?? null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -386,9 +388,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       };
     }
 
-    const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
-    const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
+    // Issue #4048: a failed/running workflow_dispatch or schedule run is not part of the PR merge state.
+    const { checks: prChecks, outOfBand } = await dropOutOfBandChecks(allChecks, () => getWorkflowRunsForSha(owner, repo, sha, verbose));
+    const hasPending = prChecks.some(c => c.status !== 'completed' || c.conclusion === null);
+    const allPassed = !hasPending && prChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+    const hasFailed = prChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
 
     let status;
     if (hasPending) {
@@ -405,16 +409,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       console.log(`[VERBOSE] /merge: PR #${prNumber} CI status: ${status}`);
       console.log(`[VERBOSE] /merge:   Checks: ${allChecks.length}, Passed: ${allPassed}, Pending: ${hasPending}`);
       for (const check of allChecks) {
-        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}`);
+        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}${outOfBand.some(o => o.checkSuiteId === check.checkSuiteId) ? ' (out-of-band, ignored)' : ''}`);
       }
     }
 
-    return {
-      status,
-      checks: allChecks,
-      allPassed,
-      hasPending,
-    };
+    return { status, checks: prChecks, allPassed, hasPending, outOfBandChecks: outOfBand };
   } catch (error) {
     if (isTerminalGitHubEntityError(error)) {
       const terminalError = getTerminalGitHubEntityErrorMessage(error);

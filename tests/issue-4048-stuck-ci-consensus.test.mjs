@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkCIConsensus, checkAllPRCommitsCI } from '../src/github-merge-repo-actions.lib.mjs';
-import { decideGhostRunAction, describeConsensusDisagreement, findGhostQueuedRuns, partitionOutOfBandChecks, queuedForMs, retriggerGhostRuns, rerunSettledGhostRuns, createGhostRunState } from '../src/github-ci-stuck-runs.lib.mjs';
+import { decideGhostRunAction, describeConsensusDisagreement, dropOutOfBandChecks, findGhostQueuedRuns, partitionOutOfBandChecks, queuedForMs, retriggerGhostRuns, rerunSettledGhostRuns, createGhostRunState } from '../src/github-ci-stuck-runs.lib.mjs';
 import { findIncidentsOverlapping, fetchProviderIncidents, parseStatuspageSummary, getProviderStatusPageUrl } from '../src/provider-status.lib.mjs';
 import { buildStuckCiNoticeComment, createStuckCiMonitor } from '../src/solve.auto-merge-stuck-ci.lib.mjs';
 import { CI_WAIT_STUCK_MARKER, isToolGeneratedComment, isToolStatusComment } from '../src/tool-comments.lib.mjs';
@@ -110,6 +110,38 @@ test('case A: a failing pull_request check is never treated as out-of-band', () 
     relevant.map(check => check.name),
     ['test', 'ext']
   );
+});
+
+test('case A, /merge queue: checkPRCIStatus drops out-of-band checks before deciding success/failure', async () => {
+  const before = caseA.ciStatus.checks.some(check => check.conclusion === 'failure');
+  assert.equal(before, true, 'old checkPRCIStatus counted every HEAD check → "failure" for a CLEAN PR');
+  let loads = 0;
+  const loadRuns = async () => {
+    loads++;
+    return caseA.runs;
+  };
+  const after = await dropOutOfBandChecks(caseA.ciStatus.checks, loadRuns);
+  assert.deepEqual(
+    after.checks.map(check => check.name),
+    ['test', 'lint']
+  );
+  assert.equal(after.outOfBand[0].event, 'workflow_dispatch');
+  // A passing commit needs no extra API call; failed lookups and all-out-of-band lists change nothing.
+  const passing = caseA.ciStatus.checks.slice(0, 2);
+  assert.equal((await dropOutOfBandChecks(passing, loadRuns)).checks, passing);
+  assert.equal(loads, 1);
+  const failedLookup = await dropOutOfBandChecks(caseA.ciStatus.checks, async () => {
+    throw new Error('rate limited');
+  });
+  assert.equal(failedLookup.checks.length, 3);
+  assert.equal((await dropOutOfBandChecks([caseA.ciStatus.checks[2]], loadRuns)).checks.length, 1);
+  const pullRequestFailure = [{ name: 'test', status: 'completed', conclusion: 'failure', checkSuiteId: 101 }];
+  assert.equal((await dropOutOfBandChecks(pullRequestFailure, loadRuns)).checks, pullRequestFailure);
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'github-merge.lib.mjs'), 'utf8');
+  const body = source.slice(source.indexOf('export async function checkPRCIStatus'), source.indexOf('export async function checkPRCIStatus') + 6000);
+  assert.match(body, /checkSuiteId: check\.check_suite\?\.id/);
+  assert.match(body, /dropOutOfBandChecks\(allChecks/);
+  assert.match(body, /prChecks\.some\(c => c\.conclusion === 'failure'/);
 });
 
 // ---------------------------------------------------------------- case B ---

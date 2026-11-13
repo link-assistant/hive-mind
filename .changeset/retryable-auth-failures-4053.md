@@ -1,7 +1,0 @@
----
-'@link-assistant/hive-mind': patch
----
-
-A generic authentication failure no longer stops a run on the first try (#4053). Claude Code reports every 401/403, including a Cloudflare page (`Failed to authenticate. API Error: 403 Attention Required! | Cloudflare`), as `authentication_failed`. These are now treated as unconfirmed and re-checked by retrying, with the session preserved: 3 times by default (`HIVE_MIND_MAX_AUTH_FAILURE_RETRIES`, `HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS`, `HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS`). While status.claude.com or status.openai.com reports a relevant incident, retries continue within the transient retry budget (`HIVE_MIND_PROVIDER_STATUS_CHECK=false` disables the lookup). `/hive` is only stopped once the failure is confirmed, and the report and the Telegram message state how often it was re-checked and what the status page said. Explicit reasons (revoked or expired token, billing, disabled organization) still stop at once. The same applies to Codex 401s and Claude CLI validation, and Cloudflare challenge pages are retryable for every tool.
-
-`/limits` now reports HTTP 5xx, 408, 425, timeouts and network errors as "Claude/Codex limits are temporarily unavailable (…). They will be retried on the next /limits call." These failures are no longer cached, including by the Router. The misleading bare `(active)` subscription status is dropped; only an exact end date is shown, when the provider publishes one.

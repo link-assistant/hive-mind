@@ -146,6 +146,13 @@ export const retryLimits = {
   // Issue #2169: stream startup/activity timeouts keep their own (short) count cap. They use 30s–2min
   // backoffs and force-kill the CLI, so they must not inherit the 100-retry transient backstop.
   maxStreamTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_STREAM_TIMEOUT_RETRIES', 10),
+  // Issue #4053: an authentication failure the provider did not explicitly confirm (a generic
+  // `authentication_failed`/403, or an edge page such as "403 Attention Required! | Cloudflare")
+  // is retried a few times before the run is stopped as an access block. When the provider status
+  // page reports an incident or a degraded component, the normal transient budget applies instead.
+  maxAuthFailureRetries: parseIntWithDefault('HIVE_MIND_MAX_AUTH_FAILURE_RETRIES', 3),
+  initialAuthFailureRetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS', 60 * 1000), // 1 minute
+  maxAuthFailureRetryDelayMs: parseIntWithDefault('HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS', 10 * 60 * 1000), // 10 minutes
   // Issue #2037: When a "model is at capacity" error triggers a switch to a *different*
   // fallback model, the long transient backoff is wasteful — the different model is
   // available now, so retry almost immediately instead of stalling for minutes.
@@ -186,6 +193,16 @@ export const retryLimits = {
 
 // Issue #2293: auto-restart stops once the same checks failed with the same output this many
 // restarts in a row (checks without output never count). 0 keeps restarting until the budget ends.
+// Issue #4053: provider status pages (Atlassian Statuspage `/api/v2/summary.json`) consulted
+// before an unconfirmed authentication failure stops a run, and shown in retry logs.
+export const providerStatus = {
+  enabled: getenv('HIVE_MIND_PROVIDER_STATUS_CHECK', 'true').toLowerCase() !== 'false',
+  timeoutMs: parseIntWithDefault('HIVE_MIND_PROVIDER_STATUS_TIMEOUT_MS', 10 * 1000),
+  cacheMs: parseIntWithDefault('HIVE_MIND_PROVIDER_STATUS_CACHE_MS', 60 * 1000),
+  claudeUrl: getenv('HIVE_MIND_CLAUDE_STATUS_URL', 'https://status.claude.com'),
+  codexUrl: getenv('HIVE_MIND_CODEX_STATUS_URL', 'https://status.openai.com'),
+};
+
 export const ciFailureRepeat = {
   stopAfter: parseIntWithDefault('HIVE_MIND_CI_FAILURE_REPEAT_STOP', 3),
 };

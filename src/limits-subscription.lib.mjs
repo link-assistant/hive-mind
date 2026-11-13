@@ -19,7 +19,8 @@ const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
 
 /**
  * Render the localized "Subscription ends …" / "Trial ends …" / "Subscription: …"
- * line for a tool. Returns '' when no displayable data is present.
+ * line for a tool. Returns '' when no displayable data is present; a bare
+ * "active" status is not displayable (issue #4053).
  */
 export function formatSubscriptionLines(subscription, options = {}) {
   if (!subscription) return '';
@@ -31,8 +32,20 @@ export function formatSubscriptionLines(subscription, options = {}) {
   let line = null;
   if (subscription.endsAt) line = buildLine(subscription.endsAt, formatSubscriptionEnds);
   else if (subscription.trialEndsAt) line = buildLine(subscription.trialEndsAt, formatTrialEnds);
-  else if (subscription.status) line = formatSubscriptionStatus(subscription.status, { locale });
+  else if (displayableSubscriptionStatus(subscription.status)) line = formatSubscriptionStatus(displayableSubscriptionStatus(subscription.status), { locale });
   return line ? `${line}\n` : '';
+}
+
+/**
+ * Issue #4053: a bare "active" status says nothing the plan title does not, and it
+ * can be stale (for example a cached profile next to a usage endpoint that is
+ * failing), so it read as a guarantee nobody had checked. Only an exact end
+ * date (or an explicitly non-active status, which is a warning) is shown.
+ */
+const UNINFORMATIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
+export function displayableSubscriptionStatus(status) {
+  const text = status === null || status === undefined ? '' : String(status).trim();
+  return text && !UNINFORMATIVE_SUBSCRIPTION_STATUSES.has(text.toLowerCase()) ? text : '';
 }
 
 function humanizePlanType(planType, provider) {
@@ -58,7 +71,7 @@ function formatSubscriptionDetail(subscription, options = {}) {
 
   if (subscription.endsAt) return buildDetail(subscription.endsAt, 'subscription_detail_ends_in', 'subscription_detail_ends');
   if (subscription.trialEndsAt) return buildDetail(subscription.trialEndsAt, 'subscription_detail_trial_ends_in', 'subscription_detail_trial_ends');
-  return subscription.status ? String(subscription.status).trim() : '';
+  return displayableSubscriptionStatus(subscription.status);
 }
 
 export function formatSubscriptionHeading(provider, subscription, options = {}) {

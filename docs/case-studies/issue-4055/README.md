@@ -7,16 +7,16 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 ## Requirements
 
-| #   | Requirement (issue text)                                                                 | Where it is addressed                                     |
-| --- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F6, B1–B3 below                               |
-| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                        |
-| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                              |
-| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)               |
-| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages |
-| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                         |
-| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; [Upstream](#upstream)     |
-| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (all four Dockerfiles), F5 (both compose directories)  |
+| #   | Requirement (issue text)                                                                 | Where it is addressed                                       |
+| --- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F7, B1–B3 below                                 |
+| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                          |
+| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                |
+| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                 |
+| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages   |
+| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                           |
+| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; [Upstream](#upstream)   |
+| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5 (two compose dirs), F7 (5 probes) |
 
 ## Timeline (UTC)
 
@@ -34,6 +34,7 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 | 2026-11-13 19:20 | Issue #4055 is opened.                                                                                                                                                                                    |
 | 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                            |
 | 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                               |
+| 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.  |
 
 ## Findings, root causes and fixes
 
@@ -130,6 +131,36 @@ request has no Dockerfile diff left; F4 is fixed on `main`.
   - The live check before the fix printed #2285 and exited 1 (`dependabot-health-before.txt`).
   - #2285 was closed with a comment so the next daily run can open a current one.
 
+### F7. False negative: a 30 s compile limit failed a slow runner, with no message
+
+- **Evidence.** This pull request's Native Codex auth adapter experiment,
+  run 43496638282 attempt 1, job `native-file-authority`, step
+  `Apply canonical request and SQLite operation admission`. The job log ends in
+  `Process completed with exit code 1` and nothing else. The uploaded
+  `native-sqlite-config-lock.log` holds
+  `TimeoutExpired: Command '['rustc', … 'probe.rs' …]' timed out after 30 seconds`
+  (`ci-logs/native-experiment-43496638282-*.log.gz`). Attempt 2 of the same
+  commit passed the whole step in 14 s; on #4029's run the same tail took 9.5 s.
+  Both runner images (20261101.360 and 20261111.370) ship Rust 1.99.1; only
+  Rustup changed (1.29.2 to 1.29.3).
+- **Root cause.** Five probe scripts limit compiles that normally take 7–10 s
+  (a `rustc` probe; the 9 MB SQLite amalgamation at `-O0`, 7.0 s locally) to
+  30 s, a 3× margin on shared runners. The limit exists to stop a hung compiler,
+  not to measure speed. The probe captured the compiler's output and dropped it
+  on timeout, and the workflow sends every probe's output to artifact files, so
+  the failure had no message in the job log. The step also used the image's
+  default `rustc` instead of the pinned toolchain the other steps use.
+- **Fix.**
+  - One `COMPILE_TIMEOUT = 120` in `probe-sqlite-config-lock.py`,
+    `probe-sqlite-selected-vfs.py`, `benchmark-sqlite-selected-vfs.py`,
+    `probe-sqlite-native-handles.py` and `probe-sqlite-vfs-close.py`.
+    Run-time limits are unchanged; the 90-minute job limit still applies.
+  - `probe-sqlite-config-lock.py` prints the elapsed time, `RUSTUP_TOOLCHAIN`
+    and the compiler output when a build fails or times out.
+  - The step sets `RUSTUP_TOOLCHAIN: '1.99.1'`.
+  - Each of the experiment's three jobs prints the newest log, with an `::error`
+    annotation naming it, when a step fails.
+
 ### Blocked or external, not changed
 
 | #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
@@ -159,6 +190,9 @@ Checks a–d compare this issue's findings with each template's `main`
 - F2: no template builds a repeated-failure key from error text. The nearest
   code, `js/scripts/publish-failure-classifier.mjs`, only classifies.
 - F1: hive-mind only.
+- F7: no template bounds a compile with a tight time limit. cpp's test preset
+  allows 120 s, and python's `scripts/run-with-budget-warning.sh` warns before a
+  command reaches its limit.
 
 Each template's own failing `main` run is a missing setting that needs the
 owner. Each already fails with a message that says what to do, so they are not

@@ -21,6 +21,13 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43463503145 | Formal AI Draft (health)  | success | `ci-logs/run-43463503145.log.gz`: green with 12 consecutive draft failures (F2)                                                                |
 | 43491294883 | Formal AI Draft (#4055)   | failure | `ci-logs/run-43491294883.log.gz`: `DRAFT_IMAGE_UNAVAILABLE` for `konard/hive-mind:2.40.1` (F3)                                                 |
 
+
+## Runs of this pull request
+
+| Run         | Workflow                             | Result                       | Evidence                                                                                                                                         |
+| ----------- | ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 43496638282 | Native Codex auth adapter experiment | attempt 1 failure, 2 success | `ci-logs/native-experiment-43496638282-config-lock.log.gz` (the `rustc` timeout), `…-attempt1-native-file-authority.log.gz` (the job log) (F7) |
+
 ## Summaries
 
 - `check-runs-f9ad62d4b.tsv` and `annotations-f9ad62d4b.txt`: every check run and annotation on `f9ad62d` and the scheduled runs after it.

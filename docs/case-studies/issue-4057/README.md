@@ -177,6 +177,22 @@ Why this does not leak anything to other tasks or the host:
   The run updated codex but stayed on solve 2.39.14. This is noted as an operational recommendation;
   it is not changed here.
 
+### CI fixes that also fail on main
+
+These are not part of the issue, but the PR needs them so CI passes:
+
+- **Dependency freshness gate.** It fails when a newer version is published. This PR takes
+  `@eslint/config-array` 0.23.6 and `eslint` 10.15.0, and the #2187 pin test now expects them.
+- **Release-note sanitizer check.** `tests/issue-3445-release-notes-not-masked.test.mjs` failed on the
+  2.40.2 `CHANGELOG.md` entry.
+  - That entry names the `` `Authorization:` `` header in a code span that closes right after the colon.
+  - Upstream sensitive-data-sanitizer#177 reads the closing backtick as the credential.
+  - Masking that backtick shifted the backtick parity, so the `` `Authorization: token <value>` `` example
+    later on the line was masked too.
+  - `src/sensitive-data-sanitizer.lib.mjs` now keeps an empty value and re-checks parity on the header
+    exactly as it is written.
+  - Real tokens stay masked (`tests/authorization-code-span-placeholder-4050.test.mjs`).
+
 ### Alternatives considered
 
 | Option                                       | Why not                                                                                     |

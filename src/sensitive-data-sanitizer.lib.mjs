@@ -23,6 +23,9 @@ export const UPSTREAM = Object.freeze({
   // size, so Hive Mind documents it instead of re-implementing that rule.
   longCredentialValueScan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/173',
   authorizationCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/177',
+  // Still open on upstream main after the #177 fix: a placeholder followed by a
+  // literal backtick inside a double-backtick span (the 2.40.2 release note).
+  doubleBacktickCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/181',
 });
 const require = createRequire(import.meta.url);
 let library;
@@ -56,7 +59,9 @@ const libraryKeepsPlainValue = value => {
   const plain = `Authorization: token ${value}`;
   return parityChecker.sanitize(plain).text === plain;
 };
-const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})`$/;
+// The template is optional: in `Authorization:` (the header named in prose, as
+// in the 2.40.2 release note) the value read is the closing backtick alone.
+const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})?`$/;
 const AUTHORIZATION_PREFIX = /(?:Proxy-)?Authorization[ \t]*:[ \t]*(?:[A-Za-z][\w-]*[ \t]+)?$/i;
 export const isCodeSpanAuthorizationPlaceholder = (finding, text) => {
   if (finding.rule !== 'authorization' && finding.rule !== 'context') return false;
@@ -66,7 +71,8 @@ export const isCodeSpanAuthorizationPlaceholder = (finding, text) => {
   if (!AUTHORIZATION_PREFIX.test(before)) return false;
   let backticks = 0;
   for (const char of before) if (char === '`') backticks++;
-  return backticks % 2 === 1 && libraryKeepsPlainValue(value.slice(0, -1));
+  // A lone backtick holds no characters to compare, so there is nothing to probe.
+  return backticks % 2 === 1 && (value === '`' || libraryKeepsPlainValue(value.slice(0, -1)));
 };
 const exempt = (finding, text) => {
   const kept = isCodeSpanAuthorizationPlaceholder(finding, text);

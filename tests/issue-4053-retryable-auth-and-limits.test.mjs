@@ -163,6 +163,16 @@ test('Statuspage summary parsing and formatting use the incident snapshot', asyn
   assert.match(formatProviderStatusSummary(outage), /Authentication errors \(major, investigating\)/);
 });
 
+test('unrelated status-page incidents do not extend auth retries', () => {
+  const connector = { status: { indicator: 'minor', description: 'Partial System Degradation' }, components: [], incidents: [{ name: 'Elevated errors affecting the Microsoft 365 connector', status: 'investigating', impact: 'minor', components: [], incident_updates: [{ body: 'We are investigating an issue with Microsoft connectors where new connections may be broken.' }] }] };
+  assert.equal(parseStatuspageSummary(connector, { tool: 'codex' }).hasIssues, false);
+  const authIncident = { ...connector, incidents: [{ name: 'Elevated errors', status: 'investigating', impact: 'major', components: [], incident_updates: [{ body: 'Users may be unable to log in to ChatGPT and Codex.' }] }] };
+  assert.equal(parseStatuspageSummary(authIncident, { tool: 'codex' }).hasIssues, true);
+  const claudeIncident = { status: { indicator: 'major' }, components: [], incidents: [{ name: 'Elevated errors', status: 'investigating', impact: 'major', components: [{ name: 'Claude Code' }] }] };
+  assert.equal(parseStatuspageSummary(claudeIncident, { tool: 'claude' }).hasIssues, true);
+  assert.equal(parseStatuspageSummary({ ...claudeIncident, incidents: [{ ...claudeIncident.incidents[0], components: [{ name: 'Claude for Chrome' }] }] }, { tool: 'claude' }).hasIssues, false);
+});
+
 test('fetchProviderStatus never throws and caches the lookup', async () => {
   clearProviderStatusCache();
   let calls = 0;

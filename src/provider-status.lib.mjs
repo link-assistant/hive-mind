@@ -39,6 +39,17 @@ const relevantComponent = (tool, name) => {
   return !needles || needles.some(needle => lower.includes(needle));
 };
 
+// Incidents that list no components are judged by their wording: anything about
+// authentication or a platform-wide failure is relevant, a third-party connector is not.
+const GENERAL_INCIDENT_WORDING = /\b(auth\w*|log ?in|sign[- ]?in|oauth|api|outage|all (?:users|services))\b/i;
+const relevantIncident = (tool, incident) => {
+  if (!TOOL_COMPONENTS[String(tool || '').toLowerCase()]) return true;
+  const components = Array.isArray(incident.components) ? incident.components : [];
+  if (components.length > 0) return components.some(component => relevantComponent(tool, component?.name));
+  const text = `${incident.name || ''} ${incident.incident_updates?.[0]?.body || ''}`;
+  return GENERAL_INCIDENT_WORDING.test(text) || TOOL_COMPONENTS[String(tool).toLowerCase()].some(needle => needle !== 'api' && text.toLowerCase().includes(needle));
+};
+
 /**
  * Reduce a Statuspage `summary.json` body to the facts the retry logic needs.
  * Pure: exported for tests and for the case-study probe in experiments/.
@@ -52,6 +63,7 @@ export const parseStatuspageSummary = (body, { tool = null, pageUrl = null } = {
     .map(component => ({ name: component.name, status: component.status }));
   const activeIncidents = (Array.isArray(body?.incidents) ? body.incidents : [])
     .filter(incident => incident && incident.status !== 'resolved' && incident.status !== 'postmortem')
+    .filter(incident => relevantIncident(tool, incident))
     .map(incident => ({
       name: incident.name,
       status: incident.status,
@@ -60,7 +72,9 @@ export const parseStatuspageSummary = (body, { tool = null, pageUrl = null } = {
       url: incident.shortlink || null,
       latestUpdate: incident.incident_updates?.[0]?.body || null,
     }));
-  const hasIssues = activeIncidents.length > 0 || degradedComponents.length > 0 || (indicator !== 'none' && indicator !== 'unknown');
+  // The page-wide indicator also reflects unrelated products, so it only counts when no tool filter applies.
+  const filtered = Boolean(TOOL_COMPONENTS[String(tool || '').toLowerCase()]);
+  const hasIssues = activeIncidents.length > 0 || degradedComponents.length > 0 || (!filtered && indicator !== 'none' && indicator !== 'unknown');
   return { ok: true, tool, pageUrl, indicator, description, degradedComponents, activeIncidents, hasIssues };
 };
 
@@ -102,7 +116,7 @@ export const formatProviderStatusSummary = status => {
   if (!status || status.error === 'disabled') return '';
   const host = status.pageUrl ? status.pageUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '') : 'status page';
   if (!status.ok) return `${host}: unavailable (${status.error || 'unknown error'})`;
-  if (!status.hasIssues) return `${host}: ${status.description || 'All Systems Operational'}`;
+  if (!status.hasIssues) return `${host}: ${status.description || 'All Systems Operational'}${status.tool && status.indicator && !['none', 'unknown'].includes(status.indicator) ? ` (nothing reported for ${status.tool})` : ''}`;
   const parts = [];
   for (const incident of status.activeIncidents.slice(0, 2)) parts.push(`${incident.name} (${incident.impact}, ${incident.status})`);
   if (parts.length === 0 && status.degradedComponents.length > 0) parts.push(status.degradedComponents.map(component => `${component.name}: ${component.status.replace(/_/g, ' ')}`).join(', '));

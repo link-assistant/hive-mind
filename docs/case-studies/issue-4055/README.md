@@ -117,7 +117,9 @@ pull request's release publishes an image. No change.
 - **Root cause.** A Dependabot defect: with multi-ecosystem groups, an open group
   pull request blocks newer group updates, even when they supersede it
   (dependabot/dependabot-core#16791, related #12957). The run reports success,
-  so nothing in CI noticed.
+  so nothing in CI noticed. #2285 could not have merged as it was either: its
+  only CI run (35741671039, 2026-09-22) failed the dependency-freshness gate on
+  unrelated stale packages (`ci-logs/pr2285-checks-35741671039.log.gz`).
 - **Fix.**
   - `scripts/dependabot-health.mjs` runs daily from `.github/workflows/dependabot-health.yml`.
   - It fails with `::error title=Stuck Dependabot pull request::` when a Dependabot
@@ -141,7 +143,30 @@ one. They are test names or assertions about warnings, such as
 
 ## Template comparison
 
-TEMPLATE_COMPARISON
+Checks a–d compare this issue's findings with each template's `main`
+(tarballs and logs from 2026-11-13).
+
+| Template | Same defect?                                                                                                                                                                                                                                                   | Action                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| python   | F6: yes. Dependabot pull request #135 (open since 2026-11-02) cannot pass, because tests hard-code `actions/cache/restore@v5` and `zizmor-action@v0.6.4`. No job reports a stuck bot pull request.                                                             | [python-template#149](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/149) |
+| cpp      | F6: yes. Every Dependabot pull request fails `Changelog Fragment Check`, and #26 also fails `Unaudited workflow tool: zizmor==1.31.1`, because the workflow pins zizmor a second time where Dependabot does not look. No job reports a stuck bot pull request. | [cpp-template#28](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/28)         |
+| rust     | F4: yes. `examples/javascript-first/Dockerfile` pins `rust:1.96.0-slim` while 1.100.0 is current. There is no `dependabot.yml` and no freshness check to report it.                                                                                            | [rust-template#239](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/239)     |
+| js       | No. It has no `dependabot.yml`, and its only Dockerfile is `FROM scratch`.                                                                                                                                                                                     | None                                                                                                                |
+
+- F5: no template configures `docker-compose`, and none has a compose file.
+- F2: no template builds a repeated-failure key from error text. The nearest
+  code, `js/scripts/publish-failure-classifier.mjs`, only classifies.
+- F1: hive-mind only.
+
+Each template's own failing `main` run is a missing setting that needs the
+owner. Each already fails with a message that says what to do, so they are not
+false negatives and were not reported again:
+
+- js 43336120258: `NPM_TOKEN` for the first publish of the placeholder package.
+- python 43399178991: a PyPI trusted publisher for `release.yml`.
+- rust 43401886267: GitHub Pages is not enabled (`Get Pages site failed`).
+- cpp 42646929941: `CONAN_AUDIT_PROVIDER_TOKEN_CONANCENTER`. The only warning
+  is CodeQL's overlay-base notice for `build-mode: manual`.
 
 ## Upstream
 

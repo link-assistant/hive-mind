@@ -40,4 +40,8 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 ## Reports to other projects
 
 - `upstream/`: comment on dependabot/dependabot-core#16791 (`URLS.txt` has the link).
-- `template-issues/`: issues filed in the link-foundation pipeline templates (`URLS.txt` has the links).
+- `template-issues/`: issues filed in the pipeline templates: [python#149](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/149), [cpp#28](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/28), [rust#239](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/239).
+
+## Earlier evidence
+
+- `ci-logs/pr2285-checks-35741671039.log.gz`: the only CI run of Dependabot pull request #2285 (2026-09-22). `detect-changes` failed the dependency-freshness gate on unrelated packages.

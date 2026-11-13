@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 2.40.2
+
+### Patch Changes
+
+- e778b7a: Publish the native Codex executables as per-platform variant versions of this package (`@link-assistant/hive-mind@<version>-native-codex-linux-x64` and `-linux-arm64`, under their own dist-tags) instead of bundling both in the main tarball. npm refused the 2.40.0 and 2.40.1 tarballs (249,847,872 and 249,862,346 bytes) with `E413 Payload Too Large`, so neither version, nor any Docker image, was released (#4050). The main package pins both variants as optional dependency aliases at publication; the runtime admits only the variant whose version matches the main package, and `HIVE_MIND_NATIVE_CODEX_DEBUG=1` (off by default) names the refused phase. Every tarball is now gated below a 157 MiB budget before upload with an annotation naming its largest files, and an E413 fails on the first attempt instead of being retried. Pull request images install the same packed variant at the alias path. See `src/native-codex/PACKAGES.md`.
+
+  The publication sanitizer no longer masks a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes, which lost its closing backtick). Real tokens stay masked; this works around sensitive-data-sanitizer#177 until it is fixed upstream.
+
+- 6d8ace1: A generic authentication failure no longer stops a run on the first try (#4053). Claude Code reports every 401/403, including a Cloudflare page (`Failed to authenticate. API Error: 403 Attention Required! | Cloudflare`), as `authentication_failed`. These are now treated as unconfirmed and re-checked by retrying, with the session preserved: 3 times by default (`HIVE_MIND_MAX_AUTH_FAILURE_RETRIES`, `HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS`, `HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS`). While status.claude.com or status.openai.com reports a relevant incident, retries continue within the transient retry budget (`HIVE_MIND_PROVIDER_STATUS_CHECK=false` disables the lookup). `/hive` is only stopped once the failure is confirmed, and the report and the Telegram message state how often it was re-checked and what the status page said. Explicit reasons (revoked or expired token, billing, disabled organization) still stop at once. The same applies to Codex 401s and Claude CLI validation, and Cloudflare challenge pages are retryable for every tool.
+
+  `/limits` now reports HTTP 5xx, 408, 425, timeouts and network errors as "Claude/Codex limits are temporarily unavailable (…). They will be retried on the next /limits call." These failures are no longer cached, including by the Router. The misleading bare `(active)` subscription status is dropped; only an exact end date is shown, when the provider publishes one.
+
 ## 2.40.1
 
 ### Patch Changes

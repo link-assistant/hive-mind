@@ -193,9 +193,9 @@ Why this does not leak anything to other tasks or the host:
   - the preflight disables a host skill and keeps all 11 repository skills, leaving the operator
     config and the host file untouched;
   - a Codex build that ignores the config still fails closed.
-- **Real Codex (codex-cli 0.166.0, offline provider).**
+- **Real Codex (codex-cli 0.166.0 and 0.169.0, the version the failing host used; offline provider).**
   [`reproduce-repository-skill-catalog.mjs`](../../../experiments/issue-4057/reproduce-repository-skill-catalog.mjs)
-  runs four scenarios ([output](evidence/real-codex-preflight.txt)):
+  runs four scenarios, with the same results on both versions ([output](evidence/real-codex-preflight.txt)):
   - base layout: 11 allowed;
   - `--claude-canonical`: 12 allowed;
   - `--host-skill --outside-symlink --claude-canonical`: 2 disabled, then 12 allowed;
@@ -245,6 +245,3 @@ It links the related reports openai/codex#60419 and #14316. No private data is i
   time of writing.
 - **Codex that ignores the setting.** If a future Codex stops honouring `[[skills.config]]` for some
   scope, the run still fails closed, by design. The error names each skill's origin.
-- **Codex 0.169.0 not run locally.** The failing host used codex 0.169.0, but the real-binary checks
-  above used 0.166.0. The discovery code read for this study had no scope changes that affect this
-  fix, and the preflight re-probe catches any difference at runtime.

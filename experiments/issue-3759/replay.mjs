@@ -11,6 +11,12 @@ process.env.HIVE_MIND_RETRY_BACKOFF_MULTIPLIER = '1';
 process.env.HIVE_MIND_RESULT_STREAM_CLOSE_MS = '1000';
 process.env.HIVE_MIND_STREAM_ACTIVITY_MS = '0';
 process.env.HIVE_MIND_STREAM_STARTUP_MS = '5000';
+// Issue #4053: unconfirmed auth failures are re-checked by retries; these
+// regressions replay one run, so keep that off unless a test opts in.
+process.env.HIVE_MIND_MAX_AUTH_FAILURE_RETRIES ??= '0';
+process.env.HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS ??= '1';
+process.env.HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS ??= '1';
+process.env.HIVE_MIND_PROVIDER_STATUS_CHECK ??= 'false';
 
 globalThis.use = async name => {
   const packageName = name.replace(/@\d[^/]*$/, '');

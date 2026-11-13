@@ -48,6 +48,8 @@ import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCod
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { classifyRetryableError, createTransientRetryBudget, retryTransientFailure as retryTransientToolFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { buildAuthFailureClaim, createAuthFailureRetry } from './auth-failure-retry.lib.mjs'; // Issue #4053
+import { isEdgeBlockedResponse } from './subscription-error.lib.mjs';
 import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
@@ -290,12 +292,12 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     // published "[object Object]". Render it as text instead.
     const streamErrorText = eventType === 'error' ? firstErrorText([data.message, data.error]) : '';
     if (streamErrorText) {
-      if (streamErrorText.includes('401') || streamErrorText.includes('Unauthorized')) nextState.authError = true;
+      if ((streamErrorText.includes('401') || streamErrorText.includes('Unauthorized')) && !isEdgeBlockedResponse(streamErrorText)) nextState.authError = true;
       nextState.streamErrors.push({ message: streamErrorText });
     }
     const turnFailureText = eventType === 'turn.failed' ? firstErrorText([data.error, data.message]) : '';
     if (turnFailureText) {
-      if (turnFailureText.includes('401') || turnFailureText.includes('Unauthorized')) nextState.authError = true;
+      if ((turnFailureText.includes('401') || turnFailureText.includes('Unauthorized')) && !isEdgeBlockedResponse(turnFailureText)) nextState.authError = true;
       nextState.turnFailures.push({ message: turnFailureText });
     }
     if (eventType === 'turn.completed' && data.usage && typeof data.usage === 'object') {
@@ -647,6 +649,7 @@ export const executeCodexCommand = async params => {
     },
     log,
   });
+  const authFailureRetry = createAuthFailureRetry({ tool: 'codex', budget: transientRetryBudget, log }); // Issue #4053: re-check a bare 401 before stopping
   const retryTransientFailure = async (retryableError, sessionId) => {
     const allowed = await retryTransientToolFailure({ tool: 'codex', retryableError, sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay });
     if (allowed) retryCount++;
@@ -954,9 +957,7 @@ export const executeCodexCommand = async params => {
 
           if (codexJsonState.authError && !authError) {
             authError = true;
-            await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
-            await log('   This error cannot be resolved by retrying.', { level: 'error' });
-            for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
+            await log('\n⚠️ Authentication error detected in Codex JSON stream (re-checked before the run stops, issue #4053)', { level: 'warning' });
           }
         }
         if (chunk.type === 'stderr') {
@@ -995,9 +996,7 @@ export const executeCodexCommand = async params => {
       }
       if (codexJsonState.authError && !authError) {
         authError = true;
-        await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
-        await log('   This error cannot be resolved by retrying.', { level: 'error' });
-        for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
+        await log('\n⚠️ Authentication error detected in Codex JSON stream (re-checked before the run stops, issue #4053)', { level: 'warning' });
       }
 
       if (interactiveHandler) {
@@ -1071,6 +1070,12 @@ export const executeCodexCommand = async params => {
       });
       // Check for authentication errors first - these should never be retried
       if (authError) {
+        // Issue #4053: a 401 can be a short provider incident; retry (session kept) before giving up.
+        const authText = [...codexJsonState.turnFailures, ...codexJsonState.streamErrors].map(entry => entry.message).find(text => /401|unauthorized/i.test(text)) || '401 Unauthorized';
+        const authRetry = await authFailureRetry.retryOrConfirm(buildAuthFailureClaim({ tool: 'codex', message: authText, label: 'Codex authentication failed (401 Unauthorized)', apiErrorStatus: 401 }), { sessionId, argv, waitForRetryDelay });
+        if (authRetry.retry) return await executeWithRetry();
+        await log('\n❌ Codex authentication error persisted. This error cannot be resolved by retrying.', { level: 'error' });
+        for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
         // Throw an error to stop retries and propagate the auth failure
         const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);

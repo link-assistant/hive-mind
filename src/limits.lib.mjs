@@ -20,6 +20,7 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
 import { getSelectedRouterLimits } from './limits-router.lib.mjs';
+import { isTemporaryLimitsHttpStatus, limitsFetchErrorCause, temporaryLimitsFailure } from './limits-unavailable.lib.mjs';
 export { getProgressBar } from './progress-bar.lib.mjs';
 import { getProgressBar } from './progress-bar.lib.mjs';
 import { formatTelegramLimitsSection } from './telegram-limits-section.lib.mjs';
@@ -767,9 +768,12 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath) {
           retryAfterMs: parseRetryAfterMs(retryAfter),
         };
       }
+      // 5xx/408/425: the provider is having trouble, not the account (issue #4053).
+      if (isTemporaryLimitsHttpStatus(response.status)) return temporaryLimitsFailure('claude', { status: response.status, statusText: response.statusText });
       return {
         success: false,
         error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`,
+        httpStatus: response.status,
       };
     }
 
@@ -809,6 +813,8 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath) {
     if (verbose) {
       console.error('[VERBOSE] /limits request failed:', error.name);
     }
+    // A timeout or network error is temporary; a malformed body (SyntaxError) is not.
+    if (error?.name !== 'SyntaxError') return temporaryLimitsFailure('claude', { cause: limitsFetchErrorCause(error) });
     return {
       success: false,
       error: 'Failed to get usage limits. Check connectivity and the provider response format.',
@@ -907,9 +913,11 @@ export async function getCodexUsageLimits(verbose = false, authPath = resolveLim
         };
       }
 
+      if (isTemporaryLimitsHttpStatus(response.status)) return temporaryLimitsFailure('codex', { status: response.status, statusText: response.statusText });
       return {
         success: false,
         error: `Failed to fetch Codex usage from API: ${response.status} ${response.statusText}`,
+        httpStatus: response.status,
       };
     }
     const data = await response.json();
@@ -948,6 +956,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = resolveLim
     if (verbose) {
       console.error('[VERBOSE] /limits Codex request failed:', error.name);
     }
+    if (error?.name !== 'SyntaxError') return temporaryLimitsFailure('codex', { cause: limitsFetchErrorCause(error) });
     return {
       success: false,
       error: 'Failed to get Codex usage limits. Check connectivity and the provider response format.',

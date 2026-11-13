@@ -9,6 +9,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { createTransientRetryBudget, waitWithCountdown } from './tool-retry.lib.mjs';
+import { buildAuthFailureClaim, createAuthFailureRetry } from './auth-failure-retry.lib.mjs'; // Issue #4053
 import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
@@ -29,6 +30,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
   const maxRetries = retryLimits.maxTransientErrorRetries;
   let retryCount = 0;
   const transientRetryBudget = createTransientRetryBudget();
+  const authFailureRetry = createAuthFailureRetry({ tool: 'claude', budget: transientRetryBudget, log }); // Issue #4053
   // Returns true when a retry was performed (caller should recurse), false when the budget is spent.
   const retryAfterOverload = async context => {
     const retryDecision = transientRetryBudget.evaluate({
@@ -127,6 +129,13 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       }
       const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
+        // Issue #4053: a generic 401/403 (e.g. a Cloudflare challenge page during a provider
+        // incident) is re-checked before validation fails; explicit wordings stay terminal.
+        const failureText = `${stdout}\n${stderr}`.trim();
+        if (/failed to authenticate|api error:?\s*40[13]\b/i.test(failureText)) {
+          const authRetry = await authFailureRetry.retryOrConfirm(buildAuthFailureClaim({ tool: 'claude', message: failureText.substring(0, 2000), label: 'Claude CLI authentication failed during validation' }), { waitForRetryDelay: waitWithCountdown });
+          if (authRetry.retry) return await attemptValidation();
+        }
         if (jsonError) {
           await log(`❌ Claude CLI authentication failed: ${jsonError.type} - ${jsonError.message}`, {
             level: 'error',

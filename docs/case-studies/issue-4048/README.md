@@ -262,6 +262,7 @@ All endpoints were checked on 2026-11-13 (HTTP 200).
 ## Upstream
 
 - [link-foundation/start#265](https://github.com/link-foundation/start/issues/265): `$ --stop` on docker executions uses Docker's default 10 s grace period; it asks for a configurable stop timeout. The issue includes the public evidence above, a reproduction, a workaround (`docker stop -t 120 <container>`) and a fix suggestion for both the JS and Rust implementations.
+- [link-foundation/sensitive-data-sanitizer#181](https://github.com/link-foundation/sensitive-data-sanitizer/issues/181): not part of the hang, but it blocked this pull request's CI. After the 2.40.2 release, main's own CHANGELOG line failed `tests/issue-3445-release-notes-not-masked.test.mjs`. In 0.22.3 the publication sanitizer read the closing backtick of `` `Authorization:` `` as a credential value and masked it. Upstream main (#179, unreleased) fixes that form, but it still masks `<value>` inside the double-backtick span ` ` `Authorization: token <value>` ` `. This pull request widens the existing #177 exemption in `src/sensitive-data-sanitizer.lib.mjs` to an empty value; `tests/authorization-code-span-placeholder-4050.test.mjs` covers it, and `experiments/issue-4048-changelog-sanitize-findings.mjs` prints the findings. The upstream issue includes a reproduction, the workaround and a fix suggestion.
 - GitHub's ghost runs are a known platform behaviour after Actions incidents (see the community links above). They need no new report; the fix is to stop waiting for them.
 
 ## Remaining limits

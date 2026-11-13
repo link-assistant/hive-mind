@@ -91,4 +91,5 @@ test('#4050: a value declared as a known secret is never exempt', () => {
 
 test('#4050: the workaround names the upstream issue it waits for', () => {
   assert.equal(UPSTREAM.authorizationCodeSpanPlaceholder, 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/177');
+  assert.equal(UPSTREAM.doubleBacktickCodeSpanPlaceholder, 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/181');
 });

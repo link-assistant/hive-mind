@@ -23,6 +23,9 @@ export const UPSTREAM = Object.freeze({
   // size, so Hive Mind documents it instead of re-implementing that rule.
   longCredentialValueScan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/173',
   authorizationCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/177',
+  // Still open on upstream main after the #177 fix: a placeholder followed by a
+  // literal backtick inside a double-backtick span (the 2.40.2 release note).
+  doubleBacktickCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/181',
 });
 const require = createRequire(import.meta.url);
 let library;

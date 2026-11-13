@@ -13,6 +13,10 @@ import sys
 import tempfile
 import time
 
+# Compiler limit: a bound for a hung compiler, not a speed test. These builds
+# take 7-10 s; a slow shared runner once took over 30 s (#4055).
+COMPILE_TIMEOUT = 120
+
 
 def limits(data_mib=128):
     resource.setrlimit(resource.RLIMIT_DATA, (data_mib * 1024 * 1024,) * 2)
@@ -24,7 +28,7 @@ def compiler_limits():
     limits(384)
 
 
-def build(command, preexec_fn, timeout=30):
+def build(command, preexec_fn, timeout=COMPILE_TIMEOUT):
     """Compile, and on failure say how long it ran and what the compiler printed.
 
     The compiler output used to be captured and then dropped, so a 30 s rustc

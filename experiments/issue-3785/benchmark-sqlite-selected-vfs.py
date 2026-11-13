@@ -8,6 +8,10 @@ import resource
 import subprocess
 import tempfile
 
+# Compiler limit: a bound for a hung compiler, not a speed test. These builds
+# take 7-10 s; a slow shared runner once took over 30 s (#4055).
+COMPILE_TIMEOUT = 120
+
 
 def limits(data_mib=128):
     resource.setrlimit(resource.RLIMIT_DATA, (data_mib * 1024 * 1024,) * 2)
@@ -32,14 +36,14 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-benchmark-") as tempora
     subprocess.run(["cc", "-std=c11", "-w", "-O0", "-g0", "-pthread",
                     "-DSQLITE_ENABLE_FILESTAT", "-DSQLITE_THREADSAFE=1",
                     "-c", str(args.sqlite_source), "-o", str(sqlite_object)],
-                   check=True, timeout=30, preexec_fn=compiler_limits)
+                   check=True, timeout=COMPILE_TIMEOUT, preexec_fn=compiler_limits)
     subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O2", "-g0",
                     "-D_FORTIFY_SOURCE=2",
                     "-I", str(args.sqlite_source.parent),
                     str(Path(__file__).with_suffix(".c")),
                     str(Path(__file__).with_name("native-codex") / "canonical_sqlite_vfs.c"),
                     str(sqlite_object), "-lm", "-ldl", "-pthread", "-o", str(binary)],
-                   check=True, timeout=30, preexec_fn=limits)
+                   check=True, timeout=COMPILE_TIMEOUT, preexec_fn=limits)
     for repetition in range(3):
         modes = ("ordinary", "selected") if repetition % 2 == 0 else ("selected", "ordinary")
         for mode in modes:

@@ -10,6 +10,10 @@ import selectors
 import subprocess
 import tempfile
 
+# Compiler limit: a bound for a hung compiler, not a speed test. These builds
+# take 7-10 s; a slow shared runner once took over 30 s (#4055).
+COMPILE_TIMEOUT = 120
+
 
 def limits(data_mib=128):
     resource.setrlimit(resource.RLIMIT_DATA, (data_mib * 1024 * 1024,) * 2)
@@ -35,12 +39,12 @@ with tempfile.TemporaryDirectory(prefix="sqlite-native-handles-") as temporary:
     subprocess.run(["cc", "-std=c11", "-w", "-O0", "-g0", "-pthread",
                     "-DSQLITE_ENABLE_FILESTAT", "-DSQLITE_THREADSAFE=1",
                     "-c", str(args.sqlite_source), "-o", str(sqlite_object)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=compiler_limits)
+                   check=True, capture_output=True, timeout=COMPILE_TIMEOUT, preexec_fn=compiler_limits)
     subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O0", "-g0",
                     "-I", str(args.sqlite_source.parent),
                     str(Path(__file__).with_suffix(".c")), str(sqlite_object),
                     "-lm", "-ldl", "-pthread", "-o", str(binary)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=limits)
+                   check=True, capture_output=True, timeout=COMPILE_TIMEOUT, preexec_fn=limits)
     for mode in ("initial", "retained"):
         for mutation in ("none", "directory", "database", "database-hardlink"):
             case = fixture / f"{mode}-{mutation}"

@@ -74,7 +74,7 @@ test('a variant that never lands fails the publication with an actionable, non-r
     assert.equal(describeNonRetryableFailure(error.message, NAME).title, 'native Codex variant not installable');
     return true;
   });
-  assert.match(logger.lines.join('\n'), new RegExp(`::error title=native Codex variant not installable::${ARM64.replace(/[.@/+-]/g, '\\$&')} did not`));
+  assert.ok(logger.lines.join('\n').includes(`::error title=native Codex variant not installable::${ARM64} did not`), logger.lines.join('\n'));
   assert.ok(!logger.lines.join('\n').includes(X64), 'only the missing variant is named');
 });
 

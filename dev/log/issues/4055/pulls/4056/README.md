@@ -30,6 +30,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43496638615 | Checks and release | success | `ci-logs/release-43496638615-linux-arm64-sqlite-recovery-selected-after.log.gz`: `actualNativeRecovery: true` on linux-arm64 (F1 fixed) |
 | 43513268777 | Checks and release | failure | `ci-logs/release-43513268777-detect-changes.log.gz`: ESLint 10.15.0, published 11 minutes earlier, fails the freshness gate; ESLint updated |
 | 43513684161 | Checks and release | failure | `ci-logs/release-43513684161-test-suites.log.gz`: `reap all live fixture processes` in the Router native-lifetime test (F8) |
+| 43522467758 | Security | failure | `ci-logs/security-43522467758-codeql.log.gz`: CodeQL `js/incomplete-sanitization` in this pull request's own new F9 test (a hand-written regex escape); replaced by a substring check |
 
 ## Summaries
 
@@ -50,7 +51,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 
 ## Reports to other projects
 
-- `upstream/`: comment on dependabot/dependabot-core#16791 (`URLS.txt` has the link).
+- `upstream/`: comment on dependabot/dependabot-core#16791 and issue link-foundation/sensitive-data-sanitizer#182, the flaky timing test that blocks the release of the #177 fix (F10). `URLS.txt` has the links.
 - `template-issues/`: issues filed in the pipeline templates: [python#149](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/149), [cpp#28](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/28), [rust#239](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/239).
 
 ## Earlier evidence

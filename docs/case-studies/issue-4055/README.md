@@ -9,7 +9,7 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 | #   | Requirement (issue text)                                                                 | Where it is addressed                                                    |
 | --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F9, B1–B3 below                                              |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F10, B1–B3 below                                             |
 | R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                       |
 | R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                             |
 | R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                              |
@@ -266,6 +266,34 @@ installable::` and the main package is not published. The failure is
   both variants are installable. That is a publication, so it is left to a
   maintainer.
 
+### F10. False positive: the 2.40.2 release note was masked as a credential
+
+- **Evidence.** After `main` gained the 2.40.2 CHANGELOG entry (PR #4054),
+  `tests/issue-3445-release-notes-not-masked.test.mjs` failed on this branch
+  once `main` was merged. The entry names the header in prose as
+  `` `Authorization:` ``. sensitive-data-sanitizer 0.22.3 reads the closing
+  backtick as the header value and masks it. That redaction also shifts the
+  backtick parity, so the double-backtick example that follows is masked too.
+- **Root cause.** Upstream: an empty header value inside a code span
+  (link-foundation/sensitive-data-sanitizer#177) and a placeholder followed by a
+  literal backtick inside a double-backtick span (#181). #177 is fixed on
+  upstream `main` (b8787227d) but has not been released: its release run
+  43406123201 failed on a timing-ratio test (`Expected 7.208836240399472 to be
+less than 7`, macos-26-intel, Bun). This is reported as
+  [sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
+  npm `latest` is still 0.22.3.
+- **Fix.** `isCodeSpanAuthorizationPlaceholder` in
+  `src/sensitive-data-sanitizer.lib.mjs` makes the placeholder template
+  optional. A lone closing backtick after `Authorization:` inside an open code
+  span is kept; real tokens are still masked. The change is identical to the
+  one in PR #4059, so either can merge first. `UPSTREAM.doubleBacktickCodeSpanPlaceholder`
+  links #181, so the exemption can be removed once upstream releases both fixes.
+- **Test.** `tests/authorization-code-span-placeholder-4050.test.mjs` adds the
+  2.40.2 CHANGELOG lines, empty values, and a real token after
+  `` `Authorization:` ``, which must still be masked.
+  `tests/issue-3445-release-notes-not-masked.test.mjs` fails before the change
+  and passes after it.
+
 ### Blocked or external, not changed
 
 | #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
@@ -297,6 +325,8 @@ Checks a–d compare this issue's findings with each template's `main`
 - F1: hive-mind only.
 - F9: no template publishes platform variants as optional dependencies. The js
   template's `wait-for-npm` pattern waits for the one package it publishes.
+- F10: no template depends on sensitive-data-sanitizer (only research notes in
+  js and python mention it).
 - F7: no template bounds a compile with a tight time limit. cpp's test preset
   allows 120 s, and python's `scripts/run-with-budget-warning.sh` warns before a
   command reaches its limit.
@@ -316,6 +346,10 @@ false negatives and were not reported again:
 - Dependabot: reproduction, workaround and fix suggestion added to
   [dependabot/dependabot-core#16791](https://github.com/dependabot/dependabot-core/issues/16791#issuecomment-6863150915).
   The body is in `dev/log/issues/4055/pulls/4056/upstream/`.
+- sensitive-data-sanitizer: the flaky timing test that blocks the #177 fix
+  release is reported with evidence, a workaround and a fix suggestion in
+  [link-foundation/sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
+  #181 (the double-backtick case) was already open (F10).
 - SQLx and Codex: nothing to report. SQLx documents asynchronous close, and
   upstream Codex recovery renames files and tolerates open handles. The race
   only exists with this repository's selected VFS, which is fixed here.
@@ -355,3 +389,6 @@ false negatives and were not reported again:
   `node scripts/wait-for-npm.mjs --release-version 2.40.2 --max-attempts 2 --sleep-time 1`
   against the live registry finds the main package and both pinned variants
   installable and exits 0.
+- F10: `tests/authorization-code-span-placeholder-4050.test.mjs` (16 cases) and
+  `tests/issue-3445-release-notes-not-masked.test.mjs` (5 cases) fail before the
+  change and pass after it; every sanitizer-related test file (24) passes.

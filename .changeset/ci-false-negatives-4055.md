@@ -1,0 +1,10 @@
+---
+'@link-assistant/hive-mind': patch
+---
+
+Fix the CI/CD errors, false negatives and warnings found on `main` (#4055):
+
+- **Native recovery on `linux-arm64`.** Selected native SQLite corruption recovery no longer fails with `requires closed database handles` when SQLx is still closing a dropped connection on its worker thread. The VFS reports the holder through `errno`: `EBUSY` for this process and `EWOULDBLOCK` for a native peer. The backup waits at most 5 s for this process's own handles and still refuses live peers. `HIVE_CODEX_SQLITE_TRACE=1` traces each attempt and is off by default.
+- **Formal AI draft health.** Repeated draft failures no longer split into separate streaks by release version. Twelve drafts that failed on missing `2.40.0` and `2.40.1` images stayed green because neither streak reached the threshold.
+- **Formal AI image.** It now builds on `rust:1.100`.
+- **Dependabot.** The `docker-compose` entry matched no dependency and warned daily, so it is removed. A daily `Dependabot Health` workflow fails when a Dependabot group pull request stays open long enough to block newer updates (dependabot/dependabot-core#16791).

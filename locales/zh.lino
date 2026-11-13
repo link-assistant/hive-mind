@@ -291,6 +291,10 @@ zh
     resource
       limit
         exceeded "资源限额已超出"
+    retry
+      reason
+        network "网络错误"
+        timeout "请求超时"
     solve
       queue
         status "Solve 队列状态"
@@ -372,6 +376,8 @@ zh
         chat "每个聊天的消息，1 分钟"
         group "每个群组的消息，1 分钟"
         other "其他 API 请求，1 秒"
+    temporarily
+      unavailable "{{provider}} 限额暂时不可用（{{reason}}）。下次调用 /limits 时将重试。"
     trial
       ends
         label "试用结束于 {{time}}"

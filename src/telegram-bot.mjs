@@ -185,6 +185,7 @@ const { injectLanguageIfMissing, validateRuntimeModelInArgs } = await import('./
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
+const { describeLimitsFailure } = await import('./limits-unavailable.lib.mjs'); // #4053
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
@@ -399,8 +400,9 @@ bot.command(
     // Get all limits using shared cache (3min for API, 2min for system)
     const limits = await getAllCachedLimits(VERBOSE);
     // Format message with usage limits and queue status (issues #1343, #1267)
-    const claudeError = limits.claude.success ? null : limits.claude.error;
-    const codexError = limits.codex.success ? null : limits.codex.error;
+    // Issue #4053: HTTP 5xx/timeouts say "temporarily unavailable, retried on the next /limits call".
+    const claudeError = describeLimitsFailure(limits.claude, { locale: userLocale });
+    const codexError = describeLimitsFailure(limits.codex, { locale: userLocale });
     const solveQueue = getSolveQueue({ verbose: VERBOSE });
     const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
     const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;

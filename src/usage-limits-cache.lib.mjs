@@ -143,6 +143,9 @@ export async function getCachedUsageLimits({ key, fetchLimits, credentialsPath, 
       const ttlMs = Math.max(usageTtlMs, result.retryAfterMs || 0);
       cache.set(`${key}-failure`, { result, credentialsVersion: version, until: Date.now() + ttlMs }, ttlMs);
       if (verbose) console.log(`[VERBOSE] /limits-cache: Cached ${key} ${result.failureKind} failure for ${Math.round(ttlMs / 60000)} minutes${result.failureKind === 'auth' ? ' or until the credentials file changes' : ''}`);
+    } else if (verbose && result.failureKind === 'temporary') {
+      // Issue #4053: a 5xx/timeout says nothing about the account, so the next /limits call asks again.
+      console.log(`[VERBOSE] /limits-cache: Not caching temporary ${key} failure (${result.httpStatus ? `HTTP ${result.httpStatus}` : result.cause || 'network'}); the next /limits call retries`);
     }
     return result;
   })();

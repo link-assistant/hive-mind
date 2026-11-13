@@ -291,6 +291,10 @@ en
     resource
       limit
         exceeded "Resource limit exceeded"
+    retry
+      reason
+        network "network error"
+        timeout "request timed out"
     solve
       queue
         status "Solve Queue Status"
@@ -372,6 +376,8 @@ en
         chat "messages per chat, 1m"
         group "messages per group, 1m"
         other "other API requests, 1s"
+    temporarily
+      unavailable "{{provider}} limits are temporarily unavailable ({{reason}}). They will be retried on the next /limits call."
     trial
       ends
         label "Trial ends {{time}}"

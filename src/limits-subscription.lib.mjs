@@ -14,6 +14,7 @@ import { CACHE_TTL, claudeLimitsAuthAdmission, codexLimitsAuthAdmission, decodeJ
 import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { captureLimitsAuthentication, changedLimitsAuthentication, getCachedUsageLimits } from './usage-limits-cache.lib.mjs';
 import { getSelectedRouterLimits } from './limits-router.lib.mjs';
+import { isTemporaryLimitsHttpStatus, limitsFetchErrorCause, temporaryLimitsFailure } from './limits-unavailable.lib.mjs';
 
 const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
 
@@ -151,9 +152,11 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
       }
       await response.body?.cancel();
       if (!(await authenticationUnchanged())) return changedLimitsAuthentication();
+      if (isTemporaryLimitsHttpStatus(response.status)) return { ...temporaryLimitsFailure('claude', { status: response.status, statusText: response.statusText }), error: `Claude profile is temporarily unavailable: HTTP ${response.status}` };
       return {
         success: false,
         error: `Failed to fetch Claude profile: HTTP ${response.status}`,
+        httpStatus: response.status,
       };
     }
 
@@ -167,6 +170,10 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     const currentPlan = account.has_claude_max === true ? 'max' : account.has_claude_pro === true ? 'pro' : account.has_claude_max === false && account.has_claude_pro === false ? 'free' : planType;
     if (verbose) {
       console.log('[VERBOSE] /limits Claude subscription: authenticated profile received.');
+      // Issue #4053: record which billing/expiry fields the profile carries (names only, never values)
+      // so a future subscription end date can be wired up as soon as Anthropic exposes one.
+      const fieldNames = Object.keys(organization).filter(name => /subscription|billing|trial|period|renew|expir|ends|seat|tier/i.test(name));
+      console.log(`[VERBOSE] /limits Claude subscription fields: ${fieldNames.sort().join(', ') || '(none)'}`);
     }
     return {
       success: true,
@@ -181,6 +188,7 @@ export async function getClaudeSubscriptionInfo({ verbose = false, credentialsPa
     };
   } catch (error) {
     if (verbose) console.error('[VERBOSE] /limits subscription error:', error.name);
+    if (error?.name !== 'SyntaxError') return { ...temporaryLimitsFailure('claude', { cause: limitsFetchErrorCause(error) }), error: 'Claude profile is temporarily unavailable (network error or timeout).' };
     return { success: false, error: 'Failed to get Claude subscription info. Check connectivity and the provider response format.' };
   }
 }

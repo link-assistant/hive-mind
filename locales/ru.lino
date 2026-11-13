@@ -291,6 +291,10 @@ ru
     resource
       limit
         exceeded "Превышен лимит ресурсов"
+    retry
+      reason
+        network "сетевая ошибка"
+        timeout "превышено время ожидания запроса"
     solve
       queue
         status "Статус очереди solve"
@@ -372,6 +376,8 @@ ru
         chat "сообщения в чат, 1 мин"
         group "сообщения в группу, 1 мин"
         other "другие запросы API, 1 с"
+    temporarily
+      unavailable "Лимиты {{provider}} временно недоступны ({{reason}}). Они будут запрошены повторно при следующем вызове /limits."
     trial
       ends
         label "Пробный период заканчивается {{time}}"

@@ -28,6 +28,8 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | ----------- | ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 43496638282 | Native Codex auth adapter experiment | attempt 1 failure, 2 success | `ci-logs/native-experiment-43496638282-config-lock.log.gz` (the `rustc` timeout), `…-attempt1-native-file-authority.log.gz` (the job log) (F7) |
 | 43496638615 | Checks and release | success | `ci-logs/release-43496638615-linux-arm64-sqlite-recovery-selected-after.log.gz`: `actualNativeRecovery: true` on linux-arm64 (F1 fixed) |
+| 43513268777 | Checks and release | failure | `ci-logs/release-43513268777-detect-changes.log.gz`: ESLint 10.15.0, published 11 minutes earlier, fails the freshness gate; ESLint updated |
+| 43513684161 | Checks and release | failure | `ci-logs/release-43513684161-test-suites.log.gz`: `reap all live fixture processes` in the Router native-lifetime test (F8) |
 
 ## Summaries
 
@@ -42,6 +44,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 - `probe-sqlx-after.log.gz`: all 50 SQLx controls pass after it.
 - `probe-sqlite-selected-vfs-after.log.gz`: 1,034 VFS component controls pass.
 - `sqlite-vfs-control-build.log.gz`, `test-native-build.log.gz`: the build of the control binary and the native build test.
+- `proc-dead-state-window.txt`: `experiments/issue-4055/proc-dead-state-window.py` shows a reaped zombie as `X (dead)` right after `Z` (F8).
 - `dependabot-health-before.txt`: `node scripts/dependabot-health.mjs` against the live repository before #2285 was closed. It exits 1 and names #2285 (F6).
 - `pr-2285-body.md`: #2285's body with its 37 rebase banners.
 

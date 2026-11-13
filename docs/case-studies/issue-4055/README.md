@@ -7,16 +7,16 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 ## Requirements
 
-| #   | Requirement (issue text)                                                                 | Where it is addressed                                       |
-| --- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F7, B1–B3 below                                 |
-| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                          |
-| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                |
-| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                 |
-| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages   |
-| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                           |
-| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; [Upstream](#upstream)   |
-| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5 (two compose dirs), F7 (5 probes) |
+| #   | Requirement (issue text)                                                                 | Where it is addressed                                                      |
+| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F8, B1–B3 below                                                |
+| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                         |
+| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                               |
+| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                                |
+| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages                  |
+| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                                          |
+| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; F8; [Upstream](#upstream)              |
+| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5 (two compose dirs), F7 (5 probes), F8 (6 checks) |
 
 ## Timeline (UTC)
 
@@ -35,6 +35,8 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 | 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                            |
 | 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                               |
 | 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.  |
+| 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                     |
+| 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).           |
 
 ## Findings, root causes and fixes
 
@@ -161,6 +163,44 @@ request has no Dockerfile diff left; F4 is fixed on `main`.
   - Each of the experiment's three jobs prints the newest log, with an `::error`
     annotation naming it, when a step fails.
 
+### F8. False positive: a stopped fixture process read as alive again
+
+- **Evidence.** Checks and release 43513684161, job `test-suites`, test file
+  233 (`tests/issue-3785-router-native-lifetime.test.mjs`):
+  `✖ Router Agent live input stops the real native group on security refusal`,
+  `AssertionError: reap all live fixture processes before deleting their state`,
+  raised by the test's `after` hook (`ci-logs/release-43513684161-test-suites.log.gz`).
+  The test body passed: its own check that both processes had stopped during
+  logging succeeded. The whole file took 1.66 s, of which the other test took
+  1.06 s, so the hook's 1 s wait loop ended at once: both PIDs read as stopped,
+  and the very next synchronous read found one alive. The commit only changed
+  ESLint, and the same test passed on this pull request's previous runs; 60
+  local runs, half with every CPU busy, passed.
+- **Root cause.** `isFixtureProcessAlive` treats every `/proc/<pid>/stat`
+  state except `Z` as alive. The fixture's child is orphaned when the guard
+  stops the group, so init reaps it asynchronously. While a reaper releases a
+  zombie, the kernel shows it as `X (dead)` (`wait_task_zombie` sets
+  `EXIT_DEAD` before `release_task` removes the `/proc` entry). The sequence
+  `Z` then `X` reads as "stopped" then "alive". `experiments/issue-4055/proc-dead-state-window.py`
+  reproduces the window with a subreaper thread that reaps like init:
+  `X` appeared in 234 of 2,000 trials, 112 of them right after `Z`
+  (`proc-dead-state-window.txt`). Commit `af61bf239` fixed a sibling race in
+  the same helper (the entry vanishing during the read); production code
+  already treats both states as exited (`src/queue-work.lib.mjs`: `/^[ZX]/`).
+- **Fix.** `Z` and `X` both mean exited, in every `/proc/<pid>/stat` check
+  that had only `Z`:
+  - `experiments/issue-3785/process-liveness.mjs` (the failing helper, used by
+    both Router native-lifetime probes);
+  - `src/verify-agent-runtime.mjs` (`hasLiveProbeMembers`, which would wait
+    on a released task);
+  - `tests/issue-3785-runtime-process-cleanup.test.mjs`,
+    `tests/issue-3785-runtime-version-cleanup.test.mjs`,
+    `tests/issue-2613-regressions.test.mjs`;
+  - `experiments/issue-3785/test_native_process_group.py`, which also no
+    longer fails when the entry disappears between its existence check and read.
+- **Test.** `tests/issue-3785-process-liveness.test.mjs` now covers `D` and
+  `X`; with the old helper it fails with `actual: true, expected: false` for `X`.
+
 ### Blocked or external, not changed
 
 | #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
@@ -218,6 +258,7 @@ false negatives and were not reported again:
 - Dependabot multi-ecosystem groups: <https://docs.github.com/en/code-security/dependabot/working-with-dependabot/configuring-multi-ecosystem-updates>
 - Dependabot defect: <https://github.com/dependabot/dependabot-core/issues/16791>, <https://github.com/dependabot/dependabot-core/issues/12957>
 - SQLx SQLite connections run on a worker thread that closes the handle when it handles `Command::Shutdown`, after the caller has moved on: <https://github.com/launchbadge/sqlx/blob/main/sqlx-sqlite/src/connection/worker.rs>; `PoolConnection`: <https://docs.rs/sqlx-core/latest/sqlx_core/pool/struct.PoolConnection.html>
+- Linux task states in `/proc/<pid>/stat` (`X (dead)`, `Z (zombie)`): <https://github.com/torvalds/linux/blob/master/fs/proc/array.c>; `wait_task_zombie` moves `EXIT_ZOMBIE` to `EXIT_DEAD` before `release_task`: <https://github.com/torvalds/linux/blob/master/kernel/exit.c>; `proc_pid_stat(5)`: <https://man7.org/linux/man-pages/man5/proc_pid_stat.5.html>
 - SQLite VFS and `SQLITE_BUSY`: <https://www.sqlite.org/c3ref/vfs.html>, <https://www.sqlite.org/rescode.html#busy>
 
 ## Verification
@@ -232,3 +273,9 @@ false negatives and were not reported again:
   (F7) and passed on attempt 2.
 - `probe-sqlite-selected-vfs.py` with the 120 s compile limit: 1,034 cases pass
   locally; actionlint 1.7.12 (with shellcheck) passes on the experiment workflow.
+- F8: `tests/issue-3785-process-liveness.test.mjs` fails before the fix and
+  passes after it; the Router native-lifetime, runtime process and version
+  cleanup and #2613 regression tests and `test_native_process_group.py` pass.
+- ESLint 10.15.0: `node scripts/check-dependency-freshness.mjs` reports all
+  declarations current; `tests/test-issue-2187-current-dependency-pins.mjs`
+  passes with the updated pin.

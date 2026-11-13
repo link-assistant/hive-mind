@@ -31,6 +31,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43513268777 | Checks and release | failure | `ci-logs/release-43513268777-detect-changes.log.gz`: ESLint 10.15.0, published 11 minutes earlier, fails the freshness gate; ESLint updated |
 | 43513684161 | Checks and release | failure | `ci-logs/release-43513684161-test-suites.log.gz`: `reap all live fixture processes` in the Router native-lifetime test (F8) |
 | 43522467758 | Security | failure | `ci-logs/security-43522467758-codeql.log.gz`: CodeQL `js/incomplete-sanitization` in this pull request's own new F9 test (a hand-written regex escape); replaced by a substring check |
+| 43524101203 | Checks and release | failure | `ci-logs/release-43524101203-test-suites-line-limit.log.gz`: the F9 comment made `release.yml` 1,351 lines, over the 1,350-line warning threshold; comment shortened |
 
 ## Summaries
 

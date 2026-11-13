@@ -1,0 +1,29 @@
+$ node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <codex 0.166.0> 
+  log: 🔎 Model-visible skills (11): repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, repo-agents-skill-8, repo-agents-skill-9,
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-CKp1A7/skills/.system
+RESULT allowed: repo-agents-skill-1 [repository], repo-agents-skill-10 [repository], repo-agents-skill-2 [repository], repo-agents-skill-3 [repository], repo-agents-skill-4 [repository], repo-agents-skill-5 [repository], repo-agents-skill-6 [repository], repo-agents-skill-7 [repository], repo-agents-skill-8 [repository], repo-agents-skill-9 [repository], repo-codex-skill [repository]
+
+$ node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <codex 0.166.0> --claude-canonical
+  log: 🔎 Model-visible skills (12): claude-first, repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, repo-agents-skill-8, repo-a
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-8Hg3lM/skills/.system
+RESULT allowed: claude-first [repository], repo-agents-skill-1 [repository], repo-agents-skill-10 [repository], repo-agents-skill-2 [repository], repo-agents-skill-3 [repository], repo-agents-skill-4 [repository], repo-agents-skill-5 [repository], repo-agents-skill-6 [repository], repo-agents-skill-7 [repository], repo-agents-skill-8 [repository], repo-agents-skill-9 [repository], repo-codex-skill [repository]
+
+$ node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <codex 0.166.0> --host-skill --outside-symlink --claude-canonical
+  log: 🔎 Model-visible skills (14): claude-first, host-only-skill, linked, repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, re
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-7hfEYw/skills/.system
+  log: ⛔ Refused skill linked (origin=host, path=<tmp>/outside/linked/SKILL.md, rendered=<tmp>/gh-issue-solver-checkout/.agents/skills/linked/SKILL.md)
+  log: ⛔ Refused skill host-only-skill (origin=host, path=<tmp>/home/.agents/skills/host-only-skill/SKILL.md)
+  log: 🚫 Disabled 2 skill(s) outside the task allowlist for this task only: linked (host), host-only-skill (host)
+  log: 🔎 Model-visible skills (12): claude-first, repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, repo-agents-skill-8, repo-a
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-7hfEYw/skills/.system
+RESULT allowed: claude-first [repository], repo-agents-skill-1 [repository], repo-agents-skill-10 [repository], repo-agents-skill-2 [repository], repo-agents-skill-3 [repository], repo-agents-skill-4 [repository], repo-agents-skill-5 [repository], repo-agents-skill-6 [repository], repo-agents-skill-7 [repository], repo-agents-skill-8 [repository], repo-agents-skill-9 [repository], repo-codex-skill [repository]
+
+$ node experiments/issue-4057/reproduce-repository-skill-catalog.mjs <codex 0.166.0> --host-skill --operator-enable
+  log: 🔎 Model-visible skills (12): host-only-skill, repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, repo-agents-skill-8, rep
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-XcrAXr/skills/.system
+  log: ⛔ Refused skill host-only-skill (origin=host, path=<tmp>/home/.agents/skills/host-only-skill/SKILL.md)
+  log: 🚫 Disabled 1 skill(s) outside the task allowlist for this task only: host-only-skill (host)
+  log: 🔎 Model-visible skills (11): repo-agents-skill-1, repo-agents-skill-10, repo-agents-skill-2, repo-agents-skill-3, repo-agents-skill-4, repo-agents-skill-5, repo-agents-skill-6, repo-agents-skill-7, repo-agents-skill-8, repo-agents-skill-9,
+  log: 🧭 Trusted skill roots: <tmp>/gh-issue-solver-checkout/.agents/skills, <tmp>/gh-issue-solver-checkout/.codex/skills, <tmp>/.hive-mind/codex-tasks/fixture/issue-4057/run-XcrAXr/skills/.system
+RESULT allowed: repo-agents-skill-1 [repository], repo-agents-skill-10 [repository], repo-agents-skill-2 [repository], repo-agents-skill-3 [repository], repo-agents-skill-4 [repository], repo-agents-skill-5 [repository], repo-agents-skill-6 [repository], repo-agents-skill-7 [repository], repo-agents-skill-8 [repository], repo-agents-skill-9 [repository], repo-codex-skill [repository]
+

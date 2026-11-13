@@ -1,0 +1,5 @@
+---
+'@link-assistant/hive-mind': patch
+---
+
+Codex runs in a repository with its own skills no longer fail with "Codex exposed skill instructions outside the capability allowlist" (#4057). Every skill under the checkout's `.agents/skills` and `.codex/skills` is admitted without an issue requirement. This includes skills linked from `.agents/skills` into `.claude/skills`, the layout used by Hive Mind's handoff and Playwright skills, as long as the file stays inside the checkout. Skills Codex discovers outside the checkout and the task `CODEX_HOME` (`$HOME/.agents/skills`, `/etc/codex/skills`, symlinks leaving the checkout) are now switched off for the task only, with `[[skills.config]] enabled = false` in the per-task `CODEX_HOME`, instead of failing the run. The catalog is then probed again, and the run still fails closed if Codex keeps showing them. Verbose logs list the trusted skill roots and each refused skill with its origin. Hosts still on 2.39.x should upgrade: the repository-skill fix from #3785 was versioned as 2.40.0/2.40.1, but neither version reached npm (`latest` is still 2.39.14), so this release is the first published one that contains it.

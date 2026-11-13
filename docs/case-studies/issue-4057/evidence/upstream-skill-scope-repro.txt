@@ -1,0 +1,8 @@
+== 1. bundled skills off, nothing else: the host skill is visible
+host-skill: installed on the host (file: r0/host-skill/SKILL.md
+repo-skill: shipped by the repository (file: r1/repo-skill/SKILL.md
+== 2. workaround: disable each host skill by path (requires listing them first)
+repo-skill: shipped by the repository (file: r0/repo-skill/SKILL.md
+== 3. workaround: HOME pointed at an empty directory (also changes git/gh/ssh lookups)
+repo-skill: shipped by the repository (file: r0/repo-skill/SKILL.md
+codex-cli 0.166.0

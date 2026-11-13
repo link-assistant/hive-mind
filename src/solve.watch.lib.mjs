@@ -59,7 +59,7 @@ const { reportAutomationStop } = stopReportingLib;
 const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { interruptibleSleep, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 import { resumeAfterToolKill } from './solve.tool-kill-resume.lib.mjs'; // Issue #2408
 // Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
 // a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
@@ -154,6 +154,8 @@ export const watchForFeedback = async params => {
   let noProgressStop = null;
 
   while (true) {
+    // Issue #4048: stand down while the interrupt handler commits and uploads the log.
+    await parkIfShuttingDown(log, reason => formatAligned('🛑', 'Monitoring stopped:', `${reason} received — waiting for the interrupt handler to finish`, 2));
     iteration++;
     const currentTime = new Date();
 

@@ -475,7 +475,9 @@ export const shouldResetNoRunsCounter = (ciStatus, noWorkflowRunsForCommit = fal
  * CLEAN/MERGEABLE. Only this explicit pair is strong enough to override the
  * rollup; every other merge state remains conservative.
  */
-export const isAuthoritativeCleanMergeState = mergeStatus => mergeStatus?.mergeable === true && mergeStatus?.mergeableState === 'MERGEABLE' && mergeStatus?.mergeStateStatus === 'CLEAN';
+// Issue #4048: shared with checkCIConsensus, which must apply the same rule.
+import { isAuthoritativeCleanMergeState } from './github-ci-stuck-runs.lib.mjs';
+export { isAuthoritativeCleanMergeState };
 
 export const reconcileStaleCIBlockers = (blockers, ciStatus, mergeStatus) => {
   if (ciStatus?.status !== 'failure' || !isAuthoritativeCleanMergeState(mergeStatus)) {
@@ -1004,7 +1006,9 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     });
   }
 
-  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  // Issue #4048: mergeStatus is passed on to checkCIConsensus so both checks
+  // apply the same CLEAN/MERGEABLE rule instead of contradicting each other.
+  return { blockers, ciStatus, mergeStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
 };
 
 /**

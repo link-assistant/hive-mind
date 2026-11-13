@@ -201,6 +201,21 @@ export const providerStatus = {
   cacheMs: parseIntWithDefault('HIVE_MIND_PROVIDER_STATUS_CACHE_MS', 60 * 1000),
   claudeUrl: getenv('HIVE_MIND_CLAUDE_STATUS_URL', 'https://status.claude.com'),
   codexUrl: getenv('HIVE_MIND_CODEX_STATUS_URL', 'https://status.openai.com'),
+  // Issue #4048: GitHub's own Statuspage, consulted before a stuck (queued, never started)
+  // Actions run is cancelled and re-run, so a global outage is told apart from our own problem.
+  githubUrl: getenv('HIVE_MIND_GITHUB_STATUS_URL', 'https://www.githubstatus.com'),
+};
+
+// Issue #4048: "ghost" workflow runs. During a GitHub Actions/Webhooks incident runs can be
+// created and then stay `queued` with zero jobs forever; the auto-merge consensus check waited
+// on them for 12+ hours without announcing anything.
+export const stuckCiRuns = {
+  // A run queued with no jobs for longer than this is treated as stuck (never started).
+  queuedMinutes: parseIntWithDefault('HIVE_MIND_STUCK_QUEUED_RUN_MINUTES', 30),
+  // Cancel + re-run attempts per stuck HEAD run once GitHub reports no related incident. 0 disables.
+  rerunAttempts: parseIntWithDefault('HIVE_MIND_STUCK_RUN_RERUN_ATTEMPTS', 2),
+  // Consecutive identical "CI mechanisms DISAGREE" checks before the reason is posted on the PR. 0 disables.
+  disagreeNoticeChecks: parseIntWithDefault('HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS', 15),
 };
 
 export const ciFailureRepeat = {

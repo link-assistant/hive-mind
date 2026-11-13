@@ -1,0 +1,363 @@
+{
+  "source": "https://www.githubstatus.com/api/v2/incidents.json",
+  "collectedAt": "2026-11-13",
+  "incidents": [
+    {
+      "id": "51drrqvsv66g",
+      "name": "Copilot experiencing degraded model availability for some GPT models",
+      "status": "investigating",
+      "impact": "minor",
+      "created_at": "2026-11-13T20:13:51.325Z",
+      "started_at": "2026-11-13T20:13:51.316Z",
+      "resolved_at": null,
+      "shortlink": "https://stspg.io/cppzsh0j19vy",
+      "components": [
+        {
+          "name": "Copilot AI Model Providers"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T20:47:09.681Z",
+          "body": "We are in contact with the upstream provider and monitoring as they work towards resolution. For customers who are impacted we recommend choosing another model or selecting \u2018Auto\u2019 to continue using Copilot."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T20:14:07.400Z",
+          "body": "We are experiencing degraded availability for gpt-5.6-sol-fast, gpt-5.6-sol, gpt-6.1-terra, and gpt-6-luna in Copilot products and IDE surfaces. This is due to an issue with an upstream model provider. While we work with them to resolve the issue, we recommend choosing another model or selecting 'Auto' to continue using Copilot."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T20:13:51.431Z",
+          "body": "We are investigating reports of degraded performance for Copilot AI Model Providers"
+        }
+      ]
+    },
+    {
+      "id": "1xzmt89vv61l",
+      "name": "Incident with Pull Requests",
+      "status": "resolved",
+      "impact": "major",
+      "created_at": "2026-11-13T15:47:12.290Z",
+      "started_at": "2026-11-13T15:47:12.282Z",
+      "resolved_at": "2026-11-13T18:29:31.624Z",
+      "shortlink": "https://stspg.io/qzj7qjdcr8jc",
+      "components": [
+        {
+          "name": "Pull Requests"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-13T18:29:31.624Z",
+          "body": "This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-13T17:46:11.831Z",
+          "body": "We continue to monitor the stability of merge requests."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-13T17:28:01.438Z",
+          "body": "The degradation affecting Pull Requests has been mitigated. We are monitoring to ensure stability."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T16:52:15.314Z",
+          "body": "We\u2019re continuing to investigate and monitor ~1% of merge requests timing out."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T16:12:26.065Z",
+          "body": "We\u2019ve taken mitigating action to resolve the problem of merge requests timing out. This issue initially impacted 3% of requests and is now down to less than 1%. We continue to monitor recovery."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T16:09:16.825Z",
+          "body": "Pull Requests is experiencing degraded performance. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T15:49:36.444Z",
+          "body": "We\u2019re investigating an issue with Pull Requests where some attempts to merge are timing out."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-13T15:47:12.391Z",
+          "body": "We are investigating reports of degraded availability for Pull Requests"
+        }
+      ]
+    },
+    {
+      "id": "nwbjzl7nfrc2",
+      "name": "Disruption with Email Delivery",
+      "status": "resolved",
+      "impact": "minor",
+      "created_at": "2026-11-12T19:36:45.563Z",
+      "started_at": "2026-11-12T19:36:45.556Z",
+      "resolved_at": "2026-11-12T21:43:56.551Z",
+      "shortlink": "https://stspg.io/lr8v4v8t7gs2",
+      "components": [],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-12T21:43:56.551Z",
+          "body": "This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-12T21:43:37.889Z",
+          "body": "We\u2019ve resolved the email-processing impact on our systems and are continuing to monitor. The upstream provider disruption may still cause delays for customers using that provider. Email delivery through other providers is operating normally."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-12T21:02:56.993Z",
+          "body": "We\u2019re monitoring an email disruption related to an upstream provider degradation. Users whose email is hosted by the affected provider may experience delays in message delivery. Email service for users on other providers is currently operating normally. We\u2019ll share updates as we learn more."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-12T20:21:44.136Z",
+          "body": "We are seeing recovery for sign-in, email address verification, and other forms of e-mail communication previously impacted. We will continue to monitor."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-12T20:19:37.213Z",
+          "body": "The degradation has been mitigated. We are monitoring to ensure stability."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T20:12:05.435Z",
+          "body": "Users may be unable to sign-in, verify e-mail addresses, reset passwords, or receive e-mail notifications due to degradation with an upstream e-mail provider. We will continue to monitor and provide updates."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T19:43:01.972Z",
+          "body": "We are seeing disruptions with email delivery for account sign-in and new account sign up. We are investigating."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T19:36:45.625Z",
+          "body": "We are investigating reports of impacted performance for some GitHub services."
+        }
+      ]
+    },
+    {
+      "id": "gl7yhd7jx00v",
+      "name": "Incident with Webhooks API",
+      "status": "resolved",
+      "impact": "minor",
+      "created_at": "2026-11-12T18:43:13.817Z",
+      "started_at": "2026-11-12T18:43:13.810Z",
+      "resolved_at": "2026-11-12T19:33:54.248Z",
+      "shortlink": "https://stspg.io/ns57pv7lmynl",
+      "components": [
+        {
+          "name": "Webhooks"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-12T19:33:54.248Z",
+          "body": "This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-12T19:20:14.173Z",
+          "body": "The degradation affecting Webhooks has been mitigated. We are monitoring to ensure stability."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T19:20:08.126Z",
+          "body": "Webhooks API has traffic has recovered. We will continue to monitor for stability."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T18:52:18.168Z",
+          "body": "Webhooks API is experiencing timeouts and errors impacting about 1% of customer traffic. We are working through possible mitigation strategies."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-12T18:43:13.908Z",
+          "body": "We are investigating reports of degraded performance for Webhooks"
+        }
+      ]
+    },
+    {
+      "id": "dvy0t3mvh1lg",
+      "name": "Impact across multiple GitHub products including Actions, Pages, and Copilot products.",
+      "status": "resolved",
+      "impact": "critical",
+      "created_at": "2026-11-11T20:48:12.265Z",
+      "started_at": "2026-11-11T20:48:12.260Z",
+      "resolved_at": "2026-11-11T21:21:39.473Z",
+      "shortlink": "https://stspg.io/jdjlq5zjyl48",
+      "components": [
+        {
+          "name": "Webhooks"
+        },
+        {
+          "name": "Actions"
+        },
+        {
+          "name": "Pages"
+        },
+        {
+          "name": "Copilot"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-11T21:21:39.473Z",
+          "body": "This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-11T21:21:32.087Z",
+          "body": "The backlog of Actions jobs has been fully processed. We\u2019re observing full recovery across all impacted services."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-11T21:07:26.447Z",
+          "body": "We\u2019re seeing recovery across all services and continuing to monitor. The backlog of Actions jobs are being processed. We\u2019ll update when we see full recovery."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-11T21:07:24.649Z",
+          "body": "The degradation affecting Actions, Copilot, Pages and Webhooks has been mitigated. We are monitoring to ensure stability."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:57:40.222Z",
+          "body": "Copilot is experiencing degraded availability. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:56:49.378Z",
+          "body": "We\u2019re investigating issues impacting multiple GitHub products including Actions, Pages, and Copilot products."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:56:26.453Z",
+          "body": "Pages is experiencing degraded availability. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:48:46.733Z",
+          "body": "Webhooks is experiencing degraded performance. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:48:25.576Z",
+          "body": "Actions is experiencing degraded availability. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:48:12.349Z",
+          "body": "We are investigating reports of degraded availability for Pages"
+        }
+      ]
+    },
+    {
+      "id": "1h2wbly1y72t",
+      "name": "Incident with Webhooks",
+      "status": "resolved",
+      "impact": "minor",
+      "created_at": "2026-11-11T20:22:20.729Z",
+      "started_at": "2026-11-11T20:22:20.718Z",
+      "resolved_at": "2026-11-11T20:26:23.897Z",
+      "shortlink": "https://stspg.io/r0jrtx03yvll",
+      "components": [
+        {
+          "name": "Webhooks"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-11T20:26:23.897Z",
+          "body": "This incident has been resolved. Thank you for your patience and understanding as we addressed this issue. A detailed root cause analysis will be shared as soon as it is available."
+        },
+        {
+          "status": "monitoring",
+          "created_at": "2026-11-11T20:26:20.931Z",
+          "body": "Webhooks is operating normally."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-11T20:22:20.861Z",
+          "body": "We are investigating reports of degraded performance for Webhooks"
+        }
+      ]
+    },
+    {
+      "id": "hnf21m9jkl3c",
+      "name": "Incident with Git Operations and Pull Requests",
+      "status": "resolved",
+      "impact": "critical",
+      "created_at": "2026-11-10T16:10:52.174Z",
+      "started_at": "2026-11-10T16:10:52.162Z",
+      "resolved_at": "2026-11-10T17:55:03.552Z",
+      "shortlink": "https://stspg.io/16nsnk2th3rv",
+      "components": [
+        {
+          "name": "Pull Requests"
+        },
+        {
+          "name": "Actions"
+        }
+      ],
+      "incident_updates": [
+        {
+          "status": "resolved",
+          "created_at": "2026-11-10T17:55:03.552Z",
+          "body": "On November 10, 2026, from approximately 15:00 UTC to 17:55 UTC, GitHub experienced degraded performance affecting repository pages, pull requests, and GitHub Actions. Customers may have seen slow or failed page loads and delays processing pull request updates and merges. Some pull requests continued to display an earlier source-branch commit after the broader service degradation ended. GitHub Actions workflows were delayed for approximately 1.8% of events, peaking at about 7% between 16:30 and 16:50 UTC. Delays were typically 1.5 to 3.5 minutes, up to 10 minutes. Approximately 0.09% of pull request events did not start their workflows and needed to be re-triggered. <br /><br />The degradation resulted from overload in the shared infrastructure that supports Git operations. Recent changes increased background processing and the work required to compute pull request merges, adding pressure to the same systems used by customer-facing requests. We mitigated the incident by disabling a recent merge-processing optimization, pausing background analysis, and temporarily limiting lower-priority traffic. The temporary limits also restricted access to commit pages for users who were not signed in. Background processing continued to catch up after service health recovered. <br /><br />We have reduced repeated repository-analysis work and are adding workload-level concurrency controls to better protect customer-facing requests. We are also improving our procedures for safely reducing background load and making pull request synchronization more resilient to temporary failures."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T17:46:33.967Z",
+          "body": "We continue to investigate elevated response times for Git operations and pull requests. Actions workflows are recovering. Pull request processing has shown some improvement, but users continue to experience delays and failures. We\u2019re monitoring the impact and working to restore normal service."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T17:28:17.898Z",
+          "body": "Actions is operating normally."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T17:12:54.802Z",
+          "body": "Pull Requests is experiencing degraded performance. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T17:07:48.682Z",
+          "body": "We continue to investigate elevated response times for Git operations and pull requests. Some pull-request processing and Actions workflows are improving, but delays and failures persist. We're monitoring the impact and working to restore normal service."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T16:39:58.819Z",
+          "body": "Actions is experiencing degraded availability. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T16:31:01.203Z",
+          "body": "We're investigating elevated response times for Git operations and pull requests. GitHub Actions workflows that are triggered from Pull Requests are delayed. We're working to mitigate the impact and will share updates as we learn more."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T16:26:37.312Z",
+          "body": "Actions and Pull Requests are experiencing degraded availability. We are continuing to investigate."
+        },
+        {
+          "status": "investigating",
+          "created_at": "2026-11-10T16:10:52.292Z",
+          "body": "We are investigating reports of degraded performance for Actions and Pull Requests"
+        }
+      ]
+    }
+  ]
+}

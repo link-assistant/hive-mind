@@ -225,4 +225,10 @@ false negatives and were not reported again:
 - `node tests/formal-ai-draft-health-4055.test.mjs`, `node tests/dependabot-health-4055.test.mjs` and `node tests/dependency-freshness-2264.test.mjs` pass.
 - `python3 experiments/issue-3785/probe-sqlx-selected-vfs.py`: 50 cases pass after the fix; `rebuild-closing` fails before it.
 - `probe-sqlite-selected-vfs`: 1,034 cases pass.
-- PR #4056 CI: Checks and release, Native Codex auth adapter experiment, Security, Workflows and Broken Link Checker.
+- PR #4056 CI on `ace5632`: Checks and release 43496638615 passed, including
+  `Build and exercise linux-arm64`, where the selected recovery scenario now
+  reports `actualNativeRecovery: true` (F1). Security, Workflows and Broken Link
+  Checker passed. The Native Codex auth adapter experiment failed on attempt 1
+  (F7) and passed on attempt 2.
+- `probe-sqlite-selected-vfs.py` with the 120 s compile limit: 1,034 cases pass
+  locally; actionlint 1.7.12 (with shellcheck) passes on the experiment workflow.

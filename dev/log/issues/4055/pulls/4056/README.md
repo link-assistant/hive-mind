@@ -27,6 +27,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | Run         | Workflow                             | Result                       | Evidence                                                                                                                                         |
 | ----------- | ------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 43496638282 | Native Codex auth adapter experiment | attempt 1 failure, 2 success | `ci-logs/native-experiment-43496638282-config-lock.log.gz` (the `rustc` timeout), `…-attempt1-native-file-authority.log.gz` (the job log) (F7) |
+| 43496638615 | Checks and release | success | `ci-logs/release-43496638615-linux-arm64-sqlite-recovery-selected-after.log.gz`: `actualNativeRecovery: true` on linux-arm64 (F1 fixed) |
 
 ## Summaries
 

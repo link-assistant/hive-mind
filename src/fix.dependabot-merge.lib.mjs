@@ -29,6 +29,18 @@
  * a bounded wait). Mergeability that GitHub has not computed yet (`UNKNOWN`)
  * is refreshed before merging.
  *
+ * Issue #4061: in link-foundation/links-notation#408 two Dependabot pull
+ * requests stayed open although `main` already had every update they carried:
+ * #407 (`dotnet-sdk` 11.0.100 in `csharp/global.json`) was mergeable but
+ * behind `main`, and a repository ruleset that requires up-to-date,
+ * same-commit CI (and that nobody may bypass) rejected even `--admin`; #396
+ * conflicted. Every pull request is therefore compared with its base branch
+ * first, conflicting or not, and closed when it is superseded. A pull request
+ * that a branch rule keeps out because it is behind its base is rebased by
+ * Dependabot (`@dependabot rebase`) and merged once its required checks pass,
+ * within a bounded wait; the rules that blocked a merge are named in the
+ * issue.
+ *
  * `gh` is reached only through the injected `run`, so everything here can be
  * tested with a fake runner; the rendering helpers are pure.
  */
@@ -60,8 +72,30 @@ export const DEPENDABOT_RECREATE_POLL_MS = 15000;
 /** The comment that asks Dependabot to rebuild its update on top of the base branch. */
 export const DEPENDABOT_RECREATE_COMMAND = '@dependabot recreate';
 
+/**
+ * The comment that asks Dependabot to rebase a pull request that is behind its
+ * base branch (issue #4061). Dependabot only obeys users with push access, so
+ * it must come from the same account that merges.
+ */
+export const DEPENDABOT_REBASE_COMMAND = '@dependabot rebase';
+
+/**
+ * Upper bound on the whole wait for rebased or recreated pull requests and
+ * their required checks (issue #4061). A branch rule that demands up-to-date,
+ * passing checks cannot be bypassed by `--admin` when it has no bypass actors,
+ * so such a pull request is only mergeable once its CI/CD has run again
+ * (about 24 minutes in links-notation). `--dependabot-wait-timeout` changes it.
+ */
+export const DEPENDABOT_WAIT_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** How often the wait looks again once every pull request is only waiting for checks. */
+export const DEPENDABOT_CHECKS_POLL_MS = 60000;
+
+/** How many times one pull request is rebased in a run before it is left open. */
+export const DEPENDABOT_REBASE_LIMIT = 3;
+
 /** Fields `gh pr list --json` must return for one Dependabot pull request. */
-export const DEPENDABOT_PR_FIELDS = Object.freeze(['number', 'title', 'url', 'author', 'baseRefName', 'headRefName', 'headRefOid', 'isDraft', 'mergeable', 'statusCheckRollup']);
+export const DEPENDABOT_PR_FIELDS = Object.freeze(['number', 'title', 'url', 'author', 'baseRefName', 'headRefName', 'headRefOid', 'isDraft', 'mergeable', 'mergeStateStatus', 'statusCheckRollup']);
 
 /** Merge methods in order of preference; the first one the repository allows wins. */
 export const DEPENDABOT_MERGE_METHODS = Object.freeze([
@@ -167,6 +201,23 @@ function firstLine(text) {
   );
 }
 
+/**
+ * Every non-empty line of a `gh` error on one line. "Repository rule
+ * violations found" alone does not say which rule (issue #4061); the lines
+ * after it do.
+ */
+export function compactError(text) {
+  return String(text || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join(' — ');
+}
+
+function outputOf(result) {
+  return `${result?.stderr?.toString() || ''}${result?.stdout?.toString() || ''}`.trim();
+}
+
 async function getMergeSettings(repository, run, warn) {
   try {
     const output = await commandOutput(run, 'gh', ['api', `repos/${repository.fullName}`, '--jq', '{allow_merge_commit, allow_squash_merge, allow_rebase_merge}']);
@@ -192,6 +243,7 @@ export async function listOpenDependabotPullRequests(repository, run = runComman
       headRefOid: pullRequest.headRefOid || null,
       isDraft: Boolean(pullRequest.isDraft),
       mergeable: pullRequest.mergeable || 'UNKNOWN',
+      mergeStateStatus: pullRequest.mergeStateStatus || 'UNKNOWN',
       checks: summarizeChecks(pullRequest.statusCheckRollup),
     }))
     .sort((a, b) => a.number - b.number);
@@ -202,8 +254,64 @@ const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 /** Re-read the state of one pull request; null when `gh` fails. */
 export async function readPullRequestState(repository, number, run) {
   try {
-    const output = await commandOutput(run, 'gh', ['pr', 'view', String(number), '--repo', repository.fullName, '--json', 'state,mergeable,mergeStateStatus,headRefOid']);
+    const output = await commandOutput(run, 'gh', ['pr', 'view', String(number), '--repo', repository.fullName, '--json', 'state,mergeable,mergeStateStatus,headRefOid,statusCheckRollup']);
     return output ? JSON.parse(output) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Copy a fresh `readPullRequestState` answer onto a pull request entry. */
+function applyState(entry, state) {
+  if (!state) return;
+  if (state.mergeable) entry.mergeable = state.mergeable;
+  if (state.mergeStateStatus) entry.mergeStateStatus = state.mergeStateStatus;
+  if (Array.isArray(state.statusCheckRollup)) entry.checks = summarizeChecks(state.statusCheckRollup);
+}
+
+/**
+ * Describe the branch rules that apply to `branch` (pure), from
+ * `GET repos/{repo}/rules/branches/{branch}` and the rulesets it names
+ * (`GET repos/{repo}/rulesets/{id}`), e.g. "ruleset “Main requires CI”
+ * requires the branch to be up to date and the status checks A, B to pass;
+ * it has no bypass actors, so `--admin` cannot bypass it". Null when no rule
+ * would block a merge.
+ */
+export function describeBranchRules(rules = [], rulesets = []) {
+  if (!Array.isArray(rules) || rules.length === 0) return null;
+  const parts = [];
+  const checks = rules.find(rule => rule.type === 'required_status_checks');
+  if (checks) {
+    const parameters = checks.parameters || {};
+    const names = (parameters.required_status_checks || []).map(check => check.context).filter(Boolean);
+    parts.push(`requires ${parameters.strict_required_status_checks_policy ? 'the branch to be up to date and ' : ''}${names.length > 0 ? `the status check(s) ${names.join(', ')}` : 'its status checks'} to pass`);
+  }
+  const reviews = rules.find(rule => rule.type === 'pull_request')?.parameters?.required_approving_review_count;
+  if (reviews > 0) parts.push(`requires ${reviews} approving review(s)`);
+  if (rules.some(rule => rule.type === 'merge_queue')) parts.push('requires a merge queue');
+  if (parts.length === 0) return null;
+  const known = (Array.isArray(rulesets) ? rulesets : []).filter(Boolean);
+  const names = known.map(ruleset => `“${ruleset.name}”`).join(', ');
+  const bypass = known.length > 0 && known.every(ruleset => ruleset.current_user_can_bypass === 'never') ? `; ${known.length === 1 ? 'it' : 'they'} cannot be bypassed by the current user${known.every(ruleset => Array.isArray(ruleset.bypass_actors) && ruleset.bypass_actors.length === 0) ? ' (no bypass actors)' : ''}, so \`--admin\` does not help` : '';
+  return `${names ? `ruleset ${names}` : 'a repository ruleset'} ${parts.join(' and ')}${bypass}`;
+}
+
+/** Read and describe the branch rules of `branch` through `gh`; null when they cannot be read. */
+export async function readBranchRules({ repository, branch, run }) {
+  try {
+    const output = await commandOutput(run, 'gh', ['api', `repos/${repository.fullName}/rules/branches/${encodeURIComponent(branch)}`]);
+    const rules = output ? JSON.parse(output) : [];
+    if (!Array.isArray(rules) || rules.length === 0) return null;
+    const rulesets = [];
+    for (const id of [...new Set(rules.map(rule => rule.ruleset_id).filter(Boolean))]) {
+      try {
+        const ruleset = await commandOutput(run, 'gh', ['api', `repos/${repository.fullName}/rulesets/${id}`]);
+        if (ruleset) rulesets.push(JSON.parse(ruleset));
+      } catch {
+        // The ruleset itself may need admin access; the rules alone still explain the block.
+      }
+    }
+    return describeBranchRules(rules, rulesets);
   } catch {
     return null;
   }
@@ -219,7 +327,7 @@ async function refreshMergeability({ repository, pullRequest, run, sleep, say, v
   for (let attempt = 1; attempt <= MERGEABILITY_REFRESH_ATTEMPTS && pullRequest.mergeable === 'UNKNOWN'; attempt += 1) {
     await sleep(MERGEABILITY_REFRESH_DELAY_MS);
     const state = await readPullRequestState(repository, pullRequest.number, run);
-    if (state?.mergeable) pullRequest.mergeable = state.mergeable;
+    applyState(pullRequest, state);
     if (state?.headRefOid) pullRequest.headRefOid = state.headRefOid;
     if (verbose) say(`   [VERBOSE] #${pullRequest.number} mergeability (read ${attempt}/${MERGEABILITY_REFRESH_ATTEMPTS}): ${pullRequest.mergeable}${state?.mergeStateStatus ? ` (${state.mergeStateStatus})` : ''}`);
   }
@@ -228,124 +336,229 @@ async function refreshMergeability({ repository, pullRequest, run, sleep, say, v
 /** `gh pr merge`, retried once with `--admin` when a branch rule blocks it. Returns `{ error, admin }`. */
 async function mergeOnce({ repository, pullRequest, method, run, say, verbose }) {
   let attempt = await run('gh', buildMergeArgs({ repository, pullRequest, method }));
-  let error = attempt.code === 0 ? null : `${attempt.stderr?.toString() || ''}${attempt.stdout?.toString() || ''}`.trim() || `gh exited with code ${attempt.code}`;
+  let error = attempt.code === 0 ? null : outputOf(attempt) || `gh exited with code ${attempt.code}`;
   if (verbose && error) say(`   [VERBOSE] gh pr merge #${pullRequest.number} failed: ${error}`);
-  if (!error || !shouldRetryWithAdmin(error)) return { error, admin: false };
+  if (!error || !shouldRetryWithAdmin(error)) return { error: error && compactError(error), admin: false };
   attempt = await run('gh', buildMergeArgs({ repository, pullRequest, method, admin: true }));
   if (attempt.code === 0) return { error: null, admin: true };
-  const adminError = `${attempt.stderr?.toString() || ''}${attempt.stdout?.toString() || ''}`.trim();
+  const adminError = outputOf(attempt);
   if (verbose) say(`   [VERBOSE] gh pr merge #${pullRequest.number} --admin failed: ${adminError}`);
-  return { error: firstLine(adminError) || firstLine(error), admin: false };
+  return { error: compactError(adminError) || compactError(error), admin: false };
 }
 
 /** The comment left on a Dependabot pull request that is closed as superseded. */
 export function buildSupersededComment({ pullRequest, reason }) {
-  return [`Closing as superseded: \`${pullRequest.baseRefName || 'the base branch'}\` already has every update this pull request carries (${reason}), so it can no longer be merged cleanly and is no longer needed.`, '', 'Closed automatically by `/fix --update-all-dependencies` before it created its dependency-update issue (link-assistant/hive-mind#3863). Dependabot opens a new pull request when a newer version is released.'].join('\n');
+  const conflicting = pullRequest.mergeable === 'CONFLICTING';
+  return [`Closing as superseded: \`${pullRequest.baseRefName || 'the base branch'}\` already has every update this pull request carries (${reason}), so ${conflicting ? 'it can no longer be merged cleanly and ' : ''}it is no longer needed.`, '', 'Closed automatically by `/fix --update-all-dependencies` before it created its dependency-update issue (link-assistant/hive-mind#3863, link-assistant/hive-mind#4061). Dependabot opens a new pull request when a newer version is released.'].join('\n');
 }
 
 /**
- * A pull request conflicts with its base branch: close it when the base
- * already has all of its updates, otherwise ask Dependabot to recreate it.
+ * Compare a pull request with its base branch and close it when the base
+ * already has every update it carries (issues #3863 and #4061). Returns true
+ * when it was closed (or, with `dryRun`, would be).
  */
-async function resolveConflict({ repository, entry, run, dryRun, say, verbose }) {
+async function closeIfSuperseded({ repository, entry, run, dryRun, say, verbose }) {
   const verdict = await checkSupersededByBase({ repository, pullRequest: entry, run });
   entry.supersession = verdict;
   if (verbose) say(`   [VERBOSE] #${entry.number} supersession check: ${verdict.superseded ? 'superseded' : 'not superseded'} — ${verdict.reason}`);
-  if (verdict.superseded) {
-    if (dryRun) {
-      entry.outcome = 'planned-close';
-      say(`   🔎 #${entry.number} conflicts with ${entry.baseRefName || 'the base branch'} and is superseded; it would be closed (${verdict.reason})`);
-      return;
-    }
-    const closed = await run('gh', ['pr', 'close', String(entry.number), '--repo', repository.fullName, '--comment', buildSupersededComment({ pullRequest: entry, reason: verdict.reason })]);
-    if (closed.code === 0) {
-      entry.outcome = 'closed';
-      entry.error = null;
-      say(`   🗑️  #${entry.number} closed as superseded by ${entry.baseRefName || 'the base branch'}: ${verdict.reason}`);
-      return;
-    }
-    entry.closeError = firstLine(`${closed.stderr?.toString() || ''}${closed.stdout?.toString() || ''}`) || `gh exited with code ${closed.code}`;
-    say(`   ⚠️  #${entry.number} is superseded but could not be closed: ${entry.closeError}`);
+  if (!verdict.superseded) return false;
+  const conflict = entry.mergeable === 'CONFLICTING' ? `conflicts with ${entry.baseRefName || 'the base branch'} and ` : '';
+  if (dryRun) {
+    entry.outcome = 'planned-close';
+    say(`   🔎 #${entry.number} ${conflict}is superseded by ${entry.baseRefName || 'the base branch'}; it would be closed (${verdict.reason})`);
+    return true;
   }
+  const closed = await run('gh', ['pr', 'close', String(entry.number), '--repo', repository.fullName, '--comment', buildSupersededComment({ pullRequest: entry, reason: verdict.reason })]);
+  if (closed.code === 0) {
+    entry.outcome = 'closed';
+    entry.error = null;
+    say(`   🗑️  #${entry.number} closed as superseded by ${entry.baseRefName || 'the base branch'}: ${verdict.reason}`);
+    return true;
+  }
+  entry.closeError = compactError(outputOf(closed)) || `gh exited with code ${closed.code}`;
+  say(`   ⚠️  #${entry.number} is superseded but could not be closed: ${entry.closeError}`);
+  return false;
+}
+
+/**
+ * Post a Dependabot command (`@dependabot recreate` / `@dependabot rebase`) and
+ * remember which head it was asked about, so the wait can tell when it is done.
+ */
+async function askDependabot({ repository, entry, run, command, now }) {
+  // Only the two fixed Dependabot commands are ever posted.
+  const DEPENDABOT_COMMAND = command === DEPENDABOT_REBASE_COMMAND ? DEPENDABOT_REBASE_COMMAND : DEPENDABOT_RECREATE_COMMAND;
+  const commented = await run('gh', ['pr', 'comment', String(entry.number), '--repo', repository.fullName, '--body', DEPENDABOT_COMMAND]);
+  if (commented.code !== 0) return compactError(outputOf(commented)) || `gh exited with code ${commented.code}`;
+  entry.requestedHead = entry.headRefOid;
+  entry.requestedAt = now();
+  entry.requestedCommand = DEPENDABOT_COMMAND;
+  return null;
+}
+
+/** A pull request conflicts with its base branch and is not superseded: ask Dependabot to recreate it. */
+async function requestRecreate({ repository, entry, run, dryRun, say, now }) {
+  const reason = entry.supersession?.reason || 'not compared with the base branch';
   if (dryRun) {
     entry.outcome = 'planned-recreate';
-    say(`   🔎 #${entry.number} conflicts with ${entry.baseRefName || 'the base branch'}; Dependabot would be asked to recreate it (${verdict.reason})`);
+    say(`   🔎 #${entry.number} conflicts with ${entry.baseRefName || 'the base branch'}; Dependabot would be asked to recreate it (${reason})`);
     return;
   }
-  const commented = await run('gh', ['pr', 'comment', String(entry.number), '--repo', repository.fullName, '--body', DEPENDABOT_RECREATE_COMMAND]);
-  if (commented.code === 0) {
+  const error = await askDependabot({ repository, entry, run, command: DEPENDABOT_RECREATE_COMMAND, now });
+  if (!error) {
     entry.outcome = 'recreate-requested';
-    say(`   🔁 #${entry.number} conflicts with ${entry.baseRefName || 'the base branch'}; asked Dependabot to recreate it (${verdict.reason})`);
+    say(`   🔁 #${entry.number} conflicts with ${entry.baseRefName || 'the base branch'}; asked Dependabot to recreate it (${reason})`);
   } else {
     entry.outcome = 'skipped';
-    entry.error = `merge conflict with the base branch; asking Dependabot to recreate it failed: ${firstLine(`${commented.stderr?.toString() || ''}${commented.stdout?.toString() || ''}`) || `gh exited with code ${commented.code}`}`;
+    entry.error = `merge conflict with the base branch; asking Dependabot to recreate it failed: ${error}`;
     say(`   ⚠️  #${entry.number} ${entry.error}`);
   }
 }
 
 /**
- * Wait (bounded) for Dependabot to recreate the pull requests it was asked to,
- * and merge each one whose new head is mergeable. Dependabot may instead close
- * a pull request whose update is no longer needed.
+ * A merge failed for a reason other than a conflict, even with `--admin`
+ * (issue #4061). Look at the pull request again and name the branch rules:
+ * when it is behind its base, ask Dependabot to rebase it; when its checks
+ * are still running, wait for them; otherwise it failed.
  */
-async function awaitRecreatedPullRequests({ repository, entries, method, run, sleep, now, timeoutMs, pollMs, say, verbose }) {
+async function handleBlockedMerge({ repository, entry, error, run, say, verbose, now, rulesFor }) {
+  const state = await readPullRequestState(repository, entry.number, run);
+  applyState(entry, state);
+  if (state?.headRefOid) entry.headRefOid = state.headRefOid;
+  entry.rules = await rulesFor(entry.baseRefName);
+  entry.error = error;
+  if (verbose) say(`   [VERBOSE] #${entry.number} after the failed merge: ${entry.mergeable}, ${entry.mergeStateStatus}, ${entry.checks.pending.length} check(s) pending${entry.rules ? `; ${entry.rules}` : ''}`);
+  if (entry.mergeStateStatus === 'BEHIND') {
+    if ((entry.rebases || 0) >= DEPENDABOT_REBASE_LIMIT) {
+      entry.outcome = 'failed';
+      entry.error = `still behind the base branch after ${entry.rebases} Dependabot rebase(s): ${error}`;
+      say(`   ⚠️  #${entry.number} ${entry.error}`);
+      return;
+    }
+    const commentError = await askDependabot({ repository, entry, run, command: DEPENDABOT_REBASE_COMMAND, now });
+    if (commentError) {
+      entry.outcome = 'failed';
+      entry.error = `${error}; it is behind the base branch and asking Dependabot to rebase it failed: ${commentError}`;
+      say(`   ⚠️  #${entry.number} ${entry.error}`);
+      return;
+    }
+    entry.rebases = (entry.rebases || 0) + 1;
+    entry.outcome = 'rebase-requested';
+    say(`   🔁 #${entry.number} is behind ${entry.baseRefName || 'the base branch'} and a branch rule blocks the merge${entry.rules ? ` (${entry.rules})` : ''}; asked Dependabot to rebase it`);
+    return;
+  }
+  if (entry.checks.pending.length > 0) {
+    entry.outcome = 'waiting-for-checks';
+    entry.pendingAtAttempt = entry.checks.pending.length;
+    say(`   ⏳ #${entry.number} cannot be merged before its checks finish (${entry.checks.pending.length} still running): ${error}`);
+    return;
+  }
+  entry.outcome = 'failed';
+  say(`   ⚠️  #${entry.number} could not be merged: ${error}${entry.rules ? ` (${entry.rules})` : ''}`);
+}
+
+const WAITING_OUTCOMES = new Set(['recreate-requested', 'rebase-requested', 'waiting-for-checks']);
+
+/**
+ * Wait (bounded) for the pull requests Dependabot was asked to recreate or
+ * rebase, and for the required checks of the ones a branch rule keeps out,
+ * then merge each one as soon as it can be merged. Dependabot may instead
+ * close a pull request whose update is no longer needed. A pull request whose
+ * head Dependabot has not replaced within `recreateTimeoutMs` of the request
+ * is given up; everything else is given up after `timeoutMs`.
+ */
+async function awaitPendingPullRequests({ repository, entries, method, run, sleep, now, timeoutMs, recreateTimeoutMs, pollMs, checksPollMs, say, verbose, rulesFor }) {
   const waiting = new Set(entries);
   const deadline = now() + timeoutMs;
-  if (waiting.size > 0) say(`⏳ Waiting up to ${Math.round(timeoutMs / 1000)}s for Dependabot to recreate ${waiting.size} pull request(s)...`);
+  const awaitingHead = entry => (entry.outcome === 'recreate-requested' || entry.outcome === 'rebase-requested') && entry.headRefOid === entry.requestedHead;
+  if (waiting.size > 0) say(`⏳ Waiting up to ${Math.round(timeoutMs / 1000)}s for ${waiting.size} Dependabot pull request(s) to be recreated, rebased or checked...`);
   while (waiting.size > 0 && now() < deadline) {
-    await sleep(Math.min(pollMs, Math.max(0, deadline - now())));
+    const interval = [...waiting].some(awaitingHead) ? pollMs : Math.max(pollMs, checksPollMs);
+    await sleep(Math.min(interval, Math.max(0, deadline - now())));
     for (const entry of [...waiting]) {
       const state = await readPullRequestState(repository, entry.number, run);
-      if (verbose) say(`   [VERBOSE] #${entry.number} after recreate request: ${state ? `${state.state}, ${state.mergeable}, head ${String(state.headRefOid || '').slice(0, 7)}` : 'state unavailable'}`);
+      if (verbose) say(`   [VERBOSE] #${entry.number} while waiting (${entry.outcome}): ${state ? `${state.state}, ${state.mergeable}, ${state.mergeStateStatus || 'UNKNOWN'}, head ${String(state.headRefOid || '').slice(0, 7)}` : 'state unavailable'}`);
       if (!state) continue;
       if (state.state === 'MERGED' || state.state === 'CLOSED') {
         entry.outcome = state.state === 'MERGED' ? 'merged' : 'closed-by-dependabot';
+        entry.error = null;
         waiting.delete(entry);
-        say(`   ${state.state === 'MERGED' ? '✅' : '🗑️ '} #${entry.number} ${state.state === 'MERGED' ? 'was merged' : 'was closed by Dependabot'} after the recreate request`);
+        say(`   ${state.state === 'MERGED' ? '✅' : '🗑️ '} #${entry.number} ${state.state === 'MERGED' ? 'was merged' : 'was closed by Dependabot'} while waiting`);
         continue;
       }
-      if (!state.headRefOid || state.headRefOid === entry.headRefOid || state.mergeable === 'UNKNOWN') continue;
-      waiting.delete(entry);
-      entry.recreated = true;
-      entry.headRefOid = state.headRefOid;
+      applyState(entry, state);
+      if (state.headRefOid && state.headRefOid !== entry.headRefOid) {
+        if (entry.outcome === 'recreate-requested') entry.recreated = true;
+        if (entry.outcome === 'rebase-requested') entry.rebased = true;
+        entry.headRefOid = state.headRefOid;
+        entry.outcome = 'waiting-for-checks';
+        entry.pendingAtAttempt = null;
+      }
+      if (awaitingHead(entry)) {
+        if (now() - entry.requestedAt >= recreateTimeoutMs) {
+          waiting.delete(entry);
+          say(`   ⏳ #${entry.number} was not ${entry.outcome === 'recreate-requested' ? 'recreated' : 'rebased'} by Dependabot within ${Math.round(recreateTimeoutMs / 1000)}s; it stays open and is listed in the issue`);
+        }
+        continue;
+      }
+      if (state.mergeable === 'UNKNOWN') continue;
       if (state.mergeable === 'CONFLICTING') {
         entry.outcome = 'failed';
-        entry.error = 'still conflicts with the base branch after Dependabot recreated it';
+        entry.error = `conflicts with the base branch after Dependabot ${entry.recreated ? 'recreated' : 'rebased'} it`;
+        waiting.delete(entry);
         say(`   ⚠️  #${entry.number} ${entry.error}`);
         continue;
       }
+      // Try again only when no check is running any more, or when one has finished since the last try.
+      if (entry.checks.pending.length > 0 && entry.pendingAtAttempt === entry.checks.pending.length) continue;
       const { error, admin } = await mergeOnce({ repository, pullRequest: entry, method, run, say, verbose });
-      entry.admin = admin;
-      entry.outcome = error ? 'failed' : 'merged';
-      entry.error = error ? firstLine(error) : null;
-      say(error ? `   ⚠️  #${entry.number} was recreated but could not be merged: ${entry.error}` : `   ✅ #${entry.number} recreated by Dependabot and merged${admin ? ' (--admin)' : ''}: ${entry.title}`);
+      if (!error) {
+        entry.admin = admin;
+        entry.outcome = 'merged';
+        entry.error = null;
+        waiting.delete(entry);
+        say(`   ✅ #${entry.number} ${entry.recreated ? 'recreated' : entry.rebased ? 'rebased' : 'checked'} and merged${admin ? ' (--admin)' : ''}: ${entry.title}`);
+        continue;
+      }
+      if (isMergeConflictError(error)) {
+        entry.outcome = 'failed';
+        entry.error = error;
+        waiting.delete(entry);
+        say(`   ⚠️  #${entry.number} could not be merged: ${error}`);
+        continue;
+      }
+      await handleBlockedMerge({ repository, entry, error, run, say, verbose, now, rulesFor });
+      if (!WAITING_OUTCOMES.has(entry.outcome)) waiting.delete(entry);
     }
   }
-  for (const entry of waiting) say(`   ⏳ #${entry.number} was not recreated within ${Math.round(timeoutMs / 1000)}s; it stays open and is listed in the issue`);
+  for (const entry of waiting) say(`   ⏳ #${entry.number} could not be merged within ${Math.round(timeoutMs / 1000)}s (${entry.outcome}); it stays open and is listed in the issue`);
 }
 
 /**
  * Merge every open Dependabot pull request of `repository` without waiting for
  * its CI/CD (issue #3413).
  *
- * Pull requests are merged oldest first. A merge that a branch rule blocks is
+ * Pull requests are handled oldest first. Each one is first compared with its
+ * base branch and closed when the base already has all of its updates (issues
+ * #3863 and #4061). The rest are merged; a merge that a branch rule blocks is
  * retried once with `--admin`. A pull request that conflicts with its base
- * branch (issue #3863) is closed when the base already has all of its updates,
- * and otherwise Dependabot is asked to recreate it; recreated pull requests
- * are merged when they turn mergeable within `recreateTimeoutMs`. Anything
- * that still fails is recorded with its error and left open, so the generated
- * issue can ask for that update to be applied by hand. With `dryRun` nothing
- * is merged, closed or commented, and every candidate is reported as
- * `planned`, `planned-close` or `planned-recreate`.
+ * branch is recreated by Dependabot; one that a rule still keeps out because
+ * it is behind its base is rebased by Dependabot (issue #4061), and one whose
+ * required checks are still running waits for them. Those are merged when
+ * they can be within `waitTimeoutMs` (Dependabot has `recreateTimeoutMs` to
+ * push the new head). Anything that still fails is recorded with its error
+ * and left open, so the generated issue can ask for that update to be applied
+ * by hand. With `dryRun` nothing is merged, closed or commented, and every
+ * candidate is reported as `planned`, `planned-close` or `planned-recreate`.
  *
  * Never throws: the issue must still be created when the listing or a merge
  * fails. Returns `{ enabled, dryRun, method, listingError, pullRequests }`
  * where each pull request carries `outcome` (`merged` | `closed` |
- * `closed-by-dependabot` | `recreate-requested` | `failed` | `skipped` |
- * `planned` | `planned-close` | `planned-recreate`), `admin`, `error` and,
- * for conflicts, `supersession`.
+ * `closed-by-dependabot` | `recreate-requested` | `rebase-requested` |
+ * `waiting-for-checks` | `failed` | `skipped` | `planned` | `planned-close` |
+ * `planned-recreate`), `admin`, `error`, `rules` (the branch rules that
+ * blocked a merge) and `supersession`.
  */
-export async function mergeDependabotPullRequests({ repository, run = runCommand, warn = message => console.warn(message), log = null, dryRun = false, verbose = false, sleep = defaultSleep, now = Date.now, recreateTimeoutMs = DEPENDABOT_RECREATE_TIMEOUT_MS, recreatePollMs = DEPENDABOT_RECREATE_POLL_MS } = {}) {
+export async function mergeDependabotPullRequests({ repository, run = runCommand, warn = message => console.warn(message), log = null, dryRun = false, verbose = false, sleep = defaultSleep, now = Date.now, recreateTimeoutMs = DEPENDABOT_RECREATE_TIMEOUT_MS, recreatePollMs = DEPENDABOT_RECREATE_POLL_MS, waitTimeoutMs = DEPENDABOT_WAIT_TIMEOUT_MS, checksPollMs = DEPENDABOT_CHECKS_POLL_MS } = {}) {
   const say = typeof log === 'function' ? log : () => {};
   const result = { enabled: true, dryRun: Boolean(dryRun), method: null, listingError: null, pullRequests: [] };
 
@@ -366,6 +579,13 @@ export async function mergeDependabotPullRequests({ repository, run = runCommand
   result.method = chooseMergeMethod(await getMergeSettings(repository, run, warn));
   say(`🤖 ${dryRun ? 'Would merge' : 'Merging'} ${pullRequests.length} open Dependabot pull request(s) without waiting for CI/CD (--${result.method}; pass --no-merge-dependabot-prs to skip)...`);
 
+  const rulesCache = new Map();
+  const rulesFor = branch => {
+    const key = branch || '';
+    if (!rulesCache.has(key)) rulesCache.set(key, branch ? readBranchRules({ repository, branch, run }) : Promise.resolve(null));
+    return rulesCache.get(key);
+  };
+
   for (const pullRequest of pullRequests) {
     const entry = { ...pullRequest, outcome: 'planned', admin: false, error: null };
     result.pullRequests.push(entry);
@@ -378,12 +598,16 @@ export async function mergeDependabotPullRequests({ repository, run = runCommand
       continue;
     }
     await refreshMergeability({ repository, pullRequest: entry, run, sleep, say, verbose });
+    if (verbose) say(`   [VERBOSE] #${entry.number} ${entry.title}: ${entry.mergeable}, ${entry.mergeStateStatus}, head ${String(entry.headRefOid || '').slice(0, 7)}, ${ciNote}`);
+    // Issue #4061: a pull request that is mergeable but behind its base can be
+    // superseded too, so every one is compared with its base branch first.
+    if (await closeIfSuperseded({ repository, entry, run, dryRun, say, verbose })) continue;
     if (entry.mergeable === 'CONFLICTING') {
-      await resolveConflict({ repository, entry, run, dryRun, say, verbose });
+      await requestRecreate({ repository, entry, run, dryRun, say, now });
       continue;
     }
     if (dryRun) {
-      say(`   🔎 #${entry.number} would be merged (${ciNote}): ${entry.title}`);
+      say(`   🔎 #${entry.number} would be merged (${ciNote}${entry.mergeStateStatus === 'BEHIND' ? `; behind ${entry.baseRefName || 'the base branch'}` : ''}): ${entry.title}`);
       continue;
     }
 
@@ -392,26 +616,26 @@ export async function mergeDependabotPullRequests({ repository, run = runCommand
     if (error && isMergeConflictError(error)) {
       // An earlier merge of this run, or a stale UNKNOWN, hid the conflict.
       entry.mergeable = 'CONFLICTING';
-      await resolveConflict({ repository, entry, run, dryRun, say, verbose });
+      await requestRecreate({ repository, entry, run, dryRun, say, now });
     } else if (error) {
-      entry.outcome = 'failed';
-      entry.error = firstLine(error);
-      say(`   ⚠️  #${entry.number} could not be merged: ${entry.error}`);
+      await handleBlockedMerge({ repository, entry, error, run, say, verbose, now, rulesFor });
     } else {
       entry.outcome = 'merged';
       say(`   ✅ #${entry.number} merged${admin ? ' (--admin)' : ''} (${ciNote}): ${entry.title}`);
     }
   }
 
-  const recreating = result.pullRequests.filter(entry => entry.outcome === 'recreate-requested');
-  if (!dryRun && recreating.length > 0 && recreateTimeoutMs > 0) {
-    await awaitRecreatedPullRequests({ repository, entries: recreating, method: result.method, run, sleep, now, timeoutMs: recreateTimeoutMs, pollMs: recreatePollMs, say, verbose });
+  // A zero `recreateTimeoutMs` means Dependabot is not waited for at all.
+  const pending = result.pullRequests.filter(entry => WAITING_OUTCOMES.has(entry.outcome) && (entry.outcome === 'waiting-for-checks' || recreateTimeoutMs > 0));
+  if (!dryRun && pending.length > 0 && waitTimeoutMs > 0) {
+    await awaitPendingPullRequests({ repository, entries: pending, method: result.method, run, sleep, now, timeoutMs: waitTimeoutMs, recreateTimeoutMs, pollMs: recreatePollMs, checksPollMs, say, verbose, rulesFor });
   }
 
   if (!dryRun) {
     const count = outcome => result.pullRequests.filter(entry => entry.outcome === outcome).length;
     const closed = count('closed') + count('closed-by-dependabot');
-    say(`ℹ️  Merged ${count('merged')} of ${result.pullRequests.length} open Dependabot pull request(s)${closed > 0 ? `; closed ${closed} as superseded` : ''}${count('recreate-requested') > 0 ? `; ${count('recreate-requested')} still being recreated by Dependabot` : ''}.`);
+    const stillWaiting = count('recreate-requested') + count('rebase-requested') + count('waiting-for-checks');
+    say(`ℹ️  Merged ${count('merged')} of ${result.pullRequests.length} open Dependabot pull request(s)${closed > 0 ? `; closed ${closed} as superseded` : ''}${stillWaiting > 0 ? `; ${stillWaiting} still waiting for Dependabot or their checks` : ''}.`);
   }
   return result;
 }
@@ -445,13 +669,16 @@ export function buildDependabotPullRequestsSection(dependabot) {
 
   const landed = pullRequests.filter(entry => entry.outcome === 'merged' || entry.outcome === 'planned');
   const superseded = pullRequests.filter(entry => entry.outcome === 'closed' || entry.outcome === 'closed-by-dependabot' || entry.outcome === 'planned-close');
-  const leftOpen = pullRequests.filter(entry => entry.outcome === 'failed' || entry.outcome === 'skipped' || entry.outcome === 'recreate-requested' || entry.outcome === 'planned-recreate');
+  const leftOpen = pullRequests.filter(entry => ['failed', 'skipped', 'recreate-requested', 'rebase-requested', 'waiting-for-checks', 'planned-recreate'].includes(entry.outcome));
   const link = entry => `[#${entry.number}](${entry.url}) ${entry.title}${entry.baseRefName ? ` → \`${entry.baseRefName}\`` : ''}`;
-  const item = entry => `- ${link(entry)} — ${describeChecks(entry.checks)}${entry.recreated ? ' — recreated by Dependabot on top of the base branch first' : ''}${entry.admin ? ' — merged with `--admin`, bypassing branch rules' : ''}`;
+  const item = entry => `- ${link(entry)} — ${describeChecks(entry.checks)}${entry.recreated ? ' — recreated by Dependabot on top of the base branch first' : ''}${entry.rebased ? ' — rebased by Dependabot on top of the base branch first' : ''}${entry.admin ? ' — merged with `--admin`, bypassing branch rules' : ''}`;
+  const rules = entry => (entry.rules ? ` (${entry.rules})` : '');
   const leftOpenReason = entry => {
     if (entry.outcome === 'recreate-requested') return `conflicts with the base branch; Dependabot was asked to recreate it (\`${DEPENDABOT_RECREATE_COMMAND}\`) but had not finished when this issue was created`;
+    if (entry.outcome === 'rebase-requested') return `behind the base branch, and a branch rule blocks merging it${rules(entry)}; Dependabot was asked to rebase it (\`${DEPENDABOT_REBASE_COMMAND}\`) but had not finished when this issue was created`;
+    if (entry.outcome === 'waiting-for-checks') return `${entry.rebased ? 'rebased by Dependabot, but its' : entry.recreated ? 'recreated by Dependabot, but its' : 'its'} checks had not finished when this issue was created, and a branch rule blocks merging it before they pass${rules(entry)}${entry.error ? `: ${entry.error}` : ''}`;
     if (entry.outcome === 'planned-recreate') return `conflicts with the base branch; Dependabot would be asked to recreate it (\`${DEPENDABOT_RECREATE_COMMAND}\`)`;
-    return `${entry.outcome === 'skipped' ? 'skipped' : 'merge failed'}: ${entry.error || 'unknown reason'}`;
+    return `${entry.outcome === 'skipped' ? 'skipped' : 'merge failed'}: ${entry.error || 'unknown reason'}${rules(entry)}`;
   };
 
   lines.push(dependabot.dryRun ? '### Open Dependabot pull requests to handle before this issue is created (dry run)' : '### Open Dependabot pull requests handled before this issue was created', '');
@@ -466,8 +693,8 @@ export function buildDependabotPullRequestsSection(dependabot) {
 
   if (superseded.length > 0) {
     if (lines.length > 2) lines.push('');
-    lines.push(dependabot.dryRun ? 'These Dependabot pull requests conflict with the base branch, which already has every update they carry, so they would be closed as superseded:' : 'These Dependabot pull requests conflicted with the base branch, which already had every update they carried, so they were closed as superseded:', '');
-    for (const entry of superseded) lines.push(`- ${link(entry)} — ${entry.outcome === 'closed-by-dependabot' ? 'closed by Dependabot after it was asked to recreate it' : entry.supersession?.reason || 'superseded'}`);
+    lines.push(dependabot.dryRun ? 'The base branch already has every update these Dependabot pull requests carry, so they would be closed as superseded:' : 'The base branch already had every update these Dependabot pull requests carried, so they were closed as superseded:', '');
+    for (const entry of superseded) lines.push(`- ${link(entry)} — ${entry.outcome === 'closed-by-dependabot' ? `closed by Dependabot after it was asked to ${entry.requestedCommand === DEPENDABOT_REBASE_COMMAND ? 'rebase' : 'recreate'} it` : entry.supersession?.reason || 'superseded'}`);
   }
 
   if (leftOpen.length > 0) {
@@ -493,6 +720,6 @@ export function summarizeDependabotPullRequests(dependabot) {
     return `Dependabot:     ${count('planned')} of ${pullRequests.length} open pull request(s) would be merged${extra.length > 0 ? `, ${extra.join(', ')}` : ''}`;
   }
   const closed = count('closed', 'closed-by-dependabot');
-  const leftOpen = count('failed', 'skipped', 'recreate-requested');
+  const leftOpen = count('failed', 'skipped', 'recreate-requested', 'rebase-requested', 'waiting-for-checks');
   return `Dependabot:     ${count('merged')} of ${pullRequests.length} open pull request(s) merged without waiting for CI/CD${closed > 0 ? `, ${closed} closed as superseded` : ''}${leftOpen > 0 ? `, ${leftOpen} left open` : ''}`;
 }

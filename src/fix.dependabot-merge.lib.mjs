@@ -446,10 +446,13 @@ async function handleBlockedMerge({ repository, entry, error, run, say, verbose,
     say(`   🔁 #${entry.number} is behind ${entry.baseRefName || 'the base branch'} and a branch rule blocks the merge${entry.rules ? ` (${entry.rules})` : ''}; asked Dependabot to rebase it`);
     return;
   }
-  if (entry.checks.pending.length > 0) {
+  // Right after Dependabot pushed a new head GitHub may not list its checks
+  // yet, so a rebased or recreated pull request without a failing check waits.
+  const checksExpected = (entry.rebased || entry.recreated) && entry.checks.failing.length === 0;
+  if (entry.checks.pending.length > 0 || checksExpected) {
     entry.outcome = 'waiting-for-checks';
-    entry.pendingAtAttempt = entry.checks.pending.length;
-    say(`   ⏳ #${entry.number} cannot be merged before its checks finish (${entry.checks.pending.length} still running): ${error}`);
+    entry.attemptedWith = checkSignature(entry);
+    say(`   ⏳ #${entry.number} cannot be merged before its checks finish (${entry.checks.pending.length > 0 ? `${entry.checks.pending.length} still running` : 'not reported yet'}): ${error}`);
     return;
   }
   entry.outcome = 'failed';
@@ -457,6 +460,11 @@ async function handleBlockedMerge({ repository, entry, error, run, say, verbose,
 }
 
 const WAITING_OUTCOMES = new Set(['recreate-requested', 'rebase-requested', 'waiting-for-checks']);
+
+/** What a merge attempt saw; the next one is only worth making once it changes. */
+function checkSignature(entry) {
+  return `${entry.mergeStateStatus}:${entry.checks.total}:${entry.checks.pending.length}:${entry.checks.failing.length}`;
+}
 
 /**
  * Wait (bounded) for the pull requests Dependabot was asked to recreate or
@@ -491,7 +499,7 @@ async function awaitPendingPullRequests({ repository, entries, method, run, slee
         if (entry.outcome === 'rebase-requested') entry.rebased = true;
         entry.headRefOid = state.headRefOid;
         entry.outcome = 'waiting-for-checks';
-        entry.pendingAtAttempt = null;
+        entry.attemptedWith = null;
       }
       if (awaitingHead(entry)) {
         if (now() - entry.requestedAt >= recreateTimeoutMs) {
@@ -508,8 +516,8 @@ async function awaitPendingPullRequests({ repository, entries, method, run, slee
         say(`   ⚠️  #${entry.number} ${entry.error}`);
         continue;
       }
-      // Try again only when no check is running any more, or when one has finished since the last try.
-      if (entry.checks.pending.length > 0 && entry.pendingAtAttempt === entry.checks.pending.length) continue;
+      // Try again only once the checks or the merge state changed since the last try.
+      if (entry.attemptedWith && entry.attemptedWith === checkSignature(entry)) continue;
       const { error, admin } = await mergeOnce({ repository, pullRequest: entry, method, run, say, verbose });
       if (!error) {
         entry.admin = admin;

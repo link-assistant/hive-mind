@@ -12,6 +12,7 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-o
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { MAX_DESCRIBED_PATHS, formatStatusEntry, resolveCheckoutArtifacts } from './checkout-normalization.lib.mjs'; // issue #4063
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
@@ -280,9 +281,26 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   // Note: Empty output means clean working directory
   const statusOutput = statusResult.stdout.toString().trim();
   if (statusOutput) {
+    // Issue #4063: a repository whose committed bytes do not match its own
+    // .gitattributes (e.g. a CRLF blob marked `text eol=crlf`) is reported as
+    // modified by every fresh clone. Those paths hold exactly the committed
+    // bytes, so they are neutralized locally instead of failing the run.
+    let resolution = null;
+    try {
+      resolution = await resolveCheckoutArtifacts({ cwd: tempDir, log });
+    } catch (error) {
+      await log(`⚠️  Could not classify the uncommitted changes: ${error.message}`, { level: 'warning' });
+    }
+    if (resolution?.clean) return defaultBranch;
+    const remaining = resolution?.statusOutput || statusOutput;
     await log('Error: Repository has uncommitted changes after clone');
-    await log(`Status output: ${statusOutput}`);
-    throw new Error('Repository has uncommitted changes after clone');
+    await log(`Status output: ${remaining}`);
+    if (resolution?.artifacts?.length) {
+      await log(`   ${resolution.artifacts.length} of these path(s) hold exactly the committed bytes (a .gitattributes/line-ending mismatch in the repository); the others are real changes:`);
+      for (const entry of resolution.changes.slice(0, MAX_DESCRIBED_PATHS)) await log(`   ${formatStatusEntry(entry)}`);
+    }
+    const firstChange = resolution?.changes?.[0] ? ` (${formatStatusEntry(resolution.changes[0]).trim()}${resolution.changes.length > 1 ? ` and ${resolution.changes.length - 1} more` : ''})` : '';
+    throw new Error(`Repository has uncommitted changes after clone${firstChange}`);
   }
 
   return defaultBranch;

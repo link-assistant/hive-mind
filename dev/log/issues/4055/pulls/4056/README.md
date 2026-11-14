@@ -34,6 +34,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43524101203 | Checks and release | failure | `ci-logs/release-43524101203-test-suites-line-limit.log.gz`: the F9 comment made `release.yml` 1,351 lines, over the 1,350-line warning threshold; comment shortened |
 | 43513683924 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43513683924-native-file-authority.log.gz`: `Expected the actual G0 usage snapshot.` for `logout` (F11) |
 | 43527335157 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43527335157-native-file-authority.log.gz`: the same for `malformed`; its binary artifact reproduced the race locally (F11) |
+| 43531726849 | Checks and release | failure | `ci-logs/release-43531726849-detect-changes.log.gz`: lino-i18n 0.6.0, published 23 minutes earlier, fails the freshness gate; lino-i18n updated |
 
 ## Summaries
 

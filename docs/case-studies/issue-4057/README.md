@@ -184,8 +184,8 @@ These are not part of the issue, but the PR needs them so CI passes:
 - **Dependency freshness gate.** It fails when a newer version is published. This PR takes
   `@eslint/config-array` 0.23.6 and `eslint` 10.15.0, and the #2187 pin test now expects them.
   After merging main (2026-11-14) the gate failed again on newly published
-  `@link-foundation/sensitive-data-sanitizer` 0.22.4, `lino-i18n` 0.6.0 and `links-notation` 0.31.4,
-  so the PR takes those too.
+  `@link-foundation/sensitive-data-sanitizer` 0.22.4, `lino-i18n` 0.6.0, `links-notation` 0.31.4
+  and `start-command` 0.44.0 (in the four Dockerfiles), so the PR takes those too.
   - 0.22.4 fixes upstream sensitive-data-sanitizer#172 (a letter run of about 4 MiB in two-byte text
     threw `ERR_SANITIZATION`). The canary in `tests/issue-4049-long-run-sanitization.test.mjs` asserted
     that the library still throws, and asked for the fallback to be removed once it does not.

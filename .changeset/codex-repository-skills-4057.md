@@ -6,4 +6,4 @@ Codex runs in a repository with its own skills no longer fail with "Codex expose
 
 The publication sanitizer also no longer masks an `Authorization:` header named in prose when the code span closes right after the colon. This text appears in the 2.40.2 release note, and masking it removed the closing backtick and broke the `` `Authorization: token <value>` `` example that followed on the same line. Real tokens stay masked (sensitive-data-sanitizer#177).
 
-`@link-foundation/sensitive-data-sanitizer` 0.22.4 fixes the `ERR_SANITIZATION` failure on a letter run of about 4 MiB in text with emoji or other non-Latin-1 characters (sensitive-data-sanitizer#172), so Hive Mind's own long-run fallback is removed. `lino-i18n` 0.6.0 and `links-notation` 0.31.4 are also taken.
+`@link-foundation/sensitive-data-sanitizer` 0.22.4 fixes the `ERR_SANITIZATION` failure on a letter run of about 4 MiB in text with emoji or other non-Latin-1 characters (sensitive-data-sanitizer#172), so Hive Mind's own long-run fallback is removed. `lino-i18n` 0.6.0, `links-notation` 0.31.4 and `start-command` 0.44.0 are also taken.

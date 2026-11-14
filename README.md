@@ -590,6 +590,7 @@ Examples:
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
 /fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` detects the target repository's languages, inspects the latest
@@ -615,10 +616,13 @@ See
 [Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
 for details. Before inspecting the repository it merges every open Dependabot
 pull request without waiting for CI/CD, and the issue asks the solver to fix
-every error those merges introduced. Conflicting pull requests are closed when
-the default branch already has their updates, and otherwise rebuilt with
-`@dependabot recreate` and merged
-([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863));
+every error those merges introduced. A pull request whose updates the default
+branch already has is closed as superseded, whether it conflicts or not
+([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863), [issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)).
+A conflicting one is otherwise rebuilt with `@dependabot recreate`; one that a
+ruleset keeps out because it is behind is rebased with `@dependabot rebase`;
+both are merged once their required checks pass. `--dependabot-wait-timeout
+<minutes>` (default 30, `0` to not wait) bounds that wait, and
 `--no-merge-dependabot-prs` skips this step
 ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
 Exactly one mode is required per run: `/fix` with no mode, or with both, is

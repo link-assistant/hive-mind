@@ -1,10 +1,10 @@
 version 0.22.4
-canary: 4 MiB run + emoji line: ok in 865 ms, redactions 0, length 4194324 -> 4194324, value kept: true, tail "AAAAAAAAAAAAAAAAAAAA\\n🔐 token refreshed\\n"
-Bearer value that is a 4 MiB run: ok in 1877 ms, redactions 1, length 4194330 -> 33, value kept: false, tail "🔐 Authorization: Bearer AAA…AAA\\n"
+canary: 4 MiB run + emoji line: ok in 850 ms, redactions 0, length 4194324 -> 4194324, value kept: true, tail "AAAAAAAAAAAAAAAAAAAA\\n🔐 token refreshed\\n"
+Bearer value that is a 4 MiB run: ok in 1754 ms, redactions 1, length 4194330 -> 33, value kept: false, tail "🔐 Authorization: Bearer AAA…AAA\\n"
 version 0.22.4
 kept    "`Authorization: token <TOKEN>`" 
 kept    "`Authorization: Bearer $GITHUB_TOKEN`" 
 kept    "`Authorization: Bearer ${TOKEN}`" 
 kept    "the `Authorization:` header" 
 changed "``Authorization: token <TOKEN>` ``" -> "``Authorization: token [REDACTED] ``"
-changed "`Authorization: token ghp_abcdefghijklmnopqrstuvwxyz0123456789`" -> "`Authorization: token ghp…789`"
+changed "`Authorization: token <synthetic ghp_ token>`" -> "`Authorization: token ghp…789`"

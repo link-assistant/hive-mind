@@ -15,7 +15,18 @@
 import { UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TYPE, buildUpdateDependenciesIssueBody, buildUpdateDependenciesIssueTitle, mapRepositoryToEcosystems } from './fix.update-dependencies.lib.mjs';
 import { detectLanguages, getDefaultBranch, getLatestCommit, getRepositoryFiles, runCommand } from './fix.github.lib.mjs';
 import { createOrReuseTaskIssue } from './task.issue-creation.lib.mjs';
+import { getVersion } from './version.lib.mjs';
 import { DEPENDABOT_WAIT_TIMEOUT_MS, mergeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
+
+// Issue #4061: the body names the hive-mind version, so an issue written by an
+// outdated deployment is recognisable. A failure to read it never blocks /fix.
+async function readToolVersion() {
+  try {
+    return (await getVersion()) || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * `mergeDependabotPrs` (default on) merges the open Dependabot pull requests
@@ -30,6 +41,8 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
   const [languages, defaultBranch] = await Promise.all([detectLanguages(repository, run, warn), getDefaultBranch(repository, run, warn)]);
   const commit = await getLatestCommit(repository, defaultBranch, run, warn);
   const { files, truncated } = await getRepositoryFiles(repository, defaultBranch, run, warn);
+
+  const toolVersion = await readToolVersion();
 
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   if (typeof log === 'function') {
@@ -46,7 +59,7 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
     ecosystems: detected,
     dependabot: dependabotResult,
     title: buildUpdateDependenciesIssueTitle(),
-    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated, reportDependenciesIssues, dependabot: dependabotResult }),
+    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated, reportDependenciesIssues, dependabot: dependabotResult, toolVersion }),
   };
 }
 

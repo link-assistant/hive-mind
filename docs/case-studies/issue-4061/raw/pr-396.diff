@@ -1,0 +1,241 @@
+diff --git a/.github/workflows/benchmarks.yml b/.github/workflows/benchmarks.yml
+index 0f27db14..20b67870 100644
+--- a/.github/workflows/benchmarks.yml
++++ b/.github/workflows/benchmarks.yml
+@@ -252,7 +252,7 @@ jobs:
+           name: benchmark-output
+           path: benchmarks
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - name: Parse and count in C#
+@@ -316,7 +316,7 @@ jobs:
+           name: benchmark-output
+           path: benchmarks
+       - name: Setup Java
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: '25'
+           distribution: 'temurin'
+diff --git a/.github/workflows/binary-interop.yml b/.github/workflows/binary-interop.yml
+index 08b8be7b..1a3cf689 100644
+--- a/.github/workflows/binary-interop.yml
++++ b/.github/workflows/binary-interop.yml
+@@ -25,7 +25,7 @@ jobs:
+         with:
+           persist-credentials: false
+       - uses: dtolnay/rust-toolchain@stable
+-      - uses: actions/setup-dotnet@v6.0.0
++      - uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - uses: actions/setup-node@v7.1.0
+@@ -42,7 +42,7 @@ jobs:
+           # found" on every run (issue #330). go.yml disables it for the same
+           # reason.
+           cache: false
+-      - uses: actions/setup-java@v6.1.0
++      - uses: actions/setup-java@v6.2.0
+         with:
+           distribution: temurin
+           java-version: '25'
+diff --git a/.github/workflows/csharp.yml b/.github/workflows/csharp.yml
+index 562b38d8..0d704726 100644
+--- a/.github/workflows/csharp.yml
++++ b/.github/workflows/csharp.yml
+@@ -37,7 +37,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - name: Restore Dependencies
+@@ -63,7 +63,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - name: Restore Dependencies
+@@ -100,7 +100,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       # These packages are 293 MB. On 2026-10-06 the runner's apt mirror served
+diff --git a/.github/workflows/java.yml b/.github/workflows/java.yml
+index 2d862265..fe96dfa0 100644
+--- a/.github/workflows/java.yml
++++ b/.github/workflows/java.yml
+@@ -33,7 +33,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -59,7 +59,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK ${{ matrix.java }}
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: ${{ matrix.java }}
+           distribution: "temurin"
+@@ -79,7 +79,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -108,7 +108,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+diff --git a/.github/workflows/kotlin.yml b/.github/workflows/kotlin.yml
+index e21e98b1..91e99346 100644
+--- a/.github/workflows/kotlin.yml
++++ b/.github/workflows/kotlin.yml
+@@ -34,7 +34,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -57,7 +57,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -88,7 +88,7 @@ jobs:
+         with:
+           node-version: "24"
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -113,7 +113,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+@@ -142,7 +142,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+diff --git a/.github/workflows/publish-csharp.yml b/.github/workflows/publish-csharp.yml
+index bc46a468..00851855 100644
+--- a/.github/workflows/publish-csharp.yml
++++ b/.github/workflows/publish-csharp.yml
+@@ -52,7 +52,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - name: Check if version already published to NuGet.org
+@@ -141,7 +141,7 @@ jobs:
+           name: csharp-pdf
+           path: csharp/pdf-artifact
+       - name: Setup .NET SDK
+-        uses: actions/setup-dotnet@v6.0.0
++        uses: actions/setup-dotnet@v6.1.0
+         with:
+           global-json-file: csharp/global.json
+       - name: Install DocFX
+diff --git a/.github/workflows/publish-java.yml b/.github/workflows/publish-java.yml
+index 7a3f3ed2..e6fce530 100644
+--- a/.github/workflows/publish-java.yml
++++ b/.github/workflows/publish-java.yml
+@@ -48,7 +48,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+diff --git a/.github/workflows/publish-kotlin.yml b/.github/workflows/publish-kotlin.yml
+index b00f5005..28a222e9 100644
+--- a/.github/workflows/publish-kotlin.yml
++++ b/.github/workflows/publish-kotlin.yml
+@@ -51,7 +51,7 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Set up JDK 25
+-        uses: actions/setup-java@v6.1.0
++        uses: actions/setup-java@v6.2.0
+         with:
+           java-version: "25"
+           distribution: "temurin"
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index 9fe6d1b7..6da5fdf1 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -53,13 +53,13 @@ jobs:
+           persist-credentials: false
+           submodules: true
+       - name: Initialize CodeQL
+-        uses: github/codeql-action/init@v4.39.1
++        uses: github/codeql-action/init@v4.39.3
+         with:
+           languages: ${{ matrix.language }}
+           build-mode: ${{ matrix.build-mode }}
+           config-file: ./.github/codeql/codeql-config.yml
+       - name: Analyze
+-        uses: github/codeql-action/analyze@v4.39.1
++        uses: github/codeql-action/analyze@v4.39.3
+         with:
+           category: /language:${{ matrix.language }}
+ 
+@@ -99,7 +99,7 @@ jobs:
+           # scan needs the whole history, not just the tip.
+           fetch-depth: 0
+       - name: Scan the repository for verified secrets
+-        uses: trufflesecurity/trufflehog@v3.99.7
++        uses: trufflesecurity/trufflehog@v3.99.8
+         with:
+           path: ./
+           # The action ref pins the wrapper; this pins the scanner itself,

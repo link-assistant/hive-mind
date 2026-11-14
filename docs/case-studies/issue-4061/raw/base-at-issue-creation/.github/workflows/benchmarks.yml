@@ -1,0 +1,449 @@
+name: benchmarks
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: 'Print extra diagnostics (never secret values)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+
+jobs:
+  findChangedBenchmarkFiles:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-detect-changes
+      cancel-in-progress: false
+    outputs:
+      isBenchmarkFilesChanged: ${{ steps.setIsBenchmarkFilesChangedOutput.outputs.isBenchmarkFilesChanged }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Get changed files using defaults
+        id: changed-files
+        uses: tj-actions/changed-files@v47.0.6
+      - name: Set output isBenchmarkFilesChanged
+        id: setIsBenchmarkFilesChangedOutput
+        env:
+          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        run: |
+          isBenchmarkFilesChanged='false'
+          # workflow_dispatch has no diff to inspect, so treat it as "changed".
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            isBenchmarkFilesChanged='true'
+          fi
+          echo "Changed files: $ALL_CHANGED_FILES"
+          for changedFile in $ALL_CHANGED_FILES; do
+            if [[ $changedFile == benchmarks/* ]] || [[ $changedFile == rust/links-notation-benchmark/* ]] || [[ $changedFile == .github/workflows/benchmarks.yml ]]; then
+              isBenchmarkFilesChanged='true'
+              break
+            fi
+          done
+          echo "isBenchmarkFilesChanged=${isBenchmarkFilesChanged}" >> "$GITHUB_OUTPUT"
+          echo "isBenchmarkFilesChanged: ${isBenchmarkFilesChanged}"
+
+  # The Rust benchmark is the one that writes the documents, the result file and
+  # the report. Everything below reads what this job produced, so a change never
+  # lands half-measured: the six other languages re-count the very same bytes
+  # this job wrote, not whatever happened to be committed.
+  benchmark:
+    needs: [findChangedBenchmarkFiles]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-benchmark
+      cancel-in-progress: false
+    outputs:
+      changed: ${{ steps.regenerate.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: rust
+      - name: Test the benchmark
+        working-directory: rust
+        run: cargo test -p links-notation-benchmark
+      - name: Regenerate the documents and the report
+        id: regenerate
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          if [ "$CI_VERBOSE" = "true" ]; then set -x; fi
+          cargo run -p links-notation-benchmark --release
+          cd ..
+          if git diff --quiet -- benchmarks/generated benchmarks/results/rust.json benchmarks/BENCHMARK_RESULTS.md; then
+            echo "The committed benchmark output is up to date"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- benchmarks/generated benchmarks/results/rust.json benchmarks/BENCHMARK_RESULTS.md
+          fi
+      # On main the drift is the point: the publish job commits it. On a pull
+      # request it means the generated files in the branch no longer match the
+      # generator, and reviewers would be reading stale numbers.
+      - name: Fail on drift in a pull request
+        if: ${{ github.event_name == 'pull_request' && steps.regenerate.outputs.changed == 'true' }}
+        run: |
+          echo "::error::The committed benchmark output is stale. Run 'cargo run -p links-notation-benchmark --release' from rust/ and commit benchmarks/."
+          exit 1
+      - name: Upload the benchmark output
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmark-output
+          path: |
+            benchmarks/generated
+            benchmarks/results/rust.json
+            benchmarks/BENCHMARK_RESULTS.md
+          retention-days: 1
+
+  # The datasets are generated too, and the generated YAML, XML and CSV are read
+  # back by established third-party parsers, so a format cannot win by quietly
+  # dropping a field.
+  datasets:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-datasets
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          cache: 'npm'
+          cache-dependency-path: benchmarks/tools/package-lock.json
+      - name: Install dependencies
+        working-directory: benchmarks/tools
+        run: npm ci
+      - name: Check the datasets and verify every generated document
+        working-directory: benchmarks/tools
+        run: npm run check
+
+  javascript:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-javascript
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+          cache: 'npm'
+          cache-dependency-path: benchmarks/js/package-lock.json
+      - name: Install dependencies
+        working-directory: benchmarks/js
+        run: npm ci
+      - name: Parse and count in JavaScript
+        run: node benchmarks/js/benchmark.mjs
+      - name: Upload the JavaScript result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-js
+          path: benchmarks/results/js.json
+          retention-days: 1
+
+  python:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-python
+      cancel-in-progress: false
+    env:
+      # tiktoken downloads its vocabulary instead of shipping it, so give it a
+      # cache to download into once.
+      TIKTOKEN_CACHE_DIR: ${{ github.workspace }}/.tiktoken-cache
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup Python
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.0'
+          cache: 'pip'
+          cache-dependency-path: benchmarks/python/requirements.lock
+      - name: Cache the tiktoken vocabularies
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.TIKTOKEN_CACHE_DIR }}
+          key: ${{ runner.os }}-tiktoken-python-o200k-cl100k
+      # The benchmark puts ../python on sys.path itself, so it measures the
+      # parser in this commit and only the tokenizer has to be installed.
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --require-hashes -r benchmarks/python/requirements.lock
+      - name: Parse and count in Python
+        run: |
+          mkdir -p "$TIKTOKEN_CACHE_DIR"
+          python3 benchmarks/python/benchmark.py
+      - name: Upload the Python result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-python
+          path: benchmarks/results/python.json
+          retention-days: 1
+
+  csharp:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-csharp
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - name: Parse and count in C#
+        run: dotnet run --project benchmarks/csharp -c Release
+      - name: Upload the C# result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-csharp
+          path: benchmarks/results/csharp.json
+          retention-days: 1
+
+  go:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-go
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.4'
+          cache-dependency-path: benchmarks/go/go.sum
+      - name: Parse and count in Go
+        working-directory: benchmarks/go
+        run: go run .
+      - name: Upload the Go result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-go
+          path: benchmarks/results/go.json
+          retention-days: 1
+
+  java:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-java
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Setup Java
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: '27.0.1'
+          distribution: 'temurin'
+          cache: 'maven'
+      # The benchmark depends on the library by coordinates, so the working copy
+      # has to be in the local repository, or Maven would measure the last
+      # release instead of this commit.
+      - name: Install the library into the local Maven repository
+        run: java/mvnw -B -q -f java/pom.xml install -DskipTests
+      - name: Parse and count in Java
+        working-directory: benchmarks/java
+        run: ../../java/mvnw -B -q compile exec:java
+      - name: Upload the Java result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-java
+          path: benchmarks/results/java.json
+          retention-days: 1
+
+  php:
+    needs: [findChangedBenchmarkFiles, benchmark]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-benchmarks-${{ github.ref }}-php
+      cancel-in-progress: false
+    env:
+      # yethee/tiktoken is the one tokenizer here that downloads its vocabulary
+      # instead of shipping it, so give it a cache to download into once.
+      TIKTOKEN_CACHE_DIR: ${{ github.workspace }}/.tiktoken-cache
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: '8.5.12'
+          extensions: mbstring
+          tools: composer:v2
+      - name: Cache the tiktoken vocabularies
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.TIKTOKEN_CACHE_DIR }}
+          key: ${{ runner.os }}-tiktoken-vocab-o200k-cl100k
+      - name: Install dependencies
+        working-directory: benchmarks/php
+        run: composer install --prefer-dist --no-progress
+      - name: Check coding standard with PHP_CodeSniffer
+        working-directory: benchmarks/php
+        run: composer run-script lint
+      - name: Parse and count in PHP
+        working-directory: benchmarks/php
+        run: |
+          mkdir -p "$TIKTOKEN_CACHE_DIR"
+          php benchmark.php
+      - name: Upload the PHP result
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: results-php
+          path: benchmarks/results/php.json
+          retention-days: 1
+
+  # Only a push to main publishes, only when something changed, and only after
+  # every language above agreed on every number.
+  publish:
+    needs: [findChangedBenchmarkFiles, benchmark, datasets, javascript, python, csharp, go, java, php]
+    if: ${{ needs.findChangedBenchmarkFiles.outputs.isBenchmarkFilesChanged == 'true' && needs.benchmark.outputs.changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    # Two runs pushing to main would race for the same head.
+    concurrency:
+      group: ci-benchmarks-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+          ref: ${{ github.sha }}
+      - name: Download the benchmark output
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: benchmark-output
+          path: benchmarks
+      - name: Download every language result
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: results-*
+          merge-multiple: true
+          path: benchmarks/results
+      - name: Propose the regenerated benchmarks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$CI_VERBOSE" = "true" ]; then set -x; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/generated benchmarks/results benchmarks/BENCHMARK_RESULTS.md
+          if git diff --cached --quiet; then
+            echo "The benchmarks are already up to date, nothing to commit"
+            exit 0
+          fi
+          git --no-pager diff --cached --stat
+          git commit -m "Update benchmark results for ${COMMIT_SHA}"
+          BENCHMARK_BRANCH="automation/benchmarks-${COMMIT_SHA}"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${BENCHMARK_BRANCH}"
+          # Main's required checks apply to generated changes too. A repository
+          # may disallow Actions-created PRs; that is a visible configuration
+          # error rather than silently bypassing main's ruleset.
+          gh pr create --base main --head "$BENCHMARK_BRANCH" \
+            --title "Update benchmark results for ${COMMIT_SHA}" \
+            --body "Generated and verified by the gated CI run for ${COMMIT_SHA}. All seven implementations agreed on the results."
+          # Explicit dispatch works with GITHUB_TOKEN and attaches the required
+          # stage checks to the generated commit, without relying on bot PR
+          # events that can be suppressed or require manual approval.
+          gh workflow run js.yml --ref "$BENCHMARK_BRANCH"

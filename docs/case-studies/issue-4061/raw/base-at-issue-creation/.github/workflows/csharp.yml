@@ -1,0 +1,151 @@
+name: csharp
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: "Print extra diagnostics (never secret values)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Opt-in diagnostics, off unless a maintainer dispatches with verbose=true
+  # or sets the CI_VERBOSE repository variable.
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+  PACKAGE_ID: links-notation
+  PROJECT_PATH: Link.Foundation.Links.Notation/Link.Foundation.Links.Notation.csproj
+
+defaults:
+  run:
+    working-directory: csharp
+
+jobs:
+  lint:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-csharp-${{ github.ref }}-lint
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - name: Restore Dependencies
+        run: dotnet restore
+      - name: Check formatting
+        run: |
+          if [ "$CI_VERBOSE" = "true" ]; then
+            dotnet format --verify-no-changes --verbosity diagnostic
+          else
+            dotnet format --verify-no-changes
+          fi
+
+  test:
+    needs: [lint]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-csharp-${{ github.ref }}-test
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - name: Restore Dependencies
+        run: dotnet restore
+      - name: Build
+        # Warnings are annotated but the build stays green; -warnaserror is a
+        # separate decision that would also fail on new analyzer releases.
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+      - name: Setup Rust for binary interoperability checks
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: rust
+      - name: Compare Rust and C# binary codecs
+        run: bash ../examples/binary/run-interop.sh --rust-csharp-only
+
+  generatePdfWithCode:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    needs: [test]
+    # Builds on pull requests too: only main used to run it, so a test string
+    # pdfLaTeX cannot typeset passed review and broke the main branch (#330).
+    concurrency:
+      group: ci-csharp-${{ github.ref }}-pdf
+      cancel-in-progress: false
+    env:
+      PDF_APT_PACKAGES: texlive texlive-lang-cyrillic texlive-latex-extra python3-pygments ghostscript python-is-python3
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      # These packages are 293 MB. On 2026-10-06 the runner's apt mirror served
+      # them at 223 kB/s, so the download took 22 of the job's 30 minutes
+      # instead of the usual 1.5 (issue #330). Keeping the .deb files in the
+      # Actions cache stops a slow mirror from timing the job out. Only the .deb
+      # files are cached: apt's lock file is root-only, so it cannot be saved.
+      - name: Cache the packages for PDF generation
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/apt-archives/*.deb
+          key: ${{ runner.os }}-${{ env.ImageOS }}-apt-${{ env.PDF_APT_PACKAGES }}
+      - name: Install dependencies for PDF generation
+        run: |
+          mkdir -p ~/apt-archives/partial
+          sudo apt-get update
+          # The download runs as root because the _apt sandbox user cannot
+          # write to a directory in the runner's home.
+          # shellcheck disable=SC2086 # the package list is split on purpose
+          sudo apt-get install -y \
+            -o Dir::Cache::Archives="$HOME/apt-archives" \
+            -o APT::Sandbox::User=root \
+            $PDF_APT_PACKAGES
+      # Install the current upstream pair: the distro's latexminted 0.6.0
+      # fails with Python >=3.14 (gpoore/minted#463). The corresponding style
+      # packages are required by the fixed executable's protocol.
+      - name: Setup Python for latexminted
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.0'
+      - name: Install current minted packages
+        run: |
+          pip install --require-hashes -r tools/requirements.lock
+          bash scripts/setup-minted.sh "$RUNNER_TEMP/minted"
+          echo "TEXINPUTS=$RUNNER_TEMP/minted//:" >> "$GITHUB_ENV"
+          latexminted --version
+      - name: Check the listing only contains characters LaTeX can typeset
+        run: python3 ../experiments/issue-330/test_pdf_unicode.py
+      - name: Generate PDF with code
+        run: |
+          if [ "$CI_VERBOSE" = "true" ]; then set -x; fi
+          bash scripts/generate-pdf.sh
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: csharp-pdf
+          path: csharp/_site/Link.Foundation.Links.Notation.pdf
+          retention-days: 1

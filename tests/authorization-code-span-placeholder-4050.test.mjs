@@ -32,10 +32,13 @@ const KEPT = [
   '`Authorization: Bearer $TOKEN`',
   '`Authorization: Bearer ${GITHUB_TOKEN}` and `Proxy-Authorization: Basic <credentials>`',
   'see `curl -H Authorization:<value>`',
-  // The 2.40.2 CHANGELOG line: the header named with no value, then a
-  // double-backtick code span around the 2.40.1 example.
-  'a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes)',
+  // The 2.40.2 CHANGELOG line (#4057): a header named in prose, closed right
+  // after the colon, ahead of a placeholder in a double-backtick code span.
+  'masks a placeholder that closes a code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes)',
+  'the `Authorization:` header',
+  'the `Proxy-Authorization:` and `Authorization:` headers',
   '`Authorization:` and `Proxy-Authorization:` headers',
+  'a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes)',
 ];
 
 test('#4050: a placeholder that closes a Markdown code span is not masked', async () => {
@@ -47,7 +50,7 @@ test('#4050: a placeholder that closes a Markdown code span is not masked', asyn
 });
 
 test('#4050: real credentials in a code span are still masked', async () => {
-  for (const line of [`\`Authorization:\` header \`Authorization: token ${TOKEN}\``, `\`Authorization: token ${TOKEN}\``, `\`Authorization: token <${TOKEN}>\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``]) {
+  for (const line of [`\`Authorization:\` header \`Authorization: token ${TOKEN}\``, `\`Authorization: token ${TOKEN}\``, `\`Authorization: token <${TOKEN}>\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``, `\`Authorization: ${TOKEN}\``, `\`Authorization: token ${TOKEN} \``, `the \`Authorization:\` header, then \`Authorization: token ${TOKEN}\``]) {
     const output = await sanitizeForPublication(line, options);
     assert.ok(!output.includes(TOKEN.slice(4)), output);
   }
@@ -68,6 +71,10 @@ test('#4050: the exemption needs an opening backtick, a complete template and th
   // No code span opened before the header (an even number of backticks).
   assert.equal(at('Authorization: token <value>`', '<value>`'), false);
   assert.equal(at('`a` Authorization: token <value>`', '<value>`'), false);
+  // An empty value: the closing backtick right after the colon (#4057).
+  assert.equal(at('the `Authorization:` header', '`'), true);
+  assert.equal(at('the `Authorization: Bearer` header', '`'), false, 'the library reads the scheme word as the value');
+  assert.equal(at('the Authorization:` header', '`'), false);
   // Not one complete template.
   assert.equal(at('`Authorization: token <a>secret123`', '<a>secret123`'), false);
   assert.equal(at('`Authorization: token $A$B`', '$A$B`'), false);

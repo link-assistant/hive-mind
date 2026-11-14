@@ -18,7 +18,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
 import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 import { REPOSITORY_SKILL_DIRECTORIES, parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog } from './codex-skill-catalog.lib.mjs';
-import { REPOSITORY_CODEX_CONFIG, applyRepositoryCodexConfig, readRepositoryCodexConfig } from './codex-repository-config.lib.mjs';
+import { REPOSITORY_CODEX_CONFIG, applyRepositoryCodexConfig, disableScopedCodexSkills, readRepositoryCodexConfig } from './codex-repository-config.lib.mjs';
 import { describeScopedCodexSessions, shareScopedCodexSessions } from './codex-sessions.lib.mjs';
 import { createCodexTaskScopeAllocator } from './codex-task-scope.lib.mjs';
 import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
@@ -238,11 +238,7 @@ const readModelVisibleSkills = async ({ command, env, runCommand, log }) => {
   return catalog;
 };
 
-const checkModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills = [], codexHome, projectDir, plugins = [] }) => {
-  const catalog = await readModelVisibleSkills({ command, env, runCommand, log });
-  if (!catalog) return { status: 'unknown', visible: null, missing: [], skillCatalog: [], fingerprint: null };
-  const validation = await validateModelVisibleSkillCatalog({ catalog, codexHome, projectDir, selectedPlugins: plugins, requiredSkills });
-  const visible = new Set(validation.allowed.map(entry => entry.name));
+const logModelVisibleSkills = async ({ catalog, validation, log }) => {
   await log(
     `   🔎 Model-visible skills (${catalog.entries.length}): ${
       catalog.entries
@@ -252,7 +248,36 @@ const checkModelVisibleSkills = async ({ command, env, runCommand, log, required
     }`,
     { verbose: true }
   );
+  // Issue #4057: the trusted roots are what decides admission, so printing
+  // them makes a refusal diagnosable from the log alone.
+  await log(`   🧭 Trusted skill roots: ${validation.trustedRoots?.join(', ') || 'none'}`, { verbose: true });
   for (const entry of validation.allowed) await log(`   ✅ Allowed skill ${entry.name} (provider=${entry.providerId}, version=${entry.version}, path=${entry.path})`, { verbose: true });
+  for (const entry of validation.rejected || []) await log(`   ⛔ Refused skill ${entry.name} (origin=${entry.origin}, path=${entry.canonical}${entry.path && entry.path !== entry.canonical ? `, rendered=${entry.path}` : ''})`, { verbose: true });
+};
+
+const checkModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills = [], codexHome, projectDir, plugins = [] }) => {
+  let catalog = await readModelVisibleSkills({ command, env, runCommand, log });
+  if (!catalog) return { status: 'unknown', visible: null, missing: [], skillCatalog: [], fingerprint: null };
+  const validate = () => validateModelVisibleSkillCatalog({ catalog, codexHome, projectDir, selectedPlugins: plugins, requiredSkills });
+  let validation = await validate();
+  await logModelVisibleSkills({ catalog, validation, log });
+  // Issue #4057: a skill outside the allowlist, typically one the host
+  // installed under `$HOME/.agents/skills`, is switched off in the per-task
+  // CODEX_HOME and the catalog is probed again. Repository skills keep working
+  // and host instructions still never reach the model; whatever survives the
+  // second probe fails closed below.
+  if (validation.violations.length > 0 && codexHome) {
+    const disabled = await disableScopedCodexSkills({ codexHome, skills: validation.rejected });
+    if (disabled.length > 0) {
+      await log(`   🚫 Disabled ${disabled.length} skill(s) outside the task allowlist for this task only: ${disabled.map(entry => `${entry.name} (${entry.origin})`).join(', ')}`);
+      for (const entry of disabled) await log(`      ${entry.name}: ${entry.canonical}`, { verbose: true });
+      catalog = await readModelVisibleSkills({ command, env, runCommand, log });
+      if (!catalog) throw catalogBoundaryError('The Codex skill catalog probe stopped working after out-of-allowlist skills were disabled.');
+      validation = await validate();
+      await logModelVisibleSkills({ catalog, validation, log });
+    }
+  }
+  const visible = new Set(validation.allowed.map(entry => entry.name));
   if (validation.violations.length > 0) {
     throw catalogBoundaryError(`Codex exposed skill instructions outside the capability allowlist: ${validation.violations.join(' ')}`, {
       unexpected: validation.violations,

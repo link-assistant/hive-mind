@@ -109,6 +109,18 @@ const isWithin = (candidate, root) => {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 };
 
+/**
+ * Where a refused skill came from (issue #4057). `checkout` is the task's own
+ * repository, `task-codex-home` the disposable per-task CODEX_HOME, and `host`
+ * everything else: the operator's `$HOME/.agents/skills`, `/etc/codex/skills`,
+ * or a symlink leaving the checkout.
+ */
+export const skillOrigin = ({ canonical, canonicalProjectDir, canonicalCodexHome }) => {
+  if (canonicalProjectDir && isWithin(canonical, canonicalProjectDir)) return 'checkout';
+  if (canonicalCodexHome && isWithin(canonical, canonicalCodexHome)) return 'task-codex-home';
+  return 'host';
+};
+
 const canonicalPath = async target => {
   try {
     return await fs.realpath(target);
@@ -146,6 +158,10 @@ const pluginProvenance = async ({ entry, canonical, codexHome, canonicalCodexHom
 export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, projectDir, selectedPlugins = [], requiredSkills = [] }) => {
   const violations = [...(catalog?.errors || [])];
   const allowed = [];
+  // Issue #4057: entries that are refused but have a readable file are
+  // returned so the caller can switch them off in the task's own CODEX_HOME
+  // instead of failing every run on the host's user-level skills.
+  const rejected = [];
   const seen = new Map();
   const canonicalCodexHome = await canonicalPath(codexHome);
   const candidateSystemRoot = await canonicalPath(path.join(codexHome, 'skills', '.system'));
@@ -156,6 +172,17 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     const candidate = canonicalProjectDir ? await canonicalPath(path.join(projectDir, relative)) : null;
     if (candidate && isWithin(candidate, canonicalProjectDir)) projectSkillsRoots.push(candidate);
   }
+  // Issue #4057: Codex renders a repository skill by the path it discovered,
+  // e.g. `.agents/skills/handoff/SKILL.md` even when that directory is a
+  // relative symlink to `.claude/skills/handoff` (Hive Mind's own handoff and
+  // Playwright skills, and repositories that keep `.claude/skills` canonical).
+  const renderedSkillRoots = projectDir ? [...new Set([projectDir, canonicalProjectDir].filter(Boolean).flatMap(root => REPOSITORY_SKILL_DIRECTORIES.map(relative => path.resolve(root, relative))))] : [];
+  const isRepositorySkill = (entry, canonical) => {
+    if (entry.name.includes(':') || path.basename(canonical) !== 'SKILL.md') return false;
+    if (projectSkillsRoots.some(root => isWithin(canonical, root) && canonical !== root)) return true;
+    const rendered = path.resolve(entry.path);
+    return Boolean(canonicalProjectDir) && isWithin(canonical, canonicalProjectDir) && renderedSkillRoots.some(root => isWithin(rendered, root) && rendered !== root);
+  };
   const systemVersion = systemRoot ? await readSystemVersion(systemRoot) : 'bundled';
 
   for (const entry of catalog?.entries || []) {
@@ -171,18 +198,20 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
     if (systemRoot && isWithin(canonical, systemRoot)) {
       const relative = path.relative(systemRoot, canonical).split(path.sep);
       if (!entry.name.includes(':') && relative.length === 2 && relative[0] === entry.name && relative[1] === 'SKILL.md') provenance = { providerId: 'codex-system', version: systemVersion };
-    } else if (!entry.name.includes(':') && projectSkillsRoots.some(root => isWithin(canonical, root) && canonical !== root)) {
+    } else if (isRepositorySkill(entry, canonical)) {
       // Issue #3785: the checked-out repository owns its skills. Codex names a
       // skill by its front matter, so neither the directory name nor an issue
       // mention is required; the canonical file must stay inside the task's
       // own checkout, which excludes symlinks to host or other-task state.
-      if (path.basename(canonical) === 'SKILL.md') provenance = { providerId: 'repository', version: 'workspace' };
+      provenance = { providerId: 'repository', version: 'workspace' };
     } else if (entry.name.includes(':')) {
       provenance = await pluginProvenance({ entry, canonical, codexHome, canonicalCodexHome, selectedPlugins });
     }
 
     if (!provenance) {
-      violations.push(`Model-visible skill '${entry.name}' is not allowlisted for this run or resolves outside trusted repository-scoped paths: ${canonical}.`);
+      const origin = skillOrigin({ canonical, canonicalProjectDir, canonicalCodexHome });
+      violations.push(`Model-visible skill '${entry.name}' is not allowlisted for this run or resolves outside trusted repository-scoped paths: ${canonical} (origin: ${origin}).`);
+      rejected.push({ name: entry.name, path: entry.path, canonical, origin });
       continue;
     }
     allowed.push({ name: entry.name, providerId: provenance.providerId, version: provenance.version, path: canonical });
@@ -196,7 +225,8 @@ export const validateModelVisibleSkillCatalog = async ({ catalog, codexHome, pro
   const allowedNames = new Set(allowed.map(entry => entry.name));
   const missing = requiredSkills.filter(skill => !allowedNames.has(skill.toLowerCase()));
   const fingerprint = createHash('sha256').update(JSON.stringify(allowed)).digest('hex');
-  return { allowed, fingerprint, missing, violations };
+  const trustedRoots = [...projectSkillsRoots, ...(systemRoot ? [systemRoot] : [])];
+  return { allowed, fingerprint, missing, violations, rejected, trustedRoots };
 };
 
 export default { parseModelVisibleSkillCatalog, validateModelVisibleSkillCatalog };

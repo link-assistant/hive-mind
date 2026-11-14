@@ -1,5 +1,26 @@
 # @link-assistant/hive-mind
 
+## 2.40.4
+
+### Patch Changes
+
+- 600f1f9: Fix the CI/CD errors, false negatives and warnings found on `main` (#4055):
+
+  - **Native recovery on `linux-arm64`.** Selected native SQLite corruption recovery no longer fails with `requires closed database handles` when SQLx is still closing a dropped connection on its worker thread. The VFS reports the holder through `errno`: `EBUSY` for this process and `EWOULDBLOCK` for a native peer. The backup waits at most 5 s for this process's own handles and still refuses live peers. `HIVE_CODEX_SQLITE_TRACE=1` traces each attempt and is off by default.
+  - **Formal AI draft health.** Repeated draft failures no longer split into separate streaks by release version. Twelve drafts that failed on missing `2.40.0` and `2.40.1` images stayed green because neither streak reached the threshold.
+  - **Dependabot.** The `docker-compose` entry matched no dependency and warned daily, so it is removed. A daily `Dependabot Health` workflow fails when a Dependabot group pull request stays open long enough to block newer updates (dependabot/dependabot-core#16791).
+  - **Native experiment probes.** Compiles that take 7–10 s had a 30 s limit, and one slow runner failed the job with only `exit code 1`. The five probe scripts now share a 120 s compile limit, the configuration lock probe prints the compiler output and elapsed time on failure, and each experiment job prints the newest log on failure.
+  - **Process liveness checks.** A task that its reaper is releasing shows `X (dead)` in `/proc/<pid>/stat`, right after `Z`. Six checks, including the runtime probe cleanup in `verify-agent-runtime`, treated it as alive, which failed a Router native-lifetime test at random.
+  - **Native Codex variants and Docker images.** 2.40.2 published its main package while npm was still processing the linux-arm64 variant, so the arm64 image installed without it and no 2.40.2 image was published. The release now publishes the main package only after npm can install every variant, and the Docker jobs also wait for the variants a release pins. The image build prints why native Codex was refused.
+  - **Native usage reproduction race.** Before the repair, upstream Codex sometimes revokes an in-flight usage request when it reloads the changed authentication, so the probe that expects the retired response failed at random. The probe now prints the response with `CODEX_PROBE_DIAGNOSTICS=1`, reports that outcome as inconclusive, and the workflow repeats it up to five times.
+  - **Credential sanitizer 0.22.5.** The library now keeps an `Authorization:` placeholder that closes a double-backtick code span (link-foundation/sensitive-data-sanitizer#181), so the adapter's code-span exemption is removed and the regression tests guard the library's own behaviour.
+
+- 1144b6e: Codex runs in a repository with its own skills no longer fail with "Codex exposed skill instructions outside the capability allowlist" (#4057). Every skill under the checkout's `.agents/skills` and `.codex/skills` is admitted without an issue requirement. This includes skills linked from `.agents/skills` into `.claude/skills`, the layout used by Hive Mind's handoff and Playwright skills, as long as the file stays inside the checkout. Skills Codex discovers outside the checkout and the task `CODEX_HOME` (`$HOME/.agents/skills`, `/etc/codex/skills`, symlinks leaving the checkout) are now switched off for the task only, with `[[skills.config]] enabled = false` in the per-task `CODEX_HOME`, instead of failing the run. The catalog is then probed again, and the run still fails closed if Codex keeps showing them. Verbose logs list the trusted skill roots and each refused skill with its origin. Hosts still on 2.39.x should upgrade: the repository-skill fix from #3785 was versioned as 2.40.0/2.40.1, but neither version reached npm; 2.40.2 was the first published version with it.
+
+  The publication sanitizer also no longer masks an `Authorization:` header named in prose when the code span closes right after the colon. This text appears in the 2.40.2 release note, and masking it removed the closing backtick and broke the `` `Authorization: token <value>` `` example that followed on the same line. Real tokens stay masked (sensitive-data-sanitizer#177).
+
+  `@link-foundation/sensitive-data-sanitizer` 0.22.4 fixes the `ERR_SANITIZATION` failure on a letter run of about 4 MiB in text with emoji or other non-Latin-1 characters (sensitive-data-sanitizer#172), so Hive Mind's own long-run fallback is removed. `lino-i18n` 0.6.0, `links-notation` 0.31.4 and `start-command` 0.44.0 are also taken.
+
 ## 2.40.3
 
 ### Patch Changes

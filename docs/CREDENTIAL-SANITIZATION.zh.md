@@ -54,7 +54,7 @@ Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-库 0.22.4 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除，0.22.2 和 0.22.3 修复了 #168（已掩码日志清理缓慢）和 #170（长的大小写混合串），0.22.4 修复了 #172（长串，见[长串与长值](#长串与长值)）和 #177，因此它们的变通方案也已删除，详见[案例研究](./case-studies/issue-3739/README.md)。适配器中保留一个变通方案：针对 [#181](https://github.com/link-foundation/sensitive-data-sanitizer/issues/181)（[#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177) 的双反引号形式）的 `exempt` 钩子，它保留 `Authorization:` 头之后、作为 Markdown 代码片段结尾的完整占位符（`<value>`、`$NAME`、`${NAME}`），例如发布说明中的 `` `Authorization: token <value>` ``（[#4050](https://github.com/link-assistant/hive-mind/issues/4050)）。它只保留库在其后没有反引号时也会保留的值，且已知密钥永远不会交给该钩子。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
+库 0.22.5 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除，0.22.2 和 0.22.3 修复了 #168（已掩码日志清理缓慢）和 #170（长的大小写混合串），0.22.4 修复了 #172（长串，见[长串与长值](#长串与长值)）和 [#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177)，0.22.5 修复了 [#181](https://github.com/link-foundation/sensitive-data-sanitizer/issues/181)，因此它们的变通方案也已删除，详见[案例研究](./case-studies/issue-3739/README.md)。适配器中不再有变通方案：库本身会保留 `Authorization:` 头之后、作为 Markdown 代码片段结尾的完整占位符（`<value>`、`$NAME`、`${NAME}`），例如发布说明中的 `` `Authorization: token <value>` ``（[#4050](https://github.com/link-assistant/hive-mind/issues/4050)），回归测试守护这一行为。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 

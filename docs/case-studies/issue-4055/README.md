@@ -44,6 +44,9 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 | 2026-11-13 23:51 | Native experiment 43527335157 fails the same step for `malformed`. The CI-built binary shows the cause locally: upstream revoked the in-flight request (F11).                                                        |
 | 2026-11-14 00:17 | Workflows 43533158148: every step of actionlint, ShellCheck and zizmor succeeds by 00:17:54, but GitHub keeps the three jobs `in_progress`. Force-cancel lands at 01:40; attempt 2 passes (B4).                      |
 | 2026-11-14 03:03 | sensitive-data-sanitizer 0.22.4 is published with the #172 and #177 fixes. The freshness gate requires it; the #4049 canary test fails as designed, so the adapter's #172 fallback and #177 entry are removed (F10). |
+| 2026-11-14 06:30 | sensitive-data-sanitizer #181 and #182 are closed by upstream PR #185.                                                                                                                                               |
+| 2026-11-14 06:51 | `main` merges #4058 (sanitizer 0.22.4, start-command 0.44.0); this pull request merges `main`.                                                                                                                       |
+| 2026-11-14 06:56 | sensitive-data-sanitizer 0.22.5 is published with the #181 fix. The freshness gate requires it, so the adapter's code-span `exempt` hook is removed (F10).                                                           |
 
 ## Findings, root causes and fixes
 
@@ -285,14 +288,14 @@ installable::` and the main package is not published. The failure is
   43406123201 failed on a timing-ratio test (`Expected 7.208836240399472 to be
 less than 7`, macos-26-intel, Bun). This is reported as
   [sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
-  0.22.4 was published on 2026-11-14 at 03:03 with the #177 and #172 fixes;
-  #181 and #182 are still open.
+  0.22.4 was published on 2026-11-14 at 03:03 with the #177 and #172 fixes,
+  and 0.22.5 at 06:56 with the #181 fix; #181 and #182 were closed at 06:30.
 - **Fix.** `isCodeSpanAuthorizationPlaceholder` in
   `src/sensitive-data-sanitizer.lib.mjs` makes the placeholder template
   optional. A lone closing backtick after `Authorization:` inside an open code
   span is kept; real tokens are still masked. PR #4059 made the identical change
   and merged first (`6db677e2f`); after merging `main` the file matches it. `UPSTREAM.doubleBacktickCodeSpanPlaceholder`
-  links #181, so the exemption can be removed once upstream releases that fix.
+  linked #181, so the exemption could be removed once upstream released that fix.
 - **Follow-up on 0.22.4.** The freshness gate required 0.22.4, and the #4049
   canary (`the library still overflows`) failed as designed.
   `experiments/issue-4055/sanitizer-0.22.4-long-runs.mjs` shows the library
@@ -303,6 +306,14 @@ less than 7`, macos-26-intel, Bun). This is reported as
   lines) and the `longLetterRunStackOverflow` and
   `authorizationCodeSpanPlaceholder` entries are removed; the tests now assert
   the library's own behaviour, so a regression of #172 fails them.
+- **Follow-up on 0.22.5.** The freshness gate required 0.22.5.
+  `experiments/issue-4055/sanitizer-0.22.5-code-span.mjs` shows that the
+  library alone keeps every placeholder form, including the double-backtick
+  one and the whole `CHANGELOG.md`, and still masks synthetic tokens. The
+  code-span `exempt` hook, its trace event and the
+  `doubleBacktickCodeSpanPlaceholder` entry are removed; `UPSTREAM` keeps
+  only #173 (a documented performance limit), and the test asserts that no
+  code-span workaround is left.
 - **Test.** `tests/authorization-code-span-placeholder-4050.test.mjs` adds the
   2.40.2 CHANGELOG lines, empty values, and a real token after
   `` `Authorization:` ``, which must still be masked.
@@ -405,7 +416,7 @@ false negatives and were not reported again:
   release is reported with evidence, a workaround and a fix suggestion in
   [link-foundation/sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
   #181 (the double-backtick case) was already open (F10). 0.22.4 has since
-  shipped #172 and #177; #181 and #182 are still open.
+  shipped #172 and #177, and 0.22.5 shipped #181 and fixed #182 (both closed).
 - SQLx and Codex: nothing to report. SQLx documents asynchronous close, and
   upstream Codex recovery renames files and tolerates open handles. The race
   only exists with this repository's selected VFS, which is fixed here.
@@ -437,7 +448,7 @@ false negatives and were not reported again:
   passes after it; the Router native-lifetime, runtime process and version
   cleanup and #2613 regression tests and `test_native_process_group.py` pass.
 - ESLint 10.15.0, lino-i18n 0.6.0, links-notation 0.31.4, sensitive-data-sanitizer
-  0.22.4 and start-command 0.44.0 (published during this pull request): `node scripts/check-dependency-freshness.mjs`
+  0.22.4 and 0.22.5, and start-command 0.44.0 (published during this pull request): `node scripts/check-dependency-freshness.mjs`
   reports all declarations current; `tests/test-issue-2187-current-dependency-pins.mjs`,
   `tests/test-use-with-retry.mjs`, `tests/dependency-freshness-2264.test.mjs` and
   `tests/test-issue-2189-start-command-0.33.mjs` pass.

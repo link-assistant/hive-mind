@@ -57,12 +57,13 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 - `proc-dead-state-window.txt`: `experiments/issue-4055/proc-dead-state-window.py` shows a reaped zombie as `X (dead)` right after `Z` (F8).
 - `dependabot-health-before.txt`: `node scripts/dependabot-health.mjs` against the live repository before #2285 was closed. It exits 1 and names #2285 (F6).
 - `pr-2285-body.md`: #2285's body with its 37 rebase banners.
-- `sanitizer-0.22.4-probes.txt`: `experiments/issue-4055/sanitizer-0.22.4-*.mjs` against sensitive-data-sanitizer 0.22.4 without the adapter. The library keeps a 4 MiB run next to an emoji, masks a 4 MiB Bearer value (#172 fixed) and keeps single-backtick placeholders (#177 fixed). It still masks the double-backtick one (#181 open), so only that exemption stays (F10).
+- `sanitizer-0.22.4-probes.txt`: `experiments/issue-4055/sanitizer-0.22.4-*.mjs` against sensitive-data-sanitizer 0.22.4 without the adapter. The library keeps a 4 MiB run next to an emoji, masks a 4 MiB Bearer value (#172 fixed) and keeps single-backtick placeholders (#177 fixed). It still masks the double-backtick one (#181 open), so only that exemption stayed (F10).
+- `sanitizer-0.22.5-probes.txt`: `experiments/issue-4055/sanitizer-0.22.5-code-span.mjs` against sensitive-data-sanitizer 0.22.5 without the adapter. The library keeps every placeholder form, including the double-backtick one (#181 fixed), and the whole `CHANGELOG.md`, and masks synthetic tokens, so the code-span `exempt` hook is removed (F10).
 - `native-limits-race-repro.log.gz`: 24 runs of `probe-codex-native-limits-generation.py --expect-retired-response` with `CODEX_PROBE_DIAGNOSTICS=1` against the before-repair binary of run 43527335157. Two print `application network permission was revoked` and now exit 3 (F11).
 
 ## Reports to other projects
 
-- `upstream/`: comment on dependabot/dependabot-core#16791 and issue link-foundation/sensitive-data-sanitizer#182, the flaky timing test that blocks the release of the #177 fix (F10). `URLS.txt` has the links.
+- `upstream/`: comment on dependabot/dependabot-core#16791 and issue link-foundation/sensitive-data-sanitizer#182, the flaky timing test that blocked the release of the #177 fix (F10); fixed in 0.22.5 and closed on 2026-11-14. `URLS.txt` has the links.
 - `template-issues/`: issues filed in the pipeline templates: [python#149](https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/149), [cpp#28](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/28), [rust#239](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/239).
 
 ## Earlier evidence

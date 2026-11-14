@@ -120,6 +120,7 @@ Usage: `/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60` 
 
 ### Limitations
 
+- The bot that handled links-notation#408 runs v2.39.10. It must be upgraded to a release that includes #3863 and this fix before they take effect. That is an operator action outside this repository.
 - Dependabot accepts `@dependabot rebase` and `@dependabot recreate` only from a user with push access. If the token hive-mind runs with lacks push access, the command is rejected. The pull request then stays in the "still open" list of the issue, and the wait still ends at its bound.
 - If the bypass list is empty, a `BEHIND` pull request cannot be merged before Dependabot rebases it and the required checks pass again. For a repository with long CI, such as the ten-language CI of links-notation, set `--dependabot-wait-timeout` accordingly. A pull request that is still pending at the end of the wait is listed in the issue as still open, together with the reason.
 

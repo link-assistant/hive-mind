@@ -349,3 +349,27 @@ rollback protection or all six tools' canonical storage requirements.
 - [x] Pin the candidate source and require optimized/package/image controls.
 - [ ] Inspect the candidate's compiled startup-fallback after controls.
 - [ ] Complete optimized x64/ARM64, installed npm and both final-image controls.
+
+## Closing-handle race in selected recovery (issue #4055)
+
+The `linux-arm64` native build in main run 43334992149 failed in the selected
+recovery control. The error was `Canonical SQLite recovery requires closed
+database handles and no live native peers`. SQLx closes a dropped connection
+on its worker thread, so that close can happen after `recovery.rs` has already
+started the backup. In that case the C adapter still sees this process's own
+`live_files` entry and refuses the backup.
+
+The adapter now reports who holds the database. A handle in this process gives
+`EBUSY`, and another native process's lease gives `EWOULDBLOCK`. The Rust
+backup retries `SQLITE_BUSY` for at most 5 s, polling at most every 100 ms,
+then refuses as before. `HIVE_CODEX_SQLITE_TRACE=1` prints each busy attempt
+and the holder; tracing is off by default.
+
+The new SQLx control `rebuild-closing` drops its connection 300 ms after
+recovery starts. It reproduces the CI error without the wait and passes with
+it. All 50 SQLx controls and 1,034 component controls pass. The updated
+prepared draft inventory digest is
+`66e364b56d43a5d89e784d2342271d9d8ccbab6dcf8c5c37ef5a98be548eb2f2`.
+
+- [x] Reproduce the closing-handle refusal with real SQLx before the fix.
+- [x] Verify the bounded wait, the holder contract and peer refusal.

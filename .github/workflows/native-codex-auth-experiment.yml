@@ -102,6 +102,15 @@ jobs:
         run: |
           cargo +1.99.1 build --locked --manifest-path experiments/issue-3785/native-codex/transaction-dependencies/Cargo.toml --target-dir "$RUNNER_TEMP/transaction-dependencies" > "$RUNNER_TEMP/native-transaction-dependencies.log" 2>&1
           python3 experiments/issue-3785/native-codex/build_refresh_transaction_tests.py "$NATIVE_TRANSACTION_SOURCE" --dependencies-dir "$RUNNER_TEMP/transaction-dependencies/debug/deps" > "$RUNNER_TEMP/native-transaction-tests.log" 2>&1
+      - name: Show the newest diagnostic log
+        # Steps redirect probe output to files, so the job log alone said only
+        # "exit code 1" (#4055). Print the log the failing step was writing.
+        if: ${{ failure() }}
+        run: |
+          newest="$(find "$RUNNER_TEMP" -maxdepth 1 -name '*.log' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d ' ' -f 2-)"
+          if [ -z "$newest" ]; then echo "No diagnostic log was written."; exit 0; fi
+          echo "::error title=Native experiment diagnostic::See $(basename "$newest") (last 80 lines below and in the uploaded artifact)."
+          tail -n 80 "$newest"
       - name: Preserve focused transaction diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -149,6 +158,15 @@ jobs:
         run: node experiments/issue-3785/probe-codex-native-request-auth.mjs "$CODEX_PROBE_BINARY" --expect-uncoordinated > "$RUNNER_TEMP/native-history-request-before.log" 2>&1
       - name: Reproduce actual stock compression using a private maintenance lock
         run: python3 experiments/issue-3785/probe-codex-native-compression.py "$CODEX_PROBE_BINARY" --without-selector --expect-independent-locks > "$RUNNER_TEMP/native-history-compression-before.log" 2>&1
+      - name: Show the newest diagnostic log
+        # Steps redirect probe output to files, so the job log alone said only
+        # "exit code 1" (#4055). Print the log the failing step was writing.
+        if: ${{ failure() }}
+        run: |
+          newest="$(find "$RUNNER_TEMP" -maxdepth 1 -name '*.log' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d ' ' -f 2-)"
+          if [ -z "$newest" ]; then echo "No diagnostic log was written."; exit 0; fi
+          echo "::error title=Native experiment diagnostic::See $(basename "$newest") (last 80 lines below and in the uploaded artifact)."
+          tail -n 80 "$newest"
       - name: Preserve native history diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -373,9 +391,21 @@ jobs:
       - name: Reproduce retired native usage responses
         run: |
           python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation none > "$RUNNER_TEMP/native-limits-healthy-before.log" 2>&1
+          # Exit 3: the pinned upstream revoked the in-flight request first, a lost race (#4055 F11).
+          probe() {
+            local log="$1" status=0
+            shift
+            for attempt in 1 2 3 4 5; do
+              python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" "$@" > "$log" 2>&1 || status=$?
+              [ "$status" = 3 ] || return "$status"
+              echo "Attempt $attempt of $* was inconclusive: $(tail -n 1 "$log")"
+              status=0
+            done
+            return 3
+          }
           for mutation in logout replace malformed; do
-            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" --expect-retired-response > "$RUNNER_TEMP/native-limits-$mutation-before.log" 2>&1
-            if python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" > "$RUNNER_TEMP/native-limits-$mutation-regression.log" 2>&1; then
+            probe "$RUNNER_TEMP/native-limits-$mutation-before.log" --mutation "$mutation" --expect-retired-response
+            if probe "$RUNNER_TEMP/native-limits-$mutation-regression.log" --mutation "$mutation"; then
               echo "The native usage generation regression unexpectedly passed before repair."
               exit 1
             fi
@@ -408,6 +438,9 @@ jobs:
           fi
           grep -F 'Selected startup error must refuse.' "$RUNNER_TEMP/native-sqlite-startup-function-before.log"
       - name: Apply canonical request and SQLite operation admission
+        env:
+          # The configuration lock probe calls plain rustc; use the pinned compiler, not the image default.
+          RUSTUP_TOOLCHAIN: '1.99.1'
         run: |
           python3 experiments/issue-3785/native-codex/apply_request_auth.py "$NATIVE_SOURCE"
           python3 experiments/issue-3785/native-codex/apply_tui_message_history.py "$NATIVE_SOURCE"
@@ -503,6 +536,15 @@ jobs:
         run: prlimit --data=536870912 --stack=16777216 --core=0 -- node --jitless --max-old-space-size=96 experiments/issue-3785/probe-codex-native-capability-auth.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --unpackaged-development > "$RUNNER_TEMP/native-capability-auth.log" 2>&1
       - name: Verify compiled model metadata without configuration or credentials
         run: prlimit --data=536870912 --stack=16777216 --core=0 -- node --jitless --max-old-space-size=96 experiments/issue-3785/probe-codex-native-model-catalogue.mjs "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --unpackaged-development > "$RUNNER_TEMP/native-model-catalogue.log" 2>&1
+      - name: Show the newest diagnostic log
+        # Steps redirect probe output to files, so the job log alone said only
+        # "exit code 1" (#4055). Print the log the failing step was writing.
+        if: ${{ failure() }}
+        run: |
+          newest="$(find "$RUNNER_TEMP" -maxdepth 1 -name '*.log' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d ' ' -f 2-)"
+          if [ -z "$newest" ]; then echo "No diagnostic log was written."; exit 0; fi
+          echo "::error title=Native experiment diagnostic::See $(basename "$newest") (last 80 lines below and in the uploaded artifact)."
+          tail -n 80 "$newest"
       - name: Preserve the experimental CLI for bounded lifecycle investigations
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

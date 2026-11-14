@@ -34,7 +34,7 @@ mutations = ("none", "directory", "database", "database-hardlink", "directory-pe
              "database-permissions", "wal-hardlink", "shm-hardlink", "wal-replace", "shm-replace")
 with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
     fixture = Path(temporary)
-    for mode in ("query", "close-only", "rebuild", "rebuild-open"):
+    for mode in ("query", "close-only", "rebuild", "rebuild-open", "rebuild-closing"):
         for mutation in mutations:
             case = fixture / f"{mode}-{mutation}"
             case.mkdir(mode=0o700)
@@ -42,6 +42,11 @@ with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
             selected.mkdir(mode=0o700)
             environment = dict(os.environ, CODEX_ROLLOUT_HOME=str(selected), CODEX_SQLITE_HOME=str(selected))
             environment.pop("HIVE_CODEX_SQLITE_TRACE", None)
+            # Recovery while this process's dropped handle is still closing
+            # waits for it instead of refusing (#4055); the trace names it.
+            waits = mode == "rebuild-closing" and mutation == "none"
+            if waits:
+                environment["HIVE_CODEX_SQLITE_TRACE"] = "1"
             child = subprocess.Popen([str(binary), str(selected), mode], stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                      env=environment, preexec_fn=limits)
@@ -83,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
                     os.link(Path(str(database) + "-shm"), case / "outside-shm")
                 before = snapshot(observed)
                 retired_before = retired_file.read_bytes() if retired_file else None
-                output, error = child.communicate("\n", timeout=8)
+                output, error = child.communicate("\n", timeout=15)
                 assert len(output) + len(error) <= 8192
                 unsafe = mutation != "none"
                 assert child.returncode == (78 if unsafe else 0), (mode, mutation, child.returncode, output, error)
@@ -94,7 +99,12 @@ with tempfile.TemporaryDirectory(prefix="sqlx-selected-vfs-") as temporary:
                         assert retired_file.read_bytes() == retired_before, (mode, mutation)
                 else:
                     assert output == "RESULT actualSqlx=1 ordinary=1 nativeDeadlineHandler=1 close=1\n", output
-                    if mode == "rebuild":
+                    if waits:
+                        assert "Native SQLite recovery busy holder=this-process attempt=1 " in error, error
+                        assert "Native SQLite recovery backup started after " in error, error
+                    else:
+                        assert error == "", error
+                    if mode in ("rebuild", "rebuild-closing"):
                         import sqlite3
                         backups = list((selected / "db-backups").glob("sqlite-*/state_5.sqlite"))
                         assert len(backups) == 1

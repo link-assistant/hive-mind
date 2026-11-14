@@ -13,19 +13,15 @@ export const SENSITIVE_DATA_SANITIZER_PACKAGE = '@link-foundation/sensitive-data
 // regression test. Issues #131–#141 were fixed in 0.21.0, #148 in 0.21.2,
 // #149 in 0.21.3, #153 in 0.21.4, #152 in 0.21.5, #151 in 0.21.6,
 // #154 in 0.21.7, #150 in 0.21.8, #162 in 0.22.1, #168 in 0.22.2, #170 in
-// 0.22.3 and #172 (long letter runs in two-byte text) in 0.22.4, which removed
-// the adapter's long-run fallback. #173 is a documented performance limit;
-// #177 needs the code-span exemption below.
+// 0.22.3, #172 (long letter runs in two-byte text) and #177 in 0.22.4, and
+// #181 in 0.22.5, which retired the adapter's long-run fallback and its
+// code-span `exempt` hook (#4050, #4055). #173 is a documented performance limit.
 export const UPSTREAM = Object.freeze({
   // Performance only, output is unaffected: a credential keyword followed by one
   // long value (`password=` + 1 MiB) costs ~12 µs per character in the vendored
   // gitleaks generic-api-key rule, ~100x plain text. Linear and bounded by the log
   // size, so Hive Mind documents it instead of re-implementing that rule.
   longCredentialValueScan: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/173',
-  authorizationCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/177',
-  // Still open on upstream main after the #177 fix: a placeholder followed by a
-  // literal backtick inside a double-backtick span (the 2.40.2 release note).
-  doubleBacktickCodeSpanPlaceholder: 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/181',
 });
 const require = createRequire(import.meta.url);
 let library;
@@ -45,43 +41,6 @@ const trace = event => {
   }
 };
 
-// Upstream #177 (0.22.3): an Authorization value does not end at a Markdown
-// backtick, so in `Authorization: token <value>` the value read is `<value>``,
-// the library's own placeholder exemption misses it and the backtick is eaten
-// (the 2.40.1 release note, issue #4050). Keep only a value that is exactly one
-// complete template followed by the closing backtick of a code span opened
-// earlier on the same line, and only if the library itself keeps that value when
-// no backtick follows it, so the exemption is never broader than upstream's own
-// placeholder rule. Known secrets are never offered to `exempt`.
-let parityChecker;
-const libraryKeepsPlainValue = (prefix, value) => {
-  parityChecker ??= loadSensitiveDataSanitizer().createSyncSanitizer({ credentialsOnly: true });
-  // Re-check with the header exactly as written: with an empty value an assumed
-  // `token` scheme would itself be read as the credential.
-  const plain = `${prefix}${value}`;
-  return parityChecker.sanitize(plain).text === plain;
-};
-// An empty value (`` `Authorization:` `` naming the header in prose) is the
-// closing backtick alone; it holds no secret characters, so it is kept too.
-const CODE_SPAN_PLACEHOLDER = /^(?:<[A-Za-z_][\w -]{0,63}>|\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\})?`$/;
-const AUTHORIZATION_PREFIX = /(?:Proxy-)?Authorization[ \t]*:[ \t]*(?:[A-Za-z][\w-]*[ \t]+)?$/i;
-export const isCodeSpanAuthorizationPlaceholder = (finding, text) => {
-  if (finding.rule !== 'authorization' && finding.rule !== 'context') return false;
-  const value = text.slice(finding.start, finding.end);
-  if (!CODE_SPAN_PLACEHOLDER.test(value)) return false;
-  const before = text.slice(text.lastIndexOf('\n', finding.start - 1) + 1, finding.start);
-  const prefix = AUTHORIZATION_PREFIX.exec(before);
-  if (!prefix) return false;
-  let backticks = 0;
-  for (const char of before) if (char === '`') backticks++;
-  return backticks % 2 === 1 && libraryKeepsPlainValue(prefix[0], value.slice(0, -1));
-};
-const exempt = (finding, text) => {
-  const kept = isCodeSpanAuthorizationPlaceholder(finding, text);
-  if (kept) trace({ event: 'exempt:code-span-authorization-placeholder', rule: finding.rule });
-  return kept;
-};
-
 const sanitizers = new Map();
 const MAX_CACHED_SANITIZERS = 16;
 const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
@@ -95,7 +54,6 @@ const getSanitizer = ({ knownSecrets = [], knownOnly = false } = {}) => {
       knownSecrets: secrets,
       knownOnly,
       preserveEncoding: true,
-      exempt,
       transformation: { mode: 'hive-mask' },
       transformations: { PRIVATE_KEY: { mode: 'redact' } },
       ...(DEBUG ? { debug: trace } : {}),

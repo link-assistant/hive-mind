@@ -6,6 +6,8 @@ use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
+use std::time::Instant;
 
 const DATABASES: [&str; 7] = [
     "state_5.sqlite",
@@ -69,6 +71,20 @@ pub(crate) fn options(
     Ok(options.vfs("hive-canonical-sqlite"))
 }
 
+/// SQLx closes a dropped connection on its worker thread, so the opener that
+/// found corruption can return before this process's handle is closed: the
+/// linux-arm64 release recovery probe lost that race (#4055). Recovery waits a
+/// bounded time for this process, or an exiting peer, to release the database.
+const BUSY_WAIT: Duration = Duration::from_secs(5);
+const BUSY_POLL_MAX: Duration = Duration::from_millis(100);
+
+/// `HIVE_CODEX_SQLITE_TRACE=1` (off by default) reports the bounded wait.
+fn trace(message: std::fmt::Arguments<'_>) {
+    if std::env::var_os("HIVE_CODEX_SQLITE_TRACE").is_some_and(|value| value == "1") {
+        eprintln!("Native SQLite recovery {message}");
+    }
+}
+
 /// Run the finite descriptor-relative backup outside the async executor. The
 /// caller reports exactly the files moved; ordinary recovery does not call it.
 pub(crate) fn backup(path: &Path) -> io::Result<Vec<(PathBuf, PathBuf)>> {
@@ -82,22 +98,53 @@ pub(crate) fn backup(path: &Path) -> io::Result<Vec<(PathBuf, PathBuf)>> {
     let path = CString::new(path.as_os_str().as_bytes()).map_err(|_| refused())?;
     let mut relative = [0u8; 4096];
     let mut moved = 0;
-    // SAFETY: the terminated path and writable, bounded output buffers remain
-    // alive for this synchronous call. The native gate owns all file handles.
-    let result = unsafe {
-        hive_canonical_sqlite_backup(
-            path.as_ptr(),
-            relative.as_mut_ptr().cast(),
-            relative.len(),
-            &mut moved,
-        )
-    };
-    if result == libsqlite3_sys::SQLITE_BUSY {
-        return Err(io::Error::new(
-            io::ErrorKind::WouldBlock,
-            "Canonical SQLite recovery requires closed database handles and no live native peers.",
+    let started = Instant::now();
+    let mut delay = Duration::from_millis(5);
+    let mut attempts = 0u32;
+    let result = loop {
+        attempts += 1;
+        // SAFETY: the terminated path and writable, bounded output buffers remain
+        // alive for this synchronous call. The native gate owns all file handles.
+        let result = unsafe {
+            hive_canonical_sqlite_backup(
+                path.as_ptr(),
+                relative.as_mut_ptr().cast(),
+                relative.len(),
+                &mut moved,
+            )
+        };
+        if result != libsqlite3_sys::SQLITE_BUSY {
+            if attempts > 1 {
+                trace(format_args!(
+                    "backup started after {attempts} attempts in {} ms",
+                    started.elapsed().as_millis()
+                ));
+            }
+            break result;
+        }
+        // The native gate sets errno to name the holder of the database.
+        let holder = match io::Error::last_os_error().kind() {
+            io::ErrorKind::ResourceBusy => "this-process",
+            io::ErrorKind::WouldBlock => "native-peer",
+            _ => "unknown",
+        };
+        let elapsed = started.elapsed();
+        trace(format_args!(
+            "busy holder={holder} attempt={attempts} elapsed_ms={}",
+            elapsed.as_millis()
         ));
-    }
+        if elapsed >= BUSY_WAIT {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                format!(
+                    "Canonical SQLite recovery requires closed database handles and no live native peers (holder={holder}, waited {} ms).",
+                    elapsed.as_millis()
+                ),
+            ));
+        }
+        std::thread::sleep(delay.min(BUSY_WAIT - elapsed));
+        delay = (delay * 2).min(BUSY_POLL_MAX);
+    };
     if result != libsqlite3_sys::SQLITE_OK || moved == 0 || moved & !15 != 0 {
         return Err(refused());
     }

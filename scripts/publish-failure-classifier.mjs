@@ -65,6 +65,21 @@ export const NON_RETRYABLE_PATTERNS = ['npm error 404', 'npm error 401', 'npm er
 // `E413: 413 Payload Too Large - PUT https://registry.npmjs.org/...`.
 export const PAYLOAD_TOO_LARGE_PATTERNS = ['e413', '413 payload too large', 'payload too large'];
 
+// npm never finished processing a native Codex variant inside the release job's
+// wait (issue #4055, F9). Republishing in the same job only repeats the ~30-minute
+// wait, which the job timeout cannot hold three times; a rerun later can succeed.
+export const VARIANT_NOT_INSTALLABLE_PATTERNS = ['are not installable after publication'];
+
+/**
+ * Whether a native Codex variant never became installable.
+ * @param {string} output - Combined stdout and stderr (and/or error message).
+ * @returns {boolean}
+ */
+export function isVariantNotInstallable(output) {
+  const lowerOutput = String(output || '').toLowerCase();
+  return VARIANT_NOT_INSTALLABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern));
+}
+
 /**
  * Whether the registry rejected the tarball because of its size.
  * @param {string} output - Combined stdout and stderr (and/or error message).
@@ -83,7 +98,7 @@ export function isPayloadTooLarge(output) {
  */
 export function isNonRetryableFailure(output) {
   const lowerOutput = String(output || '').toLowerCase();
-  return NON_RETRYABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern)) || isPayloadTooLarge(lowerOutput);
+  return NON_RETRYABLE_PATTERNS.some(pattern => lowerOutput.includes(pattern)) || isPayloadTooLarge(lowerOutput) || isVariantNotInstallable(lowerOutput);
 }
 
 // npm's two wordings for "this exact version is already on the registry".
@@ -180,6 +195,16 @@ export function buildPayloadTooLargeGuidance(packageName) {
 }
 
 /**
+ * Build an explanation for a native Codex variant that npm did not finish
+ * processing in time (issue #4055, F9).
+ * @param {string} packageName - The package that was not published.
+ * @returns {string}
+ */
+export function buildVariantNotInstallableGuidance(packageName) {
+  return ['', '=== NATIVE CODEX VARIANT NOT INSTALLABLE ===', '', `npm accepted a native Codex variant but did not make it installable within the`, `wait, so ${packageName} was not published: it would pin an optional dependency`, 'that npm and Bun cannot resolve and silently skip.', '', 'SOLUTION: rerun the failed release job. Published variants are skipped and the', 'wait starts again; npm has always finished processing within minutes.', ''].join('\n');
+}
+
+/**
  * Pick the guidance that explains a non-retryable failure.
  * @param {string} output - Combined stdout and stderr (and/or error message).
  * @param {string} packageName - The package that failed to publish.
@@ -188,6 +213,9 @@ export function buildPayloadTooLargeGuidance(packageName) {
 export function describeNonRetryableFailure(output, packageName) {
   if (isPayloadTooLarge(output)) {
     return { title: 'npm publish rejected: tarball too large (E413)', guidance: buildPayloadTooLargeGuidance(packageName) };
+  }
+  if (isVariantNotInstallable(output)) {
+    return { title: 'native Codex variant not installable', guidance: buildVariantNotInstallableGuidance(packageName) };
   }
   return { title: 'npm publish rejected: authentication or registry configuration', guidance: buildAuthFailureGuidance(packageName) };
 }

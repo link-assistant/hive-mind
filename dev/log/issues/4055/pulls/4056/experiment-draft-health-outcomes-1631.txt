@@ -1,0 +1,22 @@
+2026-11-13T10:37:05Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43410453638
+2026-11-13T07:35:51Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43386885069
+2026-11-12T17:54:17Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43274283479
+2026-11-12T11:45:24Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43211868523
+2026-11-12T08:30:43Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43183538810
+2026-11-11T19:39:12Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089189750
+2026-11-11T19:39:12Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089189898
+2026-11-11T19:39:09Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089183627
+2026-11-11T19:39:08Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089179669
+2026-11-11T19:39:04Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089172022
+2026-11-11T19:39:03Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/43089168595
+2026-11-10T14:40:20Z	failure	run	[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0 after 1 attempt: Error re	https://github.com/link-assistant/hive-mind/actions/runs/42836449721
+2026-11-10T10:50:25Z	success	run		https://github.com/link-assistant/hive-mind/actions/runs/42802511707
+2026-11-10T10:50:24Z	failure	run		https://github.com/link-assistant/hive-mind/actions/runs/42802508646
+2026-11-10T10:50:22Z	failure	run	Finished without changes: the session produced no change: no new commit, no file change an	https://github.com/link-assistant/hive-mind/actions/runs/42802505131
+2026-11-10T10:50:19Z	failure	run	Finished without changes: the session produced no change: no new commit, no file change an	https://github.com/link-assistant/hive-mind/actions/runs/42802497192
+2026-11-10T10:50:17Z	success	run		https://github.com/link-assistant/hive-mind/actions/runs/42802491836
+2026-11-10T05:53:21Z	failure	run	Finished without changes: Formal AI produced no change (terminal state: planned_not_execut	https://github.com/link-assistant/hive-mind/actions/runs/42764915861
+2026-11-09T12:01:12Z	failure	run	Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integ	https://github.com/link-assistant/hive-mind/actions/runs/42613543767
+2026-11-09T10:18:19Z	failure	run	Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integ	https://github.com/link-assistant/hive-mind/actions/runs/42599900381
+2026-11-06T16:47:55Z	failure	run	Error: Failed to fetch authenticated GitHub username: gh: Resource not accessible by integ	https://github.com/link-assistant/hive-mind/actions/runs/42255705410
+streak: null

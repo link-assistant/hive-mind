@@ -10,6 +10,7 @@ from pathlib import Path
 import queue
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -22,6 +23,8 @@ args = parser.parse_args()
 assert not args.expect_retired_response or args.mutation != 'none'
 binary = args.binary.resolve(strict=True)
 entered, release = threading.Event(), threading.Event()
+UPSTREAM_REVOCATION = 'failed to fetch codex rate limits: application network permission was revoked'
+INCONCLUSIVE = 3
 errors, observed = [], []
 
 
@@ -182,8 +185,21 @@ try:
             expected_auth = auth.read_bytes() if auth.exists() else None
             release.set()
             result = response(identifier)
+            if os.environ.get('CODEX_PROBE_DIAGNOSTICS') == '1':
+                # Synthetic fixture data only; shows which response a failed expectation saw.
+                print(f'DIAGNOSTIC: native usage {args.mutation} response: {json.dumps(result)[:2048]}',
+                      file=sys.stderr)
             assert not errors, errors
             assert observed == ['G0'], 'Expected exactly one native G0 usage request.'
+            if (args.mutation in ('logout', 'malformed')
+                    and result.get('error', {}).get('message') == UPSTREAM_REVOCATION):
+                # Issue #4055 (F11): the pinned upstream revokes the in-flight request only
+                # when a reload observes the owner change before the fixture's response
+                # completes, so this outcome is a lost race, not a result. The repaired
+                # binary admits the generation first and never reaches it.
+                print(f'INCONCLUSIVE: native usage {args.mutation}: upstream revoked the in-flight '
+                      'request before publication; repeat the probe.', file=sys.stderr)
+                sys.exit(INCONCLUSIVE)
             if args.mutation == 'none' or args.expect_retired_response:
                 assert result.get('result', {}).get('rateLimits', {}).get('primary', {}).get('usedPercent') == 41, 'Expected the actual G0 usage snapshot.'
             else:

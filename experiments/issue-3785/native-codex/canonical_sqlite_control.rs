@@ -46,7 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut signal = [0];
     std::io::stdin().read_exact(&mut signal)?;
     assert_eq!(signal, [b'\n']);
-    if !matches!(args[2].as_str(), "close-only" | "rebuild") {
+    let rebuild = matches!(args[2].as_str(), "rebuild" | "rebuild-closing");
+    if !matches!(args[2].as_str(), "close-only") && !rebuild {
         let after: String = sqlx::query_scalar("SELECT value FROM synthetic")
             .fetch_one(&mut *connection)
             .await?;
@@ -59,10 +60,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let error = canonical::backup(&path).unwrap_err();
         assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
     }
-    connection.return_to_pool().await;
-    pool.close().await;
-    if args[2] == "rebuild" {
-        let backups = canonical::backup(&path)?;
+    if args[2] == "rebuild-closing" {
+        // #4055: SQLx closes a dropped connection on its worker thread, after
+        // the failed opener has already returned and recovery has started.
+        let closing = connection.detach();
+        pool.close().await;
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            drop(closing);
+        });
+    } else {
+        connection.return_to_pool().await;
+        pool.close().await;
+    }
+    if rebuild {
+        let backup_path = path.clone();
+        let backups =
+            tokio::task::spawn_blocking(move || canonical::backup(&backup_path)).await??;
         assert_eq!(backups.len(), 1);
         assert_eq!(backups[0].0, path);
         assert!(backups[0].1.is_file());

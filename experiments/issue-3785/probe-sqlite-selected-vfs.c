@@ -1,6 +1,7 @@
 /* Synthetic component driver; no production executable or credentials. */
 #define _GNU_SOURCE
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <sqlite3.h>
 #include <stdio.h>
@@ -79,7 +80,7 @@ int main(int argc, char **argv) {
     unsigned moved;
     int result = hive_canonical_sqlite_backup(path, relative, sizeof(relative), &moved);
     if (rebuild_busy) {
-      assert(result == SQLITE_BUSY && moved == 0);
+      assert(result == SQLITE_BUSY && moved == 0 && errno == EWOULDBLOCK);
       assert(sqlite3_close(ordinary) == SQLITE_OK);
       puts("RESULT rebuildBusy=1");
       return 0;
@@ -94,7 +95,7 @@ int main(int argc, char **argv) {
     char relative[4096];
     unsigned moved;
     assert(hive_canonical_sqlite_backup(path, relative, sizeof(relative), &moved) == SQLITE_BUSY);
-    assert(moved == 0);
+    assert(moved == 0 && errno == EBUSY);
   }
   if (closed)
     assert(sqlite3_open_v2(path, &connection, SQLITE_OPEN_READWRITE, "hive-canonical-sqlite") == SQLITE_OK);

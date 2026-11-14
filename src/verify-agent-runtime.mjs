@@ -26,12 +26,13 @@ async function hasLiveProbeMembers(group) {
     });
     if (!value) continue;
     // comm may itself contain whitespace or parentheses. The remaining fields
-    // start with state, parent PID and process group ID.
+    // start with state, parent PID and process group ID. An exited task shows
+    // `Z` until it is reaped, then briefly `X` while it is released (#4055).
     const fields = value
       .slice(value.lastIndexOf(')') + 1)
       .trim()
       .split(/\s+/u);
-    if (Number(fields[2]) === group && fields[0] !== 'Z') return true;
+    if (Number(fields[2]) === group && !['Z', 'X'].includes(fields[0])) return true;
   }
   return false;
 }

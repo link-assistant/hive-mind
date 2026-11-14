@@ -271,7 +271,7 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.42.0: 0.29.1 fixed detached docker
+# start-command is pinned to 0.44.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -374,7 +374,9 @@ RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
 
 # Activate the adapters from the installed Hive Mind artifact after global installs.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
-RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
+# Debug output prints only on a refusal: the admission phase and error code, e.g.
+# MODULE_NOT_FOUND when Bun skipped a variant npm had not finished processing (#4055).
+RUN --network=none HIVE_MIND_NATIVE_CODEX_DEBUG=1 node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

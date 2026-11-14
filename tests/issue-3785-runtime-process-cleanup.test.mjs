@@ -14,7 +14,8 @@ async function live(pid) {
       .slice(value.lastIndexOf(')') + 1)
       .trim()
       .split(/\s+/u);
-    return fields[0] !== 'Z';
+    // Exited: `Z` until reaped, then briefly `X` while released (#4055).
+    return !['Z', 'X'].includes(fields[0]);
   } catch (error) {
     if (error.code === 'ENOENT' || error.code === 'ESRCH') return false;
     throw error;

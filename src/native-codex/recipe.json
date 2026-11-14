@@ -41,8 +41,8 @@
     "canonical_sqlite_authority.rs": "c2a2d582e586cfeeb88210b2b6163516fabd8edd6d098c25789be4a4a249d08e",
     "canonical_sqlite_authority_tests.rs": "4c4f3cbe0acc7d08de168a2deb6da19ef8827d14b7794a81e82aefb487e3079e",
     "canonical_sqlite_build.rs": "f5ec3ec3f02bc14325bb03d9cf1273729d03fad887e5f2b734c4de30c7ece4c3",
-    "canonical_sqlite_vfs.c": "253903ddc980c620b42acdce3b30756a13e311d37dbbef83fb3d90dbf5bbdcd1",
-    "canonical_sqlite_vfs.rs": "8f859355946d01e54211d90441f4a780ce64eac146744f9caba52ef3a0a664c4",
+    "canonical_sqlite_vfs.c": "601f7ecdefd13f99ad1080a2ec8d09f819a9fbc882c8f53efe4af816f68790e5",
+    "canonical_sqlite_vfs.rs": "b87bc042c493b64af886d0ad7fd59ecd9ada637f9e20a4df61a65ec1099e35fe",
     "canonical_transaction.rs": "66a6e583c8d766b6ce533a340871b85feb37b2eb29ec88408ce1adee6fcfaf2c",
     "coordination.patch": "02807f62854429daf5bf55c15cdfcd0173b3f357a821036cc8b0856124e91a29",
     "native_lifecycle_probe.rs": "d42cc08b717ba851acd7df18d33f943f2eb592ca458ec285da37b3897069a0f9",
@@ -89,5 +89,5 @@
     "third_party/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
     "third_party/wezterm/LICENSE": "331312c214f14dc1455a0e45e3a66f4b70bbc73916cffd525570e8cdb9d63bf4"
   },
-  "sourceInventorySha256": "3cec1b0a4531286ded0bbba58bf1025bebe395088bf970979134107ff294c2ba"
+  "sourceInventorySha256": "66e364b56d43a5d89e784d2342271d9d8ccbab6dcf8c5c37ef5a98be548eb2f2"
 }

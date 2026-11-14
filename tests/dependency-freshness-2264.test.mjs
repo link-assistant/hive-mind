@@ -239,12 +239,25 @@ assert.equal(
 // Dependabot opens one coordinated PR across every dependency surface it
 // supports. The custom gate covers the declarations Dependabot cannot update.
 const dependabot = fs.readFileSync(path.join(repositoryRoot, '.github', 'dependabot.yml'), 'utf8');
-for (const ecosystem of ['npm', 'github-actions', 'docker', 'docker-compose', 'helm']) {
+for (const ecosystem of ['npm', 'github-actions', 'docker', 'helm']) {
   assert.match(dependabot, new RegExp(`package-ecosystem: ["']?${ecosystem}["']?`), `${ecosystem} updates must be configured`);
 }
+// Issue #4055: every compose service builds a local Dockerfile (whose base
+// images the docker ecosystem updates), so a docker-compose entry matched no
+// dependency and each daily job warned "there are groups where no dependencies
+// match". Configure it exactly when a service pulls a registry image.
+const composeRegistryImages = ['docker-compose.yml', 'coolify/docker-compose.yml'].flatMap(file =>
+  fs
+    .readFileSync(path.join(repositoryRoot, file), 'utf8')
+    .split(/^ {2}(?=[\w.-]+:\s*$)/m)
+    .slice(1)
+    .filter(service => /^ {4}image:/m.test(service) && !/^ {4}build:/m.test(service))
+    .map(service => `${file}: ${service.split(':')[0]}`)
+);
+assert.equal(/package-ecosystem: ["']?docker-compose/.test(dependabot), composeRegistryImages.length > 0, `docker-compose updates are configured exactly when a compose service pulls a registry image (${composeRegistryImages.join(', ') || 'none'})`);
 assert.match(dependabot, /multi-ecosystem-groups:/);
 assert.match(dependabot, /interval: daily/);
-assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).length, 5, "each ecosystem opts out of GitHub's default three-day delay so its update PR agrees with the immediate freshness gate");
+assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).length, (dependabot.match(/package-ecosystem:/g) ?? []).length, "each ecosystem opts out of GitHub's default three-day delay so its update PR agrees with the immediate freshness gate");
 
 const releaseWorkflow = fs.readFileSync(path.join(repositoryRoot, '.github', 'workflows', 'release.yml'), 'utf8');
 assert.match(releaseWorkflow, /node scripts\/check-dependency-freshness\.mjs/);

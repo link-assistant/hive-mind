@@ -22,7 +22,8 @@
  *                                     (--no-verify skips the Python byte check; the image
  *                                     build admits the same bytes in install-native-codex.mjs)
  *   wire [<package-dir>]              add the optionalDependencies (publication only; never committed)
- *   publish [<out-dir>] [--runtime <dir>]  pack, publish each missing variant, then wire
+ *   publish [<out-dir>] [--runtime <dir>]  pack, publish each missing variant, wait until
+ *                                     every variant is installable, then wire
  *
  * HIVE_MIND_PUBLISH_VERBOSE=true shows the raw `npm view` probe output.
  * See src/native-codex/PACKAGES.md.
@@ -36,7 +37,8 @@ import { promisify } from 'node:util';
 
 import { findOversizedTarballs, formatOversizedReport, NPM_TARBALL_BUDGET_BYTES } from './check-npm-tarball-size.mjs';
 import { describeNonRetryableFailure, isVersionConflict } from './publish-failure-classifier.mjs';
-import { analyzePublishResult, runCommand } from './publish-to-npm.mjs';
+import { waitUntilInstallable } from './npm-installable.lib.mjs';
+import { analyzePublishResult, runCommand, sleep } from './publish-to-npm.mjs';
 
 const execute = promisify(execFile);
 const repository = fileURLToPath(new URL('../', import.meta.url));
@@ -154,6 +156,26 @@ export async function publishVariants(variants, { runner = runCommand, env = pro
   }
 }
 
+/**
+ * npm processes each ~120 MB variant for minutes after `npm publish` returns
+ * (2.40.2's linux-arm64 variant: 15m42s). A main package published before then
+ * pins an optional dependency that npm and Bun cannot resolve and silently skip,
+ * so it must wait (issue #4055, F9). The ~32-minute budget is twice that;
+ * a rerun after a timeout skips the variants that landed.
+ */
+export const VARIANT_INSTALLABLE_ATTEMPTS = 66;
+export const VARIANT_INSTALLABLE_DELAY_MS = 5000;
+export const VARIANT_INSTALLABLE_MAX_DELAY_MS = 30000;
+
+export async function awaitInstallableVariants(variants, { runner = runCommand, fetcher = globalThis.fetch, sleeper = sleep, env = process.env, logger = console, attempts = VARIANT_INSTALLABLE_ATTEMPTS } = {}) {
+  const specs = variants.map(variant => `${variant.name}@${variant.version}`);
+  const missing = await waitUntilInstallable(specs, { runner, fetcher, sleeper, attempts, delayMs: VARIANT_INSTALLABLE_DELAY_MS, maxDelayMs: VARIANT_INSTALLABLE_MAX_DELAY_MS, quiet: env.HIVE_MIND_PUBLISH_VERBOSE !== 'true', logger });
+  if (!missing.length) return;
+  logger.error(`::error title=native Codex variant not installable::${missing.join(', ')} did not become installable; the main package was not published, so no release pins an unresolvable optional dependency. Rerun the release: published variants are skipped.`);
+  // `npm run changeset:publish` prints this, and publish-to-npm.mjs classifies it.
+  throw new Error(`npm error native Codex variants ${missing.join(', ')} are not installable after publication`);
+}
+
 const option = (args, name, resolve = path.resolve) => {
   const index = args.indexOf(name);
   return index === -1 ? undefined : resolve(args[index + 1]);
@@ -168,7 +190,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     } else if (command === 'wire') await wirePackage(target ? path.resolve(target) : repository);
     else if (command === 'publish') {
       const out = target && !target.startsWith('--') ? path.resolve(target) : await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-native-codex-packages-'));
-      await publishVariants(await packVariants({ out, runtime: option(target?.startsWith('--') ? [target, ...rest] : rest, '--runtime') }));
+      const variants = await packVariants({ out, runtime: option(target?.startsWith('--') ? [target, ...rest] : rest, '--runtime') });
+      await publishVariants(variants);
+      await awaitInstallableVariants(variants);
       await wirePackage(repository);
     } else {
       console.error('Usage: native-codex-packages.mjs pack <out-dir> [--runtime <dir>] [--platform <p>] [--no-verify] | wire [<package-dir>] | publish [<out-dir>] [--runtime <dir>]');

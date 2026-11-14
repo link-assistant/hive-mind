@@ -65,8 +65,8 @@ await test('the library loads synchronously', () => {
 });
 
 await test('every workaround names the upstream issue it waits for', () => {
-  // 0.22.4 fixed #172 and #177; #173 (long credential values scan slowly) is a
-  // documented limit and #181 (double-backtick code spans) needs a workaround.
+  // 0.22.4 fixed #172 and #177, 0.22.5 fixed #181; #173 (long credential values scan slowly) is a
+  // documented limit.
   assert.ok(Object.isFrozen(UPSTREAM));
   for (const [key, url] of Object.entries(UPSTREAM)) assert.match(url, /^https:\/\/github\.com\/link-foundation\/sensitive-data-sanitizer\/issues\/\d+$/, key);
 });

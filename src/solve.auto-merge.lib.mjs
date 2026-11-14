@@ -31,7 +31,8 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, cancelWorkflowRun, getWorkflowRunsForSha, getWorkflowRunJobsCount, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { createStuckCiMonitor } = await import('./solve.auto-merge-stuck-ci.lib.mjs'); // Issue #4048: explain stuck CI waits, recover ghost runs
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
@@ -94,7 +95,7 @@ const { buildReadyForReviewComment } = externalReviewLimitLib;
 const resultsLib = await import('./solve.results.lib.mjs');
 const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { interruptibleSleep, isShutdownInProgress, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
 // Issue #2119: one auto-restart budget shared with solve.watch.lib.mjs. solve.mjs
 // runs both loops in the same process, so before this a limit of 5 allowed 10 AI
@@ -210,7 +211,10 @@ export const watchUntilMergeable = async params => {
   // them as feedback to the next session. The first check seeds the baseline.
   let issueMetadataSnapshot = null;
   const ciRepeatTracker = createCiFailureRepeatTracker({ stopAfter: ciFailureRepeat.stopAfter }); // Issue #2293: same failing checks restart after restart
+  const stuckCiMonitor = createStuckCiMonitor({ owner, repo, prNumber, log, formatAligned, verbose: argv.verbose, $, postComment: postTrackedComment, getWorkflowRunsForSha, getWorkflowRunJobsCount, cancelWorkflowRun, rerunWorkflowRun }); // Issue #4048
   while (true) {
+    // Issue #4048: after /stop or CTRL+C, start no new GitHub checks while the interrupt handler uploads the log.
+    await parkIfShuttingDown(log, reason => formatAligned('🛑', 'Monitoring stopped:', `${reason} received — waiting for the interrupt handler to finish`, 2));
     iteration++;
     const currentTime = new Date();
     // Issue #2182: hard wall-clock ceiling for the whole monitoring loop.
@@ -285,7 +289,7 @@ export const watchUntilMergeable = async params => {
       // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, mergeStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
       const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
       if (terminalGitHubBlocker) {
         await log('');
@@ -387,7 +391,7 @@ export const watchUntilMergeable = async params => {
         if (!noCiConfigured) {
           const DOUBLE_CHECK_DELAY_MS = 10000; // 10 seconds
           await log(formatAligned('🔍', 'Multi-mechanism CI consensus check:', `Waiting ${DOUBLE_CHECK_DELAY_MS / 1000}s then verifying...`, 2));
-          await interruptibleSleep(DOUBLE_CHECK_DELAY_MS);
+          if ((await interruptibleSleep(DOUBLE_CHECK_DELAY_MS)).interrupted && isShutdownInProgress()) continue; // Issue #4048
           // Run multi-mechanism consensus: Check Runs API + Workflow Runs API + Repo-wide actions
           const consensus = await checkCIConsensus({
             owner,
@@ -398,12 +402,14 @@ export const watchUntilMergeable = async params => {
             verbose: argv.verbose,
             getDetailedCIStatus,
             getWorkflowRunsForSha,
+            ...stuckCiMonitor.consensusOptions({ mergeStatus }), // Issue #4048: CLEAN rule of getMergeBlockers + ghost-run detection
           });
           if (!consensus.allAgree) {
             const m = consensus.mechanisms;
             const repoLabel = m.repoActions.skipped ? 'skipped' : `${m.repoActions.count} active`;
             const commitsLabel = m.allCommitsCI.skipped ? 'skipped' : `${m.allCommitsCI.pendingCommits.length} pending of ${m.allCommitsCI.totalCommits}`;
             await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, AllCommits=${commitsLabel}, RepoActions=${repoLabel}`, 2));
+            await stuckCiMonitor.onDisagreement(consensus, { sha: currentHeadSha || ciStatus?.sha }); // Issue #4048: why, and recover stuck runs
             await log(formatAligned('⏳', 'Continuing to monitor...', 'Mechanisms must agree before declaring mergeable', 2));
             consecutiveNoRunsChecks = 0;
             lastCheckTime = currentTime;
@@ -413,6 +419,7 @@ export const watchUntilMergeable = async params => {
             await interruptibleSleep(actualWaitSeconds * 1000);
             continue;
           }
+          await stuckCiMonitor.onAgreement(consensus); // Issue #4048: reset the streak, log why a failing check was ignored
           const acLabel = consensus.mechanisms.allCommitsCI.skipped ? '' : `, AllCommits=complete(${consensus.mechanisms.allCommitsCI.totalCommits})`;
           await log(formatAligned('✅', 'All CI mechanisms agree:', `CheckRuns=${consensus.mechanisms.checkRunsAPI.status}, WorkflowRuns=complete(${consensus.mechanisms.workflowRunsAPI.total})${acLabel}, RepoActions=${consensus.mechanisms.repoActions.skipped ? 'skipped' : 'clear'}`, 2));
         } else if (waitForAllRepoActionsFlag) {
@@ -1278,6 +1285,8 @@ export const watchUntilMergeable = async params => {
           await renderBlocker('🔄', 'Waiting for re-triggered CI:', cancelledBlocker);
         } else if (pendingBlocker) {
           await renderBlocker('⏳', 'Waiting for CI:', pendingBlocker);
+          // Issue #4048: all check runs passed but a HEAD workflow run never started.
+          if (ciStatus?.status === 'success') await stuckCiMonitor.onPendingWorkflowRuns({ sha: currentHeadSha || ciStatus.sha });
         } else {
           await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
         }

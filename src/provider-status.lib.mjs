@@ -16,6 +16,10 @@
  *   GET <page>/api/v2/summary.json
  *   → { status: { indicator, description }, components: [...], incidents: [...] }
  * See https://developer.statuspage.io/ and docs/case-studies/issue-4053/.
+ *
+ * Issue #4048: GitHub (www.githubstatus.com) publishes the same API, so the
+ * `github` "tool" lets CI waits tell a global Actions/Webhooks outage apart
+ * from a problem of our own (docs/case-studies/issue-4048/).
  */
 
 import { providerStatus as providerStatusConfig } from './config.lib.mjs';
@@ -24,12 +28,15 @@ import { providerStatus as providerStatusConfig } from './config.lib.mjs';
 const TOOL_COMPONENTS = Object.freeze({
   claude: ['claude code', 'claude api', 'api', 'claude.ai', 'console', 'platform'],
   codex: ['codex', 'api', 'chatgpt'],
+  // Issue #4048: the GitHub components that decide whether CI/CD signals can arrive at all.
+  github: ['actions', 'webhooks', 'api requests', 'pull requests', 'git operations'],
 });
 
 export const getProviderStatusPageUrl = tool => {
   const normalized = String(tool || '').toLowerCase();
   if (normalized === 'claude') return providerStatusConfig.claudeUrl || null;
   if (normalized === 'codex') return providerStatusConfig.codexUrl || null;
+  if (normalized === 'github') return providerStatusConfig.githubUrl || null;
   return null;
 };
 
@@ -41,7 +48,7 @@ const relevantComponent = (tool, name) => {
 
 // Incidents that list no components are judged by their wording: anything about
 // authentication or a platform-wide failure is relevant, a third-party connector is not.
-const GENERAL_INCIDENT_WORDING = /\b(auth\w*|log ?in|sign[- ]?in|oauth|api|outage|all (?:users|services))\b/i;
+const GENERAL_INCIDENT_WORDING = /\b(auth\w*|log ?in|sign[- ]?in|oauth|api|outage|all (?:users|services)|multiple github products)\b/i;
 const relevantIncident = (tool, incident) => {
   if (!TOOL_COMPONENTS[String(tool || '').toLowerCase()]) return true;
   const components = Array.isArray(incident.components) ? incident.components : [];
@@ -123,4 +130,47 @@ export const formatProviderStatusSummary = status => {
   return `${host}: ${status.description || status.indicator}${parts.length ? ` — ${parts.join('; ')}` : ''}`;
 };
 
-export default { getProviderStatusPageUrl, parseStatuspageSummary, fetchProviderStatus, formatProviderStatusSummary, clearProviderStatusCache };
+/**
+ * Issue #4048: incidents (resolved or not) that overlap a time window, e.g. the
+ * period a workflow run has been sitting in `queued`. Pure: takes the
+ * Statuspage `incidents.json` body.
+ */
+export const findIncidentsOverlapping = (body, { tool = null, from, to = Date.now() } = {}) => {
+  const start = new Date(from).getTime();
+  const end = new Date(to).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  return (Array.isArray(body?.incidents) ? body.incidents : [])
+    .filter(incident => incident && relevantIncident(tool, incident))
+    .map(incident => {
+      const createdAt = incident.started_at || incident.created_at || null;
+      const resolvedAt = incident.resolved_at || null;
+      return { name: incident.name, status: incident.status, impact: incident.impact || 'none', createdAt, resolvedAt, url: incident.shortlink || null, components: (incident.components || []).map(component => component?.name).filter(Boolean) };
+    })
+    .filter(incident => {
+      const incidentStart = new Date(incident.createdAt).getTime();
+      const incidentEnd = incident.resolvedAt ? new Date(incident.resolvedAt).getTime() : Infinity;
+      return Number.isFinite(incidentStart) && incidentStart <= end && incidentEnd >= start;
+    });
+};
+
+/**
+ * Fetch the recent incident history (`/api/v2/incidents.json`, last 50
+ * incidents). Never throws; returns `{ ok, incidents: [...] }` filtered to the
+ * window and the tool's components.
+ */
+export const fetchProviderIncidents = async (tool, { from, to = Date.now(), fetchImpl = globalThis.fetch, timeoutMs = providerStatusConfig.timeoutMs, enabled = providerStatusConfig.enabled } = {}) => {
+  const pageUrl = getProviderStatusPageUrl(tool);
+  if (!enabled || !pageUrl || typeof fetchImpl !== 'function') return { ok: false, tool, pageUrl, incidents: [], error: !enabled ? 'disabled' : 'no status page for this tool' };
+  try {
+    const response = await fetchImpl(`${pageUrl.replace(/\/+$/, '')}/api/v2/incidents.json`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs) });
+    if (!response.ok) {
+      await response.body?.cancel?.();
+      return { ok: false, tool, pageUrl, incidents: [], error: `HTTP ${response.status}` };
+    }
+    return { ok: true, tool, pageUrl, incidents: findIncidentsOverlapping(await response.json(), { tool, from, to }) };
+  } catch (error) {
+    return { ok: false, tool, pageUrl, incidents: [], error: error?.name === 'TimeoutError' ? `timed out after ${timeoutMs}ms` : error?.message || String(error) };
+  }
+};
+
+export default { getProviderStatusPageUrl, parseStatuspageSummary, fetchProviderStatus, formatProviderStatusSummary, clearProviderStatusCache, findIncidentsOverlapping, fetchProviderIncidents };

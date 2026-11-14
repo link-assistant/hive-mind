@@ -14,6 +14,9 @@ import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, r
 // auto-continue hand-off). No-op unless solve registered a finalizer, so hive
 // and other consumers of this module are unaffected.
 import { finalizeActiveDevelopmentLog } from './development-log.finalize.lib.mjs';
+// Issue #4048: tell monitoring loops a shutdown is running so they stand down
+// instead of starting new GitHub checks while the interrupt handler uploads logs.
+import { markShutdownInProgress } from './interruptible-sleep.lib.mjs';
 
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
@@ -397,6 +400,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
         // ignore — child may already be gone
       }
     }
+    markShutdownInProgress('SIGINT'); // Issue #4048
     // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
@@ -453,6 +457,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
     }
     // Issue #1823: Auto-commit uncommitted changes on SIGTERM too (previously only SIGINT did).
     // This ensures graceful shutdown preserves work in ALL signal paths.
+    markShutdownInProgress('SIGTERM'); // Issue #4048
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
       try {

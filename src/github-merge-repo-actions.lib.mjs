@@ -14,6 +14,7 @@ import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+import { describeConsensusDisagreement, findGhostQueuedRuns, formatDuration, isAuthoritativeCleanMergeState, partitionOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs'; // Issue #4048
 const execRaw = promisify(execCallback);
 // Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
 // API responses (workflow runs can easily exceed that on busy repos).
@@ -203,22 +204,45 @@ export async function getActivePRWorkflowRuns(owner, repo, prNumber, headSha, ve
 
 /**
  * Check that workflow runs for ALL commits on the PR branch have completed.
+ *
+ * Issue #4048: a run on an OLDER commit that has sat in `queued` with zero jobs
+ * for `ghostMinAgeMs` is a "ghost" left behind by a GitHub Actions incident.
+ * It will never start and its result could not change the HEAD verdict, so it
+ * is reported in `ignoredGhostRuns` instead of keeping the commit pending
+ * forever. HEAD runs are never ignored here (see checkCIConsensus).
+ *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {boolean} verbose - Whether to log verbose output
  * @param {Function} getWorkflowRunsForSha - Function to get workflow runs for a SHA
- * @returns {Promise<{allComplete: boolean, totalCommits: number, pendingCommits: string[], details: Object[]}>}
+ * @param {Object} [options]
+ * @param {string} [options.headSha] - PR HEAD SHA (its runs are never treated as ghosts)
+ * @param {number} [options.ghostMinAgeMs] - queued-with-no-jobs age that marks a ghost run
+ * @param {Function} [options.getJobsCount] - async (runId) => number|null
+ * @param {Function} [options.getCommitShas] - injectable getPRCommitShas (tests)
+ * @param {number} [options.now]
+ * @returns {Promise<{allComplete: boolean, totalCommits: number, pendingCommits: string[], details: Object[], ignoredGhostRuns: Object[]}>}
  */
-export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha) {
-  const shas = await getPRCommitShas(owner, repo, prNumber, verbose);
-  if (shas.length === 0) return { allComplete: true, totalCommits: 0, pendingCommits: [], details: [] };
+export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, options = {}) {
+  const { headSha = null, ghostMinAgeMs = null, getJobsCount = null, getCommitShas = getPRCommitShas, now = Date.now() } = options;
+  const shas = await getCommitShas(owner, repo, prNumber, verbose);
+  if (shas.length === 0) return { allComplete: true, totalCommits: 0, pendingCommits: [], details: [], ignoredGhostRuns: [] };
 
   const details = [];
   const pendingCommits = [];
+  const ignoredGhostRuns = [];
   for (const sha of shas) {
     const runs = await getWorkflowRunsForSha(owner, repo, sha, false);
-    const inProgress = runs.filter(r => r.status !== 'completed');
+    let inProgress = runs.filter(r => r.status !== 'completed');
+    if (inProgress.length > 0 && sha !== headSha && Number.isFinite(ghostMinAgeMs) && typeof getJobsCount === 'function') {
+      const ghosts = await findGhostQueuedRuns(inProgress, { minAgeMs: ghostMinAgeMs, getJobsCount, now });
+      if (ghosts.length > 0) {
+        const ghostIds = new Set(ghosts.map(run => run.id));
+        inProgress = inProgress.filter(run => !ghostIds.has(run.id));
+        for (const ghost of ghosts) ignoredGhostRuns.push({ ...ghost, sha });
+      }
+    }
     const complete = inProgress.length === 0;
     details.push({ sha: sha.substring(0, 7), total: runs.length, inProgress: inProgress.length, complete });
     if (!complete) pendingCommits.push(sha.substring(0, 7));
@@ -227,28 +251,64 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
   if (verbose && pendingCommits.length > 0) {
     console.log(`[VERBOSE] pr-commits: ${pendingCommits.length}/${shas.length} commits have in-progress CI: ${pendingCommits.join(', ')}`);
   }
+  if (verbose && ignoredGhostRuns.length > 0) {
+    console.log(`[VERBOSE] pr-commits: ignoring ${ignoredGhostRuns.length} ghost run(s) on older commits (queued with no jobs for ${formatDuration(Math.min(...ignoredGhostRuns.map(run => run.queuedForMs)))}+): ${ignoredGhostRuns.map(run => `${run.sha.substring(0, 7)} ${run.name} ${run.html_url}`).join('; ')}`);
+  }
 
-  return { allComplete: pendingCommits.length === 0, totalCommits: shas.length, pendingCommits, details };
+  return { allComplete: pendingCommits.length === 0, totalCommits: shas.length, pendingCommits, details, ignoredGhostRuns };
 }
 
 /**
  * Multi-mechanism CI consensus check. Requires Check Runs API, Workflow Runs API,
  * and optionally repo-wide active runs to ALL agree before concluding CI is complete.
  * Issue #1573: Also checks all PR commits' CI (not just head SHA) by default.
+ *
+ * Issue #4048: the CheckRuns mechanism now applies the same rules as
+ * getMergeBlockers, which it used to contradict forever:
+ *  - failures from out-of-band workflow runs (workflow_dispatch, schedule, …)
+ *    on the HEAD commit are not part of the PR's merge state and are ignored;
+ *  - with an authoritative CLEAN/MERGEABLE merge state (#2031) a remaining
+ *    raw failure is stale and is ignored too, as long as nothing is pending.
+ * HEAD workflow runs stuck in `queued` with no jobs are reported in
+ * `mechanisms.workflowRunsAPI.ghostRuns` so the caller can recover them.
+ *
  * @param {Object} params
- * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array}>}
+ * @param {Object} [params.mergeStatus] - checkPRMergeable() result for the same check
+ * @param {Function} [params.getWorkflowRunJobsCount] - enables ghost-run detection
+ * @param {number} [params.ghostMinAgeMs] - queued-with-no-jobs age that marks a ghost run
+ * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array, reasons: string[]}>}
  */
-export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha }) {
+export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha, mergeStatus = null, getWorkflowRunJobsCount = null, ghostMinAgeMs = null, getCommitShas = getPRCommitShas, now = Date.now() }) {
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
-  const checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';
-
   const workflowRuns = await getWorkflowRunsForSha(owner, repo, sha, verbose);
-  const workflowsOK = workflowRuns.length === 0 || workflowRuns.every(r => r.status === 'completed');
+
+  let checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';
+  let checkRunsNote = null;
+  let relevantChecks = [];
+  let outOfBandChecks = [];
+  if (!checkRunsOK && (ciStatus.status === 'failure' || ciStatus.status === 'cancelled')) {
+    const partition = partitionOutOfBandChecks(ciStatus.checks, workflowRuns);
+    relevantChecks = partition.relevant;
+    outOfBandChecks = partition.outOfBand;
+    if (relevantChecks.length === 0 && outOfBandChecks.length > 0) {
+      checkRunsOK = true;
+      checkRunsNote = `ignored ${outOfBandChecks.length} non-passing check(s) from out-of-band workflow runs (${[...new Set(outOfBandChecks.map(check => check.event))].join(', ')})`;
+    } else if (ciStatus.status === 'failure' && isAuthoritativeCleanMergeState(mergeStatus) && !ciStatus.hasPending && !ciStatus.hasQueued) {
+      checkRunsOK = true;
+      checkRunsNote = `GitHub reports the PR CLEAN/MERGEABLE; ignored ${relevantChecks.length} stale non-passing check(s)`;
+    }
+  }
+
+  const incompleteRuns = workflowRuns.filter(r => r.status !== 'completed');
+  const workflowsOK = incompleteRuns.length === 0;
+  const canDetectGhosts = Number.isFinite(ghostMinAgeMs) && typeof getWorkflowRunJobsCount === 'function';
+  const getJobsCount = canDetectGhosts ? runId => getWorkflowRunJobsCount(owner, repo, runId, false) : null;
+  const headGhostRuns = !workflowsOK && canDetectGhosts ? await findGhostQueuedRuns(incompleteRuns, { minAgeMs: ghostMinAgeMs, getJobsCount, now }) : [];
 
   let allCommitsOK = true;
   let allCommitsInfo = null;
   if (checkRunsOK && workflowsOK && prNumber) {
-    allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha);
+    allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, { headSha: sha, ghostMinAgeMs: canDetectGhosts ? ghostMinAgeMs : null, getJobsCount, getCommitShas, now });
     allCommitsOK = allCommitsInfo.allComplete;
   }
 
@@ -263,16 +323,18 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
 
   const allAgree = checkRunsOK && workflowsOK && allCommitsOK && repoOK;
   const mechanisms = {
-    checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status },
-    workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
-    allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits } : { skipped: true },
+    checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status, note: checkRunsNote, relevantChecks, outOfBandChecks },
+    workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: incompleteRuns.length, ghostRuns: headGhostRuns },
+    allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits, ignoredGhostRuns: allCommitsInfo.ignoredGhostRuns || [] } : { skipped: true },
     repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: repoInfo?.count ?? 0 } : { skipped: true },
   };
+  const reasons = allAgree ? [] : describeConsensusDisagreement(mechanisms);
 
   if (verbose) {
     const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${repoInfo?.count ?? 0} active)` : 'skip';
-    const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${allCommitsInfo.pendingCommits.length > 0 ? `, ${allCommitsInfo.pendingCommits.length} pending` : ''})` : 'skip';
-    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), AllCommits=${commitsLabel}, RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
+    const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${allCommitsInfo.pendingCommits.length > 0 ? `, ${allCommitsInfo.pendingCommits.length} pending` : ''}${allCommitsInfo.ignoredGhostRuns?.length ? `, ${allCommitsInfo.ignoredGhostRuns.length} ghost run(s) ignored` : ''})` : 'skip';
+    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}${checkRunsNote ? `; ${checkRunsNote}` : ''}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}${incompleteRuns.length ? `, ${incompleteRuns.length} not completed` : ''}${headGhostRuns.length ? `, ${headGhostRuns.length} ghost` : ''}), AllCommits=${commitsLabel}, RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
+    for (const check of outOfBandChecks) console.log(`[VERBOSE] consensus:   out-of-band ${check.event} check ignored: ${check.name} [${check.conclusion || check.status}] ${check.html_url || ''}`);
   }
-  return { allAgree, mechanisms, ciStatus, workflowRuns };
+  return { allAgree, mechanisms, ciStatus, workflowRuns, reasons };
 }

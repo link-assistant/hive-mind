@@ -10,6 +10,10 @@ import selectors
 import subprocess
 import tempfile
 
+# Compiler limit: a bound for a hung compiler, not a speed test. These builds
+# take 7-10 s; a slow shared runner once took over 30 s (#4055).
+COMPILE_TIMEOUT = 120
+
 
 DATABASES = ("state_5.sqlite", "logs_2.sqlite", "goals_1.sqlite", "memories_1.sqlite",
              "memories_v2_1.sqlite", "queue_1.sqlite", "thread_history_1.sqlite")
@@ -52,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
     subprocess.run(["cc", "-std=c11", "-w", "-O0", "-g0", "-pthread",
                     "-DSQLITE_ENABLE_FILESTAT", "-DSQLITE_THREADSAFE=1",
                     "-c", str(args.sqlite_source), "-o", str(sqlite_object)],
-                   check=True, timeout=30, preexec_fn=compiler_limits)
+                   check=True, timeout=COMPILE_TIMEOUT, preexec_fn=compiler_limits)
     # Match optimized distribution builds' fortified libc diagnostics without
     # optimizing the large SQLite amalgamation on memory-limited runners.
     subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O2", "-g0",
@@ -61,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix="sqlite-selected-vfs-") as temporary:
                     str(Path(__file__).with_suffix(".c")),
                     str(Path(__file__).with_name("native-codex") / "canonical_sqlite_vfs.c"),
                     str(sqlite_object), "-lm", "-ldl", "-pthread", "-o", str(binary)],
-                   check=True, timeout=30, preexec_fn=limits)
+                   check=True, timeout=COMPILE_TIMEOUT, preexec_fn=limits)
     # Refusal must finish even when diagnostics cannot be delivered. Keep the
     # full pipe unread until the child exits, so communicate cannot hide a
     # blocking diagnostic write by draining it.

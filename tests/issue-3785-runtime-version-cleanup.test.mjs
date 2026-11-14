@@ -10,11 +10,12 @@ import { verifyToolDataRuntimeVersions } from '../src/verify-agent-runtime.mjs';
 async function live(pid) {
   try {
     const value = await readFile(`/proc/${pid}/stat`, 'utf8');
-    return (
+    // Exited: `Z` until reaped, then briefly `X` while released (#4055).
+    return !['Z', 'X'].includes(
       value
         .slice(value.lastIndexOf(')') + 1)
         .trim()
-        .split(/\s+/u)[0] !== 'Z'
+        .split(/\s+/u)[0]
     );
   } catch (error) {
     if (error.code === 'ENOENT' || error.code === 'ESRCH') return false;

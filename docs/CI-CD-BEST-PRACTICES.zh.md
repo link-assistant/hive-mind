@@ -478,6 +478,10 @@ on:
 - **把日志写到上传步骤查找的位置。** 找不到任何文件的 artifact 步骤会警告 `No files were found with the provided path` 并通过；而那个过早失败的运行——正是 artifact 存在的意义所在——不会留下任何证据。让缺失的日志在测试中大声失败，而不是在生产中悄无声息。
 - **说明任务为什么被跳过。** 因上游失败而跳过的下游 workflow 是正确的，但一个静默地什么也没做的绿色运行会被理解为“已测试”。用 `::notice::` 注解输出原因，让它显示在运行摘要中（issue #2923）。
 - **一个结果，一条消息。** 日志先说 “recovered and completed successfully”，随后又针对同一个错误说 “❌ Agent reported error”，会把读者引向错误的方向。先计算最终结论，然后只记录真实的内容。
+- **绿色的机器人运行也可能卡住。** 只要存在一个打开的分组 pull request，即使它已被更新的主版本取代，Dependabot 也会记录 `Deferring creation of a new pull request` 并以绿色结束（dependabot/dependabot-core#16791）。Pull request #2285 打开了 52 天，积累了 37 条 “Dependabot is rebasing this PR” 横幅，而每天的运行都通过。检查结果而不是退出状态：当机器人 pull request 超过 14 天或带有超过 2 条 rebase 横幅时，Dependabot Health workflow 会失败（issue #4055）。
+- **只配置存在的东西。** 对于所有镜像都在本地构建的 compose 文件，Dependabot 的 `docker-compose` 条目匹配不到任何依赖，每次运行都会警告 `groups where no dependencies match`。从仓库本身推导 ecosystem 列表并为其编写测试（issue #4055）。
+- **按含义而不是按文本归类重复失败。** 按精确消息给失败分组的健康检查会把 `Could not pull …:2.40.0` 和 `…:2.40.1` 算作两个故障，于是十二次相同的失败永远达不到阈值五。比较之前先去掉版本、id、哈希和路径（issue #4055）。
+- **有界地等待异步释放。** 异步数据库连接池在 `close()` 返回之后才在工作线程上关闭连接。紧接着需要“没有打开的句柄”的步骤必须带退避和截止时间轮询，并指出它在等待哪个持有者，而不是第一次检查就失败（issue #4055）。
 
 ## 质量强制策略
 

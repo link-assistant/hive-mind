@@ -1,0 +1,13 @@
+version 0.22.5
+kept    "`Authorization: token <TOKEN>`" 
+kept    "`Authorization: Bearer $GITHUB_TOKEN`" 
+kept    "`Authorization: Bearer ${TOKEN}`" 
+kept    "the `Authorization:` header" 
+kept    "`Authorization:` header named in prose, then `Authorization: token <value>` on the same line" 
+kept    "``Authorization: token <TOKEN>` ``" 
+kept    "``Authorization: token <TOKEN>``" 
+kept    "`Proxy-Authorization: Basic <value>`" 
+changed "`Authorization: token <synthetic ghp_ token>`" -> "`Authorization: token ghp…789`"
+changed "``Authorization: token <synthetic ghp_ token>` ``" -> "``Authorization: token ghp…789` ``"
+changed "`Authorization: token <synthetic ghp_ token><value>`" -> "`Authorization: token ghp…789<value>`"
+CHANGELOG.md kept unchanged

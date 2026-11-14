@@ -29,12 +29,18 @@ const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_COD
 const NO_RECORDED_ERROR = 'failure with no recorded first error';
 const DECISION_PREFIX = 'decision_code ';
 
-/** An error message without the parts that differ per run (ids, paths, durations), so repeats compare equal. */
+/**
+ * An error message without the parts that differ per run (ids, paths, durations,
+ * release versions), so repeats compare equal. Issue #4055: twelve drafts in a
+ * row failed with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull …:2.40.0` and then
+ * `…:2.40.1`; the version split them into two streaks below the threshold.
+ */
 export const normalizeErrorKey = message =>
   String(message || '')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '…')
     .replace(/\b0x[0-9a-f]+\b/gi, '…')
     .replace(/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b/gi, '…')
+    .replace(/\bv?\d+(?:\.\d+){1,3}(?:-[0-9a-z]+(?:\.[0-9a-z]+)*)?\b/gi, '…')
     .replace(/\d{4,}/g, '…')
     .replace(/\s+/g, ' ')
     .trim()
@@ -82,10 +88,12 @@ export function findRepeatedFailure(outcomes, { threshold = REPEATED_FAILURE_THR
   return key !== undefined && runs.length >= threshold ? { key, count: runs.length, runs } : null;
 }
 
-/** The text to look for in open issues: the decision code, or the longest literal part of the error. */
+/** The text to look for in open issues: the decision code, the `[ERROR_CODE]` an error starts with, or the longest literal part of the error. */
 export const trackingIssueSearchPhrase = key => {
   if (key.startsWith(DECISION_PREFIX)) return key.slice(DECISION_PREFIX.length);
   if (key === NO_RECORDED_ERROR) return null;
+  const code = /^\[([A-Z][A-Z0-9_]+)\]/.exec(key)?.[1];
+  if (code) return code;
   return (
     key
       .split('…')

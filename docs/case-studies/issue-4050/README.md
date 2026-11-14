@@ -136,7 +136,11 @@ broader than upstream's own placeholder rule (`experiments/issue-4050/placeholde
 secrets are never offered to the hook, and real tokens in code spans stay masked
 (`tests/authorization-code-span-placeholder-4050.test.mjs`). `HIVE_MIND_SANITIZER_DEBUG=1` (off by
 default) traces each exemption as `exempt:code-span-authorization-placeholder`. The workaround is
-listed in `UPSTREAM.authorizationCodeSpanPlaceholder` for removal once #177 ships.
+listed in `UPSTREAM` for removal once its upstream issue ships. #177 shipped in 0.22.4 and #181 (a
+placeholder inside a double-backtick span) in 0.22.5, so the hook, its trace event and both `UPSTREAM`
+entries were removed (issue #4055). `experiments/issue-4055/sanitizer-0.22.5-code-span.mjs` shows that the
+library alone keeps every placeholder form above, and the whole `CHANGELOG.md`, while real tokens stay
+masked; the regression test now guards the library's own behaviour.
 
 ## Template comparison
 

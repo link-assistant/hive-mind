@@ -9,7 +9,13 @@ from pathlib import Path
 import resource
 import selectors
 import subprocess
+import sys
 import tempfile
+import time
+
+# Compiler limit: a bound for a hung compiler, not a speed test. These builds
+# take 7-10 s; a slow shared runner once took over 30 s (#4055).
+COMPILE_TIMEOUT = 120
 
 
 def limits(data_mib=128):
@@ -20,6 +26,22 @@ def limits(data_mib=128):
 
 def compiler_limits():
     limits(384)
+
+
+def build(command, preexec_fn, timeout=COMPILE_TIMEOUT):
+    """Compile, and on failure say how long it ran and what the compiler printed.
+
+    The compiler output used to be captured and then dropped, so a 30 s rustc
+    timeout in CI (#4055) left no evidence of where the time went."""
+    started = time.monotonic()
+    try:
+        subprocess.run(command, check=True, capture_output=True, timeout=timeout, preexec_fn=preexec_fn)
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+        output = b"".join(part or b"" for part in (error.stdout, error.stderr)).decode(errors="replace")
+        print(f"Build failed after {time.monotonic() - started:.1f} s: {command[0]} "
+              f"(RUSTUP_TOOLCHAIN={os.environ.get('RUSTUP_TOOLCHAIN', '<unset>')})\n{output[-4096:]}",
+              file=sys.stderr, flush=True)
+        raise
 
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -38,14 +60,12 @@ with tempfile.TemporaryDirectory(prefix="sqlite-config-lock-") as temporary:
     database = selected / "state_5.sqlite"
     database.touch(mode=0o600)
     helper = root / "helper.o"
-    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-                    str(experiment / "probe-sqlite-config-lock.c"), "-o", str(helper)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=limits)
+    build(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
+           str(experiment / "probe-sqlite-config-lock.c"), "-o", str(helper)], limits)
     vfs = root / "vfs.o"
-    subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-                    "-I", str(args.sqlite_include),
-                    str(experiment / "native-codex/canonical_sqlite_vfs.c"), "-o", str(vfs)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=limits)
+    build(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
+           "-I", str(args.sqlite_include),
+           str(experiment / "native-codex/canonical_sqlite_vfs.c"), "-o", str(vfs)], limits)
     source = root / "probe.rs"
     source.write_text('''
 extern crate self as codex_state;
@@ -80,10 +100,9 @@ fn main() {
 }
 ''')
     binary = root / "probe"
-    subprocess.run(["rustc", "--edition", "2024", "-C", "debuginfo=0", str(source),
-                    "-C", "link-arg=" + str(helper), "-C", "link-arg=" + str(vfs),
-                    "-l", "sqlite3", "-l", "pthread", "-o", str(binary)],
-                   check=True, capture_output=True, timeout=30, preexec_fn=compiler_limits)
+    build(["rustc", "--edition", "2024", "-C", "debuginfo=0", str(source),
+           "-C", "link-arg=" + str(helper), "-C", "link-arg=" + str(vfs),
+           "-l", "sqlite3", "-l", "pthread", "-o", str(binary)], compiler_limits)
     environment = dict(os.environ, CODEX_SQLITE_HOME=str(selected), CODEX_ROLLOUT_HOME=str(selected))
     child = subprocess.Popen([str(binary), str(selected), str(private)], env=environment,
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

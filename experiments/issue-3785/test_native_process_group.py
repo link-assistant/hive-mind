@@ -62,10 +62,13 @@ time.sleep(30)
                 self.assertTrue(marker.exists(), "The descendant must be running before cleanup.")
                 pid = int(marker.read_text())
                 stop_process_group(child)
-                state = Path(f"/proc/{pid}/stat")
-                if state.exists():
-                    # A reparented zombie cannot write to the fixture anymore.
-                    self.assertEqual(state.read_text().rsplit(")", 1)[1].split()[0], "Z")
+                try:
+                    state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+                except (FileNotFoundError, ProcessLookupError):
+                    state = None
+                # A reparented zombie (`Z`), or one being released by its reaper
+                # (`X`, #4055), cannot write to the fixture anymore.
+                self.assertIn(state, (None, "Z", "X"))
             finally:
                 try:
                     os.killpg(child.pid, signal.SIGKILL)

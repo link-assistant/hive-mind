@@ -1,0 +1,69 @@
+132114499398	report-checks	completed	skipped	0
+132112856743	health	completed	skipped	0
+132112854911	Formal AI draft	completed	failure	4
+132016388309	report-checks	completed	skipped	0
+132016386481	Formal AI draft	completed	skipped	0
+132016384395	health	completed	success	0
+131948313896	Dependabot	completed	success	1
+131948313133	Dependabot	completed	success	1
+131948312634	Dependabot	completed	success	1
+131948311809	Dependabot	completed	success	1
+131948311239	Dependabot	completed	success	1
+131948294647	Dependabot	completed	success	1
+131948292746	Dependabot	completed	success	1
+131948292494	Dependabot	completed	success	1
+131948290684	Dependabot	completed	success	1
+131948289775	Dependabot	completed	success	1
+131906922076	${{ matrix.tool }} / ${{ matrix.model }}	completed	skipped	0
+131906919276	prepare	completed	skipped	0
+131862263379	cleanup	completed	success	1
+131836068801	report-checks	completed	skipped	0
+131835253105	health	completed	skipped	0
+131835251072	Formal AI draft	completed	failure	4
+131759054798	report-checks	completed	skipped	0
+131757336104	health	completed	skipped	0
+131757334245	Formal AI draft	completed	failure	4
+131636587830	${{ matrix.tool }} / ${{ matrix.model }}	completed	skipped	0
+131636587026	prepare	completed	skipped	0
+131636337771	Docker Publish Instant (Merge)	completed	skipped	0
+131636337397	Helm Release (Instant)	completed	skipped	0
+131636337191	Helm Release	completed	skipped	0
+131636336857	Docker Publish DinD Instant (Merge)	completed	skipped	0
+131636336720	Docker Publish Instant (${{ matrix.platform }})	completed	skipped	0
+131636336666	Docker Publish (Merge)	completed	skipped	0
+131636336642	Docker Publish (${{ matrix.platform }})	completed	skipped	0
+131636336502	Pipeline Status	completed	failure	2
+131636336395	Docker Publish DinD (Merge)	completed	skipped	0
+131636336357	Docker Publish DinD Instant (${{ matrix.platform }})	completed	skipped	0
+131636336176	Release	completed	skipped	0
+131636335879	Docker Publish DinD (${{ matrix.platform }})	completed	skipped	0
+131636335635	Instant Release	completed	skipped	0
+131636334927	docker-pr-check	completed	skipped	0
+131636333825	Verified native Codex package / Exercise installed npm runtime on ${{ matrix.platform }}	completed	skipped	0
+131636332773	Verified native Codex package / Verify both native platforms in the actual npm artifacts	completed	skipped	0
+131590784097	Security Status	completed	success	0
+131589933131	memory-check-linux	completed	success	0
+131589933072	test-suites	completed	success	0
+131589933033	test-execution	completed	success	0
+131589130389	Workflows Status	completed	success	0
+131589126776	helm-pr-check	completed	skipped	0
+131589125538	Verified native Codex package / Build and exercise linux-arm64	completed	failure	1
+131589125325	Verified native Codex package / Build and exercise linux-x64	completed	success	0
+131589125140	Check for Manual Version Changes	completed	skipped	0
+131589124751	Check for Changesets	completed	skipped	0
+131589124674	validate-docs	completed	success	0
+131589124612	test-compilation	completed	success	0
+131589124407	check-file-line-limits	completed	success	0
+131589123193	lint	completed	success	0
+131589080748	Links Status	completed	success	0
+131588806216	Create Changeset PR	completed	skipped	0
+131588805011	Release Preflight / Probe publishing credentials	completed	success	0
+131588804219	detect-changes	completed	success	4
+131588803790	Dependency Review	completed	skipped	0
+131588803198	Check Links	completed	success	0
+131588802725	zizmor	completed	success	0
+131588802669	CodeQL (actions)	completed	success	0
+131588802649	actionlint	completed	success	0
+131588802603	CodeQL (javascript-typescript)	completed	success	0
+131588802372	Audit npm lock	completed	success	0
+131588802347	ShellCheck	completed	success	0

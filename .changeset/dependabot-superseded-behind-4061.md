@@ -8,4 +8,4 @@
 - **Pull requests that a ruleset keeps out because they are behind are rebased.** `--admin` cannot bypass a ruleset with no bypass actors, so `gh pr merge` failed with "Repository rule violations found". Dependabot is now asked to `@dependabot rebase` the pull request, which is merged once its required checks pass. A freshly rebased head whose checks are not reported yet keeps waiting. The wait is bounded by the new `--dependabot-wait-timeout <minutes>` option (default 30, `0` to not wait), which `/fix` and `/task` accept.
 - **Clearer reports.** The issue keeps the whole `gh` error, not only its first line, and names the ruleset, its required checks and whether it can be bypassed. `--verbose` prints each supersession verdict and the merge state after a failed merge. The issue context now names the hive-mind version that collected it, so an issue written by an outdated deployment can be recognised.
 
-`links-notation` 0.31.5 and `rc-config-loader` 4.1.5 are also taken, to keep the dependency freshness gate green.
+`links-notation` 0.31.5 and `rc-config-loader` 4.2.0 are also taken, to keep the dependency freshness gate green.

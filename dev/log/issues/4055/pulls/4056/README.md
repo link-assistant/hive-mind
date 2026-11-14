@@ -39,6 +39,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43533158148 | Workflows | attempt 1 cancelled, 2 success | `ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`: all steps succeeded by 00:17:54, the jobs stayed `in_progress` until a force-cancel at 01:40 (B4); dispatched run 43541611465 passed on the same commit |
 | 43558095107 | Checks and release | failure | `ci-logs/release-43558095107-detect-changes.log.gz`: start-command 0.44.0, published 4 minutes earlier, fails the freshness gate; the four image pins and their test updated |
 | 43557475413 | Checks and release | failure | `ci-logs/release-43557475413-lint-secretlint.log.gz`: secretlint flagged the synthetic `ghp_` token in this pull request's new 0.22.4 code-span probe and its output; the probe now builds it at runtime and prints a label |
+| 43558367702 | Checks and release | failure | `ci-logs/release-43558367702-test-suites-pins.log.gz`: `tests/test-issue-2187-current-dependency-pins.mjs` still expected start-command 0.43.0 (a second pin test missed by the 0.44.0 bump); updated, and the Dockerfile comments now name 0.44.0 |
 
 ## Summaries
 

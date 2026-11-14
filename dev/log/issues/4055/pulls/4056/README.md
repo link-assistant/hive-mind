@@ -37,6 +37,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43531726849 | Checks and release | failure | `ci-logs/release-43531726849-detect-changes.log.gz`: lino-i18n 0.6.0, published 23 minutes earlier, fails the freshness gate; lino-i18n updated |
 | 43545485066 | Checks and release | failure | `ci-logs/release-43545485066-detect-changes.log.gz`: links-notation 0.31.4, published 64 minutes earlier, fails the freshness gate; the `use-m` pin and lockfile updated |
 | 43533158148 | Workflows | attempt 1 cancelled, 2 success | `ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`: all steps succeeded by 00:17:54, the jobs stayed `in_progress` until a force-cancel at 01:40 (B4); dispatched run 43541611465 passed on the same commit |
+| 43558095107 | Checks and release | failure | `ci-logs/release-43558095107-detect-changes.log.gz`: start-command 0.44.0, published 4 minutes earlier, fails the freshness gate; the four image pins and their test updated |
 | 43557475413 | Checks and release | failure | `ci-logs/release-43557475413-lint-secretlint.log.gz`: secretlint flagged the synthetic `ghp_` token in this pull request's new 0.22.4 code-span probe and its output; the probe now builds it at runtime and prints a label |
 
 ## Summaries

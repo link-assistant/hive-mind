@@ -183,6 +183,20 @@ These are not part of the issue, but the PR needs them so CI passes:
 
 - **Dependency freshness gate.** It fails when a newer version is published. This PR takes
   `@eslint/config-array` 0.23.6 and `eslint` 10.15.0, and the #2187 pin test now expects them.
+  After merging main (2026-11-14) the gate failed again on newly published
+  `@link-foundation/sensitive-data-sanitizer` 0.22.4, `lino-i18n` 0.6.0 and `links-notation` 0.31.4,
+  so the PR takes those too.
+  - 0.22.4 fixes upstream sensitive-data-sanitizer#172 (a letter run of about 4 MiB in two-byte text
+    threw `ERR_SANITIZATION`). The canary in `tests/issue-4049-long-run-sanitization.test.mjs` asserted
+    that the library still throws, and asked for the fallback to be removed once it does not.
+  - The adapter's long-run fallback in `src/sensitive-data-sanitizer.lib.mjs` is therefore removed, and
+    the tests now check that the library itself keeps the run and masks the credential, including a
+    4 MiB Bearer value it used to fail closed on.
+    `experiments/issue-4057/sanitizer-0.22.4-long-run-probe.mjs` shows this on the installed version.
+  - `gh-upload-log` 0.13.2 still bundles an older sanitizer, so its part-splitting workaround for #172
+    stays.
+  - Main later fixed the `` `Authorization:` `` case below in #4059; the merge keeps this PR's
+    prefix-aware check and the test cases from both branches.
 - **Release-note sanitizer check.** `tests/issue-3445-release-notes-not-masked.test.mjs` failed on the
   2.40.2 `CHANGELOG.md` entry.
   - That entry names the `` `Authorization:` `` header in a code span that closes right after the colon.

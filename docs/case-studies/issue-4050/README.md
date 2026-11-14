@@ -136,7 +136,8 @@ broader than upstream's own placeholder rule (`experiments/issue-4050/placeholde
 secrets are never offered to the hook, and real tokens in code spans stay masked
 (`tests/authorization-code-span-placeholder-4050.test.mjs`). `HIVE_MIND_SANITIZER_DEBUG=1` (off by
 default) traces each exemption as `exempt:code-span-authorization-placeholder`. The workaround is
-listed in `UPSTREAM.authorizationCodeSpanPlaceholder` for removal once #177 ships.
+listed in `UPSTREAM` for removal once its upstream issue ships. #177 shipped in 0.22.4 (issue #4055), so
+only `UPSTREAM.doubleBacktickCodeSpanPlaceholder` (#181, a placeholder inside a double-backtick span) remains.
 
 ## Template comparison
 

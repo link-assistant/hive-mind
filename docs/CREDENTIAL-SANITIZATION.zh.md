@@ -33,14 +33,14 @@ Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 
 
 - 标记为 `not retryable` 的拒绝（以及 0.13.1 及更早版本的任何拒绝）是确定性的，因此 Hive Mind 不会重试。拒绝只记录一次：整个日志改为分片重新发送，被拒绝的分片转到 pull request 分支回退发布（[#4042](https://github.com/link-assistant/hive-mind/issues/4042)）。标记为 `retryable` 的失败（`ERR_INPUT_CHANGED`、`ENOSPC`、`EAGAIN` 等）以及网络和服务器错误会退避重试。
 - 分片按行对齐。超过分片上限（最多 48 MiB，低于原先 64 MiB 记录限制）的单行会在 UTF-8 字符边界处切开，日志会报告切开的行数。各分片拼接后与清理后的日志完全一致。
-- `gh-upload-log` 0.13.2 仍会拒绝（`ERR_SANITIZATION`）约 4 MiB 的 ASCII 字母或数字串（例如以 base64 表示的全零二进制数据），只要它靠近非 ASCII 文本，例如 Hive Mind 的表情符号（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。因此任何分片都不会同时包含超过 1 MiB 的同一字符串和非 ASCII 字节；被拒绝的文件即使能放进一个分片，也会按这种方式分片重新发送，日志会报告这些额外的切分。
+- 使用库 0.22.3 或更早版本安装的 `gh-upload-log`（其版本范围为 `^0.22.1`）仍会拒绝（`ERR_SANITIZATION`）约 4 MiB 的 ASCII 字母或数字串（例如以 base64 表示的全零二进制数据），只要它靠近非 ASCII 文本，例如 Hive Mind 的表情符号（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)，已在 0.22.4 修复；重新安装 `gh-upload-log` 即可获得修复）。因此任何分片都不会同时包含超过 1 MiB 的同一字符串和非 ASCII 字节；被拒绝的文件即使能放进一个分片，也会按这种方式分片重新发送，日志会报告这些额外的切分。
 - 如果失败评论是由拒绝引起的，它不会建议再次运行被拒绝的命令。对于 `ERR_LIMIT`，它建议将 `gh-upload-log` 升级到 0.13.2 或更高版本，或将日志拆分为 20 MB 的分片；对于 `ERR_SANITIZATION`，它建议使用 2 MiB 的分片。
 - 如果写入清理副本时磁盘已满，失败原因会提示释放磁盘空间后重试（[#1212](https://github.com/link-assistant/hive-mind/issues/1212)）。
 
 ## 长串与长值
 
 - Hive Mind 的编码串检测器（base64、hex、百分号转义、字节转义、HTML 实体和折行 base64）是线性扫描器，因此单个数 MiB 的串（例如 JSONL 记录中的截图）不再使正则表达式栈溢出并阻止日志发布（[#4049](https://github.com/link-assistant/hive-mind/issues/4049)）。
-- 库本身在包含任何高于 U+00FF 字符的文本中，遇到约 4 MiB 的字母或数字串时仍会抛出 `ERR_SANITIZATION`（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。遇到该错误时，适配器以长串的有界窗口作为上下文清理长串之间的文本；如果凭证延伸进长串，则安全失败（fail closed）。
+- 在 0.22.3 及更早版本中，库本身在包含任何高于 U+00FF 字符的文本中遇到约 4 MiB 的字母或数字串时会抛出 `ERR_SANITIZATION`（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。0.22.4 修复了该问题，因此适配器的长串回退已删除：这样的长串会被保留，本身就是长串的凭证会被掩码（[#4055](https://github.com/link-assistant/hive-mind/issues/4055)）。
 - 凭证关键字后跟一个很长的值（`password=` 加 1 MiB）时，扫描速度约比普通文本慢 100 倍，约每 MiB 13 秒（[sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173)）。该值仍会被完整掩码；这是已记录的性能限制。
 
 ## 覆盖形式
@@ -54,7 +54,7 @@ Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 
 
 外部边界的检测有意采取保守策略。误报可能会遮盖类似凭证的值；扫描器失败时将阻止发布，而不会发送原始字节。
 
-库 0.22.3 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除，0.22.2 和 0.22.3 修复了 #168（已掩码日志清理缓慢）和 #170（长的大小写混合串）。适配器中保留两个变通方案：#172 的长串回退（见[长串与长值](#长串与长值)），详见[案例研究](./case-studies/issue-3739/README.md)；以及针对 [#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177) 的 `exempt` 钩子，它保留 `Authorization:` 头之后、作为 Markdown 代码片段结尾的完整占位符（`<value>`、`$NAME`、`${NAME}`），例如发布说明中的 `` `Authorization: token <value>` ``（[#4050](https://github.com/link-assistant/hive-mind/issues/4050)）。它只保留库在其后没有反引号时也会保留的值，且已知密钥永远不会交给该钩子。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
+库 0.22.4 负责凭证规则、环境变量选择、格式上下文以及 npm 包名和 Token 计数豁免。适配器延迟加载 `/credentials`。#131–#141、#148–#154 和 #162 的旧变通方案已删除，0.22.2 和 0.22.3 修复了 #168（已掩码日志清理缓慢）和 #170（长的大小写混合串），0.22.4 修复了 #172（长串，见[长串与长值](#长串与长值)）和 #177，因此它们的变通方案也已删除，详见[案例研究](./case-studies/issue-3739/README.md)。适配器中保留一个变通方案：针对 [#181](https://github.com/link-foundation/sensitive-data-sanitizer/issues/181)（[#177](https://github.com/link-foundation/sensitive-data-sanitizer/issues/177) 的双反引号形式）的 `exempt` 钩子，它保留 `Authorization:` 头之后、作为 Markdown 代码片段结尾的完整占位符（`<value>`、`$NAME`、`${NAME}`），例如发布说明中的 `` `Authorization: token <value>` ``（[#4050](https://github.com/link-assistant/hive-mind/issues/4050)）。它只保留库在其后没有反引号时也会保留的值，且已知密钥永远不会交给该钩子。原生 `PRIVATE_KEY` 类型使用库的按类型完整脱敏。Secretlint 和 `containsKnownToken` 仍独立验证发布内容。
 
 ## 编码凭证
 

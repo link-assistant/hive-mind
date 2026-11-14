@@ -54,6 +54,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 - `proc-dead-state-window.txt`: `experiments/issue-4055/proc-dead-state-window.py` shows a reaped zombie as `X (dead)` right after `Z` (F8).
 - `dependabot-health-before.txt`: `node scripts/dependabot-health.mjs` against the live repository before #2285 was closed. It exits 1 and names #2285 (F6).
 - `pr-2285-body.md`: #2285's body with its 37 rebase banners.
+- `sanitizer-0.22.4-probes.txt`: `experiments/issue-4055/sanitizer-0.22.4-*.mjs` against sensitive-data-sanitizer 0.22.4 without the adapter. The library keeps a 4 MiB run next to an emoji, masks a 4 MiB Bearer value (#172 fixed) and keeps single-backtick placeholders (#177 fixed). It still masks the double-backtick one (#181 open), so only that exemption stays (F10).
 - `native-limits-race-repro.log.gz`: 24 runs of `probe-codex-native-limits-generation.py --expect-retired-response` with `CODEX_PROBE_DIAGNOSTICS=1` against the before-repair binary of run 43527335157. Two print `application network permission was revoked` and now exit 3 (F11).
 
 ## Reports to other projects

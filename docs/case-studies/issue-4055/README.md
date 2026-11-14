@@ -20,29 +20,30 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 ## Timeline (UTC)
 
-| When             | Event                                                                                                                                                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-22 14:37 | Dependabot opens group pull request #2285 (`@sentry/*` to 10.75.2). It stays open; every later daily Dependabot job logs `Deferring creation of a new pull request` and passes (F6).                              |
-| 2026-11-09 05:58 | First failing Checks and release on `main` in this series (42570340658). From then on, no release succeeds, so no `konard/hive-mind:2.40.x` image is published.                                                   |
-| 2026-11-11 19:39 | Six Formal AI drafts fail in one minute with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0`. The 2.40.0 streak later reaches 9 runs.                                                          |
-| 2026-11-12 17:54 | The first draft fails on `…:2.40.1`. The health check keys failures by exact text, so the 2.40.1 streak starts over at 1 and stays below the threshold of 5 (F2).                                                 |
-| 2026-11-13 00:10 | PR #4051 merges as `f9ad62d`; Checks and release 43334992149 starts. `detect-changes` warns `library/rust 1.99 -> 1.100.0` for `Dockerfile.dind` and `Dockerfile.formal-ai` (F4).                                 |
-| 2026-11-13 02:03 | Job `Verified native Codex package / Build and exercise linux-arm64` fails in the selected recovery scenario: `Canonical SQLite recovery requires closed database handles and no live native peers` (F1).         |
-| 2026-11-13 02:03 | Pipeline Status fails; Release, Docker, DinD and Helm jobs are skipped. 2.40.1 is still unpublished.                                                                                                              |
-| 2026-11-13 12:17 | Scheduled cleanup 43418490693 warns `1380 fixture branch(es) retained by a repository rule that prohibits deletion` (B1).                                                                                         |
-| 2026-11-13 14:34 | Dependabot 43443919872 warns `Please check your configuration as there are groups where no dependencies match: - all-dependencies` for `docker_compose` (F5). All ten Dependabot jobs pass.                       |
-| 2026-11-13 19:20 | Issue #4055 is opened.                                                                                                                                                                                            |
-| 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                                    |
-| 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                                       |
-| 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.          |
-| 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                             |
-| 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).                   |
-| 2026-11-13 22:08 | `main` run 43493862530 (PR #4054) publishes the x64 and arm64 native Codex variants of 2.40.2 at 22:08:40 and 22:09:06. npm answers `Your package is being processed`. The main package follows at 22:09:13 (F9). |
-| 2026-11-13 22:11 | Native experiment 43513683924 fails `Reproduce retired native usage responses` (`logout`): `Expected the actual G0 usage snapshot.` (F11).                                                                        |
-| 2026-11-13 22:16 | npm finishes the main package (22:14:22) and the x64 variant (22:16:15). Docker jobs wait for the main package only and start building at 22:16:37.                                                               |
-| 2026-11-13 22:24 | Docker Publish (linux/arm64) and DinD (linux/arm64) install 2.40.2 at 22:24:07 without the arm64 variant, and `install-native-codex.mjs` refuses. npm finishes that variant at 22:24:48 (F9).                     |
-| 2026-11-13 23:51 | Native experiment 43527335157 fails the same step for `malformed`. The CI-built binary shows the cause locally: upstream revoked the in-flight request (F11).                                                     |
-| 2026-11-14 00:17 | Workflows 43533158148: every step of actionlint, ShellCheck and zizmor succeeds by 00:17:54, but GitHub keeps the three jobs `in_progress`. Force-cancel lands at 01:40; attempt 2 passes (B4).                   |
+| When             | Event                                                                                                                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-22 14:37 | Dependabot opens group pull request #2285 (`@sentry/*` to 10.75.2). It stays open; every later daily Dependabot job logs `Deferring creation of a new pull request` and passes (F6).                                 |
+| 2026-11-09 05:58 | First failing Checks and release on `main` in this series (42570340658). From then on, no release succeeds, so no `konard/hive-mind:2.40.x` image is published.                                                      |
+| 2026-11-11 19:39 | Six Formal AI drafts fail in one minute with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.0`. The 2.40.0 streak later reaches 9 runs.                                                             |
+| 2026-11-12 17:54 | The first draft fails on `…:2.40.1`. The health check keys failures by exact text, so the 2.40.1 streak starts over at 1 and stays below the threshold of 5 (F2).                                                    |
+| 2026-11-13 00:10 | PR #4051 merges as `f9ad62d`; Checks and release 43334992149 starts. `detect-changes` warns `library/rust 1.99 -> 1.100.0` for `Dockerfile.dind` and `Dockerfile.formal-ai` (F4).                                    |
+| 2026-11-13 02:03 | Job `Verified native Codex package / Build and exercise linux-arm64` fails in the selected recovery scenario: `Canonical SQLite recovery requires closed database handles and no live native peers` (F1).            |
+| 2026-11-13 02:03 | Pipeline Status fails; Release, Docker, DinD and Helm jobs are skipped. 2.40.1 is still unpublished.                                                                                                                 |
+| 2026-11-13 12:17 | Scheduled cleanup 43418490693 warns `1380 fixture branch(es) retained by a repository rule that prohibits deletion` (B1).                                                                                            |
+| 2026-11-13 14:34 | Dependabot 43443919872 warns `Please check your configuration as there are groups where no dependencies match: - all-dependencies` for `docker_compose` (F5). All ten Dependabot jobs pass.                          |
+| 2026-11-13 19:20 | Issue #4055 is opened.                                                                                                                                                                                               |
+| 2026-11-13 19:23 | Formal AI draft 43491294883 for #4055 fails on `konard/hive-mind:2.40.1` (F3).                                                                                                                                       |
+| 2026-11-13 19:44 | #2285 is closed with an explanation; a reproduction is added to dependabot-core#16791 (F6).                                                                                                                          |
+| 2026-11-13 20:24 | This pull request's native experiment 43496638282 fails: the configuration lock probe's `rustc` exceeds its 30 s limit, and the job log says only `exit code 1` (F7). Attempt 2 passes the step in 14 s.             |
+| 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                                |
+| 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).                      |
+| 2026-11-13 22:08 | `main` run 43493862530 (PR #4054) publishes the x64 and arm64 native Codex variants of 2.40.2 at 22:08:40 and 22:09:06. npm answers `Your package is being processed`. The main package follows at 22:09:13 (F9).    |
+| 2026-11-13 22:11 | Native experiment 43513683924 fails `Reproduce retired native usage responses` (`logout`): `Expected the actual G0 usage snapshot.` (F11).                                                                           |
+| 2026-11-13 22:16 | npm finishes the main package (22:14:22) and the x64 variant (22:16:15). Docker jobs wait for the main package only and start building at 22:16:37.                                                                  |
+| 2026-11-13 22:24 | Docker Publish (linux/arm64) and DinD (linux/arm64) install 2.40.2 at 22:24:07 without the arm64 variant, and `install-native-codex.mjs` refuses. npm finishes that variant at 22:24:48 (F9).                        |
+| 2026-11-13 23:51 | Native experiment 43527335157 fails the same step for `malformed`. The CI-built binary shows the cause locally: upstream revoked the in-flight request (F11).                                                        |
+| 2026-11-14 00:17 | Workflows 43533158148: every step of actionlint, ShellCheck and zizmor succeeds by 00:17:54, but GitHub keeps the three jobs `in_progress`. Force-cancel lands at 01:40; attempt 2 passes (B4).                      |
+| 2026-11-14 03:03 | sensitive-data-sanitizer 0.22.4 is published with the #172 and #177 fixes. The freshness gate requires it; the #4049 canary test fails as designed, so the adapter's #172 fallback and #177 entry are removed (F10). |
 
 ## Findings, root causes and fixes
 
@@ -284,13 +285,24 @@ installable::` and the main package is not published. The failure is
   43406123201 failed on a timing-ratio test (`Expected 7.208836240399472 to be
 less than 7`, macos-26-intel, Bun). This is reported as
   [sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
-  npm `latest` is still 0.22.3.
+  0.22.4 was published on 2026-11-14 at 03:03 with the #177 and #172 fixes;
+  #181 and #182 are still open.
 - **Fix.** `isCodeSpanAuthorizationPlaceholder` in
   `src/sensitive-data-sanitizer.lib.mjs` makes the placeholder template
   optional. A lone closing backtick after `Authorization:` inside an open code
-  span is kept; real tokens are still masked. The change is identical to the
-  one in PR #4059, so either can merge first. `UPSTREAM.doubleBacktickCodeSpanPlaceholder`
-  links #181, so the exemption can be removed once upstream releases both fixes.
+  span is kept; real tokens are still masked. PR #4059 made the identical change
+  and merged first (`6db677e2f`); after merging `main` the file matches it. `UPSTREAM.doubleBacktickCodeSpanPlaceholder`
+  links #181, so the exemption can be removed once upstream releases that fix.
+- **Follow-up on 0.22.4.** The freshness gate required 0.22.4, and the #4049
+  canary (`the library still overflows`) failed as designed.
+  `experiments/issue-4055/sanitizer-0.22.4-long-runs.mjs` shows the library
+  now keeps a 4 MiB run next to an emoji and masks a 4 MiB Bearer value
+  itself, and `experiments/issue-4055/sanitizer-0.22.4-code-span.mjs` shows it
+  keeps single-backtick placeholders (#177) but still masks the
+  double-backtick one (#181). The adapter's long-run fallback (about 110
+  lines) and the `longLetterRunStackOverflow` and
+  `authorizationCodeSpanPlaceholder` entries are removed; the tests now assert
+  the library's own behaviour, so a regression of #172 fails them.
 - **Test.** `tests/authorization-code-span-placeholder-4050.test.mjs` adds the
   2.40.2 CHANGELOG lines, empty values, and a real token after
   `` `Authorization:` ``, which must still be masked.
@@ -337,12 +349,12 @@ network permission was revoked` instead of the G0 snapshot
 
 ### Blocked or external, not changed
 
-| #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| B1  | Cleanup warns that 1,380 fixture branches are retained                             | **Blocked: needs a repository admin.** Ruleset 21204104 forbids deleting them. The warning already names the fix: a ruleset exclusion or a bypass for the cleanup token. Issue #2625 made this a warning on purpose, because failing daily on a rule no commit can change is a false negative.                                                                                                                                                                       |
-| B2  | `The ubuntu-latest label will migrate to Ubuntu 26` notice on every Dependabot job | GitHub-managed dynamic workflow; this repository cannot choose its runner.                                                                                                                                                                                                                                                                                                                                                                                           |
-| B3  | E2E Hello World Matrix: `prepare` and the matrix skipped                           | By design: it runs only when `vars.ENABLE_REAL_GITHUB_E2E` is set.                                                                                                                                                                                                                                                                                                                                                                                                   |
-| B4  | Workflows 43533158148 stayed `in_progress` for 83 minutes after its jobs finished  | **External: GitHub Actions.** Every step succeeded by 00:17:54 and the runners completed (`ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`), so `timeout-minutes` and `Workflows Status` could not act. A cancel did nothing; force-cancel landed after 13 minutes. Workaround: `gh workflow run workflows.yml --ref <branch>` (43541611465 passed on the same commit) or force-cancel and re-run (attempt 2 passed). githubstatus.com reported no incident. |
+| #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | Cleanup warns that 1,380 fixture branches are retained                             | **Blocked: needs a repository admin.** Ruleset 21204104 forbids deleting them. The warning already names the fix: a ruleset exclusion or a bypass for the cleanup token. Issue #2625 made this a warning on purpose, because failing daily on a rule no commit can change is a false negative.                                                                                                                                                                                                                                                                                            |
+| B2  | `The ubuntu-latest label will migrate to Ubuntu 26` notice on every Dependabot job | GitHub-managed dynamic workflow; this repository cannot choose its runner.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| B3  | E2E Hello World Matrix: `prepare` and the matrix skipped                           | By design: it runs only when `vars.ENABLE_REAL_GITHUB_E2E` is set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| B4  | Workflows 43533158148 stayed `in_progress` for 83 minutes after its jobs finished  | **External: GitHub Actions.** Every step succeeded by 00:17:54 and the runners completed (`ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`), so `timeout-minutes` and `Workflows Status` could not act. A cancel did nothing; force-cancel landed after 13 minutes. Workaround: `gh workflow run workflows.yml --ref <branch>` (43541611465 passed on the same commit) or force-cancel and re-run (attempt 2 passed). githubstatus.com reported no incident. #4048's ghost-run recovery (`findGhostQueuedRuns`) covers `queued` runs with zero jobs, not this `in_progress` form. |
 
 The other `WARN` and `deprecated` lines in the test logs were checked one by
 one. They are test names or assertions about warnings, such as
@@ -389,10 +401,11 @@ false negatives and were not reported again:
 - Dependabot: reproduction, workaround and fix suggestion added to
   [dependabot/dependabot-core#16791](https://github.com/dependabot/dependabot-core/issues/16791#issuecomment-6863150915).
   The body is in `dev/log/issues/4055/pulls/4056/upstream/`.
-- sensitive-data-sanitizer: the flaky timing test that blocks the #177 fix
+- sensitive-data-sanitizer: the flaky timing test that blocked the #177 fix
   release is reported with evidence, a workaround and a fix suggestion in
   [link-foundation/sensitive-data-sanitizer#182](https://github.com/link-foundation/sensitive-data-sanitizer/issues/182).
-  #181 (the double-backtick case) was already open (F10).
+  #181 (the double-backtick case) was already open (F10). 0.22.4 has since
+  shipped #172 and #177; #181 and #182 are still open.
 - SQLx and Codex: nothing to report. SQLx documents asynchronous close, and
   upstream Codex recovery renames files and tolerates open handles. The race
   only exists with this repository's selected VFS, which is fixed here.
@@ -438,6 +451,8 @@ false negatives and were not reported again:
 - F10: `tests/authorization-code-span-placeholder-4050.test.mjs` (16 cases) and
   `tests/issue-3445-release-notes-not-masked.test.mjs` (5 cases) fail before the
   change and pass after it; every sanitizer-related test file (24) passes.
+  On 0.22.4 with the fallback removed, all 22 sanitizer test files under
+  `tests/` pass, including `tests/issue-4049-long-run-sanitization.test.mjs`.
 - F11: `tests/native-limits-probe-race-4055.test.mjs` passes. Against the
   before-repair binary of run 43527335157, the probe now exits 3 on the lost
   race (2 of 24 attempts) and passes or fails as before otherwise; the

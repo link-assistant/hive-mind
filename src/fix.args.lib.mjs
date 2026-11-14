@@ -84,10 +84,17 @@ export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--update-all-d
  * `--ci-wait-timeout <minutes>` bounds how long `/fix` waits for the default
  * branch CI/CD to finish before starting `/solve` (issue #3326).
  */
-export const FIX_OWNED_VALUE_FLAGS = Object.freeze(['--ci-wait-timeout']);
+export const FIX_OWNED_VALUE_FLAGS = Object.freeze(['--ci-wait-timeout', '--dependabot-wait-timeout']);
 
 /** Default upper bound for the default-branch CI/CD wait (issue #3326). */
 export const FIX_CI_WAIT_DEFAULT_TIMEOUT_MINUTES = 60;
+
+/**
+ * Default upper bound for waiting on rebased or recreated Dependabot pull
+ * requests and their required checks before the issue is created (issue
+ * #4061); `DEPENDABOT_WAIT_TIMEOUT_MS` in minutes. 0 turns the wait off.
+ */
+export const FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES = 30;
 
 function parseCiWaitTimeoutMinutes(value) {
   const text = String(value ?? '').trim();
@@ -123,6 +130,8 @@ export function partitionFixArgs(rawArgs) {
     // Issue #3413: `--update-all-dependencies` first merges every open
     // Dependabot pull request, without waiting for its CI/CD.
     mergeDependabotPrs: true,
+    // Issue #4061: how long to wait for Dependabot rebases and required checks.
+    dependabotWaitTimeoutMinutes: FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES,
     errors: [],
     help: false,
     version: false,
@@ -178,6 +187,18 @@ export function partitionFixArgs(rawArgs) {
         result.errors.push(`--ci-wait-timeout expects a number of minutes, got ${value === undefined ? 'nothing' : `"${value}"`}`);
       } else {
         result.ciWaitTimeoutMinutes = minutes;
+      }
+      continue;
+    }
+    if (arg === '--dependabot-wait-timeout' || arg.startsWith('--dependabot-wait-timeout=')) {
+      const inline = arg.includes('=');
+      const value = inline ? arg.slice(arg.indexOf('=') + 1) : args[index + 1];
+      if (!inline && value !== undefined) index += 1;
+      const minutes = parseCiWaitTimeoutMinutes(value);
+      if (minutes === null) {
+        result.errors.push(`--dependabot-wait-timeout expects a number of minutes, got ${value === undefined ? 'nothing' : `"${value}"`}`);
+      } else {
+        result.dependabotWaitTimeoutMinutes = minutes;
       }
       continue;
     }

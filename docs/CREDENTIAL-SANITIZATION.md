@@ -40,7 +40,7 @@ Hive Mind sanitizes a log before it calls `gh-upload-log`. `gh-upload-log` then 
 ## Long runs and long values
 
 - Hive Mind's encoded-run detectors (base64, hex, percent escapes, byte escapes, HTML entities and wrapped base64 lines) are linear scanners, so one multi-MiB run, such as a screenshot in a JSONL record, no longer overflows the regular-expression stack and blocks the log ([#4049](https://github.com/link-assistant/hive-mind/issues/4049)).
-- The library itself still throws `ERR_SANITIZATION` on a letter or digit run of about 4 MiB in text with any character above U+00FF ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)). On that error the adapter sanitizes the text between long runs, with bounded windows of the runs as context, and fails closed if a credential reaches into a run.
+- The library threw `ERR_SANITIZATION` on a letter or digit run of about 4 MiB in text with any character above U+00FF up to 0.22.3 ([sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)). 0.22.4 fixed it, so the adapter no longer needs its long-run fallback.
 - A credential keyword followed by one very long value (`password=` and 1 MiB) is scanned about 100 times slower than plain text, about 13 seconds per MiB ([sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173)). The value is still fully masked; this is a documented performance limit.
 
 ## Covered forms

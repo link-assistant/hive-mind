@@ -40,7 +40,7 @@ Hive Mind 在调用 `gh-upload-log` 之前清理日志。随后 `gh-upload-log` 
 ## 长串与长值
 
 - Hive Mind 的编码串检测器（base64、hex、百分号转义、字节转义、HTML 实体和折行 base64）是线性扫描器，因此单个数 MiB 的串（例如 JSONL 记录中的截图）不再使正则表达式栈溢出并阻止日志发布（[#4049](https://github.com/link-assistant/hive-mind/issues/4049)）。
-- 库本身在包含任何高于 U+00FF 字符的文本中，遇到约 4 MiB 的字母或数字串时仍会抛出 `ERR_SANITIZATION`（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。遇到该错误时，适配器以长串的有界窗口作为上下文清理长串之间的文本；如果凭证延伸进长串，则安全失败（fail closed）。
+- 在 0.22.3 及更早版本中，库在包含任何高于 U+00FF 字符的文本中遇到约 4 MiB 的字母或数字串时会抛出 `ERR_SANITIZATION`（[sensitive-data-sanitizer#172](https://github.com/link-foundation/sensitive-data-sanitizer/issues/172)）。0.22.4 已修复该问题，因此适配器不再需要针对长串的回退处理。
 - 凭证关键字后跟一个很长的值（`password=` 加 1 MiB）时，扫描速度约比普通文本慢 100 倍，约每 MiB 13 秒（[sensitive-data-sanitizer#173](https://github.com/link-foundation/sensitive-data-sanitizer/issues/173)）。该值仍会被完整掩码；这是已记录的性能限制。
 
 ## 覆盖形式

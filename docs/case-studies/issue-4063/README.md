@@ -29,9 +29,9 @@ Real changes still stop the run, as before.
 
 | #   | Requirement                                                                                                              | Where it is handled                                                                                                                 |
 | --- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Find the root cause of "uncommitted changes on clone".                                                                   | [Root cause](#root-cause), `evidence/reproduction.log`, `experiments/issue-4063-dirty-clone-repro.sh`                               |
+| R1  | Find the root cause of "uncommitted changes on clone".                                                                   | [Root cause](#root-cause), `raw/reproduction.log`, `experiments/issue-4063-dirty-clone-repro.sh`                                    |
 | R2  | Find a proper way to handle such situations.                                                                             | `src/checkout-normalization.lib.mjs`, `src/solve.repo-setup.lib.mjs`, [Solution](#solution)                                         |
-| R3  | Collect logs and data in `docs/case-studies/issue-4063`, reconstruct the timeline, list requirements, propose solutions. | This document and `evidence/`                                                                                                       |
+| R3  | Collect logs and data in `docs/case-studies/issue-4063`, reconstruct the timeline, list requirements, propose solutions. | This document and `raw/`                                                                                                            |
 | R4  | Search online for more facts and check existing components and libraries.                                                | [Online research](#online-research-and-existing-components)                                                                         |
 | R5  | If the data is not enough, add debug output and a verbose mode.                                                          | The new `--verbose` lines: per-path `git check-attr`, `git ls-files --eol`, git version, `core.autocrlf`/`core.eol`/`core.safecrlf` |
 | R6  | Report issues to other affected repositories, with a reproduction, a workaround and a fix suggestion.                    | Upstream report linked above                                                                                                        |
@@ -54,15 +54,15 @@ Real changes still stop the run, as before.
 | 2026-11-14 12:05:24     | The failure comment is posted on issue #27. Its generic "What you can do" section does not mention line endings.                                                                                                                                               |
 | 2026-11-14 12:32:11     | Issue #4063 is opened.                                                                                                                                                                                                                                         |
 
-Sources: `evidence/solve-failure-comment.md` (the full solve log attached to the failure
-comment), `evidence/solve-failure-comment-meta.json`, `evidence/target-pr-25.json`,
-`evidence/target-issue-27.json`, and `evidence/reproduction.log`.
+Sources: `raw/solve-failure-comment.md` (the full solve log attached to the failure
+comment), `raw/solve-failure-comment-meta.json`, `raw/target-pr-25.json`,
+`raw/target-issue-27.json`, and `raw/reproduction.log`.
 
 ## Root cause
 
 ### 1. The repository stores a blob that does not match its own attributes
 
-`evidence/reproduction.log` comes from a fresh clone of `dd803a2` with git 2.43.0 and no
+`raw/reproduction.log` comes from a fresh clone of `dd803a2` with git 2.43.0 and no
 `core.autocrlf`/`core.eol` settings:
 
 ```
@@ -105,7 +105,7 @@ matches. The authoring session staged the CRLF file. Its index entry then matche
 on disk, so `git status` stayed clean there.
 
 A fresh clone writes the file and the index in the same second. The entry is
-"racily clean", and Git sets the cached `st_size` to 0 (`evidence/reproduction.log`:
+"racily clean", and Git sets the cached `st_size` to 0 (`raw/reproduction.log`:
 `size: 0` in `git ls-files --debug`). See the
 [racy-git documentation](https://git-scm.com/docs/racy-git): "cached st_size information
 is truncated to zero". The next `git status` must compare content. It runs the clean
@@ -129,7 +129,7 @@ fixed by the repository owner, and the failure comment did not say what to chang
 
 ### Scope check across related repositories
 
-`evidence/template-repositories-scan.txt` covers fresh clones of the 10 link-foundation
+`raw/template-repositories-scan.txt` covers fresh clones of the 10 link-foundation
 templates. Only the Java template has an unnormalized CRLF blob under a `text` attribute.
 
 ## Solution
@@ -199,7 +199,7 @@ changes are mixed, the log separates them, so the failure comment points at the 
 
 The original log showed only ` M mvnw.cmd`. With `--verbose`, solve now logs the data
 needed to diagnose the problem without access to the clone, for example (from
-`evidence/after-fix-real-clone.log`):
+`raw/after-fix-real-clone.log`):
 
 ```
 [VERBOSE] 🔍 Clone status: 1 path(s) reported as changed; 1 of them hold exactly the committed bytes (git content conversion artifacts)
@@ -276,7 +276,7 @@ I checked every place where solve or hive-mind tests a fresh clone for cleanline
   The test fails without the `solve.repo-setup.lib.mjs` change.
 
 - `experiments/issue-4063-dirty-clone-repro.sh` is an offline shell reproduction
-  (`evidence/offline-reproduction.log`).
+  (`raw/offline-reproduction.log`).
 - `experiments/issue-4063-real-clone-check.mjs` was run against a real clone of `dd803a2`
-  (`evidence/after-fix-real-clone.log`): `clean: true`, `neutralized: ["mvnw.cmd"]`,
+  (`raw/after-fix-real-clone.log`): `clean: true`, `neutralized: ["mvnw.cmd"]`,
   status afterwards `[]`.

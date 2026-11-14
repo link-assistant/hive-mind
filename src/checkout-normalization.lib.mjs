@@ -18,7 +18,7 @@
  *     $ git clone .../java-ai-driven-development-pipeline-template && git status --porcelain
  *      M mvnw.cmd
  *
- * (docs/case-studies/issue-4063/evidence/reproduction.log)
+ * (docs/case-studies/issue-4063/raw/reproduction.log)
  *
  * Nothing in the working tree differs from the commit - the bytes on disk are
  * exactly the committed blob - but solve stopped with "Repository has

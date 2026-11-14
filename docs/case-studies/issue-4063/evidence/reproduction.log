@@ -1,0 +1,42 @@
+$ git --version
+git version 2.43.0
+$ git rev-parse HEAD
+dd803a2d9fa5b3a992b435acce73162274fb9e8b
+$ git status --porcelain
+ M mvnw.cmd
+$ cat .gitattributes
+/mvnw text eol=lf
+/mvnw.cmd text eol=crlf
+$ git ls-files --eol mvnw mvnw.cmd
+i/lf    w/lf    attr/text eol=lf      	mvnw
+i/crlf  w/crlf  attr/text eol=crlf    	mvnw.cmd
+$ git check-attr -a mvnw.cmd
+mvnw.cmd: text: set
+mvnw.cmd: eol: crlf
+$ git ls-files -s mvnw.cmd
+100644 5761d948924c19571d27b465c519b2e2f9e30351 0	mvnw.cmd
+$ git hash-object --no-filters mvnw.cmd   # raw bytes on disk
+5761d948924c19571d27b465c519b2e2f9e30351
+$ git hash-object mvnw.cmd   # after the clean (CRLF->LF) conversion
+92450f93273470af42eeee491874afb2039b700a
+$ git ls-files --debug mvnw.cmd   # size 0 = racily-clean entry smudged at checkout
+mvnw.cmd
+  ctime: 1794660269:300395743
+  mtime: 1794660269:300395743
+  dev: 62	ino: 10785733
+  uid: 1001	gid: 1001
+  size: 0	flags: 0
+$ git diff --stat
+ mvnw.cmd | 378 +++++++++++++++++++++++++++++++--------------------------------
+ 1 file changed, 189 insertions(+), 189 deletions(-)
+$ git log --format='%h %ad %s' --date=iso -- .gitattributes mvnw.cmd
+960e795 2026-11-13 22:03:32 +0000 chore(deps): update toolchains and the complete Maven build tree
+$ git show 960e795 -- .gitattributes
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..9218ccc
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1,2 @@
++/mvnw text eol=lf
++/mvnw.cmd text eol=crlf

@@ -12,7 +12,7 @@
  *     [INFO]  M mvnw.cmd
  *     [INFO] Error: Repository has uncommitted changes after clone
  *
- * (docs/case-studies/issue-4063/evidence/solve-failure-log.txt)
+ * (docs/case-studies/issue-4063/evidence/solve-failure-comment.md)
  *
  * These tests build that repository state offline, clone it, and check that the
  * conversion artifact is neutralized locally while real changes still stop

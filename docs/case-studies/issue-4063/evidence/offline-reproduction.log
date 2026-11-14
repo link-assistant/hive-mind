@@ -1,0 +1,8 @@
+origin status (stat cache hides the defect): [ M mvnw.cmd]
+clone status: [ M mvnw.cmd]
+git ls-files --eol:
+i/crlf  w/crlf  attr/text eol=crlf    	mvnw.cmd
+index blob:        9d3e45c63028467c1f4cd43918f20c937298b24d
+raw worktree hash: 9d3e45c63028467c1f4cd43918f20c937298b24d   (equal => conversion artifact)
+cleaned hash:      ad22ec026f841e949092582c85b5508ce704e8ba
+clone status after .git/info/attributes override: []

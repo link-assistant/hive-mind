@@ -1,0 +1,10 @@
+java-ai-driven-development-pipeline-template: status=[ M mvnw.cmd;] unnormalized-crlf-with-text-attr=1
+cpp-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+python-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+rust-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+php-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+csharp-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+js-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+go-ai-driven-development-pipeline-template: status=[] unnormalized-crlf-with-text-attr=0
+nextjs-chatgpt-assistant-template: status=[] unnormalized-crlf-with-text-attr=0
+typescript-npm-package-template: status=[] unnormalized-crlf-with-text-attr=0

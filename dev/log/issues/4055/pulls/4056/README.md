@@ -35,6 +35,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43513683924 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43513683924-native-file-authority.log.gz`: `Expected the actual G0 usage snapshot.` for `logout` (F11) |
 | 43527335157 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43527335157-native-file-authority.log.gz`: the same for `malformed`; its binary artifact reproduced the race locally (F11) |
 | 43531726849 | Checks and release | failure | `ci-logs/release-43531726849-detect-changes.log.gz`: lino-i18n 0.6.0, published 23 minutes earlier, fails the freshness gate; lino-i18n updated |
+| 43533158148 | Workflows | attempt 1 cancelled, 2 success | `ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`: all steps succeeded by 00:17:54, the jobs stayed `in_progress` until a force-cancel at 01:40 (B4); dispatched run 43541611465 passed on the same commit |
 
 ## Summaries
 

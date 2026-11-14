@@ -9,7 +9,7 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 | #   | Requirement (issue text)                                                                 | Where it is addressed                                                                              |
 | --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F11, B1–B3 below                                                                       |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F11, B1–B4 below                                                                       |
 | R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                                                 |
 | R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                                                       |
 | R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                                                        |
@@ -42,6 +42,7 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 | 2026-11-13 22:16 | npm finishes the main package (22:14:22) and the x64 variant (22:16:15). Docker jobs wait for the main package only and start building at 22:16:37.                                                               |
 | 2026-11-13 22:24 | Docker Publish (linux/arm64) and DinD (linux/arm64) install 2.40.2 at 22:24:07 without the arm64 variant, and `install-native-codex.mjs` refuses. npm finishes that variant at 22:24:48 (F9).                     |
 | 2026-11-13 23:51 | Native experiment 43527335157 fails the same step for `malformed`. The CI-built binary shows the cause locally: upstream revoked the in-flight request (F11).                                                     |
+| 2026-11-14 00:17 | Workflows 43533158148: every step of actionlint, ShellCheck and zizmor succeeds by 00:17:54, but GitHub keeps the three jobs `in_progress`. Force-cancel lands at 01:40; attempt 2 passes (B4).                   |
 
 ## Findings, root causes and fixes
 
@@ -336,11 +337,12 @@ network permission was revoked` instead of the G0 snapshot
 
 ### Blocked or external, not changed
 
-| #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
-| --- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| B1  | Cleanup warns that 1,380 fixture branches are retained                             | **Blocked: needs a repository admin.** Ruleset 21204104 forbids deleting them. The warning already names the fix: a ruleset exclusion or a bypass for the cleanup token. Issue #2625 made this a warning on purpose, because failing daily on a rule no commit can change is a false negative. |
-| B2  | `The ubuntu-latest label will migrate to Ubuntu 26` notice on every Dependabot job | GitHub-managed dynamic workflow; this repository cannot choose its runner.                                                                                                                                                                                                                     |
-| B3  | E2E Hello World Matrix: `prepare` and the matrix skipped                           | By design: it runs only when `vars.ENABLE_REAL_GITHUB_E2E` is set.                                                                                                                                                                                                                             |
+| #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | Cleanup warns that 1,380 fixture branches are retained                             | **Blocked: needs a repository admin.** Ruleset 21204104 forbids deleting them. The warning already names the fix: a ruleset exclusion or a bypass for the cleanup token. Issue #2625 made this a warning on purpose, because failing daily on a rule no commit can change is a false negative.                                                                                                                                                                       |
+| B2  | `The ubuntu-latest label will migrate to Ubuntu 26` notice on every Dependabot job | GitHub-managed dynamic workflow; this repository cannot choose its runner.                                                                                                                                                                                                                                                                                                                                                                                           |
+| B3  | E2E Hello World Matrix: `prepare` and the matrix skipped                           | By design: it runs only when `vars.ENABLE_REAL_GITHUB_E2E` is set.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| B4  | Workflows 43533158148 stayed `in_progress` for 83 minutes after its jobs finished  | **External: GitHub Actions.** Every step succeeded by 00:17:54 and the runners completed (`ci-logs/workflows-43533158148-attempt1-stuck-jobs.json`), so `timeout-minutes` and `Workflows Status` could not act. A cancel did nothing; force-cancel landed after 13 minutes. Workaround: `gh workflow run workflows.yml --ref <branch>` (43541611465 passed on the same commit) or force-cancel and re-run (attempt 2 passed). githubstatus.com reported no incident. |
 
 The other `WARN` and `deprecated` lines in the test logs were checked one by
 one. They are test names or assertions about warnings, such as
@@ -439,3 +441,9 @@ false negatives and were not reported again:
   before-repair binary of run 43527335157, the probe now exits 3 on the lost
   race (2 of 24 attempts) and passes or fails as before otherwise; the
   workflow step passed in 4 local runs.
+- PR #4056 CI on `17fc154`: the Native Codex auth adapter experiment
+  43533158128 passed, including `Reproduce retired native usage responses`
+  and the strict post-repair step (F11); Security and Broken Link Checker
+  passed; Workflows passed on attempt 2 and in dispatched run 43541611465 (B4).
+- PR #4056 Checks and release 43533158253 on `17fc154` passed, including
+  `Build and exercise linux-x64` and `linux-arm64`.

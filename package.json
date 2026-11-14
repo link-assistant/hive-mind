@@ -94,7 +94,6 @@
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.4.1",
     "lino-i18n": "^0.6.0",
-    "lino-objects-codec": "^0.9.6",
     "secretlint": "^13.1.0",
     "semver": "^7.8.6",
     "smol-toml": "^1.9.1",

@@ -4,8 +4,9 @@
  * line holding a screenshot) made Hive Mind's encoded-run regexes overflow V8's
  * regexp stack, and the fail-closed publication boundary blocked the whole log.
  * Upstream link-foundation/sensitive-data-sanitizer#172: the library's own
- * credential-word regex overflows the same way on a letter run of about 4 MiB
- * in two-byte text; src/sensitive-data-sanitizer.lib.mjs isolates long runs.
+ * credential-word regex overflowed the same way on a letter run of about 4 MiB
+ * in two-byte text until 0.22.4, which fixed it; the adapter's fallback that
+ * isolated long runs was retired then (issue #4055).
  * Upstream #173: a credential keyword followed by one long value scans at about
  * 12 µs per character; that is a documented limit, and the output stays correct.
  *
@@ -80,11 +81,12 @@ test('#4049: a log block with a 6 MiB base64 record is published with its creden
   assert.ok(output.includes(run), 'the long run is kept intact');
 });
 
-test('upstream #172: the library still overflows, so the workaround stays registered', TIMEOUT, () => {
-  assert.equal(UPSTREAM.longLetterRunStackOverflow, 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/172');
+test('upstream #172: the library handles a long run in two-byte text itself, so no fallback is registered', TIMEOUT, () => {
+  assert.equal(UPSTREAM.longLetterRunStackOverflow, undefined);
   const sanitizer = loadSensitiveDataSanitizer().createSyncSanitizer({ credentialsOnly: true, preserveEncoding: true, transformation: { mode: 'hive-mask' } });
-  // When this stops throwing, the library fixed #172: drop the fallback and this entry.
-  assert.throws(() => sanitizer.sanitize(`${'A'.repeat(4 * MiB)}\n🔐 token refreshed\n`), { code: 'ERR_SANITIZATION' });
+  const text = `${'A'.repeat(4 * MiB)}\n🔐 token refreshed\n`;
+  // 0.12.1–0.22.3 threw ERR_SANITIZATION here; a throw again means #172 regressed.
+  assert.equal(sanitizer.sanitize(text).text, text);
 });
 
 test('upstream #172: a long letter run in two-byte text is sanitized around the run', TIMEOUT, () => {
@@ -103,11 +105,13 @@ test('upstream #172: a long letter run in two-byte text is sanitized around the 
   assert.equal(findings[0].line, 3);
 });
 
-test('upstream #172: the fallback fails closed when a credential reaches into a long run', TIMEOUT, () => {
-  // The value is the run itself; a window cannot see all of it, so nothing is guessed.
-  // (A Bearer value keeps this fast: `password=` + 4 MiB costs ~50 s in the library's
-  // generic-api-key rule, see UPSTREAM.longCredentialValueScan.)
-  assert.throws(() => sanitizeWithPolicy(`🔐 Authorization: Bearer ${'A'.repeat(4 * MiB)}\n`), { code: 'ERR_SANITIZATION' });
+test('upstream #172: a credential that is itself a long run is masked completely', TIMEOUT, () => {
+  // Before 0.22.4 the adapter could only fail closed here. (A Bearer value keeps this
+  // fast: `password=` + 4 MiB costs ~50 s in the library's generic-api-key rule, see
+  // UPSTREAM.longCredentialValueScan.)
+  const output = sanitizeWithPolicy(`🔐 Authorization: Bearer ${'A'.repeat(4 * MiB)}\n`);
+  assert.ok(output.startsWith('🔐 Authorization: Bearer '), output.slice(0, 80));
+  assert.ok(output.length < 1024, `the value is masked, not kept: ${output.length} characters`);
 });
 
 test('upstream #173: a long credential value is still masked completely, only slowly', TIMEOUT, () => {

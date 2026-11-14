@@ -10,6 +10,8 @@
  * "<value>`" and the library's own placeholder exemption misses it.
  * src/sensitive-data-sanitizer.lib.mjs keeps only a complete template followed by
  * the closing backtick of a code span; real and known credentials stay masked.
+ * The 2.40.2 release note then named the header with no value (`Authorization:`
+ * followed by the closing backtick), which the exemption now keeps too.
  *
  * Synthetic data only. Run with:
  *   node --test tests/authorization-code-span-placeholder-4050.test.mjs
@@ -35,6 +37,8 @@ const KEPT = [
   'masks a placeholder that closes a code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes)',
   'the `Authorization:` header',
   'the `Proxy-Authorization:` and `Authorization:` headers',
+  '`Authorization:` and `Proxy-Authorization:` headers',
+  'a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes)',
 ];
 
 test('#4050: a placeholder that closes a Markdown code span is not masked', async () => {
@@ -46,7 +50,7 @@ test('#4050: a placeholder that closes a Markdown code span is not masked', asyn
 });
 
 test('#4050: real credentials in a code span are still masked', async () => {
-  for (const line of [`\`Authorization: token ${TOKEN}\``, `\`Authorization: token <${TOKEN}>\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``, `\`Authorization: ${TOKEN}\``, `\`Authorization: token ${TOKEN} \``, `the \`Authorization:\` header, then \`Authorization: token ${TOKEN}\``]) {
+  for (const line of [`\`Authorization:\` header \`Authorization: token ${TOKEN}\``, `\`Authorization: token ${TOKEN}\``, `\`Authorization: token <${TOKEN}>\``, `\`Authorization: Bearer <value>${TOKEN.slice(4)}\``, `prose \`Authorization: token <value>\` then \`Authorization: token ${TOKEN}\``, `\`Authorization: ${TOKEN}\``, `\`Authorization: token ${TOKEN} \``, `the \`Authorization:\` header, then \`Authorization: token ${TOKEN}\``]) {
     const output = await sanitizeForPublication(line, options);
     assert.ok(!output.includes(TOKEN.slice(4)), output);
   }
@@ -59,6 +63,10 @@ test('#4050: the exemption needs an opening backtick, a complete template and th
   };
   assert.equal(at('`Authorization: token <value>`', '<value>`'), true);
   assert.equal(at('`Authorization: token <value>`', '<value>`', 'context'), true);
+  // An empty value: the header is named in prose and the span closes at once.
+  assert.equal(at('`Authorization:` header', '`'), true);
+  assert.equal(at('`Proxy-Authorization:` header', '`'), true);
+  assert.equal(at('Authorization:` header', '`'), false);
   assert.equal(at('`Authorization: token <value>`', '<value>`', 'gitleaks:generic-api-key'), false);
   // No code span opened before the header (an even number of backticks).
   assert.equal(at('Authorization: token <value>`', '<value>`'), false);
@@ -90,4 +98,5 @@ test('#4050: a value declared as a known secret is never exempt', () => {
 
 test('#4050: the workaround names the upstream issue it waits for', () => {
   assert.equal(UPSTREAM.authorizationCodeSpanPlaceholder, 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/177');
+  assert.equal(UPSTREAM.doubleBacktickCodeSpanPlaceholder, 'https://github.com/link-foundation/sensitive-data-sanitizer/issues/181');
 });

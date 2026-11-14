@@ -22,6 +22,7 @@ import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+import { dropOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
@@ -358,6 +359,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
         conclusion: check.conclusion,
         type: 'check_run',
         description: check.output?.title || check.output?.summary || null,
+        checkSuiteId: check.check_suite?.id ?? null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -386,9 +388,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       };
     }
 
-    const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
-    const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
+    // Issue #4048: a failed/running workflow_dispatch or schedule run is not part of the PR merge state.
+    const { checks: prChecks, outOfBand } = await dropOutOfBandChecks(allChecks, () => getWorkflowRunsForSha(owner, repo, sha, verbose));
+    const hasPending = prChecks.some(c => c.status !== 'completed' || c.conclusion === null);
+    const allPassed = !hasPending && prChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+    const hasFailed = prChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
 
     let status;
     if (hasPending) {
@@ -405,16 +409,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       console.log(`[VERBOSE] /merge: PR #${prNumber} CI status: ${status}`);
       console.log(`[VERBOSE] /merge:   Checks: ${allChecks.length}, Passed: ${allPassed}, Pending: ${hasPending}`);
       for (const check of allChecks) {
-        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}`);
+        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}${outOfBand.some(o => o.checkSuiteId === check.checkSuiteId) ? ' (out-of-band, ignored)' : ''}`);
       }
     }
 
-    return {
-      status,
-      checks: allChecks,
-      allPassed,
-      hasPending,
-    };
+    return { status, checks: prChecks, allPassed, hasPending, outOfBandChecks: outOfBand };
   } catch (error) {
     if (isTerminalGitHubEntityError(error)) {
       const terminalError = getTerminalGitHubEntityErrorMessage(error);
@@ -914,6 +913,26 @@ export async function rerunWorkflowRun(owner, repo, runId, verbose = false) {
 }
 
 /**
+ * Cancel a workflow run (issue #4048). A run stuck in `queued` with no jobs
+ * cannot be re-run until it completes, so it is cancelled first. With
+ * `force: true` it uses `POST .../force-cancel`, which GitHub documents for
+ * runs that do not respond to a normal cancel.
+ * @returns {Promise<{success: boolean, forced: boolean, error: string|null}>}
+ */
+export async function cancelWorkflowRun(owner, repo, runId, { force = false, verbose = false } = {}) {
+  const endpoint = force ? 'force-cancel' : 'cancel';
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/${endpoint} -X POST`);
+    if (verbose) console.log(`[VERBOSE] /merge: ${endpoint} accepted for workflow run ${runId}`);
+    return { success: true, forced: force, error: null };
+  } catch (error) {
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) console.log(`[VERBOSE] /merge: ${endpoint} failed for workflow run ${runId}: ${errorMessage}`);
+    return { success: false, forced: force, error: errorMessage };
+  }
+}
+
+/**
  * Re-run only failed jobs in a workflow run
  * Issue #1314: More targeted than full re-run, only retries failed jobs
  * @param {string} owner - Repository owner
@@ -984,6 +1003,8 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         id: check.id,
         description: check.output?.title || check.output?.summary || null,
         html_url: check.html_url || check.details_url || null,
+        // Issue #4048: joins the check to its workflow run (and that run's `event`).
+        checkSuiteId: check.check_suite?.id ?? null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -1147,7 +1168,9 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
     const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
     const runs = JSON.parse(stdout.trim() || '[]')
       .flatMap(page => page.workflow_runs || [])
-      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
+      // Issue #4048: event/checkSuiteId tell out-of-band (workflow_dispatch, schedule) runs apart;
+      // createdAt/runStartedAt let callers detect runs that have been queued for hours.
+      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path, event: run.event || null, checkSuiteId: run.check_suite_id ?? null, createdAt: run.created_at || null, runStartedAt: run.run_started_at || null, updatedAt: run.updated_at || null }));
 
     if (verbose) {
       // Issue #1712: Include the commit URL (not just SHA) and the workflow run html_url
@@ -1157,7 +1180,7 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} workflow run(s) for ${commitUrl}`);
       for (const run of runs) {
         const concPart = run.conclusion ? `/${run.conclusion}` : '';
-        console.log(`[VERBOSE] /merge:   - ${run.name} [${run.status}${concPart}]: ${run.html_url}`);
+        console.log(`[VERBOSE] /merge:   - ${run.name} [${run.status}${concPart}${run.event && run.event !== 'pull_request' ? `, event=${run.event}` : ''}${run.status === 'queued' && run.createdAt ? `, queued since ${run.createdAt}` : ''}]: ${run.html_url}`);
       }
     }
 
@@ -1302,6 +1325,7 @@ export default {
   BILLING_LIMIT_ERROR_PATTERN,
   getDetailedCIStatus,
   rerunWorkflowRun,
+  cancelWorkflowRun, // Issue #4048
   rerunFailedJobs,
   getWorkflowRunsForSha,
   getWorkflowRunJobsCount, // Issue #1690: detect invalid workflow files (no jobs created)

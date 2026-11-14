@@ -51,7 +51,7 @@ import { autoContinue, limitReset } from './config.lib.mjs';
 import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { interruptibleSleep, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 
 // Issue #1886: cumulative Anthropic cost carried across cross-process resumes
 const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
@@ -137,6 +137,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // Wait until reset time
     await interruptibleSleep(waitMs);
     clearInterval(countdownTimer);
+    // Issue #4048: never resume a session while the interrupt handler is shutting down.
+    await parkIfShuttingDown(log, reason => `🛑 ${reason} received — not resuming the session`);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';
     await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);

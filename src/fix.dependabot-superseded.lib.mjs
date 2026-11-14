@@ -112,13 +112,34 @@ export function parseRequirement(text) {
  * - JSON manifests (npm, composer): `"lodash": "^4.17.21",`
  * - TOML tables (Cargo, Poetry, uv): `serde = "1.0.200"`, `serde = { version = "1.0" }`
  * - GitHub Actions: `uses: actions/checkout@<sha> # v4.2.0`, `uses: actions/setup-node@v4`
- * - Docker: `FROM node:22.11.0-alpine`
+ * - Docker: `FROM node:22.11.0-alpine`, Compose / workflow `image: postgres:16.4`
+ *
+ * Some files pin a toolchain under a key that names no dependency anywhere
+ * else, so `path` (the file the line belongs to) adds these shapes (issue
+ * #4061: Dependabot's `dotnet-sdk` updater bumps `"version"` in `global.json`):
+ *
+ * - `global.json`: `"version": "11.0.100"` → `dotnet-sdk`
+ * - `rust-toolchain.toml`: `channel = "1.82.0"` → `rust-toolchain`; a bare
+ *   `1.82.0` line in a legacy `rust-toolchain` file
  */
-export function parseDependencyLine(line) {
+export function parseDependencyLine(line, { path = '' } = {}) {
   const text = String(line || '')
     .replace(/\s+\\$/, '')
     .trim();
   if (!text || text.startsWith('#') || text.startsWith('//')) return null;
+  const fileName = String(path || '')
+    .split('/')
+    .pop()
+    .toLowerCase();
+
+  let toolchain = null;
+  if (fileName === 'global.json') toolchain = /^"version"\s*:\s*"(\d[^"]*)"\s*,?$/.exec(text);
+  else if (fileName === 'rust-toolchain.toml') toolchain = /^channel\s*=\s*"(\d[^"]*)"$/.exec(text);
+  else if (fileName === 'rust-toolchain') toolchain = /^(\d+\.\d+(?:\.\d+)?)$/.exec(text);
+  if (toolchain) {
+    const requirement = parseRequirement(toolchain[1]);
+    return requirement ? { name: fileName === 'global.json' ? 'dotnet-sdk' : 'rust-toolchain', requirement } : null;
+  }
 
   let match = /^-?\s*uses:\s*['"]?([^@\s'"]+)@([^\s'"#]+)['"]?(?:\s*#\s*v?(\d[\w.\-+]*))?/.exec(text);
   if (match) {
@@ -127,6 +148,9 @@ export function parseDependencyLine(line) {
   }
 
   match = /^FROM\s+(?:--platform=\S+\s+)?([^\s:@]+):(\d[\w.-]*)/i.exec(text);
+  if (match) return { name: match[1].toLowerCase(), requirement: parseRequirement(match[2]) };
+
+  match = /^-?\s*image:\s*['"]?([^\s:@'"]+):(\d[\w.-]*)['"]?\s*(?:#.*)?$/.exec(text);
   if (match) return { name: match[1].toLowerCase(), requirement: parseRequirement(match[2]) };
 
   match = /^"(@?[\w.\-/]+)"\s*:\s*"([^"]+)"\s*,?$/.exec(text);
@@ -185,12 +209,19 @@ export function parseUnifiedDiff(diff) {
   return files;
 }
 
-/** Every dependency of a file's content, by normalized name (the last occurrence wins). */
-export function collectDependencies(content) {
+/**
+ * Every dependency of a file's content, by normalized name. When a name is
+ * pinned more than once (`actions/checkout` in several jobs of a workflow),
+ * the oldest pin is kept, so one line still at the old version keeps the
+ * pull request open.
+ */
+export function collectDependencies(content, path = '') {
   const dependencies = new Map();
   for (const line of String(content || '').split('\n')) {
-    const dependency = parseDependencyLine(line);
-    if (dependency) dependencies.set(dependency.name, dependency.requirement);
+    const dependency = parseDependencyLine(line, { path });
+    if (!dependency) continue;
+    const known = dependencies.get(dependency.name);
+    if (!known || requirementSatisfies(known, dependency.requirement)) dependencies.set(dependency.name, dependency.requirement);
   }
   return dependencies;
 }
@@ -228,12 +259,12 @@ export function evaluateSupersession(files, baseContents) {
     if (file.deleted || LOCKFILE_PATTERN.test(file.path)) continue;
     const removed = new Map();
     for (const line of file.removed) {
-      const dependency = parseDependencyLine(line);
+      const dependency = parseDependencyLine(line, { path: file.path });
       if (dependency) removed.set(dependency.name, dependency.requirement);
     }
     const bumped = [];
     for (const line of file.added) {
-      const dependency = parseDependencyLine(line);
+      const dependency = parseDependencyLine(line, { path: file.path });
       if (!dependency || !dependency.requirement) continue;
       const before = removed.get(dependency.name);
       if (before && before.lower === dependency.requirement.lower && before.upper === dependency.requirement.upper) continue;
@@ -242,7 +273,7 @@ export function evaluateSupersession(files, baseContents) {
     if (bumped.length === 0) continue;
     const content = baseContents?.[file.path];
     if (content === undefined) return { superseded: false, reason: `the base version of ${file.path} could not be read`, dependencies };
-    const onBase = content === null ? new Map() : collectDependencies(content);
+    const onBase = content === null ? new Map() : collectDependencies(content, file.path);
     for (const dependency of bumped) {
       const base = onBase.get(dependency.name) || null;
       const entry = { path: file.path, name: dependency.name, target: dependency.requirement, base };
@@ -268,9 +299,14 @@ export function formatRequirement(requirement) {
   return parts.join(', ');
 }
 
-/** Human-readable list such as "numpy 2.5.4 ≥ 2.2.6; mypy 2.4.0 ≥ 1.13.0, <3.0". */
+/**
+ * Human-readable list such as "numpy 2.5.4 ≥ 2.2.6; mypy 2.4.0 ≥ 1.13.0, <3.0".
+ * The same bump repeated across files (one action in nine workflows, issue
+ * #4061) is listed once.
+ */
 export function describeSupersession(dependencies) {
-  return dependencies.map(entry => (entry.verdict === 'removed' ? `${entry.name} is no longer a dependency in ${entry.path}` : `${entry.name} ${formatRequirement(entry.base)} ≥ ${formatRequirement(entry.target)}`)).join('; ');
+  const parts = dependencies.map(entry => (entry.verdict === 'removed' ? `${entry.name} is no longer a dependency in ${entry.path}` : `${entry.name} ${formatRequirement(entry.base)} ≥ ${formatRequirement(entry.target)}`));
+  return [...new Set(parts)].join('; ');
 }
 
 /** Read a file of `repository` at `ref`; null when it does not exist (HTTP 404). Throws on other errors. */
@@ -294,7 +330,7 @@ export async function checkSupersededByBase({ repository, pullRequest, run }) {
     const baseRef = pullRequest.baseRefName || 'HEAD';
     const baseContents = {};
     for (const file of files) {
-      if (!file.deleted && !LOCKFILE_PATTERN.test(file.path) && file.added.some(line => parseDependencyLine(line))) baseContents[file.path] = await readFileAtRef(repository, file.path, baseRef, run);
+      if (!file.deleted && !LOCKFILE_PATTERN.test(file.path) && file.added.some(line => parseDependencyLine(line, { path: file.path }))) baseContents[file.path] = await readFileAtRef(repository, file.path, baseRef, run);
     }
     return evaluateSupersession(files, baseContents);
   } catch (error) {

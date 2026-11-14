@@ -107,6 +107,7 @@ en
           text31 "- **Manifest files found:** {{value1}}"
           text32 "- ⚠️ **The file listing returned by GitHub was truncated**, so the manifest inventory above may be incomplete. Re-check the repository tree by hand."
           text33 "**Detected languages**"
+          text34 "- **Collected by:** hive-mind `{{value1}}`"
       gemini-prompts
         buildUserPrompt
           text1 "Issue linked to PR #{{prNumber}}"

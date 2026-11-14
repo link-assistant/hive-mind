@@ -174,12 +174,22 @@ test('replaying medical-neural-network-ml#25: UNKNOWN is refreshed and every sup
 });
 
 test('a conflict that only shows up when merging is handled the same way, without an --admin retry', async () => {
+  const prs = (await incidentPullRequests('MERGEABLE')).filter(pr => pr.number === 17);
+  const behind = { ...baseFiles, 'scripts/unimedvl-requirements.txt': baseFiles['scripts/unimedvl-requirements.txt'].replace(/^numpy==.*$/m, 'numpy==1.26.4') };
+  const gh = fakeGh({ prs, base: behind });
+  const result = await mergeDependabotPullRequests({ repository, run: gh.run, ...instant, recreateTimeoutMs: 0 });
+  assert.equal(result.pullRequests[0].outcome, 'recreate-requested');
+  assert.equal(gh.named('merge').length, 1);
+  assert.equal(gh.named('merge', call => call.includes('--admin')).length, 0);
+});
+
+test('a superseded pull request is closed even when GitHub calls it mergeable (issue #4061)', async () => {
   const prs = await incidentPullRequests('MERGEABLE');
   const gh = fakeGh({ prs });
   const result = await mergeDependabotPullRequests({ repository, run: gh.run, ...instant });
   assert.ok(result.pullRequests.every(entry => entry.outcome === 'closed'));
-  assert.equal(gh.named('merge').length, 5);
-  assert.equal(gh.named('merge', call => call.includes('--admin')).length, 0);
+  assert.equal(gh.named('merge').length, 0, 'nothing to merge: the base branch already has every update');
+  assert.doesNotMatch(gh.named('close')[0].join(' '), /can no longer be merged cleanly/, 'it was not conflicting');
 });
 
 test('a conflicting pull request that is not superseded is recreated by Dependabot and then merged', async () => {

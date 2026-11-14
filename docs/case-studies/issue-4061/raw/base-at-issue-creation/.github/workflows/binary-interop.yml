@@ -1,0 +1,61 @@
+name: binary interoperability
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: 'Print extra diagnostics (never secret values)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-binary-interop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ten-languages:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.0'
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: '1.27.4'
+          # The module has no dependencies (no go.sum), so the default cache
+          # only produced "Restore cache failed: Dependencies file is not
+          # found" on every run (issue #330). go.yml disables it for the same
+          # reason.
+          cache: false
+      - uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: '27.0.1'
+          # The Kotlin example builds with kotlin/gradlew on this JDK.
+          cache: gradle
+      - uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: '8.5.12'
+          extensions: mbstring
+          tools: composer
+      # CMake and GCC come with the runner image and build the C++ example;
+      # the image's Swift toolchain builds the Swift example.
+      - name: Install PHP autoloader
+        run: composer install --working-dir=php --no-dev --no-interaction
+      - name: Compare bytes and decoded text in all ten languages
+        run: bash examples/binary/run-interop.sh

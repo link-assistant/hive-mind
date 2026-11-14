@@ -1,0 +1,199 @@
+name: publish-csharp
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: "Print extra diagnostics (never secret values)"
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      NUGET_API_KEY:
+        required: false
+      NUGET_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Opt-in diagnostics, off unless a maintainer dispatches with verbose=true
+  # or sets the CI_VERBOSE repository variable.
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+  PACKAGE_ID: links-notation
+  PROJECT_PATH: Link.Foundation.Links.Notation/Link.Foundation.Links.Notation.csproj
+
+defaults:
+  run:
+    working-directory: csharp
+
+jobs:
+  pushToNuget:
+    runs-on: ubuntu-26.04
+    # Must outlast the 20 minute registry wait below plus the build.
+    timeout-minutes: 35
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    concurrency:
+      group: ci-csharp-publish-nuget
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # Required for NuGet.org trusted publishing.
+      id-token: write
+    outputs:
+      # 'true' published now, 'skipped' nothing to do, 'failed' credential missing.
+      published: ${{ steps.publish.outputs.published }}
+      version: ${{ steps.version-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - name: Check if version already published to NuGet.org
+        id: version-check
+        run: |
+          set -euo pipefail
+          # shellcheck source=scripts/ci/registry-probe.sh
+          . "$GITHUB_WORKSPACE/scripts/ci/registry-probe.sh"
+          PACKAGE_VERSION=$(sed -n 's|.*<VersionPrefix>\(.*\)</VersionPrefix>.*|\1|p' "$PROJECT_PATH")
+          if [ -z "$PACKAGE_VERSION" ]; then
+            echo "::error::Could not read <VersionPrefix> from $PROJECT_PATH"
+            exit 1
+          fi
+          PACKAGE_ID_LOWER=$(echo "$PACKAGE_ID" | tr '[:upper:]' '[:lower:]')
+          echo "version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_id_lower=$PACKAGE_ID_LOWER" >> "$GITHUB_OUTPUT"
+          echo "Package: $PACKAGE_ID@$PACKAGE_VERSION"
+
+          # Flat-container URLs are lowercase-only.
+          if probe_registry "https://api.nuget.org/v3-flatcontainer/$PACKAGE_ID_LOWER/$PACKAGE_VERSION/$PACKAGE_ID_LOWER.nuspec"; then
+            echo "Version $PACKAGE_VERSION already exists on NuGet.org"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            if [ "$REGISTRY_PROBE_STATUS" != "404" ]; then
+              echo "::error::Registry presence is unknown (HTTP $REGISTRY_PROBE_STATUS); refusing publication"
+              exit 1
+            fi
+            echo "Version $PACKAGE_VERSION does not exist on NuGet.org"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pack
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: dotnet pack "$PROJECT_PATH" --configuration Release --output artifacts
+      # NuGet evaluates this reusable workflow's publish-csharp.yml identity.
+      # The helper isolates OIDC exchange and artifact-only credential retries.
+      - name: Publish NuGet package
+        id: publish
+        env:
+          # Trusted publishing first; then either secret name (NUGET_TOKEN is
+          # the historical one).
+          NUGET_USER: ${{ vars.NUGET_USER }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_TOKEN: ${{ secrets.NUGET_TOKEN }}
+          SHOULD_PUBLISH: ${{ steps.version-check.outputs.should_publish }}
+          PACKAGE_VERSION: ${{ steps.version-check.outputs.version }}
+        run: node "$GITHUB_WORKSPACE/scripts/ci/publish-package.mjs" nuget
+      - name: Verify the package is really on NuGet.org
+        if: steps.publish.outputs.published == 'true' || steps.publish.outputs.published == 'skipped'
+        env:
+          PACKAGE_ID_LOWER: ${{ steps.version-check.outputs.package_id_lower }}
+          PACKAGE_VERSION: ${{ steps.version-check.outputs.version }}
+        run: |
+          set -euo pipefail
+          # shellcheck source=scripts/ci/registry-probe.sh
+          . "$GITHUB_WORKSPACE/scripts/ci/registry-probe.sh"
+          # NuGet.org indexes asynchronously; poll rather than assume success.
+          # The flat container exposes one document per package, so the body
+          # has to be matched -- a 200 only proves the package exists at all.
+          # 0.23.0 took 7 minutes, most of the old 10 minute window, and
+          # NuGet.org validation can take longer (issue #330). 40 x 30s = 20
+          # minutes.
+          wait_for_registry_match \
+            "${PACKAGE_ID}@${PACKAGE_VERSION} on NuGet.org" \
+            "https://api.nuget.org/v3-flatcontainer/${PACKAGE_ID_LOWER}/index.json" \
+            "\"${PACKAGE_VERSION}\"" 40 30
+
+  publishDocumentation:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # Pushing to gh-pages is a write to this repository.
+    permissions:
+      contents: write
+    # gh-pages has a single head; two concurrent deploys would race.
+    concurrency:
+      group: ci-csharp-gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Download PDF artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: csharp-pdf
+          path: csharp/pdf-artifact
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          global-json-file: csharp/global.json
+      - name: Install DocFX
+        run: |
+          dotnet tool install -g docfx
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+      - name: Publish documentation to gh-pages branch
+        run: |
+          if [ "$CI_VERBOSE" = "true" ]; then
+            set -x
+            docfx --version
+          fi
+          bash scripts/publish-docs.sh
+
+  publishRelease:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    # Deliberately not `needs: publishDocumentation`: a DocFX failure must not
+    # withhold the release for a package that is already on NuGet.org.
+    needs: [pushToNuget]
+    # Gate on what actually happened, not on the job result: a job that skipped
+    # its publish step (missing credential, or nothing new to push) still
+    # reports `success`, which is how green runs shipped no package at all.
+    # `skipped` means the version is already on the registry: the release step
+    # is idempotent, so this backfills a release that an earlier run published
+    # but never tagged (its verify step timed out, say; issue #330). Missing
+    # credentials report `failed` and still withhold the release.
+    if: ${{ (needs.pushToNuget.outputs.published == 'true' || needs.pushToNuget.outputs.published == 'skipped') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: ${{ github.sha }}
+          PACKAGE_VERSION: ${{ needs.pushToNuget.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Consistent tag format across every language: <language>_<version>.
+          TAG="csharp_${PACKAGE_VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+          RELEASE_NOTES=$(sed -n 's|.*<PackageReleaseNotes>\(.*\)|\1|p' "$PROJECT_PATH" | head -1)
+          gh release create "$TAG" \
+            --target "$RELEASE_SHA" \
+            --title "[C#] $PACKAGE_VERSION" \
+            --notes "https://www.nuget.org/packages/${PACKAGE_ID}/${PACKAGE_VERSION}
+
+          ${RELEASE_NOTES}"

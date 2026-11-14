@@ -32,6 +32,8 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 | 43513684161 | Checks and release | failure | `ci-logs/release-43513684161-test-suites.log.gz`: `reap all live fixture processes` in the Router native-lifetime test (F8) |
 | 43522467758 | Security | failure | `ci-logs/security-43522467758-codeql.log.gz`: CodeQL `js/incomplete-sanitization` in this pull request's own new F9 test (a hand-written regex escape); replaced by a substring check |
 | 43524101203 | Checks and release | failure | `ci-logs/release-43524101203-test-suites-line-limit.log.gz`: the F9 comment made `release.yml` 1,351 lines, over the 1,350-line warning threshold; comment shortened |
+| 43513683924 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43513683924-native-file-authority.log.gz`: `Expected the actual G0 usage snapshot.` for `logout` (F11) |
+| 43527335157 | Native Codex auth adapter experiment | failure | `ci-logs/native-experiment-43527335157-native-file-authority.log.gz`: the same for `malformed`; its binary artifact reproduced the race locally (F11) |
 
 ## Summaries
 
@@ -49,6 +51,7 @@ Analysis: [`docs/case-studies/issue-4055/README.md`](../../../../../../docs/case
 - `proc-dead-state-window.txt`: `experiments/issue-4055/proc-dead-state-window.py` shows a reaped zombie as `X (dead)` right after `Z` (F8).
 - `dependabot-health-before.txt`: `node scripts/dependabot-health.mjs` against the live repository before #2285 was closed. It exits 1 and names #2285 (F6).
 - `pr-2285-body.md`: #2285's body with its 37 rebase banners.
+- `native-limits-race-repro.log.gz`: 24 runs of `probe-codex-native-limits-generation.py --expect-retired-response` with `CODEX_PROBE_DIAGNOSTICS=1` against the before-repair binary of run 43527335157. Two print `application network permission was revoked` and now exit 3 (F11).
 
 ## Reports to other projects
 

@@ -7,16 +7,16 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 
 ## Requirements
 
-| #   | Requirement (issue text)                                                                 | Where it is addressed                                                    |
-| --- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F10, B1–B3 below                                             |
-| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                       |
-| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                             |
-| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                              |
-| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages                |
-| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                                        |
-| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; F8; F9; [Upstream](#upstream)        |
-| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5, F7 (5 probes), F8 (6 checks), F9 (both waits) |
+| #   | Requirement (issue text)                                                                 | Where it is addressed                                                                              |
+| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| R1  | Find and fix every false positive, false negative, warning and error in CI/CD            | Findings F1–F11, B1–B3 below                                                                       |
+| R2  | Checks and release: failure (`f9ad62d`, run 43334992149)                                 | F1                                                                                                 |
+| R3  | Every other run on `f9ad62d` and after it, including the green ones                      | F2–F6, B1–B3                                                                                       |
+| R4  | Compare CI/CD with the js, python, rust and cpp templates; report the same defects there | [Template comparison](#template-comparison)                                                        |
+| R5  | Follow `docs/CI-CD-BEST-PRACTICES.md`                                                    | Tests for every fix; principle 17 extended in 4 languages                                          |
+| R6  | Collect logs into `dev/log/issues/4055/pulls/4056`; timeline; root causes; online facts  | This file and the evidence folder                                                                  |
+| R7  | Debug output where data is missing (off by default); upstream reports with repro and fix | F1 `HIVE_CODEX_SQLITE_TRACE=1`; F7; F8; F9; F11 `CODEX_PROBE_DIAGNOSTICS=1`; [Upstream](#upstream) |
+| R8  | Apply each fix everywhere it applies; do everything in one pull request                  | F4 (four Dockerfiles), F5, F7 (5 probes), F8 (6 checks), F9 (both waits)                           |
 
 ## Timeline (UTC)
 
@@ -38,8 +38,10 @@ Previous round: [issue #4050](../issue-4050/README.md) (PR #4051, merged 2026-11
 | 2026-11-13 21:33 | ESLint 10.15.0 is published. 11 minutes later this pull request's `detect-changes` (43513268777) fails the no-cooldown freshness gate, as designed; this pull request updates ESLint.                             |
 | 2026-11-13 21:52 | Checks and release 43513684161, `test-suites`: `Router Agent live input stops the real native group on security refusal` fails in its cleanup hook with `reap all live fixture processes` (F8).                   |
 | 2026-11-13 22:08 | `main` run 43493862530 (PR #4054) publishes the x64 and arm64 native Codex variants of 2.40.2 at 22:08:40 and 22:09:06. npm answers `Your package is being processed`. The main package follows at 22:09:13 (F9). |
+| 2026-11-13 22:11 | Native experiment 43513683924 fails `Reproduce retired native usage responses` (`logout`): `Expected the actual G0 usage snapshot.` (F11).                                                                        |
 | 2026-11-13 22:16 | npm finishes the main package (22:14:22) and the x64 variant (22:16:15). Docker jobs wait for the main package only and start building at 22:16:37.                                                               |
 | 2026-11-13 22:24 | Docker Publish (linux/arm64) and DinD (linux/arm64) install 2.40.2 at 22:24:07 without the arm64 variant, and `install-native-codex.mjs` refuses. npm finishes that variant at 22:24:48 (F9).                     |
+| 2026-11-13 23:51 | Native experiment 43527335157 fails the same step for `malformed`. The CI-built binary shows the cause locally: upstream revoked the in-flight request (F11).                                                     |
 
 ## Findings, root causes and fixes
 
@@ -294,6 +296,44 @@ less than 7`, macos-26-intel, Bun). This is reported as
   `tests/issue-3445-release-notes-not-masked.test.mjs` fails before the change
   and passes after it.
 
+### F11. False positive: a lost race failed the native usage reproduction
+
+- **Evidence.** The Native Codex auth adapter experiment failed at
+  "Reproduce retired native usage responses" in run 43513683924 (`logout`) and
+  in run 43527335157 (`malformed`) with `Expected the actual G0 usage
+snapshot.` (`ci-logs/native-experiment-*-native-file-authority.log.gz`). Run
+  43496638282 passed on a retry. The probe did not print the response, so the
+  logs could not say why.
+- **Root cause.** The probe's new `CODEX_PROBE_DIAGNOSTICS=1` output (the
+  workflow already sets it) ran against the job's own binary (artifact
+  `native-codex-experimental-cli` of run 43527335157). In 2 of 24 local
+  attempts the response was `failed to fetch codex rate limits: application
+network permission was revoked` instead of the G0 snapshot
+  (`native-limits-race-repro.log.gz`). The pinned upstream already has a
+  partial guard. When a reload sees the account owner change, it invalidates
+  the application network policy and revokes outstanding requests
+  (`login/src/auth/manager.rs`, `set_cached_auth_locked` → `invalidate()`;
+  upstream's own test expects the same message,
+  `app-server/tests/suite/v2/rate_limits_identity_tests.rs`). That only
+  happens if a reload runs before the fixture's response completes. The
+  probe releases the response as soon as it changes `auth.json`, so the two
+  race. `replace` keeps the owner and never loses the race. Before the repair
+  the outcome is therefore either the retired response (the reproduction) or
+  the revocation (no evidence either way). The probe treated the second as a
+  failure.
+- **Fix.** The probe reports the revocation of a `logout` or `malformed`
+  mutation as inconclusive, with exit code 3. In "Reproduce retired native
+  usage responses", the `probe` helper repeats an inconclusive run up to five
+  times. Any other result, and five lost races in a row, still fail. The run
+  after the repair stays strict: `apply_limits_generation.py` checks the
+  generation before it looks at the response, so a revocation there is a
+  failure. The release build and `probe-packaged-native-codex.mjs` use only
+  the post-repair mode.
+- **Test.** `tests/native-limits-probe-race-4055.test.mjs` checks the probe's
+  classification and runs the workflow's helper with a fake probe: two lost
+  races then a pass, five lost races, and a real failure, which is not
+  repeated.
+
 ### Blocked or external, not changed
 
 | #   | Item                                                                               | Why                                                                                                                                                                                                                                                                                            |
@@ -327,6 +367,7 @@ Checks a–d compare this issue's findings with each template's `main`
   template's `wait-for-npm` pattern waits for the one package it publishes.
 - F10: no template depends on sensitive-data-sanitizer (only research notes in
   js and python mention it).
+- F11: hive-mind only (the native Codex experiment).
 - F7: no template bounds a compile with a tight time limit. cpp's test preset
   allows 120 s, and python's `scripts/run-with-budget-warning.sh` warns before a
   command reaches its limit.
@@ -353,6 +394,8 @@ false negatives and were not reported again:
 - SQLx and Codex: nothing to report. SQLx documents asynchronous close, and
   upstream Codex recovery renames files and tolerates open handles. The race
   only exists with this repository's selected VFS, which is fixed here.
+- Codex (F11): nothing to report. The revocation is upstream's intended guard.
+  The race is in this repository's probe, which now expects it.
 
 ## Sources
 
@@ -392,3 +435,7 @@ false negatives and were not reported again:
 - F10: `tests/authorization-code-span-placeholder-4050.test.mjs` (16 cases) and
   `tests/issue-3445-release-notes-not-masked.test.mjs` (5 cases) fail before the
   change and pass after it; every sanitizer-related test file (24) passes.
+- F11: `tests/native-limits-probe-race-4055.test.mjs` passes. Against the
+  before-repair binary of run 43527335157, the probe now exits 3 on the lost
+  race (2 of 24 attempts) and passes or fails as before otherwise; the
+  workflow step passed in 4 local runs.

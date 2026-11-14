@@ -391,9 +391,21 @@ jobs:
       - name: Reproduce retired native usage responses
         run: |
           python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation none > "$RUNNER_TEMP/native-limits-healthy-before.log" 2>&1
+          # Exit 3: the pinned upstream revoked the in-flight request first, a lost race (#4055 F11).
+          probe() {
+            local log="$1" status=0
+            shift
+            for attempt in 1 2 3 4 5; do
+              python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" "$@" > "$log" 2>&1 || status=$?
+              [ "$status" = 3 ] || return "$status"
+              echo "Attempt $attempt of $* was inconclusive: $(tail -n 1 "$log")"
+              status=0
+            done
+            return 3
+          }
           for mutation in logout replace malformed; do
-            python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" --expect-retired-response > "$RUNNER_TEMP/native-limits-$mutation-before.log" 2>&1
-            if python3 experiments/issue-3785/probe-codex-native-limits-generation.py "$NATIVE_SOURCE/codex-rs/target/dev-small/codex" --mutation "$mutation" > "$RUNNER_TEMP/native-limits-$mutation-regression.log" 2>&1; then
+            probe "$RUNNER_TEMP/native-limits-$mutation-before.log" --mutation "$mutation" --expect-retired-response
+            if probe "$RUNNER_TEMP/native-limits-$mutation-regression.log" --mutation "$mutation"; then
               echo "The native usage generation regression unexpectedly passed before repair."
               exit 1
             fi

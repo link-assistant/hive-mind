@@ -423,9 +423,10 @@ false negatives and were not reported again:
 - F8: `tests/issue-3785-process-liveness.test.mjs` fails before the fix and
   passes after it; the Router native-lifetime, runtime process and version
   cleanup and #2613 regression tests and `test_native_process_group.py` pass.
-- ESLint 10.15.0: `node scripts/check-dependency-freshness.mjs` reports all
-  declarations current; `tests/test-issue-2187-current-dependency-pins.mjs`
-  passes with the updated pin.
+- ESLint 10.15.0, lino-i18n 0.6.0 and links-notation 0.31.4 (published
+  during this pull request): `node scripts/check-dependency-freshness.mjs`
+  reports all declarations current; `tests/test-issue-2187-current-dependency-pins.mjs`,
+  `tests/test-use-with-retry.mjs` and `tests/dependency-freshness-2264.test.mjs` pass.
 - F9: `tests/native-codex-variant-installable-4055.test.mjs`,
   `tests/native-codex-packages-4050.test.mjs`,
   `tests/publish-verification-window-2923.test.mjs`,

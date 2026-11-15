@@ -110,7 +110,14 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
   return { feedbackLines, referenceTime };
 }
 
-export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
+/**
+ * @param {object} options
+ * @param {string} [options.afterCloneStatus] - issue #4063: the `git status --porcelain`
+ *   output that was already present right after the clone. Those changes are not
+ *   left over from a previous session and are governed by
+ *   --uncommitted-changes-after-clone, so the identical status is not re-reported.
+ */
+export async function checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus }) {
   // Check for uncommitted changes before running Claude
   // Only add to feedback if auto-commit is disabled
   if (!argv['auto-commit-uncommitted-changes']) {
@@ -119,7 +126,9 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
       const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
       if (gitStatusResult.code === 0) {
         const statusOutput = gitStatusResult.stdout.toString().trim();
-        if (statusOutput) {
+        if (statusOutput && afterCloneStatus && statusOutput === afterCloneStatus.trim()) {
+          await log('ℹ️  The uncommitted changes are the ones already present right after the clone (see --uncommitted-changes-after-clone); not reported again', { verbose: true });
+        } else if (statusOutput) {
           await log('📝 Found uncommitted changes - adding to feedback');
 
           // Issue #2313: the same restart feedback every other uncommitted-changes path uses.

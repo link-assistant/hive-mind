@@ -1,0 +1,34 @@
+# node experiments/issue-4063-real-clone-check.mjs <fresh clone of link-foundation/java-ai-driven-development-pipeline-template at dd803a2> (2026-11-15, default policy)
+git status --porcelain before: " M mvnw.cmd"
+[VERBOSE] 🔍 Clone status: 1 path(s) reported as changed; 1 of them hold exactly the committed bytes (git content conversion artifacts)
+[VERBOSE] ⚠️  The repository's committed content does not match its own .gitattributes for 1 file(s); a fresh clone reports them as modified although their bytes equal the commit:
+[VERBOSE]    M mvnw.cmd
+[VERBOSE]    git version 2.43.0; core.autocrlf=(unset), core.eol=(unset), core.safecrlf=(unset)
+[VERBOSE]    • mvnw.cmd: attributes text eol=crlf; i/crlf w/crlf attr/text eol=crlf
+[VERBOSE]    Handled locally: line-ending/encoding conversion is unset for these paths in .git/info/attributes (never committed), so they stay byte-for-byte as committed and out of the pull request.
+[VERBOSE]    Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"
+[VERBOSE] 🔍 Uncommitted changes after clone: 1 path(s); 1 neutralized; 0 remaining; --uncommitted-changes-after-clone warn-ai
+[VERBOSE]    The AI will be told about them in its prompt.
+{
+  "mode": "warn-ai",
+  "neutralized": [
+    "mvnw.cmd"
+  ],
+  "changes": [],
+  "remaining": [],
+  "statusAfter": ""
+}
+----- AI user prompt lines -----
+
+⚠️ UNCOMMITTED CHANGES RIGHT AFTER CLONE:
+The working tree already had uncommitted changes right after the repository was cloned, before any work started, so they are not your changes. This is the exact `git status --porcelain` output of the fresh clone:
+
+```
+ M mvnw.cmd
+```
+
+These files hold exactly the committed bytes. Git reports them as modified only because the committed content does not match the repository's own .gitattributes (for example a file committed with CRLF line endings but marked `text eol=crlf`):
+- mvnw.cmd
+To keep that whole-file line-ending rewrite out of this pull request, content conversion is unset for these files in the clone-local `.git/info/attributes` (never committed), so `git status` now reports them as unchanged.
+If it fits this task, fix the repository so the next clone is clean: delete the lines for these files below `# hive-mind: committed bytes that do not match .gitattributes conversion (issue #4063)` in `.git/info/attributes`, run `git add --renormalize -- <the files above>`, check that the staged diff changes only line endings, commit it as a separate commit (for example "Normalize line endings per .gitattributes") and mention it in the pull request description.
+

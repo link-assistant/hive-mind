@@ -22,7 +22,7 @@ import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, tool = 'qwen' } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, tool = 'qwen' } = params;
 
   const promptLines = [];
 
@@ -63,6 +63,9 @@ export const buildUserPrompt = params => {
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
   }
+
+  // Issue #4063: repository notices found right after the clone (e.g. uncommitted changes) go to the AI in every run, new or continued
+  if (cloneStatusLines?.length > 0) promptLines.push(...cloneStatusLines);
 
   const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
   if (issueResearchPrompt) {

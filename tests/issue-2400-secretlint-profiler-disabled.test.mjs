@@ -44,7 +44,9 @@ await test('repeated publication sanitization records no profiler marks', async 
     await sanitizeForPublication(`line ${i}: const fileTokens = await getGitHubTokensFromFiles();`, { includeEnvironmentCredentials: false });
   }
   assert.equal(secretlintMarks(), before, 'performance marks accumulate per call');
-  assert.equal((await secretLintProfiler.getEntries()).length, 0, 'profiler entries accumulate per call');
+  // Secretlint v14 replaced getEntries() (one entry per mark) with getStats() (totals).
+  const recorded = typeof secretLintProfiler.getStats === 'function' ? secretLintProfiler.getStats() : await secretLintProfiler.getEntries();
+  assert.equal(recorded.length, 0, 'profiler entries accumulate per call');
 });
 
 await test('the scanner still detects a vendor credential', async () => {

@@ -13,5 +13,3 @@ A fresh clone with uncommitted changes no longer stops `solve` with `Repository 
 - New `--neutralize-checkout-conversion-artifacts` option, on by default: files whose bytes equal the commit are kept out of `git status` and the pull request by unsetting their content conversion in the clone-local `.git/info/attributes`. `--no-neutralize-checkout-conversion-artifacts` turns this off.
 - `--verbose` logs the attribute and line-ending diagnostics.
 - The changes already present right after the clone are no longer repeated as "uncommitted changes" restart feedback.
-
-Also update links-notation to 0.31.5 and rc-config-loader to 4.2.0 for the dependency freshness gate.

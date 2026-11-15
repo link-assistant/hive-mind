@@ -6,7 +6,7 @@ import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mj
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
 import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
-import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
+import { FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES, FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from './telegram-markdown.lib.mjs';
@@ -132,6 +132,22 @@ export function resolveMergeDependabotPrs(args = []) {
   return last !== '--no-merge-dependabot-prs';
 }
 
+/**
+ * `--dependabot-wait-timeout <minutes>` of `/task --update-all-dependencies`
+ * in milliseconds (issue #4061); the last valid value wins, the default
+ * otherwise.
+ */
+export function resolveDependabotWaitTimeoutMs(args = []) {
+  let minutes = FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg !== '--dependabot-wait-timeout' && !arg.startsWith('--dependabot-wait-timeout=')) continue;
+    const value = String(arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : (args[index + 1] ?? '')).trim();
+    if (/^\d+(?:\.\d+)?$/.test(value)) minutes = Number(value);
+  }
+  return Math.round(minutes * 60 * 1000);
+}
+
 /** @deprecated Use {@link buildTaskRepositoryCommandArgs}; kept for callers written before /task gained a second generated-issue mode. */
 export const buildTaskCiCdCommandArgs = buildTaskRepositoryCommandArgs;
 
@@ -230,7 +246,7 @@ export function registerTaskCommands(bot, options) {
       try {
         // Issue #3413: like /fix, merge the open Dependabot pull requests first
         // unless the last of --merge-dependabot-prs/--no-merge-dependabot-prs opts out.
-        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args), mergeDependabotPrs: resolveMergeDependabotPrs(built.args) } : {};
+        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args), mergeDependabotPrs: resolveMergeDependabotPrs(built.args), dependabotWaitTimeoutMs: resolveDependabotWaitTimeoutMs(built.args) } : {};
         const createdIssue = await createIssueFn({
           repository: built.repository,
           ...reportingOptions,

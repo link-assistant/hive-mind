@@ -58,6 +58,11 @@ Options:
                      default they are merged without waiting for CI/CD;
                      conflicting ones are closed when superseded by the
                      default branch, otherwise recreated by Dependabot)
+  --dependabot-wait-timeout <minutes>
+                     --update-all-dependencies only: longest wait for
+                     Dependabot to rebase or recreate its pull requests and
+                     for the checks a branch rule requires before merging
+                     (default: 30; 0 does not wait)
   --no-report-dependencies-issues
                      Disable upstream reporting during dependency updates
   --version          Show version number
@@ -158,7 +163,7 @@ async function main() {
   const verbose = parsed.passthrough.includes('--verbose');
   // Issue #3413: open Dependabot pull requests are merged (listed on --dry-run)
   // before the issue is prepared, without waiting for their CI/CD.
-  const modeOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough), mergeDependabotPrs: parsed.mergeDependabotPrs, dryRun: parsed.dryRun, verbose } : {};
+  const modeOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough), mergeDependabotPrs: parsed.mergeDependabotPrs, dependabotWaitTimeoutMs: Math.round(parsed.dependabotWaitTimeoutMinutes * 60 * 1000), dryRun: parsed.dryRun, verbose } : {};
   const prepared = await handler.prepare({ repository, ...modeOptions, log: message => console.log(`   ${message}`) });
   for (const line of handler.summarize(prepared)) console.log(`   ${line}`);
 

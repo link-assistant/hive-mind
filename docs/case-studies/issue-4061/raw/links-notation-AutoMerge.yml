@@ -1,0 +1,82 @@
+name: auto-merge
+
+# Merges Dependabot's minor and patch pull requests once their checks pass,
+# using scripts/ci/merge-dependabot.py (issue #350).
+#
+# This used to run `gh pr merge --auto` on every `pull_request`, which could
+# never work here: the repository does not allow auto-merge, and a run that
+# Dependabot triggers only receives Dependabot secrets, so the
+# DEPENDABOT_AUTO_MERGE_TOKEN Actions secret was always empty. It now sweeps
+# the open Dependabot pull requests whenever one of their workflows finishes,
+# and every six hours in case an event was missed.
+#
+# workflow_run is safe here: this workflow checks out only the default
+# branch, runs nothing from the pull request, and reads the pull requests
+# through the API. The script merges only Dependabot's own commits, with the
+# checked head commit pinned.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [CI, dependency freshness, workflows, links, bom-check, pages]
+    types: [completed]
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print what would be merged or updated without doing it
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Each sweep looks at every open Dependabot pull request, so a queued sweep
+# replaces an older queued one, and a running one is never interrupted
+# halfway through a merge.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       startsWith(github.event.workflow_run.head_branch, 'dependabot/'))
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
+      # A GITHUB_TOKEN merge starts no push workflow on main, so the script
+      # dispatches them (issue #377).
+      actions: write
+    steps:
+      # For workflow_run and schedule, github.sha is the latest commit on
+      # the default branch, never the pull request's head.
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.15.2'
+      - name: Test the merge planner without network access
+        run: python experiments/issue-350/test_merge_dependabot.py
+      # GITHUB_TOKEN can merge, but its merges do not start the push
+      # workflows on main (the script dispatches them instead: a
+      # workflow_dispatch is the one event GITHUB_TOKEN may start runs with)
+      # and it cannot update a pull request branch without a maintainer
+      # approving the new runs. A token with the `repo` and
+      # `workflow` scopes in the DEPENDABOT_AUTO_MERGE_TOKEN Actions secret
+      # does both; without it, behind pull requests get an
+      # `@dependabot rebase` comment instead.
+      - name: Merge passing Dependabot pull requests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPENDABOT_AUTO_MERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: python scripts/ci/merge-dependabot.py --base "$BASE" ${DRY_RUN:+"$DRY_RUN"}

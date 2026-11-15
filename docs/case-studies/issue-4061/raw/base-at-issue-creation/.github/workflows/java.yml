@@ -1,0 +1,141 @@
+name: java
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: "Print extra diagnostics (never secret values)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+
+defaults:
+  run:
+    working-directory: java
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-java-${{ github.ref }}-build
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: maven
+      - name: Build with Maven
+        run: ./mvnw -B compile --file pom.xml
+
+  test:
+    needs: [build]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-java-${{ github.ref }}-test-${{ matrix.java }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        # The pom.xml release floor, the current LTS, and the newest release.
+        java: ["21", "25", "27"]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: "temurin"
+          cache: maven
+      - name: Test with Maven
+        run: ./mvnw -B test --file pom.xml
+
+  format:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-java-${{ github.ref }}-format
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: maven
+      - name: Check Google Java formatting and whitespace
+        run: ./mvnw -B spotless:check --file pom.xml
+
+  # pom.xml's maven-enforcer-plugin declares Maven 3.6.3, the oldest the build
+  # plugins accept, while ./mvnw runs the newest. This job keeps that floor a
+  # tested fact rather than a claim (issue #348).
+  maven-floor:
+    needs: [build]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-java-${{ github.ref }}-maven-floor
+      cancel-in-progress: false
+    env:
+      MAVEN_FLOOR: "3.6.3"
+      # sha256sum of the archive whose SHA-512 matches
+      # archive.apache.org/dist/maven/maven-3/3.6.3/binaries/*.sha512.
+      MAVEN_FLOOR_SHA256: 26ad91d751b3a9a53087aefa743f4e16a17741d3915b219cf74112bf87a438c5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: maven
+      - name: Require the floor pom.xml declares
+        run: |
+          declared="$(grep -o '<version>\[[0-9.]*,)</version>' pom.xml | sed 's/.*\[\(.*\),.*/\1/')"
+          if [ "$declared" != "$MAVEN_FLOOR" ]; then
+            echo "::error file=java/pom.xml::requireMavenVersion declares '[${declared},)' but this job tests Maven $MAVEN_FLOOR. Set both to the same version (and MAVEN_FLOOR_SHA256 to its archive)."
+            exit 1
+          fi
+      - name: Install the oldest supported Maven
+        run: |
+          set -euo pipefail
+          archive="apache-maven-$MAVEN_FLOOR-bin.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+            "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_FLOOR/$archive"
+          echo "$MAVEN_FLOOR_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+      - name: Test and check formatting with Maven ${{ env.MAVEN_FLOOR }}
+        env:
+          # Maven 3.6.3 predates JDK 24's native-access and sun.misc.Unsafe
+          # warnings: on JDK 25 its jansi and guava print "A restricted method
+          # in java.lang.System has been called" and "sun.misc.Unsafe::
+          # objectFieldOffset will be removed" on every run (run 41439729658).
+          # Newer launchers pass these flags themselves (issue #377).
+          MAVEN_OPTS: --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow
+        run: |
+          "$RUNNER_TEMP/apache-maven-$MAVEN_FLOOR/bin/mvn" --version
+          "$RUNNER_TEMP/apache-maven-$MAVEN_FLOOR/bin/mvn" -B test spotless:check --file pom.xml

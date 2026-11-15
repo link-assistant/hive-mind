@@ -262,6 +262,16 @@ en
           text5 "2. IGNORE it if it is a build output or another generated file that must not be committed (add a matching pattern to .gitignore, then commit and push .gitignore)."
           text6 "3. DELETE it if it is not needed (git checkout -- <file> for a tracked file, rm <file> for an untracked file)."
           text7 "Do not end the session while `git status --porcelain` still prints any line. The session will auto-restart until the working tree is clean."
+      clone-status
+        buildCloneStatusFeedback
+          title "⚠️ UNCOMMITTED CHANGES RIGHT AFTER CLONE:"
+          intro "The working tree already had uncommitted changes right after the repository was cloned, before any work started, so they are not your changes. This is the exact `git status --porcelain` output of the fresh clone:"
+          artifactsIntro "These files hold exactly the committed bytes. Git reports them as modified only because the committed content does not match the repository's own .gitattributes (for example a file committed with CRLF line endings but marked `text eol=crlf`):"
+          artifactsHandled "To keep that whole-file line-ending rewrite out of this pull request, content conversion is unset for these files in the clone-local `{{infoAttributesFile}}` (never committed), so `git status` now reports them as unchanged."
+          artifactsFix "If it fits this task, fix the repository so the next clone is clean: delete the lines for these files below `{{header}}` in `{{infoAttributesFile}}`, run `git add --renormalize -- <the files above>`, check that the staged diff changes only line endings, commit it as a separate commit (for example \"Normalize line endings per .gitattributes\") and mention it in the pull request description."
+          artifactsNotHandled "These files are still reported as modified, because content conversion was not unset for them. If it fits this task, fix the repository so the next clone is clean: run `git add --renormalize -- <the files above>`, check that the staged diff changes only line endings, commit it as a separate commit and mention it in the pull request description. Otherwise do not stage or commit these files: `git checkout` cannot clear them, because their bytes already equal the commit, and `git add` would commit a whole-file line-ending rewrite."
+          changesIntro "These changes are still in the working tree:"
+          changesAction "Before you finish, decide for each of them: commit it if it belongs to the solution, otherwise restore it (`git checkout -- <file>` for a tracked file, delete an untracked file). If such a change appears in every fresh clone, fix its cause in the repository (for example in .gitattributes or .gitignore) when that fits this task."
       handoff-prompts
         HANDOFF_SKILL_DESCRIPTION
           text1 "Maintain a HANDOFF.md continuity document in the repository root so any session can continue a previous session's work — even across different AI tools (Claude and Codex) in the same pull request. Use when starting, resuming, or finishing work on a long-running task, issue, or pull request."

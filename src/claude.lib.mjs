@@ -64,7 +64,7 @@ export { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateCl
 export { handleClaudeRuntimeSwitch };
 export const checkPlaywrightMcpAvailability = ensureClaudePlaywrightMcpServer;
 export const executeClaude = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
   // Issue #2056: reset fresh sessions while retaining issue #1886's true-resume accumulation.
   beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
@@ -79,9 +79,7 @@ export const executeClaude = async params => {
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
   const mappedModel = mapModelToId(argv.model);
   const modelSupportsVision = await checkModelVisionCapability(mappedModel);
-  if (argv.verbose) {
-    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
-  }
+  if (argv.verbose) await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   const prompt = buildUserPrompt({
     issueUrl,
     issueNumber,
@@ -94,6 +92,7 @@ export const executeClaude = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,

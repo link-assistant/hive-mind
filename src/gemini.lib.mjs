@@ -346,7 +346,7 @@ export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailabil
 
 // Main function to execute Gemini with prompts and settings
 export const executeGemini = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, geminiPath = 'gemini', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, geminiPath = 'gemini', $ } = params;
   const initialStorage = await admitNativeGeminiStorage({ command: geminiPath, useRouter: argv?.useRouter });
 
   const { buildUserPrompt, buildSystemPrompt } = await import('./gemini.prompts.lib.mjs');
@@ -363,6 +363,7 @@ export const executeGemini = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,

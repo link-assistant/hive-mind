@@ -437,7 +437,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
 
 // Main function to execute Qwen Code with prompts and settings
 export const executeQwen = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, qwenPath = 'qwen', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, qwenPath = 'qwen', $ } = params;
 
   const { buildUserPrompt, buildSystemPrompt } = await import('./qwen.prompts.lib.mjs');
 
@@ -453,6 +453,7 @@ export const executeQwen = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,

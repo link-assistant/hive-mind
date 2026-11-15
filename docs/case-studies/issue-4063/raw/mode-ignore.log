@@ -1,0 +1,14 @@
+[log verbose] 🔍 Clone status: 2 path(s) reported as changed; 1 of them hold exactly the committed bytes (git content conversion artifacts)
+[log verbose] ⚠️  The repository's committed content does not match its own .gitattributes for 1 file(s); a fresh clone reports them as modified although their bytes equal the commit:
+[log verbose]    M mvnw.cmd
+[log verbose]    git version 2.43.0; core.autocrlf=(unset), core.eol=(unset), core.safecrlf=(unset)
+[log verbose]    • mvnw.cmd: attributes text eol=crlf; i/crlf w/crlf attr/text eol=crlf
+[log verbose]    Handled locally: line-ending/encoding conversion is unset for these paths in .git/info/attributes (never committed), so they stay byte-for-byte as committed and out of the pull request.
+[log verbose]    Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"
+[log verbose] 🔍 Uncommitted changes after clone: 2 path(s); 1 neutralized; 1 remaining; --uncommitted-changes-after-clone ignore
+[log verbose] ⚠️  Repository has uncommitted changes after clone; continuing (--uncommitted-changes-after-clone ignore):
+[log verbose]     M pom.xml
+mode=ignore remaining=[" M pom.xml"] neutralized=["mvnw.cmd"]
+----- AI user prompt lines -----
+
+----- git status after: " M pom.xml\n"

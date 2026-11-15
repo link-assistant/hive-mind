@@ -12,3 +12,5 @@
 - Duplicated links start once. Captions and hidden (`text_link`) links of the replied message are read too.
 - A command can also list several links itself: `/solve <url-1> <url-2> --model opus`.
 - A reply to a message with a single link works as before.
+
+Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile).

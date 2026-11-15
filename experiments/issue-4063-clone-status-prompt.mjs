@@ -26,10 +26,18 @@ try {
   await writeFile(path.join(clone, 'pom.xml'), '<project>changed</project>\n');
   const statusOutput = git(clone, 'status', '--porcelain').trimEnd();
   const log = async (message, options = {}) => console.error(`[log${options.verbose ? ' verbose' : options.level ? ` ${options.level}` : ''}] ${message}`);
-  const result = await handleUncommittedChangesAfterClone({ cwd: clone, argv: { uncommittedChangesAfterClone: mode, neutralizeCheckoutConversionArtifacts: !process.argv.includes('--no-neutralize') }, log, statusOutput });
-  console.log(`mode=${result.mode} remaining=${JSON.stringify(result.remaining)} neutralized=${JSON.stringify(result.neutralized)}`);
-  console.log('----- AI user prompt lines -----');
-  console.log(result.promptLines.join('\n'));
+  let result;
+  try {
+    result = await handleUncommittedChangesAfterClone({ cwd: clone, argv: { uncommittedChangesAfterClone: mode, neutralizeCheckoutConversionArtifacts: !process.argv.includes('--no-neutralize') }, log, statusOutput });
+  } catch (error) {
+    console.log(`run stopped: ${error.message}`);
+    process.exitCode = 1;
+  }
+  if (result) {
+    console.log(`mode=${result.mode} remaining=${JSON.stringify(result.remaining)} neutralized=${JSON.stringify(result.neutralized)}`);
+    console.log('----- AI user prompt lines -----');
+    console.log(result.promptLines.join('\n'));
+  }
   console.log(`----- git status after: ${JSON.stringify(git(clone, 'status', '--porcelain'))}`);
 } finally {
   await rm(root, { recursive: true, force: true });

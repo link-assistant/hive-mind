@@ -18,25 +18,30 @@ A CRLF blob marked `text` is therefore "not normalized", and Git reports it as m
 after every fresh checkout: the file bytes on disk equal the commit, but Git would store
 them as different (LF) content.
 
-Solve now checks whether each "modified" file holds exactly the committed bytes. If every
-reported change is such a conversion artifact, solve turns off conversion for those paths in
-the clone-local `.git/info/attributes`. Git then reports the clone as clean, and the run
-continues. The working-tree bytes stay as committed, nothing extra goes into the pull
-request, and the log tells the repository owner how to fix the repository.
-Real changes still stop the run, as before.
+A dirty clone no longer stops the run. By default (`--uncommitted-changes-after-clone warn-ai`)
+solve continues, and only the AI is told about it, in its regular user prompt. The notice gives
+the exact `git status` output and how to fix the cause, so the AI can fix the repository and the
+next clone is clean. The user is not distracted by it: the details are logged only with
+`--verbose`. Every other behavior is configurable (see [Policy](#policy-when-the-clone-is-dirty)).
+
+Solve also checks whether each "modified" file holds exactly the committed bytes. Those
+conversion artifacts get their conversion turned off in the clone-local `.git/info/attributes`,
+so Git stops reporting them. The working-tree bytes stay as committed, and the 189-line
+line-ending rewrite never reaches the pull request.
 
 ## Requirements from the issue
 
-| #   | Requirement                                                                                                              | Where it is handled                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Find the root cause of "uncommitted changes on clone".                                                                   | [Root cause](#root-cause), `raw/reproduction.log`, `experiments/issue-4063-dirty-clone-repro.sh`                                    |
-| R2  | Find a proper way to handle such situations.                                                                             | `src/checkout-normalization.lib.mjs`, `src/solve.repo-setup.lib.mjs`, [Solution](#solution)                                         |
-| R3  | Collect logs and data in `docs/case-studies/issue-4063`, reconstruct the timeline, list requirements, propose solutions. | This document and `raw/`                                                                                                            |
-| R4  | Search online for more facts and check existing components and libraries.                                                | [Online research](#online-research-and-existing-components)                                                                         |
-| R5  | If the data is not enough, add debug output and a verbose mode.                                                          | The new `--verbose` lines: per-path `git check-attr`, `git ls-files --eol`, git version, `core.autocrlf`/`core.eol`/`core.safecrlf` |
-| R6  | Report issues to other affected repositories, with a reproduction, a workaround and a fix suggestion.                    | Upstream report linked above                                                                                                        |
-| R7  | Apply the fix across the whole codebase.                                                                                 | [Codebase-wide review](#codebase-wide-review)                                                                                       |
-| R8  | Do everything in one pull request.                                                                                       | PR #4064                                                                                                                            |
+| #   | Requirement                                                                                                                | Where it is handled                                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Find the root cause of "uncommitted changes on clone".                                                                     | [Root cause](#root-cause), `raw/reproduction.log`, `experiments/issue-4063-dirty-clone-repro.sh`                                    |
+| R2  | Find a proper way to handle such situations.                                                                               | `src/checkout-normalization.lib.mjs`, `src/solve.repo-setup.lib.mjs`, [Solution](#solution)                                         |
+| R3  | Collect logs and data in `docs/case-studies/issue-4063`, reconstruct the timeline, list requirements, propose solutions.   | This document and `raw/`                                                                                                            |
+| R4  | Search online for more facts and check existing components and libraries.                                                  | [Online research](#online-research-and-existing-components)                                                                         |
+| R5  | If the data is not enough, add debug output and a verbose mode.                                                            | The new `--verbose` lines: per-path `git check-attr`, `git ls-files --eol`, git version, `core.autocrlf`/`core.eol`/`core.safecrlf` |
+| R6  | Report issues to other affected repositories, with a reproduction, a workaround and a fix suggestion.                      | Upstream report linked above                                                                                                        |
+| R7  | Apply the fix across the whole codebase.                                                                                   | [Codebase-wide review](#codebase-wide-review)                                                                                       |
+| R8  | Do everything in one pull request.                                                                                         | PR #4064                                                                                                                            |
+| R9  | PR feedback (2026-11-15): not an error by default; continue, warn only the AI in its regular prompt; keep it configurable. | [Policy](#policy-when-the-clone-is-dirty), `src/clone-status.lib.mjs`, `cloneStatusLines` in every tool's prompt builder            |
 
 ## Timeline (UTC)
 
@@ -53,6 +58,8 @@ Real changes still stop the run, as before.
 | 2026-11-14 12:05:23     | Failure handling: a development log is committed to the local `main`, which is not pushed. The "uncommitted" `mvnw.cmd` is saved as a recovery commit `211771cb`.                                                                                              |
 | 2026-11-14 12:05:24     | The failure comment is posted on issue #27. Its generic "What you can do" section does not mention line endings.                                                                                                                                               |
 | 2026-11-14 12:32:11     | Issue #4063 is opened.                                                                                                                                                                                                                                         |
+| 2026-11-14 16:23        | PR #4064 (first version) neutralizes artifacts and continues, but real changes are still fatal. Upstream issue #28 is reported.                                                                                                                                |
+| 2026-11-15 11:41:57     | PR feedback (`raw/pr-4064-feedback-2026-11-15.md`): Hive Mind is still unusable on the Java template, including on its issue #28. A dirty clone must not be an error by default; only the AI should be told, in its regular prompt.                            |
 
 Sources: `raw/solve-failure-comment.md` (the full solve log attached to the failure
 comment), `raw/solve-failure-comment-meta.json`, `raw/target-pr-25.json`,
@@ -149,8 +156,9 @@ templates. Only the Java template has an unnormalized CRLF blob under a `text` a
 
 ### Handling (`resolveCheckoutArtifacts`)
 
-- Solve continues only when _every_ reported entry is an artifact. One real change keeps
-  the old fatal path, and nothing is written.
+- Artifacts are neutralized whether or not real changes are present as well
+  (`--no-neutralize-checkout-conversion-artifacts` turns this off). Real changes are
+  left to the [policy](#policy-when-the-clone-is-dirty).
 - For each artifact path, `.git/info/attributes` (from `git rev-parse --git-path
 info/attributes`) gets `/<path> -text -eol -ident -filter -working-tree-encoding`
   (anchored, escaped, and quoted when needed) under a
@@ -159,11 +167,12 @@ info/attributes`) gets `/<path> -text -eol -ident -filter -working-tree-encoding
   `.git`, so it is never committed.
   This is the same clone-local technique as issue #2119 (`.git/info/exclude` for
   AI-tool scratch directories).
-- `git status` runs again. If anything is still reported, the attributes file is restored
-  and the run fails as before.
+- `git status` runs again. If a neutralized path is still reported, the attributes file
+  is restored and the path is treated as a real change.
 - The steps are idempotent, so a resumed session does not duplicate lines.
-- The log contains:
-  - a warning that lists the files;
+- The log contains (as warnings only with `warn-user`, `warn-ai-and-user` or `fail`;
+  otherwise only with `--verbose`):
+  - a line that lists the files;
   - in `--verbose` mode, the git version, `core.autocrlf`/`core.eol`/`core.safecrlf`, and
     the `check-attr` and `ls-files --eol` details for each path;
   - the command the repository owner can run:
@@ -178,11 +187,57 @@ What this gives the AI tool and the pull request:
   regression test. It keeps CRLF, like the committed file, and the diff shows only the
   real change.
 
-### Better failure output when real changes exist
+### Policy when the clone is dirty
 
-The error now names the first path, for example
-`Repository has uncommitted changes after clone ( M pom.xml)`. When artifacts and real
-changes are mixed, the log separates them, so the failure comment points at the cause.
+`handleUncommittedChangesAfterClone` (`src/clone-status.lib.mjs`) is called by
+`verifyDefaultBranchAndStatus` whenever `git status --porcelain` is not empty after the clone.
+
+| Option                                       | Values                                                       | Default   |
+| -------------------------------------------- | ------------------------------------------------------------ | --------- |
+| `--uncommitted-changes-after-clone`          | `warn-ai`, `warn-user`, `warn-ai-and-user`, `ignore`, `fail` | `warn-ai` |
+| `--neutralize-checkout-conversion-artifacts` | boolean (`--no-neutralize-checkout-conversion-artifacts`)    | `true`    |
+
+| Mode               | Run       | AI is told (user prompt) | User sees a warning        |
+| ------------------ | --------- | ------------------------ | -------------------------- |
+| `warn-ai`          | continues | yes                      | no (only with `--verbose`) |
+| `warn-user`        | continues | no                       | yes                        |
+| `warn-ai-and-user` | continues | yes                      | yes                        |
+| `ignore`           | continues | no                       | no (only with `--verbose`) |
+| `fail`             | stops     | —                        | yes, with the error        |
+
+In `fail` mode, artifacts that were neutralized do not count. The run stops only when
+something is still reported. The error names the first path, for example
+`Repository has uncommitted changes after clone (M pom.xml)`, and the log suggests the default.
+
+**How the AI is told.** `promptLines` from the handler are passed by `src/solve.mjs` to the
+tool as `cloneStatusLines`. Every tool's `buildUserPrompt` (claude, codex, opencode, agent,
+gemini, qwen; agent-commander passes its params through) appends them to the user prompt,
+for new and continued sessions alike. They never go into the system prompt. A separate
+parameter is needed because `feedbackLines` are included only in continue mode, so a first
+run would not see them. The notice text is in `locales/prompts/templates.en.lino`
+(`clone-status` → `buildCloneStatusFeedback`). From the real clone
+(`raw/after-feedback-real-clone.log`):
+
+```
+⚠️ UNCOMMITTED CHANGES RIGHT AFTER CLONE:
+The working tree already had uncommitted changes right after the repository was cloned, before any work started, so they are not your changes. This is the exact `git status --porcelain` output of the fresh clone:
+
+ M mvnw.cmd
+
+These files hold exactly the committed bytes. Git reports them as modified only because the committed content does not match the repository's own .gitattributes (…):
+- mvnw.cmd
+To keep that whole-file line-ending rewrite out of this pull request, content conversion is unset for these files in the clone-local `.git/info/attributes` (never committed), …
+If it fits this task, fix the repository so the next clone is clean: delete the lines for these files below `# hive-mind: … (issue #4063)` in `.git/info/attributes`, run `git add --renormalize -- <the files above>`, … commit it as a separate commit …
+```
+
+Real changes get their own block that asks the AI to commit or restore each of them before
+it finishes. On the Java template, the AI working on upstream issue #28 is therefore told
+exactly what to renormalize.
+
+**No repeated feedback.** `checkUncommittedChanges` (`src/solve.preparation.lib.mjs`) gets the
+after-clone status. When the status is unchanged, it does not report those files again as
+"uncommitted changes" restart feedback, so the AI is not asked twice about changes it did not
+make.
 
 ### Alternatives considered
 
@@ -192,23 +247,27 @@ changes are mixed, the log separates them, so the failure comment points at the 
 | Run `git add --renormalize` and commit it in the solve PR | It mixes an unrelated 189-line change into every PR for that repository and changes the repository's content without the owner deciding. It is still the right _upstream_ fix, so it is reported to the owner. |
 | `git config core.autocrlf` / `core.eol` in the clone      | These settings do not override an explicit `text eol=crlf` attribute, so they would not help.                                                                                                                  |
 | `git checkout -- <file>` / `git reset --hard`             | Git writes the same bytes back, and the entry is racily clean again, so the status stays dirty.                                                                                                                |
-| Ignore the dirty status (log a warning and continue)      | The tool would see a modified file and could commit the conversion, and real pre-existing changes would no longer be detected.                                                                                 |
-| A CLI flag such as `--allow-dirty-clone`                  | The situation can be detected exactly (equal blob hashes), so asking the user to choose is unnecessary. Real changes stay fatal.                                                                               |
+| Ignore the dirty status silently                          | Rejected at first, and still not the default: the AI would see a modified file without context and could commit the conversion. The PR feedback chose "continue and tell the AI"; `ignore` stays available.    |
+| Keep real changes fatal (first version of PR #4064)       | Hive Mind stayed unusable whenever a clone had a change that was not a pure artifact. The PR feedback made `warn-ai` the default; `fail` keeps the old behavior on request.                                    |
+| Tell the AI in the system prompt                          | The feedback asks for the regular prompt. The notice is about this clone, not about how the tool should behave, so it belongs in the user prompt.                                                              |
 
 ## Debug and verbose output (R5)
 
 The original log showed only ` M mvnw.cmd`. With `--verbose`, solve now logs the data
-needed to diagnose the problem without access to the clone, for example (from
-`raw/after-fix-real-clone.log`):
+needed to diagnose the problem without access to the clone. With the default `warn-ai`, all of
+it is verbose-only; `warn-user`, `warn-ai-and-user` and `fail` show the summary lines as
+warnings (`raw/mode-*.log`). From `raw/after-feedback-real-clone.log`:
 
 ```
 [VERBOSE] 🔍 Clone status: 1 path(s) reported as changed; 1 of them hold exactly the committed bytes (git content conversion artifacts)
-⚠️  The repository's committed content does not match its own .gitattributes for 1 file(s); …
-   M mvnw.cmd
+[VERBOSE] ⚠️  The repository's committed content does not match its own .gitattributes for 1 file(s); …
+[VERBOSE]    M mvnw.cmd
 [VERBOSE]    git version 2.43.0; core.autocrlf=(unset), core.eol=(unset), core.safecrlf=(unset)
 [VERBOSE]    • mvnw.cmd: attributes text eol=crlf; i/crlf w/crlf attr/text eol=crlf
-   Handled locally: … .git/info/attributes (never committed) …
-   Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"
+[VERBOSE]    Handled locally: … .git/info/attributes (never committed) …
+[VERBOSE]    Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"
+[VERBOSE] 🔍 Uncommitted changes after clone: 1 path(s); 1 neutralized; 0 remaining; --uncommitted-changes-after-clone warn-ai
+[VERBOSE]    The AI will be told about them in its prompt.
 ```
 
 ## Online research and existing components
@@ -246,12 +305,25 @@ The Java template issue (linked at the top) includes:
 - the suggested CI guard;
 - the hive-mind workaround from this PR.
 
+After the PR feedback, hive-mind no longer depends on the upstream fix: by default it works
+on the Java template, including on issue #28, and tells the AI how to renormalize.
+
 ## Codebase-wide review (R7)
 
 I checked every place where solve or hive-mind tests a fresh clone for cleanliness:
 
 - `src/solve.repo-setup.lib.mjs` `verifyDefaultBranchAndStatus`: the only
-  "after clone" check that throws. It now uses `resolveCheckoutArtifacts`.
+  "after clone" check that threw. It now calls `handleUncommittedChangesAfterClone` and
+  reports the result through `onCloneStatus`.
+- Prompt delivery: `cloneStatusLines` goes through all three tool call sites in
+  `src/solve.mjs` (`executeClaude`, the tool dispatch for codex/opencode/agent/gemini/qwen,
+  and agent-commander) to every `*.lib.mjs` executor and every `*.prompts.lib.mjs`
+  `buildUserPrompt`. No system prompt builder receives it.
+- Options: `src/solve.config.lib.mjs` (yargs, passed through by hive),
+  `src/option-suggestions.lib.mjs`, and the option tables in `docs/CONFIGURATION*.md` (all four
+  languages). The README option tables are curated subsets and list neither neighboring option.
+- `src/solve.preparation.lib.mjs` `checkUncommittedChanges`: skips the restart feedback when
+  the status is still exactly the after-clone status.
 - Later uncommitted-change checks (auto-commit, recovery commits, the
   "uncommitted changes" restart loop) run against the same clone. Once
   `.git/info/attributes` neutralizes the artifact there, they see the same clean state. So
@@ -263,20 +335,28 @@ I checked every place where solve or hive-mind tests a fresh clone for cleanline
 
 ## Verification
 
-- `node tests/test-checkout-normalization-4063.mjs` runs 8 tests. They cover:
+- `node tests/test-checkout-normalization-4063.mjs` runs 17 tests. They cover:
   - an offline repository built like the Java template;
-  - the artifact being neutralized while the bytes stay unchanged;
-  - idempotence;
-  - real edits being committed byte for byte;
-  - real changes and untracked files still being fatal;
+  - the artifact being neutralized while the bytes stay unchanged, also next to a real
+    change, and not neutralized with the option off;
+  - idempotence, and real edits being committed byte for byte;
   - `* text` repositories and paths with spaces and glob characters;
-  - `verifyDefaultBranchAndStatus` succeeding with only artifacts and rejecting when there
-    are real changes.
-
-  The test fails without the `solve.repo-setup.lib.mjs` change.
+  - the policy resolution and every mode: `warn-ai` logs nothing visible and puts the status,
+    the renormalize command and the real change in the prompt; `warn-user`,
+    `warn-ai-and-user` and `ignore` reach the right audience; `fail` stops on real changes,
+    not on neutralized artifacts alone;
+  - `verifyDefaultBranchAndStatus` continuing by default and stopping in `fail` mode;
+  - `checkUncommittedChanges` not repeating the after-clone status;
+  - all six tools putting the notice in the user prompt of new and continued sessions, and
+    never in the system prompt.
 
 - `experiments/issue-4063-dirty-clone-repro.sh` is an offline shell reproduction
   (`raw/offline-reproduction.log`).
+- `experiments/issue-4063-clone-status-prompt.mjs` runs the handler on that reproduction plus
+  a real `pom.xml` change, in each mode (`raw/mode-warn-ai.log`, `raw/mode-warn-user.log`,
+  `raw/mode-ignore.log`, `raw/mode-fail.log`).
 - `experiments/issue-4063-real-clone-check.mjs` was run against a real clone of `dd803a2`
-  (`raw/after-fix-real-clone.log`): `clean: true`, `neutralized: ["mvnw.cmd"]`,
-  status afterwards `[]`.
+  with the default policy (`raw/after-feedback-real-clone.log`): mode `warn-ai`,
+  `neutralized: ["mvnw.cmd"]`, nothing remaining, status afterwards empty, and the prompt
+  notice shown above. `raw/after-fix-real-clone.log` is the same check from the first
+  version of the PR.

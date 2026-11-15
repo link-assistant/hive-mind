@@ -345,7 +345,10 @@ export function selectSessionLog(entries) {
 export function draftFailureMessage({ logDir, status, fileSystem = { readdirSync, statSync, readFileSync } }) {
   let text = '';
   try {
-    const entries = fileSystem.readdirSync(logDir).map(name => ({ name, mtimeMs: fileSystem.statSync(join(logDir, name)).mtimeMs }));
+    const entries = fileSystem
+      .readdirSync(logDir)
+      .filter(name => name.endsWith('.log'))
+      .map(name => ({ name, mtimeMs: fileSystem.statSync(join(logDir, name)).mtimeMs }));
     const name = selectSessionLog(entries);
     if (name) text = fileSystem.readFileSync(join(logDir, name), 'utf8');
   } catch {

@@ -542,6 +542,16 @@ Current tool defaults in Hive Mind:
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
+Reply with `/solve` (or any alias, with options such as `/codex --think medium`)
+to a message that contains GitHub issue or pull request links to start them. A
+single link starts as usual. With several links, each valid link starts as its
+own task, as if the command was sent once per link: every start is a reply to
+the same command message, one at a time, with a random 10–15 second pause
+between two starts. Links that could not be started (invalid, not found,
+already running or queued, rejected by the queue) are listed in one summary
+after every valid link was started. A command can also list several links
+itself, for example `/solve <url-1> <url-2> --model opus`.
+
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
 > **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).

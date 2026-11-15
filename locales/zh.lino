@@ -591,7 +591,7 @@ zh
         example "示例：`/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
-        reply "也可以回复包含 GitHub 链接的消息：`/solve`"
+        reply "也可以回复包含 GitHub 链接的消息：`/solve`。若包含多个 issue/PR 链接，每个链接都会作为单独的任务启动。"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
         queue "`/queue` - 显示 solve 队列状态"
       locked

@@ -591,7 +591,7 @@ en
         example "Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
-        reply "Or reply to a message with a GitHub link: `/solve`"
+        reply "Or reply to a message with a GitHub link: `/solve`. With several issue/PR links, each one starts as its own task."
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
         queue "`/queue` - Show solve queue status"
       locked

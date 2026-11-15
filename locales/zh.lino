@@ -437,6 +437,9 @@ zh
         """
         chat
           stopped "在启动此链接之前聊天已被停止"
+        repository "链接列表中的仓库链接不会启动；如需处理整个仓库，请单独发送 `/solve <repository-url>`"
+        launch
+          failed "启动失败：{{error}}"
       invalid
         url
           help """

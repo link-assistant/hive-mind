@@ -154,6 +154,23 @@ export function summarizeRejection(text) {
 }
 
 /**
+ * The summary reason for a GitHub link that is not an issue or pull request link.
+ * A repository link is a valid /solve target on its own (#2212), but it solves a
+ * whole repository, so it is never started from a list of links.
+ *
+ * @param {string} link
+ * @param {Object} params
+ * @param {Function} params.parseGitHubUrl
+ * @param {(link: string) => { error?: string }} params.validateUrl - Markdown error for a link /solve cannot use
+ * @param {string|null} [params.locale]
+ */
+export function describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl, locale = null }) {
+  const parsed = parseGitHubUrl(link);
+  if (parsed.valid && parsed.type === 'repo') return t('telegram.solve_batch_repository', {}, { locale });
+  return summarizeRejection(validateUrl(link)?.error);
+}
+
+/**
  * Build the summary of links that were not started (Markdown).
  *
  * @param {Object} params
@@ -202,7 +219,15 @@ export async function runSolveBatch({ urls, invalidLinks = [], optionArgs, launc
       return { started: false };
     };
     log(`[solve batch] ${index + 1}/${urls.length}: ${url}`);
-    const result = await launch([url, ...optionArgs], reject);
+    let result;
+    try {
+      result = await launch([url, ...optionArgs], reject);
+    } catch (error) {
+      // One broken link must not cost the links after it.
+      log(`[solve batch] ${url} failed: ${error?.stack || error}`);
+      rejection = { scope: SOLVE_REJECT_SCOPE.TARGET, summary: t('telegram.solve_batch_launch_failed', { error: escapeMarkdown(String(error?.message || error)) }, { locale }) };
+      result = { started: false };
+    }
     if (rejection?.scope === SOLVE_REJECT_SCOPE.OPTIONS) {
       // Every link would fail the same way: answer once and start nothing more.
       optionsError = rejection.text;

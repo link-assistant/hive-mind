@@ -196,7 +196,7 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
-const { planSolveTargets, runSolveBatch, summarizeRejection, SOLVE_REJECT_SCOPE } = await import('./telegram-solve-batch.lib.mjs'); // #4067
+const { describeInvalidBatchLink, planSolveTargets, runSolveBatch, SOLVE_REJECT_SCOPE } = await import('./telegram-solve-batch.lib.mjs'); // #4067
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
@@ -564,7 +564,7 @@ async function handleSolveCommand(ctx) {
     locale: solveLocale,
     launch: (args, reject) => launchSolveTarget(ctx, args, { ...launchOptions, reject }),
     reply: text => safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id }),
-    validateLink: link => summarizeRejection(validateTelegramGitHubUrl(link, { locale: solveLocale }).error),
+    validateLink: link => describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl: url => validateTelegramGitHubUrl(url, { locale: solveLocale }), locale: solveLocale }),
     isStopped: () => isChatStopped(chatId),
     log: line => VERBOSE && console.log(`[VERBOSE] ${line}`),
   });

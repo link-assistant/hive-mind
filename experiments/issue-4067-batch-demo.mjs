@@ -13,7 +13,7 @@ import { initI18n } from '../src/i18n.lib.mjs';
 import { mentionsGitHubHost } from '../src/telegram-message-filters.lib.mjs';
 import { cleanNonPrintableChars } from '../src/telegram-markdown.lib.mjs';
 import { parseCommandArgs } from '../src/telegram-solve-command.lib.mjs';
-import { pickSolveBatchDelayMs, planSolveTargets, runSolveBatch, summarizeRejection } from '../src/telegram-solve-batch.lib.mjs';
+import { describeInvalidBatchLink, pickSolveBatchDelayMs, planSolveTargets, runSolveBatch } from '../src/telegram-solve-batch.lib.mjs';
 import { validateTelegramGitHubUrl } from '../src/telegram-url-validation.lib.mjs';
 
 await initI18n('en');
@@ -66,7 +66,7 @@ const result = await runSolveBatch({
     return { started: true };
   },
   reply: async text => console.log(`${stamp()} reply:\n${text}`),
-  validateLink: link => summarizeRejection(validateTelegramGitHubUrl(link).error),
+  validateLink: link => describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl: url => validateTelegramGitHubUrl(url) }),
   pickDelayMs: () => Math.round(pickSolveBatchDelayMs() / 1000),
   // The bot's default sleep does not hold the process open (its polling does); this script has no polling.
   sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),

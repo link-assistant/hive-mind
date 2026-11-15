@@ -437,6 +437,9 @@ hi
         """
         chat
           stopped "यह link शुरू होने से पहले chat रोक दी गई"
+        repository "links की सूची से repository links शुरू नहीं होते; पूरी repository हल करने के लिए `/solve <repository-url>` अलग से भेजें"
+        launch
+          failed "शुरू करना विफल रहा: {{error}}"
       invalid
         url
           help """

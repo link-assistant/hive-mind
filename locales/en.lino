@@ -437,6 +437,9 @@ en
         """
         chat
           stopped "the chat was stopped before this link was started"
+        repository "repository links are not started from a list of links; send `/solve <repository-url>` alone to solve a whole repository"
+        launch
+          failed "the start failed: {{error}}"
       invalid
         url
           help """

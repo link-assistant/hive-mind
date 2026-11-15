@@ -184,6 +184,16 @@ on the link (malformed flags, invalid or locked isolation, model or branch
 errors, unknown options) as `SOLVE_REJECT_SCOPE.OPTIONS`. The batch answers
 that error once and stops.
 
+**Repository links in a list.** `/solve <repository-url>` is a valid command
+on its own (#2212): it solves every open issue of the repository. A repository
+link in a list of issue links is far more likely context than a request for a
+repository-wide run, so it is not started. The summary says why and how to
+start it on purpose (`describeInvalidBatchLink()`).
+
+**Unexpected errors.** An exception in one link's launch (for example a
+GitHub API failure) is caught by `runSolveBatch()`. That link is listed as
+"the start failed: …", and the next links still start.
+
 **D3: `/stop`.** `isChatStopped(chatId)` is checked before each link. A
 batch takes up to ~6 minutes for 25 links, and `/stop` during it must work.
 
@@ -205,7 +215,8 @@ count as links, so option values are never taken for links.
   runs the old single-link path or the batch. The single-link pipeline moved
   into `launchSolveTarget()`, with an optional `reject` callback.
 - `locales/*.lino`: `telegram.solve_batch_summary`,
-  `telegram.solve_batch_chat_stopped`, and an updated `/help` line about
+  `telegram.solve_batch_chat_stopped`, `telegram.solve_batch_repository`,
+  `telegram.solve_batch_launch_failed`, and an updated `/help` line about
   replies, in en, ru, zh and hi.
 - README: the `/solve` section explains multi-link replies.
 - Tests: `tests/telegram-solve-batch-4067.test.mjs` covers:
@@ -214,12 +225,12 @@ count as links, so option values are never taken for links.
   - deduplication, invalid links, captions and hidden links;
   - delay bounds and the event order (pauses only between starts, summary
     last);
-  - an options error answered once, `/stop` mid-batch, and the translated
-    summary.
+  - an options error answered once, `/stop` mid-batch, a throwing launch,
+    the repository-link reason, and the translated summary.
 
 ## 7. Verification
 
-- `node --test tests/telegram-solve-batch-4067.test.mjs`: 14/14 pass.
+- `node --test tests/telegram-solve-batch-4067.test.mjs`: 16/16 pass.
 - Existing related tests still pass: `tests/test-solve-reply-with-options.mjs`,
   `tests/test-telegram-url-extraction.mjs`, `tests/test-i18n.mjs` (locale key
   parity), `tests/test-telegram-ui-i18n.mjs`.

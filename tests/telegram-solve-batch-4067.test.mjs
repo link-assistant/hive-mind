@@ -14,7 +14,7 @@ import { initI18n } from '../src/i18n.lib.mjs';
 import { mentionsGitHubHost } from '../src/telegram-message-filters.lib.mjs';
 import { cleanNonPrintableChars } from '../src/telegram-markdown.lib.mjs';
 import { parseCommandArgs } from '../src/telegram-solve-command.lib.mjs';
-import { extractGitHubTargetLinks, getReplyLinkText, pickSolveBatchDelayMs, planSolveTargets, runSolveBatch, SOLVE_BATCH_DELAY_MAX_MS, SOLVE_BATCH_DELAY_MIN_MS, SOLVE_REJECT_SCOPE, summarizeRejection } from '../src/telegram-solve-batch.lib.mjs';
+import { describeInvalidBatchLink, extractGitHubTargetLinks, getReplyLinkText, pickSolveBatchDelayMs, planSolveTargets, runSolveBatch, SOLVE_BATCH_DELAY_MAX_MS, SOLVE_BATCH_DELAY_MIN_MS, SOLVE_REJECT_SCOPE, summarizeRejection } from '../src/telegram-solve-batch.lib.mjs';
 import { validateTelegramGitHubUrl } from '../src/telegram-url-validation.lib.mjs';
 
 await initI18n('en');
@@ -126,7 +126,7 @@ function createHarness({ failing = {}, optionsError = null } = {}) {
     launch,
     reply: async text => events.push({ type: 'reply', text }),
     sleep: async ms => events.push({ type: 'sleep', ms }),
-    validateLink: link => summarizeRejection(validateTelegramGitHubUrl(link).error),
+    validateLink: link => describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl: url => validateTelegramGitHubUrl(url) }),
   };
 }
 
@@ -143,7 +143,7 @@ test('valid links start one by one with a pause, the invalid ones are summarized
   assert.deepEqual(harness.events[0].args, ['https://github.com/o/r/issues/1', '--think', 'medium']);
   const summary = harness.events.at(-1).text;
   assert.ok(summary.includes('1. https://github.com/o/r/issues/2 — Issue #2 not found'), summary);
-  assert.ok(summary.includes('2. https://github.com/o/r — '), summary);
+  assert.ok(summary.includes('2. https://github.com/o/r — repository links are not started from a list of links'), summary);
   assert.doesNotMatch(summary, /Location details/);
   assert.equal(result.summary, summary);
 });
@@ -183,6 +183,26 @@ test('a chat stopped during the batch leaves the rest unstarted, listed in the s
     ['https://github.com/o/r/issues/2', 'https://github.com/o/r/issues/3']
   );
   assert.match(result.summary, /the chat was stopped before this link was started/);
+});
+
+test('a link whose launch throws is listed in the summary, and the next link still starts', async () => {
+  const harness = createHarness();
+  const launch = async (args, reject) => {
+    if (args[0].endsWith('/1')) throw new Error('GitHub API is down');
+    return harness.launch(args, reject);
+  };
+  const result = await runSolveBatch({ urls: ['https://github.com/o/r/issues/1', 'https://github.com/o/r/issues/2'], optionArgs: [], ...harness, launch });
+  assert.deepEqual(result.started, ['https://github.com/o/r/issues/2']);
+  assert.ok(result.summary.includes('1. https://github.com/o/r/issues/1 — the start failed: GitHub API is down'), result.summary);
+});
+
+test('summary reasons for links that are not issue or pull request links', () => {
+  const validateUrl = url => validateTelegramGitHubUrl(url);
+  assert.match(describeInvalidBatchLink('https://github.com/o/r', { parseGitHubUrl, validateUrl }), /send `\/solve <repository-url>` alone/);
+  const reason = describeInvalidBatchLink('https://github.com/o/r/issues/abc', { parseGitHubUrl, validateUrl });
+  assert.ok(reason.length > 1 && !reason.startsWith('❌'), reason);
+  assert.equal(summarizeRejection('❌ Bad link\n\n📍 Location'), 'Bad link');
+  assert.equal(summarizeRejection(''), '—');
 });
 
 test('the summary is translated', async () => {

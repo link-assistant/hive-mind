@@ -1,0 +1,12 @@
+diff --git a/csharp/global.json b/csharp/global.json
+index 9e9a6858..e9d3f80e 100644
+--- a/csharp/global.json
++++ b/csharp/global.json
+@@ -1,6 +1,6 @@
+ {
+   "sdk": {
+-    "version": "10.0.402",
++    "version": "11.0.100",
+     "rollForward": "latestFeature"
+   },
+   "test": {

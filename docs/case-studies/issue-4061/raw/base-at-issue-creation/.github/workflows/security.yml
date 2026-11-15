@@ -1,0 +1,172 @@
+name: security
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: 'Print extra diagnostics (never secret values)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-security-${{ github.ref }}-codeql-${{ matrix.language }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # `actions` covers the workflows themselves. CodeQL has no PHP
+        # extractor, so php/ is covered by PHPStan in php.yml instead.
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: csharp
+            build-mode: none
+          - language: java-kotlin
+            build-mode: none
+          - language: rust
+            build-mode: none
+          # The Go extractor needs a real build; autobuild finds go/go.mod.
+          - language: go
+            build-mode: autobuild
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4.39.3
+        with:
+          category: /language:${{ matrix.language }}
+
+  dependencyReview:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-security-${{ github.ref }}-dependency-review
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-security-${{ github.ref }}-secrets
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          # A secret is only removed once it is out of the history, so the
+          # scan needs the whole history, not just the tip.
+          fetch-depth: 0
+      - name: Scan the repository for verified secrets
+        uses: trufflesecurity/trufflehog@v3.99.9
+        with:
+          path: ./
+          # The action ref pins the wrapper; this pins the scanner itself,
+          # which otherwise resolves to the `latest` image on every run.
+          version: 3.99.9
+          # --results=verified only reports credentials that the issuing
+          # service confirmed are live, which is what makes this safe to fail
+          # the build on. Do not add --no-update here: the action already
+          # passes it, and trufflehog rejects a repeated flag outright
+          # ("flag 'no-update' cannot be repeated"), which is how the first
+          # run of this job failed.
+          extra_args: --results=verified
+
+  npmAudit:
+    name: Audit npm lock (${{ matrix.directory }})
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-security-${{ github.ref }}-npm-audit-${{ matrix.directory }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every directory with a committed lockfile. Missing one means its
+        # dependencies are never audited.
+        directory:
+          - js
+          - docs/website
+          - docs/comparison
+          - benchmarks/js
+          - benchmarks/tools
+          - dev/log/issues/330/pulls/331/templates/js
+          - dev/log/issues/377/pulls/378/templates/js
+          - dev/log/issues/377/pulls/378/templates/csharp
+          - dev/log/issues/377/pulls/378/templates/js/.github/actions/artifact-transport
+          - dev/log/issues/377/pulls/378/templates/python/.github/actions/artifact
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+      # moderate, not high: the minimatch (GHSA-g3hv-75wg-m249) and glob
+      # (GHSA-3g3m-2fjr-6pw4) advisories are moderate, and at high they stayed
+      # open Dependabot alerts that no run reported (issue #377).
+      - name: Audit the committed lockfile
+        working-directory: ${{ matrix.directory }}
+        run: npm audit --package-lock-only --audit-level=moderate
+
+  # The Kotlin/JS plugin's yarn.lock has no package.json beside it, so neither
+  # npm audit nor Dependabot's security updates can read it (issue #377).
+  yarnAudit:
+    name: Audit Kotlin/JS yarn lock
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    concurrency:
+      group: ci-security-${{ github.ref }}-yarn-audit
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.1'
+      - name: Test the yarn lock audit
+        run: node --test experiments/issue-377/audit-yarn-lock.test.mjs
+      - name: Audit the committed lockfile
+        run: node scripts/ci/audit-yarn-lock.mjs kotlin/kotlin-js-store/yarn.lock --audit-level=moderate

@@ -573,6 +573,7 @@ Examples:
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
 /fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
@@ -593,7 +594,7 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
 विवरण के लिए
 [स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
-देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है। conflict वाले pull requests बंद किए जाते हैं यदि default branch में उनके अपडेट पहले से हैं, अन्यथा `@dependabot recreate` से दोबारा बनाकर merge किए जाते हैं ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)); `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
+देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है। जिस pull request के अपडेट default branch में पहले से हैं, उसे superseded के रूप में बंद किया जाता है, चाहे उसमें conflict हो या नहीं ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863), [issue #4061](https://github.com/link-assistant/hive-mind/issues/4061))। बाकी conflict वाले pull requests `@dependabot recreate` से दोबारा बनाए जाते हैं; जिसे पीछे होने के कारण कोई ruleset रोकता है, उसे `@dependabot rebase` से rebase किया जाता है; दोनों required checks पास होने पर merge किए जाते हैं। `--dependabot-wait-timeout <मिनट>` (डिफ़ॉल्ट 30, `0` = प्रतीक्षा नहीं) इस प्रतीक्षा को सीमित करता है, और `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
 हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
 
 यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` और

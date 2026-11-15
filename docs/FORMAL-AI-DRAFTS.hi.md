@@ -107,7 +107,7 @@ jobs:
 ## विफल ड्राफ़्ट कैसे पढ़ें
 
 1. सत्र लॉग `--attach-logs` द्वारा pull request से जुड़ा होता है।
-2. यदि कोई pull request नहीं खुला, तो वही लॉग वर्कफ़्लो रन पर `formal-ai-draft-session-<issue>` आर्टिफ़ैक्ट के रूप में मिलता है, जो 30 दिन रखा जाता है। रन के annotations सत्र द्वारा दर्ज पहली त्रुटि का नाम बताते हैं।
+2. यदि कोई pull request नहीं खुला, तो वही लॉग वर्कफ़्लो रन पर `formal-ai-draft-session-<issue>` आर्टिफ़ैक्ट के रूप में मिलता है, जो 30 दिन रखा जाता है। रन के annotations सत्र द्वारा दर्ज पहली त्रुटि का नाम बताते हैं। वे solve के अपने `solve-*.log` से पढ़े जाते हैं, इसलिए कॉलर द्वारा उसी डायरेक्टरी में लिखी गई कोई दूसरी `*.log` फ़ाइल उन्हें नहीं छिपाती ([#4065](https://github.com/link-assistant/hive-mind/issues/4065))।
 3. ब्रांच पर `dev/log/self-authored/issue-<n>/evidence` में `agent-stream.jsonl` और `session-id.txt` होते हैं — यह मॉडल का अपना रिकॉर्ड है कि उसने क्या किया, Hive Mind का उसका सारांश नहीं।
 
 ## जब formal-ai अपना composite action प्रकाशित करे

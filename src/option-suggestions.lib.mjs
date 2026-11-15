@@ -198,6 +198,8 @@ const KNOWN_OPTION_NAMES = [
   'session-kill-resume-attempts',
   'session-kill-resume-delay',
   'auto-pull-request-creation',
+  'uncommitted-changes-after-clone',
+  'neutralize-checkout-conversion-artifacts',
   'auto-commit-uncommitted-changes',
   'auto-restart-on-uncommitted-changes',
   'auto-resume-on-uncommitted-changes',

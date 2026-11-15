@@ -15,8 +15,10 @@
  * (docs/case-studies/issue-4063/raw/solve-failure-comment.md)
  *
  * These tests build that repository state offline, clone it, and check that the
- * conversion artifact is neutralized locally while real changes still stop
- * the run.
+ * conversion artifact is neutralized locally, and that a dirty clone follows
+ * --uncommitted-changes-after-clone: by default (warn-ai) the run continues and
+ * only the AI is told, in its user prompt (PR #4064 feedback); `fail` restores
+ * the old hard stop.
  *
  * @hive-mind-test-suite default
  */
@@ -28,6 +30,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { CHECKOUT_NORMALIZATION_HEADER, classifyStatusEntries, parsePorcelainZ, resolveCheckoutArtifacts, toAttributesPattern } from '../src/checkout-normalization.lib.mjs';
+import { DEFAULT_UNCOMMITTED_CHANGES_AFTER_CLONE_MODE, UNCOMMITTED_CHANGES_AFTER_CLONE_MODES, buildCloneStatusFeedback, handleUncommittedChangesAfterClone, resolveCloneStatusPolicy } from '../src/clone-status.lib.mjs';
+import { checkUncommittedChanges } from '../src/solve.preparation.lib.mjs';
 import { verifyDefaultBranchAndStatus } from '../src/solve.repo-setup.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
@@ -47,10 +51,14 @@ const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8',
 const status = cwd => git(cwd, 'status', '--porcelain');
 const collectLog = () => {
   const lines = [];
-  const log = async message => {
+  const entries = [];
+  const log = async (message, options = {}) => {
     lines.push(String(message));
+    entries.push({ message: String(message), options });
   };
-  return { lines, log };
+  // What a user sees without --verbose (log() drops verbose lines then).
+  const visible = () => entries.filter(entry => !entry.options?.verbose).map(entry => entry.message);
+  return { lines, entries, log, visible };
 };
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-4063-'));
@@ -147,17 +155,37 @@ try {
     assert.equal(git(clone, 'cat-file', '-p', ':mvnw.cmd'), '@echo off\r\necho changed\r\n', 'the edit is committed byte for byte, without a whole-file rewrite');
   });
 
-  await test('a real change after clone still stops the run', async () => {
+  await test('artifacts are neutralized next to a real change, which is left to the caller', async () => {
     const clone = cloneOf(javaOrigin, 'java-real-change');
     await writeFile(path.join(clone, 'pom.xml'), '<project>changed</project>\n');
     const result = await resolveCheckoutArtifacts({ cwd: clone });
     assert.equal(result.clean, false);
-    assert.deepEqual(result.changes.map(entry => entry.path).sort(), ['pom.xml']);
+    assert.deepEqual(
+      result.changes.map(entry => entry.path),
+      ['pom.xml']
+    );
+    assert.deepEqual(result.neutralized, ['mvnw.cmd']);
+    assert.equal(status(clone), ' M pom.xml\n', 'only the real change is left in git status');
+    assert.ok((await readFile(path.join(clone, '.git', 'info', 'attributes'), 'utf8')).includes('/mvnw.cmd -text'));
+  });
+
+  await test('--no-neutralize-checkout-conversion-artifacts leaves .git/info/attributes alone', async () => {
+    const clone = cloneOf(javaOrigin, 'java-no-neutralize');
+    await writeFile(path.join(clone, 'pom.xml'), '<project>changed</project>\n');
+    const result = await resolveCheckoutArtifacts({ cwd: clone, neutralize: false });
+    assert.equal(result.clean, false);
+    assert.deepEqual(result.neutralized, []);
+    assert.deepEqual(
+      result.changes.map(entry => entry.path),
+      ['pom.xml'],
+      'changes are the real changes only'
+    );
     assert.deepEqual(
       result.artifacts.map(entry => entry.path),
       ['mvnw.cmd']
     );
-    await assert.rejects(readFile(path.join(clone, '.git', 'info', 'attributes'), 'utf8'), /ENOENT/, 'nothing is neutralized when real changes exist');
+    await assert.rejects(readFile(path.join(clone, '.git', 'info', 'attributes'), 'utf8'), /ENOENT/);
+    assert.equal(status(clone), ' M mvnw.cmd\n M pom.xml\n');
   });
 
   await test('an untracked file is never treated as an artifact', async () => {
@@ -182,23 +210,167 @@ try {
     assert.equal(status(clone), '');
   });
 
-  await test('verifyDefaultBranchAndStatus continues on the reproduction and still fails on real changes', async () => {
+  await test('resolveCloneStatusPolicy: warn-ai by default, every mode configurable', async () => {
+    assert.equal(DEFAULT_UNCOMMITTED_CHANGES_AFTER_CLONE_MODE, 'warn-ai');
+    assert.deepEqual(UNCOMMITTED_CHANGES_AFTER_CLONE_MODES, ['warn-ai', 'warn-user', 'warn-ai-and-user', 'ignore', 'fail']);
+    const pick = argv => {
+      const { mode, notifyAi, notifyUser, fail, neutralize } = resolveCloneStatusPolicy(argv);
+      return { mode, notifyAi, notifyUser, fail, neutralize };
+    };
+    assert.deepEqual(pick(undefined), { mode: 'warn-ai', notifyAi: true, notifyUser: false, fail: false, neutralize: true });
+    assert.deepEqual(pick({ uncommittedChangesAfterClone: 'bogus' }), pick({}), 'unknown values fall back to the default');
+    assert.deepEqual(pick({ uncommittedChangesAfterClone: 'warn-user' }), { mode: 'warn-user', notifyAi: false, notifyUser: true, fail: false, neutralize: true });
+    assert.deepEqual(pick({ 'uncommitted-changes-after-clone': 'warn-ai-and-user' }), { mode: 'warn-ai-and-user', notifyAi: true, notifyUser: true, fail: false, neutralize: true });
+    assert.deepEqual(pick({ uncommittedChangesAfterClone: 'ignore' }), { mode: 'ignore', notifyAi: false, notifyUser: false, fail: false, neutralize: true });
+    assert.deepEqual(pick({ uncommittedChangesAfterClone: 'fail' }), { mode: 'fail', notifyAi: false, notifyUser: true, fail: true, neutralize: true });
+    assert.equal(pick({ neutralizeCheckoutConversionArtifacts: false }).neutralize, false);
+    assert.equal(pick({ 'neutralize-checkout-conversion-artifacts': false }).neutralize, false);
+  });
+
+  const dirtyClone = async name => {
+    const clone = cloneOf(javaOrigin, name);
+    await writeFile(path.join(clone, 'pom.xml'), '<project>changed</project>\n');
+    return { clone, statusOutput: status(clone).replace(/\s+$/, '') };
+  };
+
+  await test('default (warn-ai): the run continues, only the AI is told, the user sees nothing', async () => {
+    const { clone, statusOutput } = await dirtyClone('mode-warn-ai');
+    const { log, visible, lines } = collectLog();
+    const result = await handleUncommittedChangesAfterClone({ cwd: clone, argv: {}, log, statusOutput });
+    assert.equal(result.mode, 'warn-ai');
+    assert.deepEqual(visible(), [], 'nothing is logged for the user without --verbose');
+    assert.ok(
+      lines.some(line => line.includes('--uncommitted-changes-after-clone warn-ai')),
+      '--verbose explains the decision'
+    );
+    assert.deepEqual(result.neutralized, ['mvnw.cmd']);
+    assert.deepEqual(result.changes, [' M pom.xml']);
+    const prompt = result.promptLines.join('\n');
+    assert.match(prompt, /UNCOMMITTED CHANGES RIGHT AFTER CLONE/);
+    assert.match(prompt, / M mvnw\.cmd/, 'the exact clone status is quoted');
+    assert.match(prompt, /- mvnw\.cmd/);
+    assert.match(prompt, /git add --renormalize/, 'the AI is told how to fix the repository');
+    assert.ok(prompt.includes(CHECKOUT_NORMALIZATION_HEADER), 'the AI is told which override lines to delete first');
+    assert.match(prompt, /\.git\/info\/attributes/);
+    assert.match(prompt, /These changes are still in the working tree:[\s\S]* M pom\.xml/);
+    assert.doesNotMatch(prompt, /\{\{|\}\}/, 'every template variable is filled in');
+  });
+
+  await test('warn-user, warn-ai-and-user and ignore all continue with the right audience', async () => {
+    const userOnly = await dirtyClone('mode-warn-user');
+    const userLog = collectLog();
+    const asUser = await handleUncommittedChangesAfterClone({ cwd: userOnly.clone, argv: { uncommittedChangesAfterClone: 'warn-user' }, log: userLog.log, statusOutput: userOnly.statusOutput });
+    assert.deepEqual(asUser.promptLines, []);
+    assert.ok(userLog.visible().some(line => line.includes('Repository has uncommitted changes after clone; continuing')));
+    assert.ok(userLog.visible().some(line => line.includes('pom.xml')));
+    assert.ok(
+      userLog.visible().some(line => line.includes('git add --renormalize')),
+      'the owner fix is shown to the user'
+    );
+
+    const both = await dirtyClone('mode-warn-both');
+    const bothLog = collectLog();
+    const asBoth = await handleUncommittedChangesAfterClone({ cwd: both.clone, argv: { uncommittedChangesAfterClone: 'warn-ai-and-user' }, log: bothLog.log, statusOutput: both.statusOutput });
+    assert.ok(asBoth.promptLines.length > 0);
+    assert.ok(bothLog.visible().some(line => line.includes('continuing')));
+
+    const quiet = await dirtyClone('mode-ignore');
+    const quietLog = collectLog();
+    const ignored = await handleUncommittedChangesAfterClone({ cwd: quiet.clone, argv: { uncommittedChangesAfterClone: 'ignore' }, log: quietLog.log, statusOutput: quiet.statusOutput });
+    assert.deepEqual(ignored.promptLines, []);
+    assert.deepEqual(quietLog.visible(), []);
+    assert.deepEqual(ignored.neutralized, ['mvnw.cmd'], 'artifacts are kept out of the pull request in every mode');
+  });
+
+  await test('fail stops on real changes but not on neutralized artifacts', async () => {
+    const { clone, statusOutput } = await dirtyClone('mode-fail');
+    const failure = collectLog();
+    await assert.rejects(handleUncommittedChangesAfterClone({ cwd: clone, argv: { uncommittedChangesAfterClone: 'fail' }, log: failure.log, statusOutput }), /Repository has uncommitted changes after clone \( ?M pom\.xml\)/);
+    assert.ok(
+      failure.visible().some(line => line.includes('--uncommitted-changes-after-clone warn-ai')),
+      'the error names the option that continues'
+    );
+
+    const artifactsOnly = cloneOf(javaOrigin, 'mode-fail-artifacts');
+    const artifactsLog = collectLog();
+    const result = await handleUncommittedChangesAfterClone({ cwd: artifactsOnly, argv: { uncommittedChangesAfterClone: 'fail' }, log: artifactsLog.log, statusOutput: status(artifactsOnly).trimEnd() });
+    assert.deepEqual(result.remaining, []);
+    assert.equal(status(artifactsOnly), '');
+
+    const unneutralized = cloneOf(javaOrigin, 'mode-fail-no-neutralize');
+    const unneutralizedLog = collectLog();
+    await assert.rejects(handleUncommittedChangesAfterClone({ cwd: unneutralized, argv: { uncommittedChangesAfterClone: 'fail', neutralizeCheckoutConversionArtifacts: false }, log: unneutralizedLog.log, statusOutput: status(unneutralized).trimEnd() }), /after clone \(M mvnw\.cmd\)/);
+    assert.ok(
+      unneutralizedLog.visible().some(line => line.includes('hold exactly the committed bytes')),
+      'the failure separates artifacts from real changes'
+    );
+  });
+
+  await test('without neutralization the AI is told that git checkout cannot clear the artifacts', async () => {
+    const clone = cloneOf(javaOrigin, 'warn-ai-no-neutralize');
+    const { log } = collectLog();
+    const result = await handleUncommittedChangesAfterClone({ cwd: clone, argv: { neutralizeCheckoutConversionArtifacts: false }, log, statusOutput: status(clone).trimEnd() });
+    assert.deepEqual(result.remaining, [' M mvnw.cmd']);
+    const prompt = result.promptLines.join('\n');
+    assert.match(prompt, /- mvnw\.cmd/);
+    assert.match(prompt, /do not stage or commit these files/);
+    assert.doesNotMatch(prompt, /clone-local/, 'no override was written, so none is described');
+  });
+
+  await test('buildCloneStatusFeedback limits long lists', async () => {
+    const many = Array.from({ length: 25 }, (_, index) => `f${index}.cmd`);
+    const lines = buildCloneStatusFeedback({ statusLines: many.map(file => ` M ${file}`), neutralized: many });
+    assert.ok(lines.includes('… and 5 more'));
+    assert.ok(!lines.some(line => line.includes('f24.cmd')));
+  });
+
+  await test('verifyDefaultBranchAndStatus continues by default and reports the clone status; fail mode stops', async () => {
     const formatAligned = (icon, label, value) => `${icon} ${label} ${value}`;
     const clone = cloneOf(javaOrigin, 'java-verify');
     const { log } = collectLog();
-    assert.equal(await verifyDefaultBranchAndStatus({ tempDir: clone, log, formatAligned, $, argv: {}, owner: 'o', repo: 'r', issueUrl: null }), 'main');
+    let reported = null;
+    assert.equal(await verifyDefaultBranchAndStatus({ tempDir: clone, log, formatAligned, $, argv: {}, owner: 'o', repo: 'r', issueUrl: null, onCloneStatus: result => (reported = result) }), 'main');
+    assert.equal(reported.statusOutput, '', 'only artifacts: the clone is clean afterwards');
+    assert.ok(reported.promptLines.length > 0, 'the AI is still told so it can fix the repository');
 
-    const dirty = cloneOf(javaOrigin, 'java-verify-dirty');
-    await writeFile(path.join(dirty, 'pom.xml'), '<project>changed</project>\n');
+    const dirty = await dirtyClone('java-verify-dirty');
+    const dirtyLog = collectLog();
+    let dirtyReport = null;
+    assert.equal(await verifyDefaultBranchAndStatus({ tempDir: dirty.clone, log: dirtyLog.log, formatAligned, $, argv: {}, owner: 'o', repo: 'r', issueUrl: null, onCloneStatus: result => (dirtyReport = result) }), 'main');
+    assert.equal(dirtyReport.statusOutput, 'M pom.xml');
+    assert.ok(!dirtyLog.visible().some(line => line.includes('uncommitted')), 'the user is not distracted by default');
+
+    const strict = await dirtyClone('java-verify-strict');
     const failure = collectLog();
-    await assert.rejects(verifyDefaultBranchAndStatus({ tempDir: dirty, log: failure.log, formatAligned, $, argv: {}, owner: 'o', repo: 'r', issueUrl: null }), /Repository has uncommitted changes after clone \( ?M pom\.xml\)/);
-    assert.ok(
-      failure.lines.some(line => line.includes('hold exactly the committed bytes')),
-      'the failure separates artifacts from real changes'
-    );
+    await assert.rejects(verifyDefaultBranchAndStatus({ tempDir: strict.clone, log: failure.log, formatAligned, $, argv: { uncommittedChangesAfterClone: 'fail' }, owner: 'o', repo: 'r', issueUrl: null }), /Repository has uncommitted changes after clone \( ?M pom\.xml\)/);
+  });
+
+  await test('checkUncommittedChanges does not repeat the after-clone status as restart feedback', async () => {
+    const { clone } = await dirtyClone('java-check-uncommitted');
+    const afterClone = status(clone).trim();
+    const { log } = collectLog();
+    assert.deepEqual(await checkUncommittedChanges({ tempDir: clone, argv: {}, log, $, afterCloneStatus: afterClone }), []);
+    await writeFile(path.join(clone, 'new.txt'), 'new\n');
+    const feedback = await checkUncommittedChanges({ tempDir: clone, argv: {}, log, $, afterCloneStatus: afterClone });
+    assert.ok(feedback.join('\n').includes('new.txt'), 'a different status is still reported');
+    assert.ok((await checkUncommittedChanges({ tempDir: clone, argv: {}, log, $ })).length > 0, 'without an after-clone status nothing changes');
+  });
+
+  await test('every tool puts the clone notice in the user prompt of new and continued sessions, never in the system prompt', async () => {
+    const notice = buildCloneStatusFeedback({ statusLines: [' M mvnw.cmd'], neutralized: ['mvnw.cmd'] });
+    const params = { issueUrl: 'https://github.com/o/r/issues/1', issueNumber: 1, prNumber: 2, prUrl: 'https://github.com/o/r/pull/2', branchName: 'issue-1', tempDir: '/tmp/work', owner: 'o', repo: 'r', argv: {}, cloneStatusLines: notice };
+    for (const tool of ['agent', 'claude', 'codex', 'gemini', 'opencode', 'qwen']) {
+      const prompts = await import(`../src/${tool}.prompts.lib.mjs`);
+      for (const isContinueMode of [false, true]) {
+        const user = prompts.buildUserPrompt({ ...params, isContinueMode });
+        assert.ok(user.includes(notice.join('\n').trim()), `${tool} ${isContinueMode ? 'continued' : 'new'} session prompt`);
+      }
+      assert.ok(!prompts.buildUserPrompt({ ...params, cloneStatusLines: [], isContinueMode: false }).includes('RIGHT AFTER CLONE'));
+      assert.ok(!prompts.buildSystemPrompt(params).includes('RIGHT AFTER CLONE'), `${tool} system prompt`);
+    }
   });
 } finally {
   await rm(root, { recursive: true, force: true });
 }
 
-console.log(`\n${passed} issue #4063 checkout normalization tests passed`);
+console.log(`\n${passed} issue #4063 checkout normalization and clone status tests passed`);

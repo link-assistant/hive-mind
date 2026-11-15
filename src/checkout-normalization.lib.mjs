@@ -33,7 +33,8 @@
  * (`git hash-object --no-filters`) hash to exactly the index blob is a
  * conversion artifact, not a change. Anything else - staged changes, untracked
  * files, deletions, type changes, or bytes that really differ - is kept as a
- * real change, and solve still refuses to start on it.
+ * real change; what solve does with real changes is decided by
+ * --uncommitted-changes-after-clone (clone-status.lib.mjs).
  *
  * Handling: the artifact paths are listed in `.git/info/attributes` with every
  * content conversion unset. That file has the highest attribute precedence, is
@@ -42,8 +43,9 @@
  * status`, `git diff` and `git add -A` in every tool integration then agrees
  * that the file is unchanged, so the unrelated whole-file line-ending rewrite
  * cannot leak into the pull request either. The repository itself is not
- * modified; the log explains the defect and the command that fixes it
- * upstream (`git add --renormalize`).
+ * modified; the AI prompt (and, when requested, the log) explains the defect
+ * and the command that fixes it upstream (`git add --renormalize`).
+ * --no-neutralize-checkout-conversion-artifacts turns the override off.
  */
 
 import { execFile } from 'node:child_process';
@@ -259,57 +261,71 @@ const formatAttributes = attributes =>
     .map(([name, value]) => (value === 'set' ? name : value === 'unset' ? `-${name}` : `${name}=${value}`))
     .join(' ') || '(none)';
 
-const logConversionDetails = async ({ log, description, verbose }) => {
-  const options = verbose ? { verbose: true } : {};
+const logConversionDetails = async ({ log, description, options }) => {
   await log(`   ${description.gitVersion || 'git version unknown'}; ${Object.entries(description.config).map(([key, value]) => `${key}=${value || '(empty)'}`).join(', ')}`, options); // prettier-ignore
   for (const entry of description.paths) {
     await log(`   • ${entry.path}: attributes ${formatAttributes(entry.attributes)}; ${entry.eol || 'line endings unknown'}`, options);
   }
 };
 
+/** The command that fixes the repository itself (for the owner, or for the AI). */
+export const RENORMALIZE_COMMAND = 'git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"';
+
 /**
- * Make a freshly cloned workspace usable when its only "changes" are content
+ * Make a freshly cloned workspace usable when some of its "changes" are content
  * conversion artifacts of the committed files.
  *
- * @param {{cwd: string, log?: (msg: string, opts?: object) => Promise<void>}} options
- * @returns {Promise<{clean: boolean, neutralized: string[], changes: {code: string, path: string, origPath?: string}[], statusOutput: string}>}
+ * Every artifact path is neutralized in `.git/info/attributes`, also when real
+ * changes are present next to it: the caller decides what to do with the real
+ * changes (issue #4063 PR feedback: by default the run continues and only the
+ * AI is told), and the artifacts must never reach the pull request either way.
+ *
+ * @param {{cwd: string, log?: (msg: string, opts?: object) => Promise<void>, neutralize?: boolean, notifyUser?: boolean}} options
+ *   neutralize - write the `.git/info/attributes` override (default true);
+ *   notifyUser - log the findings as warnings (default true); otherwise they are verbose-only.
+ * @returns {Promise<{clean: boolean, neutralized: string[], changes: {code: string, path: string, origPath?: string}[], artifacts: object[], entries: object[], statusOutput: string, infoAttributesFile?: string}>}
+ *   changes - real changes (never an artifact, unless neutralizing failed);
+ *   statusOutput - the entries `git status` still reports, one per line.
  */
-export const resolveCheckoutArtifacts = async ({ cwd, log = async () => {} }) => {
+export const resolveCheckoutArtifacts = async ({ cwd, log = async () => {}, neutralize = true, notifyUser = true }) => {
   const { artifacts, changes, entries } = await classifyStatusEntries({ cwd });
-  const statusOutput = entries.map(formatStatusEntry).join('\n');
-  if (entries.length === 0) return { clean: true, neutralized: [], changes: [], statusOutput };
+  const userLog = notifyUser ? { level: 'warning' } : { verbose: true };
+  const detailLog = notifyUser ? {} : { verbose: true };
+  const format = list => list.map(formatStatusEntry).join('\n');
+  if (entries.length === 0) return { clean: true, neutralized: [], changes: [], artifacts: [], entries, statusOutput: '' };
 
   await log(`🔍 Clone status: ${entries.length} path(s) reported as changed; ${artifacts.length} of them hold exactly the committed bytes (git content conversion artifacts)`, { verbose: true });
-  if (artifacts.length === 0 || changes.length > 0) {
-    // Real changes stop the run; the caller reports them. Explain the artifacts
-    // too, because they are part of the same picture.
-    return { clean: false, neutralized: [], changes, artifacts, statusOutput };
+  if (artifacts.length === 0 || !neutralize) {
+    if (artifacts.length > 0) await log(`   Content conversion artifacts are not neutralized (--no-neutralize-checkout-conversion-artifacts): ${artifacts.map(entry => entry.path).join(', ')}`, { verbose: true });
+    return { clean: false, neutralized: [], changes, artifacts, entries, statusOutput: format(entries) };
   }
 
   const paths = artifacts.map(entry => entry.path);
   const description = await describeConversion({ cwd, paths });
   const neutralization = await neutralizeCheckoutArtifacts({ cwd, paths });
   const after = await classifyStatusEntries({ cwd });
-  if (after.entries.length > 0) {
+  const artifactPaths = new Set(paths);
+  if (after.entries.some(entry => artifactPaths.has(entry.path))) {
     await restoreInfoAttributes(neutralization);
-    await log(`⚠️  Unsetting content conversion for ${paths.length} path(s) did not make the clone clean; restored ${neutralization.file}`, { level: 'warning' });
-    await logConversionDetails({ log, description, verbose: false });
-    return { clean: false, neutralized: [], changes: after.entries, artifacts, statusOutput: after.entries.map(formatStatusEntry).join('\n') };
+    await log(`⚠️  Unsetting content conversion for ${paths.length} path(s) did not hide them; restored ${neutralization.file}`, userLog);
+    await logConversionDetails({ log, description, options: detailLog });
+    return { clean: false, neutralized: [], changes: after.entries, artifacts, entries, statusOutput: format(after.entries) };
   }
 
-  await log(`⚠️  The repository's committed content does not match its own .gitattributes for ${paths.length} file(s); a fresh clone reports them as modified although their bytes equal the commit:`, { level: 'warning' });
-  for (const filePath of paths.slice(0, MAX_DESCRIBED_PATHS)) await log(`   M ${filePath}`, { level: 'warning' });
-  if (paths.length > MAX_DESCRIBED_PATHS) await log(`   … and ${paths.length - MAX_DESCRIBED_PATHS} more`, { level: 'warning' });
-  await logConversionDetails({ log, description, verbose: true });
-  await log(`   Handled locally: line-ending/encoding conversion is unset for these paths in ${path.relative(cwd, neutralization.file) || neutralization.file} (never committed), so they stay byte-for-byte as committed and out of the pull request.`);
-  await log('   Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"');
-  return { clean: true, neutralized: paths, changes: [], artifacts, statusOutput };
+  await log(`⚠️  The repository's committed content does not match its own .gitattributes for ${paths.length} file(s); a fresh clone reports them as modified although their bytes equal the commit:`, userLog);
+  for (const filePath of paths.slice(0, MAX_DESCRIBED_PATHS)) await log(`   M ${filePath}`, userLog);
+  if (paths.length > MAX_DESCRIBED_PATHS) await log(`   … and ${paths.length - MAX_DESCRIBED_PATHS} more`, userLog);
+  await logConversionDetails({ log, description, options: { verbose: true } });
+  await log(`   Handled locally: line-ending/encoding conversion is unset for these paths in ${path.relative(cwd, neutralization.file) || neutralization.file} (never committed), so they stay byte-for-byte as committed and out of the pull request.`, detailLog);
+  await log(`   Repository fix (for the repository owner): ${RENORMALIZE_COMMAND}`, detailLog);
+  return { clean: after.entries.length === 0, neutralized: paths, changes: after.entries, artifacts, entries, statusOutput: format(after.entries), infoAttributesFile: neutralization.file };
 };
 
 export default {
   CHECKOUT_NORMALIZATION_HEADER,
   MAX_DESCRIBED_PATHS,
   NEUTRALIZED_ATTRIBUTES,
+  RENORMALIZE_COMMAND,
   classifyStatusEntries,
   describeConversion,
   formatStatusEntry,

@@ -238,6 +238,19 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Explicitly fail on absence of new comments in auto-continue or continue mode',
     default: false,
   },
+  // Issue #4063: a fresh clone can already be "dirty" (e.g. a CRLF file marked
+  // `text eol=crlf`). That used to stop every run on such a repository.
+  'uncommitted-changes-after-clone': {
+    type: 'string',
+    description: "What to do when the working tree has uncommitted changes right after the clone: 'warn-ai' (default) continues and tells only the AI in its prompt, so it can fix the cause (details are logged with --verbose); 'warn-user' continues and logs a warning; 'warn-ai-and-user' does both; 'ignore' continues silently; 'fail' stops the run.",
+    choices: ['warn-ai', 'warn-user', 'warn-ai-and-user', 'ignore', 'fail'],
+    default: 'warn-ai',
+  },
+  'neutralize-checkout-conversion-artifacts': {
+    type: 'boolean',
+    description: 'Keep files that a fresh clone reports as modified although their bytes equal the commit (committed content that does not match .gitattributes, e.g. CRLF marked `text eol=crlf`) out of git status and the pull request, by unsetting their content conversion in the clone-local .git/info/attributes (default: true; use --no-neutralize-checkout-conversion-artifacts to disable).',
+    default: true,
+  },
   'auto-commit-uncommitted-changes': {
     type: 'boolean',
     description: 'Automatically commit and push uncommitted changes made by Claude (disabled by default)',

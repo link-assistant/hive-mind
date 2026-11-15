@@ -12,7 +12,7 @@ import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-o
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
-import { MAX_DESCRIBED_PATHS, formatStatusEntry, resolveCheckoutArtifacts } from './checkout-normalization.lib.mjs'; // issue #4063
+import { handleUncommittedChangesAfterClone } from './clone-status.lib.mjs'; // issue #4063
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
@@ -107,7 +107,15 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl }) {
+/**
+ * @param {object} options
+ * @param {(result: {mode: string, promptLines: string[], neutralized: string[], changes: string[], remaining: string[], statusOutput: string}) => void} [options.onCloneStatus]
+ *   Issue #4063: called when the clone was not clean and the run continues;
+ *   `promptLines` go into the AI's user prompt, `statusOutput` is what
+ *   `git status --porcelain` reports afterwards.
+ * @returns {Promise<string>} the default branch
+ */
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl, onCloneStatus }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -281,26 +289,14 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   // Note: Empty output means clean working directory
   const statusOutput = statusResult.stdout.toString().trim();
   if (statusOutput) {
-    // Issue #4063: a repository whose committed bytes do not match its own
-    // .gitattributes (e.g. a CRLF blob marked `text eol=crlf`) is reported as
-    // modified by every fresh clone. Those paths hold exactly the committed
-    // bytes, so they are neutralized locally instead of failing the run.
-    let resolution = null;
-    try {
-      resolution = await resolveCheckoutArtifacts({ cwd: tempDir, log });
-    } catch (error) {
-      await log(`⚠️  Could not classify the uncommitted changes: ${error.message}`, { level: 'warning' });
-    }
-    if (resolution?.clean) return defaultBranch;
-    const remaining = resolution?.statusOutput || statusOutput;
-    await log('Error: Repository has uncommitted changes after clone');
-    await log(`Status output: ${remaining}`);
-    if (resolution?.artifacts?.length) {
-      await log(`   ${resolution.artifacts.length} of these path(s) hold exactly the committed bytes (a .gitattributes/line-ending mismatch in the repository); the others are real changes:`);
-      for (const entry of resolution.changes.slice(0, MAX_DESCRIBED_PATHS)) await log(`   ${formatStatusEntry(entry)}`);
-    }
-    const firstChange = resolution?.changes?.[0] ? ` (${formatStatusEntry(resolution.changes[0]).trim()}${resolution.changes.length > 1 ? ` and ${resolution.changes.length - 1} more` : ''})` : '';
-    throw new Error(`Repository has uncommitted changes after clone${firstChange}`);
+    // Issue #4063: a fresh clone can already be "dirty" - e.g. a CRLF blob
+    // marked `text eol=crlf` is reported as modified by every clone although
+    // its bytes equal the commit. By default the run continues and the AI is
+    // told in its prompt; --uncommitted-changes-after-clone fail restores the
+    // old hard stop (clone-status.lib.mjs).
+    const result = await handleUncommittedChangesAfterClone({ cwd: tempDir, argv, log, statusOutput: statusResult.stdout.toString().replace(/\s+$/, '') });
+    const after = await $({ cwd: tempDir, signal: AbortSignal.timeout(60000) })`git status --porcelain`;
+    onCloneStatus?.({ ...result, statusOutput: after.code === 0 ? after.stdout.toString().trim() : '' });
   }
 
   return defaultBranch;

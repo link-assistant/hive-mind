@@ -395,6 +395,7 @@ try {
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
   await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
   // Verify default branch and status using the new module Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
+  let cloneStatus = null;
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
     log,
@@ -404,6 +405,7 @@ try {
     owner,
     repo,
     issueUrl,
+    onCloneStatus: result => (cloneStatus = result), // issue #4063: a dirty fresh clone is reported to the AI, not fatal
   });
   // Create or checkout branch using the new module
   branchName = await createOrCheckoutBranch({
@@ -555,10 +557,12 @@ try {
     $,
   });
   // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
+  // Issue #4063: the after-clone notice is passed separately (cloneStatusLines) because feedbackLines only reach the prompt in continue mode
+  const cloneStatusLines = cloneStatus?.promptLines || [];
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
-  const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $ });
+  const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
   if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
   const forkActionsUrl = await checkForkActions({
@@ -600,6 +604,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,
@@ -632,6 +637,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,
@@ -658,6 +664,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,

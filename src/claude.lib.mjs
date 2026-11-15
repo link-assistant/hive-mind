@@ -79,9 +79,7 @@ export const executeClaude = async params => {
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
   const mappedModel = mapModelToId(argv.model);
   const modelSupportsVision = await checkModelVisionCapability(mappedModel);
-  if (argv.verbose) {
-    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
-  }
+  if (argv.verbose) await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   const prompt = buildUserPrompt({
     issueUrl,
     issueNumber,

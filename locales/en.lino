@@ -429,6 +429,14 @@ en
       """
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      batch
+        summary """
+          📋 {{started}} of {{total}} links started. Not started ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "the chat was stopped before this link was started"
       invalid
         url
           help """

@@ -429,6 +429,14 @@ ru
       """
       queued "📋 Команда solve поставлена в очередь (позиция #{{position}} в очереди {{tool}})"
       waiting "⏳ Ожидание (очередь {{tool}} #{{position}})"
+      batch
+        summary """
+          📋 Запущено ссылок: {{started}} из {{total}}. Не запущено ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "чат был остановлен до запуска этой ссылки"
       invalid
         url
           help """

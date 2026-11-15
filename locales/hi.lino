@@ -429,6 +429,14 @@ hi
       """
       queued "📋 solve command queue में जोड़ी गई ({{tool}} queue position #{{position}})"
       waiting "⏳ प्रतीक्षा में ({{tool}} queue #{{position}})"
+      batch
+        summary """
+          📋 {{total}} में से {{started}} links शुरू हुए। शुरू नहीं हुए ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "यह link शुरू होने से पहले chat रोक दी गई"
       invalid
         url
           help """

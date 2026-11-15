@@ -13,3 +13,5 @@ A fresh clone with uncommitted changes no longer stops `solve` with `Repository 
 - New `--neutralize-checkout-conversion-artifacts` option, on by default: files whose bytes equal the commit are kept out of `git status` and the pull request by unsetting their content conversion in the clone-local `.git/info/attributes`. `--no-neutralize-checkout-conversion-artifacts` turns this off.
 - `--verbose` logs the attribute and line-ending diagnostics.
 - The changes already present right after the clone are no longer repeated as "uncommitted changes" restart feedback.
+
+Also, for the CI dependency freshness gate: `secretlint`, `@secretlint/core` and `@secretlint/profiler` are updated to v14, `@link-foundation/sensitive-data-sanitizer` to 0.23.0 and `links-notation` to 0.31.6. Secretlint v14 ships the recommended preset in `@secretlint/core/builtin`, and its `@secretlint/secretlint-rule-preset-recommend` package is no longer published. Secret scanning now loads the preset from there, with the same rule ids.

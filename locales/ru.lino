@@ -429,6 +429,38 @@ ru
       """
       queued "📋 Команда solve поставлена в очередь (позиция #{{position}} в очереди {{tool}})"
       waiting "⏳ Ожидание (очередь {{tool}} #{{position}})"
+      after
+        queued "⏳ Команда solve поставлена в очередь после других задач"
+        waiting
+          success "Начнётся, когда {{tasks}} успешно завершится; если эта задача не удастся, не начнётся."
+          finish "Начнётся, когда {{tasks}} завершится, с любым результатом."
+          blockers "Ждёт свои блокирующие задачи GitHub {{tasks}}: {{description}}"
+        released "▶️ Ожидаемые задачи завершены ({{tasks}}); задача поставлена в очередь."
+        dependency
+          failed "ожидаемая задача не удалась: {{task}}"
+        blockers
+          not
+            queued "её блокирует {{blockers}}, и эта задача не в очереди и не запущена ({{description}}). Сначала поставьте блокирующие задачи в очередь или отправьте команду без `--respect-blockers`."
+        usage """
+          ❌ Укажите, какую задачу ждать.
+
+          Ответьте на сообщение задачи: `/after <github-url>`
+          Или назовите задачу: `/after <uuid|github-url> <github-url> [опции]`
+
+          `/after` запускает новую задачу, только если ожидаемая завершилась успешно; `/enqueue` — с любым результатом. Без новой ссылки ожидаемая ссылка запускается снова.
+        """
+        many
+          tasks "❌ /after и /enqueue запускают одну задачу после одной другой. Слишком много задач: {{links}}"
+        invalid
+          link "❌ Это не ссылка на issue или pull request: {{links}}"
+        unknown
+          target "❌ Не найдена задача в очереди или запущенная задача для {{task}}. Ответьте на сообщение задачи или укажите её UUID сессии или ссылку."
+        no
+          task
+            link "❌ У задачи {{task}} нет ссылки для повторного запуска. Добавьте ссылку на issue или pull request, который нужно запустить после неё."
+        target
+          failed "❌ Не запущено: {{task}} — {{detail}}, а /after запускает задачу только после успешной. Чтобы запустить всё равно, используйте /enqueue."
+          finished "ℹ️ {{task}} — {{detail}}; запускаю сейчас."
       batch
         summary """
           📋 Запущено ссылок: {{started}} из {{total}}. Не запущено ({{notStarted}}):
@@ -595,6 +627,9 @@ ru
         alias
           detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
         reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`. Если в нём несколько ссылок на issue/PR, каждая запускается отдельной задачей."
+        after "*/after* `<задача> <github-url>` - Запустить задачу после успешного завершения другой; если та не удастся, эта не запустится. */enqueue* делает то же при любом результате. Ожидаемая задача — UUID сессии или ссылка, или сообщение, на которое вы отвечаете; без новой ссылки её ссылка запускается снова."
+        respect
+          blockers "`--respect-blockers` (экспериментально) - Ждать блокирующие задачи GitHub и открытые подзадачи issue, если они в очереди; не запускать, пока одна из них не в очереди и не запущена. Список ссылок делает так по умолчанию (`--no-respect-blockers` отключает)."
         disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
         queue "`/queue` - Показать состояние очереди solve"
       locked
@@ -645,7 +680,7 @@ ru
       isolation
         mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
       group
-        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
+        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
       common
         options "🔧 *Общие опции:*"
       model

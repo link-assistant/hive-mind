@@ -25,6 +25,14 @@ export function buildSolveQueuedMessage({ locale = null, tool = 'claude', positi
   return message;
 }
 
+/** Issue #4069: a task that starts only after other tasks (`/after`, `/enqueue`, `--respect-blockers`). `waitingText` is escaped Markdown. */
+export function buildSolveWaitingForTasksMessage({ locale = null, infoBlock = '', waitingText = '' } = {}) {
+  let message = tr('telegram.solve_after_queued', {}, locale);
+  if (waitingText) message += `\n${waitingText}`; // telegram-markdown-ok: planSolveLaunchWait escapes the task links
+  if (infoBlock) message += `\n\n${infoBlock}`;
+  return message;
+}
+
 export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '', chatTitle = '', topicId = null, isStopped = false, stopInfo = null, stopReason = '', solveEnabled = true, taskEnabled = true, fixEnabled = true, organizeEnabled = true, hiveEnabled = true, solveOverrides = [], hiveOverrides = [], showLimitsEnabled = false, isolationBackend = null, modelDescription = '', restrictedMode = false, authorized = null, allowTopicHint = '' } = {}) {
   const message = [];
   addLine(message, 'telegram.help_title', {}, locale);
@@ -53,6 +61,8 @@ export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '',
     addLine(message, 'telegram.help_solve_example', {}, locale);
     addLine(message, 'telegram.help_solve_alias_detail', {}, locale);
     addLine(message, 'telegram.help_solve_reply', {}, locale);
+    addLine(message, 'telegram.help_solve_after', {}, locale); // #4069
+    addLine(message, 'telegram.help_solve_respect_blockers', {}, locale);
     if (solveOverrides.length > 0) addLine(message, 'telegram.help_locked_options', { options: solveOverrides.join(' ') }, locale);
     message.push('');
   } else {

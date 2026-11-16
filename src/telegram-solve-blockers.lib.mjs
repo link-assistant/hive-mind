@@ -140,3 +140,43 @@ export function orderBatchByBlockers(urls, relations) {
   for (const entry of waiting) if (!placed.has(entry.key)) ordered.push(entry.url);
   return { urls: ordered, ready: plan.ready.length, waiting: plan.waiting.length, cycles: plan.cycles };
 }
+
+/**
+ * The relations reader `/hive` uses (#2615), built on first use so the bot
+ * loads the GitHub helpers only when blockers are respected.
+ * @param {{log?: Function}} [options]
+ * @returns {(urls: string[]) => Promise<Map<string, object>>}
+ */
+export function createDefaultRelationsFetcher({ log = async () => {} } = {}) {
+  let fetcher = null;
+  return async urls => {
+    if (!fetcher) {
+      const [{ createGhGraphQLRunner, createIssueRelationsFetcher }, { execGhWithRetry }, { githubLimits }] = await Promise.all([import('./hive.issue-relations.lib.mjs'), import('./github-rate-limit.lib.mjs'), import('./config.lib.mjs')]);
+      fetcher = createIssueRelationsFetcher({ log, execGraphQL: createGhGraphQLRunner({ execGhWithRetry, maxBuffer: githubLimits.bufferMaxSize }) });
+    }
+    return fetcher(urls);
+  };
+}
+
+/**
+ * Read the relations of a batch's issue links once and order the links by
+ * them. Never throws: when the relations cannot be read the batch keeps its
+ * order and every link starts as before (as in `/hive`).
+ * @param {object} params
+ * @param {string[]} params.urls
+ * @param {(urls: string[]) => Promise<Map<string, object>>} params.fetchRelations
+ * @param {Function} [params.log]
+ * @returns {Promise<{urls: string[], relations: Map<string, object>|null}>}
+ */
+export async function prepareBatchBlockers({ urls, fetchRelations, log = () => {} }) {
+  if (!urls.some(url => parseIssueRef(url))) return { urls, relations: null };
+  try {
+    const relations = await fetchRelations(urls);
+    const order = orderBatchByBlockers(urls, relations);
+    log(`[solve batch] blockers: ${order.ready} ready, ${order.waiting} waiting${order.cycles.length ? `, ${order.cycles.length} cycle(s)` : ''}; order: ${order.urls.join(' ')}`);
+    return { urls: order.urls, relations };
+  } catch (error) {
+    log(`[solve batch] could not read issue relations; keeping the given order: ${error?.message || error}`);
+    return { urls, relations: null };
+  }
+}

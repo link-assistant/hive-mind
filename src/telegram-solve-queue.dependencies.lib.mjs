@@ -66,6 +66,20 @@ export const solveQueueDependencyMethods = {
     while (this.cancelled.length > 100) this.cancelled.shift();
     this.reconcileDependencies();
   },
+  /**
+   * A queued, running or waiting item for `url` that a new task for the same
+   * link would duplicate. Items the new task waits for are not duplicates:
+   * `/after` may run a link again once its current task is done.
+   * @param {string} url
+   * @param {object[]} [targets] - What the new task waits for
+   * @returns {object|null}
+   */
+  findLaunchConflict(url, targets = []) {
+    const awaited = new Set(targets.map(target => target.item).filter(Boolean));
+    const key = canonicalizeQueueUrl(url);
+    const candidates = [...Object.values(this.queues).flat(), ...this.processing.values(), ...this.dependencies.list()];
+    return candidates.find(item => !awaited.has(item) && canonicalizeQueueUrl(item.url) === key) || null;
+  },
 };
 
 /**

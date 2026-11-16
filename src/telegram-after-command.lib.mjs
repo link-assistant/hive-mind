@@ -20,7 +20,7 @@
 
 import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 import { extractGitHubTargetLinks, getReplyLinkText, splitCommandTargetLinks } from './telegram-solve-batch.lib.mjs';
-import { DEPENDENCY_COMMAND_MODES, DEPENDENCY_MODE } from './telegram-solve-dependencies.lib.mjs';
+import { DEPENDENCY_COMMAND_MODES, DEPENDENCY_MODE, resolveDependencyTarget } from './telegram-solve-dependencies.lib.mjs';
 
 /** Commands that queue one task after another; each maps to its dependency mode. */
 export const AFTER_COMMAND_NAMES = Object.freeze(Object.keys(DEPENDENCY_COMMAND_MODES));
@@ -121,4 +121,45 @@ export async function planSolveLaunchWait({ dependsOn = null, respectBlockers = 
   }
   if (targets.length === 0) return { action: 'start', notes };
   return { action: 'wait', targets, mode, waitingText: lines.join('\n') };
+}
+
+/**
+ * Turn a parsed `/after` or `/enqueue` command into a solve launch, or into
+ * the reply that explains why nothing starts.
+ *
+ * - The awaited task is still queued or running: launch the task so that it
+ *   waits for it.
+ * - It has already finished: `/enqueue` (and `/after` of a success) starts
+ *   the task at once, with a note; `/after` of a failure starts nothing.
+ * - It is unknown: nothing starts.
+ *
+ * @param {object} params
+ * @param {ReturnType<typeof parseDependencyCommand>} params.parsed
+ * @param {string} params.mode - DEPENDENCY_MODE
+ * @param {object} params.solveQueue
+ * @param {Function} [params.findSessionById]
+ * @param {Function} [params.findSessionByUrl]
+ * @param {Function} params.tr - `(key, params) => string` in the requester's locale
+ * @param {Function} [params.escape]
+ * @returns {{action: 'reply', text: string} | {action: 'launch', userArgs: string[], dependsOn: object|null, notice: string|null}}
+ */
+export function resolveDependencyLaunch({ parsed, mode, solveQueue, findSessionById, findSessionByUrl, tr, escape = value => value }) {
+  if (!parsed.ok) {
+    if (parsed.error === 'invalid-link') return { action: 'reply', text: tr('telegram.solve_after_invalid_link', { links: escape(parsed.links.join(', ')) }) };
+    if (parsed.error === 'many-tasks') return { action: 'reply', text: tr('telegram.solve_after_many_tasks', { links: escape(parsed.links.join(', ')) }) };
+    return { action: 'reply', text: tr('telegram.solve_after_usage') };
+  }
+  const resolved = resolveDependencyTarget(parsed.target, { solveQueue, findSessionById, findSessionByUrl });
+  const awaited = escape(parsed.target.value);
+  if (resolved.status === 'unknown') return { action: 'reply', text: tr('telegram.solve_after_unknown_target', { task: awaited }) };
+  const taskUrl = parsed.taskUrl || (resolved.status === 'active' ? resolved.target.url : resolved.url);
+  if (!taskUrl) return { action: 'reply', text: tr('telegram.solve_after_no_task_link', { task: awaited }) };
+  const userArgs = [taskUrl, ...parsed.optionArgs];
+  if (resolved.status === 'active') {
+    if (parsed.target.kind === 'uuid' && resolved.target.url) resolved.target.label = `${resolved.target.url} (${parsed.target.value})`;
+    return { action: 'launch', userArgs, dependsOn: { targets: [resolved.target], mode }, notice: null };
+  }
+  const detail = escape(resolved.detail);
+  if (mode === DEPENDENCY_MODE.SUCCESS && !resolved.succeeded) return { action: 'reply', text: tr('telegram.solve_after_target_failed', { task: awaited, detail }) };
+  return { action: 'launch', userArgs, dependsOn: null, notice: tr('telegram.solve_after_target_finished', { task: awaited, detail }) };
 }

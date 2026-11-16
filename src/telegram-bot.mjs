@@ -43,6 +43,8 @@ const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
+const SOLVE_RESPECT_BLOCKERS = config.solveRespectBlockers === true; // #4069: experimental, off by default
+const BATCH_RESPECT_BLOCKERS = config.batchRespectBlockers !== false; // #4069: on by default
 // Issues #3354 to #3359: the merge queue, the merged-PR sweeper and solve children follow these switches.
 const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closing.lib.mjs');
 const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
@@ -192,6 +194,9 @@ const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanN
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { AFTER_COMMAND_NAMES, getDependencyCommandMode, isAwaitedTaskUrl, parseDependencyCommand, planSolveLaunchWait, resolveDependencyLaunch } = await import('./telegram-after-command.lib.mjs'); // #4069
+const { createDefaultRelationsFetcher, extractRespectBlockersFlag, planBlockerWait, prepareBatchBlockers } = await import('./telegram-solve-blockers.lib.mjs'); // #4069
+const fetchIssueRelations = createDefaultRelationsFetcher({ log: async line => VERBOSE && console.log(`[VERBOSE] ${line}`) });
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
@@ -208,12 +213,12 @@ const TELEGRAM_HANDLER_TIMEOUT_MS = 60_000;
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
-const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
+const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage, buildSolveWaitingForTasksMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
 const { startRouterMaintenance } = await import('./router-maintenance.lib.mjs');
 // Initialize Sentry for error tracking
@@ -545,24 +550,42 @@ async function handleSolveCommand(ctx) {
   if (solveSL.handled) return;
   const solveShowLimits = solveSL.showLimits;
   userArgs = solveSL.args;
+  // Issue #4069: --respect-blockers is a bot option too; it never reaches solve.
+  const respectFlag = extractRespectBlockersFlag(userArgs);
+  userArgs = respectFlag.args;
   // Issue #1325: a reply without a URL in the arguments takes the link from the replied message.
   // Issue #4067: several links (there or in the command) start one by one, as separate commands.
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
+  const linkDeps = { parseGitHubUrl, cleanNonPrintableChars, mentionsGitHubHost };
+  const dependencyMode = getDependencyCommandMode(solveCommandName);
+  if (dependencyMode) {
+    // Issue #4069: /after and /enqueue start one task after the task they name or reply to.
+    const parsed = parseDependencyCommand({ userArgs, replyMessage: isReply ? message.reply_to_message : null, deps: linkDeps });
+    const launch = resolveDependencyLaunch({ parsed, mode: dependencyMode, solveQueue: getSolveQueue({ verbose: VERBOSE }), findSessionById: findTrackedSessionByIdentifier, findSessionByUrl: url => findStoppableSessionByUrl(url, VERBOSE), tr: (key, params) => t(key, params, { locale: solveLocale }), escape: escapeMarkdown });
+    VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay}: ${parsed.ok ? `${parsed.target.kind} ${parsed.target.value} -> ${launch.action}` : parsed.error}`);
+    if (launch.action === 'reply') return void (await safeReply(ctx, launch.text, { reply_to_message_id: ctx.message.message_id }));
+    if (launch.notice) await safeReply(ctx, launch.notice, { reply_to_message_id: ctx.message.message_id });
+    return void (await launchSolveTarget(ctx, launch.userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName: 'solve', dependsOn: launch.dependsOn, respectBlockers: respectFlag.respectBlockers ?? SOLVE_RESPECT_BLOCKERS }));
+  }
   const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
   const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
   const commandHasUrl = mentionsGitHubHost(commandUrlText) || /^https?:\/\//.test(commandUrlText);
-  const targets = planSolveTargets({ userArgs, commandHasUrl, replyMessage: isReply ? message.reply_to_message : null, deps: { parseGitHubUrl, cleanNonPrintableChars, mentionsGitHubHost } });
+  const targets = planSolveTargets({ userArgs, commandHasUrl, replyMessage: isReply ? message.reply_to_message : null, deps: linkDeps });
   VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} targets: ${targets.mode}${targets.urls ? ` (${targets.urls.length} links, ${targets.invalidLinks.length} invalid)` : ''}`);
   if (targets.mode === 'no-link') {
     await safeReply(ctx, t('telegram.no_github_link_in_reply', {}, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const launchOptions = { solveToolAlias, solveLocale, solveShowLimits, solveCommandName };
-  if (targets.mode === 'single') return void (await launchSolveTarget(ctx, targets.userArgs, launchOptions));
+  if (targets.mode === 'single') return void (await launchSolveTarget(ctx, targets.userArgs, { ...launchOptions, respectBlockers: respectFlag.respectBlockers ?? SOLVE_RESPECT_BLOCKERS }));
+  // Issue #4069: unblocked issues start first; the others wait for their blockers in the batch.
+  const respectBlockers = respectFlag.respectBlockers ?? BATCH_RESPECT_BLOCKERS;
+  const { urls: batchUrls, relations } = respectBlockers ? await prepareBatchBlockers({ urls: targets.urls, fetchRelations: fetchIssueRelations, log: line => VERBOSE && console.log(`[VERBOSE] ${line}`) }) : targets;
   await runSolveBatch({
     ...targets,
+    urls: batchUrls,
     locale: solveLocale,
-    launch: (args, reject) => launchSolveTarget(ctx, args, { ...launchOptions, reject }),
+    launch: (args, reject) => launchSolveTarget(ctx, args, { ...launchOptions, reject, respectBlockers, relations }),
     reply: text => safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id }),
     validateLink: link => describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl: url => validateTelegramGitHubUrl(url, { locale: solveLocale }), locale: solveLocale }),
     isStopped: () => isChatStopped(chatId),
@@ -572,7 +595,8 @@ async function handleSolveCommand(ctx) {
 
 // One link of /solve: validate, then start or queue it. `reject` (issue #4067)
 // collects errors for the batch summary instead of replying to each one.
-async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName, reject = null }) {
+// Issue #4069: `dependsOn` (/after, /enqueue) and `respectBlockers` may make it wait for other tasks.
+async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName, reject = null, dependsOn = null, respectBlockers = false, relations = null }) {
   const fail = async (text, scope = SOLVE_REJECT_SCOPE.TARGET, summary = null) => {
     if (reject) return reject(text, { scope, summary });
     await safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id });
@@ -689,8 +713,13 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',
   });
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  // Check for duplicate URL in queue (issue #1080)
-  const existingItem = solveQueue.findByUrl(normalizedUrl);
+  const tr = (key, params) => t(key, params, { locale: solveLocale });
+  const findSessionByUrl = url => findStoppableSessionByUrl(url, VERBOSE);
+  const waitPlan = await planSolveLaunchWait({ dependsOn, respectBlockers, tr, escape: escapeMarkdown, planBlockers: () => planBlockerWait({ url: normalizedUrl, relations, fetchRelations: fetchIssueRelations, solveQueue, findSessionById: findTrackedSessionByIdentifier, findSessionByUrl, log: line => VERBOSE && console.log(`[VERBOSE] ${line}`) }) });
+  if (waitPlan.action === 'reject') return fail(t('telegram.solve_rejected', { infoBlock, reason: waitPlan.reason }, { locale: solveLocale }), SOLVE_REJECT_SCOPE.TARGET, `🚫 ${waitPlan.reason}`); // telegram-markdown-ok: planSolveLaunchWait escapes the links
+  const waitTargets = waitPlan.action === 'wait' ? waitPlan.targets : [];
+  // Check for duplicate URL in queue (issue #1080); the task this one waits for is not a duplicate (#4069)
+  const existingItem = solveQueue.findLaunchConflict(normalizedUrl, waitTargets);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
     return fail(t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale })); // telegram-markdown-ok: status is a QueueItemStatus value (queued, waiting, starting, ...)
@@ -705,12 +734,12 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
   try {
     // Issue #1567: Prevent concurrent sessions on the same PR/issue
     const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
-    if (activeSession.isActive) {
+    if (activeSession.isActive && !isAwaitedTaskUrl(waitTargets, normalizedUrl)) {
       return fail(t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale })); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
     }
     const queueStats = solveQueue.getStats();
     const hasPendingQueueItems = queueStats.queued > 0;
-    const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale, url: normalizedUrl }); // Skip Claude limits for agent (#1159)
+    const check = waitTargets.length > 0 ? {} : hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale, url: normalizedUrl }); // Skip Claude limits for agent (#1159)
     releaseStartReservation = check.releaseStartReservation;
     // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
     if (check.rejected) {
@@ -726,7 +755,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
     let solveLimitsAtStart = null;
     if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
-    if (check.canStart && check.startReserved) {
+    if (waitTargets.length === 0 && check.canStart && check.startReserved) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
       await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
     } else {
@@ -734,8 +763,10 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
         const _t = (s, i) => trackSession(s, i, VERBOSE);
         solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
       }
-      const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
-      const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
+      const itemOptions = { url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale };
+      const waits = waitTargets.length > 0; // #4069: kept out of the tool queue until the awaited tasks are done
+      const queueItem = waits ? solveQueue.enqueueAfter({ ...itemOptions, waitingReason: waitPlan.waitingText }, { targets: waitTargets, mode: waitPlan.mode }) : solveQueue.enqueue(itemOptions);
+      const queueMessage = waits ? buildSolveWaitingForTasksMessage({ locale: solveLocale, infoBlock, waitingText: waitPlan.waitingText }) : buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
       const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
       queueItem.messageInfo = {
         chatId: queuedMessage.chat.id,
@@ -752,7 +783,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
 
 const detachedSolveCommand = detach(handleSolveCommand);
 bot.command(
-  SOLVE_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
+  [...SOLVE_COMMAND_NAMES, ...AFTER_COMMAND_NAMES].map(command => new RegExp(`^${command}$`, 'i')), // #4069: /after, /enqueue
   detachedSolveCommand
 );
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
@@ -1014,7 +1045,7 @@ const detachedTaskCommand = detach(handleTaskCommand);
 const detachedFixCommand = detach(handleFixCommand);
 const detachedOrganizeCommand = detach(handleOrganizeCommand);
 const fallbackHandlers = {
-  ...Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, detachedSolveCommand])),
+  ...Object.fromEntries([...SOLVE_COMMAND_NAMES, ...AFTER_COMMAND_NAMES].map(command => [command, detachedSolveCommand])),
   ...Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, detachedTaskCommand])),
   ...Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, detachedFixCommand])),
   ...Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, detachedOrganizeCommand])),

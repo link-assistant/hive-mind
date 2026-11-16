@@ -429,6 +429,38 @@ en
       """
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      after
+        queued "⏳ Solve command queued after other tasks"
+        waiting
+          success "Starts when {{tasks}} finishes successfully; it is not started if that task fails."
+          finish "Starts when {{tasks}} finishes, whatever the result."
+          blockers "Waits for its GitHub blockers {{tasks}}: {{description}}"
+        released "▶️ The awaited tasks are done ({{tasks}}); the task is queued."
+        dependency
+          failed "an awaited task did not succeed: {{task}}"
+        blockers
+          not
+            queued "it is blocked by {{blockers}}, which is neither queued nor running ({{description}}). Queue the blockers first, or send the command without `--respect-blockers`."
+        usage """
+          ❌ Tell me which task to wait for.
+
+          Reply to the task's message: `/after <github-url>`
+          Or name the task: `/after <uuid|github-url> <github-url> [options]`
+
+          `/after` starts the new task only if the awaited one succeeds; `/enqueue` starts it whatever the result. Without a new link, the awaited link runs again.
+        """
+        many
+          tasks "❌ /after and /enqueue start one task after one other task. Too many tasks: {{links}}"
+        invalid
+          link "❌ Not an issue or pull request link: {{links}}"
+        unknown
+          target "❌ No queued or running task found for {{task}}. Reply to the task's message, or name its session UUID or link."
+        no
+          task
+            link "❌ The task {{task}} has no link to start again. Add the issue or pull request link to start after it."
+        target
+          failed "❌ Not started: {{task}} already {{detail}}, and /after starts a task only after a successful one. Use /enqueue to start it anyway."
+          finished "ℹ️ {{task}} already {{detail}}; starting now."
       batch
         summary """
           📋 {{started}} of {{total}} links started. Not started ({{notStarted}}):
@@ -595,6 +627,9 @@ en
         alias
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
         reply "Or reply to a message with a GitHub link: `/solve`. With several issue/PR links, each one starts as its own task."
+        after "*/after* `<task> <github-url>` - Start a task after another one succeeds; if that one fails, this one is not started. */enqueue* does the same whatever the result. The awaited task is a session UUID or link, or the replied message; without a new link its link runs again."
+        respect
+          blockers "`--respect-blockers` (experimental) - Wait for the issue's GitHub blockers and open sub-issues when they are queued; refuse to start while one is neither queued nor running. A list of links does this by default (`--no-respect-blockers` turns it off)."
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
         queue "`/queue` - Show solve queue status"
       locked
@@ -645,7 +680,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model

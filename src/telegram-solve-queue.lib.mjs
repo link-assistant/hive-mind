@@ -24,6 +24,8 @@ import { t } from './i18n.lib.mjs';
 import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
+import { SolveDependencyTracker } from './telegram-solve-dependencies.lib.mjs';
+import { installSolveQueueDependencyMethods } from './telegram-solve-queue.dependencies.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
 export const QueueItemStatus = {
@@ -34,6 +36,11 @@ export const QueueItemStatus = {
   FAILED: 'failed',
   CANCELLED: 'cancelled',
 };
+// Issue #4069: loaded on the first waiting task; `isSessionActive` must be synchronous.
+let sessionMonitorModule = null;
+function loadSessionMonitorModule() {
+  return import('./session-monitor.lib.mjs').then(module => (sessionMonitorModule = module)).catch(error => console.error(`[solve_queue] Could not load the session monitor: ${error?.message || error}`));
+}
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
 }
@@ -205,7 +212,34 @@ export class SolveQueue {
       totalCancelled: 0,
       throttleReasons: {},
     };
+    // Issue #4069: items that start only after other tasks (`/after`, `/enqueue`, blockers) wait here, outside the tool queues.
+    this.isSessionActiveFn = options.isSessionActive || null;
+    this.dependencies = new SolveDependencyTracker({ isSessionActive: names => this.isSessionActive(names), onRelease: (entry, summary) => this.releaseWaitingItem(entry, summary), onFail: (entry, reason) => this.failWaitingItem(entry, reason), log: message => this.log(message) });
     this.log('SolveQueue initialized with separate tool queues');
+  }
+  /** Whether a tracked session matches any of `names` (issue #4069). Reads the session monitor unless one was injected. */
+  isSessionActive(names) {
+    if (this.isSessionActiveFn) return this.isSessionActiveFn(names);
+    return Boolean(sessionMonitorModule?.findTrackedSessionByIdentifier?.([...names]));
+  }
+  /**
+   * Add a task that starts only after other tasks (issue #4069). The item waits
+   * outside the tool queues and joins its tool queue once every awaited task has
+   * finished (`finish` mode) or succeeded (`success` mode).
+   * @param {Object} options - Queue item options, as for `enqueue`
+   * @param {{targets: object[], mode: string}} dependency
+   * @returns {SolveQueueItem}
+   */
+  enqueueAfter(options, { targets, mode }) {
+    const item = new SolveQueueItem(options);
+    item.setWaiting(options.waitingReason || null);
+    item.dependencyMode = mode;
+    this.dependencies.add(item, { targets, mode });
+    this.stats.totalEnqueued++;
+    this.stats.totalWaitedForTasks = (this.stats.totalWaitedForTasks || 0) + 1;
+    this.dependencies.start();
+    if (!this.isSessionActiveFn && !sessionMonitorModule) loadSessionMonitorModule();
+    return item;
   }
   /**
    * Get the queue array for a specific tool, creating it if needed
@@ -294,7 +328,8 @@ export class SolveQueue {
         return item;
       }
     }
-    return null;
+    // Issue #4069: items that wait for other tasks are queued too.
+    return this.dependencies.findByUrl(url, canonicalizeQueueUrl);
   }
   /**
    * Cancel a queued item by ID
@@ -312,8 +347,18 @@ export class SolveQueue {
         item.setCancelled();
         this.stats.totalCancelled++;
         this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
+        this.rememberCancelled(item);
         return true;
       }
+    }
+    // Issue #4069: an item waiting for other tasks; whatever waits for it moves on.
+    const entry = this.dependencies.remove(id);
+    if (entry) {
+      entry.item.setCancelled();
+      this.stats.totalCancelled++;
+      this.log(`Cancelled waiting item: ${entry.item.toString()}`);
+      this.rememberCancelled(entry.item);
+      return true;
     }
     if (this.processing.has(id)) {
       this.log(`Cannot cancel processing item: ${id}`);
@@ -336,6 +381,7 @@ export class SolveQueue {
     return {
       queued: totalQueued,
       queuedByTool,
+      waitingForTasks: this.dependencies.size,
       processing: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
@@ -439,6 +485,7 @@ export class SolveQueue {
       await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
     }
     while (this.failed.length > 100) this.failed.shift();
+    await this.reconcileDependencies();
   }
   /**
    * Find first queue item that can start based on its tool's limits (legacy compatibility)
@@ -477,6 +524,10 @@ export class SolveQueue {
           tool,
         });
       }
+    }
+    // Issue #4069: items that wait for other tasks are pending too.
+    for (const item of this.dependencies.list()) {
+      pending.push({ id: item.id, url: item.url, requester: item.requester, waitTime: item.getWaitTime(), createdAt: item.createdAt, status: item.status, waitingReason: item.waitingReason, tool: item.tool, waitingForTasks: true });
     }
     // Sort by createdAt to show oldest first (global order)
     pending.sort((a, b) => a.createdAt - b.createdAt);
@@ -878,6 +929,9 @@ export class SolveQueue {
    */
   recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null } = {}) {
     const describe = `session ${sessionName}${rootSessionName && rootSessionName !== sessionName ? ` (root ${rootSessionName})` : ''} exit=${exitCode ?? 'null'} status=${status || 'null'}`;
+    // Issue #4069: tasks waiting for this one move on once the outcome is recorded below.
+    this.dependencies.handleSessionCompletion({ sessionName, rootSessionName, killRecoveryOfSession: arguments[0]?.killRecoveryOfSession || null, exitCode, status, command, supersededBy });
+    if (this.dependencies.size > 0) queueMicrotask(() => this.reconcileDependencies());
     if (supersededBy) {
       this.log(`Session completion ignored for ${describe}: continued by recovery session ${supersededBy}`);
       return null;
@@ -1012,6 +1066,8 @@ export class SolveQueue {
       // Limit history size
       while (this.completed.length > 100) this.completed.shift();
       while (this.failed.length > 100) this.failed.shift();
+      // Issue #4069: a failed launch fails the tasks that wait for it.
+      if (item.status === QueueItemStatus.FAILED) this.reconcileDependencies();
     }
   }
   /**
@@ -1028,6 +1084,7 @@ export class SolveQueue {
   stop() {
     this.log('Stopping queue...');
     this.isRunning = false;
+    this.dependencies.stop();
   }
   /**
    * Clear the limit cache
@@ -1134,6 +1191,8 @@ export class SolveQueue {
     return message;
   }
 }
+// Issue #4069: release/fail/lookup methods for items that wait for other tasks.
+installSolveQueueDependencyMethods(SolveQueue);
 /**
  * Global queue instance (singleton)
  */

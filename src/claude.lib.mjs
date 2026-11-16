@@ -48,13 +48,13 @@ import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard }
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, describeBenignFinalToolResult, describeFinalToolResultFailure, formatFinalToolResultOutput, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
-import { interpretClaudeExitCode, isProcessGroupAlive } from './claude.process-exit.lib.mjs'; // Issue #3015
+import { interpretClaudeExitCode, isProcessGroupAlive, describeExitCode } from './claude.process-exit.lib.mjs'; // Issue #3015; #4077 names the signal in the fallback
 import { createClaudeResultCloseController } from './claude.result-close.lib.mjs'; // Issue #3015
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
-import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
+import { stringifyErrorValue, isSourceFragmentErrorText } from './error-text.lib.mjs'; // Issue #2141; #4077
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection } from './claude.connection.lib.mjs';
 import { extractClaudeEventModelIds, getLatestObservedModelFor, recordObservedModel, resetObservedModels } from './observed-models.lib.mjs'; // Issue #2840
@@ -829,7 +829,7 @@ export const executeClaudeCommand = async params => {
               // Not JSON or parsing failed, output as-is if it's not empty
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'stdout' });
-                if (!usageLimitEvidence.observeRawLine(line).isDebugOutput) lastMessage = line; // Issue #3570: a base64 debug dump is not a failure reason
+                if (!usageLimitEvidence.observeRawLine(line).isDebugOutput && !isSourceFragmentErrorText(line)) lastMessage = line; // Issue #3570: a base64 debug dump is not a failure reason; #4077: nor is a printed-object/source fragment
                 // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
@@ -905,7 +905,7 @@ export const executeClaudeCommand = async params => {
           if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'stdout' });
-          if (!usageLimitEvidence.observeRawLine(stdoutLineBuffer).isDebugOutput) lastMessage = stdoutLineBuffer;
+          if (!usageLimitEvidence.observeRawLine(stdoutLineBuffer).isDebugOutput && !isSourceFragmentErrorText(stdoutLineBuffer)) lastMessage = stdoutLineBuffer; // Issue #4077
         }
       }
       if (startupTimeoutId) {
@@ -1179,7 +1179,7 @@ export const executeClaudeCommand = async params => {
         } else if (lastMessage.includes('context_length_exceeded')) {
           await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
         } else {
-          await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+          await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${describeExitCode(exitCode)}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
             await log(`📌 Session ID: ${sessionId}`);
             await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
@@ -1227,7 +1227,7 @@ export const executeClaudeCommand = async params => {
           // `Prompt is too long` still names the call that filled the context. The explanation is
           // built at the reporting boundary rather than by mutating `lastMessage`, because the
           // transient-error classifier above compares that string exactly (`Request timed out`).
-          errorInfo: { message: explainFailureWithToolHistory({ message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), dominant: dominantToolCallFailure }), exitCode, repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure }, // Issue #2247 (H4/H10)
+          errorInfo: { message: explainFailureWithToolHistory({ message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${describeExitCode(exitCode)}`, toolLabel: 'Claude' }), dominant: dominantToolCallFailure }), exitCode, repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure }, // Issue #2247 (H4/H10)
           subscriptionError, // Issue #2161: terminal account block — /solve stops and preserves the work
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };

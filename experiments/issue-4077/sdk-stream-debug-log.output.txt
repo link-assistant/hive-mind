@@ -1,0 +1,43 @@
+[log_f0e866] sending request {
+  method: 'POST',
+  url: 'https://api.anthropic.com/v1/messages',
+  options: {
+    method: 'post',
+    path: '/v1/messages',
+    body: { model: 'm', max_tokens: 1, messages: [Array], stream: true },
+    timeout: 600000,
+    stream: true
+  },
+  headers: {
+    accept: 'application/json',
+    'anthropic-version': '2026-10-21',
+    authorization: '***',
+    'content-type': 'application/json',
+    'user-agent': 'Anthropic/JS 1.8.0',
+    'x-stainless-arch': 'x64',
+    'x-stainless-lang': 'js',
+    'x-stainless-os': 'Linux',
+    'x-stainless-package-version': '1.8.0',
+    'x-stainless-retry-count': '0',
+    'x-stainless-runtime': 'node',
+    'x-stainless-runtime-version': 'v26.13.0',
+    'x-stainless-timeout': '600'
+  }
+}
+[log_f0e866, request-id: "req_example"] post https://api.anthropic.com/v1/messages succeeded with status 200 in 7ms
+[log_f0e866] response start {
+  url: '',
+  status: 200,
+  headers: { 'content-type': 'text/event-stream', 'request-id': 'req_example' },
+  durationMs: 7
+}
+response 200  Headers { 'content-type': 'text/event-stream', 'request-id': 'req_example' } ReadableStream { locked: false, state: 'readable', supportsBYOB: true }
+[log_f0e866] response parsed {
+  url: '',
+  status: 200,
+  body: Stream {
+    iterator: [AsyncGeneratorFunction: iterator],
+    controller: AbortController { signal: AbortSignal { aborted: false } }
+  },
+  durationMs: 10
+}

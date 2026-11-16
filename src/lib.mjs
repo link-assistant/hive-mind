@@ -2,7 +2,7 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
-import { isPlaceholderErrorText, isOpaqueErrorText } from './error-text.lib.mjs'; // issue #2141/#3759: reject placeholders and opaque dumps
+import { isPlaceholderErrorText, isOpaqueErrorText, isSourceFragmentErrorText } from './error-text.lib.mjs'; // issue #2141/#3759/#4077: reject placeholders, opaque dumps and source/debug fragments
 import { isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
 import { retryGitHubOperation } from './github-operation-retry.lib.mjs'; // issue #3552: one retry loop for every GitHub operation
 
@@ -808,6 +808,10 @@ export const isMeaningfulErrorText = value => {
   // Issue #2141: "[object Object]" has letters, but it is the *absence* of an
   // error message — a structured payload that was stringified by mistake.
   if (isPlaceholderErrorText(collapsed) || isOpaqueErrorText(collapsed)) return false;
+  // Issue #4077: "} ReadableStream { locked: false, … }" has letters, but it is
+  // the tail of an SDK debug dump, not a failure reason. The same goes for any
+  // printed source, inspected object, header dump or stack frame.
+  if (isSourceFragmentErrorText(value)) return false;
   // Require at least one Unicode letter or number; pure punctuation/brackets
   // (e.g. "}", "{", "[]", ",") are stream fragments, not real errors.
   return /[\p{L}\p{N}]/u.test(collapsed);

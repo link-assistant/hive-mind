@@ -26,13 +26,14 @@ import { promises as fsPromises } from 'fs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { resolveSessionTranscriptPath } from './claude.session-transcript-repair.lib.mjs';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
-import { isOpaqueErrorText } from './error-text.lib.mjs';
+import { isOpaqueErrorText, SDK_DEBUG_LOGGER_LINE, SDK_STREAM_RESPONSE_DEBUG_LINE } from './error-text.lib.mjs';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TRANSCRIPT_TAIL_BYTES = 1024 * 1024;
 const RATE_LIMIT_WINDOW_LABELS = { five_hour: 'session (5-hour)', seven_day: 'weekly', seven_day_opus: 'weekly Opus', seven_day_sonnet: 'weekly Sonnet' };
 // `[log_be123b] response error (error; no more retries left) {` — the SDK debug logger.
-const DEBUG_BLOCK_START = /^\[log_[0-9a-f]+\]\s/i;
+// Issue #4077: also `[log_be123b, request-id: "req_…"] post … succeeded with status 200 in 612ms`.
+const DEBUG_BLOCK_START = SDK_DEBUG_LOGGER_LINE;
 const DEBUG_RESPONSE_ERROR = /^\[log_[0-9a-f]+\]\s+response error\b/i;
 // Long runs of base64 alphabet only: the debug logger's compressed body dumps.
 const BASE64_DUMP_LINE = /^[A-Za-z0-9+/=]{120,}$/;
@@ -139,7 +140,10 @@ export const createClaudeUsageLimitEvidence = () => {
     }
     const debugBlock = openBlocks.get(stream);
     if (debugBlock) {
-      if (/^}\s*$/.test(line)) {
+      // A block ends at the first column-0 `}`. Issue #4077: the SDK's streamed
+      // `response` dump ends with `} ReadableStream { locked: false, … }`, so the
+      // closer may carry the inspected body on the same line.
+      if (/^}/.test(line)) {
         if (!debugBlock.skip && debugBlock.status === 429) state.debugRateLimit = { status: debugBlock.status, headers: debugBlock.headers, retriesExhausted: debugBlock.retriesExhausted };
         if (!debugBlock.skip && debugBlock.status >= 400 && debugBlock.isMessagesApi) state.debugApiError = { status: debugBlock.status, requestId: debugBlock.requestId || null };
         openBlocks.delete(stream);
@@ -154,6 +158,15 @@ export const createClaudeUsageLimitEvidence = () => {
         const header = line.match(HEADER_LINE);
         if (header && /^(anthropic-ratelimit-|retry-after$)/i.test(header[1])) debugBlock.headers[header[1].toLowerCase()] = header[2].trim();
       }
+      return { isDebugOutput: true };
+    }
+    // Issue #4077: `response 200 <url> Headers {` — the one SDK debug line with no
+    // `[log_<id>]` prefix (internal/parse.ts, streamed responses). Small headers
+    // fit on one line (`… Headers {…} ReadableStream {…}`); otherwise the dump
+    // spans lines until a column-0 `}`. Either way it is not a failure reason.
+    if (SDK_STREAM_RESPONSE_DEBUG_LINE.test(line)) {
+      state.debugBlocks++;
+      if (/\{\s*$/.test(line)) openBlocks.set(stream, { skip: true });
       return { isDebugOutput: true };
     }
     if (DEBUG_BLOCK_START.test(line)) {

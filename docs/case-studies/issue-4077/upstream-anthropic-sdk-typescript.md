@@ -1,3 +1,5 @@
+<!-- Filed as https://github.com/anthropics/anthropic-sdk-typescript/issues/1299 -->
+
 Title: Streaming `response` debug log has no `[log_<id>]` prefix and logs the raw `Headers`/`ReadableStream` objects
 
 ## Summary

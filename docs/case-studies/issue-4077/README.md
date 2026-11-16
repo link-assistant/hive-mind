@@ -180,7 +180,7 @@ No other open issue reports a source or dump fragment as a failure reason.
 
 ## 7. Upstream report (R7)
 
-Filed on `anthropics/anthropic-sdk-typescript` (see the PR description for the link), text in [`upstream-anthropic-sdk-typescript.md`](./upstream-anthropic-sdk-typescript.md):
+Filed as https://github.com/anthropics/anthropic-sdk-typescript/issues/1299, text in [`upstream-anthropic-sdk-typescript.md`](./upstream-anthropic-sdk-typescript.md):
 
 - reproducible example: a fake `fetch` returning an SSE stream, run with `ANTHROPIC_LOG=debug` (the same as [`experiments/issue-4077/sdk-stream-debug-log.mjs`](../../../experiments/issue-4077/sdk-stream-debug-log.mjs); its output is in [`sdk-stream-debug-log.output.txt`](../../../experiments/issue-4077/sdk-stream-debug-log.output.txt));
 - workaround: do not enable debug logging where output is parsed, filter `'response'` debug calls with a custom logger, or treat `/^response \d{3}\s.*\bHeaders\s*\{/` lines (and their block) as debug output, which is what this PR does;

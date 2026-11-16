@@ -430,6 +430,8 @@ en
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
       after
+        queue
+          title "Waiting for other tasks ({{count}})"
         queued "⏳ Solve command queued after other tasks"
         waiting
           success "Starts when {{tasks}} finishes successfully; it is not started if that task fails."

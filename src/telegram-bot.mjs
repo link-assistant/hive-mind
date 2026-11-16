@@ -596,7 +596,7 @@ async function handleSolveCommand(ctx) {
 // One link of /solve: validate, then start or queue it. `reject` (issue #4067)
 // collects errors for the batch summary instead of replying to each one.
 // Issue #4069: `dependsOn` (/after, /enqueue) and `respectBlockers` may make it wait for other tasks.
-async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName, reject = null, dependsOn = null, respectBlockers = false, relations = null }) {
+async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName, dependsOn = null, respectBlockers = false, relations = null, reject = null }) {
   const fail = async (text, scope = SOLVE_REJECT_SCOPE.TARGET, summary = null) => {
     if (reject) return reject(text, { scope, summary });
     await safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id });

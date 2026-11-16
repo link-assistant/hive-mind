@@ -1184,6 +1184,7 @@ export class SolveQueue {
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
       message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
     }
+    message += this.formatWaitingForTasksSection({ locale }); // #4069: tasks that wait for other tasks
     // Issue #2823: the summary counts what the lists above show. It used to
     // print the number of successful *launches* as "Completed" and never
     // counted sessions that failed after launch.

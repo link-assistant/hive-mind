@@ -11,6 +11,8 @@
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { formatQueueItemLink } from './telegram-solve-queue.helpers.lib.mjs';
 
 const QUEUED = 'queued';
 
@@ -65,6 +67,18 @@ export const solveQueueDependencyMethods = {
     this.cancelled.push(item);
     while (this.cancelled.length > 100) this.cancelled.shift();
     this.reconcileDependencies();
+  },
+  /** The `/queue` section that lists tasks waiting for other tasks; empty when there are none. */
+  formatWaitingForTasksSection({ locale = null } = {}) {
+    const entries = this.dependencies.entries;
+    if (entries.length === 0) return '';
+    let section = `*${t('telegram.solve_after_queue_title', { count: entries.length }, { locale })}*\n`;
+    for (const entry of entries.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE)) {
+      const tasks = escapeMarkdown(entry.targets.map(target => target.label).join(', '));
+      section += `  • ${formatQueueItemLink(entry.item.url)} (${entry.item.tool || 'claude'}) ⏳ ${tasks}\n`; // telegram-markdown-ok: formatQueueItemLink returns safe Markdown; labels are escaped
+    }
+    if (entries.length > QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE) section += `  …\n`;
+    return `${section}\n`;
   },
   /**
    * A queued, running or waiting item for `url` that a new task for the same

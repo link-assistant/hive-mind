@@ -552,6 +552,40 @@ already running or queued, rejected by the queue) are listed in one summary
 after every valid link was started. A command can also list several links
 itself, for example `/solve <url-1> <url-2> --model opus`.
 
+#### `/after` and `/enqueue` - Start a Task After Another Task
+
+```
+/after <task-link> [options]                     (reply to the awaited task's message)
+/after <uuid|awaited-link> <task-link> [options]
+/after [options]                                 (reply: run the same link again afterwards)
+/enqueue ...                                     (same forms)
+```
+
+Both commands start exactly one task after another task has finished. The task
+to wait for is found the way `/stop`, `/log` and `/watch` find a task: a session
+UUID or an issue/pull request link, in the replied message or in the command.
+Everything else works as in `/solve` (the link to start and its options).
+
+- `/after` starts the task only when the awaited task **succeeds** (a run
+  without changes counts as a success). When the awaited task fails, is
+  cancelled or is killed, the waiting task fails too.
+- `/enqueue` starts the task once the awaited task **finishes**, whatever the
+  outcome.
+
+A waiting task is listed in `/queue` under "Waiting for other tasks" and can be
+stopped with `/stop` before it starts.
+
+**`--respect-blockers` (experimental, off by default).** Add it to `/solve`,
+`/claude`, `/codex` or any other solve command to respect the issue's GitHub
+relations, as `/hive` does: open "blocked by" issues, open sub-issues (a
+sub-issue blocks its parent) and the blockers of its ancestors. When every open
+blocker is already queued or running, the task waits for them as with `/after`.
+When a blocker is neither queued nor running, the task is not started.
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` turns it on for every solve command. A
+command with several links respects blockers by default and starts the
+unblocked links first (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`, or
+`--no-respect-blockers` for one command, turns that off).
+
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
 > **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).

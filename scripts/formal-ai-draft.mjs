@@ -25,11 +25,11 @@
  */
 
 import { spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureReason, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
 import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
 import { gh } from './github-actions.lib.mjs';
 
@@ -167,21 +167,8 @@ const status = await new Promise((resolve, reject) => {
   child.on('close', code => resolve(code ?? 1));
 });
 
-/** Why the newest session log says the run is red, so the run's summary says it too. */
-const reportFirstError = () => {
-  let text = '';
-  try {
-    const logs = readdirSync(hostLogDir)
-      .filter(name => name.endsWith('.log'))
-      .map(name => join(hostLogDir, name))
-      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-    if (logs.length) text = readFileSync(logs[0], 'utf8');
-  } catch {
-    // No log is itself the finding; the fallback message says so.
-  }
-  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureReason(text) || `docker run exited ${status} without a session log error`));
-};
-if (status !== 0) reportFirstError();
+// Why the session log says the run is red, so the run's summary says it too (#4065: solve-*.log, not the newest *.log).
+if (status !== 0) console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage({ logDir: hostLogDir, status })));
 
 // --- The failure policy ---------------------------------------------------
 //

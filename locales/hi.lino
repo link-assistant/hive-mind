@@ -429,6 +429,40 @@ hi
       """
       queued "📋 solve command queue में जोड़ी गई ({{tool}} queue position #{{position}})"
       waiting "⏳ प्रतीक्षा में ({{tool}} queue #{{position}})"
+      after
+        queue
+          title "अन्य कार्यों की प्रतीक्षा में ({{count}})"
+        queued "⏳ solve command अन्य कार्यों के बाद queue में जोड़ी गई"
+        waiting
+          success "{{tasks}} सफलतापूर्वक पूरा होने पर शुरू होगा; वह कार्य विफल होने पर शुरू नहीं होगा।"
+          finish "{{tasks}} पूरा होने पर शुरू होगा, परिणाम चाहे जो हो।"
+          blockers "अपने GitHub blockers {{tasks}} की प्रतीक्षा करता है: {{description}}"
+        released "▶️ प्रतीक्षित कार्य पूरे हुए ({{tasks}}); कार्य queue में जोड़ा गया।"
+        dependency
+          failed "एक प्रतीक्षित कार्य सफल नहीं हुआ: {{task}}"
+        blockers
+          not
+            queued "इसे {{blockers}} block करता है, जो न queue में है न चल रहा है ({{description}})। पहले blockers को queue करें, या command को `--respect-blockers` के बिना भेजें।"
+        usage """
+          ❌ बताएं कि किस कार्य की प्रतीक्षा करनी है।
+
+          कार्य के संदेश का उत्तर दें: `/after <github-url>`
+          या कार्य बताएं: `/after <uuid|github-url> <github-url> [options]`
+
+          `/after` नया कार्य केवल तभी शुरू करता है जब प्रतीक्षित कार्य सफल हो; `/enqueue` परिणाम चाहे जो हो शुरू करता है। नया लिंक न होने पर प्रतीक्षित लिंक फिर से चलता है।
+        """
+        many
+          tasks "❌ /after और /enqueue एक कार्य के बाद एक कार्य शुरू करते हैं। बहुत अधिक कार्य: {{links}}"
+        invalid
+          link "❌ यह issue या pull request लिंक नहीं है: {{links}}"
+        unknown
+          target "❌ {{task}} के लिए कोई queued या चल रहा कार्य नहीं मिला। कार्य के संदेश का उत्तर दें, या उसका session UUID या लिंक बताएं।"
+        no
+          task
+            link "❌ कार्य {{task}} का फिर से शुरू करने के लिए कोई लिंक नहीं है। इसके बाद शुरू करने के लिए issue या pull request लिंक जोड़ें।"
+        target
+          failed "❌ शुरू नहीं हुआ: {{task}} पहले ही {{detail}}, और /after केवल सफल कार्य के बाद शुरू करता है। फिर भी शुरू करने के लिए /enqueue का उपयोग करें।"
+          finished "ℹ️ {{task}} पहले ही {{detail}}; अभी शुरू कर रहे हैं।"
       batch
         summary """
           📋 {{total}} में से {{started}} links शुरू हुए। शुरू नहीं हुए ({{notStarted}}):
@@ -595,6 +629,9 @@ hi
         alias
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
         reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`। कई issue/PR लिंक होने पर हर लिंक अलग कार्य के रूप में शुरू होता है।"
+        after "*/after* `<task> <github-url>` - किसी अन्य कार्य के सफल होने के बाद कार्य शुरू करें; वह विफल हो तो यह शुरू नहीं होगा। */enqueue* परिणाम चाहे जो हो यही करता है। प्रतीक्षित कार्य session UUID, लिंक या उत्तर दिया गया संदेश है; नया लिंक न होने पर उसका लिंक फिर से चलता है।"
+        respect
+          blockers "`--respect-blockers` (प्रयोगात्मक) - issue के GitHub blockers और खुले sub-issues queue में हों तो उनकी प्रतीक्षा करें; कोई न queue में हो न चल रहा हो तो शुरू न करें। लिंक की सूची में यह default है (`--no-respect-blockers` इसे बंद करता है)।"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
         queue "`/queue` - solve queue status दिखाएँ"
       locked
@@ -645,7 +682,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model

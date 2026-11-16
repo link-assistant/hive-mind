@@ -1333,11 +1333,11 @@ export async function resumeTrackedSessions(options = {}) {
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
+const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
 });
-export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier };

@@ -179,7 +179,8 @@ test('Telegram applies the redirect after the no-work check and before queueing 
   const preflight = source.indexOf('const repositoryPreflight = await preflightRepositoryTarget');
   const redirect = source.indexOf('redirectRepositoryArgsToSingleIssue({', preflight);
   const normalizedUrl = source.indexOf('const normalizedUrl = validation.parsed.canonical', redirect);
-  const queueCheck = source.indexOf('solveQueue.findByUrl(normalizedUrl)', redirect);
+  // Issue #4069: the duplicate check also skips the tasks an /after command waits for.
+  const queueCheck = source.indexOf('solveQueue.findLaunchConflict(normalizedUrl', redirect);
   const launch = source.indexOf("executeAndUpdateMessage(ctx, startingMessage, 'solve'", redirect);
 
   assert.ok(preflight > 0, 'the repository preflight must be wired into /solve');

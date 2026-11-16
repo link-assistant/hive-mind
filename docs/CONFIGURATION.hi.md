@@ -275,30 +275,32 @@ failed माना जाता है।
 
 ### 13. Telegram Bot
 
-| Environment Variable                            | डिफ़ॉल्ट    | विवरण                                                                                                |
-| ----------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                            | (आवश्यक)   | @BotFather से Telegram bot token                                                                      |
-| `TELEGRAM_ALLOWED_CHATS`                        | (सभी)     | अनुमत chat IDs (Links Notation)                                                                       |
-| `TELEGRAM_SOLVE_OVERRIDES`                      | (कोई नहीं) | /solve के लिए override विकल्प (Links Notation)                                                         |
-| `TELEGRAM_HIVE_OVERRIDES`                       | (कोई नहीं) | /hive के लिए override विकल्प (Links Notation)                                                          |
-| `TELEGRAM_SOLVE`                                | true      | /solve command सक्षम करें                                                                               |
-| `TELEGRAM_HIVE`                                 | true      | /hive command सक्षम करें                                                                                |
-| `TELEGRAM_TASK`                                 | true      | /task और /split commands सक्षम करें                                                                     |
-| `TELEGRAM_FIX`                                  | true      | /fix command सक्षम करें                                                                                 |
-| `TELEGRAM_ORGANIZE`                             | true      | /organize issue taxonomy command सक्षम करें                                                             |
-| `TELEGRAM_AUTH`                                 | true      | allowlisted chat owners के लिए experimental private /auth command सक्षम करें                             |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE`      | false     | public /solve sessions के लिए अलग live terminal watch message auto-start करें                           |
-| `TELEGRAM_CONTAINER_CPU`                        | (कोई नहीं) | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)                                |
-| `TELEGRAM_CONTAINER_MEMORY`                     | 25%       | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                                      |
-| `TELEGRAM_CONTAINER_DISK`                       | (कोई नहीं) | Docker task writable-layer limit: size (`20GB`) या available-disk percentage (`10%`)                 |
-| `TELEGRAM_CONTAINER_CPU_PENALTY`                | `true`    | सभी CPUs व्यस्त रखने वाले Docker task को limit करें (issue #2801); `false` इसे बंद करता है                    |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`           | `2`       | Penalized Docker task की CPU limit                                                                   |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER`        | `95%`     | Task के CPUs (host CPUs, या कम होने पर `TELEGRAM_CONTAINER_CPU`) का औसत हिस्सा जिसे सभी CPUs माना जाता है |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW` | `15m`     | Cap लगाने से पहले trigger average कितनी देर बना रहे                                                       |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE`        | `65%`     | Cap का हिस्सा जिससे नीचे task को रहना होगा ताकि cap हटे                                                  |
-| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW` | `15m`     | Cap हटाने से पहले release average कितनी देर बना रहे                                                       |
-| `TELEGRAM_BOT_VERBOSE`                          | false     | verbose logging सक्षम करें                                                                              |
-| `TELEGRAM_CONFIGURATION`                        | (कोई नहीं) | LINO configuration string                                                                            |
+| Environment Variable                            | डिफ़ॉल्ट    | विवरण                                                                                                 |
+| ----------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`                            | (आवश्यक)   | @BotFather से Telegram bot token                                                                       |
+| `TELEGRAM_ALLOWED_CHATS`                        | (सभी)     | अनुमत chat IDs (Links Notation)                                                                        |
+| `TELEGRAM_SOLVE_OVERRIDES`                      | (कोई नहीं) | /solve के लिए override विकल्प (Links Notation)                                                          |
+| `TELEGRAM_HIVE_OVERRIDES`                       | (कोई नहीं) | /hive के लिए override विकल्प (Links Notation)                                                           |
+| `TELEGRAM_SOLVE`                                | true      | /solve command सक्षम करें                                                                                |
+| `TELEGRAM_HIVE`                                 | true      | /hive command सक्षम करें                                                                                 |
+| `TELEGRAM_TASK`                                 | true      | /task और /split commands सक्षम करें                                                                      |
+| `TELEGRAM_FIX`                                  | true      | /fix command सक्षम करें                                                                                  |
+| `TELEGRAM_ORGANIZE`                             | true      | /organize issue taxonomy command सक्षम करें                                                              |
+| `TELEGRAM_AUTH`                                 | true      | allowlisted chat owners के लिए experimental private /auth command सक्षम करें                              |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE`      | false     | public /solve sessions के लिए अलग live terminal watch message auto-start करें                            |
+| `TELEGRAM_SOLVE_RESPECT_BLOCKERS`               | false     | प्रायोगिक: solve commands GitHub blockers और खुले sub-issues का सम्मान करते हैं, `--respect-blockers` की तरह |
+| `TELEGRAM_BATCH_RESPECT_BLOCKERS`               | true      | कई links वाला solve command पहले unblocked issues शुरू करता है और बाकी को उनके blockers के बाद queue करता है |
+| `TELEGRAM_CONTAINER_CPU`                        | (कोई नहीं) | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)                                 |
+| `TELEGRAM_CONTAINER_MEMORY`                     | 25%       | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                                       |
+| `TELEGRAM_CONTAINER_DISK`                       | (कोई नहीं) | Docker task writable-layer limit: size (`20GB`) या available-disk percentage (`10%`)                  |
+| `TELEGRAM_CONTAINER_CPU_PENALTY`                | `true`    | सभी CPUs व्यस्त रखने वाले Docker task को limit करें (issue #2801); `false` इसे बंद करता है                     |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`           | `2`       | Penalized Docker task की CPU limit                                                                    |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER`        | `95%`     | Task के CPUs (host CPUs, या कम होने पर `TELEGRAM_CONTAINER_CPU`) का औसत हिस्सा जिसे सभी CPUs माना जाता है  |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW` | `15m`     | Cap लगाने से पहले trigger average कितनी देर बना रहे                                                        |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE`        | `65%`     | Cap का हिस्सा जिससे नीचे task को रहना होगा ताकि cap हटे                                                   |
+| `TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW` | `15m`     | Cap हटाने से पहले release average कितनी देर बना रहे                                                        |
+| `TELEGRAM_BOT_VERBOSE`                          | false     | verbose logging सक्षम करें                                                                               |
+| `TELEGRAM_CONFIGURATION`                        | (कोई नहीं) | LINO configuration string                                                                             |
 
 ### 14. YouTrack एकीकरण
 
@@ -679,6 +681,8 @@ hive-telegram-bot [options]
 | `--verbose`                              | `-v`  | boolean | false     | verbose logging सक्षम करें                                                                                                                                                                                           |
 | `--dry-run`                              |       | boolean | false     | bot शुरू किए बिना validate करें                                                                                                                                                                                       |
 | `--auto-start-screen-watch-message`      |       | boolean | false     | Experimental: public `/solve` sessions के लिए अलग `/terminal_watch` message auto-start करें। Private या unknown-visibility repositories में watch messages auto-start नहीं होते।                                         |
+| `--solve-respect-blockers`               |       | boolean | false     | प्रायोगिक: solve commands डिफ़ॉल्ट रूप से GitHub blockers और खुले sub-issues का सम्मान करते हैं, `--respect-blockers` की तरह (issue #4069)।                                                                                  |
+| `--batch-respect-blockers`               |       | boolean | true      | कई links वाला solve command पहले unblocked issues शुरू करता है और बाकी को उनके blockers के बाद queue करता है (`--no-batch-respect-blockers` से बंद करें)।                                                                    |
 | `--isolation`                            |       | string  | `docker`  | Isolation backend (`screen`, `tmux`, `docker`)। डिफ़ॉल्ट `docker` Telegram-bot work sessions को Docker isolation में success cleanup के साथ चलाता है। opt out के लिए `--isolation ''` (या `TELEGRAM_ISOLATION=`) पास करें। |
 | `--container-cpu`                        |       | string  |           | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)।                                                                                                                                            |
 | `--container-memory`                     |       | string  |           | Docker task RAM limit: fixed size (`2GiB`) या host percentage (`25%`)।                                                                                                                                            |

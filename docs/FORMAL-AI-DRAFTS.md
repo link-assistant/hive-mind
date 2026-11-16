@@ -115,7 +115,7 @@ The binary must run on the image's Ubuntu base (glibc). When called, the workflo
 ## Reading a failed draft
 
 1. The session log is attached to the pull request by `--attach-logs`.
-2. If no pull request was opened, the same log is the `formal-ai-draft-session-<issue>` artifact on the workflow run, retained for 30 days. The run's annotations name the first error the session logged.
+2. If no pull request was opened, the same log is the `formal-ai-draft-session-<issue>` artifact on the workflow run, retained for 30 days. The run's annotations name the first error the session logged. They are read from solve's own `solve-*.log`, so another `*.log` a caller writes into the same directory does not hide them ([#4065](https://github.com/link-assistant/hive-mind/issues/4065)).
 3. `dev/log/self-authored/issue-<n>/evidence` on the branch holds `agent-stream.jsonl` and `session-id.txt` — the model's own record of what it did, not Hive Mind's summary of it.
 
 ## When formal-ai publishes its composite action

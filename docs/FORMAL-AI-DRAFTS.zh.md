@@ -107,7 +107,7 @@ jobs:
 ## 如何读一个失败的草稿
 
 1. 会话日志由 `--attach-logs` 附加到 pull request 上。
-2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。
+2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。它们读取自 solve 自己的 `solve-*.log`，因此调用方写入同一目录的其他 `*.log` 不会遮盖它们（[#4065](https://github.com/link-assistant/hive-mind/issues/4065)）。
 3. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
 
 ## 当 formal-ai 发布其 composite action 之后

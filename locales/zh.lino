@@ -429,6 +429,17 @@ zh
       """
       queued "📋 solve 命令已入队（{{tool}} 队列位置 #{{position}}）"
       waiting "⏳ 等待中（{{tool}} 队列 #{{position}}）"
+      batch
+        summary """
+          📋 已启动 {{started}}/{{total}} 个链接。未启动（{{notStarted}}）：
+
+          {{items}}
+        """
+        chat
+          stopped "在启动此链接之前聊天已被停止"
+        repository "链接列表中的仓库链接不会启动；如需处理整个仓库，请单独发送 `/solve <repository-url>`"
+        launch
+          failed "启动失败：{{error}}"
       invalid
         url
           help """
@@ -583,7 +594,7 @@ zh
         example "示例：`/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
-        reply "也可以回复包含 GitHub 链接的消息：`/solve`"
+        reply "也可以回复包含 GitHub 链接的消息：`/solve`。若包含多个 issue/PR 链接，每个链接都会作为单独的任务启动。"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
         queue "`/queue` - 显示 solve 队列状态"
       locked

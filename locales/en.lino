@@ -429,6 +429,17 @@ en
       """
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      batch
+        summary """
+          📋 {{started}} of {{total}} links started. Not started ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "the chat was stopped before this link was started"
+        repository "repository links are not started from a list of links; send `/solve <repository-url>` alone to solve a whole repository"
+        launch
+          failed "the start failed: {{error}}"
       invalid
         url
           help """
@@ -583,7 +594,7 @@ en
         example "Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
-        reply "Or reply to a message with a GitHub link: `/solve`"
+        reply "Or reply to a message with a GitHub link: `/solve`. With several issue/PR links, each one starts as its own task."
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
         queue "`/queue` - Show solve queue status"
       locked

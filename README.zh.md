@@ -521,6 +521,8 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
+用 `/solve`（或任意别名，可带选项，例如 `/codex --think medium`）回复包含 GitHub issue 或 pull request 链接的消息即可启动它们。单个链接照常启动。若有多个链接，每个有效链接都会作为单独的任务启动，就像为每个链接分别发送了一次命令：每次启动都回复同一条命令消息，逐个进行，两次启动之间随机间隔 10–15 秒。无法启动的链接（无效、未找到、已在运行或排队、被队列拒绝）会在所有有效链接启动后汇总在一条消息中。命令本身也可以列出多个链接，例如 `/solve <url-1> <url-2> --model opus`。
+
 > **📖 免费模型指南**：有关所有免费模型（包括 OpenCode Zen 和 Kilo Gateway 提供商）的全面信息，请参见 [docs/FREE_MODELS.zh.md](./docs/FREE_MODELS.zh.md)。
 
 > **📖 实时模型列表**：运行 `hive-models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。

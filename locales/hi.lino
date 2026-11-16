@@ -429,6 +429,17 @@ hi
       """
       queued "📋 solve command queue में जोड़ी गई ({{tool}} queue position #{{position}})"
       waiting "⏳ प्रतीक्षा में ({{tool}} queue #{{position}})"
+      batch
+        summary """
+          📋 {{total}} में से {{started}} links शुरू हुए। शुरू नहीं हुए ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "यह link शुरू होने से पहले chat रोक दी गई"
+        repository "links की सूची से repository links शुरू नहीं होते; पूरी repository हल करने के लिए `/solve <repository-url>` अलग से भेजें"
+        launch
+          failed "शुरू करना विफल रहा: {{error}}"
       invalid
         url
           help """
@@ -583,7 +594,7 @@ hi
         example "उदाहरण: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
-        reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
+        reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`। कई issue/PR लिंक होने पर हर लिंक अलग कार्य के रूप में शुरू होता है।"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
         queue "`/queue` - solve queue status दिखाएँ"
       locked

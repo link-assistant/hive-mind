@@ -1,0 +1,31 @@
+plan: batch, 25 links, invalid: https://github.com/linksplatform/doublets-web, duplicates: https://github.com/link-foundation/use-m/issues/88, options: --think medium --auto-merge
++   1 ms reply: 🚀 Starting solve command (https://github.com/link-assistant/legal/issues/5 --think medium --auto-merge)
++  13 ms reply: 🚀 Starting solve command (https://github.com/link-assistant/image-to-number/issues/4 --think medium --auto-merge)
++  27 ms reply: 🚀 Starting solve command (https://github.com/link-assistant/trader-bot/issues/12 --think medium --auto-merge)
++  40 ms reply: 🚀 Starting solve command (https://github.com/link-assistant/web-capture/issues/190 --think medium --auto-merge)
++  54 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/gh-download-gist/issues/3 --think medium --auto-merge)
++  67 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/gh-upload-image/issues/3 --think medium --auto-merge)
++  80 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/set-process-name/issues/3 --think medium --auto-merge)
++  92 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/lino-cache/issues/5 --think medium --auto-merge)
++ 109 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/lino-objects-codec/issues/88 --think medium --auto-merge)
++ 123 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/links-client/issues/26 --think medium --auto-merge)
++ 139 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/links-queue/issues/55 --think medium --auto-merge)
++ 153 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/linksql/issues/4 --think medium --auto-merge)
++ 167 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/meta-notation/issues/5 --think medium --auto-merge)
++ 181 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/relative-meta-logic/issues/189 --think medium --auto-merge)
++ 193 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/relative-meta-logic/issues/188 --think medium --auto-merge)
++ 206 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/rust-web-box/issues/46 --think medium --auto-merge)
++ 218 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/universal-translator/issues/2 --think medium --auto-merge)
++ 231 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/use-m/issues/88 --think medium --auto-merge)
++ 246 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/link-cli/issues/181 --think medium --auto-merge)
++ 259 ms reply: 🚀 Starting solve command (https://github.com/link-foundation/gh-uncommitted/issues/3 --think medium --auto-merge)
++ 272 ms reply: 🚀 Starting solve command (https://github.com/linksplatform/doublets-rs/issues/92 --think medium --auto-merge)
++ 286 ms reply: 🚀 Starting solve command (https://github.com/linksplatform/doublets-web/issues/34 --think medium --auto-merge)
++ 300 ms reply: 🚀 Starting solve command (https://github.com/linksplatform/doublets-web/pull/35 --think medium --auto-merge)
++ 302 ms reply:
+📋 23 of 26 links started. Not started (3):
+
+1. https://github.com/link-foundation/linksql/issues/5 — This issue already has an active session: 1a2b3c4d
+2. https://github.com/link-foundation/meta-ontology/issues/8 — Issue #8 not found in link-foundation/meta-ontology
+3. https://github.com/linksplatform/doublets-web — repository links are not started from a list of links; send `/solve <repository-url>` alone to solve a whole repository
+started 23, not started 3

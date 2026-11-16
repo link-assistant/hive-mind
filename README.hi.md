@@ -524,6 +524,8 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
+GitHub issue या pull request links वाले संदेश का `/solve` (या कोई भी alias, options के साथ, जैसे `/codex --think medium`) से उत्तर दें, ताकि वे शुरू हों। एक link सामान्य रूप से शुरू होता है। कई links होने पर हर मान्य link अलग कार्य के रूप में शुरू होता है, मानो command हर link के लिए अलग से भेजा गया हो: हर शुरुआत उसी command संदेश का उत्तर है, एक-एक करके, दो शुरुआतों के बीच 10–15 सेकंड के यादृच्छिक अंतराल के साथ। जो links शुरू नहीं हो सके (अमान्य, नहीं मिले, पहले से चल रहे या queue में, queue द्वारा अस्वीकृत), वे सभी मान्य links शुरू होने के बाद एक सारांश में सूचीबद्ध होते हैं। command स्वयं भी कई links दे सकता है, जैसे `/solve <url-1> <url-2> --model opus`।
+
 > **📖 मुफ्त मॉडल गाइड**: OpenCode Zen और Kilo Gateway प्रदाताओं सहित सभी मुफ्त मॉडलों के बारे में व्यापक जानकारी के लिए [docs/FREE_MODELS.hi.md](./docs/FREE_MODELS.hi.md) देखें।
 
 > **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।

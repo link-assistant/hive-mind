@@ -13,4 +13,4 @@
 - A command can also list several links itself: `/solve <url-1> <url-2> --model opus`.
 - A reply to a message with a single link works as before.
 
-Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile).
+Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile), and the `use-m` bootstrap pin to 8.17.2.

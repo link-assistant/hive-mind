@@ -530,6 +530,39 @@ GitHub issue या pull request links वाले संदेश का `/sol
 
 > **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
 
+#### `/after` और `/enqueue` - किसी दूसरे कार्य के बाद कार्य शुरू करें
+
+```
+/after <task-link> [options]                     (प्रतीक्षित कार्य के संदेश का उत्तर दें)
+/after <uuid|awaited-link> <task-link> [options]
+/after [options]                                 (उत्तर: बाद में वही link फिर से चलाएँ)
+/enqueue ...                                     (वही रूप)
+```
+
+दोनों commands किसी दूसरे कार्य के समाप्त होने के बाद ठीक एक कार्य शुरू करते हैं।
+प्रतीक्षित कार्य वैसे ही खोजा जाता है जैसे `/stop`, `/log` और `/watch` खोजते हैं:
+session UUID या issue/pull request link, उत्तर दिए गए संदेश में या command में।
+बाकी सब `/solve` की तरह काम करता है (शुरू करने वाला link और उसके options)।
+
+- `/after` कार्य तभी शुरू करता है जब प्रतीक्षित कार्य **सफल** हो (बिना बदलाव वाला
+  run भी सफल माना जाता है)। यदि प्रतीक्षित कार्य विफल, रद्द या बंद हो जाता है, तो
+  प्रतीक्षा करने वाला कार्य भी विफल हो जाता है।
+- `/enqueue` प्रतीक्षित कार्य के **समाप्त** होने के बाद कार्य शुरू करता है, परिणाम चाहे जो हो।
+
+प्रतीक्षा करने वाला कार्य `/queue` में "अन्य कार्यों की प्रतीक्षा में" के अंतर्गत दिखता है
+और शुरू होने से पहले `/stop` से रोका जा सकता है।
+
+**`--respect-blockers` (प्रायोगिक, डिफ़ॉल्ट रूप से बंद)।** इसे `/solve`, `/claude`,
+`/codex` या किसी अन्य solve command में जोड़ें, ताकि issue के GitHub संबंधों का
+सम्मान हो, जैसा `/hive` करता है: खुले "blocked by" issues, खुले sub-issues (sub-issue
+अपने parent को block करता है) और पूर्वजों के blockers। यदि सभी खुले blockers पहले से
+queue में हैं या चल रहे हैं, तो कार्य `/after` की तरह उनकी प्रतीक्षा करता है। यदि कोई
+blocker न queue में है न चल रहा है, तो कार्य शुरू नहीं होता।
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` इसे हर solve command के लिए चालू करता है। कई
+links वाला command डिफ़ॉल्ट रूप से blockers का सम्मान करता है और पहले unblocked links
+शुरू करता है (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`, या एक command के लिए
+`--no-respect-blockers`, इसे बंद करता है)।
+
 #### `/hive` - Hive ऑर्केस्ट्रेशन चलाएँ
 
 ```

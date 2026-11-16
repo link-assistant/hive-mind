@@ -527,6 +527,33 @@ Free Models via Kilo Gateway (with --tool agent):
 
 > **📖 实时模型列表**：运行 `hive-models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
 
+#### `/after` 和 `/enqueue` - 在另一个任务之后启动任务
+
+```
+/after <任务链接> [选项]                        （回复被等待任务的消息）
+/after <uuid|被等待的链接> <任务链接> [选项]
+/after [选项]                                   （回复：之后再次运行同一链接）
+/enqueue ...                                    （同样的形式）
+```
+
+两个命令都会在另一个任务结束后启动恰好一个任务。被等待的任务的查找方式与
+`/stop`、`/log` 和 `/watch` 相同：会话 UUID 或 issue/pull request 链接，位于被回复的消息或命令本身中。
+其余部分与 `/solve` 相同（要启动的链接及其选项）。
+
+- `/after` 仅在被等待的任务**成功**时启动任务（没有更改的运行也算成功）。
+  如果被等待的任务失败、被取消或被终止，等待中的任务也会失败。
+- `/enqueue` 在被等待的任务**结束**后启动任务，无论结果如何。
+
+等待中的任务会在 `/queue` 的“等待其他任务”部分列出，并可在启动前用 `/stop` 停止。
+
+**`--respect-blockers`（实验性，默认关闭）。** 将其添加到 `/solve`、`/claude`、`/codex`
+或其他 solve 命令，即可像 `/hive` 一样遵守 issue 的 GitHub 关系：未关闭的“blocked by”
+issue、未关闭的子 issue（子 issue 阻塞其父 issue）以及祖先的阻塞项。如果所有未关闭的阻塞项
+都已排队或正在运行，任务会像 `/after` 一样等待它们。如果某个阻塞项既未排队也未运行，任务不会启动。
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` 会为所有 solve 命令启用此功能。包含多个链接的命令默认遵守阻塞项，
+并先启动未被阻塞的链接（`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`，或单个命令使用
+`--no-respect-blockers` 可关闭此行为）。
+
 #### `/hive` - 运行蜂群编排
 
 ```

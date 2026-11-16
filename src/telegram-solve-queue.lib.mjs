@@ -927,11 +927,11 @@ export class SolveQueue {
    * @param {string|null} [event.supersededBy] - Recovery session that continues this work.
    * @returns {SolveQueueItem|null} The updated item, or null when none matched.
    */
-  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null } = {}) {
+  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null, killRecoveryOfSession = null } = {}) {
     const describe = `session ${sessionName}${rootSessionName && rootSessionName !== sessionName ? ` (root ${rootSessionName})` : ''} exit=${exitCode ?? 'null'} status=${status || 'null'}`;
     // Issue #4069: tasks waiting for this one move on once the outcome is recorded below.
-    this.dependencies.handleSessionCompletion({ sessionName, rootSessionName, killRecoveryOfSession: arguments[0]?.killRecoveryOfSession || null, exitCode, status, command, supersededBy });
-    if (this.dependencies.size > 0) queueMicrotask(() => this.reconcileDependencies());
+    this.dependencies.handleSessionCompletion({ sessionName, rootSessionName, killRecoveryOfSession, exitCode, status, command, supersededBy });
+    if (this.dependencies.size > 0) setImmediate(() => this.reconcileDependencies());
     if (supersededBy) {
       this.log(`Session completion ignored for ${describe}: continued by recovery session ${supersededBy}`);
       return null;

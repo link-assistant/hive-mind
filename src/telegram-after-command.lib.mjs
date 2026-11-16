@@ -85,7 +85,6 @@ export function isAwaitedTaskUrl(targets = [], url, canonicalize = value => valu
  * Combines an `/after`/`/enqueue` dependency with `--respect-blockers`.
  *
  * @param {object} params
- * @param {string} params.url - Canonical task URL
  * @param {{targets: object[], mode: string}|null} [params.dependsOn] - From `/after` or `/enqueue`
  * @param {boolean} [params.respectBlockers]
  * @param {Function} params.planBlockers - `() => planBlockerWait(...)` for this URL
@@ -93,7 +92,7 @@ export function isAwaitedTaskUrl(targets = [], url, canonicalize = value => valu
  * @param {Function} params.escape - Markdown escaping
  * @returns {Promise<{action: 'start', notes: string[]} | {action: 'wait', targets: object[], mode: string, waitingText: string} | {action: 'reject', reason: string}>}
  */
-export async function planSolveLaunchWait({ url, dependsOn = null, respectBlockers = false, planBlockers, tr, escape = value => value }) {
+export async function planSolveLaunchWait({ dependsOn = null, respectBlockers = false, planBlockers, tr, escape = value => value }) {
   const targets = [...(dependsOn?.targets || [])];
   const mode = dependsOn?.mode || DEPENDENCY_MODE.SUCCESS;
   const lines = [];

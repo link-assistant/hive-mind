@@ -217,10 +217,12 @@ export class SolveDependencyTracker {
         if (decision.action === 'release') {
           released.push(entry.item);
           this.log(`Released: ${entry.item.url} (${entry.item.id}) — ${decision.summary}`);
+          // eslint-disable-next-line no-await-in-loop -- in order: a released task may unblock the next one
           await this.onRelease(entry, decision.summary);
         } else {
           failed.push(entry.item);
           this.log(`Not started: ${entry.item.url} (${entry.item.id}) — ${decision.reason}`);
+          // eslint-disable-next-line no-await-in-loop -- in order: a failed task may fail the next one
           await this.onFail(entry, decision.reason);
         }
       }

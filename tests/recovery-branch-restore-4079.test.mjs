@@ -19,7 +19,7 @@ import { after, test } from 'node:test';
 import { $ } from 'command-stream';
 
 import { commitUncommittedChangesOnCriticalError } from '../src/critical-error-commit.lib.mjs';
-import { restoreRecoveryBranchWork } from '../src/recovery-branch-restore.lib.mjs';
+import { restoreRecoveryBranchWork, withRestoredRecoveryBranchWork } from '../src/recovery-branch-restore.lib.mjs';
 
 const quiet$ = options => $({ ...options, mirror: false });
 const silentLog = async () => {};
@@ -132,7 +132,18 @@ test('no recovery branch: nothing happens', async () => {
 
 test('solve.mjs restores on continue runs and names the recovery branch in the failure comment', () => {
   const source = readFileSync(new URL('../src/solve.mjs', import.meta.url), 'utf8');
-  assert.match(source, /if \(isContinueMode\) \{\n\s+const \{ restoreRecoveryBranchWork \} = await import\('\.\/recovery-branch-restore\.lib\.mjs'\);/);
-  assert.ok(source.indexOf('restoreRecoveryBranchWork({') < source.indexOf('await checkUncommittedChanges('), 'restored before the uncommitted-changes check');
-  assert.match(source, /preservedWork\?\.committed \? describePreservedWork\(preservedWork\) : null/);
+  assert.match(source, /if \(isContinueMode\) feedbackLines = await \(await import\('\.\/recovery-branch-restore\.lib\.mjs'\)\)\.withRestoredRecoveryBranchWork\(feedbackLines, \{ tempDir, branchName, \$, log \}\);/);
+  assert.ok(source.indexOf('withRestoredRecoveryBranchWork(') < source.indexOf('await checkUncommittedChanges('), 'restored before the uncommitted-changes check');
+  assert.match(source, /failureCommentNote: preserved\.committed \? describePreservedWork\(preserved\) : null/);
+  assert.match(source, /errorMessage: limitReached \? undefined : \[.*, preservedWork\?\.failureCommentNote\]\.filter\(Boolean\)/);
+});
+
+test('withRestoredRecoveryBranchWork appends to the existing feedback, and leaves it alone when there is nothing to say', async () => {
+  const run = await failedRun(editReadmeAndAddFile);
+  const dir = await nextRun(run);
+  const lines = await withRestoredRecoveryBranchWork(['earlier feedback'], { tempDir: dir, branchName: BRANCH, $: quiet$, log: silentLog });
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0], 'earlier feedback');
+  assert.match(lines[1], /has been restored to the working tree/);
+  assert.equal(await withRestoredRecoveryBranchWork(null, { tempDir: null, branchName: BRANCH, $: quiet$, log: silentLog }), null);
 });

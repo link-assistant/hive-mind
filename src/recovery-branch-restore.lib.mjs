@@ -90,4 +90,15 @@ export const restoreRecoveryBranchWork = async ({ tempDir, branchName, $, log, r
   }
 };
 
-export default { restoreRecoveryBranchWork };
+/**
+ * solve.mjs entry point: restores the work and returns `feedbackLines` with what the session must be told appended.
+ * @param {string[]|null} feedbackLines
+ * @param {Parameters<typeof restoreRecoveryBranchWork>[0]} params
+ * @returns {Promise<string[]|null>}
+ */
+export const withRestoredRecoveryBranchWork = async (feedbackLines, params) => {
+  const restored = await restoreRecoveryBranchWork(params);
+  return restored.feedbackLines.length > 0 ? [...(feedbackLines ?? []), ...restored.feedbackLines] : feedbackLines;
+};
+
+export default { restoreRecoveryBranchWork, withRestoredRecoveryBranchWork };

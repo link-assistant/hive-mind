@@ -21,6 +21,7 @@
 
 import { promptText } from './prompt-text.lib.mjs';
 import { isToolGeneratedComment } from './tool-comments.lib.mjs';
+import { stripHtmlComments } from './merge-prerequisites.lib.mjs';
 
 // `first: 100` is the GraphQL maximum. Only the first comment of each thread is
 // needed: it holds the finding, and its author is the thread's author.
@@ -94,10 +95,7 @@ export const fetchUnresolvedReviewThreads = async params => {
 };
 
 const excerpt = body => {
-  const flat = String(body || '')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const flat = stripHtmlComments(body).replace(/\s+/g, ' ').trim();
   return flat.length > EXCERPT_LENGTH ? `${flat.slice(0, EXCERPT_LENGTH)}...` : flat;
 };
 

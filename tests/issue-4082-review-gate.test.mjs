@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DEFAULT_REVIEW_WINDOW_MINUTES, READY_FOR_REVIEW_BLOCKED_SIGNATURE, buildReadyForReviewBlockedComment, createReviewGate, normalizeReviewWindowMinutes, resolveReviewGateOptions } from '../src/solve.auto-merge-review-gate.lib.mjs';
-import { checkMergePrerequisites, checkReferenceState, extractReferences, findMergePrerequisiteDeclarations, formatPrerequisitesForComment, latestSessionSummary } from '../src/merge-prerequisites.lib.mjs';
+import { checkMergePrerequisites, checkReferenceState, extractReferences, findMergePrerequisiteDeclarations, formatPrerequisitesForComment, latestSessionSummary, stripHtmlComments } from '../src/merge-prerequisites.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { buildReadyForReviewComment } from '../src/external-review-limit.lib.mjs';
 
@@ -47,6 +47,15 @@ test('case 6: ordinary prose, closing keywords, quotes, code and self-references
   for (const text of ['The result depends on the flag value.', 'I merged the default branch first.', 'Fixes #11', 'This PR does not need to be merged first.', 'No prerequisites.', '> Depends on #30', '```\nDepends on #30\n```', '<!-- Blocked by #30 -->', 'See `Depends on #30` in the template.', 'Depends on #12', 'Requires #31']) {
     assert.deepEqual(findMergePrerequisiteDeclarations(text, CONTEXT), [], text);
   }
+});
+
+test('case 6: nested or unterminated HTML comments cannot leak into the status comment (CodeQL js/incomplete-multi-character-sanitization)', () => {
+  assert.equal(stripHtmlComments('a <!-- x --> b'), 'a  b');
+  assert.equal(stripHtmlComments('a <!<!-- x -->-- hidden\nDepends on #30'), 'a ');
+  assert.equal(stripHtmlComments('a <!-- never closed\nDepends on #30'), 'a ');
+  assert.ok(!stripHtmlComments('<!<!--<!-- -->-->--x').includes('<!--'));
+  assert.deepEqual(findMergePrerequisiteDeclarations('Merge other/lib#3 first <!<!-- x -->-- Depends on #30', CONTEXT), [{ text: 'Merge other/lib#3 first', references: [{ owner: 'other', repo: 'lib', number: 3 }] }]);
+  assert.equal(stripHtmlComments(null), '');
 });
 
 test('case 6: references are read from URLs, owner/repo#N and #N', () => {

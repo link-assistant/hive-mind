@@ -48,11 +48,27 @@ const LOCAL_REFERENCE = /(?:^|[^\w/#&])#(\d+)\b/g;
 
 const MAX_DECLARATION_LENGTH = 200;
 
+/**
+ * HTML comments removed until none is left. One pass is not enough:
+ * `<!<!-- x -->-- y` leaves a new `<!--`. An unterminated comment hides the
+ * rest of the text on GitHub, so it is dropped to the end here too, and a
+ * quoted declaration can never open a comment in our status comment.
+ */
+export const stripHtmlComments = text => {
+  let current = String(text || '');
+  let previous;
+  do {
+    previous = current;
+    current = current.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  } while (current !== previous);
+  return current;
+};
+
 /** Prose lines only: fenced code, quoted text (often the issue being quoted), HTML comments and inline code are dropped. */
 const proseLines = text => {
   const lines = [];
   let inFence = false;
-  const withoutComments = String(text || '').replace(/<!--[\s\S]*?-->/g, '');
+  const withoutComments = stripHtmlComments(text);
   for (const raw of withoutComments.split(/\r?\n/)) {
     if (/^\s*(?:```|~~~)/.test(raw)) {
       inFence = !inFence;
@@ -198,6 +214,7 @@ export const formatPrerequisitesForComment = prerequisites =>
   });
 
 export default {
+  stripHtmlComments,
   findMergePrerequisiteDeclarations,
   extractReferences,
   latestSessionSummary,

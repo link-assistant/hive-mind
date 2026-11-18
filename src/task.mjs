@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 import crypto from 'crypto';
 import path from 'path';
@@ -125,6 +126,16 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
   });
 
   await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });
+  // PR #4083 feedback: log the exact prompts start-agent receives (after the geolocation policy is appended).
+  const argValue = flag => (args.indexOf(flag) >= 0 ? args[args.indexOf(flag) + 1] : '');
+  await logFinalPrompts({
+    log,
+    tool: `${argv.tool} (start-agent)`,
+    prompts: [
+      { kind: 'user', text: argValue('--prompt'), delivery: 'the start-agent --prompt argument', keepEmpty: true },
+      { kind: 'system', text: argValue('--system-prompt'), delivery: 'the start-agent --system-prompt argument' },
+    ],
+  });
   const result = await runCommand(startAgent, args);
   const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() ? `\n${result.stderr}` : ''}`.trim();
   if (result.code !== 0) {

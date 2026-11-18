@@ -41,6 +41,7 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 const nativeStorageAdmission = Symbol('nativeGeminiStorageAdmission');
@@ -391,16 +392,7 @@ export const executeGemini = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   return await executeGeminiCommand({
@@ -495,6 +487,7 @@ export const executeGeminiCommand = async params => {
     const geminiArgList = buildGeminiArgs(argv, mappedModel, { tempDir, workspaceTmpDir });
     const fullCommand = `(cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
 
+    await logFinalPrompts({ log, tool: 'gemini', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: 'stdin', keepEmpty: true }] }); // PR #4083 feedback
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     await recheckStorage();
     if (preparedResult) return preparedResult;

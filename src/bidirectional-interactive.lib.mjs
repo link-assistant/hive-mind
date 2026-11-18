@@ -24,8 +24,8 @@ import { promptText } from './prompt-text.lib.mjs';
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
-import { quietProbe } from './quiet-probe.lib.mjs';
-import { extractFrameText, logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083: print every live frame the tool receives // issue #2130: keep read-only probe payloads out of the attached log
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { extractFrameText, logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083: print every live frame the tool receives
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {

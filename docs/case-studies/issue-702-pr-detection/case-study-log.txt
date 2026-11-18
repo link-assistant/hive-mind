@@ -1,0 +1,119 @@
+# Hive.mjs Log - 2025-11-10T12:53:57.023Z
+
+[2025-11-10T12:53:57.028Z] [INFO] 📁 Log file: /home/hive/hive-2025-11-10T12-53-57-022Z.log
+[2025-11-10T12:53:57.031Z] [INFO]    (All output will be logged here)
+[2025-11-10T12:53:57.035Z] [INFO] ⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-check enabled)
+[2025-11-10T12:53:57.036Z] [INFO] 🎯 Monitoring Configuration:
+[2025-11-10T12:53:57.037Z] [INFO]    📍 Target: Repository - deep-assistant/hive-mind
+[2025-11-10T12:53:57.038Z] [INFO]    🏷️  Mode: ALL ISSUES (no label filter)
+[2025-11-10T12:53:57.038Z] [INFO]    🚫 Skipping: Issues with open PRs
+[2025-11-10T12:53:57.038Z] [INFO]    🔄 Concurrency: 2 parallel workers
+[2025-11-10T12:53:57.039Z] [INFO]    📊 Pull Requests per Issue: 1
+[2025-11-10T12:53:57.039Z] [INFO]    🤖 Model: sonnet
+[2025-11-10T12:53:57.039Z] [INFO]    🍴 Auto-Fork: ENABLED (will auto-fork public repos without write access)
+[2025-11-10T12:53:57.040Z] [INFO]    🚀 Mode: Single run
+[2025-11-10T12:53:57.040Z] [INFO] 
+[2025-11-10T12:53:57.041Z] [INFO] ⏩ Skipping system resource check (dry-run mode or skip-tool-check enabled)
+[2025-11-10T12:53:57.041Z] [INFO] ⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-check enabled)
+[2025-11-10T12:53:57.045Z] [INFO] 
+🚀 Starting Hive Mind monitoring system...
+[2025-11-10T12:53:57.046Z] [INFO] 
+👷 Starting 2 workers...
+[2025-11-10T12:53:57.047Z] [INFO] 🔧 Worker 1 started
+[2025-11-10T12:53:57.047Z] [INFO] 🔧 Worker 2 started
+[2025-11-10T12:53:57.047Z] [INFO] 
+🔄 Monitoring iteration 1 at 2025-11-10T12:53:57.047Z
+[2025-11-10T12:53:57.050Z] [INFO] 
+🔍 Fetching ALL open issues...
+[2025-11-10T12:53:57.050Z] [INFO]    🔎 Fetching all issues with pagination and rate limiting...
+[2025-11-10T12:53:57.050Z] [INFO]    🔎 Command: gh issue list --repo deep-assistant/hive-mind --state open --json url,title,number,createdAt
+[2025-11-10T12:53:57.053Z] [INFO]    📊 Fetching issues with improved limits and rate limiting...
+[2025-11-10T12:53:57.053Z] [INFO]    ⏰ Waiting 5 seconds before API call to respect rate limits...
+[2025-11-10T12:54:02.056Z] [INFO]    🔎 Executing: gh issue list --repo deep-assistant/hive-mind --state open --json url,title,number,createdAt --limit 1000
+[2025-11-10T12:54:02.780Z] [INFO]    ✅ Fetched 42 issues in 1s
+[2025-11-10T12:54:02.783Z] [INFO]    ⏰ Adding 5-second delay after API call to respect rate limits...
+[2025-11-10T12:54:07.791Z] [INFO]    📋 Found 42 open issue(s)
+[2025-11-10T12:54:07.796Z] [INFO]    🔄 Sorting issues by publication date (oldest first)...
+[2025-11-10T12:54:07.797Z] [INFO]    ✅ Issues sorted by publication date
+[2025-11-10T12:54:07.797Z] [INFO]    🔍 Checking for existing pull requests using batch GraphQL query...
+[2025-11-10T12:54:07.799Z] [INFO]    🔍 Batch checking PRs for 42 issues using GraphQL...
+[2025-11-10T12:54:09.833Z] [INFO]    ✅ Batch 1/1 processed (42 issues)
+[2025-11-10T12:54:09.838Z] [INFO]    📊 Batch PR check complete: 35/42 issues have open PRs
+[2025-11-10T12:54:09.839Z] [INFO]       ⏭️  Skipping (has 1 PR): Support i18n based on user language (https://github.com/deep-assistant/hive-mind/issues/375)
+[2025-11-10T12:54:09.840Z] [INFO]       ⏭️  Skipping (has 1 PR): i18n support for solve and hive (https://github.com/deep-assistant/hive-mind/issues/378)
+[2025-11-10T12:54:09.841Z] [INFO]       ⏭️  Skipping (has 1 PR): Add notification about finishing work session in telegram bot (https://github.com/deep-assistant/hive-mind/issues/380)
+[2025-11-10T12:54:09.841Z] [INFO]       ⏭️  Skipping (has 1 PR): In --watch mode, after the pull request is merged we should automatically delete the branch if --auto-delete-branch-on-merge option is provided (https://github.com/deep-assistant/hive-mind/issues/401)
+[2025-11-10T12:54:09.842Z] [INFO]       ⏭️  Skipping (has 1 PR): Add Full SourceCraft Platform Support (https://github.com/deep-assistant/hive-mind/issues/410)
+[2025-11-10T12:54:09.843Z] [INFO]       ⏭️  Skipping (has 1 PR): solve/hive feature: flags --git-username --git-email (https://github.com/deep-assistant/hive-mind/issues/446)
+[2025-11-10T12:54:09.846Z] [INFO]       ⏭️  Skipping (has 1 PR): Support entire organization clone, so the AI will have full local context about the entire organization (https://github.com/deep-assistant/hive-mind/issues/448)
+[2025-11-10T12:54:09.847Z] [INFO]       ⏭️  Skipping (has 2 PRs): feature: Implement automatic containerization for each Hive Mind job (solve, hive, review) (https://github.com/deep-assistant/hive-mind/issues/449)
+[2025-11-10T12:54:09.847Z] [INFO]       ⏭️  Skipping (has 1 PR): feature: Implement secure user key storage and isolated injection mechanism (https://github.com/deep-assistant/hive-mind/issues/450)
+[2025-11-10T12:54:09.847Z] [INFO]       ⏭️  Skipping (has 1 PR): security: Automatic Secure Issue Text Scanning for Dangerous LLM Commands (https://github.com/deep-assistant/hive-mind/issues/451)
+[2025-11-10T12:54:09.848Z] [INFO]       ⏭️  Skipping (has 1 PR): Make --auto-continue enabled by default (https://github.com/deep-assistant/hive-mind/issues/454)
+[2025-11-10T12:54:09.848Z] [INFO]       ⏭️  Skipping (has 1 PR): Make the --auto-start-screen-watch-message option for hive-telegram-bot (https://github.com/deep-assistant/hive-mind/issues/467)
+[2025-11-10T12:54:09.849Z] [INFO]       ⏭️  Skipping (has 1 PR): Support agents.md for claude tool (https://github.com/deep-assistant/hive-mind/issues/473)
+[2025-11-10T12:54:09.852Z] [INFO]       ⏭️  Skipping (has 1 PR): /top command, to show single autoupdated message with top screen, so see the load on the system (https://github.com/deep-assistant/hive-mind/issues/500)
+[2025-11-10T12:54:09.856Z] [INFO]       ⏭️  Skipping (has 1 PR): `task --split` mode (https://github.com/deep-assistant/hive-mind/issues/501)
+[2025-11-10T12:54:09.858Z] [INFO]       ⏭️  Skipping (has 1 PR): Move from version bump to changesets (https://github.com/deep-assistant/hive-mind/issues/503)
+[2025-11-10T12:54:09.860Z] [INFO]       ⏭️  Skipping (has 1 PR): Add clean screens command that will allow clean commands by pattern (https://github.com/deep-assistant/hive-mind/issues/508)
+[2025-11-10T12:54:09.860Z] [INFO]       ⏭️  Skipping (has 1 PR): Add support for `qwen` tool (https://github.com/deep-assistant/hive-mind/issues/513)
+[2025-11-10T12:54:09.861Z] [INFO]       ⏭️  Skipping (has 1 PR): Add support for `gemini` tool (https://github.com/deep-assistant/hive-mind/issues/516)
+[2025-11-10T12:54:09.861Z] [INFO]       ⏭️  Skipping (has 1 PR): Create separate user for each issue, for better isolation (https://github.com/deep-assistant/hive-mind/issues/520)
+[2025-11-10T12:54:09.864Z] [INFO]       ⏭️  Skipping (has 1 PR): Button to forcefully stop the command in hive-telegram-bot (https://github.com/deep-assistant/hive-mind/issues/524)
+[2025-11-10T12:54:09.866Z] [INFO]       ⏭️  Skipping (has 1 PR): Add alias commands for /solve in hive-telegram-bot (https://github.com/deep-assistant/hive-mind/issues/525)
+[2025-11-10T12:54:09.869Z] [INFO]       ⏭️  Skipping (has 1 PR): We need to research alternatives to gh gist for transferring logs from server (or user machine) to GitHub issue (https://github.com/deep-assistant/hive-mind/issues/587)
+[2025-11-10T12:54:09.871Z] [INFO]       ⏭️  Skipping (has 1 PR): Claude limits indicator should be shown on each start of the task in hive-telegram-bot (https://github.com/deep-assistant/hive-mind/issues/594)
+[2025-11-10T12:54:09.871Z] [INFO]       ⏭️  Skipping (has 1 PR): Make sure we run all tests only when fast checks are passing in CI (https://github.com/deep-assistant/hive-mind/issues/596)
+[2025-11-10T12:54:09.873Z] [INFO]       ⏭️  Skipping (has 1 PR): Could not process image (https://github.com/deep-assistant/hive-mind/issues/597)
+[2025-11-10T12:54:09.874Z] [INFO]       ⏭️  Skipping (has 1 PR): Add autoformat / prettier into package.json (https://github.com/deep-assistant/hive-mind/issues/600)
+[2025-11-10T12:54:09.875Z] [INFO]       ⏭️  Skipping (has 1 PR): Add autofix eslint issues to package.json (https://github.com/deep-assistant/hive-mind/issues/601)
+[2025-11-10T12:54:09.875Z] [INFO]       ⏭️  Skipping (has 1 PR): Add a suggestion in the prompt in the same style as other rules to create issues about bugs that are spotted on the course of working session (https://github.com/deep-assistant/hive-mind/issues/627)
+[2025-11-10T12:54:09.875Z] [INFO]       ⏭️  Skipping (has 1 PR): System message hint - prefer using existing code as example for implementing features instead of implementing everything from scratch each time (https://github.com/deep-assistant/hive-mind/issues/634)
+[2025-11-10T12:54:09.876Z] [INFO]       ⏭️  Skipping (has 1 PR): Check for ability for auto-restart with session resume to keep previous context for the model but provide new small prompt only listing uncommitted changes (https://github.com/deep-assistant/hive-mind/issues/661)
+[2025-11-10T12:54:09.876Z] [INFO]       ⏭️  Skipping (has 1 PR): Detect language of the issue by having more than 51% of characters in some language, and use i18n for prompts (https://github.com/deep-assistant/hive-mind/issues/675)
+[2025-11-10T12:54:09.878Z] [INFO]       ⏭️  Skipping (has 1 PR): Make a detailed case study on why the model used main branch instead of the branch specified in --base-branch option (https://github.com/deep-assistant/hive-mind/issues/681)
+[2025-11-10T12:54:09.878Z] [INFO]       ⏭️  Skipping (has 1 PR): Find out why we cannot create pull request on already existing branch for the issue (https://github.com/deep-assistant/hive-mind/issues/683)
+[2025-11-10T12:54:09.879Z] [INFO]       ⏭️  Skipping (has 1 PR): Dockerize with publishing to docker hub (https://github.com/deep-assistant/hive-mind/issues/694)
+[2025-11-10T12:54:09.879Z] [INFO]    ⏭️  Skipped 35 issue(s) with existing pull requests
+[2025-11-10T12:54:09.880Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/685
+[2025-11-10T12:54:09.880Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/692
+[2025-11-10T12:54:09.880Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/693
+[2025-11-10T12:54:09.884Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/696
+[2025-11-10T12:54:09.884Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/697
+[2025-11-10T12:54:09.885Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/698
+[2025-11-10T12:54:09.885Z] [INFO]    ➕ Added to queue: https://github.com/deep-assistant/hive-mind/issues/700
+[2025-11-10T12:54:09.885Z] [INFO]    📥 Added 7 new issue(s) to queue
+[2025-11-10T12:54:09.886Z] [INFO] 
+📊 Current Status:
+[2025-11-10T12:54:09.886Z] [INFO]    📋 Queued: 7
+[2025-11-10T12:54:09.886Z] [INFO]    ⚙️  Processing: 0
+[2025-11-10T12:54:09.886Z] [INFO]    ✅ Completed: 0
+[2025-11-10T12:54:09.888Z] [INFO]    ❌ Failed: 0
+[2025-11-10T12:54:09.888Z] [INFO]    📁 Hive log file: /home/hive/hive-2025-11-10T12-53-57-022Z.log
+[2025-11-10T12:54:09.889Z] [INFO] 
+🏁 Single run mode - waiting for queue to empty...
+[2025-11-10T12:54:12.061Z] [INFO] 
+👷 Worker 1 processing: https://github.com/deep-assistant/hive-mind/issues/685
+[2025-11-10T12:54:12.065Z] [INFO] 
+👷 Worker 2 processing: https://github.com/deep-assistant/hive-mind/issues/692
+[2025-11-10T12:54:12.071Z] [INFO]    🚀 Executing solve for https://github.com/deep-assistant/hive-mind/issues/685...
+[2025-11-10T12:54:12.073Z] [INFO]    🚀 Executing solve for https://github.com/deep-assistant/hive-mind/issues/692...
+[2025-11-10T12:54:12.079Z] [INFO]    📋 Command: solve "https://github.com/deep-assistant/hive-mind/issues/685" --model sonnet --tool claude --auto-fork --verbose --attach-logs --skip-tool-check
+[2025-11-10T12:54:12.082Z] [INFO]    📋 Command: solve "https://github.com/deep-assistant/hive-mind/issues/692" --model sonnet --tool claude --auto-fork --verbose --attach-logs --skip-tool-check
+[2025-11-10T12:54:13.907Z] [INFO] 
+
+🛑 Received interrupt signal, shutting down gracefully...
+[2025-11-10T12:54:13.914Z] [INFO] 
+[2025-11-10T12:54:13.920Z] [INFO]    ⏳ Waiting for 2 worker(s) to finish current tasks...
+[2025-11-10T12:54:13.924Z] [ERROR] ❌ Interrupted (CTRL+C)
+[2025-11-10T12:54:13.933Z] [INFO]    ✅ Worker 2 completed https://github.com/deep-assistant/hive-mind/issues/692 (2s)
+[2025-11-10T12:54:13.936Z] [INFO] 📁 Full log file: /home/hive/hive-2025-11-10T12-53-57-022Z.log
+[2025-11-10T12:54:13.939Z] [INFO]    ✅ Worker 1 completed https://github.com/deep-assistant/hive-mind/issues/685 (2s)
+[2025-11-10T12:54:13.941Z] [INFO]    📊 Queue: 5 waiting, 1 processing, 1 completed, 0 failed
+[2025-11-10T12:54:13.984Z] [INFO]    📊 Queue: 5 waiting, 0 processing, 2 completed, 0 failed
+[2025-11-10T12:54:13.988Z] [INFO]    📁 Hive log file: /home/hive/hive-2025-11-10T12-53-57-022Z.log
+[2025-11-10T12:54:13.990Z] [INFO]    📁 Hive log file: /home/hive/hive-2025-11-10T12-53-57-022Z.log
+[2025-11-10T12:54:13.990Z] [INFO]    🔧 Currently processing solve commands:
+[2025-11-10T12:54:13.991Z] [INFO] 🔧 Worker 1 stopped
+[2025-11-10T12:54:13.992Z] [INFO]       - https://github.com/deep-assistant/hive-mind/issues/685
+[2025-11-10T12:54:13.993Z] [INFO] 🔧 Worker 2 stopped

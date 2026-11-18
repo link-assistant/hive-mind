@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` महत्वपूर्ण है: यह lockfile का **जैसा वह commit किया गया है वैसा ही** audit करता है, इसलिए परिणाम वही होता है जो उपभोक्ता को मिलेगा, और उसे ऐसे resolution से हरा नहीं किया जा सकता जो केवल इसी runner पर होता है। समतुल्य job को schedule पर रखें, क्योंकि केवल scheduled run ही ऐसी advisory देख सकता है जो code बदलना बंद होने के बाद प्रकाशित हुई हो। workflow job स्वयं के लिए [CI/CD सर्वोत्तम प्रथाएँ](./CI-CD-BEST-PRACTICES.hi.md) देखें।
 
+जब किसी advisory का कोई patched release ही न हो, तो `--audit-level` को कमज़ोर न करें और job को न हटाएँ। एक exceptions file में advisory, package, सटीक vulnerable range और यह कारण दर्ज करें कि यह यहाँ लागू क्यों नहीं होता, और gate को तब फिर से fail होने दें जब advisory की range बदल जाए (fix आ गया) या वह report होना बंद हो जाए (exception पुराना हो गया)। यह repository इसे `scripts/check-npm-audit.mjs` और `scripts/npm-audit-exceptions.json` से करती है।
+
 ### 10. रुकावटों की सूचना upstream दें
 
 जब कोई अपडेट किसी dependency के bug से रुका हो, तो उस project के GitHub पर एक issue खोलें जिसमें पुनरुत्पादन योग्य उदाहरण, यहाँ अपनाया गया workaround और code में सुझाया गया fix हो — फिर चुपचाप version वापस pin करने के बजाय उस report को अपने काम से link करें। link सहित pin एक ट्रैक किया गया निर्णय है; बिना link वाला pin स्थायी है।

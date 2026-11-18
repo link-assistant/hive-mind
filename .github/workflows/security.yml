@@ -129,8 +129,13 @@ jobs:
       # --package-lock-only audits the lockfile as committed, without installing:
       # the job reports on what a consumer would get, and cannot be turned green
       # by a resolution that only happens on this runner.
+      # The checker decides the result: it fails on every high or critical
+      # advisory except those accepted in scripts/npm-audit-exceptions.json,
+      # and on an accepted one whose vulnerable range changed (a fix shipped).
       - name: Audit current lock
-        run: npm audit --package-lock-only --audit-level=high
+        run: |
+          npm audit --package-lock-only --audit-level=high --json > npm-audit.json || true
+          node scripts/check-npm-audit.mjs npm-audit.json
 
   # GitHub reports a job killed by timeout-minutes as cancelled, which leaves
   # the run grey instead of red. Fail on any failure, and on any cancellation

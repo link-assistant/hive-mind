@@ -24,9 +24,25 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2144
  */
 
-import { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 
 export { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER };
+
+/**
+ * Issue #4087: stop reasons that only repeat a failed AI session. When the
+ * "Solution Draft Failed" comment for that session is already on the pull
+ * request (it carries the error, the models and the log, and says the session
+ * ended), a "🛑 Automation stopped: the AI session failed" comment two seconds
+ * later says nothing new, so it is not posted.
+ */
+export const SESSION_FAILURE_STOP_REASONS = Object.freeze(['tool_failure', 'tool_failure_after_resume']);
+
+/**
+ * @param {string} reason internal stop reason
+ * @param {boolean|null} [failureReported] whether a "Solution Draft Failed" comment for this session reached the target
+ * @returns {boolean} true when the stop comment would only duplicate that failure comment
+ */
+export const isStopAlreadyReportedByFailureComment = (reason, failureReported) => failureReported === true && SESSION_FAILURE_STOP_REASONS.includes(String(reason));
 
 /**
  * Human-readable descriptions for every stop reason the solver can return.
@@ -281,9 +297,10 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
  * @param {string} [options.body] pre-built body (skips buildAutomationStopComment)
  * @param {string} [options.signature] pre-built dedup signature
  * @param {boolean|null} [options.logAttached] whether the failure log was attached (null: not attempted)
+ * @param {boolean|null} [options.failureReported] whether a "Solution Draft Failed" comment for this session reached the target (issue #4087)
  * @returns {Promise<{posted: boolean, reason: string, skipped?: string, error?: string}>}
  */
-export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null, logAttached = null }) => {
+export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null, logAttached = null, failureReported = null }) => {
   const description = describeStopReason(reason);
   const write = async text => {
     if (typeof log === 'function') await log(text);
@@ -296,6 +313,12 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
   if (!description.canComment) {
     await write(`   ℹ️  Not posting a stop comment: ${description.title}`);
     return { posted: false, reason: description.reason, skipped: 'target_unavailable' };
+  }
+
+  // Issue #4087: one failure, one comment.
+  if (isStopAlreadyReportedByFailureComment(description.reason, failureReported)) {
+    await write(`   ℹ️  Not posting a stop comment: the "${SOLUTION_DRAFT_FAILED_MARKER}" comment on #${targetNumber} already reports this failure`);
+    return { posted: false, reason: description.reason, skipped: 'failure_already_reported' };
   }
 
   const commentBody = body || buildAutomationStopComment({ reason, mode, message, details, logAttached });
@@ -329,4 +352,6 @@ export default {
   buildAutomationStopComment,
   buildAutoMergeBlockedComment,
   reportAutomationStop,
+  isStopAlreadyReportedByFailureComment,
+  SESSION_FAILURE_STOP_REASONS,
 };

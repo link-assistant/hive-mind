@@ -466,6 +466,16 @@ ${logContent}
   }
   return logComment;
 }
+/**
+ * Issue #4087: what the most recent {@link attachLogToGitHub} call left on its
+ * target. `failureCommentPosted` is true when a "Solution Draft Failed" comment
+ * for the session error reached it: either the log comment itself, or the
+ * "Log Upload Failed" comment, which carries the same heading and error. The
+ * auto-restart loop then does not repeat that error in a stop comment.
+ */
+let lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+export const getLastLogAttachOutcome = () => ({ ...lastLogAttachOutcome });
+
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 /**
  * Attach the session log to a pull request or issue.
@@ -479,7 +489,10 @@ ${logContent}
 export async function attachLogToGitHub(options) {
   // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
   rememberLogUsage(options);
-  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options));
+  lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+  const outcome = { uploadFailureCommentPosted: false };
+  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options), outcome);
+  lastLogAttachOutcome = { attached: attached === true, failureCommentPosted: Boolean(options?.errorMessage) && !options?.isUsageLimit && (attached === true || outcome.uploadFailureCommentPosted) };
   global.latestLogAttachFailed = attached !== true;
   // Issue #2400: once the log is attached, a later failure is news again.
   if (attached === true) forgetLogUploadFailureReports(options);
@@ -487,7 +500,7 @@ export async function attachLogToGitHub(options) {
   return attached;
 }
 
-async function attachLogToGitHubOnce(options) {
+async function attachLogToGitHubOnce(options, outcome = {}) {
   const fs = (await use('fs')).promises;
   const {
     logFile,
@@ -530,7 +543,11 @@ async function attachLogToGitHubOnce(options) {
   let uploadPhaseEntered = false;
   // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
   const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
-  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
+  const reportUploadFailure = async failureReason => {
+    const posted = await postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
+    if (posted === true) outcome.uploadFailureCommentPosted = true; // Issue #4087
+    return posted;
+  };
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {

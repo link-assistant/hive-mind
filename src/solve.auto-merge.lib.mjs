@@ -41,7 +41,7 @@ const { buildDeliberateDraftFeedback, DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeo
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
-const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+const { sanitizeLogContent, attachLogToGitHub, getLastLogAttachOutcome } = githubLib;
 
 // Import shared utilities from the restart-shared module
 import * as restartShared from './solve.restart-shared.lib.mjs';
@@ -998,6 +998,7 @@ export const watchUntilMergeable = async params => {
                 const shouldAttachLogsOnResumeFail = argv.attachLogs || argv['attach-logs'];
                 // Issue #2301: the stop comment must not point to a log that failed to upload.
                 let resumeFailLogAttached = null;
+                let resumeFailureReported = false; // Issue #4087: a "Solution Draft Failed" comment reached the PR
                 if (prNumber && shouldAttachLogsOnResumeFail) {
                   resumeFailLogAttached = false;
                   try {
@@ -1019,19 +1020,14 @@ export const watchUntilMergeable = async params => {
                         requestedModel: argv.originalModel || argv.model,
                         tool: argv.tool || 'claude',
                       });
+                      resumeFailureReported = getLastLogAttachOutcome().failureCommentPosted;
                     }
                   } catch (logUploadError) {
-                    reportError(logUploadError, {
-                      context: 'attach_auto_restart_failure_log',
-                      prNumber,
-                      owner,
-                      repo,
-                      operation: 'upload_failure_log',
-                    });
+                    reportError(logUploadError, { context: 'attach_auto_restart_failure_log', prNumber, owner, repo, operation: 'upload_failure_log' });
                     await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
                   }
                 }
-                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log, logAttached: resumeFailLogAttached });
+                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log, logAttached: resumeFailLogAttached, failureReported: resumeFailureReported });
                 recordLoopToolFailure({ reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }) });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
@@ -1071,25 +1067,21 @@ export const watchUntilMergeable = async params => {
             const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
             // Issue #2301: the stop comment must not point to a log that failed to upload.
             let failLogAttached = null;
+            let failureReported = false; // Issue #4087: a "Solution Draft Failed" comment reached the PR
             if (prNumber && shouldAttachLogsOnFail) {
               failLogAttached = false;
               try {
                 const logFile = getLogFile();
                 if (logFile) {
                   failLogAttached = await attachLogToGitHub({ logFile, targetType: 'pr', targetNumber: prNumber, owner, repo, $, log, sanitizeLogContent, verbose: argv.verbose, errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }), sessionId: toolResult.sessionId || latestSessionId, tempDir, requestedModel: argv.originalModel || argv.model, tool: argv.tool || 'claude' });
+                  failureReported = getLastLogAttachOutcome().failureCommentPosted;
                 }
               } catch (logUploadError) {
-                reportError(logUploadError, {
-                  context: 'attach_auto_restart_failure_log',
-                  prNumber,
-                  owner,
-                  repo,
-                  operation: 'upload_failure_log',
-                });
+                reportError(logUploadError, { context: 'attach_auto_restart_failure_log', prNumber, owner, repo, operation: 'upload_failure_log' });
                 await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
               }
             }
-            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log, logAttached: failLogAttached });
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log, logAttached: failLogAttached, failureReported });
             recordLoopToolFailure({ reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }) });
             return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
           }

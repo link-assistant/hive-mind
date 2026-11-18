@@ -113,6 +113,8 @@ export function registerOrganizeCommand(bot, options) {
         progress: async update => {
           VERBOSE && console.log(`[VERBOSE] /organize: ${update.message}`);
         },
+        // PR #4083 feedback: print the full classifier prompts in the bot log (local only, never in the audit or chat).
+        log: async message => console.log(await sanitizeForPublication(message)),
       });
       const summary = await formatOrganizationSummary(result);
       await safeEditMessageText(ctx, status, summary);

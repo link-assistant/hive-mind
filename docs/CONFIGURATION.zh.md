@@ -155,6 +155,18 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 
 验证针对模型实际接收到的内容，而不仅仅是启用状态。只有当插件负载已展开到 `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills` 时，Codex 才会把该插件的 Agent Skills 渲染进提示词；因此插件可能显示为 `installed, enabled`，而模型却看不到它的任何技能。预检会通过 `codex debug prompt-input` 读取渲染后的 `<skills_instructions>` 目录，确认每个所需技能都在其中。若缺失，诊断信息会指出缺失的技能并列出当时可见的技能。使用 `--verbose` 可打印完整的模型可见目录。在没有 `codex debug prompt-input` 的 Codex 版本上，该检查会带 verbose 提示跳过，而不会使运行失败。参见 `docs/case-studies/issue-2084/`。
 
+### 4.3. Codex 回合保护
+
+当 `codex exec` 回合的输出退化为一连串相同或填充行、超过时间或输入 token 预算（token 预算需要 `--verbose`），或 Codex 以 `max_output_tokens` 结束时，该回合会被停止，并在同一会话中以续写提示恢复。工作区保持不变。`0` 表示禁用该限制。参见 `docs/case-studies/issue-4079/`。
+
+| 环境变量                                 | 默认值    | 描述                                                    |
+| ---------------------------------------- | --------- | ------------------------------------------------------- |
+| `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT`  | 200       | 被视为退化输出的连续相同或填充（`.`、空白）输出行数     |
+| `HIVE_MIND_CODEX_MAX_TURN_MINUTES`       | 240       | 单个回合被拆分前的时长（分钟）                          |
+| `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS`  | 100000000 | 单个回合被拆分前的输入 token 数                         |
+| `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` | 3         | 每次运行中因 `max_output_tokens` 或退化输出而恢复的次数 |
+| `HIVE_MIND_CODEX_MAX_TURN_SPLITS`        | 20        | 每次运行中因时间或 token 拆分而恢复的次数               |
+
 ### 5. 重试配置
 
 | 环境变量                               | 默认值 | 描述                        |

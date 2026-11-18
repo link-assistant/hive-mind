@@ -155,6 +155,18 @@ Enablement हर repository के लिए `$CODEX_HOME/hive-mind/repositorie
 
 Verification यह जाँचता है कि model को असल में क्या मिलता है, केवल enablement नहीं। Codex किसी plugin के Agent Skills को prompt में तभी render करता है जब plugin payload `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills` के अंतर्गत materialized हो; इसलिए plugin `installed, enabled` दिख सकता है जबकि model को उसका कोई skill न दिखे। इसलिए preflight `codex debug prompt-input` के ज़रिए rendered `<skills_instructions>` catalog पढ़ता है और हर आवश्यक skill की पुष्टि करता है। न मिलने पर diagnostic उस skill का नाम देता है और visible skills सूचीबद्ध करता है। पूरा model-visible catalog log करने के लिए `--verbose` चलाएँ। जिस Codex build में `codex debug prompt-input` नहीं है, वहाँ यह check verbose note के साथ skip होता है, run fail नहीं करता। देखें `docs/case-studies/issue-2084/`।
 
+### 4.3. Codex Turn Guard
+
+जब किसी `codex exec` turn का output एक जैसी या filler lines की लंबी श्रृंखला में बदल जाता है, जब वह समय या input-token budget पार करता है (token budget के लिए `--verbose` ज़रूरी है), या जब Codex उसे `max_output_tokens` के साथ समाप्त करता है, तो turn रोका जाता है और उसी session में continuation prompt के साथ फिर शुरू किया जाता है। Working tree सुरक्षित रहता है। `0` सीमा को बंद करता है। देखें `docs/case-studies/issue-4079/`।
+
+| Environment Variable                     | डिफ़ॉल्ट    | विवरण                                                                                      |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT`  | 200       | लगातार एक जैसी या filler (`.`, खाली) output lines की संख्या जिसे degenerate output माना जाता है |
+| `HIVE_MIND_CODEX_MAX_TURN_MINUTES`       | 240       | एक turn का समय (मिनट) जिसके बाद उसे विभाजित किया जाता है                                      |
+| `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS`  | 100000000 | एक turn के input tokens जिनके बाद उसे विभाजित किया जाता है                                     |
+| `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` | 3         | प्रति run `max_output_tokens` या degenerate output के बाद resume की संख्या                     |
+| `HIVE_MIND_CODEX_MAX_TURN_SPLITS`        | 20        | प्रति run समय या token विभाजन के बाद resume की संख्या                                          |
+
 ### 5. Retry कॉन्फ़िगरेशन
 
 | Environment Variable                   | डिफ़ॉल्ट | विवरण                          |

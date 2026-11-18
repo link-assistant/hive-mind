@@ -157,6 +157,18 @@ When a requirement has no installed or available provider, execution stops befor
 
 Verification checks what the model actually receives, not merely what is enabled. Codex renders a plugin's Agent Skills into the prompt only while the plugin payload is materialized under `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills`, so a plugin can report `installed, enabled` while the model sees none of its skills. The preflight therefore reads the rendered `<skills_instructions>` catalog via `codex debug prompt-input` and confirms each required skill appears in it. If one does not, the diagnostic names the missing skill and lists the skills that were visible. Run with `--verbose` to log the full model-visible catalog. On a Codex build without `codex debug prompt-input`, this check is skipped with a verbose note rather than failing the run. See `docs/case-studies/issue-2084/`.
 
+### 4.3. Codex Turn Guard
+
+A `codex exec` turn is stopped and resumed in the same session (with a continuation prompt) when its output degenerates into a run of identical or filler lines, when it exceeds the wall-time or input-token budget (the token budget needs `--verbose`), or when Codex ends it with `max_output_tokens`. The working tree is kept. `0` disables a limit. See `docs/case-studies/issue-4079/`.
+
+| Environment Variable                     | Default   | Description                                                                               |
+| ---------------------------------------- | --------- | ----------------------------------------------------------------------------------------- |
+| `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT`  | 200       | Consecutive identical or filler (`.`, blank) output lines that count as degenerate output |
+| `HIVE_MIND_CODEX_MAX_TURN_MINUTES`       | 240       | Wall time of one turn before it is split                                                  |
+| `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS`  | 100000000 | Input tokens of one turn before it is split                                               |
+| `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` | 3         | Resumes after `max_output_tokens` or degenerate output, per run                           |
+| `HIVE_MIND_CODEX_MAX_TURN_SPLITS`        | 20        | Resumes after a time or token split, per run                                              |
+
 ### 5. Retry Configurations
 
 | Environment Variable                   | Default | Description                         |

@@ -562,6 +562,7 @@ try {
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  if (isContinueMode) feedbackLines = await (await import('./recovery-branch-restore.lib.mjs')).withRestoredRecoveryBranchWork(feedbackLines, { tempDir, branchName, $, log }); // Issue #4079: before the uncommitted-changes check
   const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
   if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
@@ -959,11 +960,11 @@ try {
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
-        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        const { commitUncommittedChangesOnCriticalError, describePreservedWork } = await import('./critical-error-commit.lib.mjs');
         // Issue #2161: when the subscription is gone it is unknown whether/when it
         // will be restored, so the emergency commit is the only thing standing
         // between the operator and hours of lost work — name it as such.
-        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
+        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage }).then(preserved => preserved && { ...preserved, failureCommentNote: preserved.committed ? describePreservedWork(preserved) : null }); // Issue #4079: the failure comment names the recovery branch
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
@@ -1012,7 +1013,7 @@ try {
           // If not a usage limit case, fall back to generic failure format
           // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
           // steps too — whoever finds the run in the morning reads that, not the log.
-          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
+          errorMessage: limitReached ? undefined : [subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage, preservedWork?.failureCommentNote].filter(Boolean).join('\n\n'), // Issue #4079: name the recovery branch
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',

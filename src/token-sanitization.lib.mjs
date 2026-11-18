@@ -24,6 +24,7 @@ import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MES
 import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
 import { findCredentialFindings, loadSensitiveDataSanitizer } from './sensitive-data-sanitizer.lib.mjs'; // issues #3739, #3740: the library is the engine
 import { reportError } from './sentry.lib.mjs';
+import { redactTelemetryIdentity } from './telemetry-identity-redaction.lib.mjs'; // issue #4079: account ids in Codex telemetry
 
 export { createCredentialStreamSanitizer };
 
@@ -577,6 +578,11 @@ export const sanitizeOutput = async (output, options = {}) => {
     if (skipOutputSanitization) {
       return sanitized;
     }
+
+    // Issue #4079: Codex telemetry names the signed-in account
+    // (`user.email=`, `user.account_id=`). Not a credential, so the engine
+    // below keeps it; it is still nobody else's business.
+    sanitized = redactTelemetryIdentity(sanitized);
 
     // Step 2: the engine (@link-foundation/sensitive-data-sanitizer with Hive
     // Mind's policy), always, before the optional scanner.

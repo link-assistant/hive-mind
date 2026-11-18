@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` matters: it audits the lockfile **as committed**, so the result is what a consumer would get and cannot be turned green by a resolution that only happens on this runner. Put the equivalent job on a schedule, because a scheduled run is the only thing that can notice an advisory published after the code stopped changing. See [CI/CD Best Practices](./CI-CD-BEST-PRACTICES.md) for the workflow job itself.
 
+When an advisory has no patched release at all, do not weaken `--audit-level` or drop the job. Record the advisory, package, exact vulnerable range and the reason it does not apply in an exceptions file, and let the gate fail again as soon as the advisory's range changes (a fix shipped) or it is no longer reported (the exception is stale). This repository does it in `scripts/check-npm-audit.mjs` with `scripts/npm-audit-exceptions.json`.
+
 ### 10. Report Blockers Upstream
 
 When an update is blocked by a bug in a dependency, open an issue on that project's GitHub with a reproducible example, the workaround used here, and a suggested fix in code — then link that report from the work instead of silently pinning back. A pin with a link is a tracked decision; a pin without one is permanent.

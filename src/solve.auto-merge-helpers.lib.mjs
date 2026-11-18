@@ -181,6 +181,45 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
 };
 
 /**
+ * Issue #4082: turn submitted pull request reviews into comment-shaped
+ * feedback entries for {@link checkForNonBotComments}.
+ *
+ * - Pending (unsubmitted) reviews are never feedback.
+ * - A human review counts when it requests changes, or when it carries a body
+ *   (a COMMENTED / APPROVED review with text). An empty COMMENTED review is
+ *   only the wrapper of inline comments, which are read separately.
+ * - A bot review counts only when it requests changes. Bots post summary
+ *   reviews on every push; their inline findings are review threads and are
+ *   handled by the unresolved-thread gate (src/review-threads.lib.mjs).
+ *
+ * @param {Array} reviews - `gh api repos/O/R/pulls/N/reviews` answer
+ * @param {(login: string) => boolean} isBot - bot login classifier
+ * @returns {Array<{id, user, body, created_at, html_url, review_state, countsFromBot}>}
+ */
+export const reviewsAsFeedbackComments = (reviews, isBot = () => false) => {
+  if (!Array.isArray(reviews)) return [];
+  const entries = [];
+  for (const review of reviews) {
+    const state = String(review?.state || '').toUpperCase();
+    if (!review?.submitted_at || state === 'PENDING' || state === 'DISMISSED') continue;
+    const body = typeof review.body === 'string' ? review.body.trim() : '';
+    const fromBot = isBot(review.user?.login);
+    const requestsChanges = state === 'CHANGES_REQUESTED';
+    if (fromBot ? !requestsChanges : !requestsChanges && !body) continue;
+    entries.push({
+      id: review.id,
+      user: review.user,
+      body: body || `Review requested changes (${state})`,
+      created_at: review.submitted_at,
+      html_url: review.html_url,
+      review_state: state,
+      countsFromBot: fromBot && requestsChanges,
+    });
+  }
+  return entries;
+};
+
+/**
  * Check for new comments from non-bot users since last commit
  *
  * Same-account comments are only considered feedback when
@@ -260,8 +299,22 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       }
     }
 
+    // Issue #4082 (cases 1, 3): a submitted review (BLOCK / changes needed)
+    // lives in pulls/N/reviews, which this check never read, so a review
+    // posted after "Ready to merge" needed a manual restart. Its own failure
+    // must not hide the comments read above.
+    let reviews = [];
+    try {
+      const reviewsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
+      if (reviewsResult.code === 0 && reviewsResult.stdout?.toString()) {
+        reviews = reviewsAsFeedbackComments(JSON.parse(reviewsResult.stdout.toString() || '[]'), isBot);
+      }
+    } catch (reviewsError) {
+      if (verbose) console.log(`[VERBOSE] Could not read pull request reviews: ${reviewsError.message}`);
+    }
+
     // Combine all comments
-    const allComments = [...prComments, ...prReviewComments, ...issueComments];
+    const allComments = [...prComments, ...prReviewComments, ...issueComments, ...reviews];
 
     // Filter for new comments from non-bot users. Automated hive-mind/tool
     // comments are excluded by marker/ID, including comments posted by the
@@ -273,7 +326,8 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       const isFromAuthenticatedUser = Boolean(currentUser && login === currentUser);
       const isFromTool = isToolComment(comment);
       const isFromAuthenticatedUserToolContext = isFromAuthenticatedUser && !trustAuthenticatedUserComments;
-      const isFromBot = isBot(login) || isFromAuthenticatedUserToolContext;
+      // Issue #4082: a bot review that requests changes is feedback; its inline findings are covered by the unresolved-thread gate.
+      const isFromBot = (isBot(login) && !comment.countsFromBot) || isFromAuthenticatedUserToolContext;
       const isFromNonBot = !isFromBot && !isFromTool;
 
       if (verbose && isAfterLastCheck && isFromTool) {

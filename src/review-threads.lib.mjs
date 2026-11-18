@@ -69,7 +69,7 @@ export const fetchReviewThreads = async ({ owner, repo, prNumber, commandRunner,
     } catch (error) {
       return { ok: false, threads, error: error?.message || String(error) };
     }
-    if (result?.code !== 0) return { ok: false, threads, error: (result?.stderr || result?.stdout || '').toString().trim() || `exit code ${result?.code}` };
+    if (result?.code !== 0) return { ok: false, threads, error: (result?.stderr?.toString() || result?.stdout?.toString() || '').trim() || `exit code ${result?.code}` };
     let data;
     try {
       data = JSON.parse(result.stdout.toString() || '{}');

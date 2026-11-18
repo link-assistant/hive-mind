@@ -20,6 +20,7 @@ import { DEFAULT_REVIEW_WINDOW_MINUTES, READY_FOR_REVIEW_BLOCKED_SIGNATURE, buil
 import { checkMergePrerequisites, checkReferenceState, extractReferences, findMergePrerequisiteDeclarations, formatPrerequisitesForComment, latestSessionSummary, stripHtmlComments } from '../src/merge-prerequisites.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { buildReadyForReviewComment } from '../src/external-review-limit.lib.mjs';
+import { buildReadyCiLine, createReadyCommentState, postReadyStatusComment, resetReadyCommentState } from '../src/solve.auto-merge-ready-comment.lib.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OWNER = 'link-foundation';
@@ -181,6 +182,56 @@ test('cases 1 and 5: new threads are fresh once; a failed read holds nothing bac
   assert.deepEqual((await disabled.checkThreads()).fresh, []);
 });
 
+test('case 6: the ready comment is posted once per head SHA, and the blocked one again only when its holds change', async () => {
+  const posted = [];
+  const existing = new Set();
+  const deps = {
+    $: null,
+    owner: OWNER,
+    repo: REPO,
+    prNumber: PR,
+    ciLine: buildReadyCiLine({}),
+    log: async () => {},
+    formatAligned: (...parts) => parts.join(' '),
+    checkForExistingComment: async (owner, repo, number, signature) => [...existing].some(body => body.startsWith(signature)),
+    postTrackedComment: async ({ body }) => posted.push(body),
+  };
+  const state = createReadyCommentState();
+  const hold = items => [{ reason: 'merge_prerequisite', title: 'Merge prerequisites', message: 'm', resolution: 'r', items }];
+
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: hold(['- other/lib#5']) }), 'blocked');
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: hold(['- other/lib#5']) }), 'skipped', 'the same holds are not announced twice');
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: hold(['- other/lib#6']) }), 'blocked', 'changed holds are announced again');
+  assert.equal(posted.length, 2);
+  assert.ok(posted.every(body => body.startsWith(READY_FOR_REVIEW_BLOCKED_SIGNATURE)));
+
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: [], issueMergeBlockers: [{ message: 'Issue #11 is closed.', resolution: 'Reopen it.' }] }), 'ready', 'once the holds clear, "Ready to merge" follows');
+  assert.match(posted[2], /^## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No uncommitted changes\n\nNote: Issue #11 is closed\. Reopen it\.$/);
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: [] }), 'skipped', 'once per head SHA (issue #1371)');
+
+  resetReadyCommentState(state);
+  existing.add(posted[2]);
+  assert.equal(await postReadyStatusComment({ ...deps, state, holds: [] }), 'skipped', 'another process already posted it (issue #1567)');
+  assert.equal(posted.length, 3);
+  assert.equal(
+    await postReadyStatusComment({
+      ...deps,
+      state: createReadyCommentState(),
+      holds: [],
+      postTrackedComment: async () => {
+        throw new Error('boom');
+      },
+      checkForExistingComment: async () => false,
+    }),
+    'failed',
+    'a failed post never stops the loop'
+  );
+
+  assert.equal(buildReadyCiLine({ noCiConfigured: true }), '- No CI/CD checks are configured for this repository');
+  assert.equal(buildReadyCiLine({ noCiTriggered: true, workflowRunConclusions: 'skipped: 2' }), '- CI workflows completed without executing (skipped: 2)');
+  assert.equal(buildReadyCiLine({ noCiTriggered: true }), '- CI workflows exist but were not triggered for this commit');
+});
+
 test('cases 1–3: the watch loop wiring', () => {
   const source = readFileSync(join(root, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
   const windowStart = source.indexOf('let lastCheckTime = new Date();');
@@ -190,4 +241,6 @@ test('cases 1–3: the watch loop wiring', () => {
   assert.match(source, /feedbackLines\.push\(\.\.\.reviewGate\.restartFeedback\(threadState\.all\)\);/);
   assert.match(source, /const reviewWindow = reviewGate\.reviewWindow\(\);\s+if \(reviewWindow\) \{[\s\S]{0,600}?continue;/, 'the loop keeps watching inside the review window (case 2)');
   assert.match(source, /trustAuthenticatedUserComments: true/, 'same-account comments without tool markers count (case 3)');
+  assert.match(source, /await postReadyStatusComment\(\{ \$, owner, repo, prNumber, holds, ciLine, issueMergeBlockers, state: readyCommentState,/, 'the ready comment carries the holds (case 6)');
+  assert.match(source, /resetReadyCommentState\(readyCommentState\);\s+reviewGate\.resetReviewWindow\(\);/, 'a new head SHA allows a new comment and a new review window');
 });

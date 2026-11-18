@@ -82,7 +82,7 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 // Issue #2148: in-process usage-limit continuations bypass startWorkSession,
 // so post their session boundary explicitly before invoking `--resume`.
 const sessionLib = await import('./solve.session.lib.mjs');
@@ -120,7 +120,8 @@ const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 // Issues #1895/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
 const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
 // Issue #4082: unresolved review threads, merge prerequisites and a review window after "Ready to merge".
-const { buildReadyForReviewBlockedComment, createReviewGate, READY_FOR_REVIEW_BLOCKED_SIGNATURE, resolveReviewGateOptions } = await import('./solve.auto-merge-review-gate.lib.mjs');
+const { createReviewGate, resolveReviewGateOptions } = await import('./solve.auto-merge-review-gate.lib.mjs');
+const { buildReadyCiLine, createReadyCommentState, postReadyStatusComment, resetReadyCommentState } = await import('./solve.auto-merge-ready-comment.lib.mjs');
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
@@ -150,7 +151,7 @@ export const watchUntilMergeable = async params => {
   let limitResumeCount = 0;
   let toolKillResumeCount = 0; // Issue #2408: in-process resumes after a SIGKILL (OOM)
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
-  let readyToMergeCommentPosted = false;
+  const readyCommentState = createReadyCommentState(); // Issue #1371: one "Ready to merge" comment per head SHA
   let currentBackoffSeconds = watchInterval;
   // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
@@ -170,7 +171,6 @@ export const watchUntilMergeable = async params => {
   // Mutable on purpose: the guard helpers update it in place.
   const guardState = { consecutiveMergeFailures: 0, draftSelfHealCount: 0 };
   const reviewGate = createReviewGate({ owner, repo, prNumber, issueNumber, commandRunner: quietProbe($), options: resolveReviewGateOptions(argv), log, formatAligned });
-  let blockedCommentKey = null; // Issue #4082: the holds last announced in a "Ready for review — blocked by" comment
 
   await log('');
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
@@ -290,10 +290,9 @@ export const watchUntilMergeable = async params => {
         consecutiveNoRunsChecks = 0;
         // Issue #2182: a new commit is a genuinely new merge attempt.
         guardState.consecutiveMergeFailures = 0;
-        // Issue #1503: Also reset the readyToMergeCommentPosted flag when SHA changes,
+        // Issue #1503: Also reset the "Ready to merge" dedup state when SHA changes,
         // so a new "Ready to merge" comment can be posted for the new commit's CI results.
-        readyToMergeCommentPosted = false;
-        blockedCommentKey = null;
+        resetReadyCommentState(readyCommentState);
         reviewGate.resetReviewWindow();
       }
       // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
@@ -476,7 +475,7 @@ export const watchUntilMergeable = async params => {
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
+              const ciLine = buildReadyCiLine({ noCiConfigured, noCiTriggered, workflowRunConclusions });
               // Issue #2492: no footer repeating the heading.
               const commentBody = appendIssueClosingSection(`## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}`, mergeResult.issueClosing);
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
@@ -509,55 +508,9 @@ export const watchUntilMergeable = async params => {
         } else {
           // Just report that PR is mergeable and exit
           await log(formatAligned('', holds.length > 0 ? `PR is ready for review, blocked by: ${holds.map(h => h.message).join(' ')}` : 'PR is ready to be merged manually', '', 2));
-          // Issue #1371: Post success comment only if not already posted in this session.
-          // Issue #1567: Also check PR comment history as a cross-process guard.
-          // Two layers of deduplication:
-          //   1. In-memory flag (readyToMergeCommentPosted) — prevents duplicates within this process
-          //   2. checkForExistingComment — prevents duplicates from concurrent processes
-          // The in-memory flag is reset when HEAD SHA changes (line 614), so a new commit
-          // will allow a fresh "Ready to merge" comment.
-          const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-          try {
-            const holdsKey = holds.length > 0 ? JSON.stringify(holds.map(h => h.items)) : null;
-            if (holdsKey) {
-              // Issue #4082 (case 6): "Ready for review — blocked by …" instead of "Ready to merge".
-              if (holdsKey !== blockedCommentKey) {
-                const alreadyPosted = blockedCommentKey === null && (await checkForExistingComment(owner, repo, prNumber, READY_FOR_REVIEW_BLOCKED_SIGNATURE, argv.verbose));
-                if (!alreadyPosted) await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildReadyForReviewBlockedComment({ holds, ciLine }) });
-                blockedCommentKey = holdsKey;
-              }
-            } else if (!readyToMergeCommentPosted) {
-              // Issue #1567: Cross-process deduplication — check if another process already
-              // posted a "Ready to merge" comment. This catches the case where two concurrent
-              // watchUntilMergeable processes both detect mergeability simultaneously.
-              const hasExistingReadyComment = await checkForExistingComment(owner, repo, prNumber, `## ✅ ${READY_TO_MERGE_MARKER}`, argv.verbose);
-              if (hasExistingReadyComment) {
-                await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment (already posted by another process)`, '', 2));
-                readyToMergeCommentPosted = true;
-              } else {
-                // Issue #2144: a closed/unavailable linked issue does not stop this
-                // mode, but it is worth stating in the comment so the reader knows
-                // why no automatic merge will follow.
-                const issueLine =
-                  issueMergeBlockers.length > 0
-                    ? `\n\nNote: ${issueMergeBlockers.map(b => b.message).join(' ')} ${issueMergeBlockers
-                        .map(b => b.resolution)
-                        .filter(Boolean)
-                        .join(' ')}`
-                    : '';
-                // Issue #2492: "uncommitted" is what was checked ("pending" read broader), and the
-                // mode footer is gone - the comment is short and states checked facts only.
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No uncommitted changes${issueLine}`;
-                // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
-                await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-                readyToMergeCommentPosted = true;
-              }
-            } else {
-              await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment (already posted this session)`, '', 2));
-            }
-          } catch {
-            // Don't fail if comment posting fails
-          }
+          // Issues #1371/#1567/#4082: "Ready to merge" (or "Ready for review — blocked by …"), deduplicated in memory and on the PR.
+          const ciLine = buildReadyCiLine({ noCiConfigured, noCiTriggered, workflowRunConclusions });
+          await postReadyStatusComment({ $, owner, repo, prNumber, holds, ciLine, issueMergeBlockers, state: readyCommentState, verbose: argv.verbose, log, formatAligned, checkForExistingComment, postTrackedComment });
           // Issue #4082 (cases 2, 3): review apps and humans often answer after "Ready to merge".
           // Keep watching for a while, so a late review restarts the AI instead of waiting for a human.
           const reviewWindow = reviewGate.reviewWindow();

@@ -284,6 +284,23 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum wall-clock hours the --auto-restart-until-mergeable/--auto-merge monitoring loop may run before stopping and reporting (default: 24, 0 = unlimited)',
     default: 24,
   },
+  // Issue #4082: review apps and humans often review after "Ready to merge";
+  // the loop keeps watching this long so their findings restart the AI.
+  'auto-restart-until-mergeable-review-window-minutes': {
+    type: 'number',
+    description: 'Minutes the --auto-restart-until-mergeable loop keeps watching after "Ready to merge" for new reviews, review threads and comments, which restart the AI (default: 120, 0 = exit right away)',
+    default: 120,
+  },
+  'auto-restart-on-unresolved-review-threads': {
+    type: 'boolean',
+    description: 'In --auto-restart-until-mergeable, restart the AI on unresolved pull request review threads (review bots included) and hold "Ready to merge" back while threads it was given stay unresolved (default: true)',
+    default: true,
+  },
+  'check-merge-prerequisites': {
+    type: 'boolean',
+    description: 'Before "Ready to merge", check merge-order prerequisites declared in the PR description or session summary ("Depends on #12", "merge the companion PR first") and post "Ready for review — blocked by …" while they are unmet (default: true)',
+    default: true,
+  },
   'resume-on-auto-restart': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Resume the previous Claude session on uncommitted-change auto-restart and send only a minimal restart prompt. Disabled by default.',

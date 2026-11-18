@@ -174,6 +174,11 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.13.1
 ARG HIVE_MIND_BUN_VERSION=1.4.4
+# Node >= 25 no longer bundles corepack, and the inherited copy is skipped
+# by the scan below, so without this `command -v corepack` finds nothing and every git
+# hook that runs the package manager through corepack (lefthook with
+# `packageManager: pnpm@…`) fails with `spawnSync corepack ENOENT` (issue #4082).
+ARG HIVE_MIND_COREPACK_VERSION=0.36.0
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -189,6 +194,8 @@ RUN set -e && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
+    npm install -g "corepack@${HIVE_MIND_COREPACK_VERSION}" --no-fund --force && \
+    corepack --version && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
       if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \

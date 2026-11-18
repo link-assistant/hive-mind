@@ -6,6 +6,7 @@ const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 const { promptText } = await import('./prompt-text.lib.mjs');
+const { describePreservedWork } = await import('./critical-error-commit.lib.mjs'); // Issue #4079: the failure comment names the recovery branch
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
@@ -562,6 +563,12 @@ try {
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  // Issue #4079: bring back the work a failed run preserved on recovery/<branch>, before the uncommitted-changes check reports it.
+  if (isContinueMode) {
+    const { restoreRecoveryBranchWork } = await import('./recovery-branch-restore.lib.mjs');
+    const restored = await restoreRecoveryBranchWork({ tempDir, branchName, $, log });
+    if (restored.feedbackLines.length > 0) (feedbackLines ??= []).push(...restored.feedbackLines);
+  }
   const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
   if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
@@ -1012,7 +1019,7 @@ try {
           // If not a usage limit case, fall back to generic failure format
           // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
           // steps too — whoever finds the run in the morning reads that, not the log.
-          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
+          errorMessage: limitReached ? undefined : [subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage, preservedWork?.committed ? describePreservedWork(preservedWork) : null].filter(Boolean).join('\n\n'), // Issue #4079: name the recovery branch
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',

@@ -7,9 +7,12 @@
   - [`tests/issue-4082-review-feedback.test.mjs`](../../../tests/issue-4082-review-feedback.test.mjs) (cases 1, 3, 4, 5)
   - [`tests/issue-4082-review-gate.test.mjs`](../../../tests/issue-4082-review-gate.test.mjs) (cases 1, 2, 3, 5, 6)
   - [`tests/issue-4082-git-hooks-corepack.test.mjs`](../../../tests/issue-4082-git-hooks-corepack.test.mjs) (case 7)
+  - [`tests/issue-4082-prompt-logging.test.mjs`](../../../tests/issue-4082-prompt-logging.test.mjs) (review feedback: final prompts in the log)
 - Experiments:
   - [`experiments/issue-4082-prerequisites-parse.mjs`](../../../experiments/issue-4082-prerequisites-parse.mjs): which sentences count as merge prerequisites
   - [`experiments/issue-4082-command-stream-quoting.mjs`](../../../experiments/issue-4082-command-stream-quoting.mjs): how the GraphQL query survives command-stream quoting
+  - [`experiments/issue-4082-audit-final-prompts.mjs`](../../../experiments/issue-4082-audit-final-prompts.mjs) and [`experiments/issue-4082-audit-other-prompts.mjs`](../../../experiments/issue-4082-audit-other-prompts.mjs): line counts, long lines and markdown in every prompt (`--print` dumps the solve prompts)
+  - [`experiments/issue-4082-live-frame-text.mjs`](../../../experiments/issue-4082-live-frame-text.mjs): how a live stream-json frame is printed
   - [`experiments/issue-4082-run-related-tests.sh`](../../../experiments/issue-4082-run-related-tests.sh): runs the tests this change touches
 
 The issue lists eight cases, collected while operating solve 2.39.x with `--auto-restart-until-mergeable`. In each one a human had to step in. The issue accepts each case once it has a regression test or is closed as a duplicate with a link.
@@ -72,7 +75,26 @@ Each thread restarts the AI once. A thread that is still unresolved after that b
 3. Before this change: "✅ Ready to merge" is posted and the loop exits. After this change: the loop restarts the AI with the thread in its feedback. If the AI leaves the thread unresolved, "🟡 Ready for review — blocked by unresolved review threads" is posted instead.
 4. Post a review an hour after "Ready to merge". Before this change, nothing happened. Now the review window (120 minutes by default) restarts the AI.
 
-## 5. Remaining limits
+## 5. Review feedback: every final prompt in the log
+
+The pull request review asked that every prompt sent to an AI tool be clearly marked in the log and printed in full after all formatting, even when it goes through a file. The prompts themselves must stay human-readable multi-line plain text without markdown.
+
+Root cause: Codex, Agent, OpenCode and Gemini write the combined system and user prompt to a temporary file or stdin. Qwen reads both from files through `"$(cat file)"`. They logged only the file path or the prompt length. The full text was printed only with `--dry-run`, and only with `--verbose`. Claude printed its prompts only with `--verbose`. Live input frames, agent-commander, the task command and the /organize classifier never printed their prompts.
+
+Fix: `src/prompt-log.lib.mjs` formats one block per prompt:
+
+```
+📋 Final user prompt sent to claude: 12 lines, 651 characters, delivered via the -p argument
+---BEGIN USER PROMPT---
+…the exact text the tool receives…
+---END USER PROMPT---
+```
+
+Every runner logs these blocks right where the prompt is sent, at the normal log level, dry runs included. Each block holds the exact text: the combined message for tools that take one, the geolocation policy that agent-commander and start-agent append, and Qwen's prompts with the trailing newlines that `$(cat …)` drops. The bidirectional handler prints every frame it writes to the tool stdin (stream, queue flush and feedback) as a `LIVE INPUT PROMPT` block. It skips the initial frame, which the runner already logs. The /organize classifier forwards the blocks to the bot log through a new optional `log` callback. They are kept out of the audit record, which stays free of issue content.
+
+Formatting: `experiments/issue-4082-audit-final-prompts.mjs` shows that the solve prompts of all six tools are already multi-line plain text with no markdown headings, bold, links or tables (user prompts are about 12 lines, system prompts 121 to 142). The few long lines are prose paragraphs. The /organize user prompt was the exception: its context and issues were minified JSON on one line each. It now uses indented JSON, and the chunker measures that formatted size, so `maxCharacters` still bounds the real prompt. The regression test locks in both properties.
+
+## 6. Remaining limits
 
 - After the review window closes, a review still needs a manual restart. The window is a bounded watch, not a permanent subscription. Raise the option, or use `0` to keep the old behavior.
 - Prerequisite detection reads English phrasing and GitHub references (`#N`, `owner/repo#N`, PR and issue URLs). A "merge … first" line without a reference cannot be checked on GitHub. It is named with "no link to check, so confirm it manually" and keeps holding until the description or a later session summary no longer declares it. "Depends on" and "blocked by" lines count only when they carry a reference.

@@ -466,16 +466,6 @@ ${logContent}
   }
   return logComment;
 }
-/** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
-/**
- * Attach the session log to a pull request or issue.
- *
- * Issue #2301: also records whether the most recent attempt failed. In
- * link-foundation/meta-language#196 an early iteration's log was attached and
- * the failing iteration's log was not, yet the session ended with "logs already
- * attached", because only "some log was attached at some point" was tracked.
- * @returns {Promise<boolean>} Whether the log was attached.
- */
 /**
  * Issue #4087: what the most recent {@link attachLogToGitHub} call left on its
  * target. `failureCommentPosted` is true when a "Solution Draft Failed" comment
@@ -486,6 +476,16 @@ ${logContent}
 let lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
 export const getLastLogAttachOutcome = () => ({ ...lastLogAttachOutcome });
 
+/** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
+/**
+ * Attach the session log to a pull request or issue.
+ *
+ * Issue #2301: also records whether the most recent attempt failed. In
+ * link-foundation/meta-language#196 an early iteration's log was attached and
+ * the failing iteration's log was not, yet the session ended with "logs already
+ * attached", because only "some log was attached at some point" was tracked.
+ * @returns {Promise<boolean>} Whether the log was attached.
+ */
 export async function attachLogToGitHub(options) {
   // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
   rememberLogUsage(options);

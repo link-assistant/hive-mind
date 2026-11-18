@@ -207,6 +207,8 @@ ARG HIVE_MIND_BUN_VERSION=1.4.4
 # by the scan below, so without this `command -v corepack` finds nothing and every git
 # hook that runs the package manager through corepack (lefthook with
 # `packageManager: pnpm@…`) fails with `spawnSync corepack ENOENT` (issue #4082).
+# Corepack goes in before the inherited globals: its pnpm/yarn shims must not
+# replace a pnpm or yarn that the base installed explicitly.
 ARG HIVE_MIND_COREPACK_VERSION=0.36.0
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
@@ -222,9 +224,9 @@ RUN set -e && \
     nvm install "${HIVE_MIND_NODE_VERSION}" && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
-    if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
     npm install -g "corepack@${HIVE_MIND_COREPACK_VERSION}" --no-fund --force && \
     corepack --version && \
+    if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
       if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \

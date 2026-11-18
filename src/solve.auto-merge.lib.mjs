@@ -729,7 +729,8 @@ export const watchUntilMergeable = async params => {
         }
         await log(formatAligned('', 'Action:', 'Stopping auto-restart without starting another AI session', 2));
         try {
-          const commentSignature = `## 🟡 ${READY_FOR_REVIEW_MARKER}`;
+          // Issue #4082: the trailing newline keeps "## 🟡 Ready for review — blocked by …" (review gate) from counting as this comment.
+          const commentSignature = `## 🟡 ${READY_FOR_REVIEW_MARKER}\n`;
           const hasExistingReadyForReviewComment = await checkForExistingComment(owner, repo, prNumber, commentSignature, argv.verbose);
           if (hasExistingReadyForReviewComment) {
             await log(formatAligned('', `Skipping duplicate "${READY_FOR_REVIEW_MARKER}" comment (already posted by another process)`, '', 2));

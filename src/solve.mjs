@@ -558,7 +558,8 @@ try {
   });
   // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
   // Issue #4063: the after-clone notice is passed separately (cloneStatusLines) because feedbackLines only reach the prompt in continue mode
-  const cloneStatusLines = cloneStatus?.promptLines || [];
+  // Issue #4082: hooks that cannot run here (no corepack, pre-commit, …) are named so the AI runs their checks by hand, never skips them silently
+  const cloneStatusLines = [...(cloneStatus?.promptLines || []), ...(await (await import('./git-hooks-preflight.lib.mjs')).runGitHooksPreflight({ tempDir, log })).promptLines];
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);

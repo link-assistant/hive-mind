@@ -22,7 +22,6 @@ export const REDACTED_IDENTITY = '<redacted>';
 export const IDENTITY_KEYS = Object.freeze(['user.email', 'user.account_id', 'user.account_uuid', 'user.id', 'chatgpt_account_id', 'chatgpt_user_id', 'organization.id']);
 
 const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-// eslint-disable-next-line no-control-regex
 const ANSI = '(?:\\x1b\\[[0-9;]*m)*';
 // Key (not part of a longer key; an ANSI code just before it is fine), optional colour codes around `=`, then a
 // double-quoted, single-quoted or bare value.

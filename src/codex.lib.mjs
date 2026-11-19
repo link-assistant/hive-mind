@@ -74,6 +74,7 @@ const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_L
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -583,16 +584,7 @@ export const executeCodex = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
@@ -740,6 +732,7 @@ export const executeCodexCommand = async params => {
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
+    await logFinalPrompts({ log, tool: 'codex', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
     await log(`   Resolved model ID: ${mappedModel}`, { verbose: true });
     await log(`   Execution mode: ${isResumeMode ? 'resume' : 'new exec'}`, { verbose: true });
     await log(`   Prompt file: ${promptFile}`, { verbose: true });

@@ -121,16 +121,7 @@ export const executeClaude = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts in executeClaudeCommand), dry runs included.
   }
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
@@ -172,6 +163,7 @@ export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError, createClaudeStderrObserver } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083 feedback: full final prompts in every log
 export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {
@@ -380,12 +372,17 @@ export const executeClaudeCommand = async params => {
       claudeArgs += ` -p ${shellQuote(promptForAttempt)} --append-system-prompt ${shellQuote(systemPrompt)}`;
     }
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${claudeArgs} | jq -c .)`;
+    // PR #4083 feedback: the exact final prompts, always logged in full (not only with --verbose).
+    await logFinalPrompts({
+      log,
+      tool: 'claude',
+      prompts: [
+        { kind: 'user', text: promptForAttempt, delivery: streamingInput ? 'the first stream-json frame on stdin' : 'the -p argument', keepEmpty: true },
+        { kind: 'system', text: systemPrompt, delivery: 'the --append-system-prompt argument' },
+      ],
+    });
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
-    if (argv.verbose) {
-      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${promptForAttempt}\n---END USER PROMPT---`, { verbose: true });
-      await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
-    }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
       const { parsed: requestedSubSessionSize, contextWindowTokens: fetchedContextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });

@@ -129,7 +129,8 @@ test('without a separate linked issue (issueNumber === prNumber) the pull reques
   const github = createGitHub({ prNumber: 184, issueNumber: 184, prEdits: editsPayload({ createdAt: PR_CREATED }) });
   const result = await runFeedback({ $: github.$, prNumber: 184, issueNumber: 184 });
   assert.deepEqual(editFeedback(result), []);
-  assert.equal(github.calls.filter(command => command.startsWith('gh api graphql')).length, 1);
+  // Issue #4082 added one more GraphQL read (review threads); only the description-edit query is counted here.
+  assert.equal(github.calls.filter(command => command.startsWith('gh api graphql') && !command.includes('reviewThreads')).length, 1);
 });
 
 test('session windows: PR creation opens the first one, another human or a bot inside a window is classified correctly', () => {

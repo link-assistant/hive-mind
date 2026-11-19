@@ -41,6 +41,7 @@ import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export { parseOpenCodeTokenUsage };
 
@@ -182,16 +183,7 @@ export const executeOpenCode = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   // Execute the OpenCode command
@@ -295,6 +287,7 @@ export const executeOpenCodeCommand = async params => {
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `opencode_prompt_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
+    await logFinalPrompts({ log, tool: 'opencode', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
 
     // Build the full command - pipe the prompt file to opencode
     const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${opencodeArgs})`;

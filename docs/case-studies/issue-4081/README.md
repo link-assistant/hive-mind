@@ -1,0 +1,54 @@
+# Case study: issue #4081 — PRs announced "Ready to merge" while review apps were still reviewing
+
+- Issue: https://github.com/link-assistant/hive-mind/issues/4081
+- Pull request: https://github.com/link-assistant/hive-mind/pull/4084
+- Companion: #4082 / #4083 (merged first; it added the unresolved-thread gate, the review window after "Ready to merge" and the session-start thread listing)
+- Regression test: [`tests/issue-4081-review-bots.test.mjs`](../../../tests/issue-4081-review-bots.test.mjs)
+- Experiment: [`experiments/issue-4081-prompt-budget.mjs`](../../../experiments/issue-4081-prompt-budget.mjs) measures the new prompt bullet against the issue #3837 prompt-size budget
+
+## 1. Timeline (from the issue, relative times)
+
+| t       | Event                                                                                                 |
+| ------- | ----------------------------------------------------------------------------------------------------- |
+| T−15 s  | The session pushes its last commit and marks the PR ready. The review app posts its summary (running) |
+| T+0     | Hive Mind posts the working-session summary                                                           |
+| T+90 s  | The review app posts an inline **P2** finding and a `COMMENTED` review                                |
+| T+6 min | Hive Mind posts **"✅ Ready to merge"** (CI green, no conflicts, no uncommitted changes)              |
+| hours   | A human asks for the review comments to be addressed                                                  |
+
+The issue reports the same pattern in three variants: the finding arrives after the session ends, just before it ends, or after a later push.
+
+## 2. Root causes
+
+1. **Every `[bot]` login was dropped.** `checkForNonBotComments` in `src/solve.auto-merge-helpers.lib.mjs` starts its bot patterns with `/\[bot\]$/i`. So `chatgpt-codex-connector[bot]` and `coderabbitai[bot]` were treated like dependabot or codecov, and nothing they posted was feedback.
+2. **Nothing waited for a review that had just started.** A review app starts on "ready for review" and on every push, and answers one to several minutes later. The loop checked CI, conflicts and the working tree, and announced "Ready to merge" as soon as they were clean. A summary saying "review running", or a 👀 reaction, did not count.
+3. **The review app's own verdict was never read.** The Codex connector writes `<!-- codex-review-state:v1 {…"has_unresolved_findings":true…} -->` into its summary. CodeRabbit writes `Actionable comments posted: N`. Neither was parsed.
+4. **The AI did not know review apps exist.** No prompt told it to wait for them or to address their findings.
+
+## 3. What main already covered (#4083, issue #4082)
+
+- Unresolved review threads from any author, bots included, restart the AI. A thread the AI was given and left open holds "Ready to merge" back with a "🟡 Ready for review — blocked by unresolved review threads" comment that names each thread.
+- Without `--auto-merge`, the loop keeps watching for `--auto-restart-until-mergeable-review-window-minutes` (default 120) after "Ready to merge". A new thread, review or comment in that window restarts the AI.
+- A bot `CHANGES_REQUESTED` review counts as feedback.
+- At session start, every unresolved thread and every outstanding change request is listed, whatever its age.
+
+The inline P2 finding in the timeline is a review thread, so main restarts on it once it arrives. What main did not cover: waiting for the review before announcing "Ready to merge", the review app's summary and verdict, and telling the AI about review apps.
+
+## 4. Fixes in this pull request
+
+| Proposal / criterion                                       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Test (`tests/issue-4081-review-bots.test.mjs`)                                                                                        |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| B: allowlist                                               | `--review-bots` (default: `chatgpt-codex-connector[bot]`, `coderabbitai[bot]`, `copilot-pull-request-reviewer[bot]`, `gemini-code-assist[bot]`, `sourcery-ai[bot]`, `qodo-merge-pro[bot]`, `cursor[bot]`, `greptile-apps[bot]`). The value can be `default,my-reviewer[bot]` or a replacement list. `none` turns it off. GraphQL logins without the `[bot]` suffix match too. CI and deploy bots are never on the list.                                                                                                          | "--review-bots: …", "review app matcher: …"                                                                                           |
+| B: review app summaries are feedback; CI bots stay ignored | `checkForNonBotComments` keeps the `[bot]` filter but marks allowlisted review apps' summary comments and reviews that report findings as feedback. "Edited after the last check" counts, because CodeRabbit and Codex edit their summaries in place. HTML comments are stripped before they are quoted. Walkthroughs and progress notices are not feedback. Inline findings stay with the thread gate, unless that gate is off.                                                                                                 | "watch loop: chatgpt-codex-connector[bot] and coderabbitai[bot] findings are feedback", "watch loop: CI and deploy bots stay ignored" |
+| B: grace wait before "Ready to merge"                      | `src/review-bots.lib.mjs` reads the PR's comments, reviews, head commit and "ready for review" / force-push events (GraphQL), plus reactions (REST, because GraphQL hides bot reaction users). A review app that reacted 👀 or posted an in-progress notice about the current head is waited for, up to `--review-bots-wait-minutes` (default 15) after the anchor (the last push or "ready for review"). One that reviewed earlier commits gets a 3-minute start grace. Then the loop goes on and logs that it stopped waiting. | "grace window: …" (three tests), "review gate: bounded wait, …"                                                                       |
+| B: the review app's "has unresolved findings" signal       | A summary about the head commit with `has_unresolved_findings: true` or `Actionable comments posted: N > 0` restarts the AI once, with the summary in the feedback ("Reason 1e"). If the AI does not clear it, "Ready to merge" is replaced by "Ready for review — blocked by review bot findings", which names each summary. The same blocker stops `--auto-merge`.                                                                                                                                                             | "review gate: waits for a running review app, restarts on its findings, then holds …", "findings tracker …"                           |
+| Criterion 2: reviews after the PR was marked ready restart | Covered by the review window from #4083. The review-app findings above now count inside that window too.                                                                                                                                                                                                                                                                                                                                                                                                                         | "watch loop wiring: …" and the #4082 tests                                                                                            |
+| A / criterion 3: prompt awareness                          | One bullet in the issue-completion part of every backend's system prompt (agent, claude, codex, gemini, opencode, qwen). It says to wait up to the configured minutes for review apps after marking the PR ready or pushing, gives the 👀 / 👍 / `has_unresolved_findings` signals, and asks the AI to fix each finding and resolve its thread, or reply with evidence. It is left out with `--review-bots none`.                                                                                                                | "prompt: …" (seven tests)                                                                                                             |
+
+## 5. Assumptions and limits
+
+- **Prompt size.** Issue #3837 keeps each system prompt below a recorded byte budget, and the agent, opencode and qwen prompts had only about 350 bytes of headroom. A first draft of the section was 1.9 KB and broke the budget, so the prompt has one 317-byte bullet. The detailed signals (reactions, markers, CodeRabbit counts) are applied by the loop and are restated in the restart feedback. The English corpus snapshot in `docs/case-studies/issue-3837/data/prompt-corpus-before.json` was refreshed: only System prompts change, each by +317 bytes.
+- **In-progress detection.** The documented Codex signals are 👀 while running, 👍 when nothing was found, and the `has_unresolved_findings` field. A `status` or `state` field with a value such as `running`, `in_progress` or `pending` in the marker is also read as "in progress". This is an assumption: the marker's exact fields are not documented. CodeRabbit's in-progress notice ("review in progress", "Currently processing new changes") is matched as text.
+- **A review app that never appears is not waited for.** Waiting a fixed time on every PR, including repositories without review apps, would slow every session. A late first review still lands in the 120-minute review window from #4083.
+- **Failures fail open.** If the activity cannot be read, the loop logs a warning and does not wait. That matches the thread gate.
+- `--review-bots none` restores the previous behavior, and `--review-bots-wait-minutes 0` keeps the findings check but skips the wait.

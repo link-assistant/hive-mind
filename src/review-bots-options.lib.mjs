@@ -48,7 +48,9 @@ export const parseReviewBotsOption = value => {
   const result = [];
   const seen = new Set();
   for (const token of tokens) {
-    for (const login of /^default$/i.test(token) ? DEFAULT_REVIEW_BOTS : [token]) {
+    // A named list, not `of /regex/…`: the CodeQL extractor misparses a regex literal after `of`.
+    const logins = token.toLowerCase() === 'default' ? DEFAULT_REVIEW_BOTS : [token];
+    for (const login of logins) {
       const key = normalizeBotLogin(login);
       if (!key || seen.has(key)) continue;
       seen.add(key);

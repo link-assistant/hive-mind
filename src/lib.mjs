@@ -93,18 +93,6 @@ export const getAbsoluteLogPath = async () => {
 };
 
 /**
- * Log messages to both console and file
- * @param {string} message - The message to log
- * @param {Object} options - Logging options
- * @param {string} [options.level='info'] - Log level (info, warn, error)
- * @param {boolean} [options.verbose=false] - Whether this is a verbose log
- * @param {string} [options.stream] - Provenance of the message when it is raw
- *   output mirrored from a child process: 'stdout' or 'stderr'. Tags the log
- *   file lines [STDOUT]/[STDERR] (matching the process.stdout/stderr
- *   interceptor below) and routes the console write to the same stream.
- * @returns {Promise<void>}
- */
-/**
  * Issue #4091: the console (the session's stdout capture) had no timestamps, so
  * a 5-hour watch loop left only `🔍 Check #N: 6:13:18 AM` to rebuild a timeline
  * from. Once enabled (the watch loop does it), every non-empty console line
@@ -124,6 +112,18 @@ export const withConsoleTimestamp = (message, { enabled = consoleTimestamps, now
     .join('\n');
 };
 
+/**
+ * Log messages to both console and file
+ * @param {string} message - The message to log
+ * @param {Object} options - Logging options
+ * @param {string} [options.level='info'] - Log level (info, warn, error)
+ * @param {boolean} [options.verbose=false] - Whether this is a verbose log
+ * @param {string} [options.stream] - Provenance of the message when it is raw
+ *   output mirrored from a child process: 'stdout' or 'stderr'. Tags the log
+ *   file lines [STDOUT]/[STDERR] (matching the process.stdout/stderr
+ *   interceptor below) and routes the console write to the same stream.
+ * @returns {Promise<void>}
+ */
 export const log = async (message, options = {}) => {
   const { level = 'info', verbose = false, stream = null } = options;
 

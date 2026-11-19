@@ -28,6 +28,14 @@ const realTimers = { setInterval: (fn, ms) => setInterval(fn, ms), clearInterval
 
 const iso = ms => new Date(ms).toISOString();
 
+/** Elapsed time with seconds below one hour: heartbeats come every 30 s, so whole minutes would hide progress. */
+export const formatElapsed = ms => {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return formatDuration(ms);
+};
+
 const callLog = async (log, line) => {
   try {
     await log(line);
@@ -65,11 +73,10 @@ export const startHeartbeat = ({ name, log, intervalMs = DEFAULT_HEARTBEAT_MS, d
     if (stopped) return;
     const at = now();
     const suffix = [detail ? ` (${detail})` : '', deadlineAt ? ` — deadline ${iso(deadlineAt)}` : ''].join('');
-    await callLog(log, `  💓 ${iso(at)} ${name}: running for ${formatDuration(at - startedAt)}${suffix}`);
+    await callLog(log, `  💓 ${iso(at)} ${name}: running for ${formatElapsed(at - startedAt)}${suffix}`);
   };
-  const handle = timers.setInterval(() => {
-    beat();
-  }, intervalMs);
+  // The beat never rejects; returning its promise lets fake timers in tests await it.
+  const handle = timers.setInterval(() => beat(), intervalMs);
   handle?.unref?.();
   return {
     startedAt,
@@ -118,7 +125,7 @@ export const withWatchdog = async (name, operation, { log, deadlineMs, onTimeout
     heartbeat.stop();
     const elapsedMs = now() - startedAt;
     const detail = heartbeat.lastDetail();
-    await callLog(log, `  ⏱️ ${iso(now())} Watchdog: "${name}" is still pending after ${formatDuration(elapsedMs)} (started ${iso(startedAt)}, deadline ${iso(deadlineAt)}${detail ? `, last progress: ${detail}` : ''})`);
+    await callLog(log, `  ⏱️ ${iso(now())} Watchdog: "${name}" is still pending after ${formatElapsed(elapsedMs)} (started ${iso(startedAt)}, deadline ${iso(deadlineAt)}${detail ? `, last progress: ${detail}` : ''})`);
     const result = (await onTimeout({ name, startedAt, elapsedMs, detail })) || {};
     await callLog(log, `  ⏱️ Watchdog decision for "${name}": ${result.decision || 'give up waiting'}`);
     return { timedOut: true, decision: result.decision, value: result.value };
@@ -128,4 +135,4 @@ export const withWatchdog = async (name, operation, { log, deadlineMs, onTimeout
   }
 };
 
-export default { DEFAULT_HEARTBEAT_MS, startHeartbeat, withWatchdog };
+export default { DEFAULT_HEARTBEAT_MS, formatElapsed, startHeartbeat, withWatchdog };

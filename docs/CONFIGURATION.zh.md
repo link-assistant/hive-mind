@@ -24,6 +24,7 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
   - [模型配置](#11-model-configuration)
   - [版本设置](#12-version-settings)
   - [合并队列配置](#121-merge-queue-configurations)
+  - [监视循环：尚未启动的 CI 运行](#122-监视循环尚未启动的-ci-运行)
   - [Telegram Bot](#13-telegram-bot)
   - [YouTrack 集成](#14-youtrack-integration)
   - [工具路径](#15-tool-paths)
@@ -282,6 +283,20 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 `/merge` 支持仓库、Issue 和 Pull Request 目标。当 Issue 或 Pull Request
 目标尚不可合并时，合并队列最多等待 `HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS`，并每隔
 `HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS` 轮询一次，然后才判定目标失败。
+
+### 12.2. 监视循环：尚未启动的 CI 运行
+
+`--auto-restart-until-mergeable` 和 `--auto-merge` 会在 AI 会话结束后监视 pull request。以前，即使所有检查都已通过，一个从未启动的 HEAD workflow 运行也会让监视一直等到 24 小时超时。这种情况发生在运行停在 concurrency 队列中（`pending`）或等待批准（`waiting` / `action_required`）时。现在会报告这类运行，并明确停止监视。它们**永远不会被取消或重新运行**：需要有人释放队列或批准运行。
+
+| 环境变量                                         | 默认值 | 描述                                                                                               |
+| ------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STUCK_PENDING_RUN_MINUTES`            | 30     | 未启动运行达到此时长后，在 pull request 上发布原因（"未启动"、"需要批准"），每个提交一次           |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`       | 120    | 达到此时长后以 `ci_not_started` 或 `ci_approval_required` 停止监视，而不是等待超时。`0` 表示不停止 |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_GRACE_MINUTES` | 15     | 通知与停止之间的最短时间，确保已经很旧的运行在监视结束前也能收到通知                               |
+
+在监视阶段，每次检查对 GitHub 的请求都有 10 分钟的期限。连续三次检查停滞会以 `watch_stalled` 结束监视。日志清理和上传每 30 秒打印一行心跳，也都有期限。监视循环的控制台行带有 ISO-8601 UTC 时间戳。
+
+**注意：** 参见 [Issue #4091](https://github.com/link-assistant/hive-mind/issues/4091) 和[案例研究](case-studies/issue-4091/README.md)。
 
 ### 13. Telegram Bot
 

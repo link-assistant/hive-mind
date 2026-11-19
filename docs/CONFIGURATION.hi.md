@@ -24,6 +24,7 @@ Hive Mind एप्लिकेशन environment variables और command-line 
   - [Model कॉन्फ़िगरेशन](#11-model-configuration)
   - [Version सेटिंग्स](#12-version-settings)
   - [Merge Queue कॉन्फ़िगरेशन](#121-merge-queue-configurations)
+  - [वॉच लूप: CI रन जो शुरू नहीं हुए](#122-वॉच-लूप-ci-रन-जो-शुरू-नहीं-हुए)
   - [Telegram Bot](#13-telegram-bot)
   - [YouTrack एकीकरण](#14-youtrack-integration)
   - [Tool पथ](#15-tool-paths)
@@ -284,6 +285,20 @@ Verification यह जाँचता है कि model को असल म�
 `HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS` तक प्रतीक्षा करती है और
 `HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS` पर poll करती है, उसके बाद target को
 failed माना जाता है।
+
+### 12.2. वॉच लूप: CI रन जो शुरू नहीं हुए
+
+`--auto-restart-until-mergeable` और `--auto-merge` AI सत्र के बाद pull request पर नज़र रखते हैं। पहले, सभी जाँचें पास होने के बाद भी, कभी शुरू न होने वाला HEAD workflow रन इस निगरानी को 24 घंटे के टाइमआउट तक रोके रखता था। ऐसा तब होता है जब रन concurrency कतार में रुका हो (`pending`) या अनुमोदन की प्रतीक्षा कर रहा हो (`waiting` / `action_required`)। अब ऐसे रनों की सूचना दी जाती है और निगरानी स्पष्ट रूप से रोकी जाती है। उन्हें **कभी रद्द या दोबारा नहीं चलाया जाता**: किसी व्यक्ति को कतार खाली करनी होगी या रन को अनुमोदित करना होगा।
+
+| पर्यावरण चर                                       | डिफ़ॉल्ट | विवरण                                                                                                                       |
+| ------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_STUCK_PENDING_RUN_MINUTES`            | 30     | न शुरू हुए रन की वह आयु जिसके बाद कारण ("शुरू नहीं हुआ", "अनुमोदन आवश्यक") pull request पर पोस्ट किया जाता है, प्रति कमिट एक बार          |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`       | 120    | वह आयु जिसके बाद टाइमआउट की प्रतीक्षा के बजाय `ci_not_started` या `ci_approval_required` के साथ निगरानी रुकती है। `0` कभी नहीं रोकता |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_GRACE_MINUTES` | 15     | सूचना और रुकने के बीच न्यूनतम समय, ताकि पहले से पुराने रन को भी निगरानी खत्म होने से पहले सूचना मिले                                        |
+
+निगरानी चरण में किसी जाँच के हर GitHub अनुरोध की समय-सीमा 10 मिनट है। लगातार तीन अटकी जाँचें `watch_stalled` के साथ निगरानी समाप्त करती हैं। लॉग की सफ़ाई और अपलोड हर 30 सेकंड में एक heartbeat पंक्ति छापते हैं और उनकी भी समय-सीमाएँ हैं। वॉच लूप की कंसोल पंक्तियों में ISO-8601 UTC टाइमस्टैम्प होते हैं।
+
+**नोट:** देखें [Issue #4091](https://github.com/link-assistant/hive-mind/issues/4091) और [केस स्टडी](case-studies/issue-4091/README.md)।
 
 ### 13. Telegram Bot
 

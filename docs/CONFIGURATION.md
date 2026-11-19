@@ -24,6 +24,7 @@ The Hive Mind application supports extensive configuration through environment v
   - [Model Configuration](#11-model-configuration)
   - [Version Settings](#12-version-settings)
   - [Merge Queue Configurations](#121-merge-queue-configurations)
+  - [Watch Loop: CI Runs That Have Not Started](#122-watch-loop-ci-runs-that-have-not-started)
   - [Telegram Bot](#13-telegram-bot)
   - [YouTrack Integration](#14-youtrack-integration)
   - [Tool Paths](#15-tool-paths)
@@ -285,6 +286,20 @@ These settings control the merge queue behavior for automated PR merging.
 pull request target is not mergeable yet, the merge queue waits up to
 `HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS` and polls every
 `HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS` before failing the target.
+
+### 12.2. Watch Loop: CI Runs That Have Not Started
+
+`--auto-restart-until-mergeable` and `--auto-merge` watch the pull request after the AI session. A HEAD workflow run that never starts, while every check has passed, used to keep that watch waiting until its 24 h timeout. This happens when the run is held in a concurrency queue (`pending`) or waits for an approval (`waiting` / `action_required`). Such runs are now reported and given an explicit stop. They are **never cancelled or re-run**: someone has to release the queue or approve the run.
+
+| Environment Variable                             | Default | Description                                                                                                                                |
+| ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_STUCK_PENDING_RUN_MINUTES`            | 30      | Age of an unstarted run after which its reason ("not started", "Approval needed") is posted on the pull request, once per commit           |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`       | 120     | Age after which monitoring stops with `ci_not_started` or `ci_approval_required` instead of waiting for the watch timeout. `0` never stops |
+| `HIVE_MIND_STUCK_PENDING_RUN_STOP_GRACE_MINUTES` | 15      | Minimum time between the notice and the stop, so a run that is already old still gets a notice before monitoring ends                      |
+
+During the watch phase, every GitHub probe of a check has a 10-minute deadline. Three stalled checks in a row end monitoring with `watch_stalled`. The log sanitize and upload steps print a heartbeat line every 30 s and have deadlines too. Watch-loop console lines carry ISO-8601 UTC timestamps.
+
+**Note:** See [Issue #4091](https://github.com/link-assistant/hive-mind/issues/4091) and [the case study](case-studies/issue-4091/README.md).
 
 ### 13. Telegram Bot
 

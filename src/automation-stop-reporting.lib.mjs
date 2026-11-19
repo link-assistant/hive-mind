@@ -152,6 +152,26 @@ export const STOP_REASONS = {
     detail: 'The same checks failed with the same output after several AI sessions in a row, although each session was free to change the code. A check that reports progress (for example more tests passing) or reports no output never stops the run this way.',
     nextSteps: ['Open the failing check runs named below and read why they fail.', 'Fix what the AI cannot (a secret, a runner, a flaky or broken check), or give it new instructions in a comment, then re-run the command.', 'Set HIVE_MIND_CI_FAILURE_REPEAT_STOP to a higher number, or 0, to allow more identical restarts.'],
   },
+  ci_not_started: {
+    title: 'workflow runs on the HEAD commit never started',
+    detail: 'Every check run passed, but workflow runs on the HEAD commit stayed `pending` in a `concurrency` queue with no jobs for longer than `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`. They were not cancelled or re-run, so they keep their place in the queue. Waiting longer would only hold this process without making progress.',
+    nextSteps: ['Check which runs hold the concurrency group of this workflow (the links below) and let them finish, or cancel them.', 'Once the runs have finished, merge this pull request or re-run the command to continue monitoring.'],
+  },
+  ci_approval_required: {
+    title: 'workflow runs on the HEAD commit wait for an approval',
+    detail: 'Every check run passed, but workflow runs on the HEAD commit stayed `waiting` / `action_required` for longer than `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`. Approval needed: only a maintainer can approve them (pending deployment / environment review, or a first-time contributor run).',
+    nextSteps: ['Approve the runs linked below (or reject them), then re-run the command to continue monitoring.'],
+  },
+  watch_timeout: {
+    title: 'the watch timeout was reached',
+    detail: 'The monitoring loop ran for its whole wall-clock limit (`--auto-restart-until-mergeable-timeout-hours`) without the pull request becoming mergeable.',
+    nextSteps: ['Review what the last checks were waiting for (details below), resolve it, and re-run the command.'],
+  },
+  watch_stalled: {
+    title: 'GitHub stopped answering the monitoring checks',
+    detail: 'Several monitoring checks in a row did not get an answer from GitHub within their deadline. Each stalled check was logged with what it was waiting for; continuing would only hold this process without information.',
+    nextSteps: ['Check https://www.githubstatus.com and the network of the machine that runs the command.', 'Re-run the command to continue monitoring once GitHub answers again.'],
+  },
   watch_stopped: {
     title: 'watch mode stopped',
     detail: 'The watch loop reached a state where it can no longer make progress.',

@@ -18,13 +18,20 @@
  *     started on their own are never touched;
  *  3. after HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS identical consecutive
  *     disagreements, posts one PR comment per HEAD commit explaining what is
- *     holding the merge, instead of polling silently for 12+ hours.
+ *     holding the merge, instead of polling silently for 12+ hours;
+ *  4. (issue #4091) classifies every non-completed HEAD run. Runs that have
+ *     not started — `pending` in a concurrency queue, `waiting` /
+ *     `action_required` for an approval — get a bounded wait: one PR notice
+ *     after HIVE_MIND_STUCK_PENDING_RUN_MINUTES, then a `stop` decision after
+ *     HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES. They are never cancelled or
+ *     re-run (that would lose their place in the queue).
  */
 
 import { stuckCiRuns } from './config.lib.mjs';
-import { createGhostRunState, decideGhostRunAction, describeConsensusDisagreement, findGhostQueuedRuns, formatDuration, retriggerGhostRuns, rerunSettledGhostRuns } from './github-ci-stuck-runs.lib.mjs';
+import { createGhostRunState, decideGhostRunAction, describeConsensusDisagreement, formatDuration, retriggerGhostRuns, rerunSettledGhostRuns } from './github-ci-stuck-runs.lib.mjs';
 import { fetchProviderIncidents, fetchProviderStatus, formatProviderStatusSummary } from './provider-status.lib.mjs';
 import { CI_WAIT_STUCK_MARKER } from './tool-comments.lib.mjs';
+import { RUN_KINDS, buildUnstartedRunNoticeComment, classifyIncompleteRuns, decideUnstartedRunWait, describeIncompleteRun, isoMinute, summarizeUnstartedRuns } from './github-ci-unstarted-runs.lib.mjs';
 
 /**
  * Pure: the PR comment posted when the CI wait has been stuck for a while.
@@ -56,8 +63,10 @@ const disagreementKey = (sha, mechanisms) =>
   ].join('|');
 
 export const createStuckCiMonitor = ({ owner, repo, prNumber, log, formatAligned, verbose = false, $, postComment, getWorkflowRunsForSha, getWorkflowRunJobsCount, cancelWorkflowRun, rerunWorkflowRun, config = stuckCiRuns, now = () => Date.now(), statusDeps = {} }) => {
+  config = { ...stuckCiRuns, ...config };
   const ghostState = createGhostRunState();
   const ghostMinAgeMs = config.queuedMinutes * 60 * 1000;
+  const unstartedNotices = new Map(); // Issue #4091: sha → when the "not started" notice was posted
   const notifiedShas = new Set();
   let streak = { key: null, count: 0 };
   let lastGhostSummary = { key: null, githubStatusLine: '', incidents: [], action: null };
@@ -112,6 +121,28 @@ export const createStuckCiMonitor = ({ owner, repo, prNumber, log, formatAligned
     }
   };
 
+  const handleUnstartedRuns = async ({ sha, classified }) => {
+    const decision = decideUnstartedRunWait({ runs: classified, noticePostedAt: unstartedNotices.get(sha) ?? null, config, now: now() });
+    const summary = summarizeUnstartedRuns(decision.runs);
+    if (decision.action === 'none') return { action: 'none', summary };
+    const stopText = decision.stopAt ? `stops waiting at ${isoMinute(decision.stopAt)}` : 'no stop limit (HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES=0)';
+    if (decision.action === 'notice') {
+      unstartedNotices.set(sha, now());
+      const recomputed = decideUnstartedRunWait({ runs: classified, noticePostedAt: now(), config, now: now() });
+      const body = buildUnstartedRunNoticeComment({ sha, runs: decision.runs, kind: decision.kind, ageMs: decision.ageMs, stopAt: recomputed.stopAt });
+      try {
+        await postComment({ $, owner, repo, targetNumber: prNumber, body });
+        await say('💬', 'Posted CI wait notice:', `${decision.kind === RUN_KINDS.APPROVAL ? 'approval needed' : 'runs held by a concurrency queue'} for ${formatDuration(decision.ageMs)}; ${stopText}`);
+      } catch (error) {
+        await say('⚠️', 'Could not post CI wait notice:', error?.message || String(error));
+      }
+      return { action: 'wait', summary, stopAt: recomputed.stopAt, kind: decision.kind };
+    }
+    if (decision.action === 'stop') return { ...decision, summary };
+    await say('⏳', 'Not started yet:', `${summary}; ${stopText}`, 4);
+    return { action: 'wait', summary, stopAt: decision.stopAt, kind: decision.kind };
+  };
+
   return {
     ghostMinAgeMs,
     /** Extra checkCIConsensus options: the PR merge state and ghost-run detection. */
@@ -127,20 +158,33 @@ export const createStuckCiMonitor = ({ owner, repo, prNumber, log, formatAligned
       await recoverGhostRuns({ ghostRuns, headRuns: consensus.workflowRuns || [] });
       await trackStreak({ sha, mechanisms: consensus.mechanisms, reasons, ghostRuns });
     },
-    /** Every check run passed, but a HEAD workflow run is still not completed. */
+    /**
+     * Every check run passed, but a HEAD workflow run is still not completed.
+     * Issue #4091: classify each such run; runs that have not started
+     * (concurrency queue, approval) get a bounded wait: one PR notice, then an
+     * explicit stop decision. They are never cancelled or re-run.
+     *
+     * @returns {Promise<{action: string, summary?: string, reason?: string, message?: string, details?: string[], stopAt?: number|null}>}
+     */
     async onPendingWorkflowRuns({ sha }) {
-      if (!sha) return;
+      if (!sha) return { action: 'none' };
       const headRuns = await getWorkflowRunsForSha(owner, repo, sha, false);
       const incomplete = headRuns.filter(run => run.status !== 'completed');
-      const ghostRuns = await findGhostQueuedRuns(incomplete, { minAgeMs: ghostMinAgeMs, getJobsCount: runId => getWorkflowRunJobsCount(owner, repo, runId, false), now: now() });
+      const classified = await classifyIncompleteRuns(incomplete, { getJobsCount: runId => getWorkflowRunJobsCount(owner, repo, runId, false), now: now() });
+      for (const run of classified) {
+        if (run.kind !== RUN_KINDS.RUNNING) await say(run.kind === RUN_KINDS.APPROVAL ? '✋' : '⏸️', 'Run state:', describeIncompleteRun(run), 4);
+      }
+      const unstarted = await handleUnstartedRuns({ sha, classified });
+      const ghostRuns = classified.filter(run => run.kind === RUN_KINDS.GHOST_QUEUED && run.ageMs >= ghostMinAgeMs);
       if (ghostRuns.length === 0 && ghostState.awaitingRerun.size === 0) {
         streak = { key: null, count: 0 };
-        return;
+        return unstarted;
       }
       await recoverGhostRuns({ ghostRuns, headRuns });
-      if (ghostRuns.length === 0) return;
+      if (ghostRuns.length === 0) return unstarted;
       const mechanisms = { workflowRunsAPI: { complete: false, total: headRuns.length, inProgress: incomplete.length, ghostRuns } };
       await trackStreak({ sha, mechanisms, reasons: describeConsensusDisagreement(mechanisms), ghostRuns });
+      return unstarted;
     },
     /** The consensus agreed or the loop moved on: start counting from zero. */
     reset() {
@@ -155,7 +199,7 @@ export const createStuckCiMonitor = ({ owner, repo, prNumber, log, formatAligned
     },
     // Exposed for tests.
     get state() {
-      return { ghostState, streak, notifiedShas, lastGhostSummary };
+      return { ghostState, streak, notifiedShas, lastGhostSummary, unstartedNotices };
     },
   };
 };

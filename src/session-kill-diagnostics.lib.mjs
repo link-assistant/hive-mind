@@ -29,6 +29,7 @@ import { t } from './i18n.lib.mjs';
 import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
+import { describeSolveProgressForDiagnostics, parseSolveProgressEvent } from './solve-progress.lib.mjs'; // Issue #4091
 
 const exec = promisify(execCallback);
 
@@ -414,6 +415,13 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // zero for a V8 self-abort. Only an abnormal ending is allowed to be upgraded,
   // so a log that merely mentions the phrase cannot manufacture a diagnosis.
   const abnormalExit = exitCode === null || exitCode !== 0;
+  // Issue #4091: what the session was doing (its last `[HIVE-MIND SOLVE]` marker),
+  // and whether its interrupt handler ran — `/stop` arrives as CTRL+C first.
+  const lastPhase = describeSolveProgressForDiagnostics(parseSolveProgressEvent(logText));
+  if (lastPhase) evidence.push(`last \`/solve\` phase marker: ${lastPhase}`);
+  const interruptLine = abnormalExit && [null, 130, 137, 143].includes(exitCode) && /Session interrupted by user \(CTRL\+C\)/.test(String(logText || '')) ? 'Session interrupted by user (CTRL+C)' : null;
+  if (interruptLine) evidence.push(`the log shows the interrupt handler ran (\`${interruptLine}\`): the stop was requested with CTRL+C (\`/stop\` sends it through \`$ --stop\`) before the process was killed`);
+  const stoppedByOperator = Boolean(stopRequestedByUser || interruptLine);
   const fatalMemoryMarker = abnormalExit ? findFatalMemoryMarker(logText) : null;
   const diskFullMarker = abnormalExit ? findDiskFullMarker(logText) : null;
   if (diskFullMarker) evidence.push(`the log reports a full disk: \`${diskFullMarker.line}\``);
@@ -449,7 +457,9 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     const detail = reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : '';
     evidence.push(`\`$ --status\` reports memory exhaustion${reportedMechanism ? ` (\`${reportedMechanism}\`)` : ''}${detail}`);
   } else if (reportedExitReasonText && abnormalExit) {
-    evidence.push(`\`$ --status\` reports \`exitReason = ${reportedExitReasonText}\``);
+    // Issue #4091: start-command cannot see who sent the signal; for a `/stop` it was the stop itself.
+    const sentByStop = (stopRequestedByUser || interruptLine) && /cause unknown/i.test(reportedExitReasonText) ? ' — the signal came from the requested stop (start-command sends SIGKILL when its stop grace period runs out), so "cause unknown" only means start-command did not record the sender' : '';
+    evidence.push(`\`$ --status\` reports \`exitReason = ${reportedExitReasonText}\`${sentByStop}`);
   }
 
   const ratio = memoryRatio(memory);
@@ -468,7 +478,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   const containerOomAtExit = containerOomObserved && (exitCode === null || exitCode === 137);
 
   let cause = KILL_CAUSE_UNKNOWN;
-  if (stopRequestedByUser) {
+  if (stoppedByOperator) {
     cause = KILL_CAUSE_FORCED_KILL;
   } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || containerOomExplainsExit || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
@@ -503,7 +513,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = `disk full${fullDiskLine ? ` — ${fullDiskLine}` : ''}`;
   } else if (cause === KILL_CAUSE_FORCED_KILL) {
     const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine ? diskLine : null].filter(Boolean).join(', ');
-    summary = stopRequestedByUser ? 'forced kill — an operator requested the stop' : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
+    summary = stoppedByOperator ? `stopped by operator (/stop) — CTRL+C was sent, then the process was killed${lastPhase ? ` during ${lastPhase}` : ''}` : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
   } else if (unobservedExit) {
     summary = 'unknown — the container was removed while still running, and no memory or disk exhaustion was observed';
   } else if (statusQueryFailure) {
@@ -512,7 +522,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, observedDisk, diskFullMarker, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+  return { cause, summary, evidence, stoppedByOperator, lastPhase, memory, heap: heapMemory, heapUsedPercent, disk, observedDisk, diskFullMarker, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
 }
 
 /**

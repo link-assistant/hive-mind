@@ -197,7 +197,8 @@ await test('the auto-merge watch loop stops instead of only logging "Will contin
   assert(guardsSrc.includes('MAX_CONSECUTIVE_MERGE_FAILURES'), 'the watch loop must bound consecutive merge failures');
   assert(guardsSrc.includes("action: 'stop', reason: 'merge_failed'"), 'exhausted merge failures must be reported and stop the loop');
   assert(autoMergeSrc.includes("decision.action === 'stop'"), 'the watch loop must honour the guard decision instead of only logging');
-  assert(autoMergeSrc.includes("reason: 'watch_timeout'"), 'the wall-clock timeout must be reported');
+  // Issue #4091: the timeout goes through stopWatch(), which reports it and returns { success: false, reason }.
+  assert(autoMergeSrc.includes("reason: 'watch_timeout'") || autoMergeSrc.includes("stopWatch('watch_timeout'"), 'the wall-clock timeout must be reported');
 });
 
 await test('the auto-merge watch loop self-heals a draft PR', () => {

@@ -241,7 +241,8 @@ console.log('\n5. Callers use the bounded sanitize\n');
 
 for (const name of ['log-upload.lib.mjs', 'telegram-log-command.lib.mjs', 'github-error-reporter.lib.mjs', 'development-log.lib.mjs']) {
   const src = await fs.readFile(path.join(repoRoot, 'src', name), 'utf8');
-  assert(src.includes('sanitizeLogFileToFileBounded('), `${name} sanitizes through the bounded worker path`);
+  // Issue #4091: log-upload takes the sanitizer as an injectable default (`sanitize = sanitizeLogFileToFileBounded`).
+  assert(src.includes('sanitizeLogFileToFileBounded(') || src.includes('sanitize = sanitizeLogFileToFileBounded'), `${name} sanitizes through the bounded worker path`);
   assert(!/[^d]\bsanitizeLogFileToFile\(/.test(src), `${name} has no unbounded-heap sanitize call left`);
 }
 

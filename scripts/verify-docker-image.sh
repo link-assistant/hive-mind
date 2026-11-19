@@ -174,6 +174,7 @@ check_tool "Make"      make      --version
 
 check_tool "Node.js"   node      --version
 check_tool "NPM"       npm       --version
+check_tool "Corepack"  corepack  --version   # issue #4082: Node >= 25 ships without it
 check_tool "Opam"      opam      --version
 
 echo ""

@@ -23,6 +23,7 @@ import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputToken
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -411,6 +412,15 @@ export const executeWithAgentCommander = async params => {
     await log(`   User prompt characters: ${prompt.length}`, { verbose: true });
     await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
   }
+  // PR #4083 feedback: the exact prompts agent-commander hands to the tool, always in full.
+  await logFinalPrompts({
+    log,
+    tool: `${tool} (agent-commander)`,
+    prompts: [
+      { kind: 'user', text: controllerOptions.prompt, delivery: 'agent-commander', keepEmpty: true },
+      { kind: 'system', text: controllerOptions.systemPrompt, delivery: 'agent-commander' },
+    ],
+  });
 
   const controller = module.agent(controllerOptions);
   const dryRun = !!(argv.dryRun || argv.onlyPrepareCommand);

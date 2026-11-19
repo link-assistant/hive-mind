@@ -1,8 +1,1 @@
-[
-  {
-    "advisory": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
-    "package": "picomatch",
-    "range": "<=4.0.7",
-    "reason": "Every published picomatch release (through 4.0.7) is affected and the advisory lists no patched version (2026-11-17). The ReDoS needs an attacker-supplied glob; hive-mind only compiles its own fixed globs (secretlint preset-recommend at runtime, the repository's check:secrets globs in CI). The checker fails again as soon as the advisory's range changes, e.g. when a fixed release is published."
-  }
-]
+[]

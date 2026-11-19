@@ -230,7 +230,7 @@ await test('the CI feedback carries the guidance and the evidence, and nothing s
 });
 
 await test('a human comment or an issue edit skips the no-progress check (the message no longer tells sessions apart)', () => {
-  assert.match(autoMergeSource, /const stall = hasNewComments \|\| hasIssueMetadataChanges \? null : await stopWhenSessionRepeated\(\{/);
+  assert.match(autoMergeSource, /const stall = hasNewComments \|\| hasIssueMetadataChanges \|\| hasNewReviewThreads \? null : await stopWhenSessionRepeated\(\{/);
 });
 
 const watchSource = readFileSync(join(root, 'src', 'solve.watch.lib.mjs'), 'utf8');

@@ -1,5 +1,48 @@
 # @link-assistant/hive-mind
 
+## 2.43.4
+
+### Patch Changes
+
+- 1baeac2: `--auto-restart-until-mergeable` no longer reports "✅ Ready to merge" over open review findings, and the task image can run corepack-based git hooks again (issue #4082).
+
+  - Unresolved review threads are listed in the AI's feedback whatever their age or author, review bots included. Before, only comments newer than the last commit counted. The watch loop restarts the AI on each thread it has not handed over yet. Threads the AI was given but left unresolved hold "Ready to merge" back and are named in the comment. The prompt tells the AI to resolve each thread after a verified fix.
+  - Submitted reviews are read too: a bot review that requests changes, a human review, or a same-account comment without tool markers restarts the AI.
+  - Merge-order prerequisites declared in the pull request description or the latest session summary ("merge the companion PR first", "Depends on owner/repo#12") are checked on GitHub. While one is unmet, "Ready to merge" becomes "🟡 Ready for review — blocked by …", and auto-merge does not merge.
+  - After "Ready to merge" the loop keeps watching for late reviews for `--auto-restart-until-mergeable-review-window-minutes` (default 120; `0` exits at once). New options: `--auto-restart-on-unresolved-review-threads` and `--check-merge-prerequisites`, both on by default.
+  - The Docker images install a pinned `corepack`, which Node 26 no longer bundles. Solve also tells the AI when a repository's git hooks cannot run here (a missing corepack, pnpm, yarn, pre-commit, lefthook, …), so their checks are run by hand instead of being skipped silently.
+
+  Every prompt sent to an AI tool is now printed in full in the log, after all formatting, as a clearly marked block (PR #4083 review feedback on issue #4082).
+
+  - Claude, Codex, Agent, OpenCode, Gemini, Qwen, agent-commander, the task command and the /organize classifier log the exact user, system or combined prompt where it is sent. Each block shows its line and character count and how the prompt is delivered (argument, file, stdin or stream-json frame), and sits between `---BEGIN … PROMPT---` and `---END … PROMPT---` markers. This happens on every run, not only with `--dry-run` or `--verbose`.
+  - Live input frames written to the tool stdin mid-session (forwarded comments, status updates, queued frames) are printed as readable text in `LIVE INPUT PROMPT` blocks.
+  - The /organize classifier receives its repository context and issues as indented JSON instead of one long line. Chunk sizes are measured on that formatted text.
+
+  Also, for the CI dependency freshness gate: `links-notation` is updated to 0.31.7.
+
+## 2.43.3
+
+### Patch Changes
+
+- 8321025: `--auto-restart-until-mergeable` no longer posts `🛑 Automation stopped: the AI session failed` after `🚨 Solution Draft Failed` for the same failed session (issue #4087). The failure comment already holds the error, the models and the log, and says the session ended, so one failure now gives one comment.
+
+  - The `tool_failure` and `tool_failure_after_resume` stop comments are skipped when the `Solution Draft Failed` comment reached the pull request. This covers both the comment with the attached log and the `Log Upload Failed` variant, which has the same heading and error.
+  - The stop comment is still posted when no failure comment reached the pull request (`--attach-logs` is off, or nothing could be posted), so every failure is still reported once.
+  - The terminal log lines and the recorded loop failure are unchanged.
+
+## 2.43.2
+
+### Patch Changes
+
+- cbfc3a4: A Codex turn that degenerates, runs out of output tokens or runs too long no longer ends the run with nine hours of work left uncommitted. Account identifiers no longer reach published logs (issue #4079).
+
+  - **Degenerate output.** A run of 200 identical or filler lines (`.`, blank) in text the model writes stops the turn, and the session is resumed with a continuation prompt. This covers stdout items and the `codex.tool_result` arguments on stderr. Set `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT` to change the limit, or `0` to disable it.
+  - **`max_output_tokens`.** `Incomplete response returned, reason: max_output_tokens` now resumes the same Codex session from the current working tree instead of failing the run, up to `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` (3) times per run.
+  - **Long turns.** A single turn is split, and the session resumed, after `HIVE_MIND_CODEX_MAX_TURN_MINUTES` (240) or `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS` (100M; needs `--verbose`), up to `HIVE_MIND_CODEX_MAX_TURN_SPLITS` (20) times per run. A turn is never stopped while a command or file change is running.
+  - **Codex stderr.** A multi-line Codex telemetry record (for example, a tool call's arguments) now goes to the trace file with its header instead of into the log. Repeated lines collapse into `… previous line repeated N more times`.
+  - **Account identifiers.** `user.email`, `user.account_id` and similar values are redacted to `<redacted>` in Codex stderr, in the trace file and in every log sanitized for publishing.
+  - **Recovery branch.** On a continue run, work a failed run preserved on `recovery/<branch>` is restored to the working tree if the PR branch has not moved. Otherwise the session is told where the work is. The failure comment now names the recovery branch.
+
 ## 2.43.1
 
 ### Patch Changes

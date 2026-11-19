@@ -500,7 +500,10 @@ runTest('Cross-module: comment bodies posted at each site embed the centralized 
   assertTrue(githubLib.includes('NOW_WORKING_SESSION_IS_ENDED_MARKER'), 'github.lib.mjs should reference NOW_WORKING_SESSION_IS_ENDED_MARKER');
   assertFalse(githubLib.includes('Administrator-only CLI details'), 'issue failure log comments should not include stale admin-only boilerplate');
   const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
-  assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
+  // Issue #4082: the "Ready to merge" comment is posted from its own module.
+  const readyComment = fs.readFileSync('./src/solve.auto-merge-ready-comment.lib.mjs', 'utf-8');
+  assertTrue(readyComment.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge-ready-comment.lib.mjs should reference READY_TO_MERGE_MARKER');
+  assertTrue(autoMerge.includes('postReadyStatusComment'), 'solve.auto-merge.lib.mjs should post the ready comment through solve.auto-merge-ready-comment.lib.mjs');
   assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');
   const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
   assertTrue(watch.includes('buildUncommittedChangesRestartComment'), 'solve.watch.lib.mjs should post the shared auto-restart comment');

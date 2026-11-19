@@ -163,6 +163,7 @@ const ARG_SOURCES = {
   // on 2026-10-12 and never reached crates.io (issue #2801, cf. #2395).
   FORMAL_AI_VERSION: { kind: 'crate', name: 'formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
+  HIVE_MIND_COREPACK_VERSION: { kind: 'npm', name: 'corepack' }, // Issue #4082: Node >= 25 ships without corepack
   HIVE_MIND_NODE_VERSION: { kind: 'node', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
 };

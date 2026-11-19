@@ -557,11 +557,12 @@ try {
     $,
   });
   // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
-  // Issue #4063: the after-clone notice is passed separately (cloneStatusLines) because feedbackLines only reach the prompt in continue mode
-  const cloneStatusLines = cloneStatus?.promptLines || [];
+  // Issues #4063/#4082: the after-clone notice and the git hooks that cannot run here go in cloneStatusLines (feedbackLines only reach the prompt in continue mode)
+  const cloneStatusLines = [...(cloneStatus?.promptLines || []), ...(await (await import('./git-hooks-preflight.lib.mjs')).runGitHooksPreflight({ tempDir, log })).promptLines];
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  if (isContinueMode) feedbackLines = await (await import('./recovery-branch-restore.lib.mjs')).withRestoredRecoveryBranchWork(feedbackLines, { tempDir, branchName, $, log }); // Issue #4079: before the uncommitted-changes check
   const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
   if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
@@ -575,9 +576,9 @@ try {
   });
   // Execute tool command with all prompts and settings
   let toolResult;
-  // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
   await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
-  beginWorkingSession();
+  beginWorkingSession(); // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091: later phases (log upload, watch) replace "⏳ Executing..." in Telegram
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -959,11 +960,11 @@ try {
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
-        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        const { commitUncommittedChangesOnCriticalError, describePreservedWork } = await import('./critical-error-commit.lib.mjs');
         // Issue #2161: when the subscription is gone it is unknown whether/when it
         // will be restored, so the emergency commit is the only thing standing
         // between the operator and hours of lost work — name it as such.
-        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
+        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage }).then(preserved => preserved && { ...preserved, failureCommentNote: preserved.committed ? describePreservedWork(preserved) : null }); // Issue #4079: the failure comment names the recovery branch
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
@@ -1012,7 +1013,7 @@ try {
           // If not a usage limit case, fall back to generic failure format
           // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
           // steps too — whoever finds the run in the morning reads that, not the log.
-          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
+          errorMessage: limitReached ? undefined : [subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage, preservedWork?.failureCommentNote].filter(Boolean).join('\n\n'), // Issue #4079: name the recovery branch
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',

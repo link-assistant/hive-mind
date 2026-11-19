@@ -738,6 +738,12 @@ hi
       waiting_for_ci "⏳ {{branch}} ब्रांच पर CI/CD पूरा होने की प्रतीक्षा..."
       waiting_for_ci_default_branch "⏳ डिफ़ॉल्ट ब्रांच पर CI/CD पूरा होने की प्रतीक्षा..."
       issue_label "Issue"
+    solve_progress
+      watching "⏳ Pull request के mergeable होने तक निगरानी जारी है"
+      blocker "प्रतीक्षा: {{blocker}}"
+      timing "जाँच #{{check}} · {{elapsed}} से निगरानी · {{deadline}} पर रुकेगी"
+      updated "स्थिति अपडेट: {{time}}"
+      uploading_log "📎 सत्र लॉग अपलोड हो रहा है..."
     work
       session
         starting "🔄 शुरू हो रहा है..."

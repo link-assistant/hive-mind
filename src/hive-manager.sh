@@ -31,6 +31,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   tasks                 Inspect or recover start-command task executions
   archive-session       Sanitize a session file and write it to stdout
   archive-sessions      Stage sanitized sessions associated with a public repository
+  archive-publish       Publish a reviewed session archive to GitHub
   proxy-test            Verify Telegram text and media on a client network
   proxy-pcap            Summarize and compare bounded proxy packet captures
   close-linked-issues   Reconcile issues linked from merged pull requests
@@ -42,7 +43,6 @@ SSH options (before COMMAND):
   --ssh-option OPTION  Pass an OpenSSH option (-o), repeatable
   --ssh-port PORT      SSH port (-p)
   --tty                Request a terminal for interactive remote commands
-
 Run hive-manager deploy --help for deployment options.
 HELP
 }
@@ -73,7 +73,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
   cleanup | configure-claude | audit-config | screens | models | tasks
-  archive-session | archive-sessions | proxy-test | proxy-pcap | close-linked-issues
+  archive-session | archive-sessions | archive-publish | proxy-test | proxy-pcap | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -122,6 +122,7 @@ maintenance_spec() {
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
     archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
     archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
+    archive-publish) bin=hive-manager; module=hive-manager-archive-publish.mjs ;;
     proxy-test) bin=hive-manager; module=hive-manager-proxy-test.mjs ;;
     proxy-pcap) bin=hive-manager; module=hive-manager-proxy-pcap.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
@@ -132,7 +133,6 @@ maintenance_spec() {
     *) return 1 ;;
   esac
 }
-
 package_source() {
   local entry=${1:-$0} link
   if [[ $entry != */* ]]; then

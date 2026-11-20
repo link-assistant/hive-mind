@@ -101,6 +101,13 @@ Use `--tool-results` to include sanitized Claude attachments associated with the
 hive-manager archive-sessions --repo link-assistant/hive-mind --output ./session-review --tool-results
 ```
 
+`archive-publish` lists the exact files to be committed and returns a review digest tied to the destination's visibility and default branch. After reviewing every file, pass the digest with `--apply` to publish one normal Git commit. The destination must already contain a default branch and allow your configured Git identity and credentials to push to it. The manager rechecks source visibility and scans the reviewed files before pushing. It redacts recognizable identity-document details while staging and excludes the repository identified in the Control Center's known data exposure. Each publication accepts up to 256 MiB total and 64 MiB per file.
+
+```bash
+hive-manager archive-publish ./session-review --destination example/session-archive
+hive-manager archive-publish ./session-review --destination example/session-archive --apply REVIEW_DIGEST
+```
+
 ## Backup and restore
 
 Stop the instance first if an application-consistent snapshot is needed. Run backup with permission to read the state files. Files can be owned by the container user.

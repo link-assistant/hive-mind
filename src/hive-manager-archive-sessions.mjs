@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { excludedArchiveRepository, redactArchiveIdentity } from './hive-manager-archive-privacy.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -96,7 +97,7 @@ async function requirePublic(repository) {
 }
 
 async function sanitizeStableFile(file, sourceInfo, destPath) {
-  await sanitizeLogFileToFileBounded({ sourcePath: file, destPath });
+  await sanitizeLogFileToFileBounded({ sourcePath: file, destPath, transform: redactArchiveIdentity });
   const current = await lstat(file);
   if (current.ino !== sourceInfo.ino || current.dev !== sourceInfo.dev || current.size !== sourceInfo.size || current.mtimeMs !== sourceInfo.mtimeMs || current.ctimeMs !== sourceInfo.ctimeMs) {
     throw new Error('An archive source changed during export. Run the export again after the session has finished.');
@@ -174,6 +175,7 @@ async function archive() {
   const repository = values.repo?.toLowerCase() ?? '';
   const limit = Number(values.limit);
   if (!repositoryPattern.test(repository) || /\/\.{1,2}$/.test(repository) || !values.output) throw new Error('Specify --repo OWNER/REPO and --output NEW_DIRECTORY.');
+  if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
   if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 100) throw new Error('Archive limit must be between 1 and 100.');
   await requirePublic(repository);
 

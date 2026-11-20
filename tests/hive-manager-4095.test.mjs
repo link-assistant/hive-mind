@@ -267,7 +267,7 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   writeSession(join(cwd, 'claude', 'project', 'closed.jsonl'), { cwd: checkout, message: 'Claude', token });
   const resultsDir = join(cwd, 'claude', 'project', 'closed', 'tool-results');
   mkdirSync(resultsDir, { recursive: true });
-  writeSession(join(resultsDir, 'result.jsonl'), { cwd: checkout, message: 'attached tool result', token });
+  writeSession(join(resultsDir, 'result.jsonl'), { cwd: checkout, message: 'attached tool result', token, details: 'Booking reference: ZQ7RF9' });
   writeSession(join(resultsDir, 'active.json'), { token }, false);
   writeSession(join(resultsDir, 'ignored.bin'), { token });
   symlinkSync('result.jsonl', join(resultsDir, 'ignored.jsonl'));
@@ -296,9 +296,78 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   assert.equal(manifest.sessions[0].toolResults.length, 1);
   const toolResult = JSON.parse(readFileSync(join(cwd, 'staged', manifest.sessions[0].toolResults[0].archive), 'utf8'));
   assert.equal(toolResult.message, 'attached tool result');
+  assert.equal(toolResult.details, 'Booking reference: [REDACTED]');
   assert.notEqual(toolResult.token, token);
   assert.equal(statSync(join(cwd, 'staged')).mode & 0o777, 0o700);
   assert.notEqual(run(args).status, 0);
+});
+
+test('archive publication checks approval, visibility, and commits only the reviewed files', { timeout: 30000 }, t => {
+  const { cwd, run, executable } = fixture(t);
+  const repository = join(cwd, 'destination.git');
+  const configuration = join(cwd, 'gitconfig');
+  const environment = { GIT_CONFIG_GLOBAL: configuration, GIT_CONFIG_NOSYSTEM: '1' };
+  const git = (...args) => {
+    const result = spawnSync('git', args, { cwd, env: { ...process.env, ...environment }, encoding: 'utf8', timeout: 5000 });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  git('config', '--global', 'user.name', 'Archive Test');
+  git('config', '--global', 'user.email', 'archive-test@example.invalid');
+  git('config', '--global', `url.file://${repository}.insteadOf`, 'https://github.com/example/destination.git');
+  git('init', '--bare', '--initial-branch=main', repository);
+  git('-C', repository, 'config', 'uploadpack.allowFilter', 'true');
+  git('init', '--initial-branch=main', 'seed');
+  writeFileSync(join(cwd, 'seed', 'README.md'), 'Existing destination files are preserved.\n');
+  git('-C', 'seed', 'add', 'README.md');
+  git('-C', 'seed', 'commit', '-qm', 'Initial archive');
+  git('-C', 'seed', 'push', repository, 'main');
+  const base = git('-C', repository, 'rev-parse', 'main');
+
+  // github-retry-ok: fixture writes a fake gh executable and sends no requests.
+  executable(
+    'gh',
+    `
+case "$4" in
+  repos/example/project) printf '{"full_name":"example/project","visibility":"%s","default_branch":"main"}\\n' "\${SOURCE_VISIBILITY:-public}" ;;
+  repos/example/destination) printf '{"full_name":"example/destination","visibility":"%s","default_branch":"main"}\\n' "\${DESTINATION_VISIBILITY:-private}" ;;
+  *) exit 1 ;;
+esac`
+  );
+  const directory = join(cwd, 'review');
+  const archive = `codex-${'a'.repeat(64)}.jsonl`;
+  const file = join(directory, archive);
+  mkdirSync(directory);
+  writeFileSync(join(directory, 'manifest.json'), JSON.stringify({ repository: 'example/project', sessions: [{ tool: 'codex', archive }] }));
+  writeFileSync(join(directory, 'ignored.txt'), 'never published');
+  const fixtureText = '{"message":"a reviewed fixture"}\n';
+  writeFileSync(file, fixtureText);
+  const args = ['archive-publish', directory, '--destination', 'example/destination'];
+  const plan = run(args, { environment });
+  assert.equal(plan.status, 0, plan.stderr);
+  const { digest, files, visibility } = JSON.parse(plan.stdout);
+  assert.equal(visibility, 'private');
+  assert.deepEqual(files, [archive, 'manifest.json']);
+  const apply = [...args, '--apply', digest];
+  assert.notEqual(run(apply, { environment: { ...environment, DESTINATION_VISIBILITY: 'public' } }).status, 0);
+  assert.notEqual(run(apply, { environment: { ...environment, SOURCE_VISIBILITY: 'private' } }).status, 0);
+  writeFileSync(file, '{"message":"changed fixture"}\n');
+  assert.match(run(apply, { environment }).stderr, /changed since review/);
+  writeFileSync(file, '{"message":"Booking reference: ZQ7RF9"}\n');
+  assert.match(run(args, { environment }).stderr, /identity-document, booking, or contact details/);
+  assert.equal(git('-C', repository, 'rev-parse', 'main'), base);
+  writeFileSync(file, fixtureText);
+  const published = run(apply, { environment });
+  assert.equal(published.status, 0, published.stderr);
+  const head = git('-C', repository, 'rev-parse', 'main');
+  assert.equal(git('-C', repository, 'rev-parse', `${head}^`), base);
+  const prefix = `example/project/${digest}`;
+  assert.equal(git('-C', repository, 'show', `main:${prefix}/${archive}`), fixtureText.trim());
+  assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `${prefix}/${archive}`, `${prefix}/manifest.json`]);
+  const retried = run(apply, { environment });
+  assert.equal(retried.status, 0, retried.stderr);
+  assert.match(retried.stdout, /already published/);
+  assert.equal(git('-C', repository, 'rev-parse', 'main'), head);
 });
 
 test('MTProxy MSS unit uses the original published port after destination NAT', { timeout: 10000 }, t => {

@@ -38,6 +38,8 @@ const parseVersion = value => {
 
 const compareParsedVersions = (left, right) => left.major - right.major || left.minor - right.minor || left.patch - right.patch || (left.prerelease ? (right.prerelease ? left.prerelease.localeCompare(right.prerelease) : -1) : right.prerelease ? 1 : 0);
 
+const simpleNodeMinimum = range => /^>=\s*(\d+(?:\.\d+){0,2})$/.exec(range)?.[1];
+
 /** Compare a declaration at the precision promised by its update mechanism. */
 export const assessVersionPin = ({ current, latest, policy = 'exact' }) => {
   const currentVersion = parseVersion(current);
@@ -238,9 +240,10 @@ const discoverDockerfiles = async (root, relative = '') => {
 export const collectDependencyRecords = async ({ root = process.cwd() } = {}) => {
   const records = [];
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+  const minimumNodeVersion = simpleNodeMinimum(manifest.engines?.node);
   for (const section of ['dependencies', 'devDependencies']) {
     for (const [name, current] of Object.entries(manifest[section] ?? {})) {
-      if (parseVersion(current)) records.push({ kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}` });
+      if (parseVersion(current)) records.push({ kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}`, minimumNodeVersion: section === 'dependencies' ? minimumNodeVersion : undefined });
     }
   }
 
@@ -338,9 +341,28 @@ const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.en
 };
 
 export const resolveNpmLatest = async (name, options = {}) => {
-  const metadata = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(name)}/latest`, options);
-  if (!parseVersion(metadata?.version)) throw new Error(`npm returned no semantic latest version for ${name}`);
-  return metadata.version;
+  const registryUrl = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
+  const metadata = await fetchJson(`${registryUrl}/latest`, options);
+  const latest = parseVersion(metadata?.version);
+  if (!latest) throw new Error(`npm returned no semantic latest version for ${name}`);
+  // Runtime packages must keep working at Hive Mind's Node floor. Keep the
+  // normal latest-tag policy for declarations without an explicit higher
+  // Node minimum, including engine ranges whose compatibility is unclear.
+  const supported = parseVersion(options.minimumNodeVersion);
+  const required = parseVersion(simpleNodeMinimum(metadata.engines?.node));
+  if (!supported || !required || compareParsedVersions(required, supported) <= 0) return metadata.version;
+
+  const { versions = {} } = await fetchJson(registryUrl, options);
+  const candidates = Object.entries(versions)
+    .filter(([version]) => /^\d+\.\d+\.\d+$/.test(version))
+    .map(([version, release]) => ({ version: parseVersion(version), engine: release?.engines?.node }))
+    .filter(({ version, engine }) => {
+      const minimum = parseVersion(simpleNodeMinimum(engine));
+      return compareParsedVersions(version, latest) < 0 && (!engine || (minimum && compareParsedVersions(minimum, supported) <= 0));
+    })
+    .sort((a, b) => compareParsedVersions(b.version, a.version));
+  if (!candidates.length) throw new Error(`npm returned no stable ${name} version compatible with Node ${options.minimumNodeVersion}`);
+  return candidates[0].version.raw;
 };
 
 export const resolveGitHubLatest = async (repository, record = {}, options = {}) => {
@@ -496,7 +518,7 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
           }
           throw new Error(record.error ?? `Unknown dependency kind ${record.kind}`);
         }
-        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
+        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.minimumNodeVersion ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
         if (!latestByDependency.has(key)) latestByDependency.set(key, resolvers[record.kind](record.name, record));
         const latest = await latestByDependency.get(key);
         const assessment = assessVersionPin({ current: record.current, latest, policy: record.policy });

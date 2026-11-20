@@ -14,7 +14,37 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest, resolveNodeLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest, resolveNodeLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
+
+// A runtime dependency's latest tag can move past the project's Node floor.
+{
+  const versions = {
+    '1.0.0': { engines: { node: '>=22.13.0' } },
+    '1.1.0': { engines: { node: '>=24' } },
+    '1.2.0-beta.1': { engines: { node: '>=24' } },
+    '1.2.0': { engines: { node: '>=24.0.1' } },
+    '2.0.0': { engines: { node: '>=26.13.1' } },
+    '3.0.0': { engines: { node: '>=24' } },
+  };
+  const fetchImpl = async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? { version: '2.0.0', ...versions['2.0.0'] } : { versions }) });
+  const declaration = { kind: 'npm', name: '@example/runtime', current: '^1.0.0', policy: 'exact', location: 'package.json#dependencies', minimumNodeVersion: '24.0.0' };
+  const lockEntry = { ...declaration, current: '1.1.0', location: 'package-lock.json#@example/runtime' };
+  const dockerPin = { ...declaration, location: 'Dockerfile:1', minimumNodeVersion: undefined };
+  const result = await checkDependencyRecords([declaration, lockEntry, dockerPin], { resolveNpmLatest: (name, record) => resolveNpmLatest(name, { ...record, fetchImpl }) });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(
+    result.current.map(({ location }) => location),
+    [lockEntry.location]
+  );
+  assert.deepEqual(
+    result.stale.map(({ location, latest }) => [location, latest]),
+    [
+      [dockerPin.location, '2.0.0'],
+      [declaration.location, '1.1.0'],
+    ]
+  );
+  await assert.rejects(resolveNpmLatest(declaration.name, { minimumNodeVersion: '21.0.0', fetchImpl }), /no stable .* version compatible with Node 21/);
+}
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 

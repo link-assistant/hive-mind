@@ -1,0 +1,234 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 994197baa688200397a6d50f6b87bc3b58aa3285..20e5bbea7c5870cb249f4a075546b40b66069269 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -6,7 +6,11 @@ on:
+       - main
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   workflow_dispatch:
+     inputs:
++      checks_only:
++        description: Run the full checks without publishing
++        type: boolean
++        default: false
+       bump_type:
+         description: 'Version bump type'
+@@ -39,4 +43,8 @@ env:
+ # queues up to 100 pending writers with `queue: max` so a third writer does
+ # not discard an earlier pending release.
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   # === DETECT CHANGES - determines which jobs should run ===
+@@ -46,6 +54,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name != 'workflow_dispatch'
+     outputs:
+@@ -109,6 +117,6 @@ jobs:
+     timeout-minutes: 20
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-lint-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # !cancelled() lets this job evaluate even though detect-changes is skipped
+@@ -227,6 +235,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # !cancelled() lets this job evaluate even though detect-changes is skipped
+@@ -259,6 +267,6 @@ jobs:
+     name: Release Preflight (credentials)
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-release-preflight
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-release-preflight-${{ github.run_id }}
++      cancel-in-progress: false
+     runs-on: ubuntu-26.04
+     timeout-minutes: 5
+@@ -281,5 +289,5 @@ jobs:
+               (
+                 (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+-                github.event_name == 'workflow_dispatch'
++                (github.event_name == 'workflow_dispatch' && !inputs.checks_only)
+               ) && 'release' || 'report'
+             }}
+@@ -296,6 +304,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     env:
+@@ -304,4 +312,5 @@ jobs:
+     # for workflow_dispatch while still propagating workflow cancellation.
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       !cancelled() && (
+         github.event_name == 'workflow_dispatch' ||
+@@ -384,6 +393,6 @@ jobs:
+     timeout-minutes: 20
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-build
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes, lint, test]
+     # Build change-bearing automatic events and all manually dispatched releases.
+@@ -465,6 +474,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-changelog
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-changelog-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+@@ -521,8 +530,8 @@ jobs:
+     timeout-minutes: 60
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
++    if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && (github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true') }}
+     steps:
+       - uses: actions/checkout@v7.0.1
+@@ -697,4 +706,5 @@ jobs:
+     # The explicit result checks ensure release only proceeds after CI passes.
+     if: |
++      (!inputs.checks_only) &&
+       !cancelled() &&
+       github.event_name == 'workflow_dispatch' &&
+@@ -1010,5 +1020,5 @@ jobs:
+   # Observe every other job so that state cannot silently hide a broken run.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     runs-on: ubuntu-26.04
+     timeout-minutes: 5
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index 89078a05219ed97e3b58978d4f00dcbadce2c87e..8a20f4ca4d82f16ec12b5eca926e7a3c41d4f3d9 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -5,4 +5,6 @@ on:
+     branches: [main]
+   pull_request:
++    types: [synchronize, ready_for_review]
++  workflow_dispatch:
+   schedule:
+     - cron: '0 6 * * 1'
+@@ -16,4 +18,8 @@ env:
+   GIT_CONFIG_VALUE_0: main
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   dependency-audit:
+@@ -22,6 +28,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-audit
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-audit-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@v7.0.1
+@@ -51,6 +57,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@v7.0.1
+@@ -87,5 +93,6 @@ jobs:
+
+   codeql:
+-    name: CodeQL (${{ matrix.language }})
++    if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
++    name: CodeQL
+     runs-on: ubuntu-26.04
+     timeout-minutes: 30
+@@ -95,6 +102,6 @@ jobs:
+       CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -137,6 +144,6 @@ jobs:
+     name: Dependency Review
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review-${{ github.run_id }}
++      cancel-in-progress: false
+     runs-on: ubuntu-26.04
+     timeout-minutes: 10
+@@ -169,5 +176,5 @@ jobs:
+   # superseded by a newer commit is recognised as expected churn.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - dependency-audit
+diff --git a/tests/test_release_workflow.py b/tests/test_release_workflow.py
+index 8a2ddbfbf873f9a5567535d6d098d83b20597fdf..81500854fa4b14502c12a7ffbd89818623eab096 100644
+--- a/tests/test_release_workflow.py
++++ b/tests/test_release_workflow.py
+@@ -35,9 +35,9 @@ def test_changelog_check_safely_requires_a_fragment() -> None:
+
+ def test_release_workflow_separates_check_and_write_concurrency() -> None:
+-    """Checks supersede on every ref while release writes share one group."""
++    """Only commit runs supersede; release writes share one group."""
+     workflow = read_workflow("release.yml")
+     workflow_header = workflow.split("\njobs:\n", maxsplit=1)[0]
+
+-    assert "\nconcurrency:\n" not in workflow_header
++    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}" in workflow_header
+
+     for job_name in (
+@@ -54,5 +54,6 @@ def test_release_workflow_separates_check_and_write_concurrency() -> None:
+         )
+         assert expected_group in block
+-        assert "cancel-in-progress: true" in block
++        assert "${{ github.run_id }}" in block
++        assert "cancel-in-progress: false" in block
+
+     write_concurrency = "\n".join(
+diff --git a/tests/test_workflows.py b/tests/test_workflows.py
+index 352f2044dfac452374a61b8c4cc9460ef24defed..de7ab80becd79a1bfef2078f5071963c56568d8c 100644
+--- a/tests/test_workflows.py
++++ b/tests/test_workflows.py
+@@ -60,5 +60,6 @@ def test_security_workflow_scans_code_actions_and_dependencies() -> None:
+     assert_action_reference_count(codeql_job, "github/codeql-action/autobuild", 1)
+     assert_action_reference_count(codeql_job, "github/codeql-action/analyze", 1)
+-    assert "cancel-in-progress: true" in codeql_job
++    assert "cancel-in-progress: false" in codeql_job
++    assert "${{ github.run_id }}" in codeql_job
+
+     assert "if: github.event_name == 'pull_request'" in dependency_job

@@ -15,7 +15,7 @@ This approach ensures consistent quality regardless of whether the team consists
 
 ## Recommended CI/CD Templates
 
-We provide ready-to-use templates for multiple languages with all best practices pre-configured:
+These language templates include CI/CD workflows.
 
 | Language              | Template Repository                                                                                                                 |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -94,6 +94,44 @@ docker-pr-check:
 - CI/CD workflow files (`.github/workflows/*.yml`)
 - `Dockerfile` and related infrastructure files
 
+#### Commit and ready-for-review checks
+
+- **Commit tier (`synchronize`)** runs lint, type checking, and fast unit tests for changed packages, including on draft PRs. Aim for a 5–10 minute critical path.
+- **Ready tier (`ready_for_review`)** runs the heavy unit, integration, and end-to-end suites. Open the PR as a draft and mark it ready when the full check should start.
+
+Omit `opened`, `reopened`, and `edited` from these workflows. To run the heavy tier again after a new commit, switch the PR to draft and mark it ready again, or dispatch the checks explicitly. Keep full release validation on `main` and keep a checks-only manual mode separate from publishing.
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+The ready run tests the revision that triggered it. If full verification is required to merge, require a full-tier check for the current revision. A green commit-tier run alone cannot satisfy that requirement. A manual run must target the intended PR revision or merge result.
+
+#### Select monorepo suites from the workspace graph
+
+Have a planner read workspace manifests (for example, each package's `package.json`) and map changed paths to their owning packages.
+
+- Schedule a package's unit suite when the package itself changes.
+- For integration tests, walk dependencies in reverse from each changed package. Test the changed packages and every transitive consumer, visiting each package once even if the graph has cycles.
+- Run every suite when a changed path is unclassified or the planner cannot establish the graph or diff. Explicitly classify shared inputs such as the lockfile, workspace config, and common test setup as affecting all packages.
+
+Emit JSON job matrices, with `[]` for an empty selection, and use the planner outputs to gate and shard jobs. For example, `test-db` can contain `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]`.
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. File Size Limits
 
 **Enforce a maximum of 1000-1500 lines per code file.**
@@ -127,6 +165,12 @@ done
   }
 }
 ```
+
+#### Adopt the limit with a ratchet
+
+For an existing repository, record only tracked files above the limit in a committed JSON object that maps paths to line counts, such as `{ "src/legacy.mjs": 1830 }`. Each entry is a ceiling. Reject a new oversized file and any growth above an existing ceiling. Use `--update` to lower ceilings to the current counts and remove entries for deleted files or files that now meet the limit. Commit the updated baseline with the shrink. When reviewing baseline changes, compare against the target branch so raising a ceiling or adding a new entry cannot bypass the check.
+
+New files follow the regular limit from day one, and existing large files can be split in independent PRs. See the [runnable ratchet example](../examples/ci-cd-pull-request-tiers/README.md).
 
 ### 3. Automated Code Formatting
 
@@ -185,6 +229,12 @@ test-suites:
     needs.lint.result == 'success' &&
     needs.check-file-line-limits.result == 'success'
 ```
+
+#### Size jobs and start the longest work first
+
+Aim for roughly 5–30 minutes per substantial runner job. Keep cheap gates fast and shard long suites (for example, `--shard i/n`) based on measured wall-clock times. Set `timeout-minutes` explicitly. Add a workflow test that enforces a ceiling of 30 minutes and a named, numerically capped list of documented exceptions. For a reusable workflow, check the jobs inside the called workflow.
+
+Within a job, schedule independent tasks in descending measured duration with a bounded worker pool. Start the longest tasks first and fill free slots with short tasks. Set the worker count to fit the runner's CPU, memory, and service limits. Keep dependent tasks in order and propagate task failures.
 
 ### 6. Changeset-Based Versioning
 
@@ -283,8 +333,8 @@ jobs:
     # Include the job identity (and matrix values, when present) so unrelated
     # checks remain parallel while a newer run replaces only the stale check.
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -298,10 +348,10 @@ jobs:
     # ...
 ```
 
-- **Read-only jobs:** Cancel superseded checks on both pull requests and `main` to reduce runner load. Give each job a distinct suffix; include relevant matrix values so different matrix entries can still run in parallel.
+- **Read-only jobs:** Cancel superseded commit-tier checks to reduce runner load. Preserve full checks for ready PRs and each `main` revision. Give each job a distinct suffix; include relevant matrix values so different matrix entries can still run in parallel.
 - **Dependent writers:** Use `needs` and require successful prerequisites. A cancelled prerequisite must make its write job not start.
 - **Active writers:** Give every release, deploy, tag, generated-content push, and other write job the same repository-scoped group with `cancel-in-progress: false`. An already started writer finishes while the next writer waits in the queue, including writers from another workflow file.
-- **Workflow scope:** Do not put cancellable concurrency at workflow level when the workflow has write jobs. Cancelling the workflow would also interrupt a writer that has already started.
+- **Workflow scope:** Allow workflow-level cancellation only for events that cannot publish, deploy, or change repository state. An active writer would also be interrupted if its workflow were cancelled.
 
 By default, a concurrency group keeps at most one running and one pending job; a newer pending writer replaces the older pending writer. If every queued write must run, add `queue: max` to the writer's concurrency block (up to 100 jobs can wait). `queue: max` cannot be combined with `cancel-in-progress: true`, and execution order follows when jobs start waiting rather than workflow dispatch order, so write jobs should remain idempotent. See [GitHub's concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) for the current queue limits and semantics.
 
@@ -335,6 +385,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **Recompute after the rebase whatever was derived before it.** A version number, a changelog entry or a tag chosen against the stale tip may already be taken by the writer that won the queue. Re-read the state instead of replaying the plan.
 - **Report success only after the push landed.** A step that sets `version_committed=true` before the push is confirmed leaves the downstream publish job working from a commit that exists only on that runner.
 - **Bound the retries and name the reason in the log.** A handful of attempts with a short delay covers a queue; an unbounded loop against a branch that is genuinely protected turns a fast failure into a long one.
+
+#### Preserve a full check when a commit arrives
+
+Group commit checks by workflow and PR and cancel only superseded `synchronize` runs. Give ready and manual runs a per-run key so GitHub also preserves queued runs. Group pushes by SHA so each main revision keeps its checks.
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+Apply this grouping to each cancellable job if the workflow uses job-level groups, keeping the job and any matrix identity in its key. Keep the shared non-cancelling group for publishing and deployment jobs. Workflow-level cancellation is safe only when every event eligible for cancellation runs checks without publishing or deploying. See the [language template patches](../examples/ci-cd-pull-request-tiers/README.md).
 
 ### 11. Secrets Detection
 
@@ -509,7 +571,7 @@ Each layer catches different issues, ensuring no problematic code reaches produc
 1. **Choose a template** from the table above matching your language
 2. **Use it as a GitHub template** to create your new repository
 3. **Configure secrets** if needed for publishing (OIDC preferred)
-4. **Start developing** with all best practices pre-configured
+4. **Start developing** with the template workflows
 
 The AI solvers will automatically respect and iterate with all configured checks, producing higher quality output than repositories without CI/CD enforcement.
 

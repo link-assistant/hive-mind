@@ -1,0 +1,324 @@
+diff --git a/.github/workflows/javascript-first-gate.yml b/.github/workflows/javascript-first-gate.yml
+index 004f6d8264e26806dee6d96537b665d930feca19..b53a704bdcfd782b5dbc0792190573e5aed18ff0 100644
+--- a/.github/workflows/javascript-first-gate.yml
++++ b/.github/workflows/javascript-first-gate.yml
+@@ -43,6 +43,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-prerequisite
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-prerequisite-${{ github.run_id }}
++      cancel-in-progress: false
+     outputs:
+       tested-sha: ${{ steps.revision.outputs.sha }}
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 61dc5116f6ed718cb845abc88dc73cd298b32db4..b67f0d9c9a38eca414a736e8e5bc6ef849a5aadc 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -6,5 +6,5 @@ on:
+       - main
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   workflow_dispatch:
+     inputs:
+@@ -15,4 +15,5 @@ on:
+         default: 'instant'
+         options:
++          - checks
+           - instant
+           - changelog-pr
+@@ -62,9 +63,13 @@ env:
+ # concurrency group instead. A write that has started is never cancelled, and
+ # GitHub queues up to 100 pending writers without replacing them.
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   javascript-first:
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-first-caller
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-first-caller-${{ github.run_id }}
++      cancel-in-progress: false
+     uses: ./.github/workflows/javascript-first-gate.yml # zizmor: ignore[self-repository]
+     with:
+@@ -78,6 +83,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-detect-changes-${{ github.run_id }}
++      cancel-in-progress: false
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (github.event_name != 'workflow_dispatch') }}
+     outputs:
+@@ -121,6 +126,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-validate-docs
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-validate-docs-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes]
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (needs.detect-changes.outputs.docs-changed == 'true') }}
+@@ -182,6 +187,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-changelog
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-changelog-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes]
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true') }}
+@@ -217,6 +222,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-version-check
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-version-check-${{ github.run_id }}
++      cancel-in-progress: false
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (github.event_name == 'pull_request') }}
+     steps:
+@@ -253,6 +258,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-secrets-scan
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-secrets-scan-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@v7
+@@ -296,6 +301,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-fresh-merge
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-fresh-merge-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes]
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true') }}
+@@ -352,8 +357,8 @@ jobs:
+     timeout-minutes: 60
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-docker-build
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-docker-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes]
+-    if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (!cancelled() && (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.any-code-changed == 'true')) }}
++    if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && (needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (!cancelled() && (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.any-code-changed == 'true'))) }}
+     steps:
+       - uses: actions/checkout@v7
+@@ -399,6 +404,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-cargo-lock
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-cargo-lock-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes]
+     if: |
+@@ -438,6 +443,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-lint-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes, cargo-lock]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -546,6 +551,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}-${{ matrix.toolchain }}
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}-${{ matrix.toolchain }}-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes, cargo-lock]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -566,9 +571,7 @@ jobs:
+       fail-fast: false
+       matrix:
+-        os: [ubuntu-24.04, macos-26, windows-2025]
++        os: ${{ fromJSON(github.event_name == 'pull_request' && github.event.action == 'synchronize' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "macos-26", "windows-2025"]') }}
+         toolchain: ['1.100.0']
+-        include:
+-          - os: ubuntu-24.04
+-            toolchain: '1.85.0'
++        include: ${{ fromJSON(github.event_name == 'pull_request' && github.event.action == 'synchronize' && '[]' || '[{"os":"ubuntu-24.04","toolchain":"1.85.0"}]') }}
+     steps:
+       - uses: actions/checkout@v7
+@@ -647,6 +650,6 @@ jobs:
+     timeout-minutes: 20
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-script-tests
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-script-tests-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes, cargo-lock]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -654,4 +657,5 @@ jobs:
+     # See: https://github.com/actions/runner/issues/491
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha &&
+       !cancelled() && (
+@@ -726,10 +730,11 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-coverage
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-coverage-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, detect-changes, cargo-lock]
+     env:
+       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha &&
+       !cancelled() && (
+@@ -810,6 +815,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-build
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [javascript-first, lint, test, script-tests]
+     if: ${{ needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha && (!cancelled() && needs.lint.result == 'success' && needs.test.result == 'success' && needs.script-tests.result == 'success') }}
+@@ -1241,6 +1246,6 @@ jobs:
+   release-javascript-first:
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-release-javascript-first-caller
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-release-javascript-first-caller-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [auto-release, manual-release]
+     if: ${{ !cancelled() && (needs.auto-release.outputs.tested-sha != '' || needs.manual-release.outputs.tested-sha != '') }}
+@@ -1551,5 +1556,5 @@ jobs:
+   # job so a timeout on main becomes a visible failure instead of a grey run.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - javascript-first
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index eb69313d0a1e99616a13db94b8deef53d9b1a613..a732a75abb8ecd746cfa90d08e091d0edd20a250 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -5,4 +5,6 @@ on:
+     branches: [main]
+   pull_request:
++    types: [synchronize, ready_for_review]
++  workflow_dispatch:
+   schedule:
+     - cron: '0 6 * * 1'
+@@ -18,9 +20,13 @@ env:
+   GIT_CONFIG_VALUE_0: main
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   javascript-first:
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-first-caller
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-javascript-first-caller-${{ github.run_id }}
++      cancel-in-progress: false
+     uses: ./.github/workflows/javascript-first-gate.yml # zizmor: ignore[self-repository]
+     with:
+@@ -34,6 +40,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-cargo-audit
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-cargo-audit-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@v7
+@@ -58,12 +64,12 @@ jobs:
+
+   codeql:
+-    if: needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha
++    if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && (needs.javascript-first.result == 'success' && needs.javascript-first.outputs.tested-sha == github.sha) }}
+     needs: [javascript-first]
+-    name: CodeQL (${{ matrix.language }})
++    name: CodeQL
+     runs-on: ubuntu-24.04
+     timeout-minutes: 30
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -110,6 +116,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-graph
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-graph-${{ github.run_id }}
++      cancel-in-progress: false
+     outputs:
+       enabled: ${{ steps.graph.outputs.enabled }}
+@@ -138,6 +144,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -158,5 +164,5 @@ jobs:
+   # superseded by a newer commit is recognised as expected churn.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - javascript-first
+diff --git a/tests/unit/ci-cd/workflow_security.rs b/tests/unit/ci-cd/workflow_security.rs
+index 3da5ea1b00bc618d0e4bc04241aea7772dc7b525..00787f135080a37c6abb284acbe9f45dfe0f312e 100644
+--- a/tests/unit/ci-cd/workflow_security.rs
++++ b/tests/unit/ci-cd/workflow_security.rs
+@@ -123,6 +123,5 @@ fn workflow_run_blocks_do_not_interpolate_untrusted_contexts() {
+
+ /// Write-capable jobs share a non-cancelling concurrency group, while superseded
+-/// read-only checks are cancelled independently on every ref. The terminal status
+-/// gate distinguishes superseded checks from current-run timeouts.
++/// commit-tier runs are the only workflows that supersede earlier runs.
+ ///
+ /// Regression test for issue #113:
+@@ -135,6 +134,6 @@ fn release_workflow_separates_check_and_write_concurrency() {
+     let workflow_header = workflow.split("\njobs:\n").next().unwrap();
+     assert!(
+-        !workflow_header.contains("\nconcurrency:\n"),
+-        "workflow-level concurrency would couple cancellable checks to non-cancellable writes"
++        workflow_header.contains("${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"),
++        "only synchronize runs should be cancellable"
+     );
+
+@@ -155,6 +154,8 @@ fn release_workflow_separates_check_and_write_concurrency() {
+             format!("group: ${{{{ github.workflow }}}}-${{{{ github.ref }}}}-{job_name}");
+         assert!(
+-            job.contains(&expected_group) && job.contains("cancel-in-progress: true"),
+-            "read-only job {job_name} should cancel superseded instances on every ref"
++            job.contains(&expected_group)
++                && job.contains("${{ github.run_id }}")
++                && job.contains("cancel-in-progress: false"),
++            "read-only job {job_name} should be isolated from other runs"
+         );
+     }
+@@ -163,5 +164,6 @@ fn release_workflow_separates_check_and_write_concurrency() {
+     assert!(
+         test.contains("group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}")
+-            && test.contains("cancel-in-progress: true"),
+-        "each test matrix lane should cancel only its own superseded instance on every ref"
++            && test.contains("${{ github.run_id }}")
++            && test.contains("cancel-in-progress: false"),
++        "each test matrix lane should be isolated from other runs"
+     );

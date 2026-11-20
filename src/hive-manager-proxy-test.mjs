@@ -1,10 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { constants } from 'node:fs';
-import { open } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { readBoundedFile } from './hive-manager-files.lib.mjs';
 
 const usage = `Usage: hive-manager proxy-test --session-file FILE [OPTIONS]
 Check a Telegram user session by writing, reading and deleting a marker in Saved Messages.
@@ -19,28 +18,6 @@ Check a Telegram user session by writing, reading and deleting a marker in Saved
   --photo FILE         Test a selected JPEG or PNG of at most 256 KiB
   --timeout SECONDS    Per-step deadline from 1 to 120 seconds (default: 30)
 `;
-
-async function readBoundedFile(path, limit, label) {
-  try {
-    const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
-    try {
-      if (!(await file.stat()).isFile()) throw new Error();
-      const data = Buffer.alloc(limit + 1);
-      let size = 0;
-      while (size < data.length) {
-        const { bytesRead } = await file.read(data, size, data.length - size, size);
-        if (!bytesRead) break;
-        size += bytesRead;
-      }
-      if (size < 1 || size > limit) throw new Error();
-      return data.subarray(0, size);
-    } finally {
-      await file.close();
-    }
-  } catch {
-    throw new Error(`Could not read ${label} as a nonempty file of at most ${limit} bytes.`);
-  }
-}
 
 function photoType(data) {
   if (!Buffer.isBuffer(data) || data.length < 24) return null;

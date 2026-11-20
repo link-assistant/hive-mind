@@ -32,6 +32,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   archive-session       Sanitize a session file and write it to stdout
   archive-sessions      Stage sanitized sessions associated with a public repository
   proxy-test            Verify Telegram text and media on a client network
+  proxy-pcap            Summarize and compare bounded proxy packet captures
   close-linked-issues   Reconcile issues linked from merged pull requests
 
 SSH options (before COMMAND):
@@ -72,7 +73,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
   cleanup | configure-claude | audit-config | screens | models | tasks
-  archive-session | archive-sessions | proxy-test | close-linked-issues
+  archive-session | archive-sessions | proxy-test | proxy-pcap | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -122,6 +123,7 @@ maintenance_spec() {
     archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
     archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
     proxy-test) bin=hive-manager; module=hive-manager-proxy-test.mjs ;;
+    proxy-pcap) bin=hive-manager; module=hive-manager-proxy-pcap.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
@@ -623,6 +625,9 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   verify      Check status and TCP connectivity to Telegram data centers
   connect     Check TCP from the caller to --public-host and --port
   capture     Capture TCP headers for this port to stdout as a pcap
+  snapshot    Print current configuration facts and the secret's SHA-256 hash
+  compare FILE
+              Check configuration against a snapshot on the target or - for stdin
   logs        Show the last 100 proxy log lines
   mss-unit    Generate a systemd unit for the proxy port's IPv4 MSS clamp
   stop        Stop the proxy
@@ -647,6 +652,18 @@ proxy_status() {
   [[ $(docker container inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$proxy") == unless-stopped ]] ||
     fail "Unexpected restart policy for $proxy"
   docker port "$proxy" 443/tcp
+}
+
+proxy_snapshot() {
+  require sha256sum
+  local digest workers_setting
+  digest=$(sha256sum < "$proxy_state/secret") || fail "Cannot hash saved proxy secret"
+  docker container inspect --format '{{printf "image=%s\nrunning=%t\nrestart=%s\n" .Image .State.Running .HostConfig.RestartPolicy.Name}}{{range .HostConfig.Ulimits}}{{if eq .Name "nofile"}}{{printf "nofile=%d:%d\n" .Soft .Hard}}{{end}}{{end}}' "$proxy" || return
+  workers_setting=$(docker container inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "WORKERS"}}{{println .}}{{end}}{{end}}' "$proxy") || return
+  [[ $workers_setting =~ ^WORKERS=[1-6]$ ]] || workers_setting=WORKERS=unknown
+  printf '%s\n' "$workers_setting"
+  printf 'secret-sha256=%s\n' "${digest%% *}"
+  docker port "$proxy" 443/tcp | LC_ALL=C sort
 }
 
 proxy_mss_unit() {
@@ -694,7 +711,11 @@ proxy_deploy() {
     esac
   done
   if (( $# == 0 )); then proxy_usage; return; fi
-  (( $# == 1 )) || fail "Unexpected arguments for deploy proxy $1"
+  if [[ $1 == compare ]]; then
+    [[ $# == 2 && $2 ]] || fail "Usage: deploy proxy compare FILE|-"
+  else
+    (( $# == 1 )) || fail "Unexpected arguments for deploy proxy $1"
+  fi
   [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && (( port <= 65535 )) || fail "Invalid proxy port: $port"
   [[ $workers =~ ^[1-6]$ ]] || fail "Proxy workers must be between 1 and 6"
   [[ $proxy_image != -* ]] || fail "Invalid proxy image: $proxy_image"
@@ -737,6 +758,13 @@ proxy_deploy() {
   require docker
   case "$action" in
     logs) exec docker logs --tail 100 "$proxy" ;;
+    snapshot) proxy_snapshot ;;
+    compare)
+      local snapshot
+      snapshot=$(proxy_snapshot) || return
+      require diff
+      diff -q -- "$2" <(printf '%s\n' "$snapshot") >/dev/null || fail "Proxy configuration differs from the supplied snapshot or the snapshot could not be read"
+      printf 'Proxy configuration matches the supplied snapshot\n' ;;
     status|verify)
       proxy_status
       if [[ $action == verify ]]; then

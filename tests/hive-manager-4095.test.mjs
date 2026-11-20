@@ -328,6 +328,49 @@ test('agent config audit requires explicit repair before modifying the fixture h
   assert.equal(run(['audit-config'], options).status, 0);
 });
 
+test('proxy packet captures compare external directions without assuming full payloads were saved', { timeout: 10000 }, t => {
+  const { cwd, run } = fixture(t);
+  const port = 8443;
+  const header = Buffer.alloc(24);
+  header.writeUInt32LE(0xa1b2c3d4);
+  header.writeUInt32LE(101, 20);
+  const packet = ({ outgoing, seq = 1, ack = 0, flags = 16, bytes = 0 }) => {
+    const raw = Buffer.alloc(16 + 40);
+    raw.writeUInt32LE(40, 8);
+    raw.writeUInt32LE(40 + bytes, 12);
+    raw[16] = 0x45;
+    raw.writeUInt16BE(40 + bytes, 18);
+    raw[25] = 6;
+    raw[31] = outgoing ? 1 : 2;
+    raw[35] = outgoing ? 2 : 1;
+    raw.writeUInt16BE(outgoing ? 47901 : port, 36);
+    raw.writeUInt16BE(outgoing ? port : 47901, 38);
+    raw.writeUInt32BE(seq, 40);
+    raw.writeUInt32BE(ack, 44);
+    raw[48] = 0x50;
+    raw[49] = flags;
+    return raw;
+  };
+  const syn = packet({ outgoing: true, flags: 2 });
+  const synAck = packet({ outgoing: false, flags: 18 });
+  const request = packet({ outgoing: true, seq: 2, bytes: 12 });
+  const response = packet({ outgoing: false, seq: 2, bytes: 100 });
+  const duplicateAck = packet({ outgoing: true, ack: 2 });
+  writeFileSync(join(cwd, 'client.pcap'), Buffer.concat([header, syn, synAck, request, duplicateAck, duplicateAck]));
+  writeFileSync(join(cwd, 'server.pcap'), Buffer.concat([header, syn, synAck, request, response, response]));
+  const parsed = run(['proxy-pcap', '--port', String(port), 'client.pcap', 'server.pcap']);
+  assert.equal(parsed.status, 0, parsed.stderr);
+  const summary = JSON.parse(parsed.stdout);
+  assert.equal(summary.client.flows, 1);
+  assert.equal(summary.client.clientToProxy.syns, 1);
+  assert.equal(summary.client.clientToProxy.repeatedAcks, 1);
+  assert.equal(summary.server.proxyToClient.wirePayloadBytes, 200);
+  assert.equal(summary.server.proxyToClient.repeatedSegments, 1);
+  assert.deepEqual(summary.observedPayloadDifference, { clientToProxy: 0, proxyToClient: 100 });
+  writeFileSync(join(cwd, 'truncated.pcap'), Buffer.concat([header, response.subarray(0, -1)]));
+  assert.match(run(['proxy-pcap', 'truncated.pcap']).stderr, /capture ends inside a packet/);
+});
+
 test('Telegram probe verifies only its own Saved Messages and cleans up on failure', { timeout: 10000 }, async t => {
   const { run } = fixture(t);
   const messages = new Map();

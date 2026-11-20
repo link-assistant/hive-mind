@@ -121,6 +121,14 @@ port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); p
 proxy=("${managed[@]}" --no-pull proxy --port "$port" --proxy-name "$proxy_name" --image "$image")
 printf '0123456789abcdef0123456789abcdef\n' > "$temp/proxy-key"
 "${proxy[@]}" --secret-file "$temp/proxy-key" apply
+"${proxy[@]}" snapshot > "$temp/proxy-baseline"
+! grep -F '0123456789abcdef0123456789abcdef' "$temp/proxy-baseline"
+"${proxy[@]}" compare - < "$temp/proxy-baseline"
+printf 'not-the-baseline\n' > "$temp/different-baseline"
+if "${proxy[@]}" compare "$temp/different-baseline"; then
+  echo 'Expected proxy snapshot comparison to reject drift' >&2
+  exit 1
+fi
 [[ $("${proxy[@]}" --public-host proxy.example.test link) == "tg://proxy?server=proxy.example.test&port=$port&secret=dd0123456789abcdef0123456789abcdef" ]]
 "${proxy[@]}" update
 "${proxy[@]}" stop

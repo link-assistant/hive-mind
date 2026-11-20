@@ -7,8 +7,8 @@
  * The real src/telegram-bot.mjs runs in a child process. The preload in
  * tests/fixtures/issue-3206/telegraf-harness.mjs replaces Telegraf with a fake
  * that polls exactly like Telegraf 4 (one batch at a time, `Promise.all`), and
- * the PATH starts with fake `docker`, `gh`, `pgrep` and `$` binaries: `docker pull`
- * hangs, everything else fails fast. No network and no real docker is used.
+ * the PATH starts with fake `docker`, `gh`, `pgrep` and `$` binaries. `docker`
+ * answers the daemon probes and hangs on `pull`. No network or real Docker is used.
  *
  * The `/help` update becomes available as soon as the `docker pull` starts; its
  * reply must follow within one second. A repeated `/codex` for the same URL in
@@ -49,6 +49,7 @@ function prepareSandbox() {
     join(bin, 'docker'),
     `echo "docker $*" >> "${join(dir, 'calls.log')}"
 case "$1" in
+  version) echo '28.0.0'; exit 0;;
   pull) touch "${pullStarted}"; i=0; while [ -e "${alive}" ] && [ $i -lt 300 ]; do sleep 0.1; i=$((i+1)); done; exit 1;;
   info) echo '{}'; exit 0;;
   *) exit 1;;

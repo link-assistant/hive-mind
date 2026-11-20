@@ -68,7 +68,7 @@ hive-manager deploy --profile ./production.conf update
 hive-manager deploy --profile ./production.conf rollback
 ```
 
-Keep the same profile for every update. The manager pulls and validates the selected image and checks Telegram configuration before stopping the previous container. It restores the previous container if startup fails and retains one stopped rollback container after a successful replacement. Readiness is based on the image health check when present and otherwise on the container staying running across consecutive checks. Inspect the running bot's logs for service-level problems. Rollback switches containers while keeping shared state as it exists at the time of rollback. If a rollout was interrupted and left a `.previous` container, run `deploy recover`.
+Keep the same profile for every update. The manager pulls and validates the selected image and checks Telegram configuration before stopping the previous container. It restores the previous container if startup fails and retains one stopped rollback container after a successful replacement. Readiness is based on the image health check when present and otherwise on the container staying running across consecutive checks. Inspect the running bot's logs for service-level problems. Rollback switches containers while keeping shared state as it exists at the time of rollback. Run `deploy recover` after an interrupted rollout. It handles containers left at the `.candidate` and `.previous` stages.
 
 To bring an existing Docker deployment under management, identify its image variant, state mounts, configuration, and startup command. Back up its state and point the profile at the same state directory if it uses the documented `.hive-mind` layout. Copy any state stored only in the old container before replacing it. Import Git identity into the new instance with `gh-setup-git-identity` in its shell. Run `deploy --profile PROFILE --adopt --dry-run apply` to check the configuration and remove `--dry-run` to proceed. The manager records the original container ID for subsequent rollbacks and updates. Use Compose to preserve custom volumes or mounts.
 
@@ -90,11 +90,15 @@ Each package operation is available locally and inside a managed deployment. Use
 
 `tasks status ID` reports one execution. `tasks report` tallies execution states and lists recent failures with exit and memory evidence in JSON. Use `tasks attach ID --read-only` to follow a live task, `tasks resume ID` to restart the stored execution, or `tasks resume-all` to reconcile running records and watchers. `tasks cleanup-dry-run [ID]` previews stale record or task container cleanup and `tasks cleanup [ID]` performs it. `tasks alias` and `tasks rename` manage task names. `tasks upload-log ID` invokes the sanitized upload workflow. The installed [start-command](https://github.com/link-foundation/start) version determines which actions and arguments are supported.
 
+`tasks recover-failed` previews retries for confirmed memory-related failures. `--apply` rechecks the records and Docker state before resuming eligible tasks. The manager skips active executions, recorded retries, and failures superseded by a newer success in the same task family. `tasks check-uploads` samples same-user Linux upload and sanitization processes. The defaults flag processes at least 30 minutes old, averaging at least 80% of one CPU over three seconds, with no observed I/O progress. `--terminate PID` signals the selected process after rechecking its identity and progress.
+
 `archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. The default export limit is 20 and individual files are capped at 40 MiB. Add `--lino` with the [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) installed to add Links Notation copies. Session files can include personal or proprietary material. Review the staged files before publishing.
+
+Use `--tool-results` to include sanitized Claude attachments associated with the staged transcripts. This selects inactive, regular `.txt`, `.log`, `.json`, and `.jsonl` files up to 4 MiB each, with a shared limit of 100 attachments or 40 MiB of input per export.
 
 ```bash
 ( umask 077; hive-manager --host hive-production deploy archive-session /home/box/.claude/projects/example/session.jsonl > session.redacted.jsonl )
-hive-manager archive-sessions --repo link-assistant/hive-mind --output ./session-review
+hive-manager archive-sessions --repo link-assistant/hive-mind --output ./session-review --tool-results
 ```
 
 ## Backup and restore
@@ -123,10 +127,26 @@ hive-manager deploy proxy --port 8443 --public-host proxy.example.net connect
 hive-manager --host hive-production deploy proxy --port 8443 --public-host proxy.example.net link
 ```
 
-`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. Use Telegram itself to verify authenticated messaging and media over that route. If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`.
+`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. `snapshot` records the running configuration, including the published ports, workers, and a hash of the secret. Use `compare` with a baseline file on the deployment host or pass `-` to read it over SSH.
 
 ```bash
-( umask 077; hive-manager --host hive-production deploy proxy --port 8443 --seconds 15 --client-ip 192.0.2.12 capture > proxy.pcap )
+hive-manager --host hive-production deploy proxy snapshot > proxy.baseline
+hive-manager --host hive-production deploy proxy compare - < proxy.baseline
+```
+
+Run `proxy-test` on the affected client network with a pre-authorized Telegram StringSession and private API credentials. The probe uses the session's Saved Messages, verifies a text round trip, and deletes its test messages. `--media` adds a byte-for-byte document round trip. `--photo FILE` adds a JPEG or PNG upload and download. Use `--direct` to run the same checks against Telegram without the proxy.
+
+```bash
+hive-manager proxy-test --credentials ./telegram-api.json --session-file ./telegram.session \
+  --proxy-host proxy.example.net --proxy-port 8443 --secret-file ./mtproxy.secret \
+  --media --photo ./probe.png
+```
+
+If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`. Collect the client and server files on their external interfaces during the same probe window. `proxy-pcap` reads classic pcap files, summarizes unfragmented TCP traffic matching the published port and compares bytes observed on both sides. Repeat counts and gaps are diagnostic indicators. Capture loss and interface offloading can affect the measurements.
+
+```bash
+( umask 077; hive-manager --host hive-production deploy proxy --port 8443 --interface eth0 --seconds 15 --client-ip 192.0.2.12 capture > server.pcap )
+hive-manager proxy-pcap --port 8443 client.pcap server.pcap
 ```
 
 For an IPv4 path where measurements identify an MSS problem, `proxy --port 8443 --mss 1200 mss-unit` generates an optional systemd unit for review and installation on an iptables-based Docker host. Its rules match Docker DNAT by the original published port, in both directions.

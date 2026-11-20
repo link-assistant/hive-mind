@@ -27,12 +27,22 @@ const assertSanitized = (output, secrets) => {
   }
 };
 
-// Every published executable must install the terminal boundary. This guards
-// future bins from silently bypassing child-output sanitization.
+// Every published executable that generates terminal output must install the
+// terminal boundary. Hive Manager's standalone shell transports raw Docker
+// streams and starts the guarded Node process for package maintenance output.
 const packageManifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 for (const executablePath of Object.values(packageManifest.bin)) {
   const executableSource = await readFile(new URL(`../${executablePath.replace(/^\.\//, '')}`, import.meta.url), 'utf8');
-  assert.match(executableSource, /setupStdioLogInterceptor\(\)/, `${executablePath} must install the shared stdio sanitizer`);
+  if (executablePath === './src/hive-manager.sh') {
+    assert.match(executableSource, /^#!\/usr\/bin\/env bash\n/);
+    const maintenanceLaunches = [...executableSource.matchAll(/exec node ([^\n]*"\$source_path\/\$module"[^\n]*)/g)];
+    assert.equal(maintenanceLaunches.length, 2);
+    for (const [, command] of maintenanceLaunches) assert.match(command, /^--import "\$source_path\/hive-manager-terminal\.mjs" /);
+    const preload = await readFile(new URL('../src/hive-manager-terminal.mjs', import.meta.url), 'utf8');
+    assert.match(preload, /setupStdioLogInterceptor\(\)/);
+  } else {
+    assert.match(executableSource, /setupStdioLogInterceptor\(\)/, `${executablePath} must install the shared stdio sanitizer`);
+  }
 }
 
 const runProcess = (command, args, options = {}) =>

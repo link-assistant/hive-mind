@@ -156,14 +156,14 @@ run_maintenance() {
   shift
   if source_path=$(package_source) && [[ -f $source_path/$module ]]; then
     require node
-    exec node "$source_path/$module" "$@"
+    exec node --import "$source_path/hive-manager-terminal.mjs" "$source_path/$module" "$@"
   fi
   if [[ $bin != hive-manager ]] && command -v "$bin" >/dev/null; then
     exec "$bin" "$@"
   fi
   if [[ $bin == hive-manager ]] && source_path=$(package_source "$(command -v hive)") && [[ -f $source_path/$module ]]; then
     require node
-    exec node "$source_path/$module" "$@"
+    exec node --import "$source_path/hive-manager-terminal.mjs" "$source_path/$module" "$@"
   fi
   require node
   require npm

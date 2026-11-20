@@ -132,18 +132,19 @@ async function main() {
     return;
   }
   if (values.visibility !== undefined) throw new Error('--visibility requires --initialize.');
-  if (positionals.length !== 1 || !archiveRepoPattern.test(destination) || (values.apply !== undefined && !/^[a-f\d]{64}$/.test(values.apply))) throw new Error('Specify a staged archive directory, an OWNER/REPO destination, and an optional review digest.');
+  const expectedDigest = values.apply?.replace(/^sha256:/, '');
+  if (positionals.length !== 1 || !archiveRepoPattern.test(destination) || (expectedDigest !== undefined && !/^[a-f\d]{64}$/.test(expectedDigest))) throw new Error('Specify a staged archive directory, an OWNER/REPO destination, and an optional review digest.');
   const directory = resolve(positionals[0]);
   if (!values.apply) {
     const { digest, paths, bytes, source, visibility, branch, revisions } = await review(directory, destination);
-    process.stdout.write(`${JSON.stringify({ source, destination, visibility, branch, digest, bytes, files: paths, indexEntries: revisions }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ source, destination, visibility, branch, digest: `sha256:${digest}`, bytes, files: paths, indexEntries: revisions }, null, 2)}\n`);
     return;
   }
 
   const work = await mkdtemp(join(tmpdir(), 'hive-archive-publish-'));
   try {
     const snapshot = join(work, 'reviewed');
-    const approved = await review(directory, destination, snapshot, values.apply);
+    const approved = await review(directory, destination, snapshot, expectedDigest);
     for (const path of approved.paths) {
       if (await findResidualCredentialBlock(join(snapshot, path))) throw new Error('A reviewed file still contains credential material. Redact it before publishing.');
     }

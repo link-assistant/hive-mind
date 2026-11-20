@@ -152,16 +152,17 @@ async function report() {
     if (values.group) throw new Error('Select either --group or --incident.');
     const destination = values.destination?.toLowerCase() ?? null;
     const attempt = values.attempt === undefined ? null : Number(values.attempt);
+    const expectedDigest = values.publish?.replace(/^sha256:/, '');
     if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(values.incident) || (attempt !== null && (!/^\d+$/.test(values.attempt) || !Number.isSafeInteger(attempt) || attempt < 1))) throw new Error('Use the complete execution UUID and an optional positive attempt number.');
-    if ((destination !== null && !/^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/.test(destination)) || (values.publish !== undefined && (!destination || !/^[a-f\d]{64}$/.test(values.publish)))) throw new Error('Publishing requires a GitHub destination and the approved preview digest.');
+    if ((destination !== null && !/^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/.test(destination)) || (expectedDigest !== undefined && (!destination || !/^[a-f\d]{64}$/.test(expectedDigest)))) throw new Error('Publishing requires a GitHub destination and the approved preview digest.');
     const task = (await listTrackedTasks()).find(entry => entry.uuid === values.incident.toLowerCase());
     if (!task) throw new Error('No tracked execution matches that UUID.');
     const preview = await incidentPreview(task, attempt, destination);
     if (!values.publish) {
       const { title, body, digest } = preview;
-      process.stdout.write(`${JSON.stringify({ destination, title, body, digest }, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify({ destination, title, body, digest: `sha256:${digest}` }, null, 2)}\n`);
     } else {
-      if (preview.digest !== values.publish) throw new Error('The incident or destination changed since review.');
+      if (preview.digest !== expectedDigest) throw new Error('The incident or destination changed since review.');
       process.stdout.write(`${await publishIncident(preview)}\n`);
     }
     return;

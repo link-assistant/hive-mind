@@ -287,7 +287,7 @@ cat <<'RECORDS'
   {"status":"executing","paused":true},
   {"status":"executed","exitCode":0,"uuid":"recovered","attempt":{"number":2},"attemptHistory":[{"number":1,"status":"executed","exitCode":137,"oomKilled":true,"finishedAt":"2026-11-20T10:00:00Z"},{"number":2,"status":"executed","exitCode":1}]},
   {"status":"executed","exitCode":137,"uuid":"first","oomKilled":true,"exitReason":"out-of-memory","command":"secret argument","logPath":"/private/log"},
-  {"status":"executed","exitCode":1,"uuid":"second"},
+  {"status":"executed","exitCode":1,"uuid":"second","exitReason":"API_TOKEN=SYNTHETIC_TEST_TOKEN_123456"},
   {"status":"executed","exitCode":null}
 ]}
 RECORDS`
@@ -299,6 +299,10 @@ RECORDS`
     counts: { running: 1, paused: 1, succeeded: 1, failed: 2, unknown: 1 },
     failures: [{ id: 'first', exitCode: 137, finishedAt: null, memoryExhausted: true, reason: 'out-of-memory' }],
   });
+  const details = run(['tasks', 'report']);
+  assert.equal(details.status, 0, details.stderr);
+  assert.doesNotMatch(details.stdout, /SYNTHETIC_TEST_TOKEN_123456/);
+  assert.equal(JSON.parse(details.stdout).failures[1].reason, 'API_TOKEN=SYN…456');
   const grouped = run(['tasks', 'report', '--group', '--limit', '1']);
   assert.equal(grouped.status, 0, grouped.stderr);
   assert.doesNotMatch(grouped.stdout, /secret argument|private\/log/);
@@ -542,6 +546,7 @@ esac`
   const plan = run(args, { environment });
   assert.equal(plan.status, 0, plan.stderr);
   const { digest, files, visibility } = JSON.parse(plan.stdout);
+  assert.match(digest, /^sha256:[a-f\d]{64}$/);
   assert.equal(visibility, 'private');
   assert.deepEqual(files, [archive, 'manifest.json']);
   const apply = [...args, '--apply', digest];
@@ -557,7 +562,7 @@ esac`
   assert.equal(published.status, 0, published.stderr);
   const head = git('-C', repository, 'rev-parse', 'main');
   assert.equal(git('-C', repository, 'rev-parse', `${head}^`), base);
-  const prefix = `example/project/${digest}`;
+  const prefix = `example/project/${digest.slice('sha256:'.length)}`;
   assert.equal(git('-C', repository, 'show', `main:${prefix}/${archive}`), fixtureText.trim());
   assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `example/project/.published/${archive}.${revision.slice('sha256:'.length)}`, `${prefix}/${archive}`, `${prefix}/manifest.json`]);
   const retried = run(apply, { environment });

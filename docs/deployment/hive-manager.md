@@ -102,6 +102,8 @@ On a Linux Docker host, `deploy docker-service live-restore` checks whether the 
 
 Use `deploy diagnose --since '1 hour ago'` to include bounded Docker service and kernel memory-failure history where the target account can read the systemd journal. The journal remains available when the managed container or its daemon is down. On a running Linux instance, `deploy diagnose --resources` adds cgroup v2 memory, CPU, pressure and PID counters and a thread table with CPU use and wait channels where the Docker host exposes them.
 
+Packaged maintenance commands use Hive Mind's terminal credential filter. Operations such as `deploy logs`, `deploy exec`, and backup streams carry the underlying service output, so review that output before sharing it.
+
 `archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. The default export limit is 20 and individual files are capped at 40 MiB. Add `--lino` with the [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) installed to add Links Notation copies. Session files can include personal or proprietary material. Review the staged files before publishing.
 
 Use `--tool-results` to include sanitized Claude attachments associated with the staged transcripts. This selects inactive, regular `.txt`, `.log`, `.json`, and `.jsonl` files up to 4 MiB each, with a shared limit of 100 attachments or 40 MiB of input per export.

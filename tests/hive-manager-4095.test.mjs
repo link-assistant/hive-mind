@@ -113,3 +113,44 @@ test('standalone dispatches maintenance through an available bin and preserves e
   assert.equal(result.status, 13, result.stderr);
   assert.equal(result.stdout, '<--tool>\n<formal-ai>\n<--json>\n');
 });
+
+test('task inspection and recovery preserve start-command arguments locally and in the instance', { timeout: 10000 }, t => {
+  const { run, executable } = fixture(t);
+  executable('$', 'printf "<%s>\\n" "$@"');
+  executable('docker', 'printf "<%s>\\n" "$@"');
+  const list = run(['tasks', 'list', '--running']);
+  assert.equal(list.status, 0, list.stderr);
+  assert.equal(list.stdout, '<--list>\n<--running>\n');
+  const resume = run(['deploy', 'tasks', 'resume', 'task-id', '--', 'echo', 'two words']);
+  assert.equal(resume.status, 0, resume.stderr);
+  assert.equal(resume.stdout, '<exec>\n<--user>\n<box>\n<-i>\n<hive-mind>\n<$>\n<--resume>\n<task-id>\n<-->\n<echo>\n<two words>\n');
+});
+
+test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {
+  const { cwd, run } = fixture(t);
+  const token = `ghp_${'abcdefghij'.repeat(4)}`;
+  writeFileSync(join(cwd, 'session.jsonl'), `${JSON.stringify({ message: 'test session', token })}\n`);
+  const archived = run(['archive-session', 'session.jsonl']);
+  assert.equal(archived.status, 0, archived.stderr);
+  assert.notEqual(JSON.parse(archived.stdout).token, token);
+  assert.equal(JSON.parse(archived.stdout).message, 'test session');
+  const invalid = run(['archive-session', '.']);
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout, '');
+});
+
+test('MTProxy MSS unit uses the original published port after destination NAT', { timeout: 10000 }, t => {
+  const { run } = fixture(t);
+  const result = run(['deploy', 'proxy', '--port', '8443', '--mss', '1200', 'mss-unit']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^After=docker.service$/m);
+  for (const direction of ['ORIGINAL', 'REPLY']) {
+    const options = `--ctstate DNAT --ctorigdstport 8443 --ctdir ${direction} -m comment --comment hive-manager-mtproxy-8443 -j TCPMSS --set-mss 1200`;
+    for (const operation of ['-C', '-I', '-D']) {
+      assert.ok(result.stdout.includes(`iptables -w -t mangle ${operation} FORWARD -p tcp --tcp-flags SYN,RST SYN -m conntrack ${options}`));
+    }
+  }
+  const invalid = run(['deploy', 'proxy', '--mss', '1; echo unwanted', 'mss-unit']);
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout, '');
+});

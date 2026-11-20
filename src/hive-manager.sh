@@ -27,6 +27,8 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   configure-claude      Apply or verify Hive Mind Claude settings
   screens               List, attach to or close finished Screen sessions
   models                Inspect the live model catalogue
+  tasks                 Inspect or recover start-command task executions
+  archive-session       Sanitize a session file and write it to stdout
   close-linked-issues   Reconcile issues linked from merged pull requests
 
 SSH options (before COMMAND):
@@ -48,9 +50,11 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   prepare               Pull the selected image before a rollout
   apply | update        Deploy or replace the instance, keeping a rollback
   rollback              Switch back to the previous container
+  recover               Complete or undo an interrupted rollout
   status | logs         Show instance status or stream Docker logs
   start | stop | restart
                         Control the instance
+  remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
   disk                  Report Docker storage, images, volumes and build cache
@@ -62,7 +66,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   proxy                 Manage an optional Telegram MTProto proxy
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
-  cleanup | configure-claude | screens | models | close-linked-issues
+  cleanup | configure-claude | screens | models | tasks | archive-session | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -109,13 +113,14 @@ maintenance_spec() {
     configure-claude) bin=configure-claude; module=configure-claude.mjs ;;
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
+    archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
 }
 
 package_source() {
-  local entry=$0 link
+  local entry=${1:-$0} link
   if [[ $entry != */* ]]; then
     entry=$(command -v hive-manager) || return 1
   fi
@@ -131,22 +136,41 @@ package_source() {
 }
 
 run_maintenance() {
-  local bin module source_path
+  local bin module source_path action=$1
   maintenance_spec "$1" || fail "Unknown maintenance command: $1"
   shift
   if source_path=$(package_source) && [[ -f $source_path/$module ]]; then
     require node
     exec node "$source_path/$module" "$@"
   fi
-  if command -v "$bin" >/dev/null; then
+  if [[ $bin != hive-manager ]] && command -v "$bin" >/dev/null; then
     exec "$bin" "$@"
+  fi
+  if [[ $bin == hive-manager ]] && source_path=$(package_source "$(command -v hive)") && [[ -f $source_path/$module ]]; then
+    require node
+    exec node "$source_path/$module" "$@"
   fi
   require node
   require npm
   # The package provides the same entry points for standalone use and older images.
   local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
   [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
+  if [[ $bin == hive-manager ]]; then
+    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
+  fi
   exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
+}
+
+task_args() {
+  local action=${1-}
+  if [[ ! $action || $action == --help || $action == -h ]]; then
+    printf 'Usage: hive-manager tasks list|status|attach|resume|resume-all|stop|terminate|pause|unpause|upload-log [ARGS]\n'
+    return
+  fi
+  case "$action" in
+    list|status|attach|resume|resume-all|stop|terminate|pause|unpause|upload-log) task_command=('$' "--$action" "${@:2}") ;;
+    *) fail "Unknown task action: $action" ;;
+  esac
 }
 
 absolute_path() {
@@ -414,6 +438,34 @@ rollback_deployment() {
   fi
 }
 
+recover_deployment() {
+  lock_deployment
+  local previous current prior
+  previous=$(container_id "$name.previous") || fail "No interrupted rollout for $name"
+  current=$(container_id "$name") || current=''
+  prior=$(container_id "$name.rollback") || prior=''
+  if [[ $(instance_owner "$previous") != "$name" ]]; then
+    (( adopt )) || fail "Use --adopt to recover the previous externally managed container"
+  fi
+  if [[ $current && $(instance_owner "$current") != "$name" ]]; then
+    fail "Current container is owned by another deployment: $name"
+  fi
+  if [[ $current ]] && container_ready "$current"; then
+    if [[ $prior ]]; then
+      if [[ $(instance_owner "$prior") != "$name" ]]; then
+        (( adopt )) || fail "Use --adopt to replace the externally managed rollback container"
+      fi
+      docker rm "$prior" >/dev/null
+    fi
+    docker rename "$previous" "$name.rollback"
+  else
+    if [[ $current ]]; then docker rm -f "$current" >/dev/null; fi
+    docker rename "$previous" "$name"
+    docker start "$previous" >/dev/null
+  fi
+  deploy_status
+}
+
 backup_state() {
   local output='' part
   if (( $# )); then
@@ -490,6 +542,9 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   update      Pull a new image and replace the proxy
   status      Check the running proxy, published port and restart policy
   verify      Check status and TCP connectivity to Telegram data centers
+  connect     Check TCP from the caller to --public-host and --port
+  logs        Show the last 100 proxy log lines
+  mss-unit    Generate a systemd unit for the proxy port's IPv4 MSS clamp
   stop        Stop the proxy
   remove      Remove the container, retaining its secret
   link        Print the private Telegram link (requires --public-host)
@@ -499,6 +554,8 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   --image IMAGE       Classic MTProto image (default: mtproxy/mtproxy:latest)
   --secret-file PATH  Import a 32-digit hex key when creating proxy state
   --public-host HOST  Public DNS name or IPv4 address used by link
+  --proxy-name NAME   Use an existing proxy container name
+  --mss BYTES         MSS clamp used by mss-unit (default: 1200)
 HELP
 }
 
@@ -509,12 +566,32 @@ proxy_status() {
   docker port "$proxy" 443/tcp
 }
 
+proxy_mss_unit() {
+  local port=$1 mss=$2 direction rule removes=()
+  cat <<'UNIT'
+[Unit]
+Description=Clamp TCP MSS for a Docker-published Telegram MTProto port
+After=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+UNIT
+  for direction in ORIGINAL REPLY; do
+    rule="FORWARD -p tcp --tcp-flags SYN,RST SYN -m conntrack --ctstate DNAT --ctorigdstport $port --ctdir $direction -m comment --comment hive-manager-mtproxy-$port -j TCPMSS --set-mss $mss"
+    printf "ExecStart=/bin/sh -ec 'iptables -w -t mangle -C %s || iptables -w -t mangle -I %s'\n" "$rule" "$rule"
+    removes+=("ExecStopPost=/bin/sh -ec 'if iptables -w -t mangle -C $rule; then iptables -w -t mangle -D $rule; fi'")
+  done
+  printf '%s\n' "${removes[@]}" '' '[Install]' 'WantedBy=docker.service'
+}
+
 proxy_deploy() {
-  local port=443 workers=4 proxy_image=mtproxy/mtproxy:latest secret_input='' public_host=''
+  local port=443 workers=4 proxy_image=mtproxy/mtproxy:latest secret_input='' public_host='' proxy='' mss=1200
   while (( $# )); do
     case "$1" in
       -h|--help) proxy_usage; return ;;
-      --port|--workers|--image|--secret-file|--public-host)
+      --port|--workers|--image|--secret-file|--public-host|--proxy-name|--mss)
         need_value "$@"
         case "$1" in
           --port) port=$2 ;;
@@ -522,6 +599,8 @@ proxy_deploy() {
           --image) proxy_image=$2 ;;
           --secret-file) secret_input=$2 ;;
           --public-host) public_host=$2 ;;
+          --proxy-name) proxy=$2 ;;
+          --mss) mss=$2 ;;
         esac
         shift 2 ;;
       *) break ;;
@@ -532,10 +611,23 @@ proxy_deploy() {
   [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && (( port <= 65535 )) || fail "Invalid proxy port: $port"
   [[ $workers =~ ^[1-6]$ ]] || fail "Proxy workers must be between 1 and 6"
   [[ $proxy_image != -* ]] || fail "Invalid proxy image: $proxy_image"
-  local proxy=$name-mtproxy-$port proxy_state=$state_dir/mtproxy-$port key
+  proxy=${proxy:-$name-mtproxy-$port}
+  [[ $proxy =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid proxy name: $proxy"
+  local proxy_state=$state_dir/mtproxy-$port key
   local action=$1
-  if [[ $action == link ]]; then
+  if [[ $action == mss-unit ]]; then
+    [[ $mss =~ ^[1-9][0-9]{2,4}$ ]] && (( mss >= 536 && mss <= 65535 )) || fail "Invalid MSS: $mss"
+    proxy_mss_unit "$port" "$mss"
+    return
+  fi
+  if [[ $action == link || $action == connect ]]; then
     [[ $public_host =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || fail "Supply a public DNS name or IPv4 address with --public-host"
+    if [[ $action == connect ]]; then
+      require timeout
+      timeout 5 bash -c 'exec 3<>"/dev/tcp/$1/$2"' _ "$public_host" "$port" || fail "Cannot reach $public_host:$port"
+      printf 'TCP connection to %s:%s succeeded\n' "$public_host" "$port"
+      return
+    fi
     key=$(<"$proxy_state/secret") || fail "Proxy secret not found: $proxy_state/secret"
     [[ $key =~ ^[a-fA-F0-9]{32}$ ]] || fail "Invalid saved proxy secret"
     printf 'tg://proxy?server=%s&port=%s&secret=dd%s\n' "$public_host" "$port" "$key"
@@ -543,6 +635,7 @@ proxy_deploy() {
   fi
   require docker
   case "$action" in
+    logs) exec docker logs --tail 100 "$proxy" ;;
     status|verify)
       proxy_status
       if [[ $action == verify ]]; then
@@ -556,11 +649,11 @@ proxy_deploy() {
     apply|update|stop|remove)
       # Lock proxy changes by their host port, independent of Hive Mind rollouts.
       lock_deployment "mtproxy-port-$port"
-      local old='' old_running=false candidate owner
+      local old='' old_running=false candidate owner proxy_image_id
       old=$(container_id "$proxy") || old=''
       if [[ $old ]]; then
         owner=$(docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.proxy"}}' "$old")
-        [[ $owner == "$name" ]] || fail "Proxy container name is used by another deployment: $proxy"
+        [[ $owner == "$name" ]] || (( adopt )) || fail "Use --adopt for an existing proxy container: $proxy"
         if container_running "$old"; then old_running=true; fi
       fi
       case "$action" in
@@ -590,11 +683,12 @@ proxy_deploy() {
       fi
       key=$(<"$proxy_state/secret")
       [[ $key =~ ^[a-fA-F0-9]{32}$ ]] || fail "Invalid saved proxy secret"
-      docker pull "$proxy_image"
+      if (( pull_image )); then docker pull "$proxy_image"; fi
+      proxy_image_id=$(docker image inspect --format '{{.Id}}' "$proxy_image")
       if container_id "$proxy.previous" >/dev/null; then fail "Reserved proxy name exists: $proxy.previous"; fi
-      candidate=$(docker create --label io.github.link-assistant.hive-manager.proxy="$name" --restart unless-stopped \
+      candidate=$(docker create --pull never --label io.github.link-assistant.hive-manager.proxy="$name" --restart unless-stopped \
         --ulimit nofile=524288:524288 --env "WORKERS=$workers" \
-        --publish "$port:443" --mount "type=bind,source=$proxy_state,target=/data" "$proxy_image")
+        --publish "$port:443" --mount "type=bind,source=$proxy_state,target=/data" "$proxy_image_id")
       activate_candidate "$proxy" "$candidate" "$old" "$old_running"
       if [[ $old ]]; then docker rm "$old" >/dev/null; fi
       proxy_status ;;
@@ -694,15 +788,17 @@ deploy() {
       if [[ ${1-} == -- ]]; then shift
       elif (( $# )); then fail "Pass the startup command after --"; fi
       apply_deployment "$@" ;;
-    prepare|rollback|status|doctor|disk|start|stop|restart)
+    prepare|rollback|recover|status|doctor|disk|start|stop|restart|remove)
       (( $# == 0 )) || fail "Unexpected arguments for deploy $action"
       require docker
       case "$action" in
         prepare) exec docker pull "$image" ;;
         rollback) rollback_deployment ;;
+        recover) recover_deployment ;;
         status) deploy_status ;;
         doctor) doctor ;;
         disk) exec docker system df -v ;;
+        remove) lock_deployment; docker rm "$name" ;;
         *) lock_deployment; docker "$action" "$name" ;;
       esac ;;
     logs) require docker; exec docker logs "$@" "$name" ;;
@@ -711,10 +807,15 @@ deploy() {
       (( $# )) || fail "Provide a command to execute"
       require docker
       inside "$@" ;;
+    tasks)
+      local task_command=()
+      task_args "$@"
+      if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
     *)
       local bin module
       maintenance_spec "$action" || fail "Unknown deployment action: $action"
       require docker
+      if [[ $bin == hive-manager ]]; then inside hive-manager "$action" "$@"; fi
       inside "$bin" "$@" ;;
   esac
 }
@@ -742,6 +843,11 @@ main() {
   [[ ${#ssh_options[@]} == 0 && $ssh_terminal == -T ]] || fail "SSH options require --host"
   case "$1" in
     deploy) shift; deploy "$@" ;;
+    tasks)
+      shift
+      local task_command=()
+      task_args "$@"
+      if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;
     --version)
       local source_path
       if source_path=$(package_source); then

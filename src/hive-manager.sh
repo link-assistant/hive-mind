@@ -31,6 +31,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   tasks                 Inspect or recover start-command task executions
   archive-session       Sanitize a session file and write it to stdout
   archive-sessions      Stage sanitized sessions associated with a public repository
+  proxy-test            Verify Telegram text and media on a client network
   close-linked-issues   Reconcile issues linked from merged pull requests
 
 SSH options (before COMMAND):
@@ -71,7 +72,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
   cleanup | configure-claude | audit-config | screens | models | tasks
-  archive-session | archive-sessions | close-linked-issues
+  archive-session | archive-sessions | proxy-test | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -120,6 +121,7 @@ maintenance_spec() {
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
     archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
     archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
+    proxy-test) bin=hive-manager; module=hive-manager-proxy-test.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;

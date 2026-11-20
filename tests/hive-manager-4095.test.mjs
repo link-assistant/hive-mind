@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classifyUpload } from '../src/hive-manager-task-check-uploads.mjs';
+import { runProxyProbe } from '../src/hive-manager-proxy-test.mjs';
 
 const script = fileURLToPath(new URL('../src/hive-manager.sh', import.meta.url));
 const source = readFileSync(script, 'utf8');
@@ -279,6 +280,60 @@ test('agent config audit requires explicit repair before modifying the fixture h
   assert.equal(repaired.status, 0, repaired.stderr);
   assert.match(readFileSync(join(cwd, '.codex/config.toml'), 'utf8'), /remote_plugin = false/);
   assert.equal(run(['audit-config'], options).status, 0);
+});
+
+test('Telegram probe verifies only its own Saved Messages and cleans up on failure', { timeout: 10000 }, async t => {
+  const { run } = fixture(t);
+  const messages = new Map();
+  const deleted = [];
+  let id = 0;
+  let destroyed = 0;
+  const send = data => {
+    const message = { id: ++id, ...data };
+    messages.set(id, message);
+    return message;
+  };
+  const client = {
+    connect() {},
+    checkAuthorization: () => true,
+    sendMessage(peer, { message }) {
+      assert.equal(peer, 'me');
+      return send({ message });
+    },
+    sendFile(peer, { file, forceDocument }) {
+      assert.equal(peer, 'me');
+      assert.equal(file.name, forceDocument ? 'hive-manager-probe.bin' : 'hive-manager-probe.png');
+      return send({ media: file });
+    },
+    getMessages(peer, { ids }) {
+      assert.equal(peer, 'me');
+      return ids.map(id => messages.get(id));
+    },
+    downloadMedia: ({ media }) => media,
+    deleteMessages(peer, ids) {
+      assert.equal(peer, 'me');
+      deleted.push([...ids]);
+      for (const id of ids) messages.delete(id);
+    },
+    destroy() {
+      destroyed++;
+    },
+  };
+  const photo = Buffer.alloc(32);
+  Buffer.from('89504e470d0a1a0a', 'hex').copy(photo);
+  assert.deepEqual(await runProxyProbe(client, { media: true, photo }), { text: true, document: 32768, photo: 32, cleaned: true });
+  assert.deepEqual(deleted, [[1, 2, 3]]);
+  assert.equal(messages.size, 0);
+  await assert.rejects(runProxyProbe({ ...client, downloadMedia: () => Buffer.from('wrong') }, { media: true }), /differs from the probe document/);
+  assert.deepEqual(deleted, [
+    [1, 2, 3],
+    [4, 5],
+  ]);
+  assert.equal(destroyed, 2);
+  assert.match(run(['proxy-test', '--help']).stdout, /Saved Messages/);
+  const invalid = run(['proxy-test', '--api-hash', 'private-value']);
+  assert.equal(invalid.status, 1);
+  assert.doesNotMatch(invalid.stderr, /private-value/);
 });
 
 test('MTProxy capture is scoped by port, client and time and refuses out-of-range durations', { timeout: 10000 }, t => {

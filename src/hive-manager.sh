@@ -61,7 +61,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
-  diagnose [--since TIME]
+  diagnose [--since TIME] [--resources]
                         Show host resources, container exit facts and optional journal evidence
   disk                  Report Docker storage, images, volumes and build cache
   backup [--output FILE|-]
@@ -608,18 +608,37 @@ doctor() {
 }
 
 diagnose() {
-  local since=''
-  if (( $# )); then
-    [[ $# == 2 && $1 == --since && $2 ]] || fail "Usage: deploy diagnose [--since TIME]"
-    since=$2
-  fi
+  local since='' resources=false
+  while (( $# )); do
+    case $1 in
+      --since) need_value "$@"; since=$2; shift 2 ;;
+      --resources) resources=true; shift ;;
+      --help|-h) printf 'Usage: deploy diagnose [--since TIME] [--resources]\n'; return ;;
+      *) fail "Usage: deploy diagnose [--since TIME] [--resources]" ;;
+    esac
+  done
   uptime
   if command -v free >/dev/null; then free -h; fi
   df -h -- "$PWD"
   docker info --format 'Docker {{.ServerVersion}} | Live restore: {{.LiveRestoreEnabled}} | Root: {{.DockerRootDir}}' || printf 'Docker daemon unavailable\n'
   if container_id "$name" >/dev/null; then
     docker container inspect --format '{{.Name}} {{.State.Status}} | Exit: {{.State.ExitCode}} | OOM: {{.State.OOMKilled}} | Restarts: {{.RestartCount}} | Finished: {{.State.FinishedAt}}' "$name"
-    if container_running "$name"; then docker stats --no-stream "$name"; fi
+    if container_running "$name"; then
+      docker stats --no-stream "$name" || printf 'Container statistics unavailable\n'
+      if $resources; then
+        printf '\nContainer cgroup counters\n'
+        docker exec "$name" sh -c '
+          proc_group=$(grep "^0::" /proc/self/cgroup) || exit 1
+          group=${proc_group#0::}
+          for key in memory.current memory.peak memory.max memory.events cpu.stat cpu.pressure memory.pressure io.pressure pids.current pids.max; do
+            metric=/sys/fs/cgroup${group%/}/$key
+            if [ -r "$metric" ]; then printf "%s\n" "$key"; cat "$metric"; fi
+          done
+        ' || printf 'Container cgroup v2 counters unavailable\n'
+        printf '\nContainer threads and wait channels (first 80 rows by CPU use)\n'
+        docker top "$name" -eLo pid,lwp,ppid,stat,pcpu,wchan:24,comm --sort=-pcpu | awk 'NR <= 81' || printf 'Container process table unavailable\n'
+      fi
+    fi
   else
     printf 'Container unavailable: %s\n' "$name"
   fi

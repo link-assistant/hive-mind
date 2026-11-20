@@ -69,7 +69,17 @@ fi
 "${managed[@]}" stop
 "${managed[@]}" start
 "${managed[@]}" status
-"${managed[@]}" diagnose | grep 'OOM: false'
+diagnostics=$("${managed[@]}" diagnose --resources)
+grep -q 'OOM: false' <<< "$diagnostics"
+grep -q 'LWP' <<< "$diagnostics"
+grep -q 'sleep' <<< "$diagnostics"
+if docker exec "$name" test -r /sys/fs/cgroup/memory.events; then
+  grep -q '^memory.events$' <<< "$diagnostics"
+  grep -q '^oom_kill ' <<< "$diagnostics"
+fi
+if docker exec "$name" test -r /sys/fs/cgroup/pids.current; then
+  grep -q '^pids.current$' <<< "$diagnostics"
+fi
 
 # Simulate interruption after creating a replacement and stopping the old
 # container, before it has been renamed to the rollout hold name.

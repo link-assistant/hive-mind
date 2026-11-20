@@ -5,31 +5,18 @@ import { lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
 import { readBoundedFile } from './hive-manager-files.lib.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './hive-manager-archive-privacy.lib.mjs';
 import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 
-const run = promisify(execFile);
 const MiB = 1024 * 1024;
-const repositoryPattern = /^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/i;
+const run = promisify(execFile);
 const usage = `Usage: hive-manager archive-publish DIRECTORY --destination OWNER/REPO [--apply SHA256]
+       hive-manager archive-publish --initialize --destination OWNER/REPO --visibility private|public|internal
 Preview the files listed in an archive-sessions manifest and print a review digest.
 After reviewing every file, pass that digest to publish one commit to the existing archive repository.
 `;
-
-async function githubRepo(repository) {
-  try {
-    return await ghWithRateLimitRetry(async () => {
-      const { stdout } = await run('gh', ['api', '--hostname', 'github.com', `repos/${repository}`, '--jq', '{full_name, visibility, default_branch}'], { timeout: 15_000, maxBuffer: 4096 });
-      const result = JSON.parse(stdout);
-      if (result.full_name?.toLowerCase() !== repository || !result.default_branch || !['private', 'internal', 'public'].includes(result.visibility)) throw new Error();
-      return result;
-    });
-  } catch {
-    throw new Error(`Could not verify GitHub repository ${repository}.`);
-  }
-}
 
 function artifactPaths(sessions) {
   if (!Array.isArray(sessions) || sessions.length < 1 || sessions.length > 100) throw new Error('The archive manifest must contain between 1 and 100 sessions.');
@@ -37,6 +24,7 @@ function artifactPaths(sessions) {
   for (const session of sessions) {
     const match = /^(claude|codex)-([a-f\d]{64})\.jsonl$/.exec(session?.archive ?? '');
     if (!match || match[1] !== session.tool || files.has(session.archive)) throw new Error('The archive manifest contains an invalid transcript path.');
+    if (session.revision !== undefined && (typeof session.revision !== 'string' || !archiveRevisionPattern.test(session.revision))) throw new Error('The archive manifest contains an invalid session revision.');
     files.add(session.archive);
     const [, tool, id] = match;
     if (session.linksNotation !== undefined) {
@@ -61,10 +49,10 @@ async function review(directory, destination, snapshot, expectedDigest) {
   const options = { noFollow: true, allowEmpty: true };
   const manifest = await readBoundedFile(join(directory, 'manifest.json'), MiB, 'archive manifest', options);
   const { repository, sessions } = JSON.parse(manifest);
-  if (!repositoryPattern.test(repository ?? '') || repository !== repository.toLowerCase() || repository === destination) throw new Error('Use a separate GitHub destination and a valid source repository.');
+  if (!archiveRepoPattern.test(repository ?? '') || repository !== repository.toLowerCase() || repository === destination) throw new Error('Use a separate GitHub destination and a valid source repository.');
   if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
   const paths = artifactPaths(sessions);
-  const { visibility, default_branch: branch } = await githubRepo(destination);
+  const { visibility, default_branch: branch } = await archiveRepo(destination);
   const hash = createHash('sha256').update(`hive-manager archive v1\0${repository}\0${destination}\0${visibility}\0${branch}\0`);
   let bytes = 0;
   for (const path of paths) {
@@ -85,23 +73,19 @@ async function review(directory, destination, snapshot, expectedDigest) {
   }
   const digest = hash.digest('hex');
   if (expectedDigest && expectedDigest !== digest) throw new Error('The archive files or destination changed since review.');
-  return { source: repository, destination, visibility, branch, digest, paths, bytes };
+  const revisions = sessions.filter(session => session.revision).map(session => `${repository}/.published/${publishedRevisionName(session.archive, session.revision)}`);
+  return { source: repository, destination, visibility, branch, digest, paths, bytes, revisions };
 }
 
-async function publish({ source, destination, digest, paths, visibility, branch }, snapshot, work) {
+async function publish({ source, destination, digest, paths, visibility, branch, revisions }, snapshot, work) {
   const verify = async () => {
-    const origin = await githubRepo(source);
+    const origin = await archiveRepo(source);
     if (origin.visibility !== 'public') throw new Error('The source repository must still be public.');
-    const latest = await githubRepo(destination);
+    const latest = await archiveRepo(destination);
     if (latest.default_branch !== branch || latest.visibility !== visibility) throw new Error('The archive destination changed during review.');
   };
   await verify();
-  const remote = `https://github.com/${destination}.git`;
-  const repo = join(work, 'archive.git');
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'].includes(key)));
-  const git = async (args, cwd = repo) => (await run('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd, env: { ...env, GIT_TERMINAL_PROMPT: '0' }, timeout: 180_000, maxBuffer: MiB })).stdout.trim();
-  await git(['clone', '--bare', '--filter=blob:none', '--depth=1', '--single-branch', '--branch', branch, '--', remote, repo], work);
-  const base = await git(['rev-parse', '--verify', 'HEAD']);
+  const { git, base, remote } = await openArchiveGit(destination, branch, work);
   const prefix = `${source}/${digest}`;
   const existing = new Set((await git(['ls-tree', '-r', base, '--', prefix])).split('\n').filter(Boolean));
   await git(['read-tree', base]);
@@ -112,6 +96,12 @@ async function publish({ source, destination, digest, paths, visibility, branch 
     await git(['update-index', '--add', '--cacheinfo', `100644,${blob},${target}`]);
   }
   if (existing.size && existing.size !== paths.length) throw new Error('The archive destination contains extra files at the approved digest.');
+  if (revisions.length) {
+    const marker = join(work, 'empty');
+    await writeFile(marker, '', { mode: 0o600, flag: 'wx' });
+    const empty = await git(['hash-object', '--no-filters', '-w', '--', marker]);
+    for (const revision of revisions) await git(['update-index', '--add', '--cacheinfo', `100644,${empty},${revision}`]);
+  }
   const tree = await git(['write-tree']);
   const currentTree = await git(['rev-parse', `${base}^{tree}`]);
   await verify();
@@ -125,14 +115,28 @@ async function publish({ source, destination, digest, paths, visibility, branch 
 }
 
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { help: { type: 'boolean', short: 'h' }, destination: { type: 'string' }, apply: { type: 'string' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { help: { type: 'boolean', short: 'h' }, destination: { type: 'string' }, apply: { type: 'string' }, initialize: { type: 'boolean' }, visibility: { type: 'string' } } });
   if (values.help || process.argv.length === 2) return process.stdout.write(usage);
   const destination = values.destination?.toLowerCase() ?? '';
-  if (positionals.length !== 1 || !repositoryPattern.test(destination) || (values.apply !== undefined && !/^[a-f\d]{64}$/.test(values.apply))) throw new Error('Specify a staged archive directory, an OWNER/REPO destination, and an optional review digest.');
+  if (values.initialize) {
+    if (positionals.length || values.apply !== undefined || !archiveRepoPattern.test(destination) || !['private', 'public', 'internal'].includes(values.visibility)) throw new Error('Specify --initialize with a destination OWNER/REPO and explicit --visibility.');
+    try {
+      // github-retry-ok: A timed-out creation may already have created the repository.
+      await run('gh', ['repo', 'create', destination, `--${values.visibility}`, '--add-readme', '--description', 'Reviewed Hive Mind session archives'], { env: { ...process.env, GH_HOST: 'github.com' }, timeout: 30_000, maxBuffer: 4096 });
+    } catch {
+      throw new Error(`Repository creation could not be confirmed. Check https://github.com/${destination} before retrying.`);
+    }
+    const { visibility } = await archiveRepo(destination);
+    if (visibility !== values.visibility) throw new Error('The archive repository did not report the requested visibility.');
+    process.stdout.write(`Initialized ${visibility} archive https://github.com/${destination}\n`);
+    return;
+  }
+  if (values.visibility !== undefined) throw new Error('--visibility requires --initialize.');
+  if (positionals.length !== 1 || !archiveRepoPattern.test(destination) || (values.apply !== undefined && !/^[a-f\d]{64}$/.test(values.apply))) throw new Error('Specify a staged archive directory, an OWNER/REPO destination, and an optional review digest.');
   const directory = resolve(positionals[0]);
   if (!values.apply) {
-    const { digest, paths, bytes, source, visibility, branch } = await review(directory, destination);
-    process.stdout.write(`${JSON.stringify({ source, destination, visibility, branch, digest, bytes, files: paths }, null, 2)}\n`);
+    const { digest, paths, bytes, source, visibility, branch, revisions } = await review(directory, destination);
+    process.stdout.write(`${JSON.stringify({ source, destination, visibility, branch, digest, bytes, files: paths, indexEntries: revisions }, null, 2)}\n`);
     return;
   }
 

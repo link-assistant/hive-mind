@@ -285,7 +285,7 @@ cat <<'RECORDS'
 {"executions":[
   {"status":"executing"},
   {"status":"executing","paused":true},
-  {"status":"executed","exitCode":0},
+  {"status":"executed","exitCode":0,"uuid":"recovered","attempt":{"number":2},"attemptHistory":[{"number":1,"status":"executed","exitCode":137,"oomKilled":true,"finishedAt":"2026-11-20T10:00:00Z"},{"number":2,"status":"executed","exitCode":1}]},
   {"status":"executed","exitCode":137,"uuid":"first","oomKilled":true,"exitReason":"out-of-memory","command":"secret argument","logPath":"/private/log"},
   {"status":"executed","exitCode":1,"uuid":"second"},
   {"status":"executed","exitCode":null}
@@ -298,6 +298,12 @@ RECORDS`
   assert.deepEqual(JSON.parse(result.stdout), {
     counts: { running: 1, paused: 1, succeeded: 1, failed: 2, unknown: 1 },
     failures: [{ id: 'first', exitCode: 137, finishedAt: null, memoryExhausted: true, reason: 'out-of-memory' }],
+  });
+  const grouped = run(['tasks', 'report', '--group', '--limit', '1']);
+  assert.equal(grouped.status, 0, grouped.stderr);
+  assert.doesNotMatch(grouped.stdout, /secret argument|private\/log/);
+  assert.deepEqual(JSON.parse(grouped.stdout), {
+    groups: [{ backend: 'local', kind: 'Memory exhaustion', exitCode: 137, count: 2, latest: { id: 'recovered', attempt: 1, finishedAt: '2026-11-20T10:00:00.000Z' } }],
   });
 });
 
@@ -498,20 +504,40 @@ test('archive publication checks approval, visibility, and commits only the revi
   executable(
     'gh',
     `
+if [[ "$1" == repo ]]; then
+  [[ "$GH_HOST" == github.com && "$*" == 'repo create example/new-destination --private --add-readme --description Reviewed Hive Mind session archives' ]]
+  touch initialized
+  exit
+fi
 case "$4" in
-  repos/example/project) printf '{"full_name":"example/project","visibility":"%s","default_branch":"main"}\\n' "\${SOURCE_VISIBILITY:-public}" ;;
+  repos/example/project)
+    if [[ "$6" == .visibility ]]; then printf '%s\\n' "\${SOURCE_VISIBILITY:-public}";
+    else printf '{"full_name":"example/project","visibility":"%s","default_branch":"main"}\\n' "\${SOURCE_VISIBILITY:-public}"; fi ;;
   repos/example/destination) printf '{"full_name":"example/destination","visibility":"%s","default_branch":"main"}\\n' "\${DESTINATION_VISIBILITY:-private}" ;;
+  repos/example/new-destination) [[ -f initialized ]] && printf '%s\\n' '{"full_name":"example/new-destination","visibility":"private","default_branch":"main"}' ;;
   *) exit 1 ;;
 esac`
   );
+  const initialize = ['archive-publish', '--initialize', '--destination', 'example/new-destination'];
+  assert.notEqual(run(initialize, { environment }).status, 0);
+  assert.throws(() => statSync(join(cwd, 'initialized')), { code: 'ENOENT' });
+  const initialized = run([...initialize, '--visibility', 'private'], { environment });
+  assert.equal(initialized.status, 0, initialized.stderr);
+  assert.match(initialized.stdout, /Initialized private archive/);
   const directory = join(cwd, 'review');
-  const archive = `codex-${'a'.repeat(64)}.jsonl`;
+  mkdirSync(join(cwd, 'codex'));
+  const sourceFile = join(cwd, 'codex', 'session.jsonl');
+  const old = new Date(Date.now() - 60 * 60 * 1000);
+  const sessionText = message => `${JSON.stringify({ type: 'session_meta', payload: { git: { repository_url: 'https://github.com/example/project.git' } }, message })}\n`;
+  writeFileSync(sourceFile, sessionText('abc'));
+  utimesSync(sourceFile, old, old);
+  const stage = ['archive-sessions', '--repo', 'example/project', '--claude-dir', 'empty', '--codex-dir', 'codex', '--published-in', 'example/destination', '--limit', '1', '--output'];
+  const staged = run([...stage, directory], { environment });
+  assert.equal(staged.status, 0, staged.stderr);
+  const [{ archive, revision }] = JSON.parse(readFileSync(join(directory, 'manifest.json'), 'utf8')).sessions;
   const file = join(directory, archive);
-  mkdirSync(directory);
-  writeFileSync(join(directory, 'manifest.json'), JSON.stringify({ repository: 'example/project', sessions: [{ tool: 'codex', archive }] }));
   writeFileSync(join(directory, 'ignored.txt'), 'never published');
-  const fixtureText = '{"message":"a reviewed fixture"}\n';
-  writeFileSync(file, fixtureText);
+  const fixtureText = readFileSync(file, 'utf8');
   const args = ['archive-publish', directory, '--destination', 'example/destination'];
   const plan = run(args, { environment });
   assert.equal(plan.status, 0, plan.stderr);
@@ -533,11 +559,21 @@ esac`
   assert.equal(git('-C', repository, 'rev-parse', `${head}^`), base);
   const prefix = `example/project/${digest}`;
   assert.equal(git('-C', repository, 'show', `main:${prefix}/${archive}`), fixtureText.trim());
-  assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `${prefix}/${archive}`, `${prefix}/manifest.json`]);
+  assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `example/project/.published/${archive}.${revision.slice('sha256:'.length)}`, `${prefix}/${archive}`, `${prefix}/manifest.json`]);
   const retried = run(apply, { environment });
   assert.equal(retried.status, 0, retried.stderr);
   assert.match(retried.stdout, /already published/);
   assert.equal(git('-C', repository, 'rev-parse', 'main'), head);
+  const skipped = run([...stage, 'repeat'], { environment });
+  assert.equal(skipped.status, 0, skipped.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(join(cwd, 'repeat', 'manifest.json'), 'utf8')).sessions, []);
+  writeFileSync(sourceFile, sessionText('def'));
+  utimesSync(sourceFile, old, old);
+  const changed = run([...stage, 'changed'], { environment });
+  assert.equal(changed.status, 0, changed.stderr);
+  const [newRevision] = JSON.parse(readFileSync(join(cwd, 'changed', 'manifest.json'), 'utf8')).sessions;
+  assert.equal(newRevision.archive, archive);
+  assert.notEqual(newRevision.revision, revision);
 });
 
 test('MTProxy MSS unit uses the original published port after destination NAT', { timeout: 10000 }, t => {

@@ -10,9 +10,10 @@ import { withStateLock } from './state-lock.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
-const usage = `Usage: hive-manager tasks report [--limit NUMBER]
+const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
        hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--publish SHA256]]
 Summarize tracked tasks and recent failures without command lines or logs.
+Use --group to count repeat failures by backend and exit evidence across recorded attempts.
 An incident preview describes one failure. To post it as a GitHub issue, approve its digest with --publish.
 `;
 
@@ -28,12 +29,45 @@ function failureKind({ exitCode, oomKilled, memoryExhausted }) {
   return 'Nonzero exit code';
 }
 
+function taskBackend(task) {
+  const backend = task.options?.isolated;
+  return ['docker', 'screen', 'tmux', 'ssh'].includes(backend) ? backend : 'local';
+}
+
+function taskAttempts(task) {
+  const number = task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
+  const history = Array.isArray(task.attemptHistory) ? task.attemptHistory : [];
+  const attempts = new Map(history.filter(attempt => Number.isSafeInteger(attempt?.number) && attempt.number > 0).map(attempt => [attempt.number, attempt]));
+  attempts.set(number, { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime });
+  return attempts;
+}
+
+function groupFailures(tasks, limit) {
+  const groups = new Map();
+  for (const task of tasks) {
+    const backend = taskBackend(task);
+    for (const attempt of taskAttempts(task).values()) {
+      if (attempt.status !== 'executed' || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) continue;
+      const kind = failureKind(attempt);
+      const exitCode = attempt.exitCode;
+      const signature = `${backend}:${kind}:${exitCode}`;
+      const group = groups.get(signature) ?? { backend, kind, exitCode, count: 0, latest: null };
+      group.count++;
+      const finishedAt = timestamp(attempt.endTime ?? attempt.finishedAt);
+      if (!group.latest || (finishedAt !== 'Unknown' && (group.latest.finishedAt === 'Unknown' || finishedAt > group.latest.finishedAt))) {
+        group.latest = { id: task.uuid, attempt: attempt.number, finishedAt };
+      }
+      groups.set(signature, group);
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
 async function incidentPreview(task, requestedAttempt, destination) {
   const number = task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
-  const last = { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime };
-  const attempt = requestedAttempt && requestedAttempt !== number ? task.attemptHistory?.find(entry => entry.number === requestedAttempt) : last;
+  const attempt = taskAttempts(task).get(requestedAttempt ?? number);
   if (!attempt || attempt.status !== 'executed' || !Number.isSafeInteger(attempt.number) || attempt.number < 1 || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) throw new Error('The selected attempt has no confirmed failed exit.');
-  const backend = ['docker', 'screen', 'tmux', 'ssh'].includes(task.options?.isolated) ? task.options.isolated : 'local';
+  const backend = taskBackend(task);
   const title = await sanitizeForPublication(`[hive-manager] Task failure ${task.uuid} (attempt ${attempt.number})`);
   const marker = `<!-- hive-manager-task: ${task.uuid}/${attempt.number} -->`;
   const body = await sanitizeForPublication(`${marker}
@@ -109,12 +143,13 @@ export async function listTrackedTasks() {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, publish: { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, publish: { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
     return;
   }
   if (values.incident !== undefined) {
+    if (values.group) throw new Error('Select either --group or --incident.');
     const destination = values.destination?.toLowerCase() ?? null;
     const attempt = values.attempt === undefined ? null : Number(values.attempt);
     if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(values.incident) || (attempt !== null && (!/^\d+$/.test(values.attempt) || !Number.isSafeInteger(attempt) || attempt < 1))) throw new Error('Use the complete execution UUID and an optional positive attempt number.');
@@ -134,10 +169,15 @@ async function report() {
   if (values.attempt !== undefined || values.destination !== undefined || values.publish !== undefined) throw new Error('The attempt and publication options require --incident UUID.');
   const limit = Number(values.limit);
   if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 1000) throw new Error('Report limit must be between 1 and 1000.');
+  const tasks = await listTrackedTasks();
+  if (values.group) {
+    process.stdout.write(`${JSON.stringify({ groups: groupFailures(tasks, limit) }, null, 2)}\n`);
+    return;
+  }
 
   const counts = { running: 0, paused: 0, succeeded: 0, failed: 0, unknown: 0 };
   const failures = [];
-  for (const task of await listTrackedTasks()) {
+  for (const task of tasks) {
     if (task.status === 'executing') {
       counts[task.paused === true ? 'paused' : 'running']++;
     } else if (task.status === 'executed' && task.exitCode === 0) {

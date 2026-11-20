@@ -94,13 +94,13 @@ Each package operation is available locally and inside a managed deployment. Use
 
 Run `tasks repair-records [UUID]` when a detached Docker resume is running and its stored execution still shows an older terminal attempt. The preview checks the exact labels, start timestamp, snapshot and original command. Apply with `--apply` to adopt an eligible snapshot and attach a completion watcher. This repair uses the store format from the image's pinned start-command 0.44.0. Use `tasks resume-all` for records already marked executing.
 
-`tasks report --incident UUID --attempt NUMBER --destination OWNER/REPO` previews an incident for one confirmed failure. The default attempt is the latest. Use `--publish REVIEW_DIGEST` after reviewing the JSON output to create the GitHub issue. The report contains the execution ID, times, backend, exit status and classification. Upload an execution log separately with `tasks upload-log ID` if needed.
+`tasks report --group` counts recurring failures across recorded attempts, including failures from tasks that later succeeded. It groups by execution backend, failure classification and exit code. `tasks report --incident UUID --attempt NUMBER --destination OWNER/REPO` previews an incident for one confirmed failure. The default attempt is the latest. Use `--publish REVIEW_DIGEST` after reviewing the JSON output to create the GitHub issue. The report contains the execution ID, times, backend, exit status and classification. Upload an execution log separately with `tasks upload-log ID` if needed.
 
 After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Review dependency-based requests before submitting them again.
 
 On a Linux Docker host, `deploy docker-service live-restore` checks whether the local daemon keeps containers running when the daemon is unavailable. Run it with `--apply` as root on a systemd host with `jq` and `flock`. The command validates and backs up `/etc/docker/daemon.json`, reloads `docker.service`, and checks the running daemon. It restores the previous file if the setting fails to take effect. [Docker live restore](https://docs.docker.com/engine/daemon/live-restore/)
 
-Use `deploy diagnose --since '1 hour ago'` to include bounded Docker service and kernel memory-failure history where the target account can read the systemd journal. The journal remains available when the managed container or its daemon is down.
+Use `deploy diagnose --since '1 hour ago'` to include bounded Docker service and kernel memory-failure history where the target account can read the systemd journal. The journal remains available when the managed container or its daemon is down. On a running Linux instance, `deploy diagnose --resources` adds cgroup v2 memory, CPU, pressure and PID counters and a thread table with CPU use and wait channels where the Docker host exposes them.
 
 `archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. The default export limit is 20 and individual files are capped at 40 MiB. Add `--lino` with the [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) installed to add Links Notation copies. Session files can include personal or proprietary material. Review the staged files before publishing.
 
@@ -117,6 +117,10 @@ hive-manager archive-sessions --repo link-assistant/hive-mind --output ./session
 hive-manager archive-publish ./session-review --destination example/session-archive
 hive-manager archive-publish ./session-review --destination example/session-archive --apply REVIEW_DIGEST
 ```
+
+To create a destination with an initial branch and README, run `hive-manager archive-publish --initialize --destination example/session-archive --visibility private` with GitHub CLI credentials that can create repositories. Choose `public` or `internal` explicitly when required.
+
+Use `archive-sessions --published-in example/session-archive` when working through a backlog or staging batches on a schedule. The manager reads the destination's Git index for this source without downloading existing session logs. It skips an already published transcript revision with the same export options and selected attachments, so the next batch can advance through the backlog. A changed transcript or attachment is eligible again. The Git commit publishes the revision index and its reviewed archive together.
 
 ## Backup and restore
 

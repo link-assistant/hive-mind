@@ -158,7 +158,7 @@ sudo docker run hello-world
 
 ```bash
 mkdir -p "$HOME/.local/bin"
-curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager.sh -o "$HOME/.local/bin/hive-manager"
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager"
 chmod +x "$HOME/.local/bin/hive-manager"
 export PATH="$HOME/.local/bin:$PATH"
 

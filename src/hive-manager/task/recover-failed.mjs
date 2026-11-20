@@ -2,9 +2,9 @@ import { execFile } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseArgs, promisify } from 'node:util';
-import { parseGitHubUrl } from './github-url-parser.lib.mjs';
-import { withStateLock } from './state-lock.lib.mjs';
-import { listTrackedTasks, taskAttempts } from './hive-manager-task-report.mjs';
+import { parseGitHubUrl } from '../../github-url-parser.lib.mjs';
+import { withStateLock } from '../../state-lock.lib.mjs';
+import { listTrackedTasks, taskAttempts } from './report.mjs';
 
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks recover-failed [--limit NUMBER] [--apply [--wait SECONDS]]

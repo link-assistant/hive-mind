@@ -68,7 +68,7 @@ for ((attempt = 0; attempt < 5; attempt++)); do
   sleep 1
 done
 
-manager=(bash "$repo/src/hive-manager.sh" --ssh-config "$tmp/config" --jump 'first,second' --host target)
+manager=(bash "$repo/src/hive-manager/cli.sh" --ssh-config "$tmp/config" --jump 'first,second' --host target)
 set +e
 result=$(printf 'stdin over two hops\n' | "${manager[@]}" deploy exec -- sh -c 'printf "%s\n" "$1"; cat; exit 17' _ "quoted ' argument")
 status=$?

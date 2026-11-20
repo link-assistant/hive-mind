@@ -8,11 +8,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { claudeBrowserActivity } from '../src/hive-manager-task-check-browser.mjs';
-import { classifyUpload } from '../src/hive-manager-task-check-uploads.mjs';
-import { readProxyMatrix, runProxyMatrix, runProxyProbe } from '../src/hive-manager-proxy-test.mjs';
+import { claudeBrowserActivity } from '../src/hive-manager/task/check-browser.mjs';
+import { classifyUpload } from '../src/hive-manager/task/check-uploads.mjs';
+import { readProxyMatrix, runProxyMatrix, runProxyProbe } from '../src/hive-manager/proxy/test.mjs';
 
-const script = fileURLToPath(new URL('../src/hive-manager.sh', import.meta.url));
+const script = fileURLToPath(new URL('../src/hive-manager/cli.sh', import.meta.url));
 const source = readFileSync(script, 'utf8');
 
 function fixture(t) {
@@ -350,7 +350,7 @@ test('package and complete streamed script expose the same deployment interface'
   symlinkSync(script, installed);
 
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.bin['hive-manager'], './src/hive-manager.sh');
+  assert.equal(pkg.bin['hive-manager'], './src/hive-manager/cli.sh');
   assert.notEqual(statSync(script).mode & 0o111, 0);
   assert.equal(run(['--version'], { entry: installed }).stdout.trim(), pkg.version);
 

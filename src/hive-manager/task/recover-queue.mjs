@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
-import { parseGitHubUrl } from './github-url-parser.lib.mjs';
-import { readBoundedFile } from './hive-manager-files.lib.mjs';
+import { parseGitHubUrl } from '../../github-url-parser.lib.mjs';
+import { readBoundedFile } from '../lib/files.mjs';
 
 const usage = `Usage: hive-manager tasks recover-queue --previous LOG [--current LOG] [--include-commands]
 List requests from the last verbose bot run that never started, excluding requests already queued or started in the current run.

@@ -1,4 +1,4 @@
-import { runAgentConfigAudit } from './agent-config-audit.lib.mjs';
+import { runAgentConfigAudit } from '../agent-config-audit.lib.mjs';
 
 const args = process.argv.slice(2);
 const usage = 'Usage: hive-manager audit-config [--repair]\nAudit global agent settings and quarantine supported additions with --repair.\n';

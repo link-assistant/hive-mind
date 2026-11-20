@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
-import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
-import { readBoundedFile } from './hive-manager-files.lib.mjs';
-import { excludedArchiveRepository, redactArchiveIdentity } from './hive-manager-archive-privacy.lib.mjs';
-import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
+import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName } from './lib/git.mjs';
+import { readBoundedFile } from '../lib/files.mjs';
+import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
+import { findResidualCredentialBlock } from '../../log-sanitize-stream.lib.mjs';
 
 const MiB = 1024 * 1024;
 const run = promisify(execFile);

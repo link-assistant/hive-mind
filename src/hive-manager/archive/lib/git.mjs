@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { ghWithRateLimitRetry } from '../../../github-rate-limit.lib.mjs';
 
 const run = promisify(execFile);
 export const archiveRepoPattern = /^[a-z\d][a-z\d-]*\/(?!\.{1,2}$)[a-z\d_.-]+$/i;

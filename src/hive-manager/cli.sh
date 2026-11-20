@@ -120,24 +120,24 @@ maintenance_spec() {
     configure-claude) bin=configure-claude; module=configure-claude.mjs ;;
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
-    archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
-    archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
-    archive-publish) bin=hive-manager; module=hive-manager-archive-publish.mjs ;;
-    proxy-test) bin=hive-manager; module=hive-manager-proxy-test.mjs ;;
-    proxy-pcap) bin=hive-manager; module=hive-manager-proxy-pcap.mjs ;;
-    audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
-    task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
-    task-check-browser) bin=hive-manager; module=hive-manager-task-check-browser.mjs ;;
-    task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
-    task-recover-failed) bin=hive-manager; module=hive-manager-task-recover-failed.mjs ;;
-    task-recover-queue) bin=hive-manager; module=hive-manager-task-recover-queue.mjs ;;
-    task-repair-records) bin=hive-manager; module=hive-manager-task-repair-records.mjs ;;
+    archive-session) bin=hive-manager; module=hive-manager/archive/session.mjs ;;
+    archive-sessions) bin=hive-manager; module=hive-manager/archive/sessions.mjs ;;
+    archive-publish) bin=hive-manager; module=hive-manager/archive/publish.mjs ;;
+    proxy-test) bin=hive-manager; module=hive-manager/proxy/test.mjs ;;
+    proxy-pcap) bin=hive-manager; module=hive-manager/proxy/pcap.mjs ;;
+    audit-config) bin=hive-manager; module=hive-manager/audit-config.mjs ;;
+    task-report) bin=hive-manager; module=hive-manager/task/report.mjs ;;
+    task-check-browser) bin=hive-manager; module=hive-manager/task/check-browser.mjs ;;
+    task-check-uploads) bin=hive-manager; module=hive-manager/task/check-uploads.mjs ;;
+    task-recover-failed) bin=hive-manager; module=hive-manager/task/recover-failed.mjs ;;
+    task-recover-queue) bin=hive-manager; module=hive-manager/task/recover-queue.mjs ;;
+    task-repair-records) bin=hive-manager; module=hive-manager/task/repair-records.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
 }
 package_source() {
-  local entry=${1:-$0} link
+  local entry=${1:-$0} link source_dir
   if [[ $entry != */* ]]; then
     entry=$(command -v hive-manager) || return 1
   fi
@@ -148,8 +148,12 @@ package_source() {
       *) entry=${entry%/*}/$link ;;
     esac
   done
-  [[ -f ${entry%/*}/../package.json ]] || return 1
-  cd -- "${entry%/*}" && pwd -P
+  source_dir=${entry%/*}
+  if [[ $entry == */hive-manager/cli.sh ]]; then
+    source_dir=${source_dir%/*}
+  fi
+  [[ -f $source_dir/../package.json && -f $source_dir/hive.mjs ]] || return 1
+  cd -- "$source_dir" && pwd -P
 }
 run_maintenance() {
   local bin module source_path action=$1
@@ -157,14 +161,14 @@ run_maintenance() {
   shift
   if source_path=$(package_source) && [[ -f $source_path/$module ]]; then
     require node
-    exec node --import "$source_path/hive-manager-terminal.mjs" "$source_path/$module" "$@"
+    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
   fi
   if [[ $bin != hive-manager ]] && command -v "$bin" >/dev/null; then
     exec "$bin" "$@"
   fi
   if [[ $bin == hive-manager ]] && source_path=$(package_source "$(command -v hive)") && [[ -f $source_path/$module ]]; then
     require node
-    exec node --import "$source_path/hive-manager-terminal.mjs" "$source_path/$module" "$@"
+    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
   fi
   require node
   require npm

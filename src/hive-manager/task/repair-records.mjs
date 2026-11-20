@@ -3,7 +3,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
-import { withStateLock } from './state-lock.lib.mjs';
+import { withStateLock } from '../../state-lock.lib.mjs';
 
 const run = promisify(execFile);
 const uuidPattern = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;

@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { readBoundedFile } from './hive-manager-files.lib.mjs';
+import { readBoundedFile } from '../lib/files.mjs';
 
 const usage = `Usage: hive-manager proxy-test --session-file FILE [OPTIONS]
 Check a Telegram user session by writing, reading and deleting a marker in Saved Messages.

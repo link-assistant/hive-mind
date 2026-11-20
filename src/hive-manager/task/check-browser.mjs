@@ -6,7 +6,7 @@ import { performance } from 'node:perf_hooks';
 import { setTimeout } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { readAttemptEvidence } from './hive-manager-task-evidence.lib.mjs';
+import { readAttemptEvidence } from './lib/evidence.mjs';
 
 const chrome = /^(?:chrome|chromium|chromium-browse|headless_shell|chrome-headless|chrome-headless-shell)$/;
 const usage = `Usage: hive-manager tasks check-browser PID [--transcript CLAUDE_JSONL | --detached] [--terminate sha256:HEX]

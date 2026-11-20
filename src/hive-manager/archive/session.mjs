@@ -3,7 +3,7 @@ import { lstat, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { sanitizeLogFileToFileBounded } from '../../log-sanitize-worker.lib.mjs';
 
 const args = process.argv.slice(2);
 const usage = 'Usage: hive-manager archive-session FILE\nWrite a sanitized session file to stdout for review.\n';

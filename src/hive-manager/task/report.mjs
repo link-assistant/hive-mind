@@ -4,10 +4,10 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify, parseArgs } from 'node:util';
-import { readAttemptEvidence, summarizeTaskEvidence } from './hive-manager-task-evidence.lib.mjs';
-import { resolveBotStateDir } from './session-store.lib.mjs';
-import { withStateLock } from './state-lock.lib.mjs';
-import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { readAttemptEvidence, summarizeTaskEvidence } from './lib/evidence.mjs';
+import { resolveBotStateDir } from '../../session-store.lib.mjs';
+import { withStateLock } from '../../state-lock.lib.mjs';
+import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
@@ -141,7 +141,7 @@ Generated from start-command's execution record by Hive Mind Manager.
 }
 
 async function githubIssueJson(args) {
-  const { ghWithRateLimitRetry } = await import('./github-rate-limit.lib.mjs');
+  const { ghWithRateLimitRetry } = await import('../../github-rate-limit.lib.mjs');
   return ghWithRateLimitRetry(async () => {
     const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', '--method', 'GET', ...args], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
     return JSON.parse(stdout);

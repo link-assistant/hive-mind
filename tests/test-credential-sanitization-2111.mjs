@@ -33,12 +33,12 @@ const assertSanitized = (output, secrets) => {
 const packageManifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 for (const executablePath of Object.values(packageManifest.bin)) {
   const executableSource = await readFile(new URL(`../${executablePath.replace(/^\.\//, '')}`, import.meta.url), 'utf8');
-  if (executablePath === './src/hive-manager.sh') {
+  if (executablePath === './src/hive-manager/cli.sh') {
     assert.match(executableSource, /^#!\/usr\/bin\/env bash\n/);
     const maintenanceLaunches = [...executableSource.matchAll(/exec node ([^\n]*"\$source_path\/\$module"[^\n]*)/g)];
     assert.equal(maintenanceLaunches.length, 2);
-    for (const [, command] of maintenanceLaunches) assert.match(command, /^--import "\$source_path\/hive-manager-terminal\.mjs" /);
-    const preload = await readFile(new URL('../src/hive-manager-terminal.mjs', import.meta.url), 'utf8');
+    for (const [, command] of maintenanceLaunches) assert.match(command, /^--import "\$source_path\/hive-manager\/lib\/terminal\.mjs" /);
+    const preload = await readFile(new URL('../src/hive-manager/lib/terminal.mjs', import.meta.url), 'utf8');
     assert.match(preload, /setupStdioLogInterceptor\(\)/);
   } else {
     assert.match(executableSource, /setupStdioLogInterceptor\(\)/, `${executablePath} must install the shared stdio sanitizer`);

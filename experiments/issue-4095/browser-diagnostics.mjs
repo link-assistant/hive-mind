@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 // Use the same installed browser client as the Playwright MCP command.
 const cli = realpathSync(execFileSync('bash', ['-c', 'command -v playwright-mcp'], { encoding: 'utf8' }).trim());
 const { chromium } = createRequire(cli)('playwright');
-const manager = fileURLToPath(new URL('../../src/hive-manager.sh', import.meta.url));
+const manager = fileURLToPath(new URL('../../src/hive-manager/cli.sh', import.meta.url));
 const server = await chromium.launchServer({ channel: 'chrome', headless: true });
 try {
   const pid = server.process().pid;

@@ -5,11 +5,11 @@ import { lstat, mkdir, mkdtemp, open, opendir, rm, writeFile } from 'node:fs/pro
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
-import { archiveRepo, archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
-import { excludedArchiveRepository, redactArchiveIdentity } from './hive-manager-archive-privacy.lib.mjs';
-import { publishArchive } from './hive-manager-archive-publish.mjs';
-import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { ghWithRateLimitRetry } from '../../github-rate-limit.lib.mjs';
+import { archiveRepo, archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './lib/git.mjs';
+import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
+import { publishArchive } from './publish.mjs';
+import { sanitizeLogFileToFileBounded } from '../../log-sanitize-worker.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const maxSourceBytes = 40 * 1024 * 1024;

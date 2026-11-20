@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { readBoundedFile } from './hive-manager-files.lib.mjs';
+import { readBoundedFile } from '../lib/files.mjs';
 
 const captureLimit = 3 * 1024 * 1024;
 const packetLimit = 10_000;

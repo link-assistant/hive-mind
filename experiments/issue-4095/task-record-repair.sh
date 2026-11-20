@@ -12,7 +12,7 @@ name=$task-resume-1
 image=start-command-resume/$task:1
 uuid=40950000-1111-4000-8000-000000000001
 command='trap "exit 27" TERM; printf "fixture output\n"; while :; do sleep 1; done'
-manager=$repo/src/hive-manager.sh
+manager=$repo/src/hive-manager/cli.sh
 
 cleanup() {
   docker rm -f "$name" >/dev/null 2>&1 || :

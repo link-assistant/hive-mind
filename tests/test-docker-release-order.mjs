@@ -21,7 +21,7 @@ for (const file of dockerfiles) {
   assert.ok(content.includes('hive-manager configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should apply the Claude configuration through hive-manager`);
   assert.ok(content.includes('hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the Docker baseline through hive-manager`);
   assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'), `${file} should support packing the PR branch`);
-  assert.ok(content.includes('COPY --chmod=0755 src/hive-manager.sh /usr/local/bin/hive-manager'), `${file} must ship the standalone manager even with a pinned npm version`);
+  assert.ok(content.includes('COPY --chmod=0755 src/hive-manager/cli.sh /usr/local/bin/hive-manager'), `${file} must ship the standalone manager even with a pinned npm version`);
   assert.ok(content.includes('command -v hive-manager >/dev/null &&'), `${file} must require the installed manager`);
   assert.ok(!content.includes('skipping baseline'), `${file} must not skip its baseline check`);
   assert.ok(!content.includes('/workspace/.hive-mind-bake'), `${file} should not copy repo source into a bake directory`);

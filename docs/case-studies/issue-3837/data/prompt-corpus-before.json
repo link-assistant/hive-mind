@@ -3,8 +3,8 @@
     "backend": "agent",
     "profile": "default",
     "kind": "System",
-    "bytes": 11053,
-    "sha256": "f54509a5c606a59db1eb84c4d9225e9fb6314b1a635f0c03954800328d337f24"
+    "bytes": 11370,
+    "sha256": "fec7d4a4910ce3f7c1e7ab0766508e11143d7b2144a160bf22913fcfabaa4838"
   },
   {
     "backend": "agent",
@@ -17,8 +17,8 @@
     "backend": "agent",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 21029,
-    "sha256": "63d9dbe6eac28181315b3e12f50866eb41e144a69651897df47bfe30d4404988"
+    "bytes": 21346,
+    "sha256": "d56780915385a45203b1a2fc6c9c30b3e801ac4cffca4e58c5c9cbd68b7dad25"
   },
   {
     "backend": "agent",
@@ -31,8 +31,8 @@
     "backend": "claude",
     "profile": "default",
     "kind": "System",
-    "bytes": 13484,
-    "sha256": "294d7316f1871a66d34d920794b97bb19e40971c6a3f63ad5ac33b5ef9f00cf7"
+    "bytes": 13801,
+    "sha256": "e7f1b5988e3cfe722d60842744f8582792b8214268557a7120e46d5e78ad5475"
   },
   {
     "backend": "claude",
@@ -45,8 +45,8 @@
     "backend": "claude",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 24090,
-    "sha256": "70c2c54f9b420cb66e371891ed8a467855401c10e1f785f068f4fa593644a4fc"
+    "bytes": 24407,
+    "sha256": "c680927f88e15de20e1e9df64d2666cccd97922cb1be6311fe9d7df288b021b9"
   },
   {
     "backend": "claude",
@@ -59,8 +59,8 @@
     "backend": "codex",
     "profile": "default",
     "kind": "System",
-    "bytes": 12787,
-    "sha256": "42414fa29b4b736095caab12255977b2ae8f433bfcecf1524fc624bf9ab7d82c"
+    "bytes": 13104,
+    "sha256": "e76535e636cc1c52dbc235a0eb5de4f289e480b42df3eae513a48b5e8322d118"
   },
   {
     "backend": "codex",
@@ -73,8 +73,8 @@
     "backend": "codex",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 22256,
-    "sha256": "0c91801a26a47d4db4c5ae28c65bcbb2a177dd73b42d5c2c33aa4342382e4606"
+    "bytes": 22573,
+    "sha256": "256413c9481bede55882430c2e136ba92de385fe6474ca340436c8b50c5396a1"
   },
   {
     "backend": "codex",
@@ -87,8 +87,8 @@
     "backend": "gemini",
     "profile": "default",
     "kind": "System",
-    "bytes": 11139,
-    "sha256": "6b6564cd8008f803bf9ed4a1df77b862a2f41acff6cbf4fb3f0452e51c675147"
+    "bytes": 11456,
+    "sha256": "865a8c7579f7c790c9c2415487d3dc2a5741ae116c060db583bcfee9452cc775"
   },
   {
     "backend": "gemini",
@@ -101,8 +101,8 @@
     "backend": "gemini",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 19024,
-    "sha256": "9dbd3f9e8bb78406dc83d25fdc0622e0770c21a9bf4b6224c7410ae7bd0980fc"
+    "bytes": 19341,
+    "sha256": "35a86cc11e2f1df6ca9b8bfd97bcca647123c4c6f83bb16c656980a8f7701883"
   },
   {
     "backend": "gemini",
@@ -115,8 +115,8 @@
     "backend": "opencode",
     "profile": "default",
     "kind": "System",
-    "bytes": 11270,
-    "sha256": "e3edf67ba9793a64629e413ca54573931991f519b45b48426ffa1e9cdba13aed"
+    "bytes": 11587,
+    "sha256": "e8f7af95b266e1af7820fc2409ff46e2c21ea0a3624c6b552e19827b9734f3ce"
   },
   {
     "backend": "opencode",
@@ -129,8 +129,8 @@
     "backend": "opencode",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 21247,
-    "sha256": "97b24dd43f5b2b38d80542c9de6ab441c78098ae5c0c542b0b86bcc1f72ca1ae"
+    "bytes": 21564,
+    "sha256": "d082a6194d2970585ebd526f4012d8fe8d6899e6de7b52cfbfc783a356e00376"
   },
   {
     "backend": "opencode",
@@ -143,8 +143,8 @@
     "backend": "qwen",
     "profile": "default",
     "kind": "System",
-    "bytes": 10994,
-    "sha256": "d3271281af8e2c5337c59f1fd6dd7538cb3bcde1af9565354aabf4d7143eb163"
+    "bytes": 11311,
+    "sha256": "62669d1bea0fdc57f027621578e4dab880fb93a9c22a9a5e2cce63610fbf98dd"
   },
   {
     "backend": "qwen",
@@ -157,8 +157,8 @@
     "backend": "qwen",
     "profile": "all-options",
     "kind": "System",
-    "bytes": 20982,
-    "sha256": "05ee4531536f1278ac33f5a9183c975cc26879a955a04d185a2c7589fbafb13d"
+    "bytes": 21299,
+    "sha256": "2758c198275d4eb4ee8b89c2d90ea5a37f667fc8a0c1b130efd6bbe9be0d0d65"
   },
   {
     "backend": "qwen",

@@ -738,6 +738,12 @@ zh
       waiting_for_ci "⏳ 正在等待 {{branch}} 分支上的 CI/CD 完成..."
       waiting_for_ci_default_branch "⏳ 正在等待默认分支上的 CI/CD 完成..."
       issue_label "Issue"
+    solve_progress
+      watching "⏳ 正在监控 pull request，直到可以合并"
+      blocker "等待：{{blocker}}"
+      timing "第 {{check}} 次检查 · 已监控 {{elapsed}} · 将于 {{deadline}} 停止"
+      updated "状态更新于 {{time}}"
+      uploading_log "📎 正在上传会话日志..."
     work
       session
         starting "🔄 正在启动..."

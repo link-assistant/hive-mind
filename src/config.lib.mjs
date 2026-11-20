@@ -216,6 +216,14 @@ export const stuckCiRuns = {
   rerunAttempts: parseIntWithDefault('HIVE_MIND_STUCK_RUN_RERUN_ATTEMPTS', 2),
   // Consecutive identical "CI mechanisms DISAGREE" checks before the reason is posted on the PR. 0 disables.
   disagreeNoticeChecks: parseIntWithDefault('HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS', 15),
+  // Issue #4091: HEAD runs that have not started (`pending` in a concurrency queue, or
+  // `waiting`/`action_required` for an approval) while every check passed. They are never
+  // cancelled or re-run. After this age the reason is posted on the PR (once per commit).
+  pendingNoticeMinutes: parseIntWithDefault('HIVE_MIND_STUCK_PENDING_RUN_MINUTES', 30),
+  // After this age (and at least the grace below after the notice) the loop stops with an explicit
+  // reason (`ci_not_started` / `ci_approval_required`) instead of waiting up to the 24 h watch timeout. 0 never stops.
+  pendingStopMinutes: parseIntWithDefault('HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES', 120),
+  pendingStopGraceMinutes: parseIntWithDefault('HIVE_MIND_STUCK_PENDING_RUN_STOP_GRACE_MINUTES', 15),
 };
 
 export const ciFailureRepeat = {

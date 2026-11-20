@@ -576,9 +576,9 @@ try {
   });
   // Execute tool command with all prompts and settings
   let toolResult;
-  // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
   await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
-  beginWorkingSession();
+  beginWorkingSession(); // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091: later phases (log upload, watch) replace "⏳ Executing..." in Telegram
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available

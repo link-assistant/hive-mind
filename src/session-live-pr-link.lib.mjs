@@ -80,7 +80,7 @@ export function formatLivePullRequestMessage({ sessionName, sessionInfo }) {
   // Issue #3505: /fix keeps its own status line (its issue line is already in
   // the info block, under the repository).
   if (sessionInfo.command === 'fix') return formatLaunchedFixMessage({ sessionName, sessionInfo, locale });
-  return formatExecutingWorkSessionMessage({ sessionName, executionUuid: sessionInfo.executionUuid || null, isolationBackend: sessionInfo.isolationBackend || null, infoBlock: sessionInfo.infoBlock || '', locale });
+  return formatExecutingWorkSessionMessage({ sessionName, executionUuid: sessionInfo.executionUuid || null, isolationBackend: sessionInfo.isolationBackend || null, infoBlock: sessionInfo.infoBlock || '', locale, header: sessionInfo.solveProgress?.header || null }); // Issue #4091: keep /solve's phase header.
 }
 
 /**

@@ -93,6 +93,26 @@ export const getAbsoluteLogPath = async () => {
 };
 
 /**
+ * Issue #4091: the console (the session's stdout capture) had no timestamps, so
+ * a 5-hour watch loop left only `🔍 Check #N: 6:13:18 AM` to rebuild a timeline
+ * from. Once enabled (the watch loop does it), every non-empty console line
+ * written by `log()` starts with an ISO-8601 UTC timestamp, like the log file.
+ */
+let consoleTimestamps = false;
+export const setConsoleTimestamps = enabled => {
+  consoleTimestamps = Boolean(enabled);
+};
+export const isConsoleTimestampsEnabled = () => consoleTimestamps;
+export const withConsoleTimestamp = (message, { enabled = consoleTimestamps, now = new Date() } = {}) => {
+  if (!enabled) return message;
+  const stamp = `[${now.toISOString()}]`;
+  return String(message)
+    .split('\n')
+    .map(line => (line.trim() ? `${stamp} ${line}` : line))
+    .join('\n');
+};
+
+/**
  * Log messages to both console and file
  * @param {string} message - The message to log
  * @param {Object} options - Logging options
@@ -150,21 +170,22 @@ export const log = async (message, options = {}) => {
   // Write to console based on level
   // Set guard flag to prevent stdio interceptor from double-logging (issue #1549)
   _writingFromLog = true;
+  const consoleMessage = withConsoleTimestamp(sanitizedMessage);
   try {
     switch (level) {
       case 'error':
-        console.error(sanitizedMessage);
+        console.error(consoleMessage);
         break;
       case 'warning':
       case 'warn':
-        console.warn(sanitizedMessage);
+        console.warn(consoleMessage);
         break;
       case 'info':
       default:
         // Mirrored child stderr goes to our stderr, so piping stdout to a
         // consumer keeps yielding only what the child wrote to stdout.
-        if (mirroredStream === 'stderr') console.error(sanitizedMessage);
-        else console.log(sanitizedMessage);
+        if (mirroredStream === 'stderr') console.error(consoleMessage);
+        else console.log(consoleMessage);
         break;
     }
   } finally {

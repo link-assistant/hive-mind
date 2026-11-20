@@ -20,6 +20,7 @@
  */
 import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
 import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
+import { reportSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091: show /solve's watch phase.
 import { getSessionIssueContext, reportLivePullRequestLink } from './session-live-pr-link.lib.mjs'; // Issue #3469: PR link while running.
 import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
 // Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
@@ -804,6 +805,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   }
   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning && sessionInfo?.command === 'solve' && !sessionInfo.recoveryLifecycle) await (options.reportSolveProgress || reportSolveProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning) await (options.reportLivePullRequestLink || reportLivePullRequestLink)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
   if (stillRunning && sessionInfo.isolationBackend) {
     // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.

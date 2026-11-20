@@ -26,40 +26,31 @@ const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, extra
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
 // appropriate for auto-restart-until-mergeable mode
-// Import Sentry integration
-const sentryLib = await import('./sentry.lib.mjs');
-const { reportError } = sentryLib;
-// Import GitHub merge functions
-const githubMergeLib = await import('./github-merge.lib.mjs');
-const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, cancelWorkflowRun, getWorkflowRunsForSha, getWorkflowRunJobsCount, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { reportError } = await import('./sentry.lib.mjs');
+const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, cancelWorkflowRun, getWorkflowRunsForSha, getWorkflowRunJobsCount, getAllActiveRepoRuns, checkCIConsensus } = await import('./github-merge.lib.mjs');
 const { createStuckCiMonitor } = await import('./solve.auto-merge-stuck-ci.lib.mjs'); // Issue #4048: explain stuck CI waits, recover ghost runs
+const { createWatchProgress, createWatchStallGuard, runWatchWithProgress } = await import('./solve.watch-progress.lib.mjs'); // Issue #4091: phase markers, stalled checks, final decision
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
 const { buildDeliberateDraftFeedback, DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
 // Re-exported so callers and tests keep a single entry point for the watch loop.
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
-// Import GitHub functions for log attachment
-const githubLib = await import('./github.lib.mjs');
-const { sanitizeLogContent, attachLogToGitHub, getLastLogAttachOutcome } = githubLib;
+const { sanitizeLogContent, attachLogToGitHub, getLastLogAttachOutcome } = await import('./github.lib.mjs');
 
 // Import shared utilities from the restart-shared module
 import * as restartShared from './solve.restart-shared.lib.mjs';
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, buildUncommittedChangesFeedback, isUsageLimitReached } = restartShared;
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
 // are terminal states for long-running watch loops, not retryable CI states.
-const terminalStateLib = await import('./github-terminal-state.lib.mjs');
-const { checkGitHubTerminalState } = terminalStateLib;
-// Issue #2144: these probes answer with a ~33 KB pull request object and a full
-// issue object on every iteration. Issue #2130 made the helper's own default
-// runner quiet, but passing `$` here bypassed it and the payloads were still
-// mirrored into the attached log. Bind the quiet options to the injected `$`.
+const { checkGitHubTerminalState } = await import('./github-terminal-state.lib.mjs');
+// Issue #2144: these probes answer with a ~33 KB pull request and a full issue object on every
+// iteration; bind the quiet options to the injected `$` so the payloads stay out of the log.
 const { quietProbe } = await import('./quiet-probe.lib.mjs');
 // Issue #2144: a closed linked issue is NOT terminal — it only blocks the final
 // automatic merge. Every stop of this loop is also published as a GitHub comment
 // stating exactly why it stopped.
-const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
-const { reportAutomationStop } = stopReportingLib;
+const { reportAutomationStop } = await import('./automation-stop-reporting.lib.mjs');
 // Issue #2301: a failed AI session in this loop fails the run (see automation-failure.lib.mjs).
 const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 // Issue #2306: never auto-merge a pull request that leaves required issues open.
@@ -69,38 +60,28 @@ const { ensureIssueLinkBeforeMerge } = await import('./pr-issue-link-merge-gate.
 const { isRestartWithFeedback, reportSessionStoppedForFeedback } = await import('./solve.auto-merge-session-stop.lib.mjs');
 const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
 // Import validation functions for time parsing (used for usage limit wait)
-const validation = await import('./solve.validation.lib.mjs');
-const { calculateWaitTime } = validation;
+const { calculateWaitTime } = await import('./solve.validation.lib.mjs');
 // Import configuration (used for limit reset buffer and jitter)
 import { ciFailureRepeat, limitReset } from './config.lib.mjs';
 // Import helper functions extracted for file size management (Issue #1593)
-const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
+const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = await import('./solve.auto-merge-helpers.lib.mjs');
 // Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
-const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
-const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopForCancelledCIReview } = cancelledCiRerunLib;
+const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopForCancelledCIReview } = await import('./cancelled-ci-rerun.lib.mjs');
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
-const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
 // Issue #2148: in-process usage-limit continuations bypass startWorkSession,
 // so post their session boundary explicitly before invoking `--resume`.
-const sessionLib = await import('./solve.session.lib.mjs');
-const { postWorkSessionStartComment, SESSION_TYPES } = sessionLib;
-const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
-const { buildReadyForReviewComment } = externalReviewLimitLib;
+const { postWorkSessionStartComment, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { buildReadyForReviewComment } = await import('./external-review-limit.lib.mjs');
 // Issue #1728: Per-iteration working session summary attachment helper
 // Issue #1763: Per-iteration PR ↔ issue link verification (so a clobbered
 // PR body is restored before the next stop condition fires).
-const resultsLib = await import('./solve.results.lib.mjs');
-const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = await import('./solve.results.lib.mjs');
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep, isShutdownInProgress, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
-// Issue #2119: one auto-restart budget shared with solve.watch.lib.mjs. solve.mjs
-// runs both loops in the same process, so before this a limit of 5 allowed 10 AI
-// sessions and the two loops published incompatible progress labels
-// ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
+// Issue #2119: one auto-restart budget shared with solve.watch.lib.mjs (both loops run in one process).
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { buildAutoRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
@@ -113,9 +94,7 @@ const { failOnRepeatedCiFailure, stopWhenSessionRepeated } = await import('./ses
 const { buildCiFailureGuidance, buildPreExistingCiFeedback, detectPreExistingCiFailures } = await import('./ci-pre-existing-failure.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
-// Issue #2263: a terminal session failure is a run-wide readiness veto. The
-// monitoring loop must not heal that deliberate draft or publish a later
-// "Ready to merge" comment merely because CI is absent/green.
+// Issue #2263: a terminal session failure is a run-wide readiness veto (no draft heal, no later "Ready to merge").
 const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 // Issues #1895/#3355: mergePullRequest closes (or reports) the intended issues GitHub leaves open.
 const { appendIssueClosingSection, formatIssueClosingReport, issueClosingOptions } = await import('./post-merge-issue-closing.lib.mjs');
@@ -128,7 +107,9 @@ const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || arg
  * Main function: Watch and restart until PR becomes mergeable
  * This implements --auto-restart-until-mergeable functionality
  */
-export const watchUntilMergeable = async params => {
+// Issue #4091: timestamped watch-loop lines, a phase marker per check, a decision comment at the end.
+export const watchUntilMergeable = params => runWatchWithProgress({ params, run: runWatchLoop, lib, $, log });
+const runWatchLoop = async (params, watch) => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
   const rawWatchInterval = argv.watchInterval || 60; // seconds
   // Issue #1567: Minimum 120s interval to conserve API rate limits while keeping responsiveness
@@ -165,7 +146,14 @@ export const watchUntilMergeable = async params => {
   // 4d 12h 13m. The timeout is the last-resort backstop below the specific
   // fixes (draft detection, merge-failure classification).
   const watchTimeoutHours = normalizeWatchTimeoutHours(argv.autoRestartUntilMergeableTimeoutHours ?? argv['auto-restart-until-mergeable-timeout-hours']);
-  const watchStartedAt = Date.now();
+  const watchStartedAt = watch.startedAt;
+  const watchProgress = createWatchProgress({ watchStartedAt, watchTimeoutHours });
+  const stallGuard = createWatchStallGuard({ log });
+  const parkOnShutdown = () => parkIfShuttingDown(log, reason => formatAligned('🛑', 'Monitoring stopped:', `${reason} received — waiting for the interrupt handler to finish`, 2));
+  const stopWatch = async (reason, message, details = []) => {
+    await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason, mode: 'auto-restart-until-mergeable', message, details, verbose: argv.verbose, log });
+    return { success: false, reason, latestSessionId, latestAnthropicCost };
+  };
   // Issue #2182: consecutive failed `gh pr merge` attempts, and how many times
   // we silently restored "ready for review" on a pull request left as a draft.
   // Mutable on purpose: the guard helpers update it in place.
@@ -183,7 +171,8 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Watch timeout:', watchTimeoutHours > 0 ? `${watchTimeoutHours} hour(s)` : 'unlimited', 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
-  await log(formatAligned('', 'Restart triggers:', 'New comments and reviews, unresolved review threads, issue title/description edits, CI failures, merge conflicts', 2));
+  await log(formatAligned('', 'Restart triggers:', 'New comments and reviews, unresolved review threads, review bot findings, issue title/description edits, CI failures, merge conflicts', 2));
+  await log(formatAligned('', 'Review bots:', reviewGate.describeReviewBots(), 2));
   if (!isAutoMerge) await log(formatAligned('', 'Review window:', reviewGate.options.reviewWindowMinutes > 0 ? `keep watching ${reviewGate.options.reviewWindowMinutes} minute(s) after "Ready to merge" for late reviews` : 'off (exit right after "Ready to merge")', 2));
   // Issue #1708: Surface that --auto-input-until-mergeable streamed feedback
   // into the prior session, so any restart triggered here is a fallback.
@@ -222,17 +211,17 @@ export const watchUntilMergeable = async params => {
   const stuckCiMonitor = createStuckCiMonitor({ owner, repo, prNumber, log, formatAligned, verbose: argv.verbose, $, postComment: postTrackedComment, getWorkflowRunsForSha, getWorkflowRunJobsCount, cancelWorkflowRun, rerunWorkflowRun }); // Issue #4048
   while (true) {
     // Issue #4048: after /stop or CTRL+C, start no new GitHub checks while the interrupt handler uploads the log.
-    await parkIfShuttingDown(log, reason => formatAligned('🛑', 'Monitoring stopped:', `${reason} received — waiting for the interrupt handler to finish`, 2));
-    iteration++;
+    await parkOnShutdown();
+    watch.checks = ++iteration;
     const currentTime = new Date();
+    watchProgress.startCheck(iteration);
     // Issue #2182: hard wall-clock ceiling for the whole monitoring loop.
     const watchTimeout = evaluateWatchTimeout({ watchTimeoutHours, watchStartedAt, now: Date.now(), checksCompleted: iteration - 1 });
     if (watchTimeout) {
       await log('');
       await log(formatAligned('⏱️', 'WATCH TIMEOUT REACHED:', watchTimeout.message, 2), { level: 'error' });
       await log('');
-      await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'watch_timeout', mode: 'auto-restart-until-mergeable', message: watchTimeout.message, details: watchTimeout.details, verbose: argv.verbose, log });
-      return { success: false, reason: 'watch_timeout', latestSessionId, latestAnthropicCost };
+      return await stopWatch('watch_timeout', watchTimeout.message, watchTimeout.details);
     }
     const terminalState = await checkGitHubTerminalState({
       owner,
@@ -269,7 +258,7 @@ export const watchUntilMergeable = async params => {
         await log(formatAligned('⚠️', 'Linked issue:', `${blocker.message} Continuing to make the pull request mergeable.`, 2), { level: 'warning' });
       }
     }
-    await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
+    await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toISOString()));
 
     try {
       // Issue #1503: Get current HEAD SHA to detect new pushes and reset no-runs counter
@@ -298,7 +287,11 @@ export const watchUntilMergeable = async params => {
       // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, mergeStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+      // Issue #4091: a probe that never answers is logged and skipped (repeated stalls end monitoring); /stop parks right after it.
+      const probe = await stallGuard.probeCheck(iteration, () => getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch), parkOnShutdown);
+      if (probe.stop) return await stopWatch('watch_stalled', probe.message);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, mergeStatus, noWorkflowRunsForCommit } = probe.value;
+      watchProgress.report({ blockers });
       const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
       if (terminalGitHubBlocker) {
         await log('');
@@ -347,16 +340,17 @@ export const watchUntilMergeable = async params => {
       // Check for new comments from non-bot users. At this point the AI tool
       // is not executing, so same-account non-tool comments can be trusted as
       // human feedback while known tool comments remain filtered by markers/IDs.
-      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, quietProbe($), {
-        trustAuthenticatedUserComments: true,
-      });
+      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, quietProbe($), { trustAuthenticatedUserComments: true, reviewBots: reviewGate.options.reviewBots, countReviewBotInlineComments: !reviewGate.options.threadsEnabled }); // Issue #4081: review apps' findings count; CI bots stay ignored
       // Issue #2007: Detect issue title/description edits (user-owned feedback
       // surfaces) so the fallback resumes the AI with them. The first iteration
       // seeds the baseline and never reports a change.
       // Issue #4082: unresolved review threads, whatever their age or author (review bots included).
       const threadState = await reviewGate.checkThreads();
       const hasNewReviewThreads = threadState.fresh.length > 0;
-      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $, { pullRequestNumber: prNumber });
+      // Issue #4081: review apps still reviewing the head commit, and findings their summaries report.
+      const botState = await reviewGate.checkReviewBots();
+      const hasNewReviewBotFindings = botState.fresh.length > 0;
+      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, quietProbe($), { pullRequestNumber: prNumber });
       issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
       const hasIssueMetadataChanges = metadataCheck.changed === true;
       const issueMetadataChanges = metadataCheck.changes || [];
@@ -395,7 +389,16 @@ export const watchUntilMergeable = async params => {
       }
       // If PR is mergeable, no blockers, no new comments, no issue metadata
       // edits, no uncommitted changes and it actually changes something
-      if (blockers.length === 0 && !hasNewComments && !hasNewReviewThreads && !hasIssueMetadataChanges && !hasUncommittedChanges && !isEmptyPullRequest) {
+      if (blockers.length === 0 && !hasNewComments && !hasNewReviewThreads && !hasNewReviewBotFindings && !hasIssueMetadataChanges && !hasUncommittedChanges && !isEmptyPullRequest) {
+        // Issue #4081: review apps post findings minutes after "ready for review" or a push; wait (bounded) first.
+        const botWait = reviewGate.reviewBotsWait(botState, currentBackoffSeconds, MIN_CI_CHECK_INTERVAL_SECONDS);
+        if (botWait) {
+          await log(formatAligned('🤖', 'Waiting for review bots:', botWait.detail, 2));
+          lastCheckTime = nextMonotonicCheckTime(lastCheckTime, currentTime);
+          await log(`${formatAligned('⏱️', 'Next check in:', `${botWait.seconds} seconds...`, 2)}\n`);
+          await interruptibleSleep(botWait.seconds * 1000);
+          continue;
+        }
         // Issue #1503 (enhanced): Multi-mechanism consensus + repo-wide action check.
         // Before declaring PR mergeable, run multiple independent CI detection mechanisms
         // and require all to agree. This catches race conditions where CI starts between
@@ -449,7 +452,8 @@ export const watchUntilMergeable = async params => {
         }
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
         // Issue #4082: threads the AI left unresolved and unmet merge prerequisites hold "Ready to merge" back.
-        const holds = await reviewGate.collectHolds(threadState);
+        // Issue #4081: so do review-app findings the AI was given and did not clear.
+        const holds = await reviewGate.collectHolds(threadState, botState);
         // Issue #2144: a closed/unavailable linked issue blocks only the
         // *automatic* merge; the user is asked to reopen it or merge manually.
         // Issues #2306/#2395: the description can change, so its issue link and
@@ -542,11 +546,10 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push(promptText('prompt.templates.solve-auto-merge.watchUntilMergeable.text2'));
       }
 
-      // Issue #4082: Reason 1d: review threads the AI has not been given yet (bot findings included).
-      if (hasNewReviewThreads) {
+      // Reason 1d (#4082): review threads the AI has not been given yet; 1e (#4081): review-app findings for the head commit.
+      for (const reviewReason of reviewGate.restartReasons(threadState, botState)) {
         shouldRestart = true;
-        const threadReason = `${threadState.fresh.length} unresolved review thread(s) from ${[...new Set(threadState.fresh.map(t => t.author))].join(', ')}`;
-        restartReason = restartReason ? `${restartReason}; ${threadReason}` : threadReason;
+        restartReason = restartReason ? `${restartReason}; ${reviewReason}` : reviewReason;
       }
       // Issue #2119: Reason 1a: the pull request does not change anything yet.
       if (isEmptyPullRequest) {
@@ -763,8 +766,10 @@ export const watchUntilMergeable = async params => {
         // Issue #2839: a human comment or issue edit is new work even when the last session changed nothing.
         // Issue #4082: every unresolved thread goes with any restart; the gate then treats them as reported.
         feedbackLines.push(...reviewGate.restartFeedback(threadState.all));
+        // Issue #4081: review-app findings for the head commit (comments already quoted above are not repeated).
+        feedbackLines.push(...reviewGate.restartReviewBotFeedback(botState.findings, hasNewComments ? comments.map(comment => comment.id) : []));
         reviewGate.resetReviewWindow();
-        const stall = hasNewComments || hasIssueMetadataChanges || hasNewReviewThreads ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
+        const stall = hasNewComments || hasIssueMetadataChanges || hasNewReviewThreads || hasNewReviewBotFindings ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
         if (stall) return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
         // Issue #2293: which checks failed (with run URLs), who commented or edited what, and whether the same checks failed again.
         const restartEvidence = collectRestartEvidence({ comments: hasNewComments ? comments : [], issueNumber, issueChanges: hasIssueMetadataChanges ? issueMetadataChanges : [], ciBlocker: ciBlocker && !billingBlocker ? ciBlocker : null, tracker: ciRepeatTracker });
@@ -1274,7 +1279,12 @@ export const watchUntilMergeable = async params => {
         } else if (pendingBlocker) {
           await renderBlocker('⏳', 'Waiting for CI:', pendingBlocker);
           // Issue #4048: all check runs passed but a HEAD workflow run never started.
-          if (ciStatus?.status === 'success') await stuckCiMonitor.onPendingWorkflowRuns({ sha: currentHeadSha || ciStatus.sha });
+          const unstarted = ciStatus?.status === 'success' ? await stuckCiMonitor.onPendingWorkflowRuns({ sha: currentHeadSha || ciStatus.sha }) : null;
+          if (unstarted?.summary) watchProgress.report({ blockers, unstarted }); // Issue #4091: not started, approval needed
+          if (unstarted?.action === 'stop') {
+            await log(formatAligned('🛑', 'CI never started:', unstarted.message, 2), { level: 'warning' });
+            return await stopWatch(unstarted.reason, unstarted.message, unstarted.details);
+          }
         } else {
           await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
         }

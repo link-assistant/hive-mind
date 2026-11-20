@@ -963,6 +963,16 @@ export class SolveQueue {
     this.log(`Session outcome recorded for ${item.toString()}: ${failed ? 'failed' : noChanges ? 'finished without changes' : 'succeeded'} (${describe})`);
     return item;
   }
+  /** Keep a direct launch refusal in the same bounded history as queued failures. */
+  recordLaunchFailure({ sessionName, url, tool, error }) {
+    const item = new SolveQueueItem({ url, tool });
+    item.sessionName = sessionName;
+    item.setFailed(error);
+    this.failed.push(item);
+    while (this.failed.length > 100) this.failed.shift();
+    this.stats.totalFailed++;
+    this.reconcileDependencies();
+  }
   /**
    * Execute a queue item
    * @param {SolveQueueItem} item
@@ -990,7 +1000,7 @@ export class SolveQueue {
         const launchFailed = Boolean(result) && result.success === false;
         if (launchFailed) {
           item.setFailed(result.error || result.output || 'the launch was refused before the container started');
-          item.sessionName = sessionName;
+          item.sessionName = sessionName === 'unknown' ? null : sessionName;
           item.messageInfo = null; // terminal status — stop tracking the message
           this.stats.totalFailed++;
           console.error(`[solve_queue] Item ${item.id} was not launched (session ${sessionName}): ${item.error}`);
@@ -1025,6 +1035,7 @@ export class SolveQueue {
                   infoBlock: item.infoBlock,
                   error: result.error || result.output,
                   locale: item.locale,
+                  listedInQueue: true,
                 });
                 await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, buildQueueItemTelegramOptions(item, this.verbose));
               }

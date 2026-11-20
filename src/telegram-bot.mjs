@@ -313,7 +313,8 @@ async function validateGitHubUrl(args, options = {}) {
   return validateTelegramGitHubUrl(rawUrl, { allowedTypes, commandName, locale });
 }
 
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const recordLaunchFailure = failure => getSolveQueue({ verbose: VERBOSE }).recordLaunchFailure(failure);
+const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 

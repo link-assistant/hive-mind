@@ -100,6 +100,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  * @param {boolean} deps.VERBOSE
  * @param {Function} deps.executeStartScreen
  * @param {Function} deps.trackSession
+ * @param {Function} [deps.recordLaunchFailure] - Keep failed attempts in the queue history
  * @param {boolean} deps.AUTO_WATCH_MESSAGE
  * @param {Function} deps.startAutoTerminalWatchForSession
  * @param {Object} deps.bot
@@ -107,7 +108,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
  */
 export function buildExecuteAndUpdateMessage(deps) {
-  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS = null, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
+  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS = null, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
   return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null, commandAlias = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const messageThreadId = startingMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null;
@@ -164,6 +165,7 @@ export function buildExecuteAndUpdateMessage(deps) {
         // The reason also goes into the structured `session_untracked` event, so
         // the timestamped log explains the disappearance on its own.
         if (typeof untrackSession === 'function') untrackSession(session, VERBOSE, { reason: launchError });
+        recordLaunchFailure?.({ sessionName: session, url: sessionInfo.url, tool, error: launchError });
         sessionInfo = undefined;
       }
     } else {
@@ -189,7 +191,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       // handle the operator has on the attempt, and this edit replaces the
       // "🔄 Starting..." message that used to carry it.
       if (!iso) console.error(`[telegram-bot] ${commandName} command failed to start (no isolation, tool=${tool}): ${result.error || result.output || 'unknown error'}`);
-      await safeEdit(formatFailedLaunchMessage({ commandName, sessionName: iso ? session : null, isolationBackend: iso?.backend || null, infoBlock, error: result.error || result.output, locale }));
+      await safeEdit(formatFailedLaunchMessage({ commandName, sessionName: iso ? session : null, isolationBackend: iso?.backend || null, infoBlock, error: result.error || result.output, locale, listedInQueue: Boolean(iso && recordLaunchFailure) }));
     }
   };
 }

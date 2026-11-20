@@ -8,25 +8,22 @@
 
 ### 选项 1：使用 Docker Hub 上的预构建镜像（推荐）
 
+使用 [Hive Mind Manager](./deployment/hive-manager.md) 在本地或通过 SSH 部署，并管理持久化凭据、更新和备份。
+
 ```bash
-# 拉取最新镜像
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy --tty exec -- bash
 
-# 运行交互式会话
-docker run -it konard/hive-mind:latest
-
-# 重要：身份验证在 Docker 镜像安装完成后进行
-# 安装脚本不会运行 gh auth login 以避免构建超时
-# 这允许 Docker 构建成功完成，无需交互式提示
-
-# 在容器内，使用 GitHub 进行身份验证
+# Inside the container
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# 使用 Claude 进行身份验证
 claude
+codex login --device-auth
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+exit
 
-# 现在您可以使用 hive 和 solve 命令
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### 选项 2：本地构建

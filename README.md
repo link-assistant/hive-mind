@@ -154,91 +154,27 @@ Run the Hive Mind using Docker for safer local installation - no manual setup re
 
 **Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
 
+Use [Hive Mind Manager](./docs/deployment/hive-manager.md) to deploy locally or over SSH, persist credentials, and manage updates and backups.
+
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy status
+hive-manager deploy --tty exec -- bash
 
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
+# Inside the container
 gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
 claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# Verify Playwright MCP is registered for both CLIs in this container image
 claude mcp list | grep playwright
 codex mcp list | grep playwright
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
 exit
 
-# Attach to main bash process
-docker attach hive-mind
+# Run a command in the instance
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# On the host, create the directories used by the current Docker workflow:
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
-touch -a /root/.hive-mind/claude.json
-
-# In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
-# Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
-docker run -dit --user box --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
-
-# After the first start, fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
-chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
-
-# Important: mounted ~/.codex data overrides the image-baked Codex config.
-# If the host directory was created before Playwright MCP was added to the image,
-# re-register it once inside the running container:
-docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080'
+# Start the Telegram bot using a private environment file on the host
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 **Benefits of Docker:**
@@ -257,40 +193,11 @@ See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
 #### Stoping and removing docker container
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm Installation (Kubernetes) (Experimental)
@@ -588,7 +495,7 @@ unblocked links first (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`, or
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
-> **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
+> **📖 Live model list**: run `hive-manager models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
 
 #### `/hive` - Run Hive Orchestration
 
@@ -937,7 +844,7 @@ died unsupervised is finalized and reported. See
 
 ### Disk Cleanup
 
-`hive-cleanup` frees disk space by removing stale hive-mind temporary
+`hive-manager cleanup` frees disk space by removing stale hive-mind temporary
 directories/files (per-task clones like `/tmp/gh-issue-solver-*`, MCP config
 files, log download dirs, …) while **keeping folders that belong to
 currently-running tasks**, protected system paths, and any clone with
@@ -948,40 +855,40 @@ branch).
 
 ```bash
 # Preview: list kept folders and folders that would be deleted (deletes nothing)
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # Actually delete stale temp artifacts (asks for confirmation first)
-hive-cleanup
+hive-manager cleanup
 
 # Delete without the confirmation prompt
-hive-cleanup --force
+hive-manager cleanup --force
 
 # Also consider non-hive-mind temp entries (more aggressive)
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # Allow deleting /tmp/start-command (kept by default; holds isolation logs)
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / system cleanup (apt caches, journald logs, npm cache)
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # Map live/stuck agent PIDs back to hive/start-command task sessions
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Trace a specific non-agent PID, for example a browser child or shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # Preview orphaned terminal-session agents that can be stopped
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # Stop orphaned agent process trees after reviewing the preview
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # Disable active-task detection (only protected paths are kept)
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Run `hive-cleanup --help` for the full list of options. The command is dry-run
+Run `hive-manager cleanup --help` for the full list of options. The command is dry-run
 friendly and writes a timestamped `cleanup-*.log` for every run. Process
 diagnostic output redacts common token shapes before printing command lines.
 
@@ -1041,14 +948,14 @@ that launched it:
 ```bash
 # Show agent PIDs, start-command session IDs, GitHub task URLs, workspaces,
 # match reasons, and possible orphaned terminal-session agents.
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Include an arbitrary PID in the same report.
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # Kill only agents whose matched start-command task is already terminal.
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: identify screens that are parents of processes that are eating
@@ -1141,7 +1048,7 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-`hive-screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
+`hive-manager screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
 installed (globally, through `npx`, or in a project) it is available on `PATH`.
 
 It scans detached GNU screen sessions, looks for solve runs that are done and
@@ -1153,25 +1060,25 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 
 ```bash
 # Safe preview — show every finished, mergeable solve session.
-hive-screens --list
+hive-manager screens --list
 
 # Close the oldest finished session.
-hive-screens --close
+hive-manager screens --close
 
 # Attach to the newest finished session.
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # Close every finished session.
-hive-screens --close --all
+hive-manager screens --close --all
 
 # Print diagnostic output while scanning (useful when matching fails).
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` defaults to `--all` so a bare `hive-screens --list` shows every match.
+`--list` defaults to `--all` so a bare `hive-manager screens --list` shows every match.
 `--enter` and `--close` default to `--oldest` because they are destructive.
 Supply `--oldest`, `--newest`, or `--all` to override. Run
-`hive-screens --help` for the full option list.
+`hive-manager screens --help` for the full option list.
 
 ### Reboot server.
 

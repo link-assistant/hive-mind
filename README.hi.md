@@ -154,87 +154,27 @@ sudo docker run hello-world
 
 **नोट:** Docker स्थानीय इंस्टॉलेशन के लिए अधिक सुरक्षित है और इसका उपयोग सर्वर या Kubernetes क्लस्टर पर कई अलग-थलग इंस्टेंस इंस्टॉल करने के लिए किया जा सकता है। Kubernetes डिप्लॉयमेंट के लिए, नीचे [Helm चार्ट इंस्टॉलेशन](#helm-installation-kubernetes-experimental) अनुभाग देखें।
 
+स्थानीय या SSH पर डिप्लॉय करने तथा क्रेडेंशियल, अपडेट और बैकअप का प्रबंधन करने के लिए [Hive Mind Manager](./docs/deployment/hive-manager.md) का उपयोग करें।
+
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy status
+hive-manager deploy --tty exec -- bash
 
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
+# Inside the container
 gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
 claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# `--think` न देने पर Hive Mind इसे `--think off` मानता है।
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
+claude mcp list | grep playwright
+codex mcp list | grep playwright
 exit
 
-# Attach to main bash process
-docker attach hive-mind
+# Run a command in the instance
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
-docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
-docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
-
-# Fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
-chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest
+# Start the Telegram bot using a private environment file on the host
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 `codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` केवल सुधार बंद करता है; शेष ऑडिट निष्कर्ष कार्य को रोकते हैं); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
@@ -251,40 +191,11 @@ docker run -dit \
 
 #### Docker कंटेनर बंद करना और हटाना
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm इंस्टॉलेशन (Kubernetes) (प्रयोगात्मक)
@@ -528,7 +439,7 @@ GitHub issue या pull request links वाले संदेश का `/sol
 
 > **📖 मुफ्त मॉडल गाइड**: OpenCode Zen और Kilo Gateway प्रदाताओं सहित सभी मुफ्त मॉडलों के बारे में व्यापक जानकारी के लिए [docs/FREE_MODELS.hi.md](./docs/FREE_MODELS.hi.md) देखें।
 
-> **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
+> **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-manager models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
 
 #### `/after` और `/enqueue` - किसी दूसरे कार्य के बाद कार्य शुरू करें
 
@@ -893,7 +804,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### डिस्क क्लीनअप
 
-`hive-cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
+`hive-manager cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
 `/tmp/gh-issue-solver-*`, MCP कॉन्फ़िग फ़ाइलें, लॉग डाउनलोड डायरेक्टरी आदि) को हटाकर
 डिस्क स्थान खाली करता है, जबकि **वर्तमान में चल रहे कार्यों से संबंधित फ़ोल्डर**,
 सुरक्षित सिस्टम पथ, और बिना कमिट या बिना पुश किए बदलावों वाले किसी भी क्लोन को बनाए
@@ -903,40 +814,40 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ```bash
 # पूर्वावलोकन: रखे जाने वाले और हटाए जाने वाले फ़ोल्डरों की सूची (कुछ भी नहीं हटाता)
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # पुरानी अस्थायी फ़ाइलें वास्तव में हटाएँ (पहले पुष्टि माँगता है)
-hive-cleanup
+hive-manager cleanup
 
 # पुष्टि प्रॉम्प्ट के बिना हटाएँ
-hive-cleanup --force
+hive-manager cleanup --force
 
 # गैर-hive-mind अस्थायी प्रविष्टियों पर भी विचार करें (अधिक आक्रामक)
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # /tmp/start-command को हटाने की अनुमति दें (डिफ़ॉल्ट रूप से रखा जाता है; इसमें आइसोलेशन लॉग होते हैं)
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-विकल्पों की पूरी सूची के लिए `hive-cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
+विकल्पों की पूरी सूची के लिए `hive-manager cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
 हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
 कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
 
@@ -994,14 +905,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ```bash
 # agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # उसी report में कोई भी PID शामिल करें।
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # केवल terminal task वाले orphaned agents रोकें।
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।
@@ -1093,28 +1004,28 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### स्क्रीन प्रबंधन के लिए स्क्रिप्ट
 
-`hive-screens` पूरे हो चुके solve sessions का प्रबंधन करता है। यह `@link-assistant/hive-mind` के साथ आता है, इसलिए पैकेज इंस्टॉल होने के बाद (globally, `npx` के माध्यम से, या किसी project में) यह `PATH` पर उपलब्ध रहता है।
+`hive-manager screens` पूरे हो चुके solve sessions का प्रबंधन करता है। यह `@link-assistant/hive-mind` के साथ आता है, इसलिए पैकेज इंस्टॉल होने के बाद (globally, `npx` के माध्यम से, या किसी project में) यह `PATH` पर उपलब्ध रहता है।
 
 यह detached GNU screen sessions को स्कैन करता है, ऐसे solve runs खोजता है जो पूरे हो चुके हैं और जिनका PR merge किया जा सकता है (scrollback में `process completed` और `PR is mergeable!` या `PR merged!` दोनों हों), और फिर उन्हें सूचीबद्ध करता है, उनमें प्रवेश करता है या उन्हें बंद करता है। `--list`, `--enter` और `--close` **एक ही matching शर्त** का उपयोग करते हैं, इसलिए `--list` में दिखने वाला सेट ठीक वही है जिस पर `--close` काम करेगा — पहले `--list` से जाँचें, फिर `--close` के साथ दोबारा चलाएँ।
 
 ```bash
 # सुरक्षित पूर्वावलोकन — सभी पूरे हो चुके, merge योग्य solve sessions दिखाएँ।
-hive-screens --list
+hive-manager screens --list
 
 # सबसे पुराना पूरा हुआ session बंद करें।
-hive-screens --close
+hive-manager screens --close
 
 # सबसे नए पूरे हुए session में प्रवेश करें।
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # सभी पूरे हुए sessions बंद करें।
-hive-screens --close --all
+hive-manager screens --close --all
 
 # स्कैन करते समय diagnostic output दिखाएँ (matching विफल होने पर उपयोगी)।
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` का default `--all` है, इसलिए केवल `hive-screens --list` सभी matches दिखाता है। `--enter` और `--close` का default `--oldest` है क्योंकि वे स्थिति बदलते हैं। इसे बदलने के लिए `--oldest`, `--newest` या `--all` दें। पूरी option सूची के लिए `hive-screens --help` चलाएँ।
+`--list` का default `--all` है, इसलिए केवल `hive-manager screens --list` सभी matches दिखाता है। `--enter` और `--close` का default `--oldest` है क्योंकि वे स्थिति बदलते हैं। इसे बदलने के लिए `--oldest`, `--newest` या `--all` दें। पूरी option सूची के लिए `hive-manager screens --help` चलाएँ।
 
 ### सर्वर रिबूट करें।
 

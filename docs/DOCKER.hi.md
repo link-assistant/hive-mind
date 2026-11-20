@@ -8,25 +8,22 @@
 
 ### विकल्प 1: Docker Hub से पूर्व-निर्मित Image का उपयोग करना (अनुशंसित)
 
+स्थानीय या SSH पर डिप्लॉय करने तथा क्रेडेंशियल, अपडेट और बैकअप का प्रबंधन करने के लिए [Hive Mind Manager](./deployment/hive-manager.md) का उपयोग करें।
+
 ```bash
-# नवीनतम image pull करें
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy --tty exec -- bash
 
-# एक interactive session चलाएं
-docker run -it konard/hive-mind:latest
-
-# महत्वपूर्ण: Authentication Docker image install होने के बाद की जाती है
-# Installation script gh auth login नहीं चलाता ताकि build timeouts से बचा जा सके
-# यह Docker build को interactive prompts के बिना सफलतापूर्वक पूर्ण करने की अनुमति देता है
-
-# Container के अंदर, GitHub के साथ authenticate करें
+# Inside the container
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Claude के साथ authenticate करें
 claude
+codex login --device-auth
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+exit
 
-# अब आप hive और solve commands का उपयोग कर सकते हैं
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### विकल्प 2: स्थानीय रूप से Build करना

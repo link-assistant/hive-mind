@@ -6,47 +6,22 @@ This document explains how to run Hive Mind in Docker containers.
 
 ### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
+Use [Hive Mind Manager](./deployment/hive-manager.md) to deploy locally or over SSH, persist credentials, and manage updates and backups.
+
 ```bash
-# Pull the latest image
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy --tty exec -- bash
 
-# Create persistent host directories used by the current Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
-touch -a /root/.hive-mind/claude.json
-
-# Run the container in detached mode with the same mounts we use locally
-docker run -dit --user box --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
-
-# Open a shell in the running container
-docker exec -it hive-mind bash
-
-# Inside the container, authenticate with GitHub
+# Inside the container
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Authenticate with Claude
 claude
-
-# Install or update Codex CLI
-bun install -g @openai/codex@latest
-
-# Log in to Codex using the current device auth flow
 codex login --device-auth
-
-# Verify Codex after login succeeds with "Successfully logged in"
-codex exec --model gpt-5.4-mini "hi"
-
-# Verify Playwright MCP registration in both CLIs
 claude mcp list | grep playwright
 codex mcp list | grep playwright
-
-# Exit the shell when setup is complete
 exit
+
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### Option 2: Building Locally

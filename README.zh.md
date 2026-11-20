@@ -154,87 +154,27 @@ sudo docker run hello-world
 
 **注意：** Docker 对本地安装更为安全，也可用于在服务器或 Kubernetes 集群上安装多个隔离实例。Kubernetes 部署请参见下方的 [Helm chart 安装](#helm-安装kubernetes实验性) 部分。
 
+使用 [Hive Mind Manager](./docs/deployment/hive-manager.md) 在本地或通过 SSH 部署，并管理持久化凭据、更新和备份。
+
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy status
+hive-manager deploy --tty exec -- bash
 
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
+# Inside the container
 gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
 claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# 未指定 `--think` 时，Hive Mind 按 `--think off` 处理。
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
 codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
+claude mcp list | grep playwright
+codex mcp list | grep playwright
 exit
 
-# Attach to main bash process
-docker attach hive-mind
+# Run a command in the instance
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
-docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
-docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
-
-# Fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
-chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest
+# Start the Telegram bot using a private environment file on the host
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 仅关闭修复；未解决的审计问题仍会阻止任务启动）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
@@ -251,40 +191,11 @@ docker run -dit \
 
 #### 停止并删除 Docker 容器
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm 安装（Kubernetes）（实验性）
@@ -525,7 +436,7 @@ Free Models via Kilo Gateway (with --tool agent):
 
 > **📖 免费模型指南**：有关所有免费模型（包括 OpenCode Zen 和 Kilo Gateway 提供商）的全面信息，请参见 [docs/FREE_MODELS.zh.md](./docs/FREE_MODELS.zh.md)。
 
-> **📖 实时模型列表**：运行 `hive-models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
+> **📖 实时模型列表**：运行 `hive-manager models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
 
 #### `/after` 和 `/enqueue` - 在另一个任务之后启动任务
 
@@ -868,7 +779,7 @@ OOM killer、磁盘写满或强制终止杀死的工作会话会自动重启，�
 
 ### 磁盘清理
 
-`hive-cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
+`hive-manager cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
 `/tmp/gh-issue-solver-*`、MCP 配置文件、日志下载目录等）来释放磁盘空间，同时
 **保留属于当前正在运行任务的文件夹**、受保护的系统路径，以及任何包含未提交或未推送
 更改的克隆。它通过运行中的进程和实时隔离会话检测活动任务，并使用与 `solve` 相同的
@@ -877,40 +788,40 @@ OOM killer、磁盘写满或强制终止杀死的工作会话会自动重启，�
 
 ```bash
 # 预览：列出保留的文件夹和将被删除的文件夹（不删除任何内容）
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # 实际删除过时的临时文件（会先要求确认）
-hive-cleanup
+hive-manager cleanup
 
 # 删除时不显示确认提示
-hive-cleanup --force
+hive-manager cleanup --force
 
 # 同时考虑非 hive-mind 临时项（更激进）
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # 允许删除 /tmp/start-command（默认保留；其中存放隔离日志）
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # 将实时/卡住的 agent PID 映射回 hive/start-command 任务会话
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # 跟踪指定的非 agent PID，例如浏览器子进程或 shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # 预览可以停止的孤立 agent
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # 审查预览后停止孤立 agent 进程树
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # 禁用活动任务检测（仅保留受保护的路径）
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
+运行 `hive-manager cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
 带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
 格式。
 
@@ -968,14 +879,14 @@ hive 任务时，优先使用内置进程诊断命令：
 
 ```bash
 # 显示 agent PID、start-command 会话 ID、GitHub 任务 URL、工作区、匹配原因和可能的孤立 agent。
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # 在同一报告中包含任意 PID。
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # 只停止已完成任务中的孤立 agent。
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 手动兜底：识别消耗资源的进程所属的 Screen 会话。
@@ -1067,28 +978,28 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### 管理 Screen 会话的脚本
 
-`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+`hive-manager screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
 
 它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
 
 ```bash
 # 安全预览——显示所有已完成且可合并的 solve 会话。
-hive-screens --list
+hive-manager screens --list
 
 # 关闭最旧的已完成会话。
-hive-screens --close
+hive-manager screens --close
 
 # 进入最新的已完成会话。
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # 关闭所有已完成会话。
-hive-screens --close --all
+hive-manager screens --close --all
 
 # 扫描时输出诊断信息（匹配失败时很有用）。
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
+`--list` 默认使用 `--all`，因此单独的 `hive-manager screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-manager screens --help` 查看完整选项列表。
 
 ### 重启服务器
 

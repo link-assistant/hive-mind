@@ -8,25 +8,22 @@
 
 ### Вариант 1: Использование готового образа из Docker Hub (рекомендуется)
 
+Используйте [Hive Mind Manager](./deployment/hive-manager.md) для локального развёртывания или работы по SSH, хранения учётных данных, обновлений и резервных копий.
+
 ```bash
-# Pull the latest image
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy --tty exec -- bash
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
-
-# IMPORTANT: Authentication is done AFTER the Docker image is installed
-# The installation script does NOT run gh auth login to avoid build timeouts
-# This allows the Docker build to complete successfully without interactive prompts
-
-# Inside the container, authenticate with GitHub
+# Inside the container
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Authenticate with Claude
 claude
+codex login --device-auth
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+exit
 
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### Вариант 2: Локальная сборка

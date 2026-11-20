@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
 import { readBoundedFile } from './hive-manager-files.lib.mjs';
@@ -104,14 +105,33 @@ async function publish({ source, destination, digest, paths, visibility, branch,
   }
   const tree = await git(['write-tree']);
   const currentTree = await git(['rev-parse', `${base}^{tree}`]);
-  await verify();
   if (tree === currentTree) {
+    await verify();
     process.stdout.write(`Archive ${digest} is already published to ${destination}.\n`);
     return;
   }
   const commit = await git(['commit-tree', tree, '-p', base, '-m', `Archive reviewed sessions for ${source}`]);
+  await verify();
   await git(['push', '--', remote, `${commit}:refs/heads/${branch}`]);
   process.stdout.write(`Published archive ${digest} to https://github.com/${destination}/commit/${commit}\n`);
+}
+
+export async function publishArchive(directory, destination, { expectedDigest, privateOnly = false } = {}) {
+  const work = await mkdtemp(join(tmpdir(), 'hive-archive-publish-'));
+  try {
+    const snapshot = join(work, 'reviewed');
+    const approved = await review(directory, destination, snapshot, expectedDigest);
+    if (privateOnly && approved.visibility !== 'private') throw new Error('Scheduled publication requires a private destination.');
+    for (const path of approved.paths) {
+      if (await findResidualCredentialBlock(join(snapshot, path))) throw new Error('An archive file still contains credential material. Redact it before publishing.');
+    }
+    await publish(approved, snapshot, work);
+  } catch (error) {
+    if (error.cmd || error.code) throw new Error('Archive publication could not proceed. Check Git identity, GitHub access, and that the destination accepts a normal push.', { cause: error });
+    throw error;
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -141,23 +161,15 @@ async function main() {
     return;
   }
 
-  const work = await mkdtemp(join(tmpdir(), 'hive-archive-publish-'));
-  try {
-    const snapshot = join(work, 'reviewed');
-    const approved = await review(directory, destination, snapshot, expectedDigest);
-    for (const path of approved.paths) {
-      if (await findResidualCredentialBlock(join(snapshot, path))) throw new Error('A reviewed file still contains credential material. Redact it before publishing.');
-    }
-    await publish(approved, snapshot, work);
-  } finally {
-    await rm(work, { recursive: true, force: true });
-  }
+  await publishArchive(directory, destination, { expectedDigest });
 }
 
-try {
-  await main();
-} catch (error) {
-  const detail = error.cmd || error.code ? 'Archive publication could not proceed. Check Git identity, GitHub access, and that the destination accepts a normal push.' : error.message;
-  process.stderr.write(`hive-manager: ${detail}\n`);
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    await main();
+  } catch (error) {
+    const detail = error.cmd || error.code ? 'Archive publication could not proceed. Check Git identity, GitHub access, and that the destination accepts a normal push.' : error.message;
+    process.stderr.write(`hive-manager: ${detail}\n`);
+    process.exitCode = 1;
+  }
 }

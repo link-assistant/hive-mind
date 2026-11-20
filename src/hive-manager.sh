@@ -61,7 +61,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
-  diagnose [--since TIME] [--resources]
+  diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources]
                         Show host resources, container exit facts and optional journal evidence
   disk                  Report Docker storage, images, volumes and build cache
   backup [--output FILE|-]
@@ -608,15 +608,27 @@ doctor() {
 }
 
 diagnose() {
-  local since='' resources=false
+  local usage='Usage: deploy diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources]'
+  local since='' until='' task='' attempt='' window resources=false
   while (( $# )); do
     case $1 in
       --since) need_value "$@"; since=$2; shift 2 ;;
+      --task) need_value "$@"; task=$2; shift 2 ;;
+      --attempt) need_value "$@"; attempt=$2; shift 2 ;;
       --resources) resources=true; shift ;;
-      --help|-h) printf 'Usage: deploy diagnose [--since TIME] [--resources]\n'; return ;;
-      *) fail "Usage: deploy diagnose [--since TIME] [--resources]" ;;
+      --help|-h) printf '%s\n' "$usage"; return ;;
+      *) fail "$usage" ;;
     esac
   done
+  [[ ! $task || ! $since ]] && [[ ! $attempt || $task ]] || fail "$usage"
+  if [[ $task ]]; then
+    local -a selector=(--window "$task")
+    if [[ $attempt ]]; then selector+=(--attempt "$attempt"); fi
+    window=$(docker exec --user box "$name" hive-manager tasks report "${selector[@]}") || fail "Could not read the task window from $name"
+    IFS=$'\t' read -r since until <<< "$window"
+    [[ $since && $until ]] || fail "The task report did not return a time window"
+    printf 'Task %s window: %s through %s\n' "$task" "$since" "$until"
+  fi
   uptime
   if command -v free >/dev/null; then free -h; fi
   df -h -- "$PWD"
@@ -637,6 +649,11 @@ diagnose() {
         ' || printf 'Container cgroup v2 counters unavailable\n'
         printf '\nContainer threads and wait channels (first 80 rows by CPU use)\n'
         docker top "$name" -eLo pid,lwp,ppid,stat,pcpu,wchan:24,comm --sort=-pcpu | awk 'NR <= 81' || printf 'Container process table unavailable\n'
+        printf '\nBrowser processes (first 40 rows by CPU use) and shared memory\n'
+        docker top "$name" -eo pid,ppid,stat,pcpu,wchan:24,comm --sort=-pcpu |
+          awk 'NR == 1 { header=$0; next } tolower($NF) ~ /^(chrome|chromium|firefox|headless_shell|msedge)/ { if (count++ == 0) print header; if (count <= 40) print } END { print "Matching browser processes: " count+0 }' ||
+          printf 'Container browser process table unavailable\n'
+        docker exec "$name" df -h /dev/shm || printf 'Container shared memory information unavailable\n'
       fi
     fi
   else
@@ -644,12 +661,14 @@ diagnose() {
   fi
   if [[ $since ]]; then
     require journalctl
+    local -a period=(--since="$since")
+    if [[ $until ]]; then period+=(--until="$until"); fi
     printf '\nDocker service events\n'
-    journalctl --unit=docker.service --since="$since" --lines=80 --no-pager
+    journalctl --unit=docker.service "${period[@]}" --lines=80 --no-pager
     printf '\nKernel memory failures\n'
     # With --grep, journalctl uses exit 1 for an empty selection.
     local result=0
-    journalctl _TRANSPORT=kernel --since="$since" --lines=80 --no-pager --case-sensitive=no --grep='out of memory|oom-kill|killed process' || result=$?
+    journalctl _TRANSPORT=kernel "${period[@]}" --lines=80 --no-pager --case-sensitive=no --grep='out of memory|oom-kill|killed process' || result=$?
     (( result <= 1 )) || return "$result"
   fi
 }

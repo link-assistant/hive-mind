@@ -1,13 +1,14 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, opendir, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { lstat, mkdir, mkdtemp, open, opendir, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
-import { archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
+import { archiveRepo, archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './hive-manager-archive-git.lib.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './hive-manager-archive-privacy.lib.mjs';
+import { publishArchive } from './hive-manager-archive-publish.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -15,13 +16,17 @@ const maxSourceBytes = 40 * 1024 * 1024;
 const metadataBytes = 256 * 1024;
 const minimumAgeMs = 10 * 60 * 1000;
 const usage = `Usage: hive-manager archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY [options]
+       hive-manager archive-sessions --repo OWNER/REPO --publish-private OWNER/REPO [options]
 Stage sanitized session logs and a manifest for one public GitHub repository.
 Options:
   --claude-dir DIRECTORY   Claude projects directory
   --codex-dir DIRECTORY    Codex sessions directory
-  --limit NUMBER           Maximum number of exports (default: 20)
+  --only claude|codex      Select one session format (default: both)
+  --limit NUMBER           Maximum number of exports (default: 20 to stage, 3 to publish)
   --published-in OWNER/REPO
                            Skip revisions already published by hive-manager to this destination
+  --publish-private OWNER/REPO
+                           Publish new sanitized sessions to a verified private destination
   --tool-results           Include sanitized text attachments from eligible Claude sessions
   --lino                   Also convert each sanitized file with the conversation CLI
 `;
@@ -65,7 +70,7 @@ async function localRepository(cwd, cache) {
   return cache.get(cwd);
 }
 
-async function attributedRepository(file, tool, checkoutCache) {
+async function attributedRepository(file, tool, checkoutCache, parent) {
   const source = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const metadata = Buffer.alloc(metadataBytes);
@@ -84,10 +89,20 @@ async function attributedRepository(file, tool, checkoutCache) {
       }
       if (tool === 'claude' && typeof record?.cwd === 'string') return localRepository(record.cwd, checkoutCache);
     }
-    return null;
   } finally {
     await source.close();
   }
+  if (
+    parent &&
+    (
+      await lstat(parent).catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+        return null;
+      })
+    )?.isFile()
+  )
+    return attributedRepository(parent, tool, checkoutCache);
+  return null;
 }
 
 async function requirePublic(repository) {
@@ -147,11 +162,14 @@ async function planToolResults(session, id) {
 
 async function collect({ root, tool, repository, remaining, output, reports, checkoutCache, lino, toolResultBudget, published }) {
   for await (const file of archiveFiles(root, /\.jsonl$/)) {
-    if (relative(root, file).split(sep).includes('tool-results')) continue;
+    const path = relative(root, file);
+    const parts = path.split(sep);
+    if (parts.includes('tool-results')) continue;
     const sourceInfo = await lstat(file);
     if (!sourceInfo.isFile() || sourceInfo.size > maxSourceBytes || Date.now() - sourceInfo.mtimeMs < minimumAgeMs) continue;
-    if ((await attributedRepository(file, tool, checkoutCache)) !== repository) continue;
-    const id = createHash('sha256').update(relative(root, file)).digest('hex');
+    const parent = tool === 'claude' && parts.length >= 4 && parts[2] === 'subagents' ? join(root, parts[0], `${parts[1]}.jsonl`) : undefined;
+    if ((await attributedRepository(file, tool, checkoutCache, parent)) !== repository) continue;
+    const id = createHash('sha256').update(path).digest('hex');
     const archive = `${tool}-${id}.jsonl`;
     const includeResults = tool === 'claude' && Boolean(toolResultBudget);
     const attachments = includeResults ? await planToolResults(file, id) : [];
@@ -198,8 +216,10 @@ async function archive() {
       output: { type: 'string' },
       'claude-dir': { type: 'string', default: join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects') },
       'codex-dir': { type: 'string', default: join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'sessions') },
-      limit: { type: 'string', default: '20' },
+      only: { type: 'string' },
+      limit: { type: 'string' },
       'published-in': { type: 'string' },
+      'publish-private': { type: 'string' },
       'tool-results': { type: 'boolean' },
       lino: { type: 'boolean', default: false },
     },
@@ -209,29 +229,37 @@ async function archive() {
     return;
   }
   const repository = values.repo?.toLowerCase() ?? '';
-  const destination = values['published-in']?.toLowerCase();
-  const limit = Number(values.limit);
-  if (!archiveRepoPattern.test(repository) || !values.output) throw new Error('Specify --repo OWNER/REPO and --output NEW_DIRECTORY.');
+  const autoPublish = values['publish-private'] !== undefined;
+  const destination = (values['publish-private'] ?? values['published-in'])?.toLowerCase();
+  const requestedLimit = values.limit ?? (autoPublish ? '3' : '20');
+  const limit = Number(requestedLimit);
+  if (!archiveRepoPattern.test(repository) || (autoPublish ? values.output !== undefined || values['published-in'] !== undefined : !values.output)) {
+    throw new Error('Specify --repo OWNER/REPO with either --output NEW_DIRECTORY or --publish-private OWNER/REPO.');
+  }
   if (destination !== undefined && (!archiveRepoPattern.test(destination) || destination === repository)) throw new Error('The published index must be in a separate GitHub repository.');
   if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
-  if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 100) throw new Error('Archive limit must be between 1 and 100.');
+  if (values.only !== undefined && !['claude', 'codex'].includes(values.only)) throw new Error('--only must be claude or codex.');
+  if (!/^\d+$/.test(requestedLimit) || limit < 1 || limit > 100) throw new Error('Archive limit must be between 1 and 100.');
   await requirePublic(repository);
+  if (autoPublish && (await archiveRepo(destination)).visibility !== 'private') throw new Error('Scheduled publication requires a private destination.');
   const published = destination ? await publishedArchiveRevisions(repository, destination) : new Set();
 
-  const output = resolve(values.output);
-  await mkdir(output, { mode: 0o700 });
+  const output = autoPublish ? await mkdtemp(join(tmpdir(), 'hive-archive-staged-')) : resolve(values.output);
+  if (!autoPublish) await mkdir(output, { mode: 0o700 });
+  let completed = false;
   try {
     const reports = [];
     const toolResultBudget = values['tool-results'] ? { files: 100, bytes: maxSourceBytes } : null;
     const shared = { repository, output, reports, checkoutCache: new Map(), lino: values.lino, toolResultBudget, published };
-    await collect({ ...shared, root: resolve(values['claude-dir']), tool: 'claude', remaining: limit });
-    if (reports.length < limit) await collect({ ...shared, root: resolve(values['codex-dir']), tool: 'codex', remaining: limit - reports.length });
+    if (values.only !== 'codex') await collect({ ...shared, root: resolve(values['claude-dir']), tool: 'claude', remaining: limit });
+    if (values.only !== 'claude' && reports.length < limit) await collect({ ...shared, root: resolve(values['codex-dir']), tool: 'codex', remaining: limit - reports.length });
     await requirePublic(repository);
     await writeFile(join(output, 'manifest.json'), `${JSON.stringify({ repository, sessions: reports }, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
-    process.stdout.write(`Staged ${reports.length} session(s) for ${repository}.\n`);
-  } catch (error) {
-    await rm(output, { recursive: true, force: true });
-    throw error;
+    if (autoPublish && reports.length) await publishArchive(output, destination, { privateOnly: true });
+    else process.stdout.write(`Staged ${reports.length} session(s) for ${repository}.\n`);
+    completed = true;
+  } finally {
+    if (autoPublish || !completed) await rm(output, { recursive: true, force: true });
   }
 }
 

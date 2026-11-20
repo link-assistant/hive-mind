@@ -11,10 +11,11 @@ import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
-       hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--publish SHA256]]
+       hive-manager tasks report --window UUID [--attempt NUMBER]
+       hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--follow-up ISSUE] [--publish SHA256]]
 Summarize tracked tasks and recent failures without command lines or logs.
 Use --group to count repeat failures by backend and exit evidence across recorded attempts.
-An incident preview describes one failure. To post it as a GitHub issue, approve its digest with --publish.
+An incident preview describes one failure. Approve its digest to open an issue or comment on an existing issue.
 `;
 
 function timestamp(value) {
@@ -34,12 +35,29 @@ function taskBackend(task) {
   return ['docker', 'screen', 'tmux', 'ssh'].includes(backend) ? backend : 'local';
 }
 
-function taskAttempts(task) {
-  const number = task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
+function latestAttempt(task) {
+  return task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
+}
+
+export function taskAttempts(task) {
+  const number = latestAttempt(task);
   const history = Array.isArray(task.attemptHistory) ? task.attemptHistory : [];
   const attempts = new Map(history.filter(attempt => Number.isSafeInteger(attempt?.number) && attempt.number > 0).map(attempt => [attempt.number, attempt]));
   attempts.set(number, { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime });
   return attempts;
+}
+
+function requestedAttempt(value) {
+  const attempt = value === undefined ? null : Number(value);
+  if (attempt !== null && (!/^\d+$/.test(value) || !Number.isSafeInteger(attempt) || attempt < 1)) throw new Error('Use a positive attempt number.');
+  return attempt;
+}
+
+async function selectedTask(id) {
+  if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)) throw new Error('Use the complete execution UUID.');
+  const task = (await listTrackedTasks()).find(entry => entry.uuid === id.toLowerCase());
+  if (!task) throw new Error('No tracked execution matches that UUID.');
+  return task;
 }
 
 function groupFailures(tasks, limit) {
@@ -63,9 +81,8 @@ function groupFailures(tasks, limit) {
   return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
-async function incidentPreview(task, requestedAttempt, destination) {
-  const number = task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
-  const attempt = taskAttempts(task).get(requestedAttempt ?? number);
+async function incidentPreview(task, requestedAttempt, destination, followUp) {
+  const attempt = taskAttempts(task).get(requestedAttempt ?? latestAttempt(task));
   if (!attempt || attempt.status !== 'executed' || !Number.isSafeInteger(attempt.number) || attempt.number < 1 || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) throw new Error('The selected attempt has no confirmed failed exit.');
   const backend = taskBackend(task);
   const title = await sanitizeForPublication(`[hive-manager] Task failure ${task.uuid} (attempt ${attempt.number})`);
@@ -83,12 +100,26 @@ async function incidentPreview(task, requestedAttempt, destination) {
 
 Generated from start-command's execution record by Hive Mind Manager.
 `);
-  const digest = createHash('sha256').update(JSON.stringify({ destination, title, body })).digest('hex');
-  return { destination, title, body, marker, digest };
+  const digest = createHash('sha256').update(JSON.stringify({ destination, followUp, title, body })).digest('hex');
+  return { destination, followUp, title, body, marker, digest };
 }
 
-async function publishIncident({ destination, title, body, marker }) {
-  const key = createHash('sha256').update(`${destination}\0${marker}`).digest('hex');
+async function githubIssueJson(args) {
+  return ghWithRateLimitRetry(async () => {
+    const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', '--method', 'GET', ...args], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  });
+}
+
+async function requireOpenIssue(destination, followUp) {
+  const issue = await githubIssueJson([`repos/${destination}/issues/${followUp}`]);
+  if (issue.number !== followUp || issue.state !== 'open' || issue.pull_request) throw new Error('Follow-up requires an open GitHub issue in the destination repository.');
+}
+
+async function publishIncident({ destination, followUp, title, body, marker }) {
+  const key = createHash('sha256')
+    .update(`${destination}${followUp === undefined ? '' : `#${followUp}`}\0${marker}`)
+    .digest('hex');
   const state = resolve(resolveBotStateDir(), `incident-${key}.json`);
   return withStateLock(
     `hive-manager-incident-${key}`,
@@ -97,43 +128,53 @@ async function publishIncident({ destination, title, body, marker }) {
         if (error.code !== 'ENOENT') throw error;
         return '';
       });
-      const query = `repo:${destination} is:issue in:title "${title}"`;
-      const result = await ghWithRateLimitRetry(async () => {
-        const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', '--method', 'GET', 'search/issues', '--raw-field', `q=${query}`, '--paginate', '--slurp'], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
-        const pages = JSON.parse(stdout);
-        if (!Array.isArray(pages) || pages.length === 0 || pages.some(page => page.incomplete_results || !Array.isArray(page.items))) throw new Error('GitHub could not confirm whether the incident already exists.');
-        return pages.flatMap(page => page.items).find(issue => issue.title === title && issue.body?.includes(marker));
-      });
       const prefix = `https://github.com/${destination}/issues/`;
-      const isIssueUrl = url => typeof url === 'string' && url.toLowerCase().startsWith(prefix) && /^\d+$/.test(url.slice(prefix.length));
+      const isIssueUrl = url => {
+        if (typeof url !== 'string' || !url.toLowerCase().startsWith(prefix)) return false;
+        const suffix = url.slice(prefix.length);
+        return followUp === undefined ? /^\d+$/.test(suffix) : suffix.startsWith(`${followUp}#issuecomment-`) && /^\d+$/.test(suffix.split('#issuecomment-')[1]);
+      };
+      let result;
+      if (followUp === undefined) {
+        const query = `repo:${destination} is:issue in:title "${title}"`;
+        const pages = await githubIssueJson(['search/issues', '--raw-field', `q=${query}`, '--paginate', '--slurp']);
+        if (!Array.isArray(pages) || pages.length === 0 || pages.some(page => page.incomplete_results || !Array.isArray(page.items))) throw new Error('GitHub could not confirm whether the incident already exists.');
+        result = pages.flatMap(page => page.items).find(issue => issue.title === title && issue.body?.includes(marker));
+      } else {
+        const pages = await githubIssueJson([`repos/${destination}/issues/${followUp}/comments?per_page=100`, '--paginate', '--slurp']);
+        if (!Array.isArray(pages) || pages.length === 0 || pages.some(page => !Array.isArray(page))) throw new Error('GitHub could not confirm whether the follow-up already exists.');
+        result = pages.flat().find(comment => comment.body?.includes(marker));
+      }
       if (isIssueUrl(result?.html_url)) return result.html_url;
       if (previous) {
         const { url } = JSON.parse(previous);
         if (isIssueUrl(url)) return url;
-        throw new Error('A previous issue creation did not return a confirmed URL. Check the destination for the incident before removing its local pending record.');
+        throw new Error('A previous publication did not return a confirmed URL. Check the destination for the incident before removing its local pending record.');
       }
 
       const [approvedTitle, approvedBody] = await Promise.all([sanitizeForPublication(title), sanitizeForPublication(body)]);
       if (approvedTitle !== title || approvedBody !== body) throw new Error('The incident text changed during publication sanitization. Review a fresh preview.');
+      if (followUp !== undefined) await requireOpenIssue(destination, followUp);
       await writeFile(state, '{"pending":true}\n', { mode: 0o600, flag: 'wx' });
       try {
-        // github-retry-ok: retrying issue creation after an ambiguous response could duplicate the issue.
-        const { stdout } = await execFileAsync('gh', ['issue', 'create', '--repo', `github.com/${destination}`, '--title', approvedTitle, '--body', approvedBody], { timeout: 30_000, maxBuffer: 4096 });
+        const action = followUp === undefined ? ['create', '--title', approvedTitle] : ['comment', String(followUp)];
+        // github-retry-ok: retrying a write after an ambiguous response could duplicate the incident.
+        const { stdout } = await execFileAsync('gh', ['issue', ...action, '--repo', `github.com/${destination}`, '--body', approvedBody], { timeout: 30_000, maxBuffer: 4096 });
         const url = stdout.trim();
         if (!isIssueUrl(url)) throw new Error();
         await writeFile(state, `${JSON.stringify({ url })}\n`, { mode: 0o600 });
         return url;
       } catch {
-        throw new Error(`Issue creation could not be confirmed. Check ${destination} before removing the pending record ${state}.`);
+        throw new Error(`Incident publication could not be confirmed. Check ${destination} before removing the pending record ${state}.`);
       }
     },
     { timeoutMs: 5000, staleMs: 60 * 60 * 1000 }
   );
 }
 
-export async function listTrackedTasks() {
+export async function listTrackedTasks(timeout = 120_000) {
   try {
-    const { stdout } = await execFileAsync('$', ['--list', '--output-format', 'json'], { timeout: 120_000, maxBuffer: 32 * 1024 * 1024 });
+    const { stdout } = await execFileAsync('$', ['--list', '--output-format', 'json'], { timeout, maxBuffer: 32 * 1024 * 1024 });
     const { executions } = JSON.parse(stdout);
     if (!Array.isArray(executions)) throw new Error();
     return executions;
@@ -143,31 +184,43 @@ export async function listTrackedTasks() {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, publish: { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, publish: { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
+    return;
+  }
+  if (values.window !== undefined) {
+    if (values.group || values.incident !== undefined || values.destination !== undefined || values.publish !== undefined || values['follow-up'] !== undefined) throw new Error('Select the task window separately from grouping and incident publication.');
+    const attempt = requestedAttempt(values.attempt);
+    const task = await selectedTask(values.window);
+    const entry = taskAttempts(task).get(attempt ?? latestAttempt(task));
+    const started = timestamp(entry?.startedAt);
+    const ended = timestamp(entry?.endTime ?? entry?.finishedAt);
+    if (started === 'Unknown' || (ended === 'Unknown' && entry?.status !== 'executing') || (ended !== 'Unknown' && ended < started)) throw new Error('The selected attempt has no usable time window.');
+    process.stdout.write(`${started}\t${ended === 'Unknown' ? 'now' : ended}\n`);
     return;
   }
   if (values.incident !== undefined) {
     if (values.group) throw new Error('Select either --group or --incident.');
     const destination = values.destination?.toLowerCase() ?? null;
-    const attempt = values.attempt === undefined ? null : Number(values.attempt);
+    const followUp = values['follow-up'] === undefined ? undefined : Number(values['follow-up']);
+    const attempt = requestedAttempt(values.attempt);
     const expectedDigest = values.publish?.replace(/^sha256:/, '');
-    if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(values.incident) || (attempt !== null && (!/^\d+$/.test(values.attempt) || !Number.isSafeInteger(attempt) || attempt < 1))) throw new Error('Use the complete execution UUID and an optional positive attempt number.');
     if ((destination !== null && !/^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/.test(destination)) || (expectedDigest !== undefined && (!destination || !/^[a-f\d]{64}$/.test(expectedDigest)))) throw new Error('Publishing requires a GitHub destination and the approved preview digest.');
-    const task = (await listTrackedTasks()).find(entry => entry.uuid === values.incident.toLowerCase());
-    if (!task) throw new Error('No tracked execution matches that UUID.');
-    const preview = await incidentPreview(task, attempt, destination);
+    if (followUp !== undefined && (!destination || !/^\d+$/.test(values['follow-up']) || !Number.isSafeInteger(followUp) || followUp < 1)) throw new Error('Specify a GitHub destination and a positive issue number for follow-up.');
+    const task = await selectedTask(values.incident);
+    const preview = await incidentPreview(task, attempt, destination, followUp);
     if (!values.publish) {
+      if (followUp !== undefined) await requireOpenIssue(destination, followUp);
       const { title, body, digest } = preview;
-      process.stdout.write(`${JSON.stringify({ destination, title, body, digest: `sha256:${digest}` }, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify({ destination, followUp, title, body, digest: `sha256:${digest}` }, null, 2)}\n`);
     } else {
       if (preview.digest !== expectedDigest) throw new Error('The incident or destination changed since review.');
       process.stdout.write(`${await publishIncident(preview)}\n`);
     }
     return;
   }
-  if (values.attempt !== undefined || values.destination !== undefined || values.publish !== undefined) throw new Error('The attempt and publication options require --incident UUID.');
+  if (values.attempt !== undefined || values.destination !== undefined || values.publish !== undefined || values['follow-up'] !== undefined) throw new Error('The attempt and publication options require --incident UUID.');
   const limit = Number(values.limit);
   if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 1000) throw new Error('Report limit must be between 1 and 1000.');
   const tasks = await listTrackedTasks();

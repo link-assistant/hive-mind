@@ -69,10 +69,14 @@ fi
 "${managed[@]}" stop
 "${managed[@]}" start
 "${managed[@]}" status
+docker exec "$name" cp /usr/bin/sleep /tmp/chromium
+docker exec -d "$name" /tmp/chromium infinity
 diagnostics=$("${managed[@]}" diagnose --resources)
 grep -q 'OOM: false' <<< "$diagnostics"
 grep -q 'LWP' <<< "$diagnostics"
 grep -q 'sleep' <<< "$diagnostics"
+grep -q 'Matching browser processes: 1' <<< "$diagnostics"
+grep -q '/dev/shm' <<< "$diagnostics"
 if docker exec "$name" test -r /sys/fs/cgroup/memory.events; then
   grep -q '^memory.events$' <<< "$diagnostics"
   grep -q '^oom_kill ' <<< "$diagnostics"

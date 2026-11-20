@@ -39,6 +39,34 @@ test('deploy diagnose reads bounded service and memory journal evidence for a mi
   assert.match(result.stdout, /<_TRANSPORT=kernel>\n<--since=1 hour ago>\n<--lines=80>/);
 });
 
+test('deploy diagnose uses the selected task attempt window and shows browser resource evidence', t => {
+  const { executable, run } = fixture(t);
+  const id = '40950000-0000-4000-a000-000000000001';
+  executable('$', `printf '%s\\n' '{"executions":[{"uuid":"${id}","status":"executing","attempt":{"number":2},"attemptHistory":[{"number":1,"status":"executed","startedAt":"2026-11-20T08:00:00Z","endTime":"2026-11-20T08:15:00Z"}]}]}'`);
+  executable(
+    'docker',
+    `case "$1 $2" in
+  'exec --user')
+    [[ "$3 $4 $5" == 'box hive-mind hive-manager' ]]
+    shift 5
+    [[ "$*" == 'tasks report --window ${id} --attempt 1' ]]
+    "$MANAGER_TEST" "$@" ;;
+  'container inspect') printf 'true\\n' ;;
+  'top hive-mind') printf 'PID PPID STAT CPU WCHAN COMMAND\\n101 1 S 1.0 futex_wait chromium\\n102 1 R 0.5 - unrelated\\n' ;;
+  'exec hive-mind')
+    if [[ "$3" == df ]]; then printf 'shm 64M /dev/shm\\n'; else printf 'cpu.stat\\n'; fi ;;
+  *) printf 'Docker fixture\\n' ;;
+esac`
+  );
+  executable('journalctl', 'printf "<%s>\\n" "$@"');
+  const window = ['--since=2026-11-20T08:00:00.000Z', '--until=2026-11-20T08:15:00.000Z'];
+  const result = run(['deploy', 'diagnose', '--task', id, '--attempt', '1', '--resources'], { environment: { MANAGER_TEST: script } });
+  assert.equal(result.status, 0, result.stderr);
+  for (const argument of window) assert.equal(result.stdout.split(argument).length - 1, 2);
+  assert.match(result.stdout, /Browser processes[^]*chromium\nMatching browser processes: 1\nshm 64M \/dev\/shm/);
+  assert.match(run(['deploy', 'diagnose', '--task', id, '--since', 'now']).stderr, /Usage: deploy diagnose/);
+});
+
 test('Docker live restore validates, reloads and restores the previous configuration on failure', { timeout: 10000 }, t => {
   const { cwd, executable, run } = fixture(t);
   const config = join(cwd, 'daemon.json');
@@ -329,6 +357,10 @@ test('failed-task recovery previews only confirmed memory failures with an idle 
     '$',
     `if [[ $1 == --resume ]]; then printf '%s\n' "$2" >> invoked; exit; fi
 [[ "$*" == '--list --output-format json' ]]
+if [[ \${COMPLETE_RETRY:-false} == true && -f invoked ]]; then
+  printf '%s\\n' '${JSON.stringify({ executions: [{ ...records[0], attempt: { number: 3 }, attemptHistory: [{ number: 2, status: 'executed', exitCode: 0 }] }] })}'
+  exit
+fi
 cat <<'RECORDS'
 ${JSON.stringify({ executions: records })}
 RECORDS`
@@ -345,6 +377,14 @@ RECORDS`
   assert.equal(applied.status, 0, applied.stderr);
   assert.deepEqual(JSON.parse(applied.stdout).outcomes, [{ id: id(1), state: 'resumed' }]);
   assert.equal(readFileSync(join(cwd, 'invoked'), 'utf8').trim(), id(1));
+  writeFileSync(join(cwd, 'invoked'), '');
+  const pending = run(['tasks', 'recover-failed', '--apply', '--wait', '1'], { environment });
+  assert.equal(pending.status, 1, pending.stderr);
+  assert.deepEqual(JSON.parse(pending.stdout).outcomes, [{ id: id(1), state: 'resumed', completion: null }]);
+  rmSync(join(cwd, 'invoked'));
+  const monitored = run(['tasks', 'recover-failed', '--apply', '--wait', '1'], { environment: { ...environment, COMPLETE_RETRY: 'true' } });
+  assert.equal(monitored.status, 0, monitored.stderr);
+  assert.deepEqual(JSON.parse(monitored.stdout).outcomes, [{ id: id(1), state: 'resumed', completion: { attempt: 2, exitCode: 0, finishedAt: null } }]);
 });
 
 test('upload diagnostics distinguish CPU stalls from progress and guard termination', { timeout: 10000 }, t => {
@@ -380,8 +420,15 @@ test('task incidents publish reviewed historical evidence and keep retries idemp
     'gh',
     `
 case "$1 $2" in
-  'api --hostname') printf '[{"incomplete_results":false,"items":[]}]\\n' ;;
+  'api --hostname')
+    case "$6" in
+      search/issues) printf '[{"incomplete_results":false,"items":[]}]\\n' ;;
+      repos/example/project/issues/18) printf '{"number":18,"state":"%s"}\\n' "\${ISSUE_STATE:-open}" ;;
+      repos/example/project/issues/18/comments*) printf '[[]]\\n' ;;
+      *) exit 1 ;;
+    esac ;;
   'issue create') printf 'created\\n' >> called; printf 'https://github.com/example/project/issues/17\\n' ;;
+  'issue comment') [[ $3 == 18 ]]; printf 'commented\\n' >> called; printf 'https://github.com/example/project/issues/18#issuecomment-19\\n' ;;
   *) exit 1 ;;
 esac`
   );
@@ -404,6 +451,19 @@ esac`
     assert.equal(result.stdout.trim(), 'https://github.com/example/project/issues/17');
   }
   assert.equal(readFileSync(join(cwd, 'called'), 'utf8'), 'created\n');
+  const followUp = [...past, '--follow-up', '18'];
+  const followUpPreview = run(followUp, { environment });
+  assert.equal(followUpPreview.status, 0, followUpPreview.stderr);
+  const reviewed = JSON.parse(followUpPreview.stdout);
+  assert.equal(reviewed.followUp, 18);
+  assert.notEqual(reviewed.digest, digest);
+  assert.match(run([...followUp, '--publish', reviewed.digest], { environment: { ...environment, ISSUE_STATE: 'closed' } }).stderr, /requires an open GitHub issue/);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const comment = run([...followUp, '--publish', reviewed.digest], { environment });
+    assert.equal(comment.status, 0, comment.stderr);
+    assert.equal(comment.stdout.trim(), 'https://github.com/example/project/issues/18#issuecomment-19');
+  }
+  assert.equal(readFileSync(join(cwd, 'called'), 'utf8'), 'created\ncommented\n');
 });
 
 test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {
@@ -451,6 +511,10 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   writeSession(join(resultsDir, 'active.json'), { token }, false);
   writeSession(join(resultsDir, 'ignored.bin'), { token });
   symlinkSync('result.jsonl', join(resultsDir, 'ignored.jsonl'));
+  const subagents = join(cwd, 'claude', 'project', 'closed', 'subagents');
+  mkdirSync(subagents);
+  writeSession(join(subagents, 'agent-inherited.jsonl'), { message: 'subagent', token });
+  writeSession(join(subagents, 'agent-unattributed.jsonl'), { cwd: '/other/checkout', message: 'unattributed', token });
   writeSession(join(cwd, 'codex', 'public.jsonl'), codex('https://github.com/example/project.git'));
   writeSession(join(cwd, 'codex', 'private.jsonl'), codex('https://github.com/example/private'));
   writeSession(join(cwd, 'codex', 'active.jsonl'), codex('https://github.com/example/project'), false);
@@ -467,19 +531,27 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   const manifest = JSON.parse(readFileSync(join(cwd, 'staged', 'manifest.json'), 'utf8'));
   assert.deepEqual(
     manifest.sessions.map(session => session.tool),
-    ['claude', 'codex']
+    ['claude', 'claude', 'codex']
   );
   for (const { archive, linksNotation } of manifest.sessions) {
     assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', archive), 'utf8')).token, token);
     assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', linksNotation), 'utf8')).token, token);
   }
-  assert.equal(manifest.sessions[0].toolResults.length, 1);
-  const toolResult = JSON.parse(readFileSync(join(cwd, 'staged', manifest.sessions[0].toolResults[0].archive), 'utf8'));
+  const parent = manifest.sessions.find(session => session.toolResults?.length === 1);
+  const subagent = manifest.sessions.find(session => session.tool === 'claude' && !session.toolResults?.length);
+  assert.equal(JSON.parse(readFileSync(join(cwd, 'staged', subagent.archive), 'utf8')).message, 'subagent');
+  const toolResult = JSON.parse(readFileSync(join(cwd, 'staged', parent.toolResults[0].archive), 'utf8'));
   assert.equal(toolResult.message, 'attached tool result');
   assert.equal(toolResult.details, 'Booking reference: [REDACTED]');
   assert.notEqual(toolResult.token, token);
   assert.equal(statSync(join(cwd, 'staged')).mode & 0o777, 0o700);
   assert.notEqual(run(args).status, 0);
+  const codexOnly = run([...args.slice(0, 4), 'codex-only', ...args.slice(5), '--only', 'codex']);
+  assert.equal(codexOnly.status, 0, codexOnly.stderr);
+  assert.deepEqual(
+    JSON.parse(readFileSync(join(cwd, 'codex-only', 'manifest.json'), 'utf8')).sessions.map(session => session.tool),
+    ['codex']
+  );
 });
 
 test('archive publication checks approval, visibility, and commits only the reviewed files', { timeout: 30000 }, t => {
@@ -499,7 +571,10 @@ test('archive publication checks approval, visibility, and commits only the revi
   git('-C', repository, 'config', 'uploadpack.allowFilter', 'true');
   git('init', '--initial-branch=main', 'seed');
   writeFileSync(join(cwd, 'seed', 'README.md'), 'Existing destination files are preserved.\n');
-  git('-C', 'seed', 'add', 'README.md');
+  const legacy = 'example/project/claude/legacy.meta.json';
+  mkdirSync(join(cwd, 'seed', 'example', 'project', 'claude'), { recursive: true });
+  writeFileSync(join(cwd, 'seed', legacy), '{"source":{"sha256":"legacy"}}\n');
+  git('-C', 'seed', 'add', 'README.md', legacy);
   git('-C', 'seed', 'commit', '-qm', 'Initial archive');
   git('-C', 'seed', 'push', repository, 'main');
   const base = git('-C', repository, 'rev-parse', 'main');
@@ -564,7 +639,8 @@ esac`
   assert.equal(git('-C', repository, 'rev-parse', `${head}^`), base);
   const prefix = `example/project/${digest.slice('sha256:'.length)}`;
   assert.equal(git('-C', repository, 'show', `main:${prefix}/${archive}`), fixtureText.trim());
-  assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `example/project/.published/${archive}.${revision.slice('sha256:'.length)}`, `${prefix}/${archive}`, `${prefix}/manifest.json`]);
+  assert.deepEqual(git('-C', repository, 'ls-tree', '-r', '--name-only', 'main').split('\n'), ['README.md', `example/project/.published/${archive}.${revision.slice('sha256:'.length)}`, `${prefix}/${archive}`, `${prefix}/manifest.json`, legacy].sort());
+  assert.equal(git('-C', repository, 'show', `main:${legacy}`), '{"source":{"sha256":"legacy"}}');
   const retried = run(apply, { environment });
   assert.equal(retried.status, 0, retried.stderr);
   assert.match(retried.stdout, /already published/);
@@ -579,6 +655,15 @@ esac`
   const [newRevision] = JSON.parse(readFileSync(join(cwd, 'changed', 'manifest.json'), 'utf8')).sessions;
   assert.equal(newRevision.archive, archive);
   assert.notEqual(newRevision.revision, revision);
+  const scheduled = [...stage.slice(0, -5), '--publish-private', 'example/destination'];
+  assert.match(run(scheduled, { environment: { ...environment, DESTINATION_VISIBILITY: 'public' } }).stderr, /requires a private destination/);
+  assert.equal(git('-C', repository, 'rev-parse', 'main'), head);
+  const automatic = run(scheduled, { environment });
+  assert.equal(automatic.status, 0, automatic.stderr);
+  const automaticHead = git('-C', repository, 'rev-parse', 'main');
+  assert.equal(git('-C', repository, 'rev-parse', `${automaticHead}^`), head);
+  assert.match(run(scheduled, { environment }).stdout, /Staged 0 session/);
+  assert.equal(git('-C', repository, 'rev-parse', 'main'), automaticHead);
 });
 
 test('MTProxy MSS unit uses the original published port after destination NAT', { timeout: 10000 }, t => {

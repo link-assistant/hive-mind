@@ -70,6 +70,8 @@ Use `claude auth status`, `codex login status` and `gh auth status --hostname gi
 
 If Codex device code login is unavailable, its native fallbacks are browser login with a forwarded callback on a plain SSH host, or local browser login followed by copying the resulting credential cache to the target account's private Codex directory. In a container with the documented mounts, that cache belongs in `$state/codex`, readable by `box`. [Codex sign-in fallbacks](https://learn.chatgpt.com/docs/auth?surface=cli#login-on-headless-devices)
 
+For existing named Claude profiles, use `claude-profiles --help` to see its profile migration commands. Run `gh-setup-git-identity` directly if you also need to configure GitHub SSH keys.
+
 ## Start the bot, update or roll back
 
 Put the bot token and settings in a private `telegram.env` file. To use an existing LINO configuration instead, replace the `bot` array with `(--mount "type=bind,source=$PWD/telegram-manager.lino,target=/home/box/telegram-manager.lino,readonly" --env HIVE_MIND_CONFIGURATION_FILE=/home/box/telegram-manager.lino)`. Make it readable by `box`. See [Telegram configuration](../CONFIGURATION.md).

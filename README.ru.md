@@ -632,7 +632,7 @@ Shows:
 - Приватная `/auth` отключена, если `TELEGRAM_ALLOWED_CHATS` не задан, и
   доступна только владельцам перечисленных чатов
 - Команды выполняются от имени системного пользователя, запустившего бота
-- Убедитесь в наличии надлежащей аутентификации (`gh auth login`, `claude-profiles`)
+- Настройте учётные данные используемых провайдеров для пользователя, от имени которого работает бот. [Вход без интерфейса агента](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 Лучшие практики
 
@@ -863,8 +863,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **Аутентификация:**
 
-- `gh auth login` — аутентификация через GitHub CLI
-- `claude-profiles` — миграция профиля аутентификации Claude на сервер
+Выполните `hive-manager auth github`, `hive-manager auth claude` или `hive-manager auth codex` от имени пользователя Hive Mind. [Удалённый вход и ручные команды](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **Интеграция с OpenRouter:**
 

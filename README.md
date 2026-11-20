@@ -668,7 +668,7 @@ When enabled with `--auto-start-screen-watch-message`, the bot automatically sta
 - Private `/auth` is disabled unless `TELEGRAM_ALLOWED_CHATS` is set and only
   owners of listed chats can use it
 - Commands run as the system user running the bot
-- Ensure proper authentication (`gh auth login`, `claude-profiles`)
+- Set up the bot user's credentials for its enabled providers. [Headless sign-in](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 Best Practices
 
@@ -898,8 +898,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **Authentication:**
 
-- `gh auth login` - GitHub CLI authentication
-- `claude-profiles` - Claude authentication profile migration to server
+Sign in with `hive-manager auth github`, `hive-manager auth claude`, or `hive-manager auth codex` as the account that runs Hive Mind. [Remote sign-in and manual commands](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter Integration:**
 

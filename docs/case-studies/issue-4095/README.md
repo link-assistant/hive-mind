@@ -67,6 +67,7 @@ node --test tests/hive-manager-4095.test.mjs tests/hive-manager-auth-4095.test.m
 node tests/test-docker-release-order.mjs
 node tests/test-docs-language-sync.mjs
 bash experiments/issue-4095/docker-lifecycle.sh
+bash experiments/issue-4095/coolify-compose.sh
 bash experiments/issue-4095/ssh-jumps.sh
 bash experiments/issue-4095/task-record-repair.sh
 node experiments/issue-4095/browser-diagnostics.mjs
@@ -78,3 +79,5 @@ The Docker experiment verifies that a failed task file remains readable from its
 Run `installed-maintenance.sh` on stdin of a disposable Linux container with `--init --network none` and the packed `hive-manager` command and Node.js on `PATH`. It checks root CLI startup and writes and verifies a fresh Claude settings file. An orphaned process fixture verifies that the terminal exposes the approval digest, an incorrect approval preserves the process, and the reviewed digest lets the manager signal it.
 
 The native auth experiment needs the provider CLIs, the bundled Git identity helper and Internet access. It stops after each browser challenge and discards the temporary configuration directories. The regression test checks the protocol handoff without an account and confirms that provider status errors propagate to the caller.
+
+The Coolify Compose experiment renders the deployment using Docker Compose through the manager. It checks that the monitor URL reaches the service, the repository root is the build context, and the existing credential mounts remain under the Coolify directory.

@@ -606,7 +606,7 @@ Shows:
 - 可通过 `TELEGRAM_ALLOWED_CHATS` 配置可选的聊天 ID 限制
 - 如果未设置 `TELEGRAM_ALLOWED_CHATS`，私聊 `/auth` 会被禁用，且只有所列聊天的所有者可以使用
 - 命令以运行机器人的系统用户身份执行
-- 请确保已完成正确的身份验证（`gh auth login`、`claude-profiles`）
+- 请以运行机器人的用户身份登录所启用的服务。[无界面登录](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 最佳实践
 
@@ -831,8 +831,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **身份验证：**
 
-- `gh auth login` - GitHub CLI 身份验证
-- `claude-profiles` - 将 Claude 身份验证配置文件迁移到服务器
+请以运行 Hive Mind 的用户身份执行 `hive-manager auth github`、`hive-manager auth claude` 或 `hive-manager auth codex`。[远程登录和手动命令](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter 集成：**
 

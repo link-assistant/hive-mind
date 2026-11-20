@@ -42,21 +42,24 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
    su - box
    ```
 
-5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
+5. Sign in as the user that runs Hive Mind. Open the GitHub device page in your browser and enter the code shown in the terminal.
 
    ```bash
-   gh-setup-git-identity
+   hive-manager auth github
    ```
 
-   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
-
-6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
+6. Sign in to Claude Code. Paste the browser's authorization code into the running command.
 
    ```bash
-   claude
+   hive-manager auth claude
    ```
 
-   Note: Both opencode and agent come with a free model by default (Big Pickle for opencode, Nemotron 3 Super for agent) - so no authorization is required for these tools.
+   If the archived installation does not provide the manager, use the direct provider commands.
+
+   ```bash
+   env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key
+   claude auth login
+   ```
 
 7. Launch the Hive Mind telegram bot:
 

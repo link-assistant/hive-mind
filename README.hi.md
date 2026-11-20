@@ -631,7 +631,7 @@ sessions के लिए अपने आप एक अलग live terminal wat
 - private `/auth` तब disabled रहता है जब `TELEGRAM_ALLOWED_CHATS` set नहीं है,
   और इसे केवल listed chats के owners इस्तेमाल कर सकते हैं
 - बॉट चलाने वाले सिस्टम उपयोगकर्ता के रूप में कमांड चलते हैं
-- उचित प्रमाणीकरण सुनिश्चित करें (`gh auth login`, `claude-profiles`)
+- बॉट चलाने वाले उपयोगकर्ता के लिए उसके प्रदाताओं में साइन इन करें। [हेडलेस साइन-इन](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 सर्वोत्तम प्रथाएँ
 
@@ -857,8 +857,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **प्रमाणीकरण:**
 
-- `gh auth login` - GitHub CLI प्रमाणीकरण
-- `claude-profiles` - सर्वर पर Claude प्रमाणीकरण प्रोफ़ाइल माइग्रेशन
+Hive Mind चलाने वाले खाते से `hive-manager auth github`, `hive-manager auth claude`, या `hive-manager auth codex` चलाएँ। [रिमोट साइन-इन और मैनुअल कमांड](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter इंटीग्रेशन:**
 

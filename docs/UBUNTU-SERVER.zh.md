@@ -38,21 +38,24 @@
    su - box
    ```
 
-5. **重要**：安装完成后，使用 GitHub CLI 进行身份验证
+5. 以运行 Hive Mind 的用户身份登录 GitHub。在浏览器中打开 GitHub 设备验证页面，然后输入终端显示的代码。
 
    ```bash
-   gh-setup-git-identity
+   hive-manager auth github
    ```
 
-   注意：按照提示使用您的 GitHub 账户进行身份验证。这是 gh 工具正常工作所必需的，系统将使用此 GitHub 账户执行所有操作。此步骤必须在安装脚本完成后进行，以避免 Docker 环境中的构建超时。
-
-6. Claude Code CLI、OpenCode AI CLI 和 @link-assistant/agent 已通过前面的脚本预安装。现在您需要确保 claude 已授权。执行 claude 命令，并按照所有步骤授权本地 claude
+6. 登录 Claude Code。将浏览器显示的授权码粘贴到仍在运行的命令中。
 
    ```bash
-   claude
+   hive-manager auth claude
    ```
 
-   注意：opencode 和 agent 默认使用免费模型（opencode 使用 Big Pickle，agent 使用 Nemotron 3 Super）——因此这些工具无需授权。
+   如果旧安装脚本没有提供管理器，请直接运行服务商命令。
+
+   ```bash
+   env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key
+   claude auth login
+   ```
 
 7. 启动 Hive Mind Telegram 机器人：
 

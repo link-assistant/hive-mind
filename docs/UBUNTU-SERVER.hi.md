@@ -38,21 +38,24 @@
    su - box
    ```
 
-5. **महत्वपूर्ण:** Installation पूर्ण होने के AFTER GitHub CLI के साथ authenticate करें
+5. Hive Mind चलाने वाले उपयोगकर्ता से साइन इन करें। ब्राउज़र में GitHub का डिवाइस पेज खोलें और टर्मिनल में दिखाया गया कोड दर्ज करें।
 
    ```bash
-   gh-setup-git-identity
+   hive-manager auth github
    ```
 
-   नोट: अपने GitHub account के साथ authenticate करने के लिए prompts का पालन करें। यह gh tool के काम करने के लिए आवश्यक है, और सिस्टम इस GitHub account का उपयोग करके सभी actions करेगा। Docker वातावरण में build timeouts से बचने के लिए यह चरण installation script पूर्ण होने के बाद किया जाना चाहिए।
-
-6. Claude Code CLI, OpenCode AI CLI, और @link-assistant/agent पिछले script के साथ preinstalled हैं। अब आपको यह सुनिश्चित करना होगा कि claude authorized है। claude command execute करें, और local claude को authorize करने के लिए सभी चरणों का पालन करें
+6. Claude Code में साइन इन करें। ब्राउज़र का प्राधिकरण कोड चल रही कमांड में पेस्ट करें।
 
    ```bash
-   claude
+   hive-manager auth claude
    ```
 
-   नोट: opencode और agent दोनों default रूप से मुफ्त model के साथ आते हैं (opencode के लिए Big Pickle, agent के लिए Nemotron 3 Super) - इसलिए इन tools के लिए कोई authorization आवश्यक नहीं है।
+   यदि पुराने इंस्टॉलर ने मैनेजर नहीं दिया है, तो सीधे प्रदाता की कमांड चलाएँ।
+
+   ```bash
+   env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key
+   claude auth login
+   ```
 
 7. Hive Mind telegram bot launch करें:
 

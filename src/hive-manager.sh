@@ -122,6 +122,7 @@ maintenance_spec() {
     archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
+    task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -163,8 +164,8 @@ run_maintenance() {
   # The package provides the same entry points for standalone use and older images.
   local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
   [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
-  if [[ $action == task-report ]]; then
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks report "$@"
+  if [[ $action == task-* ]]; then
+    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks "${action#task-}" "$@"
   fi
   if [[ $bin == hive-manager ]]; then
     exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
@@ -176,7 +177,7 @@ task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
-    printf 'Inspect: list, status, attach, report\n'
+    printf 'Inspect: list, status, attach, report, check-uploads\n'
     printf 'Manage: resume, resume-all, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, upload-log\n'
     return
@@ -910,7 +911,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
-      if [[ ${1-} == report ]]; then require docker; inside hive-manager tasks "$@"; fi
+      if [[ ${1-} == report || ${1-} == check-uploads ]]; then require docker; inside hive-manager tasks "$@"; fi
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -948,7 +949,7 @@ main() {
     deploy) shift; deploy "$@" ;;
     tasks)
       shift
-      if [[ ${1-} == report ]]; then run_maintenance task-report "${@:2}"; fi
+      if [[ ${1-} == report || ${1-} == check-uploads ]]; then run_maintenance "task-$1" "${@:2}"; fi
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;

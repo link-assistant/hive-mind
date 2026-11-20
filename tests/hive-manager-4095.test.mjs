@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { classifyUpload } from '../src/hive-manager-task-check-uploads.mjs';
 
 const script = fileURLToPath(new URL('../src/hive-manager.sh', import.meta.url));
 const source = readFileSync(script, 'utf8');
@@ -135,6 +136,8 @@ test('task inspection and recovery preserve start-command arguments locally and 
   assert.equal(cleanup.stdout, '<--cleanup-dry-run>\n<task-id>\n');
   const report = run(['deploy', 'tasks', 'report']);
   assert.equal(report.stdout, '<exec>\n<--user>\n<box>\n<-i>\n<hive-mind>\n<hive-manager>\n<tasks>\n<report>\n');
+  const uploads = run(['deploy', 'tasks', 'check-uploads', '--minutes', '45']);
+  assert.equal(uploads.stdout, '<exec>\n<--user>\n<box>\n<-i>\n<hive-mind>\n<hive-manager>\n<tasks>\n<check-uploads>\n<--minutes>\n<45>\n');
 });
 
 test('task report counts states and keeps command lines and paths out of its output', { timeout: 10000 }, t => {
@@ -160,6 +163,30 @@ RECORDS`
     counts: { running: 1, paused: 1, succeeded: 1, failed: 2, unknown: 1 },
     failures: [{ id: 'first', exitCode: 137, finishedAt: null, memoryExhausted: true, reason: 'out-of-memory' }],
   });
+});
+
+test('upload diagnostics distinguish CPU stalls from progress and guard termination', { timeout: 10000 }, t => {
+  const { run } = fixture(t);
+  const baseline = { pid: 100, command: 'gh-upload-log', started: 10000, ticks: 200, io: { read: 20n, written: 30n } };
+  const observation = { ...baseline, ticks: 390 };
+  const thresholds = { ticksPerSecond: 100, seconds: 2, uptime: 1900, minutes: 30, percent: 80 };
+  assert.deepEqual(classifyUpload(baseline, observation, thresholds), { pid: 100, command: 'gh-upload-log', ageSeconds: 1800, cpuPercent: 95, ioProgress: false, stalled: true });
+  for (const ongoing of [
+    { ...observation, io: { read: 21n, written: 30n } },
+    { ...observation, io: null },
+    { ...observation, ticks: 250 },
+  ]) {
+    assert.equal(classifyUpload(baseline, ongoing, thresholds).stalled, false);
+  }
+  assert.equal(classifyUpload(baseline, observation, { ...thresholds, uptime: 1000 }).stalled, false);
+  assert.equal(classifyUpload(baseline, { ...observation, started: 10001 }, thresholds), null);
+  assert.match(run(['tasks', 'check-uploads', '--help']).stdout, /Inspect same-user Linux log upload processes/);
+  if (process.platform === 'linux') {
+    const unrelated = run(['tasks', 'check-uploads', '--terminate', String(process.pid)]);
+    assert.equal(unrelated.status, 1);
+    assert.match(unrelated.stderr, /was not confirmed stalled/);
+    assert.deepEqual(JSON.parse(unrelated.stdout), { uploads: [], terminated: null });
+  }
 });
 
 test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {

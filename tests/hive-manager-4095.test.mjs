@@ -439,6 +439,22 @@ test('standalone dispatches maintenance through an available bin and preserves e
   assert.equal(result.stdout, '<--tool>\n<formal-ai>\n<--json>\n');
 });
 
+test('installed maintenance starts without downloading a dependency loader', t => {
+  const { cwd, executable, run } = fixture(t);
+  const preload = join(cwd, 'reject-network.mjs');
+  writeFileSync(preload, `globalThis.fetch = async () => { throw new Error('Unexpected network request during local maintenance'); };\n`);
+  const environment = { NODE_OPTIONS: `--import=${preload}`, HIVE_MIND_NO_SENTRY: 'true' };
+  executable('$', `printf '%s\\n' '{"executions":[]}'`);
+  const report = run(['tasks', 'report'], { environment });
+  assert.equal(report.status, 0, report.stderr);
+  assert.deepEqual(JSON.parse(report.stdout).failures, []);
+  for (const args of [['tasks', 'check-browser'], ['tasks', 'recover-failed'], ['configure-claude'], ['screens']]) {
+    const help = run([...args, '--help'], { environment });
+    assert.equal(help.status, 0, help.stderr);
+    assert.match(help.stdout, /Usage:/i);
+  }
+});
+
 test('task inspection and recovery preserve start-command arguments locally and in the instance', { timeout: 10000 }, t => {
   const { run, executable } = fixture(t);
   executable('$', 'printf "<%s>\\n" "$@"');

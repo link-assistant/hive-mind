@@ -49,7 +49,7 @@ class FakeTelegram {
     }
     if (method === 'getMe') return { id: 1, is_bot: true, username: 'hive_test_bot', first_name: 'Hive' };
     if (method === 'getChatMember') return { status: process.env.HIVE_HARNESS_MEMBER_STATUS || 'member', user: { id: payload.user_id } };
-    if (method === 'getChatAdministrators') return [];
+    if (method === 'getChatAdministrators') return JSON.parse(process.env.HIVE_HARNESS_ADMINISTRATORS || '{}')[payload.chat_id] || [];
     if (method === 'getWebhookInfo') return { url: '' };
     return true;
   }

@@ -301,6 +301,18 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Before "Ready to merge", check merge-order prerequisites declared in the PR description or session summary ("Depends on #12", "merge the companion PR first") and post "Ready for review — blocked by …" while they are unmet (default: true)',
     default: true,
   },
+  // Issue #4081: review apps (Codex connector, CodeRabbit, …) review the PR
+  // minutes after it is marked ready or pushed; their findings are feedback.
+  'review-bots': {
+    type: 'string',
+    description: 'Comma-separated logins of automated PR review apps whose findings count as feedback and are waited for before "Ready to merge" ("default" = chatgpt-codex-connector[bot], coderabbitai[bot], copilot-pull-request-reviewer[bot], gemini-code-assist[bot], sourcery-ai[bot], qodo-merge-pro[bot], cursor[bot], greptile-apps[bot]; "default,my-reviewer[bot]" adds one; "none" disables). CI and deploy bots stay ignored',
+    default: 'default',
+  },
+  'review-bots-wait-minutes': {
+    type: 'number',
+    description: 'In --auto-restart-until-mergeable/--auto-merge, maximum minutes to wait for a review app that is still reviewing the head commit before posting "Ready to merge" or merging; the AI prompt asks it to wait as long (default: 15, 0 = do not wait)',
+    default: 15,
+  },
   'resume-on-auto-restart': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Resume the previous Claude session on uncommitted-change auto-restart and send only a minimal restart prompt. Disabled by default.',

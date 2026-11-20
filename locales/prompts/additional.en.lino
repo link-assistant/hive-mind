@@ -71,6 +71,11 @@ en
           outdated " (outdated: the code moved since, check whether the finding still applies)"
           more "  - ...and {{count}} more unresolved thread(s) on the pull request."
           instruction "Address every unresolved review thread. After the fix is pushed and verified, reply in the thread with what changed (commit SHA), then resolve the thread: {{command}} (replace THREAD_ID with the thread id above). A reply alone does not resolve a thread, and unresolved threads keep the pull request from being reported as ready to merge. If a finding is wrong or out of scope, reply with the reason and leave that thread unresolved for the reviewer."
+      review-bots
+        feedback
+          header "🤖 Review apps report unresolved findings for the head commit of the pull request: {{count}} summary(ies):"
+          item "  - {{login}}: \"{{excerpt}}\" ({{url}})"
+          instruction "Read each summary in full (its inline findings are listed as review threads), then address every finding: fix it, or reply with evidence why it does not apply. Push the fixes, so the review app reviews the new head commit, and wait for that review before finishing."
       git-hooks-preflight
         warning
           header "⚠️ Git hooks in this repository cannot run in this environment:"

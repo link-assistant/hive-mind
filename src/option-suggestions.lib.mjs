@@ -236,6 +236,8 @@ const KNOWN_OPTION_NAMES = [
   'auto-restart-until-mergeable-review-window-minutes',
   'auto-restart-on-unresolved-review-threads',
   'check-merge-prerequisites',
+  'review-bots',
+  'review-bots-wait-minutes',
   'auto-resume-max-iterations',
   'auto-continue-only-on-new-comments',
   'auto-restart-on-limit-reset',

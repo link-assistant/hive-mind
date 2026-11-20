@@ -8,25 +8,16 @@
 
 ### 选项 1：使用 Docker Hub 上的预构建镜像（推荐）
 
+参阅 [Hive Mind Manager](./deployment/hive-manager.md) 了解部署与软件包或独立安装方式。请在自己的浏览器中完成服务提供商的提示。直接使用 CLI 的方法请参阅[手动 Docker 和登录命令](./deployment/hive-manager-manual.md)。
+
 ```bash
-# 拉取最新镜像
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# 运行交互式会话
-docker run -it konard/hive-mind:latest
-
-# 重要：身份验证在 Docker 镜像安装完成后进行
-# 安装脚本不会运行 gh auth login 以避免构建超时
-# 这允许 Docker 构建成功完成，无需交互式提示
-
-# 在容器内，使用 GitHub 进行身份验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# 使用 Claude 进行身份验证
-claude
-
-# 现在您可以使用 hive 和 solve 命令
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 在普通镜像中运行 `hive-telegram-bot --isolation docker` 时，请在宿主机启动 Docker，并为机器人容器添加 `-v /var/run/docker.sock:/var/run/docker.sock`。运行机器人的用户须有权访问该套接字。请以该用户的身份在容器内运行 `docker version`，确认输出中有 Server 部分。若要使用嵌套 daemon，请使用 `konard/hive-mind-dind` 镜像的默认入口点，并将 `hive-telegram-bot --isolation docker` 作为容器命令传入。
@@ -266,38 +257,15 @@ docker run --rm -it \
 
 ## 身份验证
 
-生产 Docker 镜像（`Dockerfile`）使用 Ubuntu 24.04 和官方安装脚本。**重要**：身份验证在 Docker 镜像完全安装并运行后，**在容器内部**执行。
-
-**为什么身份验证在安装后进行：**
-
-- ✅ 避免因交互式提示导致 Docker 构建超时
-- ✅ 防止 CI/CD 流水线中的构建失败
-- ✅ 允许安装脚本成功完成
-- ✅ 支持自动化 Docker 镜像构建
-
-### GitHub 身份验证
+先启动实例，再进行登录。每条命令使用该实例的持久化状态。在浏览器中打开显示的链接。将 Claude 授权码粘贴回命令，在浏览器中输入其他服务显示的设备代码。
 
 ```bash
-# 在容器内，容器运行后执行
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**注意**：安装脚本故意不在构建过程中调用 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。
-
-### Claude 身份验证
-
-```bash
-# 在容器内，容器运行后执行
-claude
-```
-
-此方法允许：
-
-- ✅ 多个 Docker 实例使用不同的 GitHub 账户
-- ✅ 多个 Docker 实例使用不同的 Claude 订阅
-- ✅ 容器之间不泄露凭据
-- ✅ 每个容器拥有独立的身份验证
-- ✅ 无需交互式身份验证即可成功构建 Docker 镜像
+有关 SSH、配置文件或手动登录，请参阅[登录指南](deployment/hive-manager.md#headless-sign-in)和[手动命令](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)。
 
 ## Docker 中的 Playwright MCP 状态
 
@@ -430,21 +398,14 @@ docker-compose run --rm hive-mind
 
 ## 故障排除
 
-### GitHub 身份验证问题
+### 登录问题
+
+检查所选实例的登录状态，并在需要时重新运行相应的登录命令。
 
 ```bash
-# 在容器内，检查身份验证状态
-gh auth status
-
-# 如需重新验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude 身份验证问题
-
-```bash
-# 在容器内，重新运行 Claude 进行身份验证
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker 问题

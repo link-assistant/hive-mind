@@ -1,4 +1,4 @@
-# 模型：实时目录、`/models` 与 `hive-models` (languages: [en](MODELS.md) • zh • [hi](MODELS.hi.md) • [ru](MODELS.ru.md))
+# 模型：实时目录、`/models` 与 `hive-manager models` (languages: [en](MODELS.md) • zh • [hi](MODELS.hi.md) • [ru](MODELS.ru.md))
 
 如果 Hive Mind 只认识发布时随附的那份清单，供应商今早刚发布的模型对你毫无用处。
 本页说明 Hive Mind 如何得知**此刻**存在哪些模型、如何查询它们，以及整套机制所围绕
@@ -13,16 +13,16 @@
 
 ```bash
 # 所有工具，使用缓存结果。
-hive-models
+hive-manager models
 
 # 只看 Codex。
-hive-models --tool codex
+hive-manager models --tool codex
 
 # Claude，显示上下文窗口、价格与来源，并忽略缓存。
-hive-models --tool claude --details --refresh
+hive-manager models --tool claude --details --refresh
 
 # 机器可读输出。
-hive-models --json | jq '.tools.claude.liveOnly'
+hive-manager models --json | jq '.tools.claude.liveOnly'
 ```
 
 在 Telegram 中，同样的列表是 `/models`，并以宽容的形式接受相同参数——
@@ -131,7 +131,7 @@ Issue #2202 把这条写成硬性约束：_“模型提取绝不应触发任何�
 
 过时的 `claude` 或 `codex` 二进制文件，通常正是全新模型名被拒绝的原因，因此驱动
 它们的命令会先检查是否有新版本：`/solve`、`/hive`、`/task`、`/fix`（通过它启动的
-`/solve` 子进程）、`hive-models` 与 `/models`。
+`/solve` 子进程）、`hive-manager models` 与 `/models`。
 
 这项检查刻意保守：
 

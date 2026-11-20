@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { resolveClaudeSettingsPath } from './claude-quiet-config.lib.mjs';
 import { mergeRepositoryMcpServers, readRepositoryMcpServers } from './claude-repository-config.lib.mjs';
 // Useless Claude Code tools and MCP servers for autonomous headless workflows.
@@ -18,13 +20,6 @@ import { mergeRepositoryMcpServers, readRepositoryMcpServers } from './claude-re
 // Docker image baseline and the `solve` runtime use to disable them.
 //
 // Related issue: https://github.com/link-assistant/hive-mind/issues/1627
-
-if (typeof globalThis.use === 'undefined') {
-  await ensureUseM();
-}
-const fs = (await use('fs')).promises;
-const os = await use('os');
-const path = (await use('path')).default;
 
 /**
  * Built-in Claude Code tools that have no value (and may be harmful) in

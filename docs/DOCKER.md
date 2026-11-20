@@ -6,47 +6,16 @@ This document explains how to run Hive Mind in Docker containers.
 
 ### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
+Use [Hive Mind Manager](./deployment/hive-manager.md) for deployment and package-based or standalone installation. Complete the provider prompts in your own browser. See the [manual Docker and login commands](./deployment/hive-manager-manual.md) for direct CLI alternatives.
+
 ```bash
-# Pull the latest image
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# Create persistent host directories used by the current Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
-touch -a /root/.hive-mind/claude.json
-
-# Run the container in detached mode with the same mounts we use locally
-docker run -dit --user box --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
-
-# Open a shell in the running container
-docker exec -it hive-mind bash
-
-# Inside the container, authenticate with GitHub
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Authenticate with Claude
-claude
-
-# Install or update Codex CLI
-bun install -g @openai/codex@latest
-
-# Log in to Codex using the current device auth flow
-codex login --device-auth
-
-# Verify Codex after login succeeds with "Successfully logged in"
-codex exec --model gpt-5.4-mini "hi"
-
-# Verify Playwright MCP registration in both CLIs
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-
-# Exit the shell when setup is complete
-exit
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 For `hive-telegram-bot --isolation docker` in the plain image, start Docker on the
@@ -414,65 +383,15 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) extends the pinned full `ghcr.io/link-foundation/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
-
-**Why Authentication Happens After Installation:**
-
-- ✅ Avoids Docker build timeouts caused by interactive prompts
-- ✅ Prevents build failures in CI/CD pipelines
-- ✅ Allows the installation script to complete successfully
-- ✅ Supports automated Docker image builds
-
-### GitHub Authentication
+Start the instance before signing in. Each command uses that instance’s persistent state. Open the displayed URL in your browser. Paste Claude’s authorization code back into the command and enter the other providers’ displayed codes in your browser.
 
 ```bash
-# Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
-
-### Claude Authentication
-
-```bash
-# Inside the container, AFTER it's running
-claude
-```
-
-### Codex Authentication
-
-Install or update Codex CLI inside the running container:
-
-```bash
-bun install -g @openai/codex@latest
-```
-
-Log in with the device auth flow we currently use:
-
-```bash
-codex login --device-auth
-```
-
-The command should finish with:
-
-```text
-Successfully logged in
-```
-
-Then run the current smoke test:
-
-```bash
-codex exec --model gpt-5.4-mini "hi"
-```
-
-This approach allows:
-
-- ✅ Multiple Docker instances with different GitHub accounts
-- ✅ Multiple Docker instances with different Claude subscriptions
-- ✅ Persistent Codex authentication and session data when `/home/box/.codex` is mounted
-- ✅ No credential leakage between containers
-- ✅ Each container has its own isolated authentication
-- ✅ Successful Docker builds without interactive authentication
+For SSH, profiles, or login without the manager, see the [sign-in guide](deployment/hive-manager.md#headless-sign-in) and the [manual commands](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container).
 
 ## Router isolation (experimental)
 
@@ -670,21 +589,14 @@ docker-compose run --rm hive-mind
 
 ## Troubleshooting
 
-### GitHub Authentication Issues
+### Provider sign-in issues
+
+Check the selected instance’s sign-in status and repeat the corresponding sign-in command if needed.
 
 ```bash
-# Inside the container, check authentication status
-gh auth status
-
-# Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude Authentication Issues
-
-```bash
-# Inside the container, re-run Claude to authenticate
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker Issues

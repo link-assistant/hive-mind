@@ -8,25 +8,16 @@
 
 ### विकल्प 1: Docker Hub से पूर्व-निर्मित Image का उपयोग करना (अनुशंसित)
 
+डिप्लॉयमेंट और पैकेज या स्टैंडअलोन इंस्टॉलेशन के लिए [Hive Mind Manager](./deployment/hive-manager.md) देखें। अपने ब्राउज़र में प्रदाता के निर्देश पूरे करें। CLI विकल्पों के लिए [मैन्युअल Docker और लॉगिन कमांड](./deployment/hive-manager-manual.md) देखें।
+
 ```bash
-# नवीनतम image pull करें
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# एक interactive session चलाएं
-docker run -it konard/hive-mind:latest
-
-# महत्वपूर्ण: Authentication Docker image install होने के बाद की जाती है
-# Installation script gh auth login नहीं चलाता ताकि build timeouts से बचा जा सके
-# यह Docker build को interactive prompts के बिना सफलतापूर्वक पूर्ण करने की अनुमति देता है
-
-# Container के अंदर, GitHub के साथ authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Claude के साथ authenticate करें
-claude
-
-# अब आप hive और solve commands का उपयोग कर सकते हैं
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 साधारण image में `hive-telegram-bot --isolation docker` चलाने के लिए होस्ट पर Docker शुरू करें और bot container में `-v /var/run/docker.sock:/var/run/docker.sock` जोड़ें। Bot चलाने वाले उपयोगकर्ता को socket तक पहुँच चाहिए। Container के अंदर उसी उपयोगकर्ता के रूप में `docker version` चलाएँ और पुष्टि करें कि आउटपुट में Server अनुभाग है। Nested daemon के लिए `konard/hive-mind-dind` image का डिफ़ॉल्ट entrypoint रखें और container command के रूप में `hive-telegram-bot --isolation docker` दें।
@@ -276,38 +267,15 @@ docker run --rm -it \
 
 ## Authentication
 
-Production Docker image (`Dockerfile`) Ubuntu 24.04 और आधिकारिक installation script का उपयोग करता है। **महत्वपूर्ण:** Authentication Docker image पूरी तरह install और चलने के **बाद container के अंदर** की जाती है।
-
-**Authentication Installation के बाद क्यों होती है:**
-
-- ✅ Interactive prompts के कारण Docker build timeouts से बचाता है
-- ✅ CI/CD pipelines में build failures को रोकता है
-- ✅ Installation script को सफलतापूर्वक पूर्ण होने की अनुमति देता है
-- ✅ स्वचालित Docker image builds का समर्थन करता है
-
-### GitHub Authentication
+साइन इन करने से पहले इंस्टेंस शुरू करें। हर कमांड उस इंस्टेंस की स्थायी स्टेट का उपयोग करती है। दिखाया गया URL अपने ब्राउज़र में खोलें। Claude का प्राधिकरण कोड कमांड में पेस्ट करें और अन्य प्रदाताओं के दिखाए गए कोड ब्राउज़र में दर्ज करें।
 
 ```bash
-# Container के अंदर, AFTER चलने के बाद
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**नोट:** Installation script जानबूझकर build प्रक्रिया के दौरान `gh auth login` नहीं चलाता। यह timeouts के बिना Docker builds का समर्थन करने के लिए डिज़ाइन द्वारा है।
-
-### Claude Authentication
-
-```bash
-# Container के अंदर, AFTER चलने के बाद
-claude
-```
-
-यह दृष्टिकोण अनुमति देता है:
-
-- ✅ विभिन्न GitHub accounts के साथ कई Docker instances
-- ✅ विभिन्न Claude subscriptions के साथ कई Docker instances
-- ✅ Containers के बीच कोई credential leakage नहीं
-- ✅ प्रत्येक container की अपनी अलग-थलग authentication है
-- ✅ Interactive authentication के बिना सफल Docker builds
+SSH, प्रोफ़ाइल या मैनेजर के बिना लॉगिन के लिए [साइन-इन गाइड](deployment/hive-manager.md#headless-sign-in) और [मैनुअल कमांड](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container) देखें।
 
 ## राउटर आइसोलेशन (प्रयोगात्मक)
 
@@ -450,21 +418,14 @@ docker-compose run --rm hive-mind
 
 ## समस्या निवारण
 
-### GitHub Authentication समस्याएं
+### साइन-इन की समस्याएं
+
+चुने गए इंस्टेंस की साइन-इन स्थिति जाँचें और ज़रूरत होने पर संबंधित साइन-इन कमांड फिर से चलाएँ।
 
 ```bash
-# Container के अंदर, authentication स्थिति जांचें
-gh auth status
-
-# यदि आवश्यक हो तो फिर से authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude Authentication समस्याएं
-
-```bash
-# Container के अंदर, authenticate करने के लिए Claude फिर से चलाएं
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker समस्याएं

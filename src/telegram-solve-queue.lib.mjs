@@ -235,6 +235,7 @@ export class SolveQueue {
     item.setWaiting(options.waitingReason || null);
     item.dependencyMode = mode;
     this.dependencies.add(item, { targets, mode });
+    this.log(`Waiting for dependencies: ${item.toString()} to ${item.tool} queue`);
     this.stats.totalEnqueued++;
     this.stats.totalWaitedForTasks = (this.stats.totalWaitedForTasks || 0) + 1;
     this.dependencies.start();

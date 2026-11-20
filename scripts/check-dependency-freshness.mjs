@@ -37,11 +37,11 @@ const refreshedLockfile = async () => {
 };
 
 const records = await collectDependencyRecords();
+const minimumNodeByPackage = new Map(records.filter(record => record.minimumNode).map(record => [record.name, record.minimumNode]));
 const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
-const nodeMinimums = new Map(records.filter(record => record.nodeMinimum).map(record => [record.name, record.nodeMinimum]));
 for (const [name, entry] of Object.entries(outdated)) {
   const current = entry.current || lock.packages?.[`node_modules/${name}`]?.version;
-  if (!current || current !== entry.latest) records.push({ kind: 'npm', name, current: current || 'missing', policy: 'exact', location: `package-lock.json#${name}`, nodeMinimum: nodeMinimums.get(name) });
+  if (!current || current !== entry.latest) records.push({ kind: 'npm', name, current: current || 'missing', policy: 'exact', location: `package-lock.json#${name}`, minimumNode: minimumNodeByPackage.get(name) });
 }
 // An exception may not link an issue this pull request closes (issue #4025).
 const pullRequestBody = process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH) ? JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request?.body : undefined;
@@ -51,6 +51,9 @@ const lockfileLag = lockfileLagRecords(lock, await refreshedLockfile());
 result.stale.push(...lockfileLag);
 
 console.log(`Dependency freshness: ${result.current.length}/${records.length} declarations current, ${lockfileLag.length} lockfile entries behind their allowed range`);
+for (const record of result.current) {
+  if (record.minimumNode && record.location.startsWith('package.json#')) console.log(`NODE COMPATIBILITY ${record.location}: ${record.name} ${record.latest} supports Node ${record.minimumNode}`);
+}
 for (const record of result.exceptions) console.log(`EXCEPTION ${record.location}: ${record.name}: ${record.exception}`);
 const report = formatFreshnessReport({ stale: result.stale, errors: result.errors, mode: freshnessEnforcement(process.env.GITHUB_EVENT_NAME) });
 for (const line of report.lines) (report.exitCode ? console.error : console.log)(line);

@@ -32,7 +32,8 @@ test('another npm hoisting the same versions differently is not staleness', () =
   assert.deepEqual(lockfileLagRecords(before, after), []);
 });
 
-test('npm runtime pins track the newest release that supports the declared Node floor', async () => {
+test('the sanitizer manifest and lockfile use the Node floor without changing Docker pins', async () => {
+  const name = '@link-foundation/sensitive-data-sanitizer';
   const releases = {
     '1.0.0': { version: '1.0.0' },
     '1.1.0': { version: '1.1.0', engines: { node: '>=24.0.0' } },
@@ -42,15 +43,15 @@ test('npm runtime pins track the newest release that supports the declared Node 
   const fetchImpl = async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? releases['2.0.0'] : { versions: releases }) });
   const resolvedVersions = await checkDependencyRecords(
     [
-      { kind: 'npm', name: 'runtime', current: '^1.0.0', location: 'package.json#dependencies', nodeMinimum: '24.0.0' },
-      { kind: 'npm', name: 'runtime', current: '1.1.0', location: 'package-lock.json#runtime', nodeMinimum: '24.0.0' },
-      { kind: 'npm', name: 'runtime', current: '1.1.0', location: 'Dockerfile:1' },
+      { kind: 'npm', name, current: '^1.0.0', location: 'package.json#dependencies', minimumNode: '24.0.0' },
+      { kind: 'npm', name, current: '1.1.0', location: `package-lock.json#${name}`, minimumNode: '24.0.0' },
+      { kind: 'npm', name, current: '1.1.0', location: 'Dockerfile:1' },
     ],
-    { resolveNpmLatest: (name, record) => resolveNpmLatest(name, { ...record, fetchImpl }) }
+    { resolveNpmLatest: (packageName, record) => resolveNpmLatest(packageName, record, { fetchImpl }) }
   );
   assert.deepEqual(
     resolvedVersions.current.map(({ location, latest }) => [location, latest]),
-    [['package-lock.json#runtime', '1.1.0']]
+    [[`package-lock.json#${name}`, '1.1.0']]
   );
   assert.deepEqual(
     resolvedVersions.stale.map(({ location, latest }) => [location, latest]),

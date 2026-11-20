@@ -38,7 +38,7 @@ const parseVersion = value => {
 
 const compareParsedVersions = (left, right) => left.major - right.major || left.minor - right.minor || left.patch - right.patch || (left.prerelease ? (right.prerelease ? left.prerelease.localeCompare(right.prerelease) : -1) : right.prerelease ? 1 : 0);
 
-const minimumNodeVersion = range => String(range ?? '').match(/^>=\s*(\d+\.\d+\.\d+)$/)?.[1];
+const minimumNodeVersion = range => /^>=\s*(\d+\.\d+\.\d+)$/.exec(range)?.[1];
 
 /** Compare a declaration at the precision promised by its update mechanism. */
 export const assessVersionPin = ({ current, latest, policy = 'exact' }) => {
@@ -241,9 +241,16 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   const records = [];
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
   for (const section of ['dependencies', 'devDependencies']) {
-    const nodeMinimum = section === 'dependencies' ? minimumNodeVersion(manifest.engines?.node) : undefined;
     for (const [name, current] of Object.entries(manifest[section] ?? {})) {
-      if (parseVersion(current)) records.push({ kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}`, ...(nodeMinimum ? { nodeMinimum } : {}) });
+      if (!parseVersion(current)) continue;
+      const record = { kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}` };
+      // The sanitizer is loaded in the shipped Node application. Its 2.x
+      // release raised the minimum runtime above the one we support.
+      if (name === '@link-foundation/sensitive-data-sanitizer') {
+        record.minimumNode = minimumNodeVersion(manifest.engines?.node);
+        if (!record.minimumNode) throw new Error(`Cannot determine the minimum supported Node version from ${manifest.engines?.node}`);
+      }
+      records.push(record);
     }
   }
 
@@ -322,9 +329,9 @@ export const lockfileLagRecords = (before, after) => {
   return records.sort((a, b) => a.name.localeCompare(b.name));
 };
 
-const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN, accept } = {}) => {
+const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN } = {}) => {
   const isGitHub = url.startsWith('https://api.github.com/');
-  const headers = { accept: accept ?? (isGitHub ? 'application/vnd.github+json' : 'application/json'), 'user-agent': 'hive-mind-dependency-freshness' };
+  const headers = { accept: isGitHub ? 'application/vnd.github+json' : 'application/json', 'user-agent': 'hive-mind-dependency-freshness' };
   if (isGitHub && token) headers.authorization = `Bearer ${token}`;
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -340,24 +347,30 @@ const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.en
   throw new Error(`${url}: ${lastError?.message ?? lastError}`);
 };
 
-export const resolveNpmLatest = async (name, options = {}) => {
-  const registryUrl = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
-  const metadata = await fetchJson(`${registryUrl}/latest`, options);
+export const resolveNpmLatest = async (name, { minimumNode } = {}, options = {}) => {
+  const url = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
+  const metadata = await fetchJson(`${url}/latest`, options);
   if (!parseVersion(metadata?.version)) throw new Error(`npm returned no semantic latest version for ${name}`);
-  // Keep the latest-release requirement unless a simple minimum in the release
-  // metadata proves the release cannot run on Hive Mind's oldest supported Node.
-  const supportedNode = parseVersion(options.nodeMinimum);
-  const isEligible = release => {
-    const requiredNode = parseVersion(minimumNodeVersion(release.engines?.node));
-    return !requiredNode || compareParsedVersions(requiredNode, supportedNode) <= 0;
+  if (!minimumNode) return metadata.version;
+
+  const target = parseVersion(minimumNode);
+  const supportsNode = release => {
+    const range = release.engines?.node;
+    if (range === undefined) return true;
+    const required = minimumNodeVersion(range);
+    if (!required) throw new Error(`Cannot check ${name}@${release.version} Node range ${range} against ${minimumNode}`);
+    return compareParsedVersions(parseVersion(required), target) <= 0;
   };
-  if (!supportedNode || isEligible(metadata)) return metadata.version;
-  const packument = await fetchJson(registryUrl, { ...options, accept: 'application/vnd.npm.install-v1+json' });
-  const releases = Object.values(packument.versions ?? {})
-    .filter(release => /^\d+\.\d+\.\d+$/.test(release.version) && isEligible(release))
-    .sort((left, right) => compareParsedVersions(parseVersion(right.version), parseVersion(left.version)));
-  if (!releases.length) throw new Error(`npm has no eligible stable version of ${name} for Node ${options.nodeMinimum}`);
-  return releases[0].version;
+  if (supportsNode(metadata)) return metadata.version;
+
+  const history = await fetchJson(url, options);
+  const versions = Object.keys(history.versions ?? {})
+    .filter(version => /^\d+\.\d+\.\d+$/.test(version))
+    .map(parseVersion)
+    .sort((left, right) => compareParsedVersions(right, left));
+  const compatible = versions.find(version => supportsNode(history.versions[version.raw]));
+  if (!compatible) throw new Error(`npm returned no stable release of ${name} supporting Node ${minimumNode}`);
+  return compatible.raw;
 };
 
 export const resolveGitHubLatest = async (repository, record = {}, options = {}) => {
@@ -513,7 +526,7 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
           }
           throw new Error(record.error ?? `Unknown dependency kind ${record.kind}`);
         }
-        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}:${record.nodeMinimum ?? ''}`;
+        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.minimumNode ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
         if (!latestByDependency.has(key)) latestByDependency.set(key, resolvers[record.kind](record.name, record));
         const latest = await latestByDependency.get(key);
         const assessment = assessVersionPin({ current: record.current, latest, policy: record.policy });

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import * as fsModule from 'node:fs';
+import path from 'node:path';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
@@ -37,13 +39,6 @@ try {
   };
 }
 
-// Check if use is already defined (when imported from solve.mjs)
-// If not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  await ensureUseM();
-}
-
-const fsModule = await use('fs');
 const fs = fsModule.promises;
 
 // Global reference for log file (can be set by importing module)
@@ -88,7 +83,6 @@ export const getLogFile = () => {
  */
 export const getAbsoluteLogPath = async () => {
   if (!logFile) return null;
-  const path = await use('path');
   return path.resolve(logFile);
 };
 
@@ -1016,7 +1010,6 @@ export const displayFormattedError = async options => {
 
   // Always show the log file path if it exists - using absolute path
   if (logFile) {
-    const path = await use('path');
     const absoluteLogPath = path.resolve(logFile);
     await logFn(`  📁 Full log file: ${absoluteLogPath}`);
     await logFn('');
@@ -1041,10 +1034,9 @@ export const cleanupTempDirectories = async argv => {
     return;
   }
 
-  // Dynamic import for command-stream
+  const use = globalThis.use ?? (await ensureUseM());
   const { $ } = await use('command-stream');
   const { listCleanableTempEntries } = await import('./disk-guard.lib.mjs');
-  const path = await use('path');
 
   try {
     await log('\n🧹 Auto-cleanup enabled, removing temporary directories...');
@@ -1135,7 +1127,7 @@ export const logSolveStartup = async versionInfo => {
  * @returns {Promise<string>} Version string
  */
 export const getVersionInfo = async () => {
-  const path = await use('path');
+  const use = globalThis.use ?? (await ensureUseM());
   const $ = (await use('zx')).$;
   const { getGitVersionAsync } = await import('./git.lib.mjs');
 

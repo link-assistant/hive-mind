@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 
 const child = spawn(process.execPath, ['--max-old-space-size=32', '-e', 'setTimeout(() => {}, 8000)'], { stdio: 'ignore' });
-fs.writeFileSync(process.env.ROUTER_LIFETIME_PID_FILE, JSON.stringify({ parent: process.pid, child: child.pid }));
+const pidFile = process.env.ROUTER_LIFETIME_PID_FILE;
+// The watchers use filename existence to detect readiness.
+fs.writeFileSync(`${pidFile}.tmp`, JSON.stringify({ parent: process.pid, child: child.pid }));
+fs.renameSync(`${pidFile}.tmp`, pidFile);
 process.stdin.resume();
 setTimeout(() => {
   child.kill('SIGKILL');

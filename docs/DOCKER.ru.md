@@ -8,25 +8,16 @@
 
 ### Вариант 1: Использование готового образа из Docker Hub (рекомендуется)
 
+Для развёртывания и установки из пакета или отдельным файлом см. [Hive Mind Manager](./deployment/hive-manager.md). Выполните инструкции провайдеров в своём браузере. Прямые команды приведены в [руководстве по ручному развёртыванию и входу](./deployment/hive-manager-manual.md).
+
 ```bash
-# Pull the latest image
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
-
-# IMPORTANT: Authentication is done AFTER the Docker image is installed
-# The installation script does NOT run gh auth login to avoid build timeouts
-# This allows the Docker build to complete successfully without interactive prompts
-
-# Inside the container, authenticate with GitHub
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Authenticate with Claude
-claude
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### Вариант 2: Локальная сборка
@@ -333,38 +324,15 @@ docker run --rm -it \
 
 ## Аутентификация
 
-Production Docker-образ (`Dockerfile`) использует Ubuntu 24.04 и официальный скрипт установки. **ВАЖНО:** Аутентификация выполняется **внутри контейнера ПОСЛЕ** того, как Docker-образ полностью установлен и запущен.
-
-**Почему аутентификация происходит после установки:**
-
-- ✅ Избегает таймаутов сборки Docker, вызванных интерактивными подсказками
-- ✅ Предотвращает сбои сборки в CI/CD-пайплайнах
-- ✅ Позволяет скрипту установки успешно завершиться
-- ✅ Поддерживает автоматизированные сборки Docker-образов
-
-### Аутентификация GitHub
+Запустите экземпляр перед входом. Каждая команда использует постоянное хранилище этого экземпляра. Откройте показанный URL в браузере. Вставьте код авторизации Claude в команду, а коды остальных провайдеров введите в браузере.
 
 ```bash
-# Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**Примечание:** Скрипт установки намеренно НЕ вызывает `gh auth login` в процессе сборки. Это сделано специально для поддержки сборок Docker без таймаутов.
-
-### Аутентификация Claude
-
-```bash
-# Inside the container, AFTER it's running
-claude
-```
-
-Этот подход позволяет:
-
-- ✅ Нескольким Docker-экземплярам использовать разные аккаунты GitHub
-- ✅ Нескольким Docker-экземплярам использовать разные подписки Claude
-- ✅ Никакой утечки учётных данных между контейнерами
-- ✅ Каждый контейнер имеет собственную изолированную аутентификацию
-- ✅ Успешные сборки Docker без интерактивной аутентификации
+Для входа по SSH, с профилем или без менеджера см. [руководство по входу](deployment/hive-manager.md#headless-sign-in) и [команды для ручного входа](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container).
 
 ## Изоляция через роутер (экспериментально)
 
@@ -507,21 +475,14 @@ docker-compose run --rm hive-mind
 
 ## Устранение неполадок
 
-### Проблемы с аутентификацией GitHub
+### Проблемы со входом
+
+Проверьте состояние входа в выбранном экземпляре и при необходимости повторите соответствующую команду.
 
 ```bash
-# Inside the container, check authentication status
-gh auth status
-
-# Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Проблемы с аутентификацией Claude
-
-```bash
-# Inside the container, re-run Claude to authenticate
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Проблемы с Docker

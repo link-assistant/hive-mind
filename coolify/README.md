@@ -5,8 +5,8 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
 ## Prerequisites
 
 1. **Coolify Instance**: A running Coolify installation (v4+)
-2. **GitHub Token**: Personal access token with repo permissions
-3. **Claude API Key**: For AI-powered issue solving (optional but recommended)
+2. **GitHub credentials** with access to the repositories to monitor
+3. **Claude credentials** for Claude Code tasks, using a subscription or an Anthropic API key
 4. **Server Requirements**:
    - Minimum 2GB RAM (4GB+ recommended)
    - 2+ CPU cores
@@ -24,21 +24,23 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
    - Source: "GitHub Repository"
    - Repository: `https://github.com/your-fork/hive-mind`
    - Branch: `main`
-   - Build Path: `/coolify`
-   - Docker Compose File: `docker-compose.yml`
+   - Base Directory `/coolify`
+   - Docker Compose Location `/docker-compose.yml`
 
 3. **Set Environment Variables**:
 
    ```bash
    GITHUB_TOKEN=ghp_your_github_token_here
    GITHUB_URL=https://github.com/org-or-repo-to-monitor
-   CLAUDE_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
 4. **Deploy**:
    - Click "Deploy"
    - Monitor build logs
-   - Application will start automatically
+   - The monitor starts when GitHub credentials and `GITHUB_URL` are available
+
+For deployment from a checkout on a Docker host, run `hive-manager deploy compose -f coolify/docker-compose.yml --env-file coolify/.env up -d`. The direct equivalent is `docker compose -f coolify/docker-compose.yml --env-file coolify/.env up -d`. Copy `coolify/.env.example` to `coolify/.env` and set your values before running either command. [Coolify Docker Compose configuration](https://coolify.io/docs/applications/builds/docker-compose)
 
 ### Method 2: Docker Image Deployment
 
@@ -61,34 +63,21 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
    - New Resource → Docker Compose
    - Select "Raw Docker Compose"
 
-2. **Paste the docker-compose.yml** from this directory
+2. **Paste the docker-compose.yml** from this directory. Remove the `build` section and replace `image` with the registry image you pushed in Method 2.
 
 3. **Configure environment variables**
 
 ## Environment Variables Configuration
 
-### Required Variables
+### Monitor and sign-in variables
 
-| Variable         | Description                                           | Example             |
-| ---------------- | ----------------------------------------------------- | ------------------- |
-| `GITHUB_TOKEN`   | GitHub personal access token                          | `ghp_xxxxxxxxxxxx`  |
-| `CLAUDE_API_KEY` | Claude/Anthropic API key (or configure interactively) | `sk-ant-xxxxxxxxxx` |
+Set `GITHUB_URL` to the repository or organization URL to start the monitor. Supply GitHub and Claude credentials through the environment or sign in as `box` after deployment.
 
-### Specifying What to Monitor
-
-You can specify the GitHub repository or organization to monitor in two ways:
-
-1. **As a command argument** (most flexible):
-
-   ```bash
-   # In Coolify, set the command to:
-   node hive.mjs https://github.com/facebook/react
-   ```
-
-2. **As an environment variable**:
-   ```bash
-   GITHUB_URL=https://github.com/microsoft
-   ```
+| Variable            | Purpose                                          | Example                             |
+| ------------------- | ------------------------------------------------ | ----------------------------------- |
+| `GITHUB_URL`        | Repository or organization to monitor            | `https://github.com/org/repository` |
+| `GITHUB_TOKEN`      | Use a GitHub token in place of browser sign-in   | `ghp_xxxxxxxxxxxx`                  |
+| `ANTHROPIC_API_KEY` | Use a Claude API key in place of browser sign-in | `sk-ant-xxxxxxxxxx`                 |
 
 ### Optional Variables
 
@@ -119,46 +108,24 @@ You can specify the GitHub repository or organization to monitor in two ways:
 
 You have two options for Claude authentication:
 
-#### Option 1: API Key (Traditional)
+#### API key
 
 1. Sign up at [Anthropic Console](https://console.anthropic.com)
 2. Create API key
-3. Add to Coolify as `CLAUDE_API_KEY`
+3. Add to Coolify as `ANTHROPIC_API_KEY`
 
-#### Option 2: Claude Max Plan (Recommended for heavy usage)
+#### Browser sign-in
 
-If you have a Claude Max subscription with unlimited usage:
+Deploy with the API key unset if you want Claude to use your subscription. On the Docker host, replace `hive-mind-prod` with the running container name from Coolify. Keep stdin open and follow the provider prompt in your browser.
 
-1. **Deploy the container first** with empty `CLAUDE_API_KEY`
+```bash
+docker exec -i --user box hive-mind-prod hive-manager auth claude
+docker exec --user box hive-mind-prod hive-manager auth claude status
+docker exec -i --user box hive-mind-prod hive-manager auth codex
+docker exec -i --user box hive-mind-prod hive-manager auth github
+```
 
-2. **Access the container terminal in Coolify**:
-   - Go to your application in Coolify
-   - Click "Terminal" tab
-   - You'll get a shell into the running container
-
-3. **Run Claude authentication interactively**:
-
-   ```bash
-   # For Claude Code users:
-   claude
-   # or
-   code
-
-   # Follow the prompts to authenticate with your Claude account
-   # This will open a browser authentication flow
-   ```
-
-4. **Verify authentication**:
-
-   ```bash
-   claude api "Hello, are you working?"
-   ```
-
-5. **Important**: Your authentication will persist across container restarts because we mount:
-   - `~/.claude` directory as persistent volume
-   - `~/.config` directory as persistent volume
-
-This method gives you unlimited API usage through your Claude Max subscription instead of pay-per-token API pricing.
+Run the GitHub command when using a browser sign-in with `GITHUB_TOKEN` and `GH_TOKEN` unset. Restart the container after initial setup so the startup script checks GitHub credentials again. Use the same `docker exec` prefix with direct provider CLI commands if needed. [Manual sign-in commands](../docs/deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 ### Git Configuration (Optional)
 
@@ -195,13 +162,7 @@ In our Docker-based deployments `HOME=/home/box`, so Codex stores its data in `/
 - `/home/box/.codex/config.toml`
 - `/home/box/.codex/sessions/`
 
-If you install or update Codex in the running container, use:
-
-```bash
-bun install -g @openai/codex@latest
-codex login --device-auth
-codex exec --model gpt-5.4-mini "hi"
-```
+Use the image's installed Codex CLI with the sign-in command above. Rebuild and redeploy the image to persist changes to installed tools.
 
 ## Monitoring & Logs
 
@@ -222,7 +183,7 @@ To access the container for debugging or configuration:
 1. In Coolify, go to your application
 2. Click "Terminal" tab
 3. You now have shell access for:
-   - Running `claude` or `code` for authentication
+   - Checking credentials as `box` with `hive-manager auth claude status`
    - Checking logs: `tail -f /app/claude-logs/*`
    - Debugging issues: `ps aux`, `df -h`, etc.
 
@@ -251,7 +212,7 @@ To access the container for debugging or configuration:
 **Problem**: AI features not working
 **Solution**:
 
-- Verify `CLAUDE_API_KEY` is correct
+- Verify `ANTHROPIC_API_KEY` or check the subscription login status
 - Check API rate limits
 - Ensure billing is active on Anthropic account
 

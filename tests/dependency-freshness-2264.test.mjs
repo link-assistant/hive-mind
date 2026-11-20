@@ -16,36 +16,6 @@ import path from 'node:path';
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
 import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest, resolveNodeLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
 
-// A runtime dependency's latest tag can move past the project's Node floor.
-{
-  const versions = {
-    '1.0.0': { engines: { node: '>=22.13.0' } },
-    '1.1.0': { engines: { node: '>=24' } },
-    '1.2.0-beta.1': { engines: { node: '>=24' } },
-    '1.2.0': { engines: { node: '>=24.0.1' } },
-    '2.0.0': { engines: { node: '>=26.13.1' } },
-    '3.0.0': { engines: { node: '>=24' } },
-  };
-  const fetchImpl = async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? { version: '2.0.0', ...versions['2.0.0'] } : { versions }) });
-  const declaration = { kind: 'npm', name: '@example/runtime', current: '^1.0.0', policy: 'exact', location: 'package.json#dependencies', minimumNodeVersion: '24.0.0' };
-  const lockEntry = { ...declaration, current: '1.1.0', location: 'package-lock.json#@example/runtime' };
-  const dockerPin = { ...declaration, location: 'Dockerfile:1', minimumNodeVersion: undefined };
-  const result = await checkDependencyRecords([declaration, lockEntry, dockerPin], { resolveNpmLatest: (name, record) => resolveNpmLatest(name, { ...record, fetchImpl }) });
-  assert.deepEqual(result.errors, []);
-  assert.deepEqual(
-    result.current.map(({ location }) => location),
-    [lockEntry.location]
-  );
-  assert.deepEqual(
-    result.stale.map(({ location, latest }) => [location, latest]),
-    [
-      [dockerPin.location, '2.0.0'],
-      [declaration.location, '1.1.0'],
-    ]
-  );
-  await assert.rejects(resolveNpmLatest(declaration.name, { minimumNodeVersion: '21.0.0', fetchImpl }), /no stable .* version compatible with Node 21/);
-}
-
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
 // Version declarations are compared with the precision they promise. A moving
@@ -55,6 +25,23 @@ assert.equal(assessVersionPin({ current: '^1.2.0', latest: '1.3.0', policy: 'exa
 assert.equal(assessVersionPin({ current: 'v7', latest: 'v7.2.1', policy: 'major' }).current, true);
 assert.equal(assessVersionPin({ current: 'v6', latest: 'v7.2.1', policy: 'major' }).current, false);
 assert.equal(assessVersionPin({ current: '1.98', latest: '1.98.1', policy: 'minor' }).current, true);
+
+{
+  const release = (version, node) => ({ version, engines: { node } });
+  const latest = release('2.0.0', '>=26.13.1');
+  const versions = {
+    '1.0.0': release('1.0.0', '>=22.13.0'),
+    '2.0.0': latest,
+    '2.1.0-beta.1': release('2.1.0-beta.1', '>=24.0.0'),
+    '1.1.0': release('1.1.0', '>=24.0.0'),
+  };
+  const options = { fetchImpl: async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? latest : { versions }) }) };
+  const sanitizer = '@link-foundation/sensitive-data-sanitizer';
+  assert.equal(await resolveNpmLatest(sanitizer, { minimumNode: '24.0.0' }, options), '1.1.0', 'the newest compatible stable release is still required');
+  assert.equal(await resolveNpmLatest(sanitizer, { minimumNode: '26.13.1' }, options), '2.0.0', 'supporting a newer Node runtime restores the latest release automatically');
+  assert.equal(await resolveNpmLatest(sanitizer, {}, options), '2.0.0', 'records with no Node compatibility policy still track the latest release');
+  await assert.rejects(resolveNpmLatest(sanitizer, { minimumNode: '20.0.0' }, options), /no stable release/);
+}
 
 assert.equal(
   await resolveGitHubLatest(
@@ -200,6 +187,8 @@ assert.deepEqual(
 }
 
 const repositoryRecords = await collectDependencyRecords({ root: repositoryRoot });
+const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+assert.equal(repositoryRecords.find(record => record.name === '@link-foundation/sensitive-data-sanitizer' && record.location === 'package.json#dependencies')?.minimumNode, manifest.engines.node.replace(/^>=\s*/, ''));
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === '@sentry/node'),
   true,

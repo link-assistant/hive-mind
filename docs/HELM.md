@@ -409,13 +409,16 @@ kubectl describe pvc hive-mind
 **Solutions:**
 
 1. Verify secrets exist: `kubectl get secrets`
-2. Check secret contents: `kubectl describe secret hive-github-token`
-3. Manually authenticate inside pod:
+2. Check the expected secret keys using `kubectl describe secret hive-github-token`.
+3. Run the manager inside the pod. Open the provider URL in your local browser and follow its instructions.
+
    ```bash
-   kubectl exec -it deployment/hive-mind -- /bin/bash
-   gh auth login
-   claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth github
+   kubectl exec -i deployment/hive-mind -- hive-manager auth claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth codex
    ```
+
+   [Manual provider commands](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 #### Out of Memory
 

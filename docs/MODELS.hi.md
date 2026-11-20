@@ -1,4 +1,4 @@
-# मॉडल: लाइव कैटलॉग, `/models` और `hive-models` (languages: [en](MODELS.md) • [zh](MODELS.zh.md) • hi • [ru](MODELS.ru.md))
+# मॉडल: लाइव कैटलॉग, `/models` और `hive-manager models` (languages: [en](MODELS.md) • [zh](MODELS.zh.md) • hi • [ru](MODELS.ru.md))
 
 किसी प्रदाता ने आज सुबह जो मॉडल जारी किया, वह आपके किसी काम का नहीं यदि Hive Mind
 को केवल वही सूची पता हो जिसके साथ वह प्रकाशित हुआ था। यह पृष्ठ बताता है कि Hive
@@ -17,16 +17,16 @@ Mind **अभी इस समय** मौजूद मॉडलों का �
 
 ```bash
 # सभी tools, कैश किए गए उत्तरों के साथ।
-hive-models
+hive-manager models
 
 # केवल Codex।
-hive-models --tool codex
+hive-manager models --tool codex
 
 # Claude, context window, मूल्य और स्रोत सहित, कैश को अनदेखा करते हुए।
-hive-models --tool claude --details --refresh
+hive-manager models --tool claude --details --refresh
 
 # मशीन-पठनीय आउटपुट।
-hive-models --json | jq '.tools.claude.liveOnly'
+hive-manager models --json | jq '.tools.claude.liveOnly'
 ```
 
 Telegram में यही सूची `/models` है, और वह वही विकल्प उदार रूप में स्वीकार करती है —
@@ -146,7 +146,7 @@ directory में कैश किए जाते हैं। `HIVE_MIND_MOD
 पुराना `claude` या `codex` binary ही आमतौर पर वह कारण होता है जिससे किसी बिल्कुल नए
 model का नाम अस्वीकार होता है, इसलिए जो commands उन्हें चलाती हैं वे पहले नए संस्करण
 की जाँच करती हैं: `/solve`, `/hive`, `/task`, `/fix` (उसके द्वारा शुरू किए गए
-`/solve` child के माध्यम से), `hive-models` और `/models`।
+`/solve` child के माध्यम से), `hive-manager models` और `/models`।
 
 यह जाँच जानबूझकर संकोची है:
 

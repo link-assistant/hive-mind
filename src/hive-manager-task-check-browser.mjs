@@ -9,7 +9,7 @@ import { parseArgs } from 'node:util';
 import { readAttemptEvidence } from './hive-manager-task-evidence.lib.mjs';
 
 const chrome = /^(?:chrome|chromium|chromium-browse|headless_shell|chrome-headless|chrome-headless-shell)$/;
-const usage = `Usage: hive-manager tasks check-browser PID [--transcript CLAUDE_JSONL | --detached] [--terminate SHA256]
+const usage = `Usage: hive-manager tasks check-browser PID [--transcript CLAUDE_JSONL | --detached] [--terminate sha256:HEX]
 Sample a same-user headless browser in its process namespace. Review the result before signaling an eligible browser.
 `;
 
@@ -152,7 +152,8 @@ async function browserTranscript(file, started, cwd) {
 async function checkBrowser() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: { help: { type: 'boolean', short: 'h' }, transcript: { type: 'string' }, detached: { type: 'boolean' }, terminate: { type: 'string' } } });
   if (values.help) return process.stdout.write(usage);
-  if (process.platform !== 'linux' || positionals.length !== 1 || !/^[1-9]\d{0,6}$/.test(positionals[0]) || Number(positionals[0]) <= 1 || (values.transcript && values.detached) || (values.terminate !== undefined && !/^[a-f\d]{64}$/.test(values.terminate))) throw new Error('Use a Linux browser PID and one optional evidence source. See tasks check-browser --help.');
+  const reviewedDigest = values.terminate?.replace(/^sha256:/, '');
+  if (process.platform !== 'linux' || positionals.length !== 1 || !/^[1-9]\d{0,6}$/.test(positionals[0]) || Number(positionals[0]) <= 1 || (values.transcript && values.detached) || (reviewedDigest !== undefined && !/^[a-f\d]{64}$/.test(reviewedDigest))) throw new Error('Use a Linux browser PID and one optional evidence source. See tasks check-browser --help.');
   const pid = Number(positionals[0]);
   const hz = Number(execFileSync('getconf', ['CLK_TCK'], { encoding: 'utf8', timeout: 5000 }));
   const boot = Number(/^btime (\d+)$/m.exec(readFileSync('/proc/stat', 'utf8'))?.[1]) * 1000;
@@ -177,13 +178,13 @@ async function checkBrowser() {
   const reparented = adoptedByInit(root);
   const detached = values.detached === true && reparented;
   const eligible = detached || (evidence?.idle === true && cpuCores >= 0.5);
-  const approval = eligible
+  const digest = eligible
     ? createHash('sha256')
         .update(JSON.stringify({ pid, started, parent: root.parent, detached, file, last: evidence?.last, callCount: evidence?.callCount, mcp: parent?.mcp.pid, claude: parent?.claude.pid }))
         .digest('hex')
     : null;
-  if (values.terminate !== undefined) {
-    if (values.terminate !== approval) throw new Error('The browser is no longer eligible for that reviewed termination.');
+  if (reviewedDigest !== undefined) {
+    if (reviewedDigest !== digest) throw new Error('The browser is no longer eligible for that reviewed termination.');
     const current = browserSample(pid).get(pid);
     const currentParent = playwrightParent(current);
     const latest = await activity();
@@ -191,7 +192,7 @@ async function checkBrowser() {
     if (!confirmed || current.started !== root.started || current.parent !== root.parent || readProcess(pid)?.started !== root.started) throw new Error('The browser or its activity changed before termination.');
     process.kill(pid, 'SIGTERM');
   }
-  process.stdout.write(`${JSON.stringify({ pid, started: new Date(started).toISOString(), processes: after.size, cpuCores: Number(cpuCores.toFixed(2)), reparented, playwrightVersion: parent?.mcp.version ?? null, activity: evidence, approval, signaled: values.terminate !== undefined }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ pid, started: new Date(started).toISOString(), processes: after.size, cpuCores: Number(cpuCores.toFixed(2)), reparented, playwrightVersion: parent?.mcp.version ?? null, activity: evidence, approval: digest ? `sha256:${digest}` : null, signaled: reviewedDigest !== undefined }, null, 2)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -166,6 +166,42 @@ RECORDS`
   });
 });
 
+test('failed-task recovery previews only confirmed memory failures with an idle task family', { timeout: 10000 }, t => {
+  const { cwd, run, executable } = fixture(t);
+  const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const task = (n, issue = n, patch = {}) => ({
+    uuid: id(n),
+    command: `cd /fixture; exec 'solve' 'https://github.com/test/repo/issues/${issue}' --token fixture-secret`,
+    status: 'executed',
+    exitCode: 137,
+    oomKilled: true,
+    startTime: `2026-11-${String(n).padStart(2, '0')}T01:00:00Z`,
+    options: { rootSession: `task-${n}`, isolated: 'docker', isolationMode: 'detached' },
+    ...patch,
+  });
+  const records = [task(1), task(2), task(3, 2, { exitCode: 0, oomKilled: false }), task(4), task(5, 5, { oomKilled: false }), task(6, 6, { options: { ...task(6).options, resumeCount: 1 } }), task(7), task(8, 7, { status: 'executing', command: 'solve https://github.com/Test/Repo/issues/7' })];
+  executable(
+    '$',
+    `if [[ $1 == --resume ]]; then printf '%s\n' "$2" >> invoked; exit; fi
+[[ "$*" == '--list --output-format json' ]]
+cat <<'RECORDS'
+${JSON.stringify({ executions: records })}
+RECORDS`
+  );
+  executable('docker', '[[ $1 == ps ]]; printf "task-4-resume-1\\ttask-4\\t%s\\n" ' + id(4));
+  const environment = { HIVE_MIND_STATE_DIR: join(cwd, 'state') };
+  const preview = run(['tasks', 'recover-failed'], { environment });
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.doesNotMatch(preview.stdout, /fixture-secret|test\/repo/);
+  assert.deepEqual(JSON.parse(preview.stdout), { mode: 'preview', candidates: [{ id: id(1), exitCode: 137, finishedAt: null }], outcomes: [] });
+  assert.throws(() => readFileSync(join(cwd, 'invoked')), { code: 'ENOENT' });
+
+  const applied = run(['tasks', 'recover-failed', '--apply'], { environment });
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.deepEqual(JSON.parse(applied.stdout).outcomes, [{ id: id(1), state: 'resumed' }]);
+  assert.equal(readFileSync(join(cwd, 'invoked'), 'utf8').trim(), id(1));
+});
+
 test('upload diagnostics distinguish CPU stalls from progress and guard termination', { timeout: 10000 }, t => {
   const { run } = fixture(t);
   const baseline = { pid: 100, command: 'gh-upload-log', started: 10000, ticks: 200, io: { read: 20n, written: 30n } };

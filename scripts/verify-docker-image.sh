@@ -388,6 +388,8 @@ echo "Checking Hive Mind deployment and maintenance commands..."
 test "$(hive-manager --version)" = "$(hive --version)"
 hive-manager --help
 hive-manager deploy --help
+hive-manager auth --help
+hive-manager deploy auth --help
 hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 echo "Checking the installed stock-runtime baseline..."

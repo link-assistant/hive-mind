@@ -22,7 +22,9 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-server && \
     rm -rf /var/lib/apt/lists/* && mkdir -p /run/sshd && \
     useradd --create-home box && passwd -d box && \
-    printf '#!/bin/bash\nshift 5\nexec "$@"\n' >/usr/local/bin/docker && chmod +x /usr/local/bin/docker
+    printf '#!/bin/bash\n[[ "$1 $2 $3 $4" == "exec --user box -i" ]] || exit 3\nshift 5\nexec "$@"\n' >/usr/local/bin/docker && \
+    printf '#!/bin/bash\n[[ "$*" == "auth login" && ! -t 0 && ! -t 1 ]] || exit 4\nprintf "Paste the code: "\nIFS= read -r code\n[[ $code == fixture-code ]] || exit 5\nprintf "Signed in\\n"\n' >/usr/local/bin/claude && \
+    chmod +x /usr/local/bin/docker /usr/local/bin/claude
 ENTRYPOINT ["/bin/sh","-ec","install -m 644 /client.pub /etc/ssh/manager-authorized-keys; exec /usr/sbin/sshd -D -e -h /etc/ssh/manager-host-key -o AuthorizedKeysFile=/etc/ssh/manager-authorized-keys -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no"]
 DOCKERFILE
 
@@ -75,4 +77,6 @@ status=$?
 set -e
 [[ $status == 17 ]]
 [[ $result == "$(printf '%s\n' "quoted ' argument" 'stdin over two hops')" ]]
+auth_result=$(printf '%s\n' 'fixture-code' | "${manager[@]}" deploy auth claude)
+[[ $auth_result == 'Paste the code: Signed in' ]]
 printf '%s\n' 'OpenSSH two-jump smoke passed'

@@ -5,16 +5,19 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify, parseArgs } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { readAttemptEvidence, summarizeTaskEvidence } from './hive-manager-task-evidence.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
+       hive-manager tasks report --collect UUID [--attempt NUMBER]
        hive-manager tasks report --window UUID [--attempt NUMBER]
-       hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--follow-up ISSUE | --routes FILE] [--publish SHA256]]
+       hive-manager tasks report --incident UUID [--attempt NUMBER] [--host-signature NAME] [--destination OWNER/REPO [--follow-up ISSUE | --routes FILE] [--publish SHA256]]
 Summarize tracked tasks and recent failures without command lines or logs.
 Use --group to count repeat failures by backend and exit evidence across recorded attempts.
+Use --collect to find retry loops and suspicious exits in a bounded excerpt of one task attempt's log.
 An incident preview describes one failure. Approve its digest to open an issue or comment on an existing issue.
 Use --routes to select a follow-up from a JSON file keyed by the failure group.
 `;
@@ -44,8 +47,17 @@ export function taskAttempts(task) {
   const number = latestAttempt(task);
   const history = Array.isArray(task.attemptHistory) ? task.attemptHistory : [];
   const attempts = new Map(history.filter(attempt => Number.isSafeInteger(attempt?.number) && attempt.number > 0).map(attempt => [attempt.number, attempt]));
-  attempts.set(number, { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime });
+  attempts.set(number, { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime, logOffset: task.attempt?.logOffset });
   return attempts;
+}
+
+async function attemptEvidence(task, attempts, attempt) {
+  const next = attempts.get(attempt.number + 1);
+  const offset = (value, fallback) => (Number.isSafeInteger(value) && value >= 0 ? value : fallback);
+  const start = offset(attempt.logOffset, attempt.number === 1 ? 0 : null);
+  const end = offset(next?.logOffset, attempt.number === latestAttempt(task) ? Infinity : null);
+  const excerpt = await readAttemptEvidence(task.logPath, start, end);
+  return summarizeTaskEvidence(excerpt, attempt);
 }
 
 function requestedAttempt(value) {
@@ -82,28 +94,34 @@ function groupFailures(tasks, limit) {
   return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
-async function routedIssue(file, backend, attempt) {
+async function routedIssue(file, backend, attempt, selectedSignature) {
   const routes = JSON.parse(await readFile(file, 'utf8'));
   if (!Array.isArray(routes)) throw new Error('Incident routes must be a JSON array.');
   const seen = new Set();
   let followUp;
+  let specific;
   for (const route of routes) {
-    if (!route || !['docker', 'screen', 'tmux', 'ssh', 'local'].includes(route.backend) || !Number.isSafeInteger(route.exitCode) || route.exitCode < 1 || typeof route.kind !== 'string' || !Number.isSafeInteger(route.issue) || route.issue < 1) {
+    if (!route || !['docker', 'screen', 'tmux', 'ssh', 'local'].includes(route.backend) || !Number.isSafeInteger(route.exitCode) || route.exitCode < 1 || typeof route.kind !== 'string' || !Number.isSafeInteger(route.issue) || route.issue < 1 || (route.signature !== undefined && (typeof route.signature !== 'string' || !/^[a-z0-9-]+$/.test(route.signature)))) {
       throw new Error('Each route needs the backend, kind and exitCode from a failure group and a positive issue number.');
     }
-    const signature = JSON.stringify([route.backend, route.kind, route.exitCode]);
-    if (seen.has(signature)) throw new Error('Specify at most one issue per failure group.');
+    const signature = JSON.stringify([route.backend, route.kind, route.exitCode, route.signature]);
+    if (seen.has(signature)) throw new Error('Specify at most one issue per failure group and signature.');
     seen.add(signature);
-    if (route.backend === backend && route.exitCode === attempt.exitCode && route.kind === failureKind(attempt)) followUp = route.issue;
+    if (route.backend !== backend || route.exitCode !== attempt.exitCode || route.kind !== failureKind(attempt)) continue;
+    if (route.signature === undefined) followUp = route.issue;
+    else if (route.signature === selectedSignature) specific = route.issue;
   }
-  return followUp;
+  return specific ?? followUp;
 }
 
-async function incidentPreview(task, requestedAttempt, destination, explicitFollowUp, routes) {
-  const attempt = taskAttempts(task).get(requestedAttempt ?? latestAttempt(task));
+async function incidentPreview(task, requestedAttempt, destination, explicitFollowUp, routes, hostSignature) {
+  const attempts = taskAttempts(task);
+  const attempt = attempts.get(requestedAttempt ?? latestAttempt(task));
   if (!attempt || attempt.status !== 'executed' || !Number.isSafeInteger(attempt.number) || attempt.number < 1 || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) throw new Error('The selected attempt has no confirmed failed exit.');
   const backend = taskBackend(task);
-  const followUp = routes === undefined ? explicitFollowUp : await routedIssue(routes, backend, attempt);
+  if (hostSignature !== undefined && (backend !== 'docker' || attempt.exitCode < 128 || !['host-reboot', 'host-reset', 'daemon-restart'].includes(hostSignature))) throw new Error('Use a journal correlation from deploy diagnose for a signal-range Docker task exit.');
+  const evidence = await attemptEvidence(task, attempts, attempt);
+  const followUp = routes === undefined ? explicitFollowUp : await routedIssue(routes, backend, attempt, hostSignature ?? evidence.signature);
   const title = await sanitizeForPublication(`[hive-manager] Task failure ${task.uuid} (attempt ${attempt.number})`);
   const marker = `<!-- hive-manager-task: ${task.uuid}/${attempt.number} -->`;
   const body = await sanitizeForPublication(`${marker}
@@ -113,7 +131,7 @@ async function incidentPreview(task, requestedAttempt, destination, explicitFoll
 - Attempt ${attempt.number}
 - Backend \`${backend}\`
 - Exit code ${attempt.exitCode}
-- ${failureKind(attempt)}
+- ${failureKind(attempt)}${evidence.signature ? `\n- Log signature \`${evidence.signature}\`` : ''}${hostSignature ? `\n- Reviewed host journal correlation \`${hostSignature}\`` : ''}
 - Started ${timestamp(attempt.startedAt)}
 - Finished ${timestamp(attempt.endTime ?? attempt.finishedAt)}
 
@@ -203,12 +221,22 @@ export async function listTrackedTasks(timeout = 120_000) {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, collect: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, 'host-signature': { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
     return;
   }
-  const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes].some(value => value !== undefined);
+  const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes, values['host-signature']].some(value => value !== undefined);
+  if (values.collect !== undefined) {
+    if (values.group || values.window !== undefined || values.incident !== undefined || hasPublicationOptions) throw new Error('Collect evidence for one task separately from the other report modes.');
+    const task = await selectedTask(values.collect);
+    const attempts = taskAttempts(task);
+    const attempt = attempts.get(requestedAttempt(values.attempt) ?? latestAttempt(task));
+    if (!attempt) throw new Error('No recorded attempt has the selected number.');
+    const evidence = await attemptEvidence(task, attempts, attempt);
+    process.stdout.write(`${JSON.stringify({ id: task.uuid, attempt: attempt.number, status: attempt.status, exitCode: attempt.exitCode ?? null, startedAt: timestamp(attempt.startedAt), finishedAt: timestamp(attempt.endTime ?? attempt.finishedAt), evidence }, null, 2)}\n`);
+    return;
+  }
   if (values.window !== undefined) {
     if (values.group || values.incident !== undefined || hasPublicationOptions) throw new Error('Select the task window separately from grouping and incident publication.');
     const attempt = requestedAttempt(values.attempt);
@@ -230,7 +258,7 @@ async function report() {
     if (explicitFollowUp !== undefined && (!destination || !/^\d+$/.test(values['follow-up']) || !Number.isSafeInteger(explicitFollowUp) || explicitFollowUp < 1)) throw new Error('Specify a GitHub destination and a positive issue number for follow-up.');
     if (values.routes !== undefined && (!destination || explicitFollowUp !== undefined)) throw new Error('Incident routes require a GitHub destination and replace --follow-up.');
     const task = await selectedTask(values.incident);
-    const preview = await incidentPreview(task, attempt, destination, explicitFollowUp, values.routes);
+    const preview = await incidentPreview(task, attempt, destination, explicitFollowUp, values.routes, values['host-signature']);
     if (!values.publish) {
       if (preview.followUp !== undefined) await requireOpenIssue(destination, preview.followUp);
       const { followUp, title, body, digest } = preview;

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { claudeBrowserActivity } from '../src/hive-manager-task-check-browser.mjs';
 import { classifyUpload } from '../src/hive-manager-task-check-uploads.mjs';
 import { readProxyMatrix, runProxyMatrix, runProxyProbe } from '../src/hive-manager-proxy-test.mjs';
 
@@ -110,12 +111,43 @@ test('deploy diagnose uses the selected task attempt window and shows browser re
   *) printf 'Docker fixture\\n' ;;
 esac`
   );
-  executable('journalctl', 'printf "<%s>\\n" "$@"');
+  const olderBoot = 'a'.repeat(32);
+  const boots = [
+    { boot_id: olderBoot, last_entry: Date.parse('2026-11-20T08:14:12Z') * 1000 },
+    { boot_id: 'b'.repeat(32), first_entry: Date.parse('2026-11-20T08:14:51Z') * 1000 },
+  ];
+  executable(
+    'journalctl',
+    `case $1 in
+  --list-boots) [[ \${SCENARIO:-} == host-* ]] && printf '%s\\n' '${JSON.stringify(boots)}' || printf '[]\\n' ;;
+  --boot=${olderBoot})
+    if [[ $SCENARIO == host-reboot ]]; then printf 'Journal stopped\\n'; else printf 'Last kernel message\\n'; fi ;;
+  *)
+    if [[ \${!#} == --no-pager && "$*" == *--output=cat* ]]; then
+      case \${SCENARIO:-} in
+        daemon-restart) printf 'Main process exited\\nStarted Docker Application Container Engine.\\n' ;;
+        starts-only) printf 'Started Docker Application Container Engine.\\n' ;;
+      esac
+    else
+      printf '<%s>\\n' "$@"
+    fi ;;
+esac`
+  );
   const window = ['--since=2026-11-20T08:00:00.000Z', '--until=2026-11-20T08:15:00.000Z'];
-  const result = run(['deploy', 'diagnose', '--task', id, '--attempt', '1', '--resources'], { environment: { MANAGER_TEST: script } });
+  const args = ['deploy', 'diagnose', '--task', id, '--attempt', '1', '--resources'];
+  const diagnose = SCENARIO => run(args, { environment: { MANAGER_TEST: script, SCENARIO } });
+  const result = diagnose('daemon-restart');
   assert.equal(result.status, 0, result.stderr);
   for (const argument of window) assert.equal(result.stdout.split(argument).length - 1, 2);
   assert.match(result.stdout, /Browser processes[^]*chromium\nMatching browser processes: 1\nshm 64M \/dev\/shm/);
+  if (process.platform === 'linux') {
+    assert.match(result.stdout, /Journal correlation: daemon-restart/);
+    assert.doesNotMatch(diagnose('starts-only').stdout, /Journal correlation/);
+    if (spawnSync('jq', ['--version']).status === 0) {
+      assert.match(diagnose('host-reset').stdout, /Journal correlation: host-reset/);
+      assert.match(diagnose('host-reboot').stdout, /Journal correlation: host-reboot/);
+    }
+  }
   assert.match(run(['deploy', 'diagnose', '--task', id, '--since', 'now']).stderr, /Usage: deploy diagnose/);
 });
 
@@ -535,7 +567,9 @@ test('upload diagnostics distinguish CPU stalls from progress and guard terminat
 test('task incidents publish reviewed historical evidence and keep retries idempotent', { timeout: 30000 }, t => {
   const { cwd, run, executable } = fixture(t);
   const id = '40950000-0000-4000-a000-000000000001';
-  executable('$', `printf '%s\\n' '${JSON.stringify({ executions: [{ uuid: id, status: 'executing', attempt: { number: 2 }, options: { isolated: 'docker' }, attemptHistory: [{ number: 1, status: 'executed', exitCode: 137, oomKilled: true, logPath: '/private/log', command: 'secret command' }] }] })}'`);
+  const first = '🪵\nCodex exited with exit code 137\n';
+  writeFileSync(join(cwd, 'execution.log'), `${first}Result event received\nStream timeout\nfailed with exit code 143\n`);
+  executable('$', `printf '%s\\n' '${JSON.stringify({ executions: [{ uuid: id, logPath: 'execution.log', status: 'executing', attempt: { number: 2, logOffset: Buffer.byteLength(first) }, options: { isolated: 'docker' }, attemptHistory: [{ number: 1, status: 'executed', exitCode: 137, oomKilled: true, logPath: '/private/log', command: 'secret command' }] }] })}'`);
   // github-retry-ok: the test writes a fake gh executable and touches only fixture files.
   executable(
     'gh',
@@ -544,7 +578,7 @@ case "$1 $2" in
   'api --hostname')
     case "$6" in
       search/issues) printf '[{"incomplete_results":false,"items":[]}]\\n' ;;
-      repos/example/project/issues/18) printf '{"number":18,"state":"%s"}\\n' "\${ISSUE_STATE:-open}" ;;
+      repos/example/project/issues/18|repos/example/project/issues/19) printf '{"number":%s,"state":"%s"}\\n' "\${6##*/}" "\${ISSUE_STATE:-open}" ;;
       repos/example/project/issues/18/comments*) printf '[[]]\\n' ;;
       *) exit 1 ;;
     esac ;;
@@ -562,6 +596,8 @@ esac`
   const { digest, title, body } = JSON.parse(preview.stdout);
   assert.match(title, /attempt 1/);
   assert.match(body, /Memory exhaustion/);
+  assert.match(body, /codex-oom/);
+  assert.doesNotMatch(body, /stream-close-timeout/);
   assert.doesNotMatch(body, /private\/log|secret command/);
   assert.throws(() => statSync(join(cwd, 'called')), { code: 'ENOENT' });
   assert.match(run([...past, '--publish', 'a'.repeat(64)], { environment }).stderr, /changed since review/);
@@ -587,6 +623,22 @@ esac`
   assert.match(run(routed, { environment }).stderr, /at most one issue per failure group/);
   writeFileSync(routes, JSON.stringify([route]));
   assert.deepEqual(JSON.parse(run(routed, { environment }).stdout), reviewed);
+  writeFileSync(
+    routes,
+    JSON.stringify([
+      { ...route, issue: 19 },
+      { ...route, signature: 'codex-oom' },
+    ])
+  );
+  assert.deepEqual(JSON.parse(run(routed, { environment }).stdout), reviewed);
+  writeFileSync(routes, JSON.stringify([route, { ...route, issue: 19, signature: 'host-reset' }]));
+  const hostCorrelation = [...routed, '--host-signature', 'host-reset'];
+  const hostPreview = run(hostCorrelation, { environment });
+  assert.equal(hostPreview.status, 0, hostPreview.stderr);
+  const hostReview = JSON.parse(hostPreview.stdout);
+  assert.equal(hostReview.followUp, 19);
+  assert.match(hostReview.body, /Reviewed host journal correlation `host-reset`/);
+  assert.match(run([...hostCorrelation, '--publish', reviewed.digest], { environment }).stderr, /changed since review/);
   writeFileSync(routes, JSON.stringify([{ ...route, issue: 19 }]));
   assert.match(run([...routed, '--publish', reviewed.digest], { environment }).stderr, /changed since review/);
   writeFileSync(routes, JSON.stringify([route]));
@@ -597,6 +649,37 @@ esac`
     assert.equal(comment.stdout.trim(), 'https://github.com/example/project/issues/18#issuecomment-19');
   }
   assert.equal(readFileSync(join(cwd, 'called'), 'utf8'), 'created\ncommented\n');
+});
+
+test('task evidence reports log outcomes and repetitions without emitting private log content', t => {
+  const { cwd, executable, run } = fixture(t);
+  const id = '40950000-0000-4000-a000-000000000001';
+  const lines = ['📊 Session num_turns: 2', '💬 Posted: No changes were produced by this session', 'Retry 4 in 10s (session preserved)', 'Reconnecting... waiting for network', ...Array(20).fill('{"command":"private task command"}'), ...Array(10).fill('{"type":"agent_message","text":"private agent message"}')];
+  writeFileSync(join(cwd, 'run.log'), `${lines.join('\n')}\n`);
+  executable('$', `printf '%s\\n' '${JSON.stringify({ executions: [{ uuid: id, status: 'executed', exitCode: 0, logPath: 'run.log' }] })}'`);
+  const result = run(['tasks', 'report', '--collect', id]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /private|run\.log/);
+  assert.deepEqual(JSON.parse(result.stdout).evidence, { available: true, bounded: false, turns: 2, noChanges: true, possibleFalseSuccess: true, retries: 1, reconnects: 1, repeatedCommands: [20], repeatedToolCalls: [], repeatedMessages: [10] });
+});
+
+test('browser activity authorizes only an evidenced idle Claude browser without a pending tool call', t => {
+  const { run } = fixture(t);
+  const start = Date.parse('2026-11-20T08:00:00Z');
+  const cwd = '/verified/checkout';
+  const event = (offset, type, part) => JSON.stringify({ type, timestamp: new Date(start + offset * 1000).toISOString(), cwd, message: { content: [part] } });
+  const call = (offset, id, name) => event(offset, 'assistant', { type: 'tool_use', id, name });
+  const result = (offset, id) => event(offset, 'user', { type: 'tool_result', tool_use_id: id });
+  const lines = [call(-5, 'tool-1', 'mcp__playwright__browser_navigate'), result(5, 'tool-1'), call(20, 'other-1', 'Bash'), call(21, 'other-2', 'Write'), call(22, 'other-3', 'Edit')];
+  const inspect = (...extra) => claudeBrowserActivity([...lines, ...extra].join('\n'), start, start + 360 * 1000, cwd);
+  assert.equal(inspect().idle, true);
+  assert.equal(inspect().workSince, 3);
+  assert.equal(inspect(call(359, 'tool-2', 'mcp__playwright__browser_snapshot')).idle, false);
+  assert.equal(inspect(call(359, 'tool-2', 'mcp__playwright__browser_snapshot').replace(cwd, '/subagent/checkout')).idle, false);
+  assert.equal(inspect(call(359, 'tool-2', 'mcp__playwright__browser_snapshot'), result(360, 'tool-2')).idle, false);
+  assert.equal(inspect('malformed'), null);
+  assert.equal(claudeBrowserActivity(lines.join('\n'), start, start + 360 * 1000, '/unrelated/checkout').idle, false);
+  if (process.platform === 'linux') assert.match(run(['tasks', 'check-browser', String(process.pid), '--detached']).stderr, /same-user Chrome or Chromium/);
 });
 
 test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {

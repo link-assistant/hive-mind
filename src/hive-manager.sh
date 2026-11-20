@@ -127,6 +127,7 @@ maintenance_spec() {
     proxy-pcap) bin=hive-manager; module=hive-manager-proxy-pcap.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
+    task-check-browser) bin=hive-manager; module=hive-manager-task-check-browser.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
     task-recover-failed) bin=hive-manager; module=hive-manager-task-recover-failed.mjs ;;
     task-recover-queue) bin=hive-manager; module=hive-manager-task-recover-queue.mjs ;;
@@ -183,7 +184,7 @@ task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
-    printf 'Inspect: list, status, attach, report, check-uploads, recover-queue\n'
+    printf 'Inspect: list, status, attach, report, check-browser, check-uploads, recover-queue\n'
     printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, backup-container, cleanup-backed-up, upload-log\n'
     return
@@ -849,6 +850,37 @@ fi
 PROCESS_SAMPLE
 }
 
+diagnose_restart() {
+  local started finished boot tail_journal daemon_events
+  started=$(date -d "$1" +%s) || return 0
+  finished=$(date -d "$2" +%s) || return 0
+  # A task's exit may be recorded after Docker comes back following a reboot.
+  if command -v jq >/dev/null && boot=$(journalctl --list-boots --lines=30 --output=json --no-pager 2>/dev/null | jq -r --argjson start "$started" --argjson end "$finished" '
+    select(type == "array") as $boots
+    | [range(0; ($boots | length) - 1) as $i
+       | $boots[$i] as $old | $boots[$i + 1] as $new
+       | (($old.last_entry | tonumber?) / 1000000) as $last
+       | (($new.first_entry | tonumber?) / 1000000) as $next
+       | select($last >= $start and $last <= $end + 120 and $next >= $last and $next >= $end - 120 and $next <= $end + 300)
+       | $old.boot_id] | last // empty'); then
+    if [[ $boot =~ ^[a-f0-9]{32}$ ]] && tail_journal=$(journalctl --boot="$boot" --lines=20 --output=cat --no-pager 2>/dev/null) && [[ $tail_journal && $tail_journal != '-- No entries --' ]]; then
+      if grep -Eq 'Journal stopped|systemd-shutdown|Reached target .*(Shutdown|Power-Off|Reboot)' <<< "$tail_journal"; then
+        printf '\nJournal correlation: host-reboot (shutdown recorded before the next boot)\n'
+      else
+        printf '\nJournal correlation: host-reset (previous boot ends without a recorded shutdown)\n'
+      fi
+      return
+    fi
+  fi
+  # A daemon startup on its own may be the consequence of a host reboot.
+  daemon_events=$(journalctl --unit=docker.service --since="@$((finished - 120))" --until="@$((finished + 120))" --lines=80 --output=cat --no-pager 2>/dev/null) || return 0
+  if awk '/Main process exited|Stopped Docker|Processing signal.*terminated/ { stopped = 1 }
+    stopped && tolower($0) ~ /started docker|loading containers: start|starting up/ { started = 1 }
+    END { exit !started }' <<< "$daemon_events"; then
+    printf '\nJournal correlation: daemon-restart (Docker stop and start recorded near task exit)\n'
+  fi
+}
+
 diagnose() {
   local usage='Usage: deploy diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]'
   local since='' until='' task='' attempt='' window process='' resources=false
@@ -917,6 +949,7 @@ diagnose() {
     local result=0
     journalctl _TRANSPORT=kernel "${period[@]}" --lines=80 --no-pager --case-sensitive=no --grep='out of memory|oom-kill|killed process' || result=$?
     (( result <= 1 )) || return "$result"
+    if [[ $task && $until != now ]]; then diagnose_restart "$since" "$until"; fi
   fi
   if [[ $process ]]; then
     container_running "$name" || fail "Process diagnostics require a running container: $name"
@@ -1305,7 +1338,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
-      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -1344,7 +1377,7 @@ main() {
     tasks)
       shift
       case "${1-}" in
-        report|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
+        report|check-browser|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
         backup-container) task_container_backup "${@:2}"; return ;;
         cleanup-backed-up) task_cleanup_backed_up "${@:2}"; return ;;
       esac

@@ -15,7 +15,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 
 ## 推荐的 CI/CD 模板
 
-我们为多种语言提供开箱即用的模板，预先配置了所有最佳实践：
+这些语言模板包含 CI/CD 工作流。
 
 | 语言                  | 模板仓库                                                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -93,6 +93,44 @@ docker-pr-check:
 - CI/CD 工作流文件（`.github/workflows/*.yml`）
 - `Dockerfile` 和相关基础设施文件
 
+#### 提交检查与待审查检查
+
+- **提交层（`synchronize`）** 对发生变更的软件包运行代码检查、类型检查和快速单元测试，草稿 PR 也运行。关键路径以 5–10 分钟为目标。
+- **待审查层（`ready_for_review`）** 运行耗时的单元测试、集成测试和端到端测试。先以草稿方式打开 PR，需要完整检查时再将其标记为可供审查。
+
+省略 `opened`、`reopened` 和 `edited`。新提交后如需重跑完整检查，可将 PR 转回草稿再标记为可供审查，或手动触发检查。在 `main` 上保留完整的发布验证，并为手动运行提供独立的仅检查模式。
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+待审查运行验证触发它的修订版本。如果合并前必须完成完整验证，则应要求当前修订版本通过完整检查，单次提交层检查通过不足以满足要求。手动运行时须选定目标 PR 的修订版本或合并结果。
+
+#### 根据工作区依赖图选择单体仓库的测试
+
+让规划任务读取工作区清单（例如各软件包的 `package.json`），将变更的路径映射到所属软件包。
+
+- 软件包自身发生变化时，运行该包的单元测试。
+- 选择集成测试时，从每个变更的软件包沿依赖图反向遍历。测试变更的包及其所有传递依赖方，即使图中有环，每个包也只访问一次。
+- 遇到无法归类的路径、无法确定依赖图或无法确定差异时，运行全部套件。将锁文件、工作区配置和共享测试设置等公共输入明确归为影响所有包的变更。
+
+规划任务输出 JSON 任务矩阵，空选择输出 `[]`。用输出控制任务是否运行以及如何分片。例如，`test-db` 可包含 `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]`。
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. 文件大小限制
 
 **每个代码文件强制执行最多 1000-1500 行的限制。**
@@ -126,6 +164,12 @@ done
   }
 }
 ```
+
+#### 通过只能收紧的基线引入行数限制
+
+对于已有仓库，在提交的 JSON 中只记录超过上限的受跟踪文件，键为路径，值为行数，例如 `{ "src/legacy.mjs": 1830 }`。每条记录的行数就是该文件的上限。拒绝超限的新文件，以及超过自身基线上限的增长。使用 `--update` 将上限降低到当前行数，并移除已删除或已符合常规上限的条目。缩减文件与更新基线应一起提交。审查基线变更时与目标分支比较，防止提高上限或新增条目绕过检查。
+
+新文件从第一天起遵守常规限制，已有大文件可以分多个 PR 拆分。参见[可运行示例](../examples/ci-cd-pull-request-tiers/README.md)。
 
 ### 3. 自动化代码格式化
 
@@ -184,6 +228,12 @@ test-suites:
     needs.lint.result == 'success' &&
     needs.check-file-line-limits.result == 'success'
 ```
+
+#### 控制任务时长并优先启动耗时最长的工作
+
+规模较大的任务以 5–30 分钟为目标。让快速检查保持简短，并根据实测用时拆分长测试套件，例如使用 `--shard i/n`。显式设置 `timeout-minutes`，并在工作流测试中检查 30 分钟上限，为有文档说明的例外指定任务名称和数值上限。对可复用工作流，检查被调用工作流内的任务。
+
+在一个任务内，用数量受限的执行进程将独立工作按实测用时降序启动。先启动最长的工作，再用短工作填充空闲位置。并行度应符合运行器的 CPU、内存和服务容量。按依赖顺序处理有依赖关系的工作，并传递故障。
 
 ### 6. 基于 Changeset 的版本控制
 
@@ -282,8 +332,8 @@ jobs:
     # 加入任务标识（以及适用的 matrix 值），使无关检查保持并行，
     # 同时让新运行仅替换对应的过时检查。
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -297,10 +347,10 @@ jobs:
     # ...
 ```
 
-- **只读任务：** 在拉取请求和 `main` 上都取消已被取代的检查，以减少 runner 负载。为每个任务使用不同后缀；加入相关 matrix 值，使不同的 matrix 项仍可并行运行。
+- **只读任务：** 取消已被取代的提交层检查以降低运行器负载。保留待审查 PR 和 `main` 各修订版本的完整检查。为每个任务使用不同后缀；加入相关 matrix 值，使不同的 matrix 项仍可并行运行。
 - **依赖写入任务：** 使用 `needs` 并要求前置检查成功。前置任务被取消后，其写入任务不得启动。
 - **活动写入任务：** 为所有发布、部署、打标签、生成内容推送及其他写入任务使用同一个仓库级分组，并设置 `cancel-in-progress: false`。已启动的写入任务会完成，下一个写入任务在队列中等待，即使它来自另一个工作流文件。
-- **工作流范围：** 当工作流包含写入任务时，不要在工作流级别设置可取消的并发控制；否则也会中断已启动的写入任务。
+- **工作流范围：** 只有在事件无法发布、部署或修改仓库状态时，才允许取消整个工作流。取消工作流也会中断正在运行的写入任务。
 
 默认情况下，一个并发分组最多保留一个运行中任务和一个待处理任务；新的待处理写入任务会替换旧的待处理任务。如果队列中的每次写入都必须执行，请在写入任务的并发配置中加入 `queue: max`（最多可等待 100 个任务）。`queue: max` 不能与 `cancel-in-progress: true` 同时使用；执行顺序依据任务开始等待的时间，而非工作流触发顺序，因此写入任务应保持幂等。
 
@@ -334,6 +384,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **rebase 之后，重新计算此前推导出的一切。** 基于过时分支尖端选定的版本号、changelog 条目或标签，可能已被赢得队列的那个写入任务占用。请重新读取状态，而不是重放原有计划。
 - **只有推送真正落地后才报告成功。** 在推送确认之前就设置 `version_committed=true` 的步骤，会让下游发布任务基于一个只存在于该 runner 上的提交继续工作。
 - **限制重试次数，并在日志中写明原因。** 少量重试配合短暂延迟足以覆盖排队；而针对确实受保护的分支进行无限循环，只会把快速失败拖成漫长失败。
+
+#### 新提交到来时保留完整检查
+
+按工作流和 PR 对提交检查分组，只取消被替代的 `synchronize` 运行。待审查运行和手动运行使用每次运行独有的键，在排队时也能得到保留。推送按 SHA 分组，使 `main` 的每个修订版本都保留自己的检查。
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+如果在任务级别配置并发，请在键中保留任务和矩阵标识。发布和部署任务继续使用共享且不可取消的组。只有当允许被取消的事件仅运行检查、不发布也不部署时，才可在工作流级别设置取消。参见[语言模板补丁](../examples/ci-cd-pull-request-tiers/README.md)。
 
 ### 11. 密钥检测
 

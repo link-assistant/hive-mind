@@ -39,12 +39,14 @@ first=$(docker inspect --format '{{.Id}}' "$name")
 [[ $("${managed[@]}" exec -- bash -c 'cat "$HOME/.claude/settings.json"') == '{}' ]]
 "${managed[@]}" exec -- bash -c 'printf identity > "$GIT_CONFIG_GLOBAL"'
 "${managed[@]}" exec -- bash -c 'printf persisted > "$HOME/.codex/check"'
+"${managed[@]}" exec -- bash -c 'printf log > /tmp/start-command/logs/fixture.log'
 "${apply[@]}" -- sleep infinity
 second=$(docker inspect --format '{{.Id}}' "$name")
 [[ $first != "$second" ]]
 [[ $(docker inspect --format '{{.Id}}' "$name.rollback") == "$first" ]]
 [[ $("${managed[@]}" exec -- bash -c 'cat "$HOME/.codex/check"') == persisted ]]
 [[ $("${managed[@]}" exec -- bash -c 'cat "$GIT_CONFIG_GLOBAL"') == identity ]]
+[[ $("${managed[@]}" exec -- cat /tmp/start-command/logs/fixture.log) == log ]]
 
 printf 'TELEGRAM_BOT_TOKEN=fixture\n' > "$temp/env"
 if "${managed[@]}" --no-pull --image "$image" --env-file "$temp/env" apply; then
@@ -65,6 +67,7 @@ fi
 "${managed[@]}" stop
 "${managed[@]}" start
 "${managed[@]}" status
+"${managed[@]}" diagnose | grep 'OOM: false'
 
 docker stop "$name" >/dev/null
 docker rename "$name" "$name.previous"

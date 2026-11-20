@@ -25,6 +25,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   deploy                Configure, deploy and maintain a Hive Mind instance
   cleanup               Reclaim stale task state, processes and Docker resources
   configure-claude      Apply or verify Hive Mind Claude settings
+  audit-config          Check global agent settings and optionally repair them
   screens               List, attach to or close finished Screen sessions
   models                Inspect the live model catalogue
   tasks                 Inspect or recover start-command task executions
@@ -57,16 +58,18 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
+  diagnose              Show host load, Docker resources and container exit facts
   disk                  Report Docker storage, images, volumes and build cache
   backup [--output FILE|-]
                         Save a private archive of deployment state
   restore [--input FILE|-]
                         Extract an archive into a new state directory
   reboot --confirm      Reboot the deployment host
+  docker-service        Check or start the host's Docker systemd service
   proxy                 Manage an optional Telegram MTProto proxy
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
-  cleanup | configure-claude | screens | models | tasks | archive-session | close-linked-issues
+  cleanup | configure-claude | audit-config | screens | models | tasks | archive-session | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -114,6 +117,7 @@ maintenance_spec() {
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
     archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
+    audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -228,7 +232,7 @@ init_state() {
   (
     local item stage
     local missing=()
-    for item in claude codex agents gh git hive start-command; do
+    for item in claude codex agents gh git hive start-command start-logs; do
       if [[ ! -e $state_dir/$item && ! -L $state_dir/$item ]]; then
         missing+=("$item")
       else
@@ -282,6 +286,7 @@ deployment_args() {
     --mount "type=bind,source=$state_dir/git,target=/home/box/.config/git"
     --mount "type=bind,source=$state_dir/hive,target=/home/box/.hive-mind"
     --mount "type=bind,source=$state_dir/start-command,target=/home/box/.start-command"
+    --mount "type=bind,source=$state_dir/start-logs,target=/tmp/start-command/logs"
     --env GIT_CONFIG_GLOBAL=/home/box/.config/git/config
   )
   if [[ $variant == plain && ! $socket ]]; then
@@ -472,15 +477,18 @@ backup_state() {
     [[ $# == 2 && $1 == --output ]] || fail "Usage: deploy backup [--output FILE|-]"
     output=$2
   fi
+  lock_deployment
   [[ -d $state_dir ]] || fail "State directory not found: $state_dir"
   output=${output:-$PWD/$name-$(date -u +%Y%m%dT%H%M%SZ).tar.gz}
   if [[ $output == - ]]; then
-    exec tar -czf - -C "$state_dir" .
+    tar -czf - -C "$state_dir" .
+    return
   fi
   output=$(absolute_path "$output")
   local state_path output_dir
   state_path=$(cd -- "$state_dir" && pwd -P)
-  output_dir=$(cd -- "${output%/*}" && pwd -P)
+  output_dir=${output%/*}
+  output_dir=$(cd -- "${output_dir:-/}" && pwd -P)
   [[ "$output_dir/" != "$state_path/"* ]] || fail "Choose an archive outside the state directory"
   (
     umask 077
@@ -498,6 +506,7 @@ restore_state() {
     [[ $# == 2 && $1 == --input ]] || fail "Usage: deploy restore [--input FILE|-]"
     input=$2
   fi
+  lock_deployment
   [[ ! -e $state_dir && ! -L $state_dir ]] || fail "Restore requires a new state directory: $state_dir"
   (
     umask 077
@@ -529,9 +538,19 @@ doctor() {
       set -e
       hive_source=$(readlink -f "$(command -v hive)")
       hive --version
-      node "${hive_source%/*}/verify-agent-runtime.mjs"
+      verifier=${hive_source%/*}/verify-agent-runtime.mjs
+      if [[ -f $verifier ]]; then exec node "$verifier"; fi
     '
   fi
+}
+
+diagnose() {
+  uptime
+  if command -v free >/dev/null; then free -h; fi
+  df -h -- "$PWD"
+  docker info --format 'Docker {{.ServerVersion}} | Live restore: {{.LiveRestoreEnabled}} | Root: {{.DockerRootDir}}'
+  docker container inspect --format '{{.Name}} {{.State.Status}} | Exit: {{.State.ExitCode}} | OOM: {{.State.OOMKilled}} | Restarts: {{.RestartCount}} | Finished: {{.State.FinishedAt}}' "$name"
+  if container_running "$name"; then docker stats --no-stream "$name"; fi
 }
 
 proxy_usage() {
@@ -543,6 +562,7 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   status      Check the running proxy, published port and restart policy
   verify      Check status and TCP connectivity to Telegram data centers
   connect     Check TCP from the caller to --public-host and --port
+  capture     Capture TCP headers for this port to stdout as a pcap
   logs        Show the last 100 proxy log lines
   mss-unit    Generate a systemd unit for the proxy port's IPv4 MSS clamp
   stop        Stop the proxy
@@ -556,6 +576,9 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   --public-host HOST  Public DNS name or IPv4 address used by link
   --proxy-name NAME   Use an existing proxy container name
   --mss BYTES         MSS clamp used by mss-unit (default: 1200)
+  --seconds SECONDS   Capture for 1 to 60 seconds (default: 15)
+  --interface NAME    Capture interface (default: any)
+  --client-ip IP      Restrict capture to a client IPv4 or IPv6 address
 HELP
 }
 
@@ -588,10 +611,11 @@ UNIT
 
 proxy_deploy() {
   local port=443 workers=4 proxy_image=mtproxy/mtproxy:latest secret_input='' public_host='' proxy='' mss=1200
+  local seconds=15 interface=any client_ip=''
   while (( $# )); do
     case "$1" in
       -h|--help) proxy_usage; return ;;
-      --port|--workers|--image|--secret-file|--public-host|--proxy-name|--mss)
+      --port|--workers|--image|--secret-file|--public-host|--proxy-name|--mss|--seconds|--interface|--client-ip)
         need_value "$@"
         case "$1" in
           --port) port=$2 ;;
@@ -601,6 +625,9 @@ proxy_deploy() {
           --public-host) public_host=$2 ;;
           --proxy-name) proxy=$2 ;;
           --mss) mss=$2 ;;
+          --seconds) seconds=$2 ;;
+          --interface) interface=$2 ;;
+          --client-ip) client_ip=$2 ;;
         esac
         shift 2 ;;
       *) break ;;
@@ -619,6 +646,20 @@ proxy_deploy() {
     [[ $mss =~ ^[1-9][0-9]{2,4}$ ]] && (( mss >= 536 && mss <= 65535 )) || fail "Invalid MSS: $mss"
     proxy_mss_unit "$port" "$mss"
     return
+  fi
+  if [[ $action == capture ]]; then
+    [[ $seconds =~ ^[1-9][0-9]?$ ]] && (( seconds <= 60 )) || fail "Capture duration must be between 1 and 60 seconds"
+    [[ $interface =~ ^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$ ]] || fail "Invalid capture interface"
+    local capture_filter=(tcp port "$port")
+    if [[ $client_ip ]]; then
+      [[ $client_ip =~ ^[a-fA-F0-9:.]+$ && $client_ip == *[.:]* ]] || fail "Expected a client IP address"
+      capture_filter+=(and host "$client_ip")
+    fi
+    require timeout
+    require tcpdump
+    # Stop tcpdump with SIGINT so it flushes the capture. Bound packets as well as time.
+    exec timeout --preserve-status --signal=INT --kill-after=5 "$seconds" \
+      tcpdump -p -n -i "$interface" -s 96 -c 10000 -w - "${capture_filter[@]}"
   fi
   if [[ $action == link || $action == connect ]]; then
     [[ $public_host =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] || fail "Supply a public DNS name or IPv4 address with --public-host"
@@ -780,6 +821,10 @@ deploy() {
       [[ $# == 1 && $1 == --confirm ]] || fail "Usage: deploy reboot --confirm"
       require systemctl
       exec systemctl reboot ;;
+    docker-service)
+      [[ $# == 1 && ( $1 == status || $1 == start ) ]] || fail "Usage: deploy docker-service status|start"
+      require systemctl
+      exec systemctl "$1" docker.service ;;
     proxy) proxy_deploy "$@"; return ;;
   esac
   case "$action" in
@@ -788,7 +833,7 @@ deploy() {
       if [[ ${1-} == -- ]]; then shift
       elif (( $# )); then fail "Pass the startup command after --"; fi
       apply_deployment "$@" ;;
-    prepare|rollback|recover|status|doctor|disk|start|stop|restart|remove)
+    prepare|rollback|recover|status|doctor|diagnose|disk|start|stop|restart|remove)
       (( $# == 0 )) || fail "Unexpected arguments for deploy $action"
       require docker
       case "$action" in
@@ -797,6 +842,7 @@ deploy() {
         recover) recover_deployment ;;
         status) deploy_status ;;
         doctor) doctor ;;
+        diagnose) diagnose ;;
         disk) exec docker system df -v ;;
         remove) lock_deployment; docker rm "$name" ;;
         *) lock_deployment; docker "$action" "$name" ;;

@@ -80,12 +80,13 @@ Each package operation is available locally and inside a managed deployment. Use
 | ------------------------- | ----------------------------------------- | ------------------------------------------------ |
 | Preview disk cleanup      | `hive-manager cleanup --dry-run`          | `hive-manager deploy cleanup --dry-run`          |
 | Verify Claude settings    | `hive-manager configure-claude --verify`  | `hive-manager deploy configure-claude --verify`  |
+| Audit agent settings      | `hive-manager audit-config`               | `hive-manager deploy audit-config`               |
 | List Screen sessions      | `hive-manager screens --list`             | `hive-manager deploy screens --list`             |
 | Inspect the model catalog | `hive-manager models --tool codex --json` | `hive-manager deploy models --tool codex --json` |
 | Reconcile linked issues   | `hive-manager close-linked-issues --help` | `hive-manager deploy close-linked-issues --help` |
 | Inspect task records      | `hive-manager tasks list --running`       | `hive-manager deploy tasks list --running`       |
 
-`deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for Docker storage details. `deploy start`, `stop` and `restart` manage the selected container. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges.
+`deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for Docker storage details and `deploy diagnose` for resource usage, exit status and OOM information. `deploy start`, `stop` and `restart` manage the selected container. On systemd hosts, `deploy docker-service status` checks the host daemon and `deploy docker-service start` starts it. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges. `audit-config --repair` applies Hive Mind's existing global agent settings repair and quarantines supported non-baseline additions.
 
 `tasks status ID` reports one execution. Use `tasks attach ID --read-only` to follow a live task, `tasks resume ID` to restart the stored execution, or `tasks resume-all` to reconcile running records and watchers. Supported actions depend on the installed [start-command](https://github.com/link-foundation/start) version. `tasks upload-log ID` invokes its upload workflow. `archive-session FILE` writes a sanitized local copy to stdout for review. Session contents can include personal or proprietary material. Review the exported file before publishing it and choose the destination explicitly.
 
@@ -105,7 +106,7 @@ hive-manager deploy --state-dir ./restored-state restore --input ./hive-state.ta
 hive-manager --host replacement deploy --state-dir ./restored-state restore < hive-state.tar.gz
 ```
 
-The backup is a private archive of the state directory. Keep configuration inside that directory if it should be included, and preserve separate files and Docker volumes independently. The state directory includes Claude, Codex, Agent skills, Git, GitHub CLI, Hive Mind session state and start-command records. Archives can contain credentials. Restore a trusted archive into a new directory and ensure its files are accessible by the `box` user before applying the profile.
+The backup is a private archive of the state directory. Keep configuration inside that directory if it should be included, and preserve separate files and Docker volumes independently. The state directory includes Claude, Codex, Agent skills, Git, GitHub CLI, Hive Mind session state, and start-command records and logs. Archives can contain credentials. Restore a trusted archive into a new directory and ensure its files are accessible by the `box` user before applying the profile.
 
 ## Telegram MTProto proxy
 
@@ -119,7 +120,13 @@ hive-manager deploy proxy --port 8443 --public-host proxy.example.net connect
 hive-manager --host hive-production deploy proxy --port 8443 --public-host proxy.example.net link
 ```
 
-`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. Use Telegram itself to verify authenticated messaging and media over that route. For an IPv4 path where measurements identify an MSS problem, `proxy --port 8443 --mss 1200 mss-unit` generates an optional systemd unit for review and installation on an iptables-based Docker host. Its rules match Docker DNAT by the original published port, in both directions.
+`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. Use Telegram itself to verify authenticated messaging and media over that route. If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`.
+
+```bash
+( umask 077; hive-manager --host hive-production deploy proxy --port 8443 --seconds 15 --client-ip 192.0.2.12 capture > proxy.pcap )
+```
+
+For an IPv4 path where measurements identify an MSS problem, `proxy --port 8443 --mss 1200 mss-unit` generates an optional systemd unit for review and installation on an iptables-based Docker host. Its rules match Docker DNAT by the original published port, in both directions.
 
 ## Compose and Helm
 

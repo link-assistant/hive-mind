@@ -21,7 +21,7 @@ function fixture(t) {
     writeFileSync(file, `#!/usr/bin/env bash\nset -eu\n${body}\n`, { mode: 0o700 });
     return file;
   };
-  const run = (args, { stdin, entry = script } = {}) => spawnSync('bash', [entry, ...args], { cwd, input: stdin, env, encoding: 'utf8', timeout: 10000 });
+  const run = (args, { stdin, entry = script, environment = {} } = {}) => spawnSync('bash', [entry, ...args], { cwd, input: stdin, env: { ...env, ...environment }, encoding: 'utf8', timeout: 10000 });
   const standalone = (args, input = source) => spawnSync('bash', ['-s', '--', ...args], { cwd, input, env, encoding: 'utf8', timeout: 10000 });
   return { cwd, executable, run, standalone };
 }
@@ -151,6 +151,30 @@ test('MTProxy MSS unit uses the original published port after destination NAT', 
     }
   }
   const invalid = run(['deploy', 'proxy', '--mss', '1; echo unwanted', 'mss-unit']);
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout, '');
+});
+
+test('agent config audit requires explicit repair before modifying the fixture home', { timeout: 10000 }, t => {
+  const { cwd, run } = fixture(t);
+  const options = { environment: { HOME: cwd, CODEX_HOME: join(cwd, '.codex'), CLAUDE_CONFIG_DIR: join(cwd, '.claude') } };
+  assert.notEqual(run(['audit-config'], options).status, 0);
+  assert.throws(() => statSync(join(cwd, '.codex/config.toml')), { code: 'ENOENT' });
+  const repaired = run(['audit-config', '--repair'], options);
+  assert.equal(repaired.status, 0, repaired.stderr);
+  assert.match(readFileSync(join(cwd, '.codex/config.toml'), 'utf8'), /remote_plugin = false/);
+  assert.equal(run(['audit-config'], options).status, 0);
+});
+
+test('MTProxy capture is scoped by port, client and time and refuses out-of-range durations', { timeout: 10000 }, t => {
+  const { run, executable } = fixture(t);
+  executable('timeout', 'printf "<%s>\\n" "$@"');
+  executable('tcpdump', 'exit 19');
+  const args = ['deploy', 'proxy', '--port', '8443', '--seconds', '5', '--client-ip', '2001:db8::1', 'capture'];
+  const result = run(args);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '<--preserve-status>\n<--signal=INT>\n<--kill-after=5>\n<5>\n<tcpdump>\n<-p>\n<-n>\n<-i>\n<any>\n<-s>\n<96>\n<-c>\n<10000>\n<-w>\n<->\n<tcp>\n<port>\n<8443>\n<and>\n<host>\n<2001:db8::1>\n');
+  const invalid = run(['deploy', 'proxy', '--seconds', '600', 'capture']);
   assert.notEqual(invalid.status, 0);
   assert.equal(invalid.stdout, '');
 });

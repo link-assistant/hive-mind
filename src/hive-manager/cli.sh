@@ -206,6 +206,7 @@ HELP
     'codex login') auth_command=(codex login --device-auth) ;;
     'codex status') auth_command=(codex login status) ;;
     'github login') auth_command=(env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key) ;;
+    # github-retry-ok: interactive status reports the provider response and exit status directly
     'github status') auth_command=(gh auth status --hostname github.com) ;;
     *) fail "Unknown auth provider or action. Run hive-manager auth --help." ;;
   esac

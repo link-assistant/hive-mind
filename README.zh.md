@@ -476,6 +476,10 @@ Hive Mind 内置 Telegram 机器人接口（SwarmMindBot），支持远程命令
 
 ### 机器人命令
 
+在检测到多个 Hive Mind 机器人的群聊中，请使用 Telegram 的定向命令，例如 `/help@SwarmMindBot` 或 `/solve@SwarmMindBot <github-url>`。如果群聊中只检测到一个 Hive Mind 机器人，两种命令格式都可以使用。
+
+Hive Mind 根据 Telegram 成员变动、可见的群消息发送者和群管理员列表识别其他机器人。要启用自动识别，请在显示名称或用户名中加入 **Hive Mind** 或 **Swarm Mind**。如果其他机器人使用自定义名称，或 Telegram 尚未提供已有普通成员的身份，请在参与的机器人上设置 `TELEGRAM_HIVE_MIND_PEER_BOTS`（或 `--peer-bots`）。每个 Links Notation 数对包含 Telegram 群 ID 和机器人的数字 ID，例如 `((-1001234567890 987654321))`。如果 Telegram 无法确认群成员身份，请使用定向命令。
+
 大多数操作类命令仅在**群聊中**有效（不支持与机器人的私聊）。有意发送私密更新的命令（例如 `/terminal_watch`）也可以在私聊中使用：
 
 #### `/solve` - 解决 GitHub Issue

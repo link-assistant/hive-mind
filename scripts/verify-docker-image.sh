@@ -384,19 +384,10 @@ else # shell-lint: allow-nonfatal — informational; no bun global package is re
 fi
 
 echo ""
-echo "Checking Hive-Mind configure-claude bin..."
-if command -v configure-claude >/dev/null 2>&1; then
-  configure-claude --help | head -n1 || true
-  echo "configure-claude is accessible"
-
-  echo ""
-  echo "Verifying quiet Claude Code baseline..."
-  configure-claude --settings-path /home/box/.claude/settings.json --verify
-  echo "Quiet Claude Code baseline: OK"
-else
-  echo "ERROR: configure-claude is missing from the installed package" >&2
-  exit 1
-fi
+echo "Checking Hive Mind deployment and maintenance commands..."
+hive-manager --help
+hive-manager deploy --help
+hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 echo "Checking the installed stock-runtime baseline..."
 node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"

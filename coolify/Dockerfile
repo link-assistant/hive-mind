@@ -348,10 +348,12 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # --strict-mcp-config --mcp-config <temp-file>.
 #
 # Every image requires the installed configuration command and verifies its result.
+COPY --chmod=0755 src/hive-manager.sh /usr/local/bin/hive-manager
+
 RUN mkdir -p /home/box/.claude && \
-    command -v configure-claude >/dev/null && \
-    configure-claude --settings-path /home/box/.claude/settings.json && \
-    configure-claude --settings-path /home/box/.claude/settings.json --verify
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.

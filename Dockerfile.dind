@@ -449,10 +449,12 @@ RUN if command -v claude >/dev/null 2>&1; then \
       ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
     fi
 
+COPY --chmod=0755 src/hive-manager.sh /usr/local/bin/hive-manager
+
 RUN mkdir -p /home/box/.claude && \
-    command -v configure-claude >/dev/null && \
-    configure-claude --settings-path /home/box/.claude/settings.json && \
-    configure-claude --settings-path /home/box/.claude/settings.json --verify
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # Stale nested-dockerd pid files (issue #3214). A task container resumed in
 # place (`docker start` of the stopped container, or a container created from

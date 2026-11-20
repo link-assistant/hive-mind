@@ -15,7 +15,7 @@ package_archive="$package_stage/$package_archive"
 test -f "$package_archive"
 # These are runtime inputs, not development scripts mounted into a test image.
 package_files=$(tar -tzf "$package_archive")
-for package_file in src/hive.mjs src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json src/install-native-codex.mjs src/native-codex/recipe.json; do
+for package_file in src/hive.mjs src/hive-manager.sh src/verify-agent-runtime.mjs src/codex-stock-skills-0.164.0.json src/install-native-gemini.mjs src/native-gemini/recipe/manifest.json src/install-native-codex.mjs src/native-codex/recipe.json; do
   grep -Fx "package/$package_file" >/dev/null <<<"$package_files"
 done
 # The executables must never return to the main tarball (npm refused it with E413).
@@ -36,6 +36,7 @@ variant_alias=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv
 bun install --backend=copyfile -g "$package_archive"
 package_version=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).version' "$package_source/package.json")
 test "$(hive --version)" = "$package_version"
+test "$(hive-manager --version)" = "$package_version"
 # Place the variant where the registry install would: next to the main package
 # in Bun's global node_modules. Extraction writes independent (nlink 1) files.
 hive_root=$(dirname "$(dirname "$(readlink -f "$(command -v hive)")")")

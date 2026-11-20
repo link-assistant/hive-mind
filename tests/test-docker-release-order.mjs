@@ -18,10 +18,11 @@ for (const file of dockerfiles) {
   assert.ok(content.includes('ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"'), `${file} should bake the published version as the default Docker isolation image tag`);
   assert.ok(content.includes('bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
   assert.ok(content.includes('test "$(hive --version)" = "${HIVE_MIND_VERSION}"'), `${file} should verify the installed hive-mind version when a release version is supplied`);
-  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);
-  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the Docker baseline after applying configure-claude`);
+  assert.ok(content.includes('hive-manager configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should apply the Claude configuration through hive-manager`);
+  assert.ok(content.includes('hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the Docker baseline through hive-manager`);
   assert.ok(content.includes('ARG HIVE_MIND_INSTALL_SOURCE=false'), `${file} should support packing the PR branch`);
-  assert.ok(content.includes('command -v configure-claude >/dev/null &&'), `${file} must require the installed configuration command`);
+  assert.ok(content.includes('COPY --chmod=0755 src/hive-manager.sh /usr/local/bin/hive-manager'), `${file} must ship the standalone manager even with a pinned npm version`);
+  assert.ok(content.includes('command -v hive-manager >/dev/null &&'), `${file} must require the installed manager`);
   assert.ok(!content.includes('skipping baseline'), `${file} must not skip its baseline check`);
   assert.ok(!content.includes('/workspace/.hive-mind-bake'), `${file} should not copy repo source into a bake directory`);
   assert.ok(!content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should not invoke the old repo-local wrapper script`);

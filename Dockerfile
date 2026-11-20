@@ -447,6 +447,8 @@ RUN if command -v claude >/dev/null 2>&1; then \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
+COPY --chmod=0755 src/hive-manager.sh /usr/local/bin/hive-manager
+
 # Autonomous headless hive-mind runs never benefit from tools that wait for
 # human interaction (AskUserQuestion, EnterPlanMode) or that register local
 # session cron jobs (CronCreate/List/Delete) or create worktrees
@@ -463,9 +465,9 @@ RUN if command -v claude >/dev/null 2>&1; then \
 #
 # Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    command -v configure-claude >/dev/null && \
-    configure-claude --settings-path /home/box/.claude/settings.json && \
-    configure-claude --settings-path /home/box/.claude/settings.json --verify
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # Required installed-package baseline: no provider access or development source.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"

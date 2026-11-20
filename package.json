@@ -14,6 +14,7 @@
     "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",
     "hive-screens": "./src/hive-screens.mjs",
+    "hive-manager": "./src/hive-manager.sh",
     "hive-models": "./src/hive-models.mjs",
     "hive-telegram-bot": "./src/telegram-bot.mjs",
     "close-linked-issues": "./src/close-linked-issues.mjs"

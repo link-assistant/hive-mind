@@ -61,7 +61,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
-  diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources]
+  diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]
                         Show host resources, container exit facts and optional journal evidence
   disk                  Report Docker storage, images, volumes and build cache
   backup [--output FILE|-]
@@ -610,15 +610,162 @@ doctor() {
   fi
 }
 
+sample_container_process() {
+  docker exec --user box -i "$name" bash -s -- "$1" <<'PROCESS_SAMPLE'
+set -o pipefail
+proc=/proc/$1
+process_start() {
+  awk '{ sub(/^.*\) /, ""); print $20 }' "$proc/stat" 2>/dev/null
+}
+
+socket_sample() {
+  timeout 4 python3 -I - "$proc/fd" <<'UNIX_QUEUES'
+import errno
+import itertools
+import os
+import re
+import socket
+import struct
+import sys
+from functools import lru_cache
+
+# Linux uapi/linux/{netlink,sock_diag,unix_diag}.h. Query socket inodes
+# individually so the sample reads only the selected process and its peers.
+NETLINK_SOCK_DIAG = 4
+SOCK_DIAG_BY_FAMILY = 20
+NLM_F_REQUEST = 1
+NLMSG_ERROR = 2
+UDIAG_SHOW_PEER, UDIAG_SHOW_RQLEN = 0x04, 0x10
+UNIX_DIAG_PEER, UNIX_DIAG_RQLEN = 2, 4
+TCP_ESTABLISHED = 1
+NO_COOKIE = 0xFFFFFFFF
+header = struct.Struct("=IHHII")
+message = struct.Struct("=BBBBIII")
+attribute = struct.Struct("=HH")
+
+@lru_cache(maxsize=1024)
+def queues(inode):
+    request = struct.pack("=BBHIIIII", socket.AF_UNIX, 0, 0, 0, inode,
+                          UDIAG_SHOW_PEER | UDIAG_SHOW_RQLEN, NO_COOKIE, NO_COOKIE)
+    diagnostic.send(header.pack(header.size + len(request), SOCK_DIAG_BY_FAMILY, NLM_F_REQUEST, 1, 0) + request)
+    response, (sender, groups) = diagnostic.recvfrom(4096)
+    length, kind, _, sequence, _ = header.unpack_from(response)
+    if sender or groups or sequence != 1 or not header.size <= length <= len(response):
+        raise ValueError("Invalid socket diagnostic response")
+    if kind == NLMSG_ERROR:
+        error, = struct.unpack_from("=i", response, header.size)
+        if error == -errno.ENOENT:
+            return None
+        raise OSError(-error, "Unix socket diagnostic query failed")
+    family, socket_type, state, _, reported_inode, _, _ = message.unpack_from(response, header.size)
+    if (kind, family, reported_inode) != (SOCK_DIAG_BY_FAMILY, socket.AF_UNIX, inode):
+        raise ValueError("Unexpected socket diagnostic response")
+    if socket_type != socket.SOCK_STREAM or state != TCP_ESTABLISHED:
+        return None
+    peer, counters = None, None
+    offset = header.size + message.size
+    while offset + attribute.size <= length:
+        size, tag = attribute.unpack_from(response, offset)
+        if size < attribute.size or offset + size > length:
+            raise ValueError("Invalid socket diagnostic attribute")
+        value = offset + attribute.size
+        if tag == UNIX_DIAG_PEER and size == attribute.size + 4:
+            peer, = struct.unpack_from("=I", response, value)
+        if tag == UNIX_DIAG_RQLEN and size == attribute.size + 8:
+            counters = struct.unpack_from("=II", response, value)
+        offset += (size + 3) & ~3
+    return (*counters, peer) if counters else None
+
+try:
+    with socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, NETLINK_SOCK_DIAG) as diagnostic, os.scandir(sys.argv[1]) as descriptors:
+        diagnostic.settimeout(1)
+        diagnostic.connect((0, 0))
+        for descriptor in itertools.islice(descriptors, 512):
+            try:
+                target = os.readlink(descriptor.path)
+            except FileNotFoundError:
+                continue
+            match = re.fullmatch(r"socket:\[(\d+)\]", target)
+            if not match:
+                continue
+            inode = int(match[1])
+            if not 0 < inode <= 0xFFFFFFFF:
+                continue
+            result = queues(inode)
+            if result:
+                received, sent, peer = result
+                peer_queues = queues(peer) if peer else None
+                print(inode, descriptor.name, received, sent, peer_queues[1] if peer_queues else "unknown")
+except (OSError, ValueError, struct.error):
+    sys.exit(1)
+UNIX_QUEUES
+}
+
+started=$(process_start)
+if [[ ! $started ]]; then
+  printf 'Process %s is unavailable in the container\n' "$1" >&2
+  exit 1
+fi
+socket_evidence=false
+if command -v python3 >/dev/null && command -v timeout >/dev/null && first_queues=$(socket_sample); then socket_evidence=true; fi
+first_io=$(cat "$proc/io" 2>/dev/null)
+sleep 2
+last_io=$(cat "$proc/io" 2>/dev/null)
+if $socket_evidence && ! last_queues=$(socket_sample); then socket_evidence=false; fi
+syscall=''
+if { read -r syscall _ < "$proc/syscall"; } 2>/dev/null; then
+  [[ $syscall =~ ^(-?[0-9]+|running)$ ]] || syscall=''
+fi
+if [[ $(process_start) != "$started" ]]; then
+  printf 'Process %s exited or changed during sampling\n' "$1" >&2
+  exit 1
+fi
+
+printf '\nContainer process %s I/O over a two-second sample\n' "$1"
+if [[ $first_io && $last_io ]]; then
+  printf '%s\n--\n%s\n' "$first_io" "$last_io" | awk '
+    $0 == "--" { after = 1; next }
+    $1 ~ /^(rchar:|wchar:|syscr:|syscw:)$/ && $2 ~ /^[0-9]+$/ {
+      if (!after) start[$1] = $2
+      else if ($1 in start && $2 >= start[$1]) printf "%s +%.0f\n", $1, $2 - start[$1]
+    }
+  '
+else
+  printf 'Process I/O counters unavailable\n'
+fi
+printf 'Current syscall: %s\n' "${syscall:-unavailable}"
+if $socket_evidence; then
+  printf 'Unix stream socket backlog (bytes, up to 20 endpoints)\n'
+  printf '%s\n--\n%s\n' "$first_queues" "$last_queues" | awk '
+    $0 == "--" { after = 1; next }
+    NF == 5 && !after { recv[$1] = $3; send[$1] = $4; peer[$1] = $5; next }
+    NF == 5 && ($3 > 0 || $4 > 0 || ($5 != "unknown" && $5 > 0)) && count++ < 20 {
+      printf "fd %s receive %s -> %s, send %s -> %s, peer send %s -> %s\n",
+        $2, ($1 in recv ? recv[$1] : "unknown"), $3,
+        ($1 in send ? send[$1] : "unknown"), $4, ($1 in peer ? peer[$1] : "unknown"), $5
+    }
+    END { if (!count) print "No queued bytes found on sampled Unix stream sockets" }
+  '
+else
+  printf 'Unix socket queues unavailable\n'
+fi
+PROCESS_SAMPLE
+}
+
 diagnose() {
-  local usage='Usage: deploy diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources]'
-  local since='' until='' task='' attempt='' window resources=false
+  local usage='Usage: deploy diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]'
+  local since='' until='' task='' attempt='' window process='' resources=false
   while (( $# )); do
     case $1 in
       --since) need_value "$@"; since=$2; shift 2 ;;
       --task) need_value "$@"; task=$2; shift 2 ;;
       --attempt) need_value "$@"; attempt=$2; shift 2 ;;
       --resources) resources=true; shift ;;
+      --process)
+        need_value "$@"
+        [[ $2 =~ ^[1-9][0-9]{0,6}$ ]] || fail "Use a positive container process ID"
+        process=$2
+        shift 2 ;;
       --help|-h) printf '%s\n' "$usage"; return ;;
       *) fail "$usage" ;;
     esac
@@ -673,6 +820,10 @@ diagnose() {
     local result=0
     journalctl _TRANSPORT=kernel "${period[@]}" --lines=80 --no-pager --case-sensitive=no --grep='out of memory|oom-kill|killed process' || result=$?
     (( result <= 1 )) || return "$result"
+  fi
+  if [[ $process ]]; then
+    container_running "$name" || fail "Process diagnostics require a running container: $name"
+    sample_container_process "$process"
   fi
 }
 

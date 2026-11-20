@@ -96,11 +96,21 @@ Run `tasks repair-records [UUID]` when a detached Docker resume is running and i
 
 `tasks report --group` counts recurring failures across recorded attempts, including failures from tasks that later succeeded. It groups by execution backend, failure classification and exit code. `tasks report --incident UUID --attempt NUMBER --destination OWNER/REPO` previews an incident for one confirmed failure. The default attempt is the latest. Add `--follow-up ISSUE_NUMBER` when the failure belongs on an existing open issue. Use `--publish REVIEW_DIGEST` after reviewing the JSON output to create the issue or post the approved comment. The report contains the execution ID, times, backend, exit status and classification. Upload an execution log separately with `tasks upload-log ID` if needed.
 
+For repeat failures, use `--routes /path/to/routes.json` in place of `--follow-up`. The file is read in the environment that runs the command, so put it inside the container when using `deploy tasks`. Copy the `backend`, `kind` and `exitCode` values from `tasks report --group` and add the open issue number in the selected destination repository.
+
+```json
+[{ "backend": "docker", "kind": "Memory exhaustion", "exitCode": 137, "issue": 318 }]
+```
+
+A matching failure previews a comment for the configured issue. An unmatched failure previews a new issue. Changes to the selected issue after review invalidate the digest.
+
 After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Review dependency-based requests before submitting them again.
 
 On a Linux Docker host, `deploy docker-service live-restore` checks whether the local daemon keeps containers running when the daemon is unavailable. Run it with `--apply` as root on a systemd host with `jq` and `flock`. The command validates and backs up `/etc/docker/daemon.json`, reloads `docker.service`, and checks the running daemon. It restores the previous file if the setting fails to take effect. [Docker live restore](https://docs.docker.com/engine/daemon/live-restore/)
 
 Use `deploy diagnose --since '1 hour ago'` to include bounded Docker service and kernel memory-failure history where the target account can read the systemd journal. The journal remains available when the managed container or its daemon is down. Use `deploy diagnose --task UUID --attempt NUMBER` on a running instance to use the selected task's recorded time window for both journal queries. The results show events overlapping the task, with up to 80 records per query. On a running Linux instance, `deploy diagnose --resources` adds cgroup v2 memory, CPU, pressure and PID counters, thread wait channels, a bounded browser process table, and shared-memory usage where the Docker host exposes them.
+
+To inspect a blocked browser or agent process, get its container PID with `deploy exec -- ps -eo pid,comm` and run `deploy diagnose --process PID`. The command samples read and write byte and operation counters, the current syscall number and queued bytes for connected Unix stream sockets at both ends of the sample. It runs as `box` within the selected container. Socket queue sampling uses the Linux kernel diagnostic interface through Python 3. The command identifies readings that the kernel or container makes unavailable. For a separate Docker task container, select that container with `deploy --name TASK_CONTAINER diagnose --process PID`.
 
 Packaged maintenance commands use Hive Mind's terminal credential filter. Operations such as `deploy logs`, `deploy exec`, and backup streams carry the underlying service output, so review that output before sharing it.
 

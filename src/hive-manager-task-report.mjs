@@ -12,10 +12,11 @@ import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
        hive-manager tasks report --window UUID [--attempt NUMBER]
-       hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--follow-up ISSUE] [--publish SHA256]]
+       hive-manager tasks report --incident UUID [--attempt NUMBER] [--destination OWNER/REPO [--follow-up ISSUE | --routes FILE] [--publish SHA256]]
 Summarize tracked tasks and recent failures without command lines or logs.
 Use --group to count repeat failures by backend and exit evidence across recorded attempts.
 An incident preview describes one failure. Approve its digest to open an issue or comment on an existing issue.
+Use --routes to select a follow-up from a JSON file keyed by the failure group.
 `;
 
 function timestamp(value) {
@@ -81,10 +82,28 @@ function groupFailures(tasks, limit) {
   return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
-async function incidentPreview(task, requestedAttempt, destination, followUp) {
+async function routedIssue(file, backend, attempt) {
+  const routes = JSON.parse(await readFile(file, 'utf8'));
+  if (!Array.isArray(routes)) throw new Error('Incident routes must be a JSON array.');
+  const seen = new Set();
+  let followUp;
+  for (const route of routes) {
+    if (!route || !['docker', 'screen', 'tmux', 'ssh', 'local'].includes(route.backend) || !Number.isSafeInteger(route.exitCode) || route.exitCode < 1 || typeof route.kind !== 'string' || !Number.isSafeInteger(route.issue) || route.issue < 1) {
+      throw new Error('Each route needs the backend, kind and exitCode from a failure group and a positive issue number.');
+    }
+    const signature = JSON.stringify([route.backend, route.kind, route.exitCode]);
+    if (seen.has(signature)) throw new Error('Specify at most one issue per failure group.');
+    seen.add(signature);
+    if (route.backend === backend && route.exitCode === attempt.exitCode && route.kind === failureKind(attempt)) followUp = route.issue;
+  }
+  return followUp;
+}
+
+async function incidentPreview(task, requestedAttempt, destination, explicitFollowUp, routes) {
   const attempt = taskAttempts(task).get(requestedAttempt ?? latestAttempt(task));
   if (!attempt || attempt.status !== 'executed' || !Number.isSafeInteger(attempt.number) || attempt.number < 1 || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) throw new Error('The selected attempt has no confirmed failed exit.');
   const backend = taskBackend(task);
+  const followUp = routes === undefined ? explicitFollowUp : await routedIssue(routes, backend, attempt);
   const title = await sanitizeForPublication(`[hive-manager] Task failure ${task.uuid} (attempt ${attempt.number})`);
   const marker = `<!-- hive-manager-task: ${task.uuid}/${attempt.number} -->`;
   const body = await sanitizeForPublication(`${marker}
@@ -184,13 +203,14 @@ export async function listTrackedTasks(timeout = 120_000) {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, publish: { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
     return;
   }
+  const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes].some(value => value !== undefined);
   if (values.window !== undefined) {
-    if (values.group || values.incident !== undefined || values.destination !== undefined || values.publish !== undefined || values['follow-up'] !== undefined) throw new Error('Select the task window separately from grouping and incident publication.');
+    if (values.group || values.incident !== undefined || hasPublicationOptions) throw new Error('Select the task window separately from grouping and incident publication.');
     const attempt = requestedAttempt(values.attempt);
     const task = await selectedTask(values.window);
     const entry = taskAttempts(task).get(attempt ?? latestAttempt(task));
@@ -203,16 +223,17 @@ async function report() {
   if (values.incident !== undefined) {
     if (values.group) throw new Error('Select either --group or --incident.');
     const destination = values.destination?.toLowerCase() ?? null;
-    const followUp = values['follow-up'] === undefined ? undefined : Number(values['follow-up']);
+    const explicitFollowUp = values['follow-up'] === undefined ? undefined : Number(values['follow-up']);
     const attempt = requestedAttempt(values.attempt);
     const expectedDigest = values.publish?.replace(/^sha256:/, '');
     if ((destination !== null && !/^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/.test(destination)) || (expectedDigest !== undefined && (!destination || !/^[a-f\d]{64}$/.test(expectedDigest)))) throw new Error('Publishing requires a GitHub destination and the approved preview digest.');
-    if (followUp !== undefined && (!destination || !/^\d+$/.test(values['follow-up']) || !Number.isSafeInteger(followUp) || followUp < 1)) throw new Error('Specify a GitHub destination and a positive issue number for follow-up.');
+    if (explicitFollowUp !== undefined && (!destination || !/^\d+$/.test(values['follow-up']) || !Number.isSafeInteger(explicitFollowUp) || explicitFollowUp < 1)) throw new Error('Specify a GitHub destination and a positive issue number for follow-up.');
+    if (values.routes !== undefined && (!destination || explicitFollowUp !== undefined)) throw new Error('Incident routes require a GitHub destination and replace --follow-up.');
     const task = await selectedTask(values.incident);
-    const preview = await incidentPreview(task, attempt, destination, followUp);
+    const preview = await incidentPreview(task, attempt, destination, explicitFollowUp, values.routes);
     if (!values.publish) {
-      if (followUp !== undefined) await requireOpenIssue(destination, followUp);
-      const { title, body, digest } = preview;
+      if (preview.followUp !== undefined) await requireOpenIssue(destination, preview.followUp);
+      const { followUp, title, body, digest } = preview;
       process.stdout.write(`${JSON.stringify({ destination, followUp, title, body, digest: `sha256:${digest}` }, null, 2)}\n`);
     } else {
       if (preview.digest !== expectedDigest) throw new Error('The incident or destination changed since review.');
@@ -220,7 +241,7 @@ async function report() {
     }
     return;
   }
-  if (values.attempt !== undefined || values.destination !== undefined || values.publish !== undefined || values['follow-up'] !== undefined) throw new Error('The attempt and publication options require --incident UUID.');
+  if (values.attempt !== undefined || hasPublicationOptions) throw new Error('The attempt and publication options require --incident UUID.');
   const limit = Number(values.limit);
   if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 1000) throw new Error('Report limit must be between 1 and 1000.');
   const tasks = await listTrackedTasks();

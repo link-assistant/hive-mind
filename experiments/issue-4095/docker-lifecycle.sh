@@ -22,7 +22,9 @@ trap cleanup EXIT
 
 docker build --tag "$image" - <<'DOCKERFILE'
 FROM debian:bookworm-slim
-RUN useradd --create-home --uid 1001 box && \
+RUN apt-get update && apt-get install -y --no-install-recommends python3-minimal && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd --create-home --uid 1001 box && \
     printf '#!/bin/sh\nexit 0\n' >/usr/local/bin/hive && \
     chmod +x /usr/local/bin/hive && \
     mkdir -p /home/box/.codex /home/box/.claude && \
@@ -84,6 +86,25 @@ fi
 if docker exec "$name" test -r /sys/fs/cgroup/pids.current; then
   grep -q '^pids.current$' <<< "$diagnostics"
 fi
+docker exec --user box -d "$name" perl -MSocket -e '
+  socketpair(my $writer, my $reader, AF_UNIX, SOCK_STREAM, PF_UNSPEC) or die $!;
+  syswrite($writer, "x" x 24000) == 24000 or die $!;
+  open(my $pidfile, ">", "/tmp/hive-socket-fixture.pid") or die $!;
+  print $pidfile "$$\n";
+  close $pidfile;
+  sleep 25;
+'
+socket_pid=''
+for (( attempt=0; attempt<20; attempt++ )); do
+  socket_pid=$(docker exec "$name" cat /tmp/hive-socket-fixture.pid 2>/dev/null) && [[ $socket_pid ]] && break
+  sleep 0.1
+done
+[[ $socket_pid =~ ^[0-9]+$ ]]
+process_diagnostics=$("${managed[@]}" diagnose --process "$socket_pid")
+grep -q "^Container process $socket_pid I/O" <<< "$process_diagnostics"
+grep -q '^syscr: +0$' <<< "$process_diagnostics"
+grep -q '^Current syscall: ' <<< "$process_diagnostics"
+grep -Eq 'fd [0-9]+ receive 24000 -> 24000, send 0 -> 0, peer send [1-9][0-9]* -> [1-9][0-9]*' <<< "$process_diagnostics"
 
 # Simulate interruption after creating a replacement and stopping the old
 # container, before it has been renamed to the rollout hold name.

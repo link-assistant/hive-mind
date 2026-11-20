@@ -37,6 +37,8 @@ test('deploy diagnose reads bounded service and memory journal evidence for a mi
   assert.match(result.stdout, /Docker fixture\nContainer unavailable: missing/);
   assert.match(result.stdout, /<--unit=docker\.service>\n<--since=1 hour ago>\n<--lines=80>/);
   assert.match(result.stdout, /<_TRANSPORT=kernel>\n<--since=1 hour ago>\n<--lines=80>/);
+  assert.match(run(['deploy', 'diagnose', '--process', '1']).stderr, /Process diagnostics require a running container/);
+  assert.match(run(['deploy', 'diagnose', '--process', '../self']).stderr, /Use a positive container process ID/);
 });
 
 test('deploy diagnose uses the selected task attempt window and shows browser resource evidence', t => {
@@ -65,6 +67,52 @@ esac`
   for (const argument of window) assert.equal(result.stdout.split(argument).length - 1, 2);
   assert.match(result.stdout, /Browser processes[^]*chromium\nMatching browser processes: 1\nshm 64M \/dev\/shm/);
   assert.match(run(['deploy', 'diagnose', '--task', id, '--since', 'now']).stderr, /Usage: deploy diagnose/);
+});
+
+test('deploy diagnose samples process counters and selected socket queues without exposing syscall arguments', t => {
+  const { cwd, executable, run } = fixture(t);
+  const entry = join(cwd, 'manager');
+  writeFileSync(entry, source.replace('proc=/proc/$1', 'proc="$FIXTURE_PROC/$1"'));
+  const proc = join(cwd, '73');
+  mkdirSync(join(proc, 'fd'), { recursive: true });
+  writeFileSync(join(proc, 'stat'), `73 (fixture) ${'S '.repeat(19)}800\n`);
+  writeFileSync(join(proc, 'io'), 'rchar: 100\nsyscr: 2\n');
+  writeFileSync(join(proc, 'syscall'), '230 private-argument-not-for-output\n');
+  executable(
+    'docker',
+    `case "$1 $2" in
+  'container inspect') printf 'true\\n' ;;
+  'exec --user')
+    [[ "$*" == 'exec --user box -i hive-mind bash -s -- 73' ]]
+    shift 5
+    exec "$@" ;;
+  *) printf 'Docker fixture\\n' ;;
+esac`
+  );
+  executable('timeout', 'shift; exec "$@"');
+  executable(
+    'sleep',
+    `[[ "$*" == 2 ]]
+printf 'rchar: 120\\nsyscr: 3\\n' > "$FIXTURE_PROC/73/io"
+if [[ \${REUSE_PID:-} ]]; then printf 'gone\\n' > "$FIXTURE_PROC/73/stat"; fi`
+  );
+  executable(
+    'python3',
+    `[[ "$1 $2" == '-I -' && "$3" == "$FIXTURE_PROC/73/fd" ]]
+cat >/dev/null
+if grep -q 'syscr: 2' "$FIXTURE_PROC/73/io"; then receive=20000; else receive=24000; fi
+printf '31 4 %s 0 30000\\n' "$receive"`
+  );
+  const environment = { FIXTURE_PROC: cwd };
+  const args = ['deploy', 'diagnose', '--process', '73'];
+  const result = run(args, { entry, environment });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /rchar: \+20\nsyscr: \+1\nCurrent syscall: 230/);
+  assert.match(result.stdout, /fd 4 receive 20000 -> 24000, send 0 -> 0, peer send 30000 -> 30000/);
+  assert.doesNotMatch(result.stdout, /private-argument-not-for-output/);
+  const replaced = run(args, { entry, environment: { ...environment, REUSE_PID: '1' } });
+  assert.equal(replaced.status, 1, replaced.stderr);
+  assert.match(replaced.stderr, /exited or changed during sampling/);
 });
 
 test('deployment releases the fallback lock when flock is unavailable', t => {
@@ -480,9 +528,21 @@ esac`
   const reviewed = JSON.parse(followUpPreview.stdout);
   assert.equal(reviewed.followUp, 18);
   assert.notEqual(reviewed.digest, digest);
+  const routes = join(cwd, 'incident routes.json');
+  const route = { backend: 'docker', kind: 'Memory exhaustion', exitCode: 137, issue: 18 };
+  const routed = [...past, '--routes', routes];
+  writeFileSync(routes, JSON.stringify([{ ...route, exitCode: 1 }]));
+  assert.equal(JSON.parse(run(routed, { environment }).stdout).digest, digest);
+  writeFileSync(routes, JSON.stringify([route, route]));
+  assert.match(run(routed, { environment }).stderr, /at most one issue per failure group/);
+  writeFileSync(routes, JSON.stringify([route]));
+  assert.deepEqual(JSON.parse(run(routed, { environment }).stdout), reviewed);
+  writeFileSync(routes, JSON.stringify([{ ...route, issue: 19 }]));
+  assert.match(run([...routed, '--publish', reviewed.digest], { environment }).stderr, /changed since review/);
+  writeFileSync(routes, JSON.stringify([route]));
   assert.match(run([...followUp, '--publish', reviewed.digest], { environment: { ...environment, ISSUE_STATE: 'closed' } }).stderr, /requires an open GitHub issue/);
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const comment = run([...followUp, '--publish', reviewed.digest], { environment });
+  for (const selector of [routed, followUp]) {
+    const comment = run([...selector, '--publish', reviewed.digest], { environment });
     assert.equal(comment.status, 0, comment.stderr);
     assert.equal(comment.stdout.trim(), 'https://github.com/example/project/issues/18#issuecomment-19');
   }

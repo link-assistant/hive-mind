@@ -102,5 +102,5 @@ for (const security of [true, false])
       waitForRetryDelay: async () => assert.fail('security failures must not retry'),
     });
     if (!security) for (let count = 0; count < 100 && (alive(pids.parent) || alive(pids.child)); count++) await delay(10);
-    assert.deepEqual({ startedBeforeOutput: observedAlive, stopped: security ? stoppedDuringLogging : !alive(pids.parent) && !alive(pids.child), securityRefusal: Boolean(result.routerAuthViolation), remainingIntervals: intervals.size }, { startedBeforeOutput: true, stopped: true, securityRefusal: security, remainingIntervals: 0 }, `stop the real native group and live-input polling before the failed attempt returns (${result.errorInfo?.message})`);
+    assert.deepEqual({ startedBeforeOutput: observedAlive, stopped: security ? stoppedDuringLogging : !alive(pids.parent) && !alive(pids.child), securityRefusal: Boolean(result.routerAuthViolation), remainingIntervals: intervals.size }, { startedBeforeOutput: true, stopped: true, securityRefusal: security, remainingIntervals: 0 }, 'stop the real native group and live-input polling before the failed attempt returns');
   });

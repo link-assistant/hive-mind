@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import console from 'node:console';
 import { createReadStream, lstatSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import process from 'node:process';
 import { parseArgs } from 'node:util';
 
 const limit = 1500;

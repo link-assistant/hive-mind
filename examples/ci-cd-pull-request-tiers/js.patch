@@ -232,15 +232,17 @@ index b9e207e1e297021af75b4f282e20c6a4d1ed5af3..0303e63efa0eee84ea51112c43756cd5
      # A status function is required: without one the gate inherits the
      # implicit "every dependency succeeded" condition and is skipped in
 diff --git a/tests/javascript-first-adoption.test.js b/tests/javascript-first-adoption.test.js
-index 5d051c878f8450838b81e5da5099ace857ae63d5..2ffb360ee7abd7f538e761fae313498f01ae5e64 100644
+index 5d051c878f8450838b81e5da5099ace857ae63d5..1e919f725432a96f85c431f61148420f04a1d332 100644
 --- a/tests/javascript-first-adoption.test.js
 +++ b/tests/javascript-first-adoption.test.js
-@@ -52,5 +52,9 @@ describe('JavaScript-first adoption alongside the Rust CI/CD template', () => {
+@@ -52,5 +52,11 @@ describe('JavaScript-first adoption alongside the Rust CI/CD template', () => {
      for (const name of ['release', 'example-app']) {
        const workflow = readWorkflow(name);
 -      expect(workflow.concurrency).toBeUndefined();
 +      if (name === 'release') {
-+        expect(workflow.concurrency['cancel-in-progress']).toBe("${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}");
++        expect(workflow.concurrency['cancel-in-progress']).toBe(
++          "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++        );
 +      } else {
 +        expect(workflow.concurrency).toBeUndefined();
 +      }
@@ -354,7 +356,7 @@ index edba61e49c1c49066de153e200b6c8df60eff6fa..59de3c2279c9e475b95c91fb4df42dda
      );
      expect(dependencyReview).toContain('      pull-requests: write');
 diff --git a/tests/workflow-reliability.test.js b/tests/workflow-reliability.test.js
-index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..72d73943fc0338f9d1261bf7180f59ce93514fef 100644
+index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..2bfc20a152adb0d0ca272a72b05410f5f7a51e73 100644
 --- a/tests/workflow-reliability.test.js
 +++ b/tests/workflow-reliability.test.js
 @@ -110,4 +110,5 @@ function evaluateWorkflowIf(expression, context) {
@@ -375,20 +377,24 @@ index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..72d73943fc0338f9d1261bf7180f59ce
 +    `    concurrency:\n      group: check-\${{ github.workflow }}-\${{ github.ref }}-${jobName}${matrixSuffix}${runScoped ? '-${{ github.run_id }}' : ''}\n      cancel-in-progress: ${!runScoped}`
    );
  }
-@@ -188,7 +190,11 @@ function createTestJobContext({
+@@ -188,7 +190,15 @@ function createTestJobContext({
  describe('workflow concurrency policy', () => {
    for (const ref of ['refs/heads/main', 'refs/pull/293/merge']) {
 -    it(`cancels all read-only checks and preserves writers on ${ref}`, () => {
 +    it(`isolates ready checks and preserves writers on ${ref}`, () => {
        for (const file of listWorkflowPaths()) {
          const source = parse(readWorkflow(file));
-+        const isTiered = ['release.yml', 'security.yml'].some((name) => file.endsWith('/' + name));
++        const isTiered = ['release.yml', 'security.yml'].some((name) =>
++          file.endsWith('/' + name)
++        );
 +        if (isTiered) {
-+          expect(source.concurrency['cancel-in-progress']).toBe("${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}");
++          expect(source.concurrency['cancel-in-progress']).toBe(
++            "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++          );
 +        }
          for (const job of Object.values(source.jobs)) {
            const policy = job.concurrency;
-@@ -198,6 +204,8 @@ describe('workflow concurrency policy', () => {
+@@ -198,6 +208,8 @@ describe('workflow concurrency policy', () => {
            const group = policy.group.replaceAll('${{ github.ref }}', ref);
            if (group.startsWith('check-')) {
 -            // Literal true must hold on both main and PR refs.
@@ -399,19 +405,19 @@ index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..72d73943fc0338f9d1261bf7180f59ce
 +            }
              for (const dimension of Object.keys(job.strategy?.matrix || {})) {
                if (['include', 'exclude'].includes(dimension)) {
-@@ -208,5 +216,4 @@ describe('workflow concurrency policy', () => {
+@@ -208,5 +220,4 @@ describe('workflow concurrency policy', () => {
            }
            if (group.startsWith('main-writer-')) {
 -            expect(source.concurrency).toBeUndefined();
              expect(group).toBe('main-writer-${{ github.repository }}-main');
              expect(policy['cancel-in-progress']).toBe(false);
-@@ -278,5 +285,4 @@ describe('workflow concurrency policy', () => {
+@@ -278,5 +289,4 @@ describe('workflow concurrency policy', () => {
      const workflowPaths = [
        '.github/workflows/example-app.yml',
 -      '.github/workflows/release.yml',
        '.github/workflows/links.yml',
      ];
-@@ -306,5 +312,7 @@ describe('workflow concurrency policy', () => {
+@@ -306,5 +316,7 @@ describe('workflow concurrency policy', () => {
        expectCancellableCheckConcurrency(
          getJobBlock(releaseWorkflow, jobName),
 -        jobName
@@ -420,7 +426,7 @@ index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..72d73943fc0338f9d1261bf7180f59ce
 +        true
        );
      }
-@@ -312,5 +320,6 @@ describe('workflow concurrency policy', () => {
+@@ -312,5 +324,6 @@ describe('workflow concurrency policy', () => {
        getJobBlock(releaseWorkflow, 'test'),
        'test',
 -      '-${{ matrix.runtime }}-${{ matrix.os }}'
@@ -428,13 +434,17 @@ index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..72d73943fc0338f9d1261bf7180f59ce
 +      true
      );
 
-@@ -588,4 +597,19 @@ describe('manual release quality gates', () => {
+@@ -588,4 +601,23 @@ describe('manual release quality gates', () => {
    });
 
 +  it('runs Docker on ready or a checks-only dispatch and skips it on commit', () => {
 +    const workflow = readWorkflow('.github/workflows/release.yml');
-+    const condition = getMultilineIfExpression(getJobBlock(workflow, 'docker-build'));
-+    const pr = createTestJobContext({ outputs: { 'any-code-changed': 'true' } });
++    const condition = getMultilineIfExpression(
++      getJobBlock(workflow, 'docker-build')
++    );
++    const pr = createTestJobContext({
++      outputs: { 'any-code-changed': 'true' },
++    });
 +    pr.github.event.action = 'synchronize';
 +    expect(evaluateWorkflowIf(condition, pr)).toBe(false);
 +    pr.github.event.action = 'ready_for_review';

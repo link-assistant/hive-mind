@@ -71,7 +71,7 @@
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
-    "command-stream": "2.6.0",
+    "command-stream": "3.0.0",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^18.5.0",
@@ -84,7 +84,7 @@
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {
-    "@link-foundation/sensitive-data-sanitizer": "^0.23.0",
+    "@link-foundation/sensitive-data-sanitizer": "^0.24.0",
     "@secretlint/core": "^14.0.1",
     "@secretlint/profiler": "^14.0.1",
     "@sentry/node": "^11.15.0",

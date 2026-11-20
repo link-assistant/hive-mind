@@ -142,12 +142,13 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     const prefix = parseTelegramCommandPrefix(text);
     const entityMention = hasCommandEntity ? parseTelegramCommandPrefix(text.slice(0, entity.length))?.botMention : null;
     const mention = entityMention ?? prefix?.botMention;
-    if (mention) return mention.toLowerCase() === ctx.me?.toLowerCase() ? next() : undefined;
-    if (!isGroupChat(ctx)) return next();
+    const addressedElsewhere = mention && mention.toLowerCase() !== ctx.me?.toLowerCase();
+    if (!isGroupChat(ctx)) return addressedElsewhere ? undefined : next();
     const selfId = ctx.botInfo?.id;
     const authors = [message?.from, message?.reply_to_message?.from].filter(user => user?.id !== selfId && isBrandedBot(user));
     const membershipUpdate = message?.new_chat_members || message?.left_chat_member || message?.migrate_from_chat_id || message?.migrate_to_chat_id || ctx.update?.chat_member;
-    if (!membershipUpdate && !authors.length && !prefix && !hasCommandEntity) return next();
+    const bareCommand = !mention && (prefix || hasCommandEntity);
+    if (!membershipUpdate && !authors.length && !bareCommand) return addressedElsewhere ? undefined : next();
 
     const chatId = ctx.chat.id;
     if (!knownPeers) {
@@ -160,7 +161,7 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
       }
     }
     if (membershipUpdate || authors.length) await observePeers(ctx, chatId, selfId, authors);
-    if ((prefix || hasCommandEntity) && (await requiresAddress(ctx, chatId, selfId))) return;
+    if (addressedElsewhere || (bareCommand && (await requiresAddress(ctx, chatId, selfId)))) return;
     return next();
   });
 }

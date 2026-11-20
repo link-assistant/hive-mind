@@ -142,10 +142,13 @@ test('configured IDs detect ordinary peers with custom names and follow their cu
 });
 
 test('a message or same-chat reply can identify an ordinary peer whose join was missed', async () => {
-  const { chats, callApi } = telegramFixture();
+  const { chats, calls, callApi } = telegramFixture();
   chats.set(group.id, [member(secondary)]);
   const dispatch = start(primary, callApi);
-  await dispatch(group, { message: { text: 'A reply to the peer', reply_to_message: { from: secondary } } });
+  const addressedReply = command('/help@SwarmMindBot');
+  addressedReply.message.reply_to_message = { from: secondary };
+  assert.equal(await dispatch(group, addressedReply), true);
+  assert.equal(calls.length, 0, 'addressed commands do not need a membership lookup');
   assert.equal(await dispatch(group, command('/help')), false);
 
   chats.set(group.id, [member(secondary, 'left')]);

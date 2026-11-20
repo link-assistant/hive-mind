@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, opendir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
@@ -19,10 +19,11 @@ Options:
   --claude-dir DIRECTORY   Claude projects directory
   --codex-dir DIRECTORY    Codex sessions directory
   --limit NUMBER           Maximum number of exports (default: 20)
+  --tool-results           Include sanitized text attachments from eligible Claude sessions
   --lino                   Also convert each sanitized file with the conversation CLI
 `;
 
-async function* sessionFiles(directory, depth = 0) {
+async function* archiveFiles(directory, extension, depth = 0) {
   if (depth > 12) return;
   let entries;
   try {
@@ -33,8 +34,8 @@ async function* sessionFiles(directory, depth = 0) {
   }
   for await (const entry of entries) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) yield* sessionFiles(path, depth + 1);
-    else if (entry.isFile() && entry.name.endsWith('.jsonl')) yield path;
+    if (entry.isDirectory()) yield* archiveFiles(path, extension, depth + 1);
+    else if (entry.isFile() && extension.test(entry.name)) yield path;
   }
 }
 
@@ -94,19 +95,50 @@ async function requirePublic(repository) {
   if (visibility !== 'public') throw new Error('Could not confirm that the requested GitHub repository is public.');
 }
 
-async function collect({ root, tool, repository, remaining, output, reports, checkoutCache, lino }) {
-  for await (const file of sessionFiles(root)) {
+async function sanitizeStableFile(file, sourceInfo, destPath) {
+  await sanitizeLogFileToFileBounded({ sourcePath: file, destPath });
+  const current = await lstat(file);
+  if (current.ino !== sourceInfo.ino || current.dev !== sourceInfo.dev || current.size !== sourceInfo.size || current.mtimeMs !== sourceInfo.mtimeMs || current.ctimeMs !== sourceInfo.ctimeMs) {
+    throw new Error('An archive source changed during export. Run the export again after the session has finished.');
+  }
+}
+
+async function collectToolResults(session, id, output, budget) {
+  const attachments = [];
+  const sessionDirectory = join(dirname(session), basename(session, '.jsonl'));
+  const root = join(sessionDirectory, 'tool-results');
+  try {
+    if (!(await lstat(sessionDirectory)).isDirectory() || !(await lstat(root)).isDirectory()) return attachments;
+  } catch (error) {
+    if (error.code === 'ENOENT') return attachments;
+    throw error;
+  }
+  const directory = `claude-${id}-tool-results`;
+  for await (const file of archiveFiles(root, /\.(?:txt|log|jsonl?)$/i)) {
+    if (!budget.files || !budget.bytes) break;
+    const info = await lstat(file);
+    if (!info.isFile() || info.size > Math.min(4 * 1024 * 1024, budget.bytes) || Date.now() - info.mtimeMs < minimumAgeMs) continue;
+    const hash = createHash('sha256').update(relative(root, file)).digest('hex');
+    const archive = `${directory}/${hash}${extname(file).toLowerCase()}`;
+    if (!attachments.length) await mkdir(join(output, directory), { mode: 0o700 });
+    await sanitizeStableFile(file, info, join(output, archive));
+    attachments.push({ archive, sourceBytes: info.size });
+    budget.files--;
+    budget.bytes -= info.size;
+  }
+  return attachments;
+}
+
+async function collect({ root, tool, repository, remaining, output, reports, checkoutCache, lino, toolResultBudget }) {
+  for await (const file of archiveFiles(root, /\.jsonl$/)) {
+    if (relative(root, file).split(sep).includes('tool-results')) continue;
     const sourceInfo = await lstat(file);
     if (!sourceInfo.isFile() || sourceInfo.size > maxSourceBytes || Date.now() - sourceInfo.mtimeMs < minimumAgeMs) continue;
     if ((await attributedRepository(file, tool, checkoutCache)) !== repository) continue;
     const id = createHash('sha256').update(relative(root, file)).digest('hex');
     const archive = `${tool}-${id}.jsonl`;
     const destPath = join(output, archive);
-    await sanitizeLogFileToFileBounded({ sourcePath: file, destPath });
-    const current = await lstat(file);
-    if (current.ino !== sourceInfo.ino || current.dev !== sourceInfo.dev || current.size !== sourceInfo.size || current.mtimeMs !== sourceInfo.mtimeMs || current.ctimeMs !== sourceInfo.ctimeMs) {
-      throw new Error('A transcript changed during export. Run the export again after the session has finished.');
-    }
+    await sanitizeStableFile(file, sourceInfo, destPath);
     const entry = { tool, archive, sourceBytes: sourceInfo.size, modifiedAt: sourceInfo.mtime.toISOString() };
     if (lino) {
       entry.linksNotation = `${tool}-${id}.lino`;
@@ -116,6 +148,7 @@ async function collect({ root, tool, repository, remaining, output, reports, che
         throw new Error('Could not convert a session to Links Notation. Check that the conversation CLI is installed and supports JSONL import.');
       }
     }
+    if (tool === 'claude' && toolResultBudget) entry.toolResults = await collectToolResults(file, id, output, toolResultBudget);
     reports.push(entry);
     if (--remaining === 0) break;
   }
@@ -130,6 +163,7 @@ async function archive() {
       'claude-dir': { type: 'string', default: join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects') },
       'codex-dir': { type: 'string', default: join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'sessions') },
       limit: { type: 'string', default: '20' },
+      'tool-results': { type: 'boolean' },
       lino: { type: 'boolean', default: false },
     },
   });
@@ -147,7 +181,8 @@ async function archive() {
   await mkdir(output, { mode: 0o700 });
   try {
     const reports = [];
-    const shared = { repository, output, reports, checkoutCache: new Map(), lino: values.lino };
+    const toolResultBudget = values['tool-results'] ? { files: 100, bytes: maxSourceBytes } : null;
+    const shared = { repository, output, reports, checkoutCache: new Map(), lino: values.lino, toolResultBudget };
     await collect({ ...shared, root: resolve(values['claude-dir']), tool: 'claude', remaining: limit });
     if (reports.length < limit) await collect({ ...shared, root: resolve(values['codex-dir']), tool: 'codex', remaining: limit - reports.length });
     await requirePublic(repository);

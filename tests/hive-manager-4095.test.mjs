@@ -265,6 +265,12 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   };
   const codex = url => ({ type: 'session_meta', payload: { git: { repository_url: url } }, token });
   writeSession(join(cwd, 'claude', 'project', 'closed.jsonl'), { cwd: checkout, message: 'Claude', token });
+  const resultsDir = join(cwd, 'claude', 'project', 'closed', 'tool-results');
+  mkdirSync(resultsDir, { recursive: true });
+  writeSession(join(resultsDir, 'result.jsonl'), { cwd: checkout, message: 'attached tool result', token });
+  writeSession(join(resultsDir, 'active.json'), { token }, false);
+  writeSession(join(resultsDir, 'ignored.bin'), { token });
+  symlinkSync('result.jsonl', join(resultsDir, 'ignored.jsonl'));
   writeSession(join(cwd, 'codex', 'public.jsonl'), codex('https://github.com/example/project.git'));
   writeSession(join(cwd, 'codex', 'private.jsonl'), codex('https://github.com/example/private'));
   writeSession(join(cwd, 'codex', 'active.jsonl'), codex('https://github.com/example/project'), false);
@@ -276,7 +282,7 @@ printf '%s\\n' 'git@github.com:example/project.git'`
   assert.notEqual(run(args, { environment: { FAIL_DURING_ARCHIVE: '1' } }).status, 0);
   assert.throws(() => statSync(join(cwd, 'staged')), { code: 'ENOENT' });
 
-  const result = run([...args, '--lino']);
+  const result = run([...args, '--lino', '--tool-results']);
   assert.equal(result.status, 0, result.stderr);
   const manifest = JSON.parse(readFileSync(join(cwd, 'staged', 'manifest.json'), 'utf8'));
   assert.deepEqual(
@@ -287,6 +293,10 @@ printf '%s\\n' 'git@github.com:example/project.git'`
     assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', archive), 'utf8')).token, token);
     assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', linksNotation), 'utf8')).token, token);
   }
+  assert.equal(manifest.sessions[0].toolResults.length, 1);
+  const toolResult = JSON.parse(readFileSync(join(cwd, 'staged', manifest.sessions[0].toolResults[0].archive), 'utf8'));
+  assert.equal(toolResult.message, 'attached tool result');
+  assert.notEqual(toolResult.token, token);
   assert.equal(statSync(join(cwd, 'staged')).mode & 0o777, 0o700);
   assert.notEqual(run(args).status, 0);
 });

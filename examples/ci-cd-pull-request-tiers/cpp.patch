@@ -1,0 +1,234 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 1999bd921710346c66cb813a09fc00f29d12ef62..b4320ef2845937d73ade9b58567e975e40f8bff9 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -16,5 +16,5 @@ on:
+       - main
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   workflow_dispatch:
+     inputs:
+@@ -25,4 +25,5 @@ on:
+         default: 'instant'
+         options:
++          - checks
+           - instant
+           - changelog-pr
+@@ -65,4 +66,8 @@ env:
+ # instead, also shared by Pages. A started write is never cancelled, and
+ # queue: max retains up to 100 pending writers rather than replacing them.
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   # === DETECT CHANGES - determines which jobs should run ===
+@@ -72,6 +77,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-detect-changes-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name != 'workflow_dispatch'
+     outputs:
+@@ -103,6 +108,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-validate-docs
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-validate-docs-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: needs.detect-changes.outputs.docs-changed == 'true'
+@@ -164,6 +169,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-changelog
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-changelog-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+@@ -188,6 +193,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-version-check
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-version-check-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name == 'pull_request'
+     steps:
+@@ -210,6 +215,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-secrets-scan
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-secrets-scan-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+@@ -243,8 +248,8 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-fresh-merge
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-fresh-merge-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
++    if: ${{ (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') && (github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true') }}
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+@@ -287,6 +292,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-lint-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -376,6 +381,6 @@ jobs:
+     timeout-minutes: 45
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.name }}
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.name }}-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -383,4 +388,5 @@ jobs:
+     # See: https://github.com/actions/runner/issues/491
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       !cancelled() && (
+         github.event_name == 'workflow_dispatch' ||
+@@ -484,6 +490,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-sanitizers
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-sanitizers-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -491,4 +497,5 @@ jobs:
+     # See: https://github.com/actions/runner/issues/491
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       !cancelled() && (
+         github.event_name == 'workflow_dispatch' ||
+@@ -529,6 +536,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-script-tests
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-script-tests-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # Note: !cancelled() is required because detect-changes is skipped on workflow_dispatch,
+@@ -536,4 +543,5 @@ jobs:
+     # See: https://github.com/actions/runner/issues/491
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       !cancelled() && (
+         github.event_name == 'workflow_dispatch' ||
+@@ -574,6 +582,6 @@ jobs:
+     timeout-minutes: 20
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-coverage
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-coverage-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     env:
+@@ -583,4 +591,5 @@ jobs:
+     # See: https://github.com/actions/runner/issues/491
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       !cancelled() && (
+         github.event_name == 'workflow_dispatch' ||
+@@ -648,6 +657,6 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-build
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [lint, test, sanitizers, script-tests]
+     if: ${{ !cancelled() && needs.lint.result == 'success' && needs.test.result == 'success' && needs.sanitizers.result == 'success' && needs.script-tests.result == 'success' }}
+@@ -956,5 +965,5 @@ jobs:
+   # commit is recognised as expected churn.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - detect-changes
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index 5e48628c9fb614df9a43c0527700e2e8fd011c0f..4714dd54831bf2e83c36111e18761992f463d081 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -12,5 +12,5 @@ on:
+     branches: [main]
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   schedule:
+     - cron: '0 6 * * 1'
+@@ -25,12 +25,17 @@ env:
+   GIT_CONFIG_VALUE_0: main
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   codeql:
+-    name: CodeQL (${{ matrix.language }})
++    if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
++    name: CodeQL
+     runs-on: ubuntu-26.04
+     timeout-minutes: 30
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -97,6 +102,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-python-audit
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-python-audit-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+@@ -135,6 +140,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-native-audit
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++      group: ${{ github.workflow }}-${{ github.ref }}-native-audit-${{ github.run_id }}
++      cancel-in-progress: false
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+@@ -189,6 +194,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: ${{ github.workflow }}-${{ github.ref }}-dependency-review
+-      cancel-in-progress: true
++      group: ${{ github.workflow }}-${{ github.ref }}-dependency-review-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -222,5 +227,5 @@ jobs:
+   # commit is recognised as expected churn.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - codeql

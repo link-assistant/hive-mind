@@ -129,6 +129,7 @@ maintenance_spec() {
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
     task-recover-failed) bin=hive-manager; module=hive-manager-task-recover-failed.mjs ;;
+    task-repair-records) bin=hive-manager; module=hive-manager-task-repair-records.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -148,7 +149,6 @@ package_source() {
   [[ -f ${entry%/*}/../package.json ]] || return 1
   cd -- "${entry%/*}" && pwd -P
 }
-
 run_maintenance() {
   local bin module source_path action=$1
   maintenance_spec "$1" || fail "Unknown maintenance command: $1"
@@ -183,7 +183,7 @@ task_args() {
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
     printf 'Inspect: list, status, attach, report, check-uploads\n'
-    printf 'Manage: resume, resume-all, recover-failed, stop, terminate, pause, unpause, alias, rename\n'
+    printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, upload-log\n'
     return
   fi
@@ -942,7 +942,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
-      case "${1-}" in report|check-uploads|recover-failed) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|check-uploads|recover-failed|repair-records) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -980,7 +980,7 @@ main() {
     deploy) shift; deploy "$@" ;;
     tasks)
       shift
-      case "${1-}" in report|check-uploads|recover-failed) run_maintenance "task-$1" "${@:2}" ;; esac
+      case "${1-}" in report|check-uploads|recover-failed|repair-records) run_maintenance "task-$1" "${@:2}" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;

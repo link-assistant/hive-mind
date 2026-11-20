@@ -226,6 +226,41 @@ test('upload diagnostics distinguish CPU stalls from progress and guard terminat
   }
 });
 
+test('task incidents publish reviewed historical evidence and keep retries idempotent', { timeout: 30000 }, t => {
+  const { cwd, run, executable } = fixture(t);
+  const id = '40950000-0000-4000-a000-000000000001';
+  executable('$', `printf '%s\\n' '${JSON.stringify({ executions: [{ uuid: id, status: 'executing', attempt: { number: 2 }, options: { isolated: 'docker' }, attemptHistory: [{ number: 1, status: 'executed', exitCode: 137, oomKilled: true, logPath: '/private/log', command: 'secret command' }] }] })}'`);
+  // github-retry-ok: the test writes a fake gh executable and touches only fixture files.
+  executable(
+    'gh',
+    `
+case "$1 $2" in
+  'api --hostname') printf '[{"incomplete_results":false,"items":[]}]\\n' ;;
+  'issue create') printf 'created\\n' >> called; printf 'https://github.com/example/project/issues/17\\n' ;;
+  *) exit 1 ;;
+esac`
+  );
+  const environment = { HIVE_MIND_STATE_DIR: join(cwd, 'state') };
+  const args = ['tasks', 'report', '--incident', id, '--destination', 'example/project'];
+  assert.match(run(args, { environment }).stderr, /no confirmed failed exit/);
+  const past = [...args, '--attempt', '1'];
+  const preview = run(past, { environment });
+  assert.equal(preview.status, 0, preview.stderr);
+  const { digest, title, body } = JSON.parse(preview.stdout);
+  assert.match(title, /attempt 1/);
+  assert.match(body, /Memory exhaustion/);
+  assert.doesNotMatch(body, /private\/log|secret command/);
+  assert.throws(() => statSync(join(cwd, 'called')), { code: 'ENOENT' });
+  assert.match(run([...past, '--publish', 'a'.repeat(64)], { environment }).stderr, /changed since review/);
+  const applied = [...past, '--publish', digest];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = run(applied, { environment });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'https://github.com/example/project/issues/17');
+  }
+  assert.equal(readFileSync(join(cwd, 'called'), 'utf8'), 'created\n');
+});
+
 test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {
   const { cwd, run } = fixture(t);
   const token = `ghp_${'abcdefghij'.repeat(4)}`;

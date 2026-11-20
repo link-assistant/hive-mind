@@ -67,6 +67,29 @@ esac`
   assert.match(run(['deploy', 'diagnose', '--task', id, '--since', 'now']).stderr, /Usage: deploy diagnose/);
 });
 
+test('deployment releases the fallback lock when flock is unavailable', t => {
+  const { cwd, executable, run } = fixture(t);
+  for (const command of ['bash', 'cat', 'id', 'mkdir', 'rmdir']) {
+    const lookup = spawnSync('bash', ['-c', 'command -v "$1"', 'command-path', command], { encoding: 'utf8' });
+    assert.equal(lookup.status, 0, lookup.stderr);
+    symlinkSync(lookup.stdout.trim(), join(cwd, command));
+  }
+  executable('docker', '[[ "$*" == "stop hive-mind" ]]');
+  const runtime = join(cwd, 'runtime folder');
+  const lock = join(runtime, `hive-manager-${process.getuid()}`, 'hive-mind.lock');
+  const environment = { PATH: cwd, XDG_RUNTIME_DIR: runtime };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const stopped = run(['deploy', 'stop'], { environment });
+    assert.equal(stopped.status, 0, stopped.stderr);
+    assert.throws(() => statSync(lock), { code: 'ENOENT' });
+  }
+  mkdirSync(lock);
+  const locked = run(['deploy', 'stop'], { environment });
+  assert.equal(locked.status, 1);
+  assert.match(locked.stderr, /is locked at/);
+  assert.ok(statSync(lock).isDirectory());
+});
+
 test('Docker live restore validates, reloads and restores the previous configuration on failure', { timeout: 10000 }, t => {
   const { cwd, executable, run } = fixture(t);
   const config = join(cwd, 'daemon.json');

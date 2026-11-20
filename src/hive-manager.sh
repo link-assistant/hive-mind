@@ -226,7 +226,9 @@ container_ready() {
 lock_deployment() {
   # The lock is outside the backed-up state and shared by custom state paths
   # for the same container. Docker enforces name uniqueness across hosts.
-  local lock_root=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hive-manager-$(id -u)
+  local user_id lock_root
+  user_id=$(id -u)
+  lock_root=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hive-manager-$user_id
   (umask 077 && mkdir -p -- "$lock_root")
   [[ ! -L $lock_root && -O $lock_root ]] || fail "Unsafe lock directory: $lock_root"
   local lock_path=$lock_root/${1:-$name}
@@ -234,8 +236,9 @@ lock_deployment() {
     exec 9>"$lock_path"
     flock -n 9 || fail "Deployment ${1:-$name} is already being changed"
   else
-    mkdir -- "$lock_path.lock" || fail "Deployment ${1:-$name} is locked at $lock_path.lock"
-    trap "rmdir -- $(shell_quote "$lock_path.lock")" EXIT
+    deployment_lock_directory=$lock_path.lock
+    mkdir -- "$deployment_lock_directory" || fail "Deployment ${1:-$name} is locked at $deployment_lock_directory"
+    trap 'rmdir -- "$deployment_lock_directory"' EXIT
   fi
 }
 

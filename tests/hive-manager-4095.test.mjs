@@ -28,6 +28,17 @@ function fixture(t) {
   return { cwd, executable, run, standalone };
 }
 
+test('deploy diagnose reads bounded service and memory journal evidence for a missing container', t => {
+  const { executable, run } = fixture(t);
+  executable('docker', 'if [[ "$1" == info ]]; then printf "Docker fixture\\n"; else exit 1; fi');
+  executable('journalctl', 'printf "<%s>\\n" "$@"; if [[ "$1" == _TRANSPORT=kernel ]]; then exit 1; fi');
+  const result = run(['deploy', '--name', 'missing', 'diagnose', '--since', '1 hour ago']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Docker fixture\nContainer unavailable: missing/);
+  assert.match(result.stdout, /<--unit=docker\.service>\n<--since=1 hour ago>\n<--lines=80>/);
+  assert.match(result.stdout, /<_TRANSPORT=kernel>\n<--since=1 hour ago>\n<--lines=80>/);
+});
+
 test('Docker live restore validates, reloads and restores the previous configuration on failure', { timeout: 10000 }, t => {
   const { cwd, executable, run } = fixture(t);
   const config = join(cwd, 'daemon.json');

@@ -61,7 +61,8 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
   doctor                Check host disk space and instance/runtime status
-  diagnose              Show host load, Docker resources and container exit facts
+  diagnose [--since TIME]
+                        Show host resources, container exit facts and optional journal evidence
   disk                  Report Docker storage, images, volumes and build cache
   backup [--output FILE|-]
                         Save a private archive of deployment state
@@ -607,12 +608,31 @@ doctor() {
 }
 
 diagnose() {
+  local since=''
+  if (( $# )); then
+    [[ $# == 2 && $1 == --since && $2 ]] || fail "Usage: deploy diagnose [--since TIME]"
+    since=$2
+  fi
   uptime
   if command -v free >/dev/null; then free -h; fi
   df -h -- "$PWD"
-  docker info --format 'Docker {{.ServerVersion}} | Live restore: {{.LiveRestoreEnabled}} | Root: {{.DockerRootDir}}'
-  docker container inspect --format '{{.Name}} {{.State.Status}} | Exit: {{.State.ExitCode}} | OOM: {{.State.OOMKilled}} | Restarts: {{.RestartCount}} | Finished: {{.State.FinishedAt}}' "$name"
-  if container_running "$name"; then docker stats --no-stream "$name"; fi
+  docker info --format 'Docker {{.ServerVersion}} | Live restore: {{.LiveRestoreEnabled}} | Root: {{.DockerRootDir}}' || printf 'Docker daemon unavailable\n'
+  if container_id "$name" >/dev/null; then
+    docker container inspect --format '{{.Name}} {{.State.Status}} | Exit: {{.State.ExitCode}} | OOM: {{.State.OOMKilled}} | Restarts: {{.RestartCount}} | Finished: {{.State.FinishedAt}}' "$name"
+    if container_running "$name"; then docker stats --no-stream "$name"; fi
+  else
+    printf 'Container unavailable: %s\n' "$name"
+  fi
+  if [[ $since ]]; then
+    require journalctl
+    printf '\nDocker service events\n'
+    journalctl --unit=docker.service --since="$since" --lines=80 --no-pager
+    printf '\nKernel memory failures\n'
+    # With --grep, journalctl uses exit 1 for an empty selection.
+    local result=0
+    journalctl _TRANSPORT=kernel --since="$since" --lines=80 --no-pager --case-sensitive=no --grep='out of memory|oom-kill|killed process' || result=$?
+    (( result <= 1 )) || return "$result"
+  fi
 }
 
 docker_live_restore() (
@@ -958,6 +978,7 @@ deploy() {
     helm) require helm; exec helm "$@" ;;
     backup) backup_state "$@"; return ;;
     restore) restore_state "$@"; return ;;
+    diagnose) require docker; diagnose "$@"; return ;;
     reboot)
       [[ $# == 1 && $1 == --confirm ]] || fail "Usage: deploy reboot --confirm"
       require systemctl
@@ -975,7 +996,7 @@ deploy() {
       if [[ ${1-} == -- ]]; then shift
       elif (( $# )); then fail "Pass the startup command after --"; fi
       apply_deployment "$@" ;;
-    prepare|rollback|recover|status|doctor|diagnose|disk|start|stop|restart|remove)
+    prepare|rollback|recover|status|doctor|disk|start|stop|restart|remove)
       (( $# == 0 )) || fail "Unexpected arguments for deploy $action"
       require docker
       case "$action" in
@@ -984,7 +1005,6 @@ deploy() {
         recover) recover_deployment ;;
         status) deploy_status ;;
         doctor) doctor ;;
-        diagnose) diagnose ;;
         disk) exec docker system df -v ;;
         remove) lock_deployment; docker rm "$name" ;;
         *) lock_deployment; docker "$action" "$name" ;;

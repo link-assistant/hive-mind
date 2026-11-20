@@ -10,18 +10,18 @@ Plan recovery of detached Hive Mind Docker tasks with out-of-memory evidence.
 Only --apply resumes eligible tasks. Tasks with recorded retries are skipped.
 `;
 
-function issueTarget(command) {
+function taskTarget(command) {
   if (typeof command !== 'string') return null;
   const match = /(?:^\s*|;\s*exec\s+)(?:'solve'|solve)\s+['"]?(https:\/\/github\.com\/[^\s'";]+)(?:['"]?(?:\s|$))/i.exec(command);
   if (!match) return null;
   const target = parseGitHubUrl(match[1], { recover: false });
-  return target.valid && target.type === 'issue' ? target.canonical.toLowerCase() : null;
+  return target.valid && ['issue', 'pull'].includes(target.type) ? target.canonical.toLowerCase() : null;
 }
 
 function taskFacts(task) {
   return {
     task,
-    target: issueTarget(task.command),
+    target: taskTarget(task.command),
     family: task.options?.rootSession || task.options?.sessionNameHistory?.[0] || task.options?.sessionName,
     startedAt: Date.parse(task.attempt?.startedAt || task.options?.resumedAt || task.startTime),
   };

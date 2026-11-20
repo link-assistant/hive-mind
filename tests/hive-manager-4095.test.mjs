@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -124,6 +124,35 @@ test('task inspection and recovery preserve start-command arguments locally and 
   const resume = run(['deploy', 'tasks', 'resume', 'task-id', '--', 'echo', 'two words']);
   assert.equal(resume.status, 0, resume.stderr);
   assert.equal(resume.stdout, '<exec>\n<--user>\n<box>\n<-i>\n<hive-mind>\n<$>\n<--resume>\n<task-id>\n<-->\n<echo>\n<two words>\n');
+  const cleanup = run(['tasks', 'cleanup-dry-run', 'task-id']);
+  assert.equal(cleanup.stdout, '<--cleanup-dry-run>\n<task-id>\n');
+  const report = run(['deploy', 'tasks', 'report']);
+  assert.equal(report.stdout, '<exec>\n<--user>\n<box>\n<-i>\n<hive-mind>\n<hive-manager>\n<tasks>\n<report>\n');
+});
+
+test('task report counts states and keeps command lines and paths out of its output', { timeout: 10000 }, t => {
+  const { run, executable } = fixture(t);
+  executable(
+    '$',
+    `[[ "$*" == '--list --output-format json' ]]
+cat <<'RECORDS'
+{"executions":[
+  {"status":"executing"},
+  {"status":"executing","paused":true},
+  {"status":"executed","exitCode":0},
+  {"status":"executed","exitCode":137,"uuid":"first","oomKilled":true,"exitReason":"out-of-memory","command":"secret argument","logPath":"/private/log"},
+  {"status":"executed","exitCode":1,"uuid":"second"},
+  {"status":"executed","exitCode":null}
+]}
+RECORDS`
+  );
+  const result = run(['tasks', 'report', '--limit', '1']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /secret argument|private\/log/);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    counts: { running: 1, paused: 1, succeeded: 1, failed: 2, unknown: 1 },
+    failures: [{ id: 'first', exitCode: 137, finishedAt: null, memoryExhausted: true, reason: 'out-of-memory' }],
+  });
 });
 
 test('archive-session writes redacted output only after sanitization and rejects non-files', { timeout: 30000 }, t => {
@@ -137,6 +166,58 @@ test('archive-session writes redacted output only after sanitization and rejects
   const invalid = run(['archive-session', '.']);
   assert.notEqual(invalid.status, 0);
   assert.equal(invalid.stdout, '');
+});
+
+test('archive-sessions stages only public, attributable, inactive sessions with sanitized contents', { timeout: 30000 }, t => {
+  const { cwd, executable, run } = fixture(t);
+  // github-retry-ok: This creates the fake GitHub CLI for the fixture.
+  executable(
+    'gh',
+    `[[ "$*" == 'api --hostname github.com repos/example/project --jq .visibility' ]]
+if [[ \${FAIL_DURING_ARCHIVE:-} && -d staged ]]; then exit 1; fi
+printf '%s\\n' "\${REPO_VISIBILITY:-public}"`
+  );
+  const checkout = join(cwd, 'checkout');
+  executable(
+    'git',
+    `[[ "$1" == -C && "$2" == ${JSON.stringify(checkout)} ]]
+printf '%s\\n' 'git@github.com:example/project.git'`
+  );
+  executable('conversation', '[[ "$1" == import && ( "$2" == claude || "$2" == codex ) ]]; cp -- "$3" "$4"');
+  mkdirSync(join(cwd, 'claude', 'project'), { recursive: true });
+  mkdirSync(join(cwd, 'codex'));
+  const old = new Date(Date.now() - 60 * 60 * 1000);
+  const token = `ghp_${'abcdefghij'.repeat(4)}`;
+  const writeSession = (file, fields, inactive = true) => {
+    writeFileSync(file, `${JSON.stringify(fields)}\n`);
+    if (inactive) utimesSync(file, old, old);
+  };
+  const codex = url => ({ type: 'session_meta', payload: { git: { repository_url: url } }, token });
+  writeSession(join(cwd, 'claude', 'project', 'closed.jsonl'), { cwd: checkout, message: 'Claude', token });
+  writeSession(join(cwd, 'codex', 'public.jsonl'), codex('https://github.com/example/project.git'));
+  writeSession(join(cwd, 'codex', 'private.jsonl'), codex('https://github.com/example/private'));
+  writeSession(join(cwd, 'codex', 'active.jsonl'), codex('https://github.com/example/project'), false);
+  symlinkSync('public.jsonl', join(cwd, 'codex', 'symlink.jsonl'));
+
+  const args = ['archive-sessions', '--repo', 'example/project', '--output', 'staged', '--claude-dir', 'claude', '--codex-dir', 'codex'];
+  assert.notEqual(run(args, { environment: { REPO_VISIBILITY: 'private' } }).status, 0);
+  assert.throws(() => statSync(join(cwd, 'staged')), { code: 'ENOENT' });
+  assert.notEqual(run(args, { environment: { FAIL_DURING_ARCHIVE: '1' } }).status, 0);
+  assert.throws(() => statSync(join(cwd, 'staged')), { code: 'ENOENT' });
+
+  const result = run([...args, '--lino']);
+  assert.equal(result.status, 0, result.stderr);
+  const manifest = JSON.parse(readFileSync(join(cwd, 'staged', 'manifest.json'), 'utf8'));
+  assert.deepEqual(
+    manifest.sessions.map(session => session.tool),
+    ['claude', 'codex']
+  );
+  for (const { archive, linksNotation } of manifest.sessions) {
+    assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', archive), 'utf8')).token, token);
+    assert.notEqual(JSON.parse(readFileSync(join(cwd, 'staged', linksNotation), 'utf8')).token, token);
+  }
+  assert.equal(statSync(join(cwd, 'staged')).mode & 0o777, 0o700);
+  assert.notEqual(run(args).status, 0);
 });
 
 test('MTProxy MSS unit uses the original published port after destination NAT', { timeout: 10000 }, t => {

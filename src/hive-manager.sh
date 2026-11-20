@@ -30,6 +30,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   models                Inspect the live model catalogue
   tasks                 Inspect or recover start-command task executions
   archive-session       Sanitize a session file and write it to stdout
+  archive-sessions      Stage sanitized sessions associated with a public repository
   close-linked-issues   Reconcile issues linked from merged pull requests
 
 SSH options (before COMMAND):
@@ -69,7 +70,8 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   proxy                 Manage an optional Telegram MTProto proxy
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
-  cleanup | configure-claude | audit-config | screens | models | tasks | archive-session | close-linked-issues
+  cleanup | configure-claude | audit-config | screens | models | tasks
+  archive-session | archive-sessions | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -117,7 +119,9 @@ maintenance_spec() {
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
     archive-session) bin=hive-manager; module=hive-manager-archive-session.mjs ;;
+    archive-sessions) bin=hive-manager; module=hive-manager-archive-sessions.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager-audit-config.mjs ;;
+    task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -159,6 +163,9 @@ run_maintenance() {
   # The package provides the same entry points for standalone use and older images.
   local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
   [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
+  if [[ $action == task-report ]]; then
+    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks report "$@"
+  fi
   if [[ $bin == hive-manager ]]; then
     exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
   fi
@@ -168,11 +175,15 @@ run_maintenance() {
 task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
-    printf 'Usage: hive-manager tasks list|status|attach|resume|resume-all|stop|terminate|pause|unpause|upload-log [ARGS]\n'
+    printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
+    printf 'Inspect: list, status, attach, report\n'
+    printf 'Manage: resume, resume-all, stop, terminate, pause, unpause, alias, rename\n'
+    printf 'Maintain: cleanup-dry-run, cleanup, upload-log\n'
     return
   fi
   case "$action" in
-    list|status|attach|resume|resume-all|stop|terminate|pause|unpause|upload-log) task_command=('$' "--$action" "${@:2}") ;;
+    list|status|attach|resume|resume-all|stop|terminate|pause|unpause|alias|rename|cleanup-dry-run|cleanup|upload-log)
+      task_command=('$' "--$action" "${@:2}") ;;
     *) fail "Unknown task action: $action" ;;
   esac
 }
@@ -326,16 +337,24 @@ instance_owner() {
   docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.instance"}}' "$1"
 }
 
+owns_container() {
+  local container=$1 witness=$2
+  if [[ $(instance_owner "$container") == "$name" ]]; then return 0; fi
+  [[ $witness && $(instance_owner "$witness") == "$name" &&
+    $(docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.adopted"}}' "$witness") == "$container" ]]
+}
+
 check_rollout_names() {
   if container_id "$name.previous" >/dev/null; then
     fail "Reserved rollout name exists: $name.previous"
   fi
-  local container
-  for container in "$@"; do
-    if [[ $container && $(instance_owner "$container") != "$name" ]]; then
-      (( adopt )) || fail "Container $container belongs to another deployment. Use --adopt only for your existing instance."
-    fi
-  done
+  local current=$1 rollback=$2
+  if [[ $current ]] && ! owns_container "$current" "$rollback"; then
+    (( adopt )) || fail "Container $current belongs to another deployment. Use --adopt only for your existing instance."
+  fi
+  if [[ $rollback ]] && ! owns_container "$rollback" "$current"; then
+    (( adopt )) || fail "Container $rollback belongs to another deployment. Use --adopt only for your existing instance."
+  fi
 }
 
 activate_candidate() {
@@ -388,6 +407,9 @@ apply_deployment() {
   if [[ $prior ]] && container_running "$prior"; then fail "Rollback container is running: $name.rollback"; fi
   if [[ $old ]]; then
     container_running "$old" && old_running=true
+    if [[ $(instance_owner "$old") != "$name" ]]; then
+      docker_args+=(--label io.github.link-assistant.hive-manager.adopted="$old")
+    fi
   fi
   if (( pull_image )); then docker pull "$image"; fi
   image_id=$(docker image inspect --format '{{.Id}}' "$image")
@@ -449,15 +471,15 @@ recover_deployment() {
   previous=$(container_id "$name.previous") || fail "No interrupted rollout for $name"
   current=$(container_id "$name") || current=''
   prior=$(container_id "$name.rollback") || prior=''
-  if [[ $(instance_owner "$previous") != "$name" ]]; then
+  if ! owns_container "$previous" "$current" && ! owns_container "$previous" "$prior"; then
     (( adopt )) || fail "Use --adopt to recover the previous externally managed container"
   fi
-  if [[ $current && $(instance_owner "$current") != "$name" ]]; then
+  if [[ $current ]] && ! owns_container "$current" "$previous"; then
     fail "Current container is owned by another deployment: $name"
   fi
   if [[ $current ]] && container_ready "$current"; then
     if [[ $prior ]]; then
-      if [[ $(instance_owner "$prior") != "$name" ]]; then
+      if ! owns_container "$prior" "$current" && ! owns_container "$prior" "$previous"; then
         (( adopt )) || fail "Use --adopt to replace the externally managed rollback container"
       fi
       docker rm "$prior" >/dev/null
@@ -854,6 +876,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
+      if [[ ${1-} == report ]]; then require docker; inside hive-manager tasks "$@"; fi
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -891,6 +914,7 @@ main() {
     deploy) shift; deploy "$@" ;;
     tasks)
       shift
+      if [[ ${1-} == report ]]; then run_maintenance task-report "${@:2}"; fi
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;

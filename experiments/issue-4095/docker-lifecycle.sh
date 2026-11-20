@@ -74,6 +74,20 @@ docker rename "$name" "$name.previous"
 "${managed[@]}" recover
 [[ $(docker inspect --format '{{.Id}} {{.State.Status}}' "$name") == "$first running" ]]
 
+docker rm -f "$name" "$name.rollback" >/dev/null
+legacy=$(docker run -d --name "$name" "$image")
+if "${apply[@]}" -- sleep infinity; then
+  echo 'Expected external container to require explicit adoption' >&2
+  exit 1
+fi
+"${managed[@]}" --adopt --no-pull --image "$image" apply -- sleep infinity
+[[ $(docker inspect --format '{{.Id}}' "$name.rollback") == "$legacy" ]]
+"${managed[@]}" rollback
+[[ $(docker inspect --format '{{.Id}}' "$name") == "$legacy" ]]
+"${apply[@]}" -- sleep infinity
+[[ $(docker inspect --format '{{.Id}}' "$name.rollback") == "$legacy" ]]
+"${apply[@]}" -- sleep infinity
+
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
 proxy=("${managed[@]}" --no-pull proxy --port "$port" --proxy-name "$proxy_name" --image "$image")
 printf '0123456789abcdef0123456789abcdef\n' > "$temp/proxy-key"

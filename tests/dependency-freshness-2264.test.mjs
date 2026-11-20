@@ -187,7 +187,8 @@ assert.deepEqual(
 }
 
 const repositoryRecords = await collectDependencyRecords({ root: repositoryRoot });
-assert.equal(repositoryRecords.find(record => record.name === '@link-foundation/sensitive-data-sanitizer' && record.location === 'package.json#dependencies')?.minimumNode, '24.0.0');
+const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+assert.equal(repositoryRecords.find(record => record.name === '@link-foundation/sensitive-data-sanitizer' && record.location === 'package.json#dependencies')?.minimumNode, manifest.engines.node.replace(/^>=\s*/, ''));
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === '@sentry/node'),
   true,

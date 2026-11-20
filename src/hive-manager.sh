@@ -185,7 +185,7 @@ task_args() {
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
     printf 'Inspect: list, status, attach, report, check-uploads, recover-queue\n'
     printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
-    printf 'Maintain: cleanup-dry-run, cleanup, upload-log\n'
+    printf 'Maintain: cleanup-dry-run, cleanup, backup-container, cleanup-backed-up, upload-log\n'
     return
   fi
   case "$action" in
@@ -197,6 +197,103 @@ task_args() {
 
 absolute_path() {
   case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac
+}
+
+task_backup_identity() {
+  local inventory id name status code started finished uuid session
+  local uuid_pattern='^[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}$'
+  local fields='{{.Id}}|{{.Name}}|{{.State.Status}}|{{.State.ExitCode}}|{{.State.StartedAt}}|{{.State.FinishedAt}}|{{index .Config.Labels "start-command.uuid"}}|{{index .Config.Labels "start-command.session"}}'
+  inventory=$(docker container inspect --format "$fields" -- "$1") || fail "Cannot inspect task container: $1"
+  IFS='|' read -r id name status code started finished uuid session <<<"$inventory"
+  [[ $id =~ ^[a-f0-9]{64}$ && $name =~ ^/[a-zA-Z0-9][a-zA-Z0-9_.-]*$ && $inventory != *$'\n'* ]] || fail "Invalid Docker container identity"
+  [[ $status == exited && $code =~ ^[1-9][0-9]*$ ]] || fail "Only stopped task containers with a nonzero exit code can be backed up or cleaned up"
+  if [[ $uuid ]]; then
+    [[ $uuid =~ $uuid_pattern && $session == "${name#/}" && ( ! $2 || $uuid == "$2" ) ]] || fail "Docker task labels do not match the execution"
+  else
+    [[ $2 =~ $uuid_pattern ]] || fail "For a container without task labels, provide the exact stored execution with --execution"
+    require '$'
+    require jq
+    '$' --status "$2" --output-format json | jq -e --arg uuid "$2" --arg id "$id" --arg name "${name#/}" --argjson code "$code" '
+      .uuid == $uuid and .options.isolated == "docker" and (
+        (.status == "executed" and .exitCode == $code and .options.containerId == $id and .options.sessionName == $name)
+        or any(.attemptHistory[]?; .exitCode == $code and .containerId == $id and .sessionName == $name)
+      )' >/dev/null || fail "The stored execution does not match this failed container"
+    uuid=$2
+  fi
+  printf '%s|%s|%s|%s|%s|%s\n' "$id" "$name" "$uuid" "$code" "$started" "$finished"
+}
+
+task_container_backup() (
+  if [[ ${1-} == --help || ${1-} == -h ]]; then
+    printf 'Usage: hive-manager tasks backup-container CONTAINER --output NEW_DIRECTORY [--execution UUID]\n'
+    return
+  fi
+  local container=${1-} output='' execution='' identity stage digest
+  [[ $container =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Specify a task container name or ID"
+  shift
+  while (( $# )); do
+    need_value "$@"
+    case "$1" in
+      --output) output=$2 ;;
+      --execution) execution=$2 ;;
+      *) fail "Unknown backup-container option: $1" ;;
+    esac
+    shift 2
+  done
+  [[ $output && $output != / && $output != */ ]] || fail "Specify a new backup directory with --output"
+  output=$(absolute_path "$output")
+  [[ ! -e $output && ! -L $output ]] || fail "Backup output already exists: $output"
+  require docker
+  require sha256sum
+  require gzip
+  require tar
+  identity=$(task_backup_identity "$container" "$execution") || return
+  umask 077
+  stage=$(mktemp -d "$output.part.XXXXXX") || return
+  trap 'rm -rf -- "$stage"' EXIT
+  docker container export -- "${identity%%|*}" | gzip -n >"$stage/filesystem.tar.gz" || fail "Could not export the stopped task filesystem"
+  tar -tzf "$stage/filesystem.tar.gz" >/dev/null || fail "The exported filesystem archive could not be read"
+  [[ $(task_backup_identity "${identity%%|*}" "$execution") == "$identity" ]] || fail "The task container changed during backup"
+  digest=$(sha256sum <"$stage/filesystem.tar.gz") || return
+  printf 'hive-manager-task-backup-v1\n%s\n%s\n' "$identity" "${digest%% *}" >"$stage/receipt.txt"
+  mv -nT -- "$stage" "$output" || return
+  [[ ! -e $stage ]] || fail "Backup output already exists: $output"
+  printf 'Verified task filesystem backup: %s\n' "$output"
+)
+
+task_cleanup_backed_up() {
+  if [[ ${1-} == --help || ${1-} == -h ]]; then
+    printf 'Usage: hive-manager tasks cleanup-backed-up BACKUP_DIRECTORY [--apply SHA256]\n'
+    return
+  fi
+  local directory=${1-} approval=${3-} sum receipt output identity id name execution marker archive_digest extra
+  [[ $directory && ( $# == 1 || ( $# == 3 && $2 == --apply && $approval =~ ^[a-f0-9]{64}$ ) ) ]] || fail "Supply a backup directory and optionally --apply with the reviewed SHA-256"
+  require docker
+  require sha256sum
+  receipt=$directory/receipt.txt
+  [[ -d $directory && ! -L $directory && -f $receipt && ! -L $receipt && -f $directory/filesystem.tar.gz && ! -L $directory/filesystem.tar.gz ]] || fail "A task backup archive and receipt are required"
+  [[ $(wc -c <"$receipt") -le 1024 ]] || fail "Invalid task backup receipt"
+  sum=$(sha256sum <"$receipt") || return
+  sum=${sum%% *}
+  [[ ! $approval || $approval == "$sum" ]] || fail "The reviewed task backup receipt changed"
+  {
+    if ! IFS= read -r marker || ! IFS= read -r identity || ! IFS= read -r archive_digest; then
+      fail "Invalid task backup receipt"
+    fi
+    if IFS= read -r extra || [[ $extra ]]; then fail "Invalid task backup receipt"; fi
+  } <"$receipt"
+  [[ $marker == hive-manager-task-backup-v1 && $archive_digest =~ ^[a-f0-9]{64}$ ]] || fail "Invalid task backup receipt"
+  output=$(sha256sum <"$directory/filesystem.tar.gz") || return
+  [[ ${output%% *} == "$archive_digest" ]] || fail "The saved filesystem SHA-256 does not match the receipt"
+  IFS='|' read -r id name execution _ <<<"$identity"
+  [[ $id =~ ^[a-f0-9]{64}$ && $(task_backup_identity "$id" "$execution") == "$identity" ]] || fail "The stopped task container does not match the backup receipt"
+  output=$(sha256sum <"$receipt") || return
+  [[ ${output%% *} == "$sum" ]] || fail "The task backup receipt changed during verification"
+  if [[ $approval ]]; then
+    docker container rm -- "$id"
+  else
+    printf 'Stopped task container eligible for cleanup: %s (%s)\nExecution: %s\nApproval SHA-256: %s\n' "${name#/}" "$id" "$execution" "$sum"
+  fi
 }
 
 container_id() {
@@ -1208,7 +1305,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
-      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -1246,7 +1343,11 @@ main() {
     deploy) shift; deploy "$@" ;;
     tasks)
       shift
-      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;; esac
+      case "${1-}" in
+        report|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
+        backup-container) task_container_backup "${@:2}"; return ;;
+        cleanup-backed-up) task_cleanup_backed_up "${@:2}"; return ;;
+      esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;

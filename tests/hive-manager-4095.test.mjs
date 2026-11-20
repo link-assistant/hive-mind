@@ -28,6 +28,56 @@ function fixture(t) {
   return { cwd, executable, run, standalone };
 }
 
+test('failed Docker task cleanup checks the exact verified backup and protects changed or unrelated containers', t => {
+  const { cwd, executable, run, standalone } = fixture(t);
+  const task = '40950000-0000-4000-a000-000000000001';
+  const id = 'a'.repeat(64);
+  const inventory = `${id}|/failed|exited|27|2026-11-20T08:00:00Z|2026-11-20T08:15:00Z|${task}|failed`;
+  writeFileSync(join(cwd, 'files'), 'task evidence');
+  writeFileSync(join(cwd, 'inventory'), `${inventory}\n`);
+  executable(
+    'docker',
+    `case "$1 $2" in
+  'container inspect') [[ "\${!#}" == failed || "\${!#}" == ${id} ]]; cat inventory ;;
+  'container export') [[ "$3 $4" == '-- ${id}' ]]; tar -cf - files ;;
+  'container rm') [[ "$3 $4" == '-- ${id}' ]]; printf '%s\\n' "$4" > removed ;;
+  *) exit 88 ;;
+esac`
+  );
+
+  const backup = standalone(['tasks', 'backup-container', 'failed', '--output', 'preserved folder']);
+  assert.equal(backup.status, 0, backup.stderr);
+  const cleanup = ['tasks', 'cleanup-backed-up', 'preserved folder'];
+  const preview = run(cleanup);
+  assert.equal(preview.status, 0, preview.stderr);
+  const [, approval] = preview.stdout.match(/Approval SHA-256: ([a-f0-9]{64})/);
+  assert.throws(() => readFileSync(join(cwd, 'removed')), { code: 'ENOENT' });
+  assert.match(run([...cleanup, '--apply', '0'.repeat(64)]).stderr, /receipt changed/);
+
+  const archive = join(cwd, 'preserved folder', 'filesystem.tar.gz');
+  const savedArchive = readFileSync(archive);
+  writeFileSync(archive, 'changed');
+  assert.match(run([...cleanup, '--apply', approval]).stderr, /SHA-256 does not match/);
+  writeFileSync(archive, savedArchive);
+  writeFileSync(join(cwd, 'inventory'), `${inventory.replace('08:15:00', '08:17:00')}\n`);
+  assert.match(run([...cleanup, '--apply', approval]).stderr, /container does not match/);
+  writeFileSync(join(cwd, 'inventory'), `${inventory.replace('|exited|', '|running|')}\n`);
+  assert.match(run([...cleanup, '--apply', approval]).stderr, /Only stopped task containers/);
+  assert.throws(() => readFileSync(join(cwd, 'removed')), { code: 'ENOENT' });
+
+  writeFileSync(join(cwd, 'inventory'), `${inventory}\n`);
+  const apply = run([...cleanup, '--apply', approval]);
+  assert.equal(apply.status, 0, apply.stderr);
+  assert.equal(readFileSync(join(cwd, 'removed'), 'utf8').trim(), id);
+
+  writeFileSync(join(cwd, 'inventory'), `${inventory.replace(`${task}|failed`, '|')}\n`);
+  assert.match(run(['tasks', 'backup-container', 'failed', '--output', 'legacy']).stderr, /provide the exact stored execution/);
+  executable('$', `printf '%s\\n' '{"uuid":"${task}","status":"executing","options":{"isolated":"docker"},"attemptHistory":[{"exitCode":27,"containerId":"${id}","sessionName":"failed"}]}'`);
+  const legacy = run(['tasks', 'backup-container', 'failed', '--output', 'legacy', '--execution', task]);
+  assert.equal(legacy.status, 0, legacy.stderr);
+  assert.match(run(['tasks', 'cleanup-backed-up', 'legacy']).stdout, new RegExp(`Execution: ${task}`));
+});
+
 test('deploy diagnose reads bounded service and memory journal evidence for a missing container', t => {
   const { executable, run } = fixture(t);
   executable('docker', 'if [[ "$1" == info ]]; then printf "Docker fixture\\n"; else exit 1; fi');

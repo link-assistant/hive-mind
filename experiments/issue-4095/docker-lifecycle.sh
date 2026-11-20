@@ -11,9 +11,10 @@ manager=$repo/src/hive-manager.sh
 managed=("$manager" deploy --name "$name" --state-dir "$temp/state folder")
 proxy_name=$name-proxy
 dind_name=$name-dind
+failed=$name-failed-task
 
 cleanup() {
-  docker rm -f "$name" "$name.rollback" "$name.previous" "$name.candidate" "$proxy_name" "$proxy_name.previous" "$dind_name" >/dev/null 2>&1 || :
+  docker rm -f "$name" "$name.rollback" "$name.previous" "$name.candidate" "$proxy_name" "$proxy_name.previous" "$dind_name" "$failed" >/dev/null 2>&1 || :
   docker volume rm "$dind_name-dind-data" >/dev/null 2>&1 || :
   docker image rm "$image" >/dev/null 2>&1 || :
   rm -rf -- "$temp"
@@ -34,6 +35,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-minimal
     chmod +x /usr/local/bin/hive-telegram-bot
 CMD ["sleep","infinity"]
 DOCKERFILE
+
+execution=40950000-1111-4000-8000-000000000002
+docker run --name "$failed" --label "start-command.uuid=$execution" --label "start-command.session=$failed" "$image" \
+  sh -c 'printf evidence > /tmp/task-evidence; exit 27' || [[ $? == 27 ]]
+"$manager" tasks backup-container "$failed" --output "$temp/task backup"
+[[ $(tar -xOzf "$temp/task backup/filesystem.tar.gz" tmp/task-evidence) == evidence ]]
+preview=$("$manager" tasks cleanup-backed-up "$temp/task backup")
+approval=$(sed -n 's/^Approval SHA-256: //p' <<<"$preview")
+[[ $approval =~ ^[a-f0-9]{64}$ ]]
+docker inspect "$failed" >/dev/null
+"$manager" tasks cleanup-backed-up "$temp/task backup" --apply "$approval"
+! docker inspect "$failed" >/dev/null 2>&1 || exit 1
+[[ $(tar -xOzf "$temp/task backup/filesystem.tar.gz" tmp/task-evidence) == evidence ]]
 
 apply=("${managed[@]}" --no-pull --image "$image" apply)
 "${apply[@]}" -- sleep infinity
@@ -118,7 +132,7 @@ rollout_candidate true
 docker stop "$name" >/dev/null
 "${managed[@]}" recover
 [[ $(docker inspect --format '{{.Id}} {{.State.Status}}' "$name") == "$first running" ]]
-! docker inspect "$name.candidate" >/dev/null 2>&1
+! docker inspect "$name.candidate" >/dev/null 2>&1 || exit 1
 
 # A previously stopped instance is restored in that same state.
 docker stop "$name" >/dev/null
@@ -126,7 +140,7 @@ rollout_candidate false
 docker rename "$name" "$name.previous"
 "${managed[@]}" recover
 [[ $(docker inspect --format '{{.Id}} {{.State.Status}}' "$name") == "$first exited" ]]
-! docker inspect "$name.candidate" >/dev/null 2>&1
+! docker inspect "$name.candidate" >/dev/null 2>&1 || exit 1
 docker start "$name" >/dev/null
 
 docker stop "$name" >/dev/null
@@ -157,7 +171,7 @@ proxy=("${managed[@]}" --no-pull proxy --port "$port" --proxy-name "$proxy_name"
 printf '0123456789abcdef0123456789abcdef\n' > "$temp/proxy-key"
 "${proxy[@]}" --secret-file "$temp/proxy-key" apply
 "${proxy[@]}" snapshot > "$temp/proxy-baseline"
-! grep -F '0123456789abcdef0123456789abcdef' "$temp/proxy-baseline"
+! grep -F '0123456789abcdef0123456789abcdef' "$temp/proxy-baseline" || exit 1
 "${proxy[@]}" compare - < "$temp/proxy-baseline"
 printf 'not-the-baseline\n' > "$temp/different-baseline"
 if "${proxy[@]}" compare "$temp/different-baseline"; then

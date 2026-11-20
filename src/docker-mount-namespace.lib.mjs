@@ -8,7 +8,12 @@ import { startDetachedDockerPull } from './docker-pull-detached.lib.mjs';
 import { TASK_IMAGE_PULL_TIMEOUT_MS } from './task-image-refresh.lib.mjs';
 
 const execute = promisify(execFile);
-const refused = () => new Error('Docker mount backing could not be verified. Persist the source in a root-container bind or volume visible to the selected local daemon before launching a task.');
+export class DockerMountBackingError extends Error {
+  constructor() {
+    super('Docker mount backing could not be verified. Persist the source in a root-container bind or volume visible to the selected local daemon before launching a task.');
+  }
+}
+const refused = () => new DockerMountBackingError();
 const validPath = value => typeof value === 'string' && path.posix.isAbsolute(value) && path.posix.normalize(value) === value && !/[\0\r\n,:]/u.test(value);
 const identity = info => `${info.dev}:${info.ino}:${info.isDirectory() ? 'directory' : 'file'}`;
 const pullMissingImage = ({ image, env }) => startDetachedDockerPull(['pull', image], { timeoutMs: TASK_IMAGE_PULL_TIMEOUT_MS, spawnImpl: (binary, args, options) => spawn(binary, args, { ...options, env }) });

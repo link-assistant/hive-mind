@@ -485,7 +485,7 @@ Want to see the Hive Mind in action? Request a free demo or get faster support b
 
 In a group with multiple detected Hive Mind bots, use Telegram's addressed command syntax, such as `/help@SwarmMindBot` or `/solve@SwarmMindBot <github-url>`. A group with one detected Hive Mind bot accepts both forms.
 
-Hive Mind discovers peers through Telegram membership updates and the group administrator list. Use a display name or username containing **Hive Mind** or **Swarm Mind** for automatic recognition. For a custom-named peer or an existing ordinary member whose join was missed, set `TELEGRAM_HIVE_MIND_PEER_BOTS` (or `--peer-bots`) on the participating bots. Each Links Notation pair contains a Telegram group ID and a numeric peer bot ID, for example `((-1001234567890 987654321))`. If Telegram cannot verify membership, use an addressed command.
+Hive Mind discovers peers through Telegram membership updates, visible group message authors, and the group administrator list. Use a display name or username containing **Hive Mind** or **Swarm Mind** for automatic recognition. For a custom-named peer or an existing ordinary member Telegram hasn't exposed, set `TELEGRAM_HIVE_MIND_PEER_BOTS` (or `--peer-bots`) on the participating bots. Each Links Notation pair contains a Telegram group ID and a numeric peer bot ID, for example `((-1001234567890 987654321))`. If Telegram cannot verify membership, use an addressed command.
 
 Most operational commands work in **group chats only** (not in private messages with the bot). Commands that intentionally deliver private updates, such as `/terminal_watch`, may also be used in direct messages:
 

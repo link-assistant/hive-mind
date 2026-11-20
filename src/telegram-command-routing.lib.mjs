@@ -70,7 +70,7 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     return writeTail;
   }
 
-  function observeMembership(ctx, chatId, selfId) {
+  function observePeers(ctx, chatId, selfId, authors) {
     const { message, update } = ctx;
     const fromChat = message?.migrate_from_chat_id ?? (message?.migrate_to_chat_id ? chatId : null);
     const toChat = message?.migrate_to_chat_id ?? chatId;
@@ -83,10 +83,11 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
 
     const member = update?.chat_member?.new_chat_member;
     const departed = message?.left_chat_member ?? (member && !isMember(member) ? member.user : null);
-    if (departed) ids.delete(departed.id);
+    for (const author of authors) ids.add(author.id);
     for (const user of message?.new_chat_members ?? (member && isMember(member) ? [member.user] : [])) {
       if (user.id !== selfId && isBrandedBot(user)) ids.add(user.id);
     }
+    if (departed) ids.delete(departed.id);
     if (!samePeers(previous, ids)) return setKnownPeers(toChat, ids);
   }
 
@@ -143,10 +144,11 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     const mention = entityMention ?? prefix?.botMention;
     if (mention) return mention.toLowerCase() === ctx.me?.toLowerCase() ? next() : undefined;
     if (!isGroupChat(ctx)) return next();
-    const membershipUpdate = message?.new_chat_members || message?.left_chat_member || message?.migrate_from_chat_id || message?.migrate_to_chat_id || ctx.update?.chat_member;
-    if (!membershipUpdate && !prefix && !hasCommandEntity) return next();
-
     const selfId = ctx.botInfo?.id;
+    const authors = [message?.from, message?.reply_to_message?.from].filter(user => user?.id !== selfId && isBrandedBot(user));
+    const membershipUpdate = message?.new_chat_members || message?.left_chat_member || message?.migrate_from_chat_id || message?.migrate_to_chat_id || ctx.update?.chat_member;
+    if (!membershipUpdate && !authors.length && !prefix && !hasCommandEntity) return next();
+
     const chatId = ctx.chat.id;
     if (!knownPeers) {
       if (stateDir && Number.isSafeInteger(selfId)) {
@@ -157,11 +159,8 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
         knownPeers = new Map();
       }
     }
-    if (membershipUpdate) {
-      await observeMembership(ctx, chatId, selfId);
-    } else if (await requiresAddress(ctx, chatId, selfId)) {
-      return;
-    }
+    if (membershipUpdate || authors.length) await observePeers(ctx, chatId, selfId, authors);
+    if ((prefix || hasCommandEntity) && (await requiresAddress(ctx, chatId, selfId))) return;
     return next();
   });
 }

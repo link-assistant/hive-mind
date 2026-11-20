@@ -141,6 +141,20 @@ test('configured IDs detect ordinary peers with custom names and follow their cu
   assert.equal(await dispatch(group, command('/limits')), false, 'an API failure cannot prove a configured peer is absent');
 });
 
+test('a message or same-chat reply can identify an ordinary peer whose join was missed', async () => {
+  const { chats, callApi } = telegramFixture();
+  chats.set(group.id, [member(secondary)]);
+  const dispatch = start(primary, callApi);
+  await dispatch(group, { message: { text: 'A reply to the peer', reply_to_message: { from: secondary } } });
+  assert.equal(await dispatch(group, command('/help')), false);
+
+  chats.set(group.id, [member(secondary, 'left')]);
+  assert.equal(await dispatch(group, command('/help')), true, 'the author of an old reply must still be a member');
+  chats.set(group.id, [member(secondary)]);
+  await dispatch(group, { message: { text: 'A message delivered from the peer', from: secondary } });
+  assert.equal(await dispatch(group, command('/help')), false);
+});
+
 test('a join during a shared membership read blocks bare commands in that polling batch', async () => {
   let complete;
   let requests = 0;

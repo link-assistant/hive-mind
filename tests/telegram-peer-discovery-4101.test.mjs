@@ -14,7 +14,7 @@ const human = { id: 4, is_bot: false };
 const identityText = 'Hive Mind Telegram bot v2.45.0';
 const seconds = () => Math.floor(Date.now() / 1000);
 
-function fixture({ members, administrators = [human], whoWaitMs = 80, versionWaitMs = 80 }) {
+function fixture({ members, bot = self, administrators = [human], whoWaitMs = 80, versionWaitMs = 80 }) {
   const events = new EventEmitter();
   const sent = [];
   const handled = [];
@@ -28,17 +28,37 @@ function fixture({ members, administrators = [human], whoWaitMs = 80, versionWai
       if (method === 'getChatMemberCount') return members.size + 2;
       if (method === 'getChatMember') return { status: members.has(params.user_id) ? 'member' : 'left', user: { id: params.user_id, is_bot: true } };
       assert.equal(method, 'sendMessage');
-      const message = newMessage(self, params.text);
+      const message = newMessage(bot, params.text);
       sent.push({ message, params });
       events.emit(params.text, message);
       return message;
     },
   };
   installTelegramCommandRouting({ telegram, use: handler => (route = handler) }, { identity: { getVersion: async () => '2.45.0', startedAt: seconds(), jitterMs: 0, whoWaitMs, versionWaitMs } });
-  const update = (message, edited = false) => route({ message: edited ? undefined : message, chat, me: self.username, botInfo: self, telegram, update: { [edited ? 'edited_message' : 'message']: message } }, () => handled.push(message.text));
+  const update = (message, edited = false) => route({ message: edited ? undefined : message, chat, me: bot.username, botInfo: bot, telegram, update: { [edited ? 'edited_message' : 'message']: message } }, () => handled.push(message.text));
   const outgoing = async text => sent.find(event => event.message.text === text)?.message ?? (await once(events, text))[0];
   return { sent, handled, newMessage, update, outgoing };
 }
+
+test('two unlisted bots exchange identities before either handles their first bare command', { timeout: 5_000 }, async () => {
+  const first = fixture({ members: new Set([peer.id]), whoWaitMs: 250 });
+  const second = fixture({ bot: peer, members: new Set([self.id]), whoWaitMs: 250 });
+  const work = first.newMessage(human, '/solve example');
+  await Promise.all([first.update(work), second.update(work)]);
+  const [firstProbe, secondProbe] = await Promise.all([first.outgoing('/who'), second.outgoing('/who')]);
+  await Promise.all([first.update(secondProbe), second.update(firstProbe)]);
+  const [firstReply, secondReply] = await Promise.all([first.outgoing(identityText), second.outgoing(identityText)]);
+  await Promise.all([first.update({ ...secondReply, reply_to_message: firstProbe }), second.update({ ...firstReply, reply_to_message: secondProbe })]);
+
+  const addressed = first.newMessage(human, '/solve@review_helper_bot example');
+  await Promise.all([first.update(addressed), second.update(addressed)]);
+  await delay(300);
+  assert.ok(!first.handled.some(text => text.startsWith('/solve')));
+  assert.deepEqual(
+    second.handled.filter(text => text.startsWith('/solve')),
+    [addressed.text]
+  );
+});
 
 test('visible bots are challenged in their topic and a localized edited legacy report establishes identity', { timeout: 5_000 }, async () => {
   const { sent, handled, newMessage, update, outgoing } = fixture({ members: new Set([legacy.id]) });

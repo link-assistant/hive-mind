@@ -345,9 +345,12 @@ owns_container() {
 }
 
 check_rollout_names() {
-  if container_id "$name.previous" >/dev/null; then
-    fail "Reserved rollout name exists: $name.previous"
-  fi
+  local suffix
+  for suffix in previous candidate; do
+    if container_id "$name.$suffix" >/dev/null; then
+      fail "Reserved rollout name exists: $name.$suffix. Inspect the instance or run deploy recover."
+    fi
+  done
   local current=$1 rollback=$2
   if [[ $current ]] && ! owns_container "$current" "$rollback"; then
     (( adopt )) || fail "Container $current belongs to another deployment. Use --adopt only for your existing instance."
@@ -428,7 +431,10 @@ apply_deployment() {
     docker run --pull never --rm --network none "${admission_flags[@]}" --entrypoint hive-telegram-bot "$image_id" --dry-run
   fi
 
-  candidate=$(docker create --pull never "${docker_args[@]}" "$image_id" "${startup[@]}")
+  candidate=$(docker create --pull never --name "$name.candidate" "${docker_args[@]}" \
+    --label io.github.link-assistant.hive-manager.predecessor="$old" \
+    --label io.github.link-assistant.hive-manager.predecessor-running="$old_running" \
+    "$image_id" "${startup[@]}")
   activate_candidate "$name" "$candidate" "$old" "$old_running"
   if [[ $old ]]; then
     # Retain the previous rollback until the candidate starts.
@@ -467,12 +473,39 @@ rollback_deployment() {
 
 recover_deployment() {
   lock_deployment
-  local previous current prior
-  previous=$(container_id "$name.previous") || fail "No interrupted rollout for $name"
+  local previous current prior candidate predecessor was_running
+  previous=$(container_id "$name.previous") || previous=''
   current=$(container_id "$name") || current=''
   prior=$(container_id "$name.rollback") || prior=''
-  if ! owns_container "$previous" "$current" && ! owns_container "$previous" "$prior"; then
+  candidate=$(container_id "$name.candidate") || candidate=''
+  [[ $previous || $candidate ]] || fail "No interrupted rollout for $name"
+  if [[ $candidate ]]; then
+    predecessor=$(docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.predecessor"}}' "$candidate")
+    was_running=$(docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.predecessor-running"}}' "$candidate")
+    [[ $(instance_owner "$candidate") == "$name" && $predecessor == "${previous:-$current}" &&
+      ( $was_running == true || $was_running == false ) ]] || fail "Unexpected rollout candidate: $name.candidate"
+    if container_running "$candidate"; then fail "Rollout candidate is running: $name.candidate"; fi
+  else
+    # Older rollouts have no marker for the original running state.
+    was_running=true
+  fi
+  if [[ $previous ]] && ! owns_container "$previous" "${candidate:-$current}" && ! owns_container "$previous" "$prior"; then
     (( adopt )) || fail "Use --adopt to recover the previous externally managed container"
+  fi
+  if [[ $candidate ]]; then
+    if [[ ! $previous && ! $current ]]; then
+      docker rm "$candidate" >/dev/null
+      printf 'Discarded incomplete first deployment of %s\n' "$name"
+      return
+    fi
+    if [[ ! $previous ]]; then
+      owns_container "$current" "$candidate" || fail "Current container is owned by another deployment: $name"
+      if [[ $was_running == true ]] && ! container_running "$current"; then docker start "$current" >/dev/null; fi
+      docker rm "$candidate" >/dev/null
+      deploy_status
+      return
+    fi
+    [[ ! $current ]] || fail "Unexpected current container beside interrupted rollout: $name"
   fi
   if [[ $current ]] && ! owns_container "$current" "$previous"; then
     fail "Current container is owned by another deployment: $name"
@@ -488,7 +521,8 @@ recover_deployment() {
   else
     if [[ $current ]]; then docker rm -f "$current" >/dev/null; fi
     docker rename "$previous" "$name"
-    docker start "$previous" >/dev/null
+    if [[ $was_running == true ]]; then docker start "$previous" >/dev/null; fi
+    if [[ $candidate ]]; then docker rm "$candidate" >/dev/null; fi
   fi
   deploy_status
 }

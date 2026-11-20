@@ -10,9 +10,11 @@ image=$name:local
 manager=$repo/src/hive-manager.sh
 managed=("$manager" deploy --name "$name" --state-dir "$temp/state folder")
 proxy_name=$name-proxy
+dind_name=$name-dind
 
 cleanup() {
-  docker rm -f "$name" "$name.rollback" "$name.previous" "$proxy_name" "$proxy_name.previous" >/dev/null 2>&1 || :
+  docker rm -f "$name" "$name.rollback" "$name.previous" "$name.candidate" "$proxy_name" "$proxy_name.previous" "$dind_name" >/dev/null 2>&1 || :
+  docker volume rm "$dind_name-dind-data" >/dev/null 2>&1 || :
   docker image rm "$image" >/dev/null 2>&1 || :
   rm -rf -- "$temp"
 }
@@ -69,6 +71,29 @@ fi
 "${managed[@]}" status
 "${managed[@]}" diagnose | grep 'OOM: false'
 
+# Simulate interruption after creating a replacement and stopping the old
+# container, before it has been renamed to the rollout hold name.
+rollout_candidate() {
+  docker create --name "$name.candidate" \
+    --label io.github.link-assistant.hive-manager.instance="$name" \
+    --label io.github.link-assistant.hive-manager.predecessor="$first" \
+    --label io.github.link-assistant.hive-manager.predecessor-running="$1" "$image" >/dev/null
+}
+rollout_candidate true
+docker stop "$name" >/dev/null
+"${managed[@]}" recover
+[[ $(docker inspect --format '{{.Id}} {{.State.Status}}' "$name") == "$first running" ]]
+! docker inspect "$name.candidate" >/dev/null 2>&1
+
+# A previously stopped instance is restored in that same state.
+docker stop "$name" >/dev/null
+rollout_candidate false
+docker rename "$name" "$name.previous"
+"${managed[@]}" recover
+[[ $(docker inspect --format '{{.Id}} {{.State.Status}}' "$name") == "$first exited" ]]
+! docker inspect "$name.candidate" >/dev/null 2>&1
+docker start "$name" >/dev/null
+
 docker stop "$name" >/dev/null
 docker rename "$name" "$name.previous"
 "${managed[@]}" recover
@@ -87,6 +112,10 @@ fi
 "${apply[@]}" -- sleep infinity
 [[ $(docker inspect --format '{{.Id}}' "$name.rollback") == "$legacy" ]]
 "${apply[@]}" -- sleep infinity
+
+"$manager" deploy --name "$dind_name" --state-dir "$temp/dind" --variant dind --no-pull --image "$image" apply -- sleep infinity
+[[ $(docker inspect --format '{{.HostConfig.Privileged}}' "$dind_name") == true ]]
+[[ $(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/docker"}}{{.Name}}{{end}}{{end}}' "$dind_name") == "$dind_name-dind-data" ]]
 
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
 proxy=("${managed[@]}" --no-pull proxy --port "$port" --proxy-name "$proxy_name" --image "$image")

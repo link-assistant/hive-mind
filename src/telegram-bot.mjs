@@ -191,6 +191,7 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = lim
 const { describeLimitsFailure } = await import('./limits-unavailable.lib.mjs'); // #4053
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { getVersion } = await import('./version.lib.mjs');
 const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
@@ -252,9 +253,9 @@ const launchingUrls = createKeyClaims(); // /solve URLs between the duplicate ch
 // instrumenting `bot.telegram` alone leaves `ctx.reply()` unprotected. Install
 // on the bot client (for background sends) and on each per-update context.
 installTelegramContextSafety(bot, { verbose: VERBOSE });
-installTelegramCommandRouting(bot, { stateDir: resolveBotStateDir(), configuredPeers: telegramPeerBots, verbose: VERBOSE });
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
+installTelegramCommandRouting(bot, { stateDir: resolveBotStateDir(), configuredPeers: telegramPeerBots, verbose: VERBOSE, identity: { getVersion, startedAt: BOT_START_TIME }, onError: handleUpdateError });
 
 // Issue #1927: durable, timestamped bot log + durable session store. The logger
 // preserves the previous run's log under a timestamped backup (never overwriting

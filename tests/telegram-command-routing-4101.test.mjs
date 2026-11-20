@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -21,7 +21,7 @@ const member = (user, status = 'member', extra = {}) => ({ status, user, ...extr
 
 function start(botInfo, callApi, options = {}) {
   let route;
-  installTelegramCommandRouting({ use: handler => (route = handler) }, options);
+  installTelegramCommandRouting({ telegram: { callApi }, use: handler => (route = handler) }, options);
   return async (chat, update) => {
     const ctx = { chat, update, message: update.message, botInfo, me: botInfo.username, telegram: { callApi } };
     let nextCalls = 0;
@@ -230,4 +230,44 @@ test('the running bot gates Telegraf commands and entity-less fallback before di
   assert.deepEqual([...replies.keys()], [2, 3], output);
   assert.equal(replies.get(3), 1, output);
   assert.equal(output.match(/Command \/do matched by text fallback/g)?.length, 1, output);
+});
+
+test('the running bot discovers an ordinary peer across polling batches before dispatching a pending command', { timeout: 30_000 }, async t => {
+  const home = mkdtempSync(join(tmpdir(), 'hive-telegram-discovery-bot-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const whoSent = join(home, 'who-sent');
+  const peer = { ...unrelated, username: 'build_automation_bot', first_name: 'Build Automation' };
+  const incoming = (id, message, from = human) => ({ update_id: id, message: { ...message, chat: group, from, message_id: id } });
+  const now = Math.floor(Date.now() / 1000) + 10;
+  const proof = incoming(
+    2,
+    {
+      text: 'Hive Mind Telegram bot v2.45.0',
+      reply_to_message: { message_id: 1000, text: '/who', date: now, from: { id: 1, is_bot: true, username: 'hive_test_bot' } },
+    },
+    peer
+  );
+  const batches = [{ updates: [incoming(1, command('/help').message)] }, { afterFile: whoSent, updates: [proof] }, { atMs: 3_000, updates: [incoming(3, command('/who@hive_test_bot', { entity: null }).message)] }];
+  const child = spawn(process.execPath, ['--import', fileURLToPath(new URL('./fixtures/issue-3206/telegraf-harness.mjs', import.meta.url)), fileURLToPath(new URL('../src/telegram-bot.mjs', import.meta.url)), '--isolation', '', '--no-solve', '--no-auto-close-linked-issues'], {
+    cwd: home,
+    env: { HOME: home, PATH: process.env.PATH, TELEGRAM_BOT_TOKEN: '4101:test-token', HIVE_HARNESS_BATCHES: JSON.stringify(batches), HIVE_HARNESS_MEMBER_COUNT: '3' },
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+  });
+  const closed = once(child, 'close');
+  const stop = () => child.kill('SIGKILL');
+  t.signal.addEventListener('abort', stop, { once: true });
+  let output = '';
+  child.stdout.on('data', chunk => (output += chunk));
+  child.stderr.on('data', chunk => (output += chunk));
+  const sent = [];
+  child.on('message', event => {
+    if (event.type !== 'api' || event.method !== 'sendMessage') return;
+    sent.push(event.payload.text);
+    if (event.payload.text === '/who') writeFileSync(whoSent, '');
+    else if (sent.length === 1 || event.payload.text.startsWith('Hive Mind Telegram bot v')) stop();
+  });
+  await closed;
+  assert.equal(sent[0], '/who', output);
+  assert.match(sent[1], /^Hive Mind Telegram bot v\d+\.\d+\.\d+/, output);
+  assert.equal(sent.length, 2, output);
 });

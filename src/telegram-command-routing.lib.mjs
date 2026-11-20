@@ -6,12 +6,14 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { runInBackground } from './telegram-background-task.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { isGroupChat } from './telegram-message-filters.lib.mjs';
+import { createTelegramPeerDiscovery } from './telegram-peer-discovery.lib.mjs';
 import { TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 
 const MEMBERSHIP_TIMEOUT_MS = 1500;
-export const TELEGRAM_ROUTING_UPDATES = Object.freeze(['message', 'callback_query', 'chat_member']);
+export const TELEGRAM_ROUTING_UPDATES = Object.freeze(['message', 'edited_message', 'callback_query', 'chat_member', 'my_chat_member']);
 
 function isBrandedBot(user) {
   return user?.is_bot && (/hive[ _-]*mind|swarm[ _-]*mind/i.test(user.username ?? '') || /(?:^|[^\p{L}\p{N}])(?:hive[ _-]*mind|swarm[ _-]*mind)(?:[ _-]*bot)?(?:$|[^\p{L}\p{N}])/iu.test(user.first_name ?? ''));
@@ -36,7 +38,7 @@ async function loadKnownPeers(file, log) {
 }
 
 /** Known peers are scoped to the chat and to the bot receiving the update. */
-export function installTelegramCommandRouting(bot, { stateDir, configuredPeers = [], verbose = false }) {
+export function installTelegramCommandRouting(bot, { stateDir, configuredPeers = [], verbose = false, identity, onError }) {
   const log = message => {
     if (verbose) console.log(`[VERBOSE] Telegram command routing: ${message}`);
   };
@@ -51,6 +53,9 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
   let loading;
   let writeTail = Promise.resolve();
   const checks = new Map();
+  const discovery = identity && createTelegramPeerDiscovery(bot.telegram, { ...identity, log });
+  const isPeer = user => isBrandedBot(user) || (user?.is_bot && discovery?.isIdentified(user));
+  const isKnown = (chatId, id) => knownPeers.get(chatId)?.has(id) || configuredByChat.get(chatId)?.has(id);
 
   function setKnownPeers(chatId, ids) {
     if (ids.size) knownPeers.set(chatId, ids);
@@ -70,8 +75,8 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     return writeTail;
   }
 
-  function observePeers(ctx, chatId, selfId, authors) {
-    const { message, update } = ctx;
+  function observePeers(ctx, chatId, selfId, authors, joined, departed) {
+    const { message } = ctx;
     const fromChat = message?.migrate_from_chat_id ?? (message?.migrate_to_chat_id ? chatId : null);
     const toChat = message?.migrate_to_chat_id ?? chatId;
     const previous = knownPeers.get(toChat);
@@ -81,11 +86,9 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
       for (const id of configuredByChat.get(fromChat) ?? []) ids.add(id);
     }
 
-    const member = update?.chat_member?.new_chat_member;
-    const departed = message?.left_chat_member ?? (member && !isMember(member) ? member.user : null);
     for (const author of authors) ids.add(author.id);
-    for (const user of message?.new_chat_members ?? (member && isMember(member) ? [member.user] : [])) {
-      if (user.id !== selfId && isBrandedBot(user)) ids.add(user.id);
+    for (const user of joined) {
+      if (user.id !== selfId && isPeer(user)) ids.add(user.id);
     }
     if (departed) ids.delete(departed.id);
     if (!samePeers(previous, ids)) return setKnownPeers(toChat, ids);
@@ -103,11 +106,12 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     // Low priority keeps the rate governor from waiting/retrying on the polling
     // path. Telegraf accepts the abort signal via callApi's third argument.
     const lookup = async (method, payload) => withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () => ctx.telegram.callApi(method, { chat_id: chatId, ...payload }, { signal }));
-    const result = Promise.allSettled([lookup('getChatAdministrators', { return_bots: true }), ...ids.map(id => lookup('getChatMember', { user_id: id }))])
-      .then(async ([admins, ...members]) => {
-        if (known !== knownPeers.get(chatId)) return true; // Membership changed while the lookup was in flight.
+    const result = Promise.allSettled([lookup('getChatAdministrators', { return_bots: true }), discovery && !ids.length ? lookup('getChatMemberCount') : null, ...ids.map(id => lookup('getChatMember', { user_id: id }))])
+      .then(async ([admins, memberCount, ...members]) => {
+        if (known !== knownPeers.get(chatId)) return 'addressed'; // Membership changed while the lookup was in flight.
         const adminList = admins.status === 'fulfilled' && Array.isArray(admins.value) ? admins.value : null;
-        const peerAdmins = adminList?.filter(({ user }) => user?.id !== selfId && isBrandedBot(user)) ?? [];
+        const otherAdmins = (adminList ?? []).map(({ user }) => user).filter(user => user?.is_bot && user.id !== selfId);
+        const peerAdmins = otherAdmins.filter(isPeer);
         const next = new Set(known);
         let peerPresent = peerAdmins.length > 0;
         let uncertain = !adminList;
@@ -117,15 +121,18 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
           else if (member.status === 'left' || member.status === 'kicked' || (member.status === 'restricted' && !member.is_member)) next.delete(id);
           else if (member.user.is_bot && isMember(member)) peerPresent = true;
         }
-        for (const { user } of peerAdmins) next.add(user.id);
+        for (const user of peerAdmins) next.add(user.id);
         if (!samePeers(known, next)) {
           await setKnownPeers(chatId, next);
-          if (knownPeers.get(chatId) !== (next.size ? next : undefined)) return true;
+          if (knownPeers.get(chatId) !== (next.size ? next : undefined)) return 'addressed';
         }
-        if (peerPresent) return true;
+        discovery?.observeCandidates(ctx, otherAdmins, id => isKnown(chatId, id));
+        if (peerPresent) return 'addressed';
         // A failed read is not evidence that this bot is alone.
         if (uncertain) log(`Could not verify membership in chat ${chatId}`);
-        return uncertain;
+        if (uncertain) return 'addressed';
+        const accountedFor = new Set([selfId, ...adminList.map(({ user }) => user?.id)].filter(Number.isSafeInteger)).size;
+        return memberCount.value === accountedFor ? 'solo' : 'discover';
       })
       .finally(() => {
         if (checks.get(chatId)?.result === result) checks.delete(chatId);
@@ -136,6 +143,8 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
 
   bot.use(async (ctx, next) => {
     const message = ctx.message;
+    const selfId = ctx.botInfo?.id;
+    if (selfId !== undefined && message?.from?.id === selfId) return;
     const text = message?.text;
     const entity = message?.entities?.[0];
     const hasCommandEntity = typeof text === 'string' && entity?.type === 'bot_command' && entity.offset === 0;
@@ -143,12 +152,22 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
     const entityMention = hasCommandEntity ? parseTelegramCommandPrefix(text.slice(0, entity.length))?.botMention : null;
     const mention = entityMention ?? prefix?.botMention;
     const addressedElsewhere = mention && mention.toLowerCase() !== ctx.me?.toLowerCase();
-    if (!isGroupChat(ctx)) return addressedElsewhere ? undefined : next();
-    const selfId = ctx.botInfo?.id;
-    const authors = [message?.from, message?.reply_to_message?.from].filter(user => user?.id !== selfId && isBrandedBot(user));
-    const membershipUpdate = message?.new_chat_members || message?.left_chat_member || message?.migrate_from_chat_id || message?.migrate_to_chat_id || ctx.update?.chat_member;
+    const command = discovery?.identityCommand(text)?.command;
+    const humanWho = command === 'who' && !message.from?.is_bot;
+    const dispatch = () => (humanWho ? discovery.reply(ctx) : next());
+    if (!isGroupChat(ctx)) return addressedElsewhere ? undefined : dispatch();
+
+    const member = ctx.update?.chat_member?.new_chat_member;
+    const joined = message?.new_chat_members ?? (member && isMember(member) ? [member.user] : []);
+    const departed = message?.left_chat_member ?? (member && !isMember(member) ? member.user : null);
+    const myMembership = ctx.update?.my_chat_member;
+    const membershipUpdate = joined.length || departed || message?.migrate_from_chat_id || message?.migrate_to_chat_id || myMembership;
+    const visible = [message?.from, message?.reply_to_message?.from].filter(user => user?.is_bot && user.id !== selfId && user.id !== departed?.id);
+    const authors = visible.filter(isPeer);
+    const confirmed = discovery?.identifyReply(ctx);
+    if (confirmed) authors.push(confirmed);
     const bareCommand = !mention && (prefix || hasCommandEntity);
-    if (!membershipUpdate && !authors.length && !bareCommand) return addressedElsewhere ? undefined : next();
+    if (!membershipUpdate && !authors.length && !bareCommand && !(discovery && visible.length)) return addressedElsewhere ? undefined : dispatch();
 
     const chatId = ctx.chat.id;
     if (!knownPeers) {
@@ -160,8 +179,40 @@ export function installTelegramCommandRouting(bot, { stateDir, configuredPeers =
         knownPeers = new Map();
       }
     }
-    if (membershipUpdate || authors.length) await observePeers(ctx, chatId, selfId, authors);
-    if (addressedElsewhere || (bareCommand && (await requiresAddress(ctx, chatId, selfId)))) return;
-    return next();
+    if (membershipUpdate || authors.length) await observePeers(ctx, chatId, selfId, authors, joined, departed);
+    if (departed) discovery?.resetProbes(chatId, departed.id);
+    const migratedFrom = message?.migrate_from_chat_id ?? (message?.migrate_to_chat_id ? chatId : null);
+    if (migratedFrom) discovery?.resetProbes(migratedFrom);
+    if (myMembership && !isMember(myMembership.new_chat_member)) discovery?.resetProbes(chatId);
+    const knowsPeer = id => isKnown(chatId, id);
+    discovery?.observeCandidates(ctx, [...joined, ...visible], knowsPeer);
+    const selfJoined = joined.some(user => user.id === selfId) || (myMembership && !isMember(myMembership.old_chat_member) && isMember(myMembership.new_chat_member));
+    if (discovery && selfJoined) {
+      const membership = await requiresAddress(ctx, chatId, selfId);
+      discovery.waitForDiscovery(ctx, knowsPeer, membership === 'discover');
+    }
+
+    if (addressedElsewhere) return;
+    // A peer identity probe has its own small response and cannot reach the
+    // human /version handler or the bare-command gate that it is discovering.
+    if (command && message.from?.is_bot) return discovery.reply(ctx);
+    if (!bareCommand) return dispatch();
+    const membership = await requiresAddress(ctx, chatId, selfId);
+    if (membership === 'addressed') return;
+    const pending = discovery?.waitForDiscovery(ctx, knowsPeer, membership === 'discover');
+    if (!pending) return dispatch();
+    // A later Telegram polling batch can contain the identity reply. Holding
+    // this update open would prevent Telegraf from reading that batch.
+    void runInBackground(
+      async () => {
+        if (!(await pending) || knownPeers.get(chatId)?.size) return;
+        // A reply or a new peer's probe can expose another candidate during
+        // the first round. Give the live probes one bounded round to finish.
+        const followUp = discovery.waitForDiscovery(ctx, knowsPeer, false);
+        if (followUp && !(await followUp)) return;
+        if (!knownPeers.get(chatId)?.size) await dispatch();
+      },
+      { label: 'Telegram command discovery', onError: onError && (error => onError(error, ctx)) }
+    );
   });
 }

@@ -49,7 +49,8 @@ class FakeTelegram {
     }
     if (method === 'getMe') return { id: 1, is_bot: true, username: 'hive_test_bot', first_name: 'Hive' };
     if (method === 'getChatMember') return { status: process.env.HIVE_HARNESS_MEMBER_STATUS || 'member', user: { id: payload.user_id } };
-    if (method === 'getChatAdministrators') return JSON.parse(process.env.HIVE_HARNESS_ADMINISTRATORS || '{}')[payload.chat_id] || [];
+    if (method === 'getChatAdministrators') return JSON.parse(process.env.HIVE_HARNESS_ADMINISTRATORS || '{}')[payload.chat_id] ?? [{ status: 'creator', user: { id: 2, is_bot: false } }];
+    if (method === 'getChatMemberCount') return Number(process.env.HIVE_HARNESS_MEMBER_COUNT ?? 2);
     if (method === 'getWebhookInfo') return { url: '' };
     return true;
   }
@@ -102,7 +103,7 @@ class FakeContext {
     return this.update.callback_query;
   }
   get chat() {
-    return this.message?.chat ?? this.callbackQuery?.message?.chat;
+    return this.message?.chat ?? this.update.edited_message?.chat ?? this.update.chat_member?.chat ?? this.update.my_chat_member?.chat ?? this.callbackQuery?.message?.chat;
   }
   get from() {
     return this.message?.from ?? this.callbackQuery?.from;

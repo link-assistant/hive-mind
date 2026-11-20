@@ -6,21 +6,21 @@
 > Docker provides better isolation, easier management, and consistent environments.
 >
 > Please use the [Docker installation method](../README.md#using-docker) instead.
-> For Kubernetes deployments, see the [Helm installation](../README.md#helm-installation-kubernetes).
+> For Kubernetes deployments, see the [Helm installation](../README.md#helm-installation-kubernetes-experimental).
 > For detailed Docker usage, see [docs/DOCKER.md](./DOCKER.md).
 
 ---
 
 The following instructions describe the legacy bare-metal installation on Ubuntu 24.04 server. This approach is kept for reference only.
 
-> **Note:** As of issue #1639, the Docker image uses the full `konard/box`
+> **Note:** As of issue #1639, the Docker image uses the full `ghcr.io/link-foundation/box`
 > image, pinned to the current Box release, as the base image that provides all
 > development tools. The standalone Hive Mind bare-metal install script was
 > removed from this repository; the last version that pre-installed all Hive
 > Mind tools on top of Ubuntu 24.04 is preserved for historical reference at:
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
 >
-> The `konard/box` image is a universal base image and does not contain Hive
+> The `ghcr.io/link-foundation/box` image is a universal base image and does not contain Hive
 > Mind specific tooling by itself, so this legacy Hive Mind script is kept as
 > the only remaining source for the bare-metal install path.
 
@@ -28,14 +28,9 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
-3. Install the Hive Mind toolchain (provides Docker, development tools, and the Hive Mind CLIs)
+3. Run the archived Hive Mind bare-metal installer
 
    ```bash
-   # Option 1: Use Docker (recommended)
-   docker pull konard/box:2.3.2
-   docker run -it konard/box:2.3.2
-
-   # Option 2: Use the legacy Hive Mind bare-metal install script (pinned to the last commit that carried it: 4f027b32)
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
@@ -126,35 +121,14 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
 ## Codex sign-in
 
-1. Connect to your instance of VPS with Hive Mind installed, using SSH with tunnel opened
+On the machine where you want to use Codex, run the manager command below. From another machine, connect with `hive-manager --host deploy@your-server auth codex`. Open the displayed device authorization URL and enter the code in your browser. Then check the login status.
 
 ```bash
-ssh -L 1455:localhost:1455 root@123.123.123.123
+hive-manager auth codex
+hive-manager auth codex status
 ```
 
-2. Install or update Codex CLI:
-
-```bash
-bun install -g @openai/codex@latest
-```
-
-3. Start the current Codex device auth flow:
-
-```bash
-codex login --device-auth
-```
-
-4. Finish login in your browser. The command should end with:
-
-```text
-Successfully logged in
-```
-
-5. Verify the Codex CLI with the same smoke test used in the Docker workflow:
-
-```bash
-codex exec --model gpt-5.4-mini "hi"
-```
+Without the manager, use `codex login --device-auth` and `codex login status` directly. For device authorization settings and browser callback alternatives, see the [Codex sign-in guide](deployment/hive-manager.md#headless-sign-in).
 
 Codex stores its data in `~/.codex` on a regular server. The most important paths are:
 

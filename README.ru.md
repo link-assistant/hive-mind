@@ -150,34 +150,23 @@ sudo docker run hello-world
 
 ### Использование Docker
 
-Запустите Hive Mind с помощью Docker для более безопасной локальной установки — ручная настройка не требуется:
-
-**Примечание:** Docker значительно безопаснее для локальной установки и позволяет запускать несколько изолированных экземпляров на сервере или в кластере Kubernetes. Для развёртывания в Kubernetes см. раздел [Установка через Helm](#установка-через-helm-kubernetes-экспериментально) ниже.
-
-Используйте [Hive Mind Manager](./docs/deployment/hive-manager.md) для локального развёртывания или работы по SSH, хранения учётных данных, обновлений и резервных копий.
+Запустите [Hive Mind Manager](./docs/deployment/hive-manager.md) на хосте с Docker. Если пакет уже установлен, начните с команды развёртывания.
 
 ```bash
-mkdir -p "$HOME/.local/bin"
-curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager"
-chmod +x "$HOME/.local/bin/hive-manager"
-export PATH="$HOME/.local/bin:$PATH"
-
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
 hive-manager deploy --setup apply
-hive-manager deploy status
-hive-manager deploy --tty exec -- bash
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
+```
 
-# Inside the container
-gh-setup-git-identity
-claude
-codex login --device-auth
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-exit
+Откройте показанные ссылки в браузере на своей машине. Вставьте код авторизации Claude в запущенную команду. Введите код Codex в браузере, а код GitHub — на [странице активации GitHub](https://github.com/login/device). Войдите в нужные сервисы. См. [удалённое развёртывание](./docs/deployment/hive-manager.md#profiles-and-remote-use) и [ручные команды Docker и входа](./docs/deployment/hive-manager-manual.md).
 
-# Run a command in the instance
+```bash
+# Выполните команду в экземпляре
 hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Start the Telegram bot using a private environment file on the host
+# Запустите бот Telegram с приватным файлом переменных окружения
 hive-manager deploy --env-file ./telegram.env apply
 hive-manager deploy logs --follow --tail 60
 ```

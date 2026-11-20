@@ -6,19 +6,13 @@ This document explains how to run Hive Mind in Docker containers.
 
 ### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
-Use [Hive Mind Manager](./deployment/hive-manager.md) to deploy locally or over SSH, persist credentials, and manage updates and backups.
+Use [Hive Mind Manager](./deployment/hive-manager.md) for deployment and package-based or standalone installation. Complete the provider prompts in your own browser. See the [manual Docker and login commands](./deployment/hive-manager-manual.md) for direct CLI alternatives.
 
 ```bash
 hive-manager deploy --setup apply
-hive-manager deploy --tty exec -- bash
-
-# Inside the container
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-claude
-codex login --device-auth
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-exit
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
 hive-manager deploy --env-file ./telegram.env apply
 hive-manager deploy logs --follow --tail 60
@@ -375,65 +369,15 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) extends the pinned full `ghcr.io/link-foundation/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
-
-**Why Authentication Happens After Installation:**
-
-- ✅ Avoids Docker build timeouts caused by interactive prompts
-- ✅ Prevents build failures in CI/CD pipelines
-- ✅ Allows the installation script to complete successfully
-- ✅ Supports automated Docker image builds
-
-### GitHub Authentication
+Start the instance before signing in. Each command uses that instance’s persistent state. Open the displayed URL in your browser. Paste Claude’s authorization code back into the command and enter the other providers’ displayed codes in your browser.
 
 ```bash
-# Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
-
-### Claude Authentication
-
-```bash
-# Inside the container, AFTER it's running
-claude
-```
-
-### Codex Authentication
-
-Install or update Codex CLI inside the running container:
-
-```bash
-bun install -g @openai/codex@latest
-```
-
-Log in with the device auth flow we currently use:
-
-```bash
-codex login --device-auth
-```
-
-The command should finish with:
-
-```text
-Successfully logged in
-```
-
-Then run the current smoke test:
-
-```bash
-codex exec --model gpt-5.4-mini "hi"
-```
-
-This approach allows:
-
-- ✅ Multiple Docker instances with different GitHub accounts
-- ✅ Multiple Docker instances with different Claude subscriptions
-- ✅ Persistent Codex authentication and session data when `/home/box/.codex` is mounted
-- ✅ No credential leakage between containers
-- ✅ Each container has its own isolated authentication
-- ✅ Successful Docker builds without interactive authentication
+For SSH, profiles, or login without the manager, see the [sign-in guide](deployment/hive-manager.md#headless-sign-in) and the [manual commands](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container).
 
 ## Router isolation (experimental)
 
@@ -631,21 +575,14 @@ docker-compose run --rm hive-mind
 
 ## Troubleshooting
 
-### GitHub Authentication Issues
+### Provider sign-in issues
+
+Check the selected instance’s sign-in status and repeat the corresponding sign-in command if needed.
 
 ```bash
-# Inside the container, check authentication status
-gh auth status
-
-# Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude Authentication Issues
-
-```bash
-# Inside the container, re-run Claude to authenticate
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker Issues

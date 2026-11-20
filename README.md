@@ -150,34 +150,23 @@ sudo docker run hello-world
 
 ### Using Docker
 
-Run the Hive Mind using Docker for safer local installation - no manual setup required:
-
-**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
-
-Use [Hive Mind Manager](./docs/deployment/hive-manager.md) to deploy locally or over SSH, persist credentials, and manage updates and backups.
+Run [Hive Mind Manager](./docs/deployment/hive-manager.md) on a host with Docker. If the package is already installed, start at the deployment command.
 
 ```bash
-mkdir -p "$HOME/.local/bin"
-curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager"
-chmod +x "$HOME/.local/bin/hive-manager"
-export PATH="$HOME/.local/bin:$PATH"
-
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
 hive-manager deploy --setup apply
-hive-manager deploy status
-hive-manager deploy --tty exec -- bash
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
+```
 
-# Inside the container
-gh-setup-git-identity
-claude
-codex login --device-auth
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-exit
+Open the displayed links on your own machine. Paste Claude's authorization code back into the running command. Enter the Codex code in its browser flow and the GitHub code on the [GitHub device page](https://github.com/login/device). Sign in to the services you use. See [remote deployment](./docs/deployment/hive-manager.md#profiles-and-remote-use) and [manual Docker and login commands](./docs/deployment/hive-manager-manual.md).
 
+```bash
 # Run a command in the instance
 hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Start the Telegram bot using a private environment file on the host
+# Start the Telegram bot with a private environment file
 hive-manager deploy --env-file ./telegram.env apply
 hive-manager deploy logs --follow --tail 60
 ```
@@ -196,7 +185,7 @@ Before `codex exec`, Hive Mind scans the issue and its comments for explicit req
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
-#### Stoping and removing docker container
+#### Stopping and removing the Docker container
 
 ```bash
 hive-manager deploy stop

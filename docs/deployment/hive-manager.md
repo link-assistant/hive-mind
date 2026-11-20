@@ -14,17 +14,16 @@ For interactive commands, redirects, or repeated use, save the file and invoke i
 
 ## First deployment
 
-Prepare the persistent state and open a shell to authenticate. Supply your usual GitHub and provider login details inside the shell.
+Prepare the persistent state and start the setup container. Run each sign-in separately so it can use your terminal.
 
 ```bash
 hive-manager deploy --setup apply
-hive-manager deploy --tty exec -- bash
-# In the container
-gh-setup-git-identity
-claude
-codex login --device-auth
-exit
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
+
+For a setup-only invocation on a Docker host, run `curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh | bash -s -- deploy --setup apply`. Install with npm or Bun, or save the Bash script, before signing in so the command can read your response from stdin.
 
 For a Telegram instance, create a private environment file with `TELEGRAM_BOT_TOKEN` and the appropriate allowlist/settings, or use an existing private LINO configuration with `--bot-config`. The Docker environment file accepts literal `KEY=value` lines. Use the format documented in [Telegram Bot Configuration](../CONFIGURATION.md) for the LINO file. The bind-mounted LINO file needs to be readable by the image's `box` user while remaining private on the host.
 
@@ -59,6 +58,23 @@ hive-manager --host hive-production --tty deploy --tty exec -- bash
 
 Set `ProxyJump` on the destination alias, configure `ProxyCommand` for an SSH transport proxy, or use an already connected VPN. Use `--ssh-config`, `--ssh-port`, and repeated `--ssh-option` for OpenSSH options supplied on the command line. Pass `--tty` on both sides of `deploy` for interactive remote Docker exec. Omit both for pipes and file transfers. See [OpenSSH client configuration](https://man.openbsd.org/ssh_config).
 
+## Headless sign-in
+
+Use `auth` for the current account on the selected host and `deploy auth` for the container's `box` account. Sign-in uses the selected environment's Claude, Codex or GitHub CLI. The GitHub flow also requires `gh-setup-git-identity`. Hive Mind images include these tools. For a managed deployment, select the same profile or container name you use for updates so credentials persist in its state mounts. The sign-in commands work over SSH with ordinary stdin and stdout, including through jump hosts.
+
+```bash
+hive-manager --host hive-production deploy --profile ./hive/production.conf auth claude
+hive-manager --host hive-production deploy --profile ./hive/production.conf auth codex
+hive-manager --host hive-production deploy --profile ./hive/production.conf auth github
+hive-manager --host hive-production deploy --profile ./hive/production.conf auth claude status
+```
+
+- **Claude**. Open the authorization URL in your browser. Paste the authorization code from the browser into the running command and press Enter when prompted.
+- **Codex**. Enable device code sign-in in your ChatGPT security settings or workspace permissions. Open the supplied URL and enter the displayed code in your browser. The command waits for approval. [Codex authentication](https://learn.chatgpt.com/docs/auth?surface=cli#login-on-headless-devices)
+- **GitHub**. Enter the displayed one-time code at [GitHub device activation](https://github.com/login/device). The command also sets up the Git identity and HTTPS credentials in the target environment.
+
+Append `status` to any sign-in command to check the selected environment. Use a private terminal when working with one-time codes. For provider-native commands and deployments without the manager, see the [manual operations guide](hive-manager-manual.md).
+
 ## Updates and recovery
 
 ```bash
@@ -70,7 +86,7 @@ hive-manager deploy --profile ./production.conf rollback
 
 Keep the same profile for every update. The manager pulls and validates the selected image and checks Telegram configuration before stopping the previous container. It restores the previous container if startup fails and retains one stopped rollback container after a successful replacement. Readiness is based on the image health check when present and otherwise on the container staying running across consecutive checks. Inspect the running bot's logs for service-level problems. Rollback switches containers while keeping shared state as it exists at the time of rollback. Run `deploy recover` after an interrupted rollout. It handles containers left at the `.candidate` and `.previous` stages.
 
-To bring an existing Docker deployment under management, identify its image variant, state mounts, configuration, and startup command. Back up its state and point the profile at the same state directory if it uses the documented `.hive-mind` layout. Copy any state stored only in the old container before replacing it. Import Git identity into the new instance with `gh-setup-git-identity` in its shell. Run `deploy --profile PROFILE --adopt --dry-run apply` to check the configuration and remove `--dry-run` to proceed. The manager records the original container ID for subsequent rollbacks and updates. Use Compose to preserve custom volumes or mounts.
+To bring an existing Docker deployment under management, identify its image variant, state mounts, configuration, and startup command. Back up its state and point the profile at the same state directory if it uses the documented `.hive-mind` layout. Copy any state stored only in the old container before replacing it. Run `hive-manager deploy --profile PROFILE --adopt --dry-run apply` to check the configuration and remove `--dry-run` to proceed. The manager records the original container ID for subsequent rollbacks and updates. Set up GitHub credentials with `hive-manager deploy --profile PROFILE auth github` if they need to be recreated. Use Compose to preserve custom volumes or mounts.
 
 ## Maintenance and diagnostics
 

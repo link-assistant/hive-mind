@@ -14,24 +14,19 @@
 以下说明描述了在 Ubuntu 24.04 服务器上进行旧版裸机安装的方法。此方法仅作参考。
 
 > **注意**：自 issue #1639 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
-> Docker 镜像现在使用 `konard/box`（固定到特定版本）作为基础镜像，提供所有开发工具。
+> Docker 镜像现在使用 `ghcr.io/link-foundation/box`（固定到特定版本）作为基础镜像，提供所有开发工具。
 > 作为历史参考，在 Ubuntu 24.04 之上预装完整 Hive Mind 工具链的脚本最后一个版本保留在：
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
 >
-> `konard/box` 镜像是通用基础镜像，本身不包含 Hive Mind 专用工具，因此这个旧的 Hive Mind 脚本仍然作为裸机安装路径的唯一保留来源。
+> `ghcr.io/link-foundation/box` 镜像是通用基础镜像，本身不包含 Hive Mind 专用工具，因此这个旧的 Hive Mind 脚本仍然作为裸机安装路径的唯一保留来源。
 
 ## 步骤
 
 1. 使用全新的 Ubuntu 24.04 重置/安装 VPS/VDS 服务器
 2. 登录 `root` 用户。
-3. 首先安装 Box（提供所有开发工具）
+3. 运行存档的 Hive Mind 裸机安装脚本
 
    ```bash
-   # 选项 1：使用 Docker（推荐）
-   docker pull konard/box:2.3.2
-   docker run -it konard/box:2.3.2
-
-   # 选项 2：使用旧版 Hive Mind 裸机安装脚本（固定到最后一个包含它的提交：4f027b32）
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
@@ -122,18 +117,11 @@
 
 ## Codex 登录
 
-1. 使用带有隧道的 SSH 连接到已安装 Hive Mind 的 VPS 实例
+在要使用 Codex 的机器上运行下面的管理器命令。也可以从另一台机器运行 `hive-manager --host deploy@your-server auth codex`。打开显示的设备授权链接，在浏览器中输入代码，然后检查登录状态。
 
 ```bash
-ssh -L 1455:localhost:1455 root@123.123.123.123
+hive-manager auth codex
+hive-manager auth codex status
 ```
 
-2. 启动 codex 登录 oAuth 服务器：
-
-```bash
-codex login
-```
-
-将启动 1455 端口上的 oAuth 回调服务器，并打印 oAuth 链接，请复制该链接。
-
-3. 在您启动隧道的机器上使用浏览器，粘贴 `codex login` 命令中的链接并访问。重定向到 localhost:1455 后，您将看到登录成功页面，`codex login` 中也会显示 `Successfully logged in`。之后 `codex login` 命令将完成，您可以正常使用 `codex` 命令进行验证。在 `solve` 和 `hive` 命令中使用 `--tool codex` 也应该正常工作。
+如果没有管理器，请直接运行 `codex login --device-auth` 和 `codex login status`。参阅 [Codex 登录指南](deployment/hive-manager.md#headless-sign-in)。

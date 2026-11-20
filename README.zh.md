@@ -150,34 +150,23 @@ sudo docker run hello-world
 
 ### 使用 Docker
 
-使用 Docker 运行 Hive Mind，实现更安全的本地安装，无需手动配置：
-
-**注意：** Docker 对本地安装更为安全，也可用于在服务器或 Kubernetes 集群上安装多个隔离实例。Kubernetes 部署请参见下方的 [Helm chart 安装](#helm-安装kubernetes实验性) 部分。
-
-使用 [Hive Mind Manager](./docs/deployment/hive-manager.md) 在本地或通过 SSH 部署，并管理持久化凭据、更新和备份。
+在已安装 Docker 的主机上使用 [Hive Mind Manager](./docs/deployment/hive-manager.md)。如果已安装软件包，请从部署命令开始。
 
 ```bash
-mkdir -p "$HOME/.local/bin"
-curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager"
-chmod +x "$HOME/.local/bin/hive-manager"
-export PATH="$HOME/.local/bin:$PATH"
-
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
 hive-manager deploy --setup apply
-hive-manager deploy status
-hive-manager deploy --tty exec -- bash
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
+```
 
-# Inside the container
-gh-setup-git-identity
-claude
-codex login --device-auth
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-exit
+在自己的电脑上打开命令显示的链接。将 Claude 授权码粘贴到正在运行的命令中。在 Codex 的浏览器页面输入其验证码，在 [GitHub 设备激活页面](https://github.com/login/device) 输入 GitHub 验证码。请登录要使用的服务。参阅[远程部署](./docs/deployment/hive-manager.md#profiles-and-remote-use)和[手动 Docker 和登录命令](./docs/deployment/hive-manager-manual.md)。
 
-# Run a command in the instance
+```bash
+# 在实例中运行命令
 hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Start the Telegram bot using a private environment file on the host
+# 使用私有环境变量文件启动 Telegram 机器人
 hive-manager deploy --env-file ./telegram.env apply
 hive-manager deploy logs --follow --tail 60
 ```

@@ -211,17 +211,19 @@ index 968430063dcbda2ddd990c1922292edf06aa6d6e..938a3c631302e9f7de1393e95c06e127
      needs: [codeql, audit, helper-checks, artifact-upload, artifact-download, dependency-review]
      if: always()
 diff --git a/scripts/release-workflow-policy.test.mjs b/scripts/release-workflow-policy.test.mjs
-index b0c9e3930d25c65b2d450925315bff30de54d6a6..770e10a6d84910e71c288ad11556e9d23144a9ce 100644
+index b0c9e3930d25c65b2d450925315bff30de54d6a6..75fd68224f352b9d6858d881c7915c9ecab7e508 100644
 --- a/scripts/release-workflow-policy.test.mjs
 +++ b/scripts/release-workflow-policy.test.mjs
-@@ -189,5 +189,5 @@ describe('release workflow policy', () => {
+@@ -189,5 +189,7 @@ describe('release workflow policy', () => {
      /** @type {Record<string, any>} */
      const workflow = Bun.YAML.parse(readWorkflow(RELEASE_WORKFLOW));
 -    expect(workflow.concurrency).toBeUndefined();
-+    expect(workflow.concurrency['cancel-in-progress']).toBe("${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}");
++    expect(workflow.concurrency['cancel-in-progress']).toBe(
++      "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}",
++    );
      for (const name of ['release', 'instant-release', 'changeset-pr']) {
        expect(workflow.jobs[name].concurrency).toEqual({
-@@ -197,5 +197,6 @@ describe('release workflow policy', () => {
+@@ -197,5 +199,6 @@ describe('release workflow policy', () => {
        });
      }
 -    expect(workflow.jobs.lint.concurrency['cancel-in-progress']).toBe(true);
@@ -230,12 +232,14 @@ index b0c9e3930d25c65b2d450925315bff30de54d6a6..770e10a6d84910e71c288ad11556e9d2
    });
 
 diff --git a/scripts/security-workflow-policy.test.mjs b/scripts/security-workflow-policy.test.mjs
-index 7c7343ffec54123d710e08ba18c48463a4c1905a..76d6235ae7e1426380ccb0922e7215a3d5514af1 100644
+index 7c7343ffec54123d710e08ba18c48463a4c1905a..5e0979c612395d1aa4c44046bc54a0dee1cd9267 100644
 --- a/scripts/security-workflow-policy.test.mjs
 +++ b/scripts/security-workflow-policy.test.mjs
-@@ -45,4 +45,4 @@ describe('security workflow policy', () => {
+@@ -45,4 +45,6 @@ describe('security workflow policy', () => {
      expect(workflow).toContain('timeout-minutes: 30');
      expect(workflow).toContain('timeout-minutes: 10');
 -    expect(workflow).toContain('cancel-in-progress: true');
-+    expect(workflow).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}");
++    expect(workflow).toContain(
++      "cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}",
++    );
    });

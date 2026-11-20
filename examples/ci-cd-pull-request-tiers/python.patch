@@ -203,10 +203,10 @@ index 89078a05219ed97e3b58978d4f00dcbadce2c87e..8a20f4ca4d82f16ec12b5eca926e7a3c
      needs:
        - dependency-audit
 diff --git a/tests/test_release_workflow.py b/tests/test_release_workflow.py
-index 8a2ddbfbf873f9a5567535d6d098d83b20597fdf..691ae109fd6422126ed31f39ab6ae7588c67df51 100644
+index 8a2ddbfbf873f9a5567535d6d098d83b20597fdf..906aa39ad41329f660127874aad392829a7a7d61 100644
 --- a/tests/test_release_workflow.py
 +++ b/tests/test_release_workflow.py
-@@ -35,9 +35,9 @@ def test_changelog_check_safely_requires_a_fragment() -> None:
+@@ -35,9 +35,12 @@ def test_changelog_check_safely_requires_a_fragment() -> None:
 
  def test_release_workflow_separates_check_and_write_concurrency() -> None:
 -    """Checks supersede on every ref while release writes share one group."""
@@ -215,10 +215,13 @@ index 8a2ddbfbf873f9a5567535d6d098d83b20597fdf..691ae109fd6422126ed31f39ab6ae758
      workflow_header = workflow.split("\njobs:\n", maxsplit=1)[0]
 
 -    assert "\nconcurrency:\n" not in workflow_header
-+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}" in workflow_header
++    assert (
++        "cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++        in workflow_header
++    )
 
      for job_name in (
-@@ -54,5 +54,6 @@ def test_release_workflow_separates_check_and_write_concurrency() -> None:
+@@ -54,5 +57,6 @@ def test_release_workflow_separates_check_and_write_concurrency() -> None:
          )
          assert expected_group in block
 -        assert "cancel-in-progress: true" in block
@@ -226,7 +229,7 @@ index 8a2ddbfbf873f9a5567535d6d098d83b20597fdf..691ae109fd6422126ed31f39ab6ae758
 +        assert "cancel-in-progress: false" in block
 
      write_concurrency = "\n".join(
-@@ -453,8 +454,8 @@ def test_release_workflow_builds_docker_images_on_pull_requests() -> None:
+@@ -453,8 +457,8 @@ def test_release_workflow_builds_docker_images_on_pull_requests() -> None:
      assert "name: Docker Image Build Check" in block
      assert "needs: [detect-changes]" in block
 -    assert (

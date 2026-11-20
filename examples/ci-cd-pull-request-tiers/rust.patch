@@ -282,7 +282,7 @@ index eb69313d0a1e99616a13db94b8deef53d9b1a613..a732a75abb8ecd746cfa90d08e091d0e
      needs:
        - javascript-first
 diff --git a/tests/unit/ci-cd/workflow_security.rs b/tests/unit/ci-cd/workflow_security.rs
-index 3da5ea1b00bc618d0e4bc04241aea7772dc7b525..00787f135080a37c6abb284acbe9f45dfe0f312e 100644
+index 3da5ea1b00bc618d0e4bc04241aea7772dc7b525..0c8acb59d2608b6196fde60fdfb5a81b5f75793d 100644
 --- a/tests/unit/ci-cd/workflow_security.rs
 +++ b/tests/unit/ci-cd/workflow_security.rs
 @@ -123,6 +123,5 @@ fn workflow_run_blocks_do_not_interpolate_untrusted_contexts() {
@@ -293,16 +293,18 @@ index 3da5ea1b00bc618d0e4bc04241aea7772dc7b525..00787f135080a37c6abb284acbe9f45d
 +/// commit-tier runs are the only workflows that supersede earlier runs.
  ///
  /// Regression test for issue #113:
-@@ -135,6 +134,6 @@ fn release_workflow_separates_check_and_write_concurrency() {
+@@ -135,6 +134,8 @@ fn release_workflow_separates_check_and_write_concurrency() {
      let workflow_header = workflow.split("\njobs:\n").next().unwrap();
      assert!(
 -        !workflow_header.contains("\nconcurrency:\n"),
 -        "workflow-level concurrency would couple cancellable checks to non-cancellable writes"
-+        workflow_header.contains("${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"),
++        workflow_header.contains(
++            "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++        ),
 +        "only synchronize runs should be cancellable"
      );
 
-@@ -155,6 +154,8 @@ fn release_workflow_separates_check_and_write_concurrency() {
+@@ -155,6 +156,8 @@ fn release_workflow_separates_check_and_write_concurrency() {
              format!("group: ${{{{ github.workflow }}}}-${{{{ github.ref }}}}-{job_name}");
          assert!(
 -            job.contains(&expected_group) && job.contains("cancel-in-progress: true"),
@@ -313,7 +315,7 @@ index 3da5ea1b00bc618d0e4bc04241aea7772dc7b525..00787f135080a37c6abb284acbe9f45d
 +            "read-only job {job_name} should be isolated from other runs"
          );
      }
-@@ -163,5 +164,6 @@ fn release_workflow_separates_check_and_write_concurrency() {
+@@ -163,5 +166,6 @@ fn release_workflow_separates_check_and_write_concurrency() {
      assert!(
          test.contains("group: ${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}")
 -            && test.contains("cancel-in-progress: true"),

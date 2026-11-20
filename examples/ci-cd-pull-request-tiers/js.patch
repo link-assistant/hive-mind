@@ -356,7 +356,7 @@ index edba61e49c1c49066de153e200b6c8df60eff6fa..59de3c2279c9e475b95c91fb4df42dda
      );
      expect(dependencyReview).toContain('      pull-requests: write');
 diff --git a/tests/workflow-reliability.test.js b/tests/workflow-reliability.test.js
-index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..2bfc20a152adb0d0ca272a72b05410f5f7a51e73 100644
+index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..43d43e9c221b2344f542df0f3966b353e701deb3 100644
 --- a/tests/workflow-reliability.test.js
 +++ b/tests/workflow-reliability.test.js
 @@ -110,4 +110,5 @@ function evaluateWorkflowIf(expression, context) {
@@ -385,7 +385,7 @@ index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..2bfc20a152adb0d0ca272a72b05410f5
        for (const file of listWorkflowPaths()) {
          const source = parse(readWorkflow(file));
 +        const isTiered = ['release.yml', 'security.yml'].some((name) =>
-+          file.endsWith('/' + name)
++          file.endsWith(`/${name}`)
 +        );
 +        if (isTiered) {
 +          expect(source.concurrency['cancel-in-progress']).toBe(

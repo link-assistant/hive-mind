@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -14,6 +14,7 @@ Check a Telegram user session by writing, reading and deleting a marker in Saved
   --proxy-port PORT    MTProto proxy port (default: 443)
   --secret-file FILE   File containing the MTProto proxy secret
   --direct             Exercise the same API checks without a proxy
+  --matrix FILE        Compare up to 12 named direct and proxy routes from a JSON file
   --media              Verify a 32 KiB document round trip by comparing bytes
   --photo FILE         Test a selected JPEG or PNG of at most 256 KiB
   --timeout SECONDS    Per-step deadline from 1 to 120 seconds (default: 30)
@@ -109,6 +110,52 @@ export async function runProxyProbe(client, { media = false, photo = null, timeo
   return result;
 }
 
+async function proxyFromFile(host, port, secretFile) {
+  if (typeof host !== 'string' || !/^[a-z\d:][a-z\d.:-]*$/i.test(host) || !/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535 || typeof secretFile !== 'string' || !secretFile) {
+    throw new Error('Provide a valid proxy host, port and secret file.');
+  }
+  let secret = (await readBoundedFile(secretFile, 1024, 'proxy secret')).toString('utf8').trim().toLowerCase();
+  if (/^[\da-f]{32}$/.test(secret)) secret = `dd${secret}`;
+  if (!/^(?:dd[\da-f]{32}|ee[\da-f]{32}(?:[\da-f]{2})+)$/.test(secret)) throw new Error('Invalid MTProto proxy secret.');
+  return { host, port: Number(port), secret };
+}
+
+export async function readProxyMatrix(file) {
+  let profiles;
+  try {
+    const data = await readBoundedFile(file, 32 * 1024, 'proxy matrix');
+    profiles = JSON.parse(data.toString('utf8'));
+  } catch {
+    throw new Error('Supply a proxy matrix JSON file of at most 32 KiB.');
+  }
+  if (!Array.isArray(profiles) || profiles.length < 1 || profiles.length > 12) throw new Error('A proxy matrix needs between 1 and 12 profiles.');
+  const routes = new Map();
+  for (const profile of profiles) {
+    if (typeof profile?.name !== 'string' || !/^[a-z\d][a-z\d-]{0,47}$/.test(profile.name) || routes.has(profile.name)) throw new Error('Each proxy matrix profile needs a unique lowercase name.');
+    const { name, direct, host, port = 443, secretFile } = profile;
+    if (direct === true) {
+      if (host !== undefined || profile.port !== undefined || secretFile !== undefined) throw new Error(`Direct profile ${name} cannot specify proxy options.`);
+      routes.set(name, null);
+      continue;
+    }
+    if (typeof secretFile !== 'string' || !secretFile || (direct !== undefined && direct !== false)) throw new Error(`Proxy profile ${name} needs a path to a secret file.`);
+    routes.set(name, await proxyFromFile(host, port, resolve(dirname(file), secretFile)));
+  }
+  return routes;
+}
+
+export async function runProxyMatrix(routes, createClient, options) {
+  const results = [];
+  for (const [name, proxy] of routes) {
+    try {
+      results.push({ name, route: proxy ? 'proxy' : 'direct', ok: true, ...(await runProxyProbe(createClient(proxy), options)) });
+    } catch (error) {
+      results.push({ name, route: proxy ? 'proxy' : 'direct', ok: false, error: error.message });
+    }
+  }
+  return results;
+}
+
 async function main() {
   let values;
   try {
@@ -118,9 +165,10 @@ async function main() {
         'session-file': { type: 'string' },
         credentials: { type: 'string' },
         'proxy-host': { type: 'string' },
-        'proxy-port': { type: 'string', default: '443' },
+        'proxy-port': { type: 'string' },
         'secret-file': { type: 'string' },
         direct: { type: 'boolean' },
+        matrix: { type: 'string' },
         media: { type: 'boolean' },
         photo: { type: 'string' },
         timeout: { type: 'string', default: '30' },
@@ -150,37 +198,48 @@ async function main() {
   if (!/^\d+$/.test(String(apiId)) || Number(apiId) < 1 || Number(apiId) > 2147483647 || typeof apiHash !== 'string' || !/^[\da-f]{32}$/i.test(apiHash)) {
     throw new Error('Supply a valid Telegram API ID and hash through --credentials or the documented environment variables.');
   }
-  let proxy;
-  if (!values.direct) {
-    const host = values['proxy-host'];
-    const port = Number(values['proxy-port']);
-    if (!host || !/^[a-z\d:][a-z\d.:-]*$/i.test(host) || !/^\d+$/.test(values['proxy-port']) || port < 1 || port > 65535 || !values['secret-file']) {
-      throw new Error('Provide a valid --proxy-host, --proxy-port and --secret-file, or use --direct.');
-    }
-    let secret = (await readBoundedFile(values['secret-file'], 1024, 'proxy secret')).toString('utf8').trim().toLowerCase();
-    if (/^[\da-f]{32}$/.test(secret)) secret = `dd${secret}`;
-    if (!/^(?:dd[\da-f]{32}|ee[\da-f]{32}(?:[\da-f]{2})+)$/.test(secret)) throw new Error('Invalid MTProto proxy secret.');
-    proxy = { host, port, secret };
-  } else if (values['proxy-host'] || values['secret-file']) {
-    throw new Error('Use either a proxy or --direct.');
+  let proxy = null;
+  let routes;
+  const hasProxyOptions = ['proxy-host', 'proxy-port', 'secret-file'].some(option => values[option] !== undefined);
+  if (values.matrix !== undefined) {
+    if (values.direct || hasProxyOptions) throw new Error('Specify direct and proxy routes inside the matrix file.');
+    routes = await readProxyMatrix(values.matrix);
+  } else if (values.direct) {
+    if (hasProxyOptions) throw new Error('Use either a proxy or --direct.');
+  } else {
+    proxy = await proxyFromFile(values['proxy-host'], values['proxy-port'] ?? '443', values['secret-file']);
   }
   const photo = values.photo ? await readBoundedFile(values.photo, 256 * 1024, 'probe photo') : null;
   if (photo && !photoType(photo)) throw new Error('Probe photo must be JPEG or PNG.');
   const session = (await readBoundedFile(values['session-file'], 8192, 'Telegram session')).toString('utf8').trim();
-  let client;
+  let telegram;
   try {
-    const { Logger, MTProxyTransport, TelegramClient, sessions } = (await import('teleproto')).default;
-    client = new TelegramClient(new sessions.StringSession(session), Number(apiId), apiHash, {
-      baseLogger: new Logger('none'),
-      connectionRetries: 1,
-      requestRetries: 1,
-      floodSleepThreshold: 0,
-      ...(proxy && { transport: new MTProxyTransport(proxy) }),
-    });
+    telegram = (await import('teleproto')).default;
   } catch {
-    throw new Error('Could not initialize the Telegram client. Check that the session file contains a valid StringSession and teleproto is installed.');
+    throw new Error('Could not load teleproto from this Hive Mind installation.');
   }
-  const result = await runProxyProbe(client, { photo, media: values.media, timeout });
+  const { Logger, MTProxyTransport, TelegramClient, sessions } = telegram;
+  const createClient = route => {
+    try {
+      return new TelegramClient(new sessions.StringSession(session), Number(apiId), apiHash, {
+        baseLogger: new Logger('none'),
+        connectionRetries: 1,
+        requestRetries: 1,
+        floodSleepThreshold: 0,
+        ...(route && { transport: new MTProxyTransport(route) }),
+      });
+    } catch {
+      throw new Error('Could not initialize the Telegram client. Check the StringSession and proxy configuration.');
+    }
+  };
+  const options = { photo, media: values.media, timeout };
+  if (routes) {
+    const results = await runProxyMatrix(routes, createClient, options);
+    process.stdout.write(`${JSON.stringify({ results }, null, 2)}\n`);
+    if (results.some(result => !result.ok)) process.exitCode = 1;
+    return;
+  }
+  const result = await runProxyProbe(createClient(proxy), options);
   process.stdout.write(`${JSON.stringify({ route: proxy ? 'proxy' : 'direct', ...result }, null, 2)}\n`);
 }
 

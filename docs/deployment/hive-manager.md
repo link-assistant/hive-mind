@@ -96,6 +96,10 @@ Run `tasks repair-records [UUID]` when a detached Docker resume is running and i
 
 `tasks report --incident UUID --attempt NUMBER --destination OWNER/REPO` previews an incident for one confirmed failure. The default attempt is the latest. Use `--publish REVIEW_DIGEST` after reviewing the JSON output to create the GitHub issue. The report contains the execution ID, times, backend, exit status and classification. Upload an execution log separately with `tasks upload-log ID` if needed.
 
+After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Review dependency-based requests before submitting them again.
+
+On a Linux Docker host, `deploy docker-service live-restore` checks whether the local daemon keeps containers running when the daemon is unavailable. Run it with `--apply` as root on a systemd host with `jq` and `flock`. The command validates and backs up `/etc/docker/daemon.json`, reloads `docker.service`, and checks the running daemon. It restores the previous file if the setting fails to take effect. [Docker live restore](https://docs.docker.com/engine/daemon/live-restore/)
+
 `archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. The default export limit is 20 and individual files are capped at 40 MiB. Add `--lino` with the [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) installed to add Links Notation copies. Session files can include personal or proprietary material. Review the staged files before publishing.
 
 Use `--tool-results` to include sanitized Claude attachments associated with the staged transcripts. This selects inactive, regular `.txt`, `.log`, `.json`, and `.jsonl` files up to 4 MiB each, with a shared limit of 100 attachments or 40 MiB of input per export.
@@ -151,6 +155,16 @@ Run `proxy-test` on the affected client network with a pre-authorized Telegram S
 hive-manager proxy-test --credentials ./telegram-api.json --session-file ./telegram.session \
   --proxy-host proxy.example.net --proxy-port 8443 --secret-file ./mtproxy.secret \
   --media --photo ./probe.png
+```
+
+For comparison on the same network, pass `--matrix routes.json` instead of the single-route options. The manager runs the selected tests sequentially for every profile and reports each result. Start proxy candidates ahead of time on distinct ports, and store each secret in a file next to the matrix. The matrix can include an existing FakeTLS proxy with its hexadecimal secret.
+
+```json
+[
+  { "name": "direct", "direct": true },
+  { "name": "baseline", "host": "proxy.example.net", "port": 443, "secretFile": "baseline.secret" },
+  { "name": "candidate", "host": "proxy.example.net", "port": 8443, "secretFile": "candidate.secret" }
+]
 ```
 
 If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`. Collect the client and server files on their external interfaces during the same probe window. `proxy-pcap` reads classic pcap files, summarizes unfragmented TCP traffic matching the published port and compares bytes observed on both sides. Repeat counts and gaps are diagnostic indicators. Capture loss and interface offloading can affect the measurements.

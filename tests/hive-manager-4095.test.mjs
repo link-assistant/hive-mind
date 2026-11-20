@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classifyUpload } from '../src/hive-manager-task-check-uploads.mjs';
-import { runProxyProbe } from '../src/hive-manager-proxy-test.mjs';
+import { readProxyMatrix, runProxyMatrix, runProxyProbe } from '../src/hive-manager-proxy-test.mjs';
 
 const script = fileURLToPath(new URL('../src/hive-manager.sh', import.meta.url));
 const source = readFileSync(script, 'utf8');
@@ -27,6 +27,130 @@ function fixture(t) {
   const standalone = (args, input = source) => spawnSync('bash', ['-s', '--', ...args], { cwd, input, env, encoding: 'utf8', timeout: 10000 });
   return { cwd, executable, run, standalone };
 }
+
+test('Docker live restore validates, reloads and restores the previous configuration on failure', { timeout: 10000 }, t => {
+  const { cwd, executable, run } = fixture(t);
+  const config = join(cwd, 'daemon.json');
+  const entry = join(cwd, 'manager');
+  writeFileSync(entry, source.replace('/etc/docker/daemon.json', config).replace('(( EUID == 0 )) || fail "Run with root privileges', '(( EUID == UID )) || fail "Run with root privileges'));
+  const oldConfig = '{"debug":true,"live-restore":false}\n';
+  writeFileSync(config, oldConfig, { mode: 0o640 });
+  executable('docker', 'printf "%s\\n" "$(cat "${FIXTURE}/daemon-status")"');
+  executable('jq', 'node -e \'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync(process.argv[1])); data["live-restore"] = true; console.log(JSON.stringify(data));\' "$3"');
+  executable('dockerd', '[[ "$1" == --config-file && "$3" == --validate ]]; grep -q \'"live-restore":true\' "$2"');
+  executable(
+    'systemctl',
+    `case "$1" in
+    is-active) exit 0 ;;
+    show) printf '%s\\n' '/usr/bin/dockerd -H fd://' ;;
+    reload)
+      if [[ \${FAIL_RELOAD:-0} == 1 ]] && grep -q '"live-restore":true' "$FIXTURE/daemon.json"; then exit 1; fi
+      if grep -q '"live-restore":true' "$FIXTURE/daemon.json"; then printf 'true\\n'; else printf 'false\\n'; fi > "$FIXTURE/daemon-status" ;;
+    *) exit 99 ;;
+  esac`
+  );
+  writeFileSync(join(cwd, 'daemon-status'), 'false\n');
+  const options = { entry, environment: { FIXTURE: cwd, XDG_RUNTIME_DIR: cwd } };
+  const args = ['deploy', 'docker-service', 'live-restore'];
+  assert.match(run(args, options).stdout, /live restore is disabled/);
+  assert.equal(readFileSync(config, 'utf8'), oldConfig);
+  const failed = run([...args, '--apply'], { ...options, environment: { ...options.environment, FAIL_RELOAD: '1' } });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stderr, /Restored the previous configuration/);
+  assert.equal(readFileSync(config, 'utf8'), oldConfig);
+  const applied = run([...args, '--apply'], options);
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(applied.stdout, /Enabled Docker live restore by reloading/);
+  assert.deepEqual(JSON.parse(readFileSync(config)), { debug: true, 'live-restore': true });
+  assert.equal(statSync(config).mode & 0o777, 0o640);
+  assert.match(run([...args, '--apply'], options).stdout, /live restore is enabled/);
+});
+
+test('proxy matrices continue after a failing route and omit secrets from results', async t => {
+  const { cwd } = fixture(t);
+  const file = join(cwd, 'routes.json');
+  const secret = '12'.repeat(16);
+  writeFileSync(join(cwd, 'proxy.secret'), `${secret}\n`, { mode: 0o600 });
+  writeFileSync(
+    file,
+    JSON.stringify([
+      { name: 'direct', direct: true },
+      { name: 'failing', host: 'test.example', port: 9443, secretFile: 'proxy.secret' },
+      { name: 'alternate', host: '2001:db8::1', secretFile: 'proxy.secret' },
+    ])
+  );
+  const routes = await readProxyMatrix(file);
+  assert.deepEqual(routes.get('alternate'), { host: '2001:db8::1', port: 443, secret: `dd${secret}` });
+  const attempts = [];
+  const results = await runProxyMatrix(
+    routes,
+    route => {
+      let message;
+      return {
+        async connect() {
+          attempts.push(route?.host ?? 'direct');
+          if (route?.port === 9443) throw new Error(secret);
+        },
+        async checkAuthorization() {
+          return true;
+        },
+        async sendMessage(_entity, options) {
+          message = options.message;
+          return { id: 1 };
+        },
+        async getMessages() {
+          return [{ id: 1, message }];
+        },
+        async deleteMessages() {},
+        async destroy() {},
+      };
+    },
+    { timeout: 1 }
+  );
+  assert.deepEqual(attempts, ['direct', 'test.example', '2001:db8::1']);
+  assert.deepEqual(
+    results.map(({ name, ok }) => [name, ok]),
+    [
+      ['direct', true],
+      ['failing', false],
+      ['alternate', true],
+    ]
+  );
+  assert.match(results[1].error, /connection failed/);
+  assert.ok(!JSON.stringify(results).includes(secret));
+  writeFileSync(file, JSON.stringify([{ name: 'direct', direct: true, port: 443 }]));
+  await assert.rejects(readProxyMatrix(file), /cannot specify proxy options/);
+});
+
+test('recovers pending queue requests using the previous and current verbose logs', { timeout: 10000 }, t => {
+  const { cwd, run } = fixture(t);
+  const previous = join(cwd, 'previous.log');
+  const current = join(cwd, 'current.log');
+  const startup = '/queue: SolveQueue initialized with separate tool queues';
+  const enqueue = (id, number) => `/queue: Enqueued: [solve-${id}] https://github.com/acme/thing/issues/${number} (queued) to codex queue, queue length: 1`;
+  const event = (action, id, number) => `/queue: ${action}: [solve-${id}] https://github.com/acme/thing/issues/${number} (waiting)`;
+  const log = (path, lines) => writeFileSync(path, lines.map(line => `2026-11-20T10:05:00.000000000Z [VERBOSE] ${line}\n`).join(''));
+  log(previous, [startup, enqueue('old', 1), startup, '/codex raw text: /codex https://github.com/acme/thing/issues/2 --model small', enqueue('pending', 2), enqueue('started', 3), event('Starting', 'started', 3), enqueue('cancelled', 4), event('Cancelled queued item', 'cancelled', 4), enqueue('rejected', 5), event('Rejected queued item', 'rejected', 5), enqueue('requeued', 6), enqueue('direct', 7), `${event('Waiting for dependencies', 'waiting', 8)} to codex queue`, `${event('Waiting for dependencies', 'failed', 9)} to codex queue`, event('Failed waiting item', 'failed', 9), `${event('Waiting for dependencies', 'released', 10)} to codex queue`, enqueue('released', 10), enqueue('older-current', 11)]);
+  log(current, [startup, enqueue('old', 11), startup, enqueue('new', 6), '/queue: Starting directly: https://github.com/ACME/thing/issues/7']);
+  const args = ['tasks', 'recover-queue', '--previous', previous, '--current', current];
+  const result = run(args);
+  assert.equal(result.status, 0, result.stderr);
+  const { pending, comparedCurrentRun } = JSON.parse(result.stdout);
+  assert.equal(comparedCurrentRun, true);
+  assert.deepEqual(
+    pending.map(entry => [entry.id, entry.waitingForDependencies]),
+    [
+      ['solve-pending', false],
+      ['solve-waiting', true],
+      ['solve-released', false],
+      ['solve-older-current', false],
+    ]
+  );
+  assert.ok(pending.every(entry => !('command' in entry)));
+  assert.equal(JSON.parse(run([...args, '--include-commands']).stdout).pending[0].command, '/codex https://github.com/acme/thing/issues/2 --model small');
+  log(current, [enqueue('partial', 2)]);
+  assert.match(run(args).stderr, /needs the verbose queue startup line/);
+});
 
 test('package and complete streamed script expose the same deployment interface', { timeout: 10000 }, t => {
   const { cwd, run, standalone } = fixture(t);

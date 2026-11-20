@@ -68,7 +68,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   restore [--input FILE|-]
                         Extract an archive into a new state directory
   reboot --confirm      Reboot the deployment host
-  docker-service        Check or start the host's Docker systemd service
+  docker-service        Check or start Docker, or enable daemon live restore
   proxy                 Manage an optional Telegram MTProto proxy
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
@@ -113,7 +113,6 @@ over_ssh() {
   done
   exec ssh "${ssh_options[@]}" "$ssh_terminal" -- "$host" "$remote"
 }
-
 maintenance_spec() {
   case "$1" in
     cleanup|hive-cleanup) bin=hive-cleanup; module=cleanup.mjs ;;
@@ -129,6 +128,7 @@ maintenance_spec() {
     task-report) bin=hive-manager; module=hive-manager-task-report.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager-task-check-uploads.mjs ;;
     task-recover-failed) bin=hive-manager; module=hive-manager-task-recover-failed.mjs ;;
+    task-recover-queue) bin=hive-manager; module=hive-manager-task-recover-queue.mjs ;;
     task-repair-records) bin=hive-manager; module=hive-manager-task-repair-records.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
@@ -182,7 +182,7 @@ task_args() {
   local action=${1-}
   if [[ ! $action || $action == --help || $action == -h ]]; then
     printf 'Usage: hive-manager tasks ACTION [ARGS]\n\n'
-    printf 'Inspect: list, status, attach, report, check-uploads\n'
+    printf 'Inspect: list, status, attach, report, check-uploads, recover-queue\n'
     printf 'Manage: resume, resume-all, recover-failed, repair-records, stop, terminate, pause, unpause, alias, rename\n'
     printf 'Maintain: cleanup-dry-run, cleanup, upload-log\n'
     return
@@ -615,6 +615,59 @@ diagnose() {
   if container_running "$name"; then docker stats --no-stream "$name"; fi
 }
 
+docker_live_restore() (
+  [[ $# == 0 || ( $# == 1 && $1 == --apply ) ]] || fail "Usage: deploy docker-service live-restore [--apply]"
+  require docker
+  local config=/etc/docker/daemon.json changed backup='' original='' unit current
+  local -a info=(docker --host unix:///var/run/docker.sock info --format '{{.LiveRestoreEnabled}}')
+  current=$("${info[@]}") || fail "Could not query the local Docker daemon"
+  if [[ $current == true ]]; then printf 'Docker live restore is enabled\n'; return; fi
+  if (( $# == 0 )); then
+    printf 'Docker live restore is disabled. Use --apply to enable it on an active systemd Docker service.\n'
+    return
+  fi
+  [[ $current == false ]] || fail "Could not read the daemon's live-restore setting"
+  (( EUID == 0 )) || fail "Run with root privileges to enable Docker live restore"
+  require dockerd; require systemctl; require jq; require flock
+  systemctl is-active --quiet docker.service || fail "The local Docker service must be active"
+  unit=$(systemctl show --property=ExecStart --value docker.service) || fail "Cannot inspect docker.service"
+  [[ $unit == *dockerd* && $unit != *--config-file* && $unit != *--live-restore* ]] || fail "Docker must use the standard daemon configuration file and set live restore there"
+  lock_deployment docker-daemon-config
+  [[ ! -L $config && ( ! -e $config || -f $config ) ]] || fail "Expected a regular Docker daemon configuration file"
+  mkdir -p -- "${config%/*}"
+  changed=$(mktemp -- "$config.hive-manager.XXXXXX")
+  trap 'rm -f -- "$changed" "${original:-$changed}"' EXIT
+  if [[ -e $config ]]; then
+    original=$(mktemp -- "$config.original.XXXXXX")
+    cp -p -- "$config" "$original"
+    jq -e 'select(type == "object") | .["live-restore"] = true' "$original" > "$changed" || fail "Invalid Docker daemon JSON configuration"
+    chmod --reference="$original" "$changed"
+    chown --reference="$original" "$changed"
+  else
+    printf '{"live-restore":true}\n' > "$changed"
+  fi
+  dockerd --config-file "$changed" --validate >/dev/null 2>&1 || fail "Docker rejected the updated configuration"
+  if [[ $original ]]; then
+    backup=$(mktemp -- "$config.backup.XXXXXX")
+    cat -- "$original" > "$backup"
+  fi
+  mv -f -- "$changed" "$config"
+  if systemctl reload docker.service; then
+    local attempt
+    for ((attempt = 0; attempt < 10; attempt++)); do
+      if [[ $("${info[@]}") == true ]]; then
+        printf 'Enabled Docker live restore by reloading docker.service\n'
+        if [[ $backup ]]; then printf 'Previous configuration saved in %s\n' "$backup"; fi
+        return
+      fi
+      sleep 1
+    done
+  fi
+  if [[ $original ]]; then mv -f -- "$original" "$config"; else rm -f -- "$config"; fi
+  systemctl reload docker.service || fail "Restored the configuration file but could not reload docker.service"
+  fail "Docker live restore could not be enabled. Restored the previous configuration."
+)
+
 proxy_usage() {
   cat <<'HELP'
 Usage: hive-manager deploy proxy [OPTIONS] ACTION
@@ -910,7 +963,8 @@ deploy() {
       require systemctl
       exec systemctl reboot ;;
     docker-service)
-      [[ $# == 1 && ( $1 == status || $1 == start ) ]] || fail "Usage: deploy docker-service status|start"
+      if [[ ${1-} == live-restore ]]; then docker_live_restore "${@:2}"; return; fi
+      [[ $# == 1 && ( $1 == status || $1 == start ) ]] || fail "Usage: deploy docker-service status|start|live-restore [--apply]"
       require systemctl
       exec systemctl "$1" docker.service ;;
     proxy) proxy_deploy "$@"; return ;;
@@ -942,7 +996,7 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
-      case "${1-}" in report|check-uploads|recover-failed|repair-records) require docker; inside hive-manager tasks "$@" ;; esac
+      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require docker; inside "${task_command[@]}"; fi ;;
@@ -980,7 +1034,7 @@ main() {
     deploy) shift; deploy "$@" ;;
     tasks)
       shift
-      case "${1-}" in report|check-uploads|recover-failed|repair-records) run_maintenance "task-$1" "${@:2}" ;; esac
+      case "${1-}" in report|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;; esac
       local task_command=()
       task_args "$@"
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;

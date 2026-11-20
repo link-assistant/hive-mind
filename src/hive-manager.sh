@@ -920,7 +920,7 @@ main() {
       if (( ${#task_command[@]} )); then require '$'; exec "${task_command[@]}"; fi ;;
     --version)
       local source_path
-      if source_path=$(package_source); then
+      if source_path=$(package_source) || source_path=$(package_source "$(command -v hive)"); then
         require node
         exec node -p 'require(process.argv[1]).version' "$source_path/../package.json"
       fi

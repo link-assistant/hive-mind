@@ -157,6 +157,11 @@ Run the Hive Mind using Docker for safer local installation - no manual setup re
 Use [Hive Mind Manager](./docs/deployment/hive-manager.md) to deploy locally or over SSH, persist credentials, and manage updates and backups.
 
 ```bash
+mkdir -p "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager.sh -o "$HOME/.local/bin/hive-manager"
+chmod +x "$HOME/.local/bin/hive-manager"
+export PATH="$HOME/.local/bin:$PATH"
+
 hive-manager deploy --setup apply
 hive-manager deploy status
 hive-manager deploy --tty exec -- bash

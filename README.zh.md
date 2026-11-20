@@ -157,6 +157,11 @@ sudo docker run hello-world
 使用 [Hive Mind Manager](./docs/deployment/hive-manager.md) 在本地或通过 SSH 部署，并管理持久化凭据、更新和备份。
 
 ```bash
+mkdir -p "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager.sh -o "$HOME/.local/bin/hive-manager"
+chmod +x "$HOME/.local/bin/hive-manager"
+export PATH="$HOME/.local/bin:$PATH"
+
 hive-manager deploy --setup apply
 hive-manager deploy status
 hive-manager deploy --tty exec -- bash

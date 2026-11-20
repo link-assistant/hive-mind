@@ -157,6 +157,11 @@ sudo docker run hello-world
 Используйте [Hive Mind Manager](./docs/deployment/hive-manager.md) для локального развёртывания или работы по SSH, хранения учётных данных, обновлений и резервных копий.
 
 ```bash
+mkdir -p "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager.sh -o "$HOME/.local/bin/hive-manager"
+chmod +x "$HOME/.local/bin/hive-manager"
+export PATH="$HOME/.local/bin:$PATH"
+
 hive-manager deploy --setup apply
 hive-manager deploy status
 hive-manager deploy --tty exec -- bash

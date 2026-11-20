@@ -41,6 +41,13 @@ test('package and complete streamed script expose the same deployment interface'
   assert.match(downloaded.stdout, /prepare[ \t]+Pull/);
   assert.equal(downloaded.stdout, run(['deploy', '--help']).stdout);
 
+  // The image provides a standalone copy on PATH alongside the package's hive link.
+  const copied = join(cwd, 'image-manager');
+  writeFileSync(copied, source, { mode: 0o700 });
+  symlinkSync(fileURLToPath(new URL('../src/hive.mjs', import.meta.url)), join(cwd, 'hive'));
+  assert.equal(run(['--version'], { entry: copied }).stdout.trim(), pkg.version);
+  assert.match(run(['audit-config', '--help'], { entry: copied }).stdout, /Audit global agent settings/);
+
   const truncated = standalone(['deploy', '--setup', 'apply'], source.slice(0, -100));
   assert.notEqual(truncated.status, 0);
   assert.doesNotMatch(truncated.stdout, /Deployed/);

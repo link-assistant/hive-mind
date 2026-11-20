@@ -1,0 +1,460 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 2baad6e6bafea6850c7efaf45c41c39084aabef6..0b2878625e062fcc789681479a9356592f8160e2 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -6,5 +6,5 @@ on:
+       - main
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   # Manual release support - consolidated here to work with npm trusted publishing
+   # npm only allows ONE workflow file as trusted publisher, so all publishing
+@@ -18,4 +18,5 @@ on:
+         default: 'instant'
+         options:
++          - checks
+           - instant
+           - changeset-pr
+@@ -46,4 +47,8 @@ env:
+   GIT_CONFIG_VALUE_0: main
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   # === DETECT CHANGES - determines which jobs should run ===
+@@ -62,6 +67,6 @@ jobs:
+       actions: read
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name != 'workflow_dispatch'
+     outputs:
+@@ -95,6 +100,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test-compilation
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-test-compilation-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: |
+@@ -121,6 +126,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-check-file-line-limits
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-check-file-line-limits-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: |
+@@ -155,6 +160,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-version-check
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-version-check-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name == 'pull_request'
+     steps:
+@@ -181,6 +186,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+@@ -226,6 +231,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-lint-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: |
+@@ -302,6 +307,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.runtime }}-${{ matrix.os }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.runtime }}-${{ matrix.os }}-${{ github.run_id }}
++      cancel-in-progress: false
+     needs:
+       [
+@@ -322,5 +327,5 @@ jobs:
+         (
+           github.event_name == 'workflow_dispatch' &&
+-          github.event.inputs.release_mode == 'instant'
++          (github.event.inputs.release_mode == 'instant' || github.event.inputs.release_mode == 'checks')
+         )
+       ) &&
+@@ -332,6 +337,6 @@ jobs:
+       fail-fast: false
+       matrix:
+-        os: [ubuntu-24.04, macos-15, windows-2025]
+-        runtime: [node, bun, deno]
++        os: ${{ fromJSON(github.event_name == 'pull_request' && github.event.action == 'synchronize' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "macos-15", "windows-2025"]') }}
++        runtime: ${{ fromJSON(github.event_name == 'pull_request' && github.event.action == 'synchronize' && '["node"]' || '["node", "bun", "deno"]') }}
+     steps:
+       - uses: actions/checkout@v7
+@@ -363,6 +368,10 @@ jobs:
+         run: npm ci --prefix .github/actions/artifact-transport --ignore-scripts --no-audit --no-fund
+
++      - name: Run fast unit tests (Node.js)
++        if: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++        run: node --test --test-timeout=30000 tests/index.test.js
++
+       - name: Run tests (Node.js)
+-        if: matrix.runtime == 'node'
++        if: ${{ matrix.runtime == 'node' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+         shell: bash
+         run: bash scripts/run-with-budget-warning.sh 300 "Node.js test suite" npm test
+@@ -414,8 +423,14 @@ jobs:
+     timeout-minutes: 30
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
++    if: |
++      !cancelled() && (
++        (github.event_name == 'pull_request' &&
++         github.event.action == 'ready_for_review' &&
++         needs.detect-changes.outputs.any-code-changed == 'true') ||
++        (github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'checks')
++      )
+     permissions:
+       contents: read
+@@ -462,6 +477,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: |
+@@ -1053,10 +1068,10 @@ jobs:
+   # workflow explicitly permits when a newer commit supersedes this run.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     runs-on: ubuntu-24.04
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status-${{ github.run_id }}
++      cancel-in-progress: false
+     if: >-
+       !cancelled()
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index b9e207e1e297021af75b4f282e20c6a4d1ed5af3..0303e63efa0eee84ea51112c43756cd50518b96e 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -5,5 +5,5 @@ on:
+     branches: [main]
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   schedule:
+     - cron: '0 6 * * 1'
+@@ -21,7 +21,12 @@ env:
+   GIT_CONFIG_VALUE_0: main
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   codeql:
+-    name: CodeQL (${{ matrix.language }})
++    if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
++    name: CodeQL
+     runs-on: ubuntu-24.04
+     timeout-minutes: 30
+@@ -29,6 +34,6 @@ jobs:
+       CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       actions: read
+@@ -75,6 +80,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-graph
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-graph-${{ github.run_id }}
++      cancel-in-progress: false
+     outputs:
+       enabled: ${{ steps.graph.outputs.enabled }}
+@@ -103,6 +108,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review-${{ github.run_id }}
++      cancel-in-progress: false
+     permissions:
+       contents: read
+@@ -128,6 +133,6 @@ jobs:
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit-${{ matrix.directory }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit-${{ matrix.directory }}-${{ github.run_id }}
++      cancel-in-progress: false
+     strategy:
+       fail-fast: false
+@@ -162,10 +167,10 @@ jobs:
+   # job in workflows.yml.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     runs-on: ubuntu-24.04
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status-${{ github.run_id }}
++      cancel-in-progress: false
+     # A status function is required: without one the gate inherits the
+     # implicit "every dependency succeeded" condition and is skipped in
+diff --git a/tests/javascript-first-adoption.test.js b/tests/javascript-first-adoption.test.js
+index 5d051c878f8450838b81e5da5099ace857ae63d5..1e919f725432a96f85c431f61148420f04a1d332 100644
+--- a/tests/javascript-first-adoption.test.js
++++ b/tests/javascript-first-adoption.test.js
+@@ -52,5 +52,11 @@ describe('JavaScript-first adoption alongside the Rust CI/CD template', () => {
+     for (const name of ['release', 'example-app']) {
+       const workflow = readWorkflow(name);
+-      expect(workflow.concurrency).toBeUndefined();
++      if (name === 'release') {
++        expect(workflow.concurrency['cancel-in-progress']).toBe(
++          "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++        );
++      } else {
++        expect(workflow.concurrency).toBeUndefined();
++      }
+       for (const job of Object.values(workflow.jobs)) {
+         const settings = job.concurrency;
+diff --git a/tests/pipeline-status.test.js b/tests/pipeline-status.test.js
+index 1c22584fef405a8481f6092cbdf429c84d494643..de1be815ef5e7bd02b7d6f17ebeb3e050935dfba 100644
+--- a/tests/pipeline-status.test.js
++++ b/tests/pipeline-status.test.js
+@@ -83,4 +83,13 @@ function listNeededJobs(jobBlock) {
+ const API_ENV = ['GH_TOKEN', 'GITHUB_TOKEN', 'GITHUB_RUN_ID', 'JOBS_JSON'];
+
++function writeCancellationFixture(directory, jobName, cancelInProgress) {
++  const file = path.join(directory, 'workflow.yml');
++  writeFileSync(
++    file,
++    `jobs:\n  ${jobName}:\n    concurrency:\n      cancel-in-progress: ${cancelInProgress}\n`
++  );
++  return file;
++}
++
+ function runGate(needs, extraEnv = {}) {
+   const env = Object.fromEntries(
+@@ -159,5 +168,5 @@ describe('pipeline status gate', () => {
+           BRANCH_NAME: 'main',
+           GIT_REMOTE: dir,
+-          WORKFLOW_FILE: '.github/workflows/security.yml',
++          WORKFLOW_FILE: writeCancellationFixture(dir, 'codeql', true),
+           BRANCH_HEAD_SHA: '',
+         };
+@@ -474,19 +483,25 @@ describe('pipeline status supersede detection', () => {
+     'accepts superseded release checks while rejecting current cancellations',
+     () => {
+-      for (const [head, status] of [
+-        ['bbb222', 0],
+-        ['aaa111', 1],
+-      ]) {
+-        const result = runGate(cancelled, {
+-          RUN_SHA: 'aaa111',
+-          BRANCH_HEAD_SHA: head,
+-          WORKFLOW_FILE: '.github/workflows/release.yml',
+-        });
+-        expect(result.status).toBe(status);
+-        expect(result.stdout).toContain(
+-          status === 0
+-            ? 'Cancelled jobs in a superseded run::lint'
+-            : 'Pipeline has cancelled jobs::lint'
+-        );
++      const root = mkdtempSync(path.join(tmpdir(), 'gate-supersede-'));
++      try {
++        const file = writeCancellationFixture(root, 'lint', true);
++        for (const [head, status] of [
++          ['bbb222', 0],
++          ['aaa111', 1],
++        ]) {
++          const result = runGate(cancelled, {
++            RUN_SHA: 'aaa111',
++            BRANCH_HEAD_SHA: head,
++            WORKFLOW_FILE: file,
++          });
++          expect(result.status).toBe(status);
++          expect(result.stdout).toContain(
++            status === 0
++              ? 'Cancelled jobs in a superseded run::lint'
++              : 'Pipeline has cancelled jobs::lint'
++          );
++        }
++      } finally {
++        rmSync(root, { recursive: true, force: true });
+       }
+     }
+@@ -498,11 +513,8 @@ describe('pipeline status supersede detection', () => {
+       const root = mkdtempSync(path.join(tmpdir(), 'gate-expression-'));
+       try {
+-        const file = path.join(root, 'workflow.yml');
+-        writeFileSync(
+-          file,
+-          workflow.replaceAll(
+-            'cancel-in-progress: true',
+-            "cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}"
+-          )
++        const file = writeCancellationFixture(
++          root,
++          'lint',
++          "${{ github.ref != 'refs/heads/main' }}"
+         );
+         const result = runGate(cancelled, {
+diff --git a/tests/security-workflow.test.js b/tests/security-workflow.test.js
+index edba61e49c1c49066de153e200b6c8df60eff6fa..59de3c2279c9e475b95c91fb4df42dda60cc9c09 100644
+--- a/tests/security-workflow.test.js
++++ b/tests/security-workflow.test.js
+@@ -46,5 +46,5 @@ describe('security workflow', () => {
+     expect(existsSync(workflowPath)).toBe(true);
+     expect(workflow).toContain('  push:\n    branches: [main]');
+-    expect(workflow).toContain('  pull_request:');
++    expect(workflow).toContain('    types: [synchronize, ready_for_review]');
+     expect(workflow).toContain("    - cron: '0 6 * * 1'");
+     expect(workflow).toContain('  workflow_dispatch:');
+@@ -56,5 +56,5 @@ describe('security workflow', () => {
+     expect(codeql).toContain('    timeout-minutes: 30');
+     expect(codeql).toContain(
+-      '      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}\n      cancel-in-progress: true'
++      '      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}-${{ github.run_id }}\n      cancel-in-progress: false'
+     );
+     expect(codeql).toContain(
+@@ -82,5 +82,5 @@ describe('security workflow', () => {
+     expect(dependencyReview).toContain('    timeout-minutes: 10');
+     expect(dependencyReview).toContain(
+-      '      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review\n      cancel-in-progress: true'
++      '      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review-${{ github.run_id }}\n      cancel-in-progress: false'
+     );
+     expect(dependencyReview).toContain('      pull-requests: write');
+diff --git a/tests/workflow-reliability.test.js b/tests/workflow-reliability.test.js
+index 59b4f065854ca72a72b6568bebaa6bef4bd8fcce..43d43e9c221b2344f542df0f3966b353e701deb3 100644
+--- a/tests/workflow-reliability.test.js
++++ b/tests/workflow-reliability.test.js
+@@ -110,4 +110,5 @@ function evaluateWorkflowIf(expression, context) {
+     .replaceAll('!cancelled()', '!context.cancelled')
+     .replaceAll('github.event_name', 'context.github.event_name')
++    .replaceAll('github.event.action', 'context.github.event.action')
+     .replaceAll(
+       'github.event.inputs.release_mode',
+@@ -145,8 +146,9 @@ function expectCancellableCheckConcurrency(
+   jobBlock,
+   jobName,
+-  matrixSuffix = ''
++  matrixSuffix = '',
++  runScoped = false
+ ) {
+   expect(jobBlock).toContain(
+-    `    concurrency:\n      group: check-\${{ github.workflow }}-\${{ github.ref }}-${jobName}${matrixSuffix}\n      cancel-in-progress: true`
++    `    concurrency:\n      group: check-\${{ github.workflow }}-\${{ github.ref }}-${jobName}${matrixSuffix}${runScoped ? '-${{ github.run_id }}' : ''}\n      cancel-in-progress: ${!runScoped}`
+   );
+ }
+@@ -188,7 +190,15 @@ function createTestJobContext({
+ describe('workflow concurrency policy', () => {
+   for (const ref of ['refs/heads/main', 'refs/pull/293/merge']) {
+-    it(`cancels all read-only checks and preserves writers on ${ref}`, () => {
++    it(`isolates ready checks and preserves writers on ${ref}`, () => {
+       for (const file of listWorkflowPaths()) {
+         const source = parse(readWorkflow(file));
++        const isTiered = ['release.yml', 'security.yml'].some((name) =>
++          file.endsWith(`/${name}`)
++        );
++        if (isTiered) {
++          expect(source.concurrency['cancel-in-progress']).toBe(
++            "${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"
++          );
++        }
+         for (const job of Object.values(source.jobs)) {
+           const policy = job.concurrency;
+@@ -198,6 +208,8 @@ describe('workflow concurrency policy', () => {
+           const group = policy.group.replaceAll('${{ github.ref }}', ref);
+           if (group.startsWith('check-')) {
+-            // Literal true must hold on both main and PR refs.
+-            expect(policy['cancel-in-progress']).toBe(true);
++            expect(policy['cancel-in-progress']).toBe(!isTiered);
++            if (isTiered) {
++              expect(group).toContain('${{ github.run_id }}');
++            }
+             for (const dimension of Object.keys(job.strategy?.matrix || {})) {
+               if (['include', 'exclude'].includes(dimension)) {
+@@ -208,5 +220,4 @@ describe('workflow concurrency policy', () => {
+           }
+           if (group.startsWith('main-writer-')) {
+-            expect(source.concurrency).toBeUndefined();
+             expect(group).toBe('main-writer-${{ github.repository }}-main');
+             expect(policy['cancel-in-progress']).toBe(false);
+@@ -278,5 +289,4 @@ describe('workflow concurrency policy', () => {
+     const workflowPaths = [
+       '.github/workflows/example-app.yml',
+-      '.github/workflows/release.yml',
+       '.github/workflows/links.yml',
+     ];
+@@ -306,5 +316,7 @@ describe('workflow concurrency policy', () => {
+       expectCancellableCheckConcurrency(
+         getJobBlock(releaseWorkflow, jobName),
+-        jobName
++        jobName,
++        '',
++        true
+       );
+     }
+@@ -312,5 +324,6 @@ describe('workflow concurrency policy', () => {
+       getJobBlock(releaseWorkflow, 'test'),
+       'test',
+-      '-${{ matrix.runtime }}-${{ matrix.os }}'
++      '-${{ matrix.runtime }}-${{ matrix.os }}',
++      true
+     );
+
+@@ -588,4 +601,23 @@ describe('manual release quality gates', () => {
+   });
+
++  it('runs Docker on ready or a checks-only dispatch and skips it on commit', () => {
++    const workflow = readWorkflow('.github/workflows/release.yml');
++    const condition = getMultilineIfExpression(
++      getJobBlock(workflow, 'docker-build')
++    );
++    const pr = createTestJobContext({
++      outputs: { 'any-code-changed': 'true' },
++    });
++    pr.github.event.action = 'synchronize';
++    expect(evaluateWorkflowIf(condition, pr)).toBe(false);
++    pr.github.event.action = 'ready_for_review';
++    expect(evaluateWorkflowIf(condition, pr)).toBe(true);
++
++    const dispatch = getManualReleaseContext({ releaseMode: 'checks' });
++    expect(evaluateWorkflowIf(condition, dispatch)).toBe(true);
++    dispatch.cancelled = true;
++    expect(evaluateWorkflowIf(condition, dispatch)).toBe(false);
++  });
++
+   it('blocks an instant manual release after either quality gate fails', () => {
+     const workflow = readWorkflow('.github/workflows/release.yml');

@@ -23,6 +23,7 @@ usage() {
 Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
 
   deploy                Configure, deploy and maintain a Hive Mind instance
+  auth                  Sign in to Claude, Codex or GitHub without opening the agent UI
   cleanup               Reclaim stale task state, processes and Docker resources
   configure-claude      Apply or verify Hive Mind Claude settings
   audit-config          Check global agent settings and optionally repair them
@@ -60,6 +61,8 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
                         Control the instance
   remove                Remove a stopped container and retain its state
   exec [--] COMMAND     Run a command as box in the instance
+  auth PROVIDER [login|status]
+                        Sign in or check login in the instance
   doctor                Check host disk space and instance/runtime status
   diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]
                         Show host resources, container exit facts and optional journal evidence
@@ -182,6 +185,30 @@ run_maintenance() {
     exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
   fi
   exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
+}
+
+auth_args() {
+  if [[ ! ${1-} || $1 == --help || $1 == -h || ${2-} == --help || ${2-} == -h ]]; then
+    cat <<'HELP'
+Usage: hive-manager [deploy [OPTIONS]] auth claude|codex|github [login|status]
+
+login (default) prints the provider's browser instructions. For Claude,
+paste the browser's authorization code into the running command. For Codex
+and GitHub, enter the displayed one-time code in the browser.
+Use status to check the selected environment's sign-in.
+HELP
+    return
+  fi
+  (( $# <= 2 )) || fail "Unexpected auth arguments. Enter one-time codes at the provider prompt."
+  case "$1 ${2-login}" in
+    'claude login') auth_command=(claude auth login) ;;
+    'claude status') auth_command=(claude auth status) ;;
+    'codex login') auth_command=(codex login --device-auth) ;;
+    'codex status') auth_command=(codex login status) ;;
+    'github login') auth_command=(env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key) ;;
+    'github status') auth_command=(gh auth status --hostname github.com) ;;
+    *) fail "Unknown auth provider or action. Run hive-manager auth --help." ;;
+  esac
 }
 
 task_args() {
@@ -1315,6 +1342,11 @@ deploy() {
       require systemctl
       exec systemctl "$1" docker.service ;;
     proxy) proxy_deploy "$@"; return ;;
+    auth)
+      local auth_command=()
+      auth_args "$@"
+      if (( ${#auth_command[@]} )); then require docker; inside "${auth_command[@]}"; fi
+      return ;;
   esac
   case "$action" in
     apply|update)
@@ -1378,6 +1410,14 @@ main() {
   [[ ${#ssh_options[@]} == 0 && $ssh_terminal == -T ]] || fail "SSH options require --host"
   case "$1" in
     deploy) shift; deploy "$@" ;;
+    auth)
+      shift
+      local auth_command=()
+      auth_args "$@"
+      if (( ${#auth_command[@]} )); then
+        require "${auth_command[0]}"
+        exec "${auth_command[@]}"
+      fi ;;
     tasks)
       shift
       case "${1-}" in

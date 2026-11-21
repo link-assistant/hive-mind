@@ -17,16 +17,18 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 इन भाषा टेम्पलेट में CI/CD वर्कफ़्लो शामिल हैं।
 
-| भाषा                  | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| भाषा                  | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
 
@@ -187,6 +189,8 @@ Consistent formatting style debates को समाप्त करती ह�
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
 
@@ -194,16 +198,18 @@ Consistent formatting style debates को समाप्त करती ह�
 
 Code review तक पहुँचने से पहले bugs पकड़ें और patterns लागू करें:
 
-| भाषा                  | Tools                                      |
-| --------------------- | ------------------------------------------ |
-| JavaScript/TypeScript | ESLint with strict rules                   |
-| Rust                  | Clippy (pedantic + nursery)                |
-| Python                | Ruff + mypy                                |
-| Go                    | go vet + staticcheck                       |
-| C#                    | .NET analyzers (warnings as errors)        |
-| Java                  | SpotBugs (maximum effort)                  |
-| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
-| PHP                   | PHPStan (max level)                        |
+| भाषा                  | Tools                                               |
+| --------------------- | --------------------------------------------------- |
+| JavaScript/TypeScript | ESLint with strict rules                            |
+| Rust                  | Clippy (pedantic + nursery)                         |
+| Python                | Ruff + mypy                                         |
+| Go                    | go vet + staticcheck                                |
+| C#                    | .NET analyzers (warnings as errors)                 |
+| Java                  | SpotBugs (maximum effort)                           |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors)          |
+| PHP                   | PHPStan (max level)                                 |
+| Swift                 | कंपाइलर चेतावनियों को त्रुटि मानें (`-warnings-as-errors`) |
+| Kotlin                | Detekt                                              |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -246,14 +252,16 @@ test-suites:
 - **Changelogs generate करता है** - Release notes automatically compiled होते हैं
 - **Semantic versioning का समर्थन करता है** - patch/minor/major bumps explicit हैं
 
-| भाषा                  | Tool                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | @changesets/cli              |
-| Rust                  | changelog.d + custom scripts |
-| Python                | Scriv                        |
-| PHP                   | changelog.d + custom scripts |
-| C/C++                 | changelog.d + custom scripts |
-| Go, C#, Java          | Custom changeset workflows   |
+| भाषा                  | Tool                                   |
+| --------------------- | -------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                        |
+| Rust                  | changelog.d + custom scripts           |
+| Python                | Scriv                                  |
+| PHP                   | changelog.d + custom scripts           |
+| C/C++                 | changelog.d + custom scripts           |
+| Swift                 | हर PR के लिए changeset + SwiftPM Git टैग |
+| Kotlin                | Gradle changesets                      |
+| Go, C#, Java          | Custom changeset workflows             |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
 
@@ -576,6 +584,13 @@ Developer Machine    →    CI/CD Pipeline    →    Release
 
 AI solvers automatically सभी configured checks के साथ respect करेंगे और iterate करेंगे, CI/CD enforcement के बिना repositories की तुलना में उच्च quality output produce करेंगे।
 
+### बहुभाषी रिपॉज़िटरी में Swift CI जोड़ें
+
+1. Swift टेम्पलेट के एक ही संस्करण से `swift/ci/` और `.github/workflows/swift-ci.yml` को अपनी रिपॉज़िटरी में उन्हीं पथों पर कॉपी करें।
+2. `.github/workflows/swift-checks.yml` जैसा कॉलर वर्कफ़्लो जोड़ें। उसे `contents: read` अनुमति दें और `./.github/workflows/swift-ci.yml` को `mode: embedded` और `pipeline-directory: swift/ci` के साथ कॉल करें। ट्रिगर अपनी डिफ़ॉल्ट ब्रांच और मर्ज कतार के अनुसार सेट करें। [Swift मोनोरेपो गाइड और कॉलर का उदाहरण](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. `package-directory` में `Package.swift` की डायरेक्टरी दें। अगर मैनिफ़ेस्ट रिपॉज़िटरी के रूट में है, तो `'.'` दें। `source-paths` में मैनिफ़ेस्ट, `Package.resolved` (अगर मौजूद है), सोर्स, टेस्ट और साझा टेस्ट डेटा के पथ लिखें। हर पंक्ति में एक पथ दें, जो रिपॉज़िटरी के रूट के सापेक्ष हो।
+4. मौजूदा वर्कफ़्लो, Swift की विशेष जाँचें और रिलीज़ नीति बनाए रखें। एम्बेडेड मोड में CI सिर्फ़ पढ़ने की अनुमति के साथ चलता है। जाँचें कि Swift में बदलाव से Linux और macOS की जाँचें चलती हैं और सिर्फ़ दूसरी भाषाओं में बदलाव होने पर Swift कंपाइल नहीं होता।
+
 ## Automatic CI/CD Remediation
 
 किसी मौजूदा repository के लिए, आपको इन प्रथाओं को हाथ से लागू करने की आवश्यकता नहीं है। `fix` command पूरे flow को automate करता है:
@@ -614,6 +629,8 @@ command पता लगाई गई भाषाओं को templates से
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।
 

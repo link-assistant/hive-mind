@@ -17,16 +17,18 @@ AI-решатель задач Hive Mind инструктирован обращ
 
 Эти языковые шаблоны включают рабочие процессы CI/CD.
 
-| Язык                  | Репозиторий шаблона                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| Язык                  | Репозиторий шаблона                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
 
@@ -187,6 +189,8 @@ done
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
 
@@ -194,16 +198,18 @@ done
 
 Выявляйте ошибки и применяйте паттерны до прохождения кода через ревью:
 
-| Язык                  | Инструменты                                       |
-| --------------------- | ------------------------------------------------- |
-| JavaScript/TypeScript | ESLint со строгими правилами                      |
-| Rust                  | Clippy (pedantic + nursery)                       |
-| Python                | Ruff + mypy                                       |
-| Go                    | go vet + staticcheck                              |
-| C#                    | .NET analyzers (предупреждения как ошибки)        |
-| Java                  | SpotBugs (максимальные усилия)                    |
-| C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки) |
-| PHP                   | PHPStan (max level)                               |
+| Язык                  | Инструменты                                                   |
+| --------------------- | ------------------------------------------------------------- |
+| JavaScript/TypeScript | ESLint со строгими правилами                                  |
+| Rust                  | Clippy (pedantic + nursery)                                   |
+| Python                | Ruff + mypy                                                   |
+| Go                    | go vet + staticcheck                                          |
+| C#                    | .NET analyzers (предупреждения как ошибки)                    |
+| Java                  | SpotBugs (максимальные усилия)                                |
+| C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки)             |
+| PHP                   | PHPStan (max level)                                           |
+| Swift                 | Предупреждения компилятора как ошибки (`-warnings-as-errors`) |
+| Kotlin                | Detekt                                                        |
 
 ### 5. Порядок быстрого обнаружения ошибок
 
@@ -246,14 +252,16 @@ test-suites:
 - **Генерирует журналы изменений** — заметки о релизе компилируются автоматически
 - **Поддерживает семантическое версионирование** — обновления patch/minor/major явно указаны
 
-| Язык                  | Инструмент                           |
-| --------------------- | ------------------------------------ |
-| JavaScript/TypeScript | @changesets/cli                      |
-| Rust                  | changelog.d + кастомные скрипты      |
-| Python                | Scriv                                |
-| PHP                   | changelog.d + кастомные скрипты      |
-| C/C++                 | changelog.d + кастомные скрипты      |
-| Go, C#, Java          | Кастомные рабочие процессы changeset |
+| Язык                  | Инструмент                                           |
+| --------------------- | ---------------------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                                      |
+| Rust                  | changelog.d + кастомные скрипты                      |
+| Python                | Scriv                                                |
+| PHP                   | changelog.d + кастомные скрипты                      |
+| C/C++                 | changelog.d + кастомные скрипты                      |
+| Swift                 | Файл changeset для каждого PR + Git-теги для SwiftPM |
+| Kotlin                | Changesets для Gradle                                |
+| Go, C#, Java          | Кастомные рабочие процессы changeset                 |
 
 **Освобождайте PR только с документацией от требования changeset:**
 
@@ -576,6 +584,13 @@ on:
 
 AI-решатели автоматически будут учитывать и итерировать со всеми настроенными проверками, производя более качественный результат по сравнению с репозиториями без принуждения CI/CD.
 
+### Добавление Swift CI в многоязычный репозиторий
+
+1. Скопируйте `swift/ci/` и `.github/workflows/swift-ci.yml` из одной версии шаблона Swift по тем же путям в вашем репозитории.
+2. Добавьте вызывающий рабочий процесс, например `.github/workflows/swift-checks.yml`. Задайте ему разрешение `contents: read` и вызовите `./.github/workflows/swift-ci.yml` с параметрами `mode: embedded` и `pipeline-directory: swift/ci`. Настройте события запуска с учётом основной ветки и очереди слияния. [Руководство по Swift в монорепозитории с примером вызова](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. Укажите в `package-directory` каталог с `Package.swift` (для манифеста в корне укажите `'.'`). В `source-paths` перечислите пути к манифесту, `Package.resolved` (если есть), исходникам, тестам и общим тестовым данным. Укажите по одному пути на строку, считая от корня репозитория.
+4. Сохраните существующие рабочие процессы, проверки для Swift и политику выпуска. Во встроенном режиме CI работает с правами только на чтение. Убедитесь, что изменения Swift запускают проверки на Linux и macOS, а изменения только в других языках пропускают компиляцию Swift.
+
 ## Автоматическое исправление CI/CD
 
 Для существующего репозитория вам не нужно применять эти практики вручную. Команда `fix` автоматизирует весь процесс:
@@ -614,6 +629,8 @@ fix https://github.com/owner/repo --ci-cd
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.
 

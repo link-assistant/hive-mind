@@ -757,6 +757,7 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
     if (waitTargets.length === 0 && check.canStart && check.startReserved) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      solveQueue.log(`Starting directly: ${normalizedUrl}`);
       await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
     } else {
       if (!solveQueue.executeCallback) {
@@ -1115,7 +1116,8 @@ let launchAnnouncementShown = false;
 
 // Issue #2823: a launched /solve task is not a completed one. Tell the queue
 // how each tracked session ended so /queue lists it as Completed or Failed.
-addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
+const sessionCompletionQueue = getSolveQueue({ verbose: VERBOSE });
+addSessionCompletionListener(event => sessionCompletionQueue.recordSessionCompletion(event));
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery

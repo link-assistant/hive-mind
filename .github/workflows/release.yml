@@ -339,7 +339,8 @@ jobs:
         timeout-minutes: 5
         run: |
           start_version=$(sed -n 's/.* start-command@\([0-9.]*\) .*/\1/p' Dockerfile)
-          node scripts/npm-install-with-retry.mjs install --prefix "$RUNNER_TEMP/pause-test" --no-audit --no-fund "start-command@$start_version"
+          bun_version=$(sed -n 's/^ARG HIVE_MIND_BUN_VERSION=//p' Dockerfile)
+          node scripts/npm-install-with-retry.mjs install --prefix "$RUNNER_TEMP/pause-test" --no-audit --no-fund "bun@$bun_version" "start-command@$start_version"
           PATH="$RUNNER_TEMP/pause-test/node_modules/.bin:$PATH" node experiments/issue-2530-pause-resume.mjs
       - name: Test memory-check.mjs execution
         run: |

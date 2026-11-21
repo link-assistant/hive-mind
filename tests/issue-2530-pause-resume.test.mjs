@@ -167,6 +167,10 @@ test('restart keeps a frozen task and /stop records intent before signalling it'
   const saved = (await store.load())[0].sessionInfo;
   assert.equal(saved.stopRequestedBy, '@operator');
   assert.equal(saved.paused, undefined);
+  await monitor.monitorSessions({ telegram: { sendMessage: async () => ({}) } }, false, { lookupLinkedPullRequest: async () => null });
+  const retained = (await store.load())[0].sessionInfo;
+  assert.equal(retained.retainedForResume, true);
+  assert.equal(monitor.getActiveSessionCount(), 0);
 });
 
 test('a failed durable write prevents a stop or retained resume', async () => {

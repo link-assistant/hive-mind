@@ -3,7 +3,7 @@ import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
-import { isSessionPaused, reconcileDockerPause } from './session-pause.lib.mjs';
+import { isSessionPaused, isStoppedDockerState, reconcileDockerPause } from './session-pause.lib.mjs';
 import { clearStatusQueryErrors, getStatusQueryError, resolveStatusQueryFailure } from './session-monitor.status-query.lib.mjs';
 
 export async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
@@ -14,12 +14,13 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
   try {
     runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
     const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner.readSessionExitFromLog, sessionInfo);
-    const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionInfo.executionUuid || sessionId, verbose);
+    let statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionInfo.executionUuid || sessionId, verbose);
     if (isDockerIsolation(sessionInfo, statusResult)) {
       const reported = statusResult?.dockerState;
       const containerName = statusResult?.sessionName || sessionInfo.dockerContainerName || sessionId;
       let dockerState = reported && reported !== 'unknown' ? reported : await runner.inspectDockerContainerState?.(containerName, verbose);
       if ((!dockerState || dockerState === 'unknown') && statusResult?.paused === true) dockerState = 'paused';
+      if (isStoppedDockerState(dockerState) && reported !== dockerState) statusResult = { ...statusResult, dockerState };
       const wasPaused = isSessionPaused(sessionInfo);
       if (options.reconcilePause) {
         const changed = reconcileDockerPause(sessionInfo, dockerState, statusResult || {});

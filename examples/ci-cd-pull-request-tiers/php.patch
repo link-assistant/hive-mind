@@ -1,0 +1,131 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index f61b5337635cf745d44fefbf0b2845bea69ab1d3..e5c562f19569d9edabd1ff65b6f624521b70f2e6 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -6,9 +6,14 @@ on:
+       - main
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   workflow_dispatch:
+     inputs:
++      checks_only:
++        description: Run the full checks without publishing
++        type: boolean
++        default: false
+       bump_type:
+         description: 'Version bump type'
++        default: patch
+         required: true
+         type: choice
+@@ -22,9 +27,7 @@ on:
+         type: string
+
+-# Never cancel an in-progress run on main (a release may be mid-flight); do
+-# cancel superseded PR runs.
+ concurrency:
+-  group: ${{ github.workflow }}-${{ github.ref }}
+-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+ permissions:
+@@ -167,5 +170,5 @@ jobs:
+               (
+                 (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+-                github.event_name == 'workflow_dispatch'
++                (github.event_name == 'workflow_dispatch' && !inputs.checks_only)
+               ) && 'release' || 'report'
+             }}
+@@ -181,4 +184,5 @@ jobs:
+     needs: [detect-changes]
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       always() && !cancelled() && (
+         github.event_name == 'push' ||
+@@ -270,4 +274,5 @@ jobs:
+     needs: [detect-changes, lint, test]
+     if: |
++      (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') &&
+       always() && (
+         github.event_name == 'push' ||
+@@ -325,4 +330,8 @@ jobs:
+     runs-on: ubuntu-26.04
+     timeout-minutes: 30
++    concurrency:
++      group: main-writer-${{ github.repository }}-main
++      cancel-in-progress: false
++      queue: max
+     permissions:
+       contents: write
+@@ -410,4 +419,5 @@ jobs:
+     # and a passed preflight (issue #11).
+     if: |
++      (!inputs.checks_only) &&
+       always() && !cancelled() &&
+       github.event_name == 'workflow_dispatch' &&
+@@ -418,4 +428,8 @@ jobs:
+     runs-on: ubuntu-26.04
+     timeout-minutes: 30
++    concurrency:
++      group: main-writer-${{ github.repository }}-main
++      cancel-in-progress: false
++      queue: max
+     permissions:
+       contents: write
+@@ -488,5 +502,5 @@ jobs:
+   # (issue #9).
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - detect-changes
+diff --git a/.github/workflows/security.yml b/.github/workflows/security.yml
+index ef33500d0d5da66612e3a8bc20124cb90ca38977..d10fc1d976df4be456f6beb4d7d05265c211de34 100644
+--- a/.github/workflows/security.yml
++++ b/.github/workflows/security.yml
+@@ -8,4 +8,6 @@ on:
+     branches: [main]
+   pull_request:
++    types: [synchronize, ready_for_review]
++  workflow_dispatch:
+   schedule:
+     # Weekly, Monday mornings UTC, so a newly published advisory cannot sit
+@@ -15,6 +17,6 @@ on:
+ # Never cancel an in-progress run on main; do cancel superseded PR runs.
+ concurrency:
+-  group: ${{ github.workflow }}-${{ github.ref }}
+-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+ permissions:
+@@ -48,5 +50,6 @@ jobs:
+
+   codeql:
+-    name: CodeQL (${{ matrix.language }})
++    if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
++    name: CodeQL
+     runs-on: ubuntu-26.04
+     timeout-minutes: 30
+@@ -103,5 +106,5 @@ jobs:
+   # (issue #9).
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     needs:
+       - dependency-audit
+diff --git a/tests/Pipeline/WorkflowPolicyTest.php b/tests/Pipeline/WorkflowPolicyTest.php
+index 15c5afdeba96cc727918e431aef08e70507bf8f7..1f59aac63abf4f95cfcfd6b3e8d97615b39569f2 100644
+--- a/tests/Pipeline/WorkflowPolicyTest.php
++++ b/tests/Pipeline/WorkflowPolicyTest.php
+@@ -210,7 +210,7 @@ final class WorkflowPolicyTest extends TestCase
+         self::assertStringContainsString('concurrency:', $yaml);
+         self::assertStringContainsString(
+-            "cancel-in-progress: \${{ github.ref != 'refs/heads/main' }}",
++            "cancel-in-progress: \${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}",
+             $yaml,
+-            'Runs on main must never be cancelled mid-release.',
++            'Only commit-tier runs may cancel superseded runs.',
+         );
+     }

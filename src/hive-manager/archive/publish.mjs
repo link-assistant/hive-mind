@@ -6,17 +6,20 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
-import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName } from './lib/git.mjs';
+import { archiveRepo, archiveRepoPattern, archiveRevisionPattern, openArchiveGit, publishedRevisionName, stageRevisionMarkers } from './lib/git.mjs';
 import { readBoundedFile } from '../lib/files.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
+import { archiveRedactionReceipt, loadArchiveRedactions } from './lib/redactions.mjs';
 import { findResidualCredentialBlock } from '../../log-sanitize-stream.lib.mjs';
 
 const MiB = 1024 * 1024;
 const run = promisify(execFile);
 const usage = `Usage: hive-manager archive-publish DIRECTORY --destination OWNER/REPO [--apply SHA256]
+         [--private] [--known-secrets-file FILE]
        hive-manager archive-publish --initialize --destination OWNER/REPO --visibility private|public|internal
 Preview the files listed in an archive-sessions manifest and print a review digest.
 After reviewing every file, pass that digest to publish one commit to the existing archive repository.
+Use --private to require a private destination. A known secrets file also requires a private destination.
 `;
 
 function artifactPaths(sessions) {
@@ -45,16 +48,22 @@ function artifactPaths(sessions) {
   return [...files].sort();
 }
 
-async function review(directory, destination, snapshot, expectedDigest) {
+async function review(directory, destination, { snapshot, expectedDigest, privateOnly, redactions } = {}) {
   if (!(await lstat(directory)).isDirectory()) throw new Error('The archive directory must be a real directory.');
   const options = { noFollow: true, allowEmpty: true };
   const manifest = await readBoundedFile(join(directory, 'manifest.json'), MiB, 'archive manifest', options);
-  const { repository, sessions } = JSON.parse(manifest);
+  const { repository, sessions, literalRedactions } = JSON.parse(manifest);
   if (!archiveRepoPattern.test(repository ?? '') || repository !== repository.toLowerCase() || repository === destination) throw new Error('Use a separate GitHub destination and a valid source repository.');
   if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
   const paths = artifactPaths(sessions);
+  if (literalRedactions === true) {
+    const receipt = redactions && (await readBoundedFile(join(directory, archiveRedactionReceipt), 64, 'local redaction policy', options).catch(() => null));
+    if (!receipt || receipt.toString('utf8') !== redactions.digest) throw new Error('Review and apply require the same --known-secrets-file literals used to stage this archive.');
+  }
   const { visibility, default_branch: branch } = await archiveRepo(destination);
+  if ((privateOnly || redactions) && visibility !== 'private') throw new Error('This publication requires a private destination.');
   const hash = createHash('sha256').update(`hive-manager archive v1\0${repository}\0${destination}\0${visibility}\0${branch}\0`);
+  if (redactions) hash.update(`known literals\0${redactions.digest}\0`);
   let bytes = 0;
   for (const path of paths) {
     const file = join(directory, path);
@@ -62,6 +71,7 @@ async function review(directory, destination, snapshot, expectedDigest) {
     const data = path === 'manifest.json' ? manifest : await readBoundedFile(file, Math.min(64 * MiB, 256 * MiB - bytes), 'archive artifact', options);
     if (!isUtf8(data) || data.includes(0)) throw new Error('Archive artifacts must contain UTF-8 text.');
     const text = data.toString('utf8');
+    redactions?.assertClean(text);
     if (redactArchiveIdentity(text) !== text) throw new Error('The archive contains recognizable identity-document, booking, or contact details. Redact them before publishing.');
     bytes += data.length;
     if (bytes > 256 * MiB) throw new Error('An archive batch may contain at most 256 MiB. Export fewer sessions per batch.');
@@ -97,12 +107,7 @@ async function publish({ source, destination, digest, paths, visibility, branch,
     await git(['update-index', '--add', '--cacheinfo', `100644,${blob},${target}`]);
   }
   if (existing.size && existing.size !== paths.length) throw new Error('The archive destination contains extra files at the approved digest.');
-  if (revisions.length) {
-    const marker = join(work, 'empty');
-    await writeFile(marker, '', { mode: 0o600, flag: 'wx' });
-    const empty = await git(['hash-object', '--no-filters', '-w', '--', marker]);
-    for (const revision of revisions) await git(['update-index', '--add', '--cacheinfo', `100644,${empty},${revision}`]);
-  }
+  await stageRevisionMarkers(git, work, revisions);
   const tree = await git(['write-tree']);
   const currentTree = await git(['rev-parse', `${base}^{tree}`]);
   if (tree === currentTree) {
@@ -116,12 +121,11 @@ async function publish({ source, destination, digest, paths, visibility, branch,
   process.stdout.write(`Published archive ${digest} to https://github.com/${destination}/commit/${commit}\n`);
 }
 
-export async function publishArchive(directory, destination, { expectedDigest, privateOnly = false } = {}) {
+export async function publishArchive(directory, destination, { expectedDigest, privateOnly = false, redactions = null } = {}) {
   const work = await mkdtemp(join(tmpdir(), 'hive-archive-publish-'));
   try {
     const snapshot = join(work, 'reviewed');
-    const approved = await review(directory, destination, snapshot, expectedDigest);
-    if (privateOnly && approved.visibility !== 'private') throw new Error('Scheduled publication requires a private destination.');
+    const approved = await review(directory, destination, { snapshot, expectedDigest, privateOnly, redactions });
     for (const path of approved.paths) {
       if (await findResidualCredentialBlock(join(snapshot, path))) throw new Error('An archive file still contains credential material. Redact it before publishing.');
     }
@@ -135,11 +139,11 @@ export async function publishArchive(directory, destination, { expectedDigest, p
 }
 
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { help: { type: 'boolean', short: 'h' }, destination: { type: 'string' }, apply: { type: 'string' }, initialize: { type: 'boolean' }, visibility: { type: 'string' } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { help: { type: 'boolean', short: 'h' }, destination: { type: 'string' }, apply: { type: 'string' }, initialize: { type: 'boolean' }, visibility: { type: 'string' }, private: { type: 'boolean' }, 'known-secrets-file': { type: 'string' } } });
   if (values.help || process.argv.length === 2) return process.stdout.write(usage);
   const destination = values.destination?.toLowerCase() ?? '';
   if (values.initialize) {
-    if (positionals.length || values.apply !== undefined || !archiveRepoPattern.test(destination) || !['private', 'public', 'internal'].includes(values.visibility)) throw new Error('Specify --initialize with a destination OWNER/REPO and explicit --visibility.');
+    if (positionals.length || values.apply !== undefined || values.private || values['known-secrets-file'] !== undefined || !archiveRepoPattern.test(destination) || !['private', 'public', 'internal'].includes(values.visibility)) throw new Error('Specify --initialize with a destination OWNER/REPO and explicit --visibility.');
     try {
       // github-retry-ok: A timed-out creation may already have created the repository.
       await run('gh', ['repo', 'create', destination, `--${values.visibility}`, '--add-readme', '--description', 'Reviewed Hive Mind session archives'], { env: { ...process.env, GH_HOST: 'github.com' }, timeout: 30_000, maxBuffer: 4096 });
@@ -155,13 +159,15 @@ async function main() {
   const expectedDigest = values.apply?.replace(/^sha256:/, '');
   if (positionals.length !== 1 || !archiveRepoPattern.test(destination) || (expectedDigest !== undefined && !/^[a-f\d]{64}$/.test(expectedDigest))) throw new Error('Specify a staged archive directory, an OWNER/REPO destination, and an optional review digest.');
   const directory = resolve(positionals[0]);
+  const redactions = await loadArchiveRedactions(values['known-secrets-file']);
+  const privateOnly = values.private;
   if (!values.apply) {
-    const { digest, paths, bytes, source, visibility, branch, revisions } = await review(directory, destination);
+    const { digest, paths, bytes, source, visibility, branch, revisions } = await review(directory, destination, { privateOnly, redactions });
     process.stdout.write(`${JSON.stringify({ source, destination, visibility, branch, digest: `sha256:${digest}`, bytes, files: paths, indexEntries: revisions }, null, 2)}\n`);
     return;
   }
 
-  await publishArchive(directory, destination, { expectedDigest });
+  await publishArchive(directory, destination, { expectedDigest, privateOnly, redactions });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -6,6 +6,9 @@ import { TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-r
 const VERSION = /^(?:v)?\d+\.\d+\.\d+(?:[.+-][a-z0-9]+(?:[.+-][a-z0-9]+)*)?$/i;
 const IDENTITY = 'Hive Mind Telegram bot';
 const LEGACY_VERSION = /(?:^|\n)\*?🤖 Hive-Mind\*?\n• (?:Version|Версия|संस्करण|版本): (`?)([^\n`]+)\1(?:\n|$)/u;
+// Early releases displayed the same package version for the bot and both CLIs.
+const LEGACY_BOT_VERSION = /^🤖 Version Information\n\nBot: ([^\n]+)\nsolve: \1\nhive: \1(?:\n|$)/u;
+const LEGACY_COMPONENTS_VERSION = /^🤖 Version Information\n\n🤖 Bot Components\n• Bot: ([^\n]+)\n• solve: \1\n• hive: \1(?:\n|$)/u;
 const USERNAME = /^[a-z\d_]{5,32}$/i;
 const RESPONSE_WINDOW_MS = 90_000; // Legacy /version reports can be edited in after CLI probes.
 const PROBE_RETRY_MS = 10 * 60_000;
@@ -19,7 +22,9 @@ function identityCommand(text) {
 
 function readVersion(text, command) {
   if (typeof text !== 'string') return;
-  const version = text.startsWith(`${IDENTITY} v`) ? text.slice(IDENTITY.length + 2) : command === 'version' ? LEGACY_VERSION.exec(text)?.[2] : null;
+  let version;
+  if (text.startsWith(`${IDENTITY} v`)) version = text.slice(IDENTITY.length + 2);
+  else if (command === 'version') version = LEGACY_VERSION.exec(text)?.[2] ?? LEGACY_BOT_VERSION.exec(text)?.[1] ?? LEGACY_COMPONENTS_VERSION.exec(text)?.[1];
   if (VERSION.test(version ?? '')) return version;
 }
 

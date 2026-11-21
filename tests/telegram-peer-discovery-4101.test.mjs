@@ -93,6 +93,27 @@ test('visible bots are challenged in their topic and a localized edited legacy r
   );
 });
 
+for (const { version, report } of [
+  { version: '0.44.0', report: 'Bot: 0.44.0\nsolve: 0.44.0\nhive: 0.44.0\n\nRuntime:\n• Node.js: v22.21.1' },
+  { version: '1.23.13', report: '🤖 Bot Components\n• Bot: 1.23.13\n• solve: 1.23.13\n• hive: 1.23.13' },
+]) {
+  test(`recognizes the Telegram version report from Hive Mind ${version}`, { timeout: 5_000 }, async () => {
+    const { handled, newMessage, update, outgoing } = fixture({ members: new Set([legacy.id]) });
+    await update(newMessage(legacy, 'A visible group member'));
+    const request = await outgoing('/version@ticket_helper_bot');
+    const heading = '🤖 Version Information\n\n';
+    await update(newMessage(legacy, heading + report.replace(`hive: ${version}`, 'hive: 0.0.0'), { reply_to_message: request }));
+    await update(newMessage(human, '/help'));
+    await delay(100);
+    assert.ok(handled.includes('/help'), 'a report with inconsistent component versions does not establish identity');
+
+    await update(newMessage(legacy, heading + report, { reply_to_message: request }), true);
+    await update(newMessage(human, '/version'));
+    await delay(100);
+    assert.ok(!handled.includes('/version'));
+  });
+}
+
 test('a previously answered peer is reused and a third bot is the only target', { timeout: 5_000 }, async () => {
   const members = new Set([peer.id, legacy.id]);
   const { sent, handled, newMessage, update, outgoing } = fixture({ members, administrators: [human, peer, legacy] });

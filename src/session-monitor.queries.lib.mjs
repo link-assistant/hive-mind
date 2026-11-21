@@ -111,7 +111,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       // The UUID `$ --stop` expects is the start-command session id. For
       // isolation sessions it is tracked either as sessionInfo.sessionId or as
       // the (UUID-shaped) session key itself.
-      const candidateId = sessionInfo.executionUuid || sessionInfo.sessionId || sessionName;
+      const candidateId = sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName;
       const sessionId = SESSION_UUID_RE.test(candidateId) || sessionInfo.isolationBackend === 'docker' ? candidateId : null;
       const stoppable = Boolean(sessionInfo.isolationBackend && sessionId);
       if (verbose) {
@@ -195,17 +195,17 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const sessions = [];
     const byTool = {};
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-      if (!sessionInfo.isolationBackend || sessionInfo.retainedForResume) continue;
-      const state = await getIsolationSessionState(sessionName, sessionInfo, {
-        verbose,
-        statusProvider: options.statusProvider,
-      });
-      if (!state.running) {
-        sessionInfo.lastKnownStatus = state.status || null;
-        sessionInfo.lastKnownExitCode = state.exitCode ?? null;
-        continue;
+      if (!sessionInfo.isolationBackend) continue;
+      if (!sessionInfo.explicitResumePending) {
+        if (sessionInfo.retainedForResume) continue;
+        const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose, statusProvider: options.statusProvider });
+        if (!state.running) {
+          sessionInfo.lastKnownStatus = state.status || null;
+          sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+          continue;
+        }
+        if (state.status === 'paused') continue;
       }
-      if (state.status === 'paused') continue;
       const tool = sessionInfo.tool || 'claude';
       sessions.push(sessionName);
       byTool[tool] = (byTool[tool] || 0) + 1;
@@ -236,13 +236,15 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const items = [];
     const screenChecker = options.screenChecker || checkScreenSessionExists;
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-      if (sessionInfo.retainedForResume) continue;
+      if (sessionInfo.retainedForResume && !sessionInfo.explicitResumePending) continue;
       let running;
       let status = null;
       let pausedAt = null;
       let processIds = sessionInfo.processIds || {};
       let screenSessionName = sessionInfo.screenSessionName || sessionName;
-      if (sessionInfo.isolationBackend) {
+      if (sessionInfo.explicitResumePending) {
+        status = 'resuming';
+      } else if (sessionInfo.isolationBackend) {
         // Forward every injectable seam so the listing applies the same #1927
         // stale-`executing` reconciliation the monitor does — a session that
         // start-command still reports as `executing` but whose backend is gone (or
@@ -315,7 +317,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     }
     return {
       total: activeSessions.size,
-      executing: sessions.filter(session => !session.paused && !session.retainedForResume).length,
+      executing: sessions.filter(session => session.explicitResumePending || (!session.paused && !session.retainedForResume)).length,
       paused: sessions.filter(session => session.paused).length,
       executed: 0,
       successful: 0,

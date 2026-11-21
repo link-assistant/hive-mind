@@ -456,5 +456,5 @@ export function createSessionStore(options = {}) {
 /** Stopped workspaces to keep for explicit resume, plus durable freezes. */
 export async function getProtectedTaskContainerNames(store = createSessionStore()) {
   const sessions = await store.load();
-  return new Set(sessions.filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && (sessionInfo.paused || sessionInfo.pauseState || sessionInfo.stopRequestedByUser || sessionInfo.explicitResumePending)).map(({ sessionName, sessionInfo }) => sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName));
+  return new Set(sessions.filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && (sessionInfo.paused || sessionInfo.pauseState || sessionInfo.stopRequestedByUser || sessionInfo.retainedForResume || sessionInfo.explicitResumePending)).map(({ sessionName, sessionInfo }) => sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName));
 }

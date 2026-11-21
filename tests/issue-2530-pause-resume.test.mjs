@@ -226,6 +226,17 @@ test('interrupted resume adopts a replacement that has already exited', async t 
   assert.equal(saved.sessionInfo.containerFilesystemInheritedBytes, 100);
 });
 
+test('a retained task occupies a queue slot while its resume is pending', async () => {
+  setup({}, { docker: 'exited' });
+  monitor.trackSession(SESSION, info({ retainedForResume: true, explicitResumePending: { resumeCount: 1 } }));
+  assert.equal(monitor.getActiveSessionCount(), 1);
+  const running = await monitor.getRunningTrackedIsolationSessions();
+  assert.equal(running.byTool.codex, 1);
+  const items = await monitor.getRunningSessionItems();
+  assert.equal(items[0].status, 'resuming');
+  assert.equal(mergeToolWork({ sessionItems: items, tools: ['codex'] }).total, 1);
+});
+
 test('stopping a solve preserves the workspace during signal cleanup with auto-cleanup enabled', async t => {
   const { cleanupTempDirectory } = await import('../src/solve.cleanup.lib.mjs');
   const dir = await temporary(t);

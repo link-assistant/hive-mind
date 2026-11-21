@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath, URL } from 'node:url';
 import { promisify } from 'node:util';
 import * as runner from '../src/isolation-runner.lib.mjs';
 import { createSessionPauseControls } from '../src/session-pause.lib.mjs';
@@ -55,6 +56,8 @@ try {
   assert.equal(checked(await controls.getDockerTaskControlState(name)).state, 'paused');
   const list = async () => JSON.parse(await cli(['--list', '--output-format', 'json'])).executions.find(record => record.uuid === status.uuid);
   assert.equal((await list()).paused, true);
+  const { stdout: report } = await run(process.execPath, [fileURLToPath(new URL('../src/hive-manager/task/report.mjs', import.meta.url))]);
+  assert.equal(JSON.parse(report).counts.paused, 1);
   assert.equal(checked(await controls.pauseTrackedSession(name)).alreadyPaused, true);
   assert.match((await controls.resumeStoppedSession(name)).error, /\/unpause/);
   const frozenOutput = await log();
@@ -69,6 +72,7 @@ try {
   console.log(`Docker freeze, no task output and unfreeze verified for PID ${originalPid}.`);
 
   checked(await controls.pauseTrackedSession(name, { requestedBy: 'ci', reason: 'stop from paused' }));
+  await runner.markDockerTaskForStop(name);
   checked(await controls.stopTrackedDockerSession(name, { requestedBy: 'ci' }));
   assert.equal(await runner.inspectDockerContainerState(name), 'exited');
   const resumed = checked(await controls.resumeStoppedSession(name));

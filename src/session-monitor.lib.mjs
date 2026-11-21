@@ -295,7 +295,7 @@ export function untrackSession(sessionName, verbose = false, details = {}) {
  * @returns {number} Number of active sessions
  */
 export function getActiveSessionCount(verbose = false) {
-  const count = [...activeSessions.values()].filter(info => !isSessionPaused(info) && !info.retainedForResume).length;
+  const count = [...activeSessions.values()].filter(info => info.explicitResumePending || (!isSessionPaused(info) && !info.retainedForResume)).length;
   if (verbose) console.log(`[VERBOSE] Active sessions: ${count}`);
   return count;
 }
@@ -740,7 +740,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     if ((await runner.inspectDockerContainerState?.(sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName, verbose)) === 'removed') untrackSession(sessionName, verbose, { reason: 'retained-container-removed' });
     return;
   }
-  const probeOptions = { verbose, reconcilePause: true, statusProvider: options.statusProvider, exitFromLog: options.exitFromLog, backendAlive: options.backendAlive, sessionRunning: options.sessionRunning, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) };
+  const probeOptions = { verbose, reconcilePause: true, statusProvider: options.statusProvider, exitFromLog: options.exitFromLog, backendAlive: options.backendAlive, sessionRunning: options.sessionRunning };
   if (isCompletionHandled(sessionInfo)) {
     // Issue #3209: a latch without an exit code may predate the execution itself; a session found running is un-latched so its real end gets reported.
     if (hasUnknownExitLatch(sessionInfo) && (await getIsolationSessionState(sessionName, sessionInfo, probeOptions)).running) {

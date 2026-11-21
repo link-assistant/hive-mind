@@ -913,7 +913,8 @@ export async function removeDockerContainer(containerName) {
 export async function runSystemCleanup(options = {}) {
   const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
   const protectedNames = docker ? await getProtectedTaskContainerNames() : new Set();
-  const protectedContainer = protectedNames.size > 0 && parseDockerPsJsonLines(tryExec('docker', ['ps', '-a', '--format', '{{json .}}']) || '').some(container => protectedNames.has(container.name));
+  const containerNames = protectedNames.size ? execFn('docker', ['ps', '-a', '--format', '{{.Names}}']) : '';
+  const protectedContainer = protectedNames.size > 0 && (containerNames == null || containerNames.split('\n').some(name => protectedNames.has(name)));
   if (protectedContainer) await logFn('   Docker system prune skipped to preserve retained task files.');
   const plan = buildSystemCleanupPlan({ apt, journal, docker: docker && !protectedContainer, npm, journalVacuumTime, useSudo });
   const results = [];

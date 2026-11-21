@@ -188,7 +188,7 @@ esac`
   );
   const base = ['tasks', 'report', '--incident', id(1), '--attempt', '2', '--destination', 'example/project'];
   write('routes', [{ backend: 'docker', kind: 'Memory exhaustion', exitCode: 137, issue: 8 }]);
-  const related = [...base, '--routes', 'routes', '--reconcile'];
+  const related = [...base, '--routes', 'routes', '--installed-version', '2.45.0', '--reconcile'];
   const legacyUrl = 'https://github.com/example/project/issues/7';
   const ledger = [...related, '--legacy-ledger', 'ledger'];
   write('ledger', { reported: { [`OTHER/PROJECT ${id(1)}#2`]: { url: legacyUrl }, [`${id(1)}#2`]: { url: 'https://github.com/other/project/issues/7' } } });

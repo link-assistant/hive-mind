@@ -68,6 +68,7 @@ await test('mapLanguagesToTemplates maps a C-only repository to the C/C++ templa
 
 const swiftTemplate = 'link-foundation/swift-ai-driven-development-pipeline-template';
 const jsTemplate = 'link-foundation/js-ai-driven-development-pipeline-template';
+const kotlinTemplate = 'link-foundation/kotlin-ai-driven-development-pipeline-template';
 
 await test('Swift and JavaScript/TypeScript produce both recommendations in byte order (issue #4097)', () => {
   const fixtures = [
@@ -104,26 +105,48 @@ await test('Swift and JavaScript/TypeScript produce both recommendations in byte
   }
 });
 
+await test('prepareCiCdIssue recommends Kotlin first for a Kotlin-first repository (issue #4098)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const responses = {
+    'repos/owner/repo/languages': JSON.stringify({ Kotlin: 9000, Java: 1000, Shell: 500 }),
+    'repos/owner/repo': 'main',
+    'repos/owner/repo/commits/main': JSON.stringify({ sha: 'abcdef1' }),
+    'repos/owner/repo/actions/workflows?per_page=100': JSON.stringify([{ workflows: [] }]),
+  };
+  const run = async (command, [, endpoint]) => {
+    assert.equal(command, 'gh');
+    assert.ok(Object.hasOwn(responses, endpoint), `Unexpected GitHub endpoint: ${endpoint}`);
+    return { code: 0, stdout: responses[endpoint], stderr: '' };
+  };
+
+  const { body } = await prepareCiCdIssue({ repository, run, warn: message => assert.fail(message) });
+  const javaTemplate = 'link-foundation/java-ai-driven-development-pipeline-template';
+  assert.ok(body.includes(`1. **Kotlin** — [${kotlinTemplate}](${templateUrl(kotlinTemplate)}) _(detected: Kotlin)_`), 'Kotlin must receive the first recommendation');
+  assert.ok(body.includes(`2. **Java** — [${javaTemplate}](${templateUrl(javaTemplate)}) _(detected: Java)_`), 'Java must retain its dedicated template');
+  assert.match(body, /Other detected languages without a dedicated template: Shell\./);
+});
+
 await test('diffCiCdTemplates reports unlisted and stale template repositories (issue #2573)', () => {
   const listed = CI_CD_TEMPLATES.map(t => t.repo.split('/')[1]);
   assert.deepEqual(diffCiCdTemplates([...listed, 'hive-mind', '.github']), { unlisted: [], stale: [] });
 
   // The state that hid the C/C++ template: a new template repository appears.
-  const withNew = diffCiCdTemplates([...listed, { name: `kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
-  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
+  const withNew = diffCiCdTemplates([...listed, { name: `new${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
+  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/new${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
 
   // A listed template that was renamed, deleted or archived no longer resolves.
   const withoutPhp = diffCiCdTemplates(listed.filter(name => !name.startsWith('php-')));
   assert.deepEqual(withoutPhp, { unlisted: [], stale: ['link-foundation/php-ai-driven-development-pipeline-template'] });
 });
 
-await test('every CI-CD-BEST-PRACTICES translation lists all templates and Swift tooling and setup (issues #2573 and #4097)', async () => {
+await test('every CI-CD-BEST-PRACTICES translation lists all templates and the Swift and Kotlin tooling (issues #2573, #4097, and #4098)', async () => {
   for (const suffix of ['', '.ru', '.zh', '.hi']) {
     const file = `docs/CI-CD-BEST-PRACTICES${suffix}.md`;
     const doc = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     for (const { repo } of CI_CD_TEMPLATES) {
       const name = repo.split('/')[1];
-      assert.ok(doc.includes(`| [${name}](${templateUrl(repo)})`), `${file}: "Recommended CI/CD Templates" must link ${repo}`);
+      const url = repo === kotlinTemplate ? `${templateUrl(repo)}/tree/main` : templateUrl(repo);
+      assert.ok(doc.includes(`| [${name}](${url})`), `${file}: "Recommended CI/CD Templates" must link ${url}`);
       assert.ok(doc.includes(`| \`${repo}\``), `${file}: "Language → Template Mapping" must list ${repo}`);
     }
 
@@ -139,6 +162,18 @@ await test('every CI-CD-BEST-PRACTICES translation lists all templates and Swift
       `${file}: document Swift changesets and SwiftPM Git tags`
     );
     assert.ok(doc.includes(`${templateUrl(swiftTemplate)}/blob/main/docs/monorepo.md`), `${file}: link the Swift monorepo setup guide`);
+
+    const kotlinRows = doc.split('\n').filter(line => /^\| Kotlin\s+\|/.test(line));
+    for (const entry of [`${templateUrl(kotlinTemplate)}/tree/main`, `| \`${kotlinTemplate}\``, 'ktlint', 'Detekt']) {
+      assert.ok(
+        kotlinRows.some(row => row.includes(entry)),
+        `${file}: missing Kotlin table entry ${entry}`
+      );
+    }
+    assert.ok(
+      kotlinRows.some(row => /gradle/i.test(row) && /changeset/i.test(row)),
+      `${file}: document Gradle changesets for Kotlin`
+    );
   }
 });
 

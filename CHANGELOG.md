@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.45.1
+
+### Patch Changes
+
+- 1825819: Recommend the Kotlin pipeline template in `fix --ci-cd` and document it in the CI/CD guide and translations.
+- 3a57521: Recommend the Swift pipeline template in `fix --ci-cd` and document standalone and multi-language Swift adoption in the CI/CD guides.
+
 ## 2.45.0
 
 ### Minor Changes

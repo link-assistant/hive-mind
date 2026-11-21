@@ -67,6 +67,7 @@ const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowed
 // Parse allowed topics (chatId:topicId pairs in Links Notation)
 const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
 const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
+const telegramPeerBots = lino.parseLinks(config.peerBots);
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
   ? lino
@@ -190,6 +191,7 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = lim
 const { describeLimitsFailure } = await import('./limits-unavailable.lib.mjs'); // #4053
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { getVersion } = await import('./version.lib.mjs');
 const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
@@ -211,11 +213,12 @@ const { createKeyClaims, createSerialLane, detachHandler, getBackgroundTaskStats
 const { DEFAULT_HANDLER_WARN_THRESHOLD_MS, installHandlerWatchdog } = await import('./telegram-handler-watchdog.lib.mjs');
 const TELEGRAM_HANDLER_TIMEOUT_MS = 60_000;
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
+const { installTelegramCommandRouting, TELEGRAM_ROUTING_UPDATES } = await import('./telegram-command-routing.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
-const { createSessionStore } = await import('./session-store.lib.mjs');
+const { createSessionStore, resolveBotStateDir } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage, buildSolveWaitingForTasksMessage } = await import('./telegram-ui-messages.lib.mjs');
@@ -252,6 +255,7 @@ const launchingUrls = createKeyClaims(); // /solve URLs between the duplicate ch
 installTelegramContextSafety(bot, { verbose: VERBOSE });
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
+installTelegramCommandRouting(bot, { stateDir: resolveBotStateDir(), configuredPeers: telegramPeerBots, verbose: VERBOSE, identity: { getVersion, startedAt: BOT_START_TIME }, onError: handleUpdateError });
 
 // Issue #1927: durable, timestamped bot log + durable session store. The logger
 // preserves the previous run's log under a timestamped backup (never overwriting
@@ -1229,7 +1233,7 @@ startSessionMonitoringOnce();
 launchBotWithRetry(
   bot,
   {
-    allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+    allowedUpdates: TELEGRAM_ROUTING_UPDATES,
     dropPendingUpdates: true, // Drop pending updates sent before bot started
   },
   {

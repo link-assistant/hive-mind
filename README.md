@@ -384,6 +384,12 @@ Want to see the Hive Mind in action? Request a free demo or get faster support b
 
 ### Bot Commands
 
+In a group with multiple detected Hive Mind bots, use Telegram's addressed command syntax, such as `/help@SwarmMindBot` or `/solve@SwarmMindBot <github-url>`. A group with one detected Hive Mind bot accepts both forms.
+
+Use `/who@SwarmMindBot` to get the bot's identity and running Hive Mind version. Hive Mind uses `/who` to discover peers and tries an addressed `/version` for older peers. For custom-named bots, enable Bot-to-Bot Communication Mode in @BotFather. Group administrators or bots with Group Privacy Mode disabled can receive unaddressed probes when Bot-to-Bot Communication Mode is enabled on the receiving account. [Telegram delivery rules](https://core.telegram.org/api/bots/bot-to-bot)
+
+Hive Mind also recognizes **Hive Mind** and **Swarm Mind** names from the group administrator list, membership updates, and visible message authors. For peers Telegram keeps hidden, set `TELEGRAM_HIVE_MIND_PEER_BOTS` (or `--peer-bots`) on the participating bots. Each Links Notation pair contains a Telegram group ID and a numeric peer bot ID, for example `((-1001234567890 987654321))`. Upgrade each participating bot to enforce addressed-only routing across the group.
+
 Most operational commands work in **group chats only** (not in private messages with the bot). Commands that intentionally deliver private updates, such as `/terminal_watch`, may also be used in direct messages:
 
 #### `/solve` - Solve GitHub Issues

@@ -260,13 +260,22 @@ test('layer cleaning unlinks only approved, unchanged files proven in the writab
 
 test('memory pressure stops a running scan process group and blocks subsequent work', { skip: !linux, timeout: 5000 }, async t => {
   const { cwd } = fixture(t);
+  const ready = join(cwd, 'scan-started');
   const marker = join(cwd, 'should-not-exist');
-  let checks = 0;
+  const descendant = `
+    const { writeFileSync } = require('node:fs');
+    writeFileSync(process.argv[1], 'ready');
+    setTimeout(() => writeFileSync(process.argv[2], 'survived'), 2000);
+  `;
+  const scanner = `
+    const { spawn } = require('node:child_process');
+    spawn(process.execPath, ['-e', process.argv[1], '--', ...process.argv.slice(2)], { stdio: 'inherit' });
+  `;
   await assert.rejects(
-    run('bash', ['-c', 'sleep 2 && touch "$1" & wait', 'test', marker], {
+    run(process.execPath, ['-e', scanner, '--', descendant, ready, marker], {
       ms: 4000,
       check() {
-        if (++checks > 1) throw new MemoryPressure('synthetic daemon pressure');
+        if (existsSync(ready)) throw new MemoryPressure('synthetic daemon pressure');
       },
     }),
     /synthetic daemon pressure/

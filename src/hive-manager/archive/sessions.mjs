@@ -8,21 +8,31 @@ import { parseArgs, promisify } from 'node:util';
 import { ghWithRateLimitRetry } from '../../github-rate-limit.lib.mjs';
 import { archiveRepo, archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './lib/git.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
+import { archiveRedactionReceipt, loadArchiveRedactions } from './lib/redactions.mjs';
+import { importLegacy } from './import.mjs';
 import { publishArchive } from './publish.mjs';
 import { sanitizeLogFileToFileBounded } from '../../log-sanitize-worker.lib.mjs';
+import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 const maxSourceBytes = 40 * 1024 * 1024;
 const metadataBytes = 256 * 1024;
-const minimumAgeMs = 10 * 60 * 1000;
+const minute = 60 * 1000;
 const usage = `Usage: hive-manager archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY [options]
        hive-manager archive-sessions --repo OWNER/REPO --publish-private OWNER/REPO [options]
-Stage sanitized session logs and a manifest for one public GitHub repository.
+       hive-manager archive-sessions --repo OWNER/REPO --import-legacy OWNER/REPO [--apply SHA256] [options]
+Stage sanitized session logs or review a legacy index import for one public GitHub repository.
 Options:
   --claude-dir DIRECTORY   Claude projects directory
   --codex-dir DIRECTORY    Codex sessions directory
   --only claude|codex      Select one session format (default: both)
-  --limit NUMBER           Maximum number of exports (default: 20 to stage, 3 to publish)
+  --limit NUMBER           Maximum sessions per batch (default: 20 to stage/import, 3 to publish)
+  --min-age MINUTES        Minimum age for transcripts and attachments (default: 10)
+  --known-secrets-file FILE
+                           Redact extra literals, one per line, for private archives
+  --import-legacy OWNER/REPO
+                           Preview index entries verified against a private legacy archive
+  --apply SHA256           Apply a reviewed legacy import plan
   --published-in OWNER/REPO
                            Skip revisions already published by hive-manager to this destination
   --publish-private OWNER/REPO
@@ -119,9 +129,11 @@ function checkSnapshot(current, sourceInfo) {
   }
 }
 
-async function sanitizeStableFile(file, sourceInfo, destPath) {
-  await sanitizeLogFileToFileBounded({ sourcePath: file, destPath, transform: redactArchiveIdentity });
+async function sanitizeStableFile(file, sourceInfo, destPath, redactions) {
+  const sanitize = redactions ? text => sanitizeForPublication(redactions.redact(text)) : undefined;
+  await sanitizeLogFileToFileBounded({ sourcePath: file, destPath, sanitize, transform: redactArchiveIdentity });
   checkSnapshot(await lstat(file), sourceInfo);
+  await redactions?.assertCleanFile(destPath);
 }
 
 async function sourceDigest(file, info) {
@@ -137,7 +149,7 @@ async function sourceDigest(file, info) {
   }
 }
 
-async function planToolResults(session, id) {
+async function planToolResults(session, id, cutoff) {
   const attachments = [];
   const sessionDirectory = join(dirname(session), basename(session, '.jsonl'));
   const root = join(sessionDirectory, 'tool-results');
@@ -151,7 +163,7 @@ async function planToolResults(session, id) {
   for await (const file of archiveFiles(root, /\.(?:txt|log|jsonl?)$/i)) {
     if (attachments.length >= 100 || bytes >= maxSourceBytes) break;
     const info = await lstat(file);
-    if (!info.isFile() || info.size > Math.min(4 * 1024 * 1024, maxSourceBytes - bytes) || Date.now() - info.mtimeMs < minimumAgeMs) continue;
+    if (!info.isFile() || info.size > Math.min(4 * 1024 * 1024, maxSourceBytes - bytes) || info.mtimeMs > cutoff) continue;
     const hash = createHash('sha256').update(relative(root, file)).digest('hex');
     const archive = `claude-${id}-tool-results/${hash}${extname(file).toLowerCase()}`;
     attachments.push({ archive, file, info });
@@ -160,52 +172,74 @@ async function planToolResults(session, id) {
   return attachments.sort((a, b) => a.archive.localeCompare(b.archive));
 }
 
-async function collect({ root, tool, repository, remaining, output, reports, checkoutCache, lino, toolResultBudget, published }) {
+async function* discover({ root, tool, repository, checkoutCache, cutoff, omissions }, hasRoom) {
   for await (const file of archiveFiles(root, /\.jsonl$/)) {
     const path = relative(root, file);
     const parts = path.split(sep);
     if (parts.includes('tool-results')) continue;
-    const sourceInfo = await lstat(file);
-    if (!sourceInfo.isFile() || sourceInfo.size > maxSourceBytes || Date.now() - sourceInfo.mtimeMs < minimumAgeMs) continue;
+    const info = await lstat(file);
+    if (!info.isFile() || info.mtimeMs > cutoff) continue;
+    const oversized = info.size > maxSourceBytes;
+    if (!oversized && !hasRoom(tool)) continue;
     const parent = tool === 'claude' && parts.length >= 4 && parts[2] === 'subagents' ? join(root, parts[0], `${parts[1]}.jsonl`) : undefined;
     if ((await attributedRepository(file, tool, checkoutCache, parent)) !== repository) continue;
-    const id = createHash('sha256').update(path).digest('hex');
-    const archive = `${tool}-${id}.jsonl`;
-    const includeResults = tool === 'claude' && Boolean(toolResultBudget);
-    const attachments = includeResults ? await planToolResults(file, id) : [];
-    const revisionHash = createHash('sha256').update(`hive-manager export v1\0${lino}\0${includeResults}\0${await sourceDigest(file, sourceInfo)}`);
-    let attachmentBytes = 0;
-    for (const attachment of attachments) {
-      revisionHash.update(`\0${attachment.archive}\0${await sourceDigest(attachment.file, attachment.info)}`);
-      attachmentBytes += attachment.info.size;
+    if (oversized) {
+      omissions.oversized[tool]++;
+      continue;
     }
-    const revision = `sha256:${revisionHash.digest('hex')}`;
-    if (published.has(publishedRevisionName(archive, revision))) continue;
-    if (includeResults && (attachments.length > toolResultBudget.files || attachmentBytes > toolResultBudget.bytes)) break;
-    const destPath = join(output, archive);
-    await sanitizeStableFile(file, sourceInfo, destPath);
-    const entry = { tool, archive, revision, sourceBytes: sourceInfo.size, modifiedAt: sourceInfo.mtime.toISOString() };
-    if (lino) {
-      entry.linksNotation = `${tool}-${id}.lino`;
-      try {
-        await execFileAsync('conversation', ['import', tool, destPath, join(output, entry.linksNotation)], { timeout: 120_000, maxBuffer: 4096 });
-      } catch {
-        throw new Error('Could not convert a session to Links Notation. Check that the conversation CLI is installed and supports JSONL import.');
-      }
-    }
-    if (includeResults) {
-      entry.toolResults = [];
-      if (attachments.length) await mkdir(join(output, `claude-${id}-tool-results`), { mode: 0o700 });
-      for (const attachment of attachments) {
-        await sanitizeStableFile(attachment.file, attachment.info, join(output, attachment.archive));
-        entry.toolResults.push({ archive: attachment.archive, sourceBytes: attachment.info.size });
-      }
-      toolResultBudget.files -= attachments.length;
-      toolResultBudget.bytes -= attachmentBytes;
-    }
-    reports.push(entry);
-    if (--remaining === 0) break;
+    yield { file, info, tool, path, parts };
   }
+}
+
+async function describeRevision(candidate, { lino, toolResults, cutoff, redactions }) {
+  const { file, info, tool, path } = candidate;
+  const id = createHash('sha256').update(path).digest('hex');
+  const archive = `${tool}-${id}.jsonl`;
+  const includeResults = tool === 'claude' && toolResults;
+  const attachments = includeResults ? await planToolResults(file, id, cutoff) : [];
+  const digest = await sourceDigest(file, info);
+  const revisionHash = createHash('sha256').update(`hive-manager export v1\0${lino}\0${includeResults}\0${digest}`);
+  let attachmentBytes = 0;
+  for (const attachment of attachments) {
+    attachment.digest = await sourceDigest(attachment.file, attachment.info);
+    revisionHash.update(`\0${attachment.archive}\0${attachment.digest}`);
+    attachmentBytes += attachment.info.size;
+  }
+  if (redactions) revisionHash.update(`\0known literals\0${redactions.digest}`);
+  const revision = `sha256:${revisionHash.digest('hex')}`;
+  return { id, archive, revision, includeResults, attachments, attachmentBytes, digest, info };
+}
+
+async function stageCandidate(candidate, descriptor, { output, lino, redactions }) {
+  const { file, info, tool } = candidate;
+  const { id, archive, revision, includeResults, attachments } = descriptor;
+  const destPath = join(output, archive);
+  await sanitizeStableFile(file, info, destPath, redactions);
+  const entry = { tool, archive, revision, sourceBytes: info.size, modifiedAt: info.mtime.toISOString() };
+  if (lino) {
+    entry.linksNotation = `${tool}-${id}.lino`;
+    const linksPath = join(output, entry.linksNotation);
+    try {
+      await execFileAsync('conversation', ['import', tool, destPath, linksPath], { timeout: 120_000, maxBuffer: 4096 });
+    } catch {
+      throw new Error('Could not convert a session to Links Notation. Check that the conversation CLI is installed and supports JSONL import.');
+    }
+    await redactions?.assertCleanFile(linksPath);
+  }
+  if (includeResults) {
+    entry.toolResults = [];
+    if (attachments.length) await mkdir(join(output, `claude-${id}-tool-results`), { mode: 0o700 });
+    for (const attachment of attachments) {
+      await sanitizeStableFile(attachment.file, attachment.info, join(output, attachment.archive), redactions);
+      entry.toolResults.push({ archive: attachment.archive, sourceBytes: attachment.info.size });
+    }
+  }
+  return entry;
+}
+
+function reportOversized({ oversized }) {
+  const total = oversized.claude + oversized.codex;
+  if (total) process.stderr.write(`Omitted ${total} oversized session(s) above 40 MiB (${oversized.claude} Claude, ${oversized.codex} Codex).\n`);
 }
 
 async function archive() {
@@ -218,9 +252,13 @@ async function archive() {
       'codex-dir': { type: 'string', default: join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'sessions') },
       only: { type: 'string' },
       limit: { type: 'string' },
+      'min-age': { type: 'string', default: '10' },
+      'known-secrets-file': { type: 'string' },
+      'import-legacy': { type: 'string' },
+      apply: { type: 'string' },
       'published-in': { type: 'string' },
       'publish-private': { type: 'string' },
-      'tool-results': { type: 'boolean' },
+      'tool-results': { type: 'boolean', default: false },
       lino: { type: 'boolean', default: false },
     },
   });
@@ -230,18 +268,39 @@ async function archive() {
   }
   const repository = values.repo?.toLowerCase() ?? '';
   const autoPublish = values['publish-private'] !== undefined;
-  const destination = (values['publish-private'] ?? values['published-in'])?.toLowerCase();
+  const importing = values['import-legacy'] !== undefined;
+  const destination = (values['import-legacy'] ?? values['publish-private'] ?? values['published-in'])?.toLowerCase();
   const requestedLimit = values.limit ?? (autoPublish ? '3' : '20');
   const limit = Number(requestedLimit);
-  if (!archiveRepoPattern.test(repository) || (autoPublish ? values.output !== undefined || values['published-in'] !== undefined : !values.output)) {
-    throw new Error('Specify --repo OWNER/REPO with either --output NEW_DIRECTORY or --publish-private OWNER/REPO.');
+  const modes = [values.output, values['publish-private'], values['import-legacy']].filter(value => value !== undefined);
+  if (!archiveRepoPattern.test(repository) || modes.length !== 1 || !modes[0] || (!values.output && values['published-in'] !== undefined)) {
+    throw new Error('Specify --repo OWNER/REPO and choose --output NEW_DIRECTORY, --publish-private OWNER/REPO, or --import-legacy OWNER/REPO.');
   }
   if (destination !== undefined && (!archiveRepoPattern.test(destination) || destination === repository)) throw new Error('The published index must be in a separate GitHub repository.');
   if (excludedArchiveRepository(repository)) throw new Error('This source repository is excluded from session archives.');
   if (values.only !== undefined && !['claude', 'codex'].includes(values.only)) throw new Error('--only must be claude or codex.');
   if (!/^\d+$/.test(requestedLimit) || limit < 1 || limit > 100) throw new Error('Archive limit must be between 1 and 100.');
+  const minAgeMs = Number(values['min-age']) * minute;
+  if (!/^\d+(?:\.\d+)?$/.test(values['min-age']) || !Number.isFinite(minAgeMs)) throw new Error('--min-age must be a nonnegative number of minutes.');
+  const expectedDigest = values.apply === undefined ? undefined : `sha256:${values.apply.replace(/^sha256:/, '')}`;
+  if (expectedDigest !== undefined && (!importing || !/^sha256:[a-f\d]{64}$/.test(expectedDigest))) throw new Error('--apply requires --import-legacy and its review digest.');
+  const redactions = await loadArchiveRedactions(values['known-secrets-file']);
+  const cutoff = Date.now() - minAgeMs;
+  const omissions = { oversized: { claude: 0, codex: 0, maxSourceBytes } };
+  const shared = { repository, checkoutCache: new Map(), cutoff, omissions };
+  const options = { lino: values.lino, toolResults: values['tool-results'], cutoff, redactions };
+  const candidates = async function* (hasRoom) {
+    if (values.only !== 'codex') yield* discover({ ...shared, root: resolve(values['claude-dir']), tool: 'claude' }, hasRoom);
+    if (values.only !== 'claude') yield* discover({ ...shared, root: resolve(values['codex-dir']), tool: 'codex' }, hasRoom);
+  };
+  if (importing) {
+    await importLegacy({ repository, destination, expectedDigest, policy: { only: values.only, lino: options.lino, toolResults: options.toolResults, minAgeMs, limit }, redactions, candidates, describeRevision: candidate => describeRevision(candidate, options), omissions });
+    reportOversized(omissions);
+    return;
+  }
+
   await requirePublic(repository);
-  if (autoPublish && (await archiveRepo(destination)).visibility !== 'private') throw new Error('Scheduled publication requires a private destination.');
+  if (destination && (autoPublish || redactions) && (await archiveRepo(destination)).visibility !== 'private') throw new Error('This export requires a private destination.');
   const published = destination ? await publishedArchiveRevisions(repository, destination) : new Set();
 
   const output = autoPublish ? await mkdtemp(join(tmpdir(), 'hive-archive-staged-')) : resolve(values.output);
@@ -249,13 +308,32 @@ async function archive() {
   let completed = false;
   try {
     const reports = [];
-    const toolResultBudget = values['tool-results'] ? { files: 100, bytes: maxSourceBytes } : null;
-    const shared = { repository, output, reports, checkoutCache: new Map(), lino: values.lino, toolResultBudget, published };
-    if (values.only !== 'codex') await collect({ ...shared, root: resolve(values['claude-dir']), tool: 'claude', remaining: limit });
-    if (values.only !== 'claude' && reports.length < limit) await collect({ ...shared, root: resolve(values['codex-dir']), tool: 'codex', remaining: limit - reports.length });
+    const toolResultBudget = { files: 100, bytes: maxSourceBytes };
+    let claudeBudgetExhausted = false;
+    for await (const candidate of candidates(tool => reports.length < limit && (tool !== 'claude' || !claudeBudgetExhausted))) {
+      const descriptor = await describeRevision(candidate, options);
+      const { archive, revision, attachments, attachmentBytes } = descriptor;
+      if (published.has(publishedRevisionName(archive, revision))) continue;
+      if (attachments.length > toolResultBudget.files || attachmentBytes > toolResultBudget.bytes) {
+        claudeBudgetExhausted = true;
+        continue;
+      }
+      reports.push(await stageCandidate(candidate, descriptor, { output, ...options }));
+      toolResultBudget.files -= attachments.length;
+      toolResultBudget.bytes -= attachmentBytes;
+    }
     await requirePublic(repository);
-    await writeFile(join(output, 'manifest.json'), `${JSON.stringify({ repository, sessions: reports }, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
-    if (autoPublish && reports.length) await publishArchive(output, destination, { privateOnly: true });
+    reportOversized(omissions);
+    const manifest = { repository, sessions: reports };
+    if (omissions.oversized.claude || omissions.oversized.codex) manifest.omissions = omissions;
+    if (redactions) {
+      manifest.literalRedactions = true;
+      await writeFile(join(output, archiveRedactionReceipt), redactions.digest, { mode: 0o600, flag: 'wx' });
+    }
+    const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+    redactions?.assertClean(manifestText);
+    await writeFile(join(output, 'manifest.json'), manifestText, { mode: 0o600, flag: 'wx' });
+    if (autoPublish && reports.length) await publishArchive(output, destination, { privateOnly: true, redactions });
     else process.stdout.write(`Staged ${reports.length} session(s) for ${repository}.\n`);
     completed = true;
   } finally {

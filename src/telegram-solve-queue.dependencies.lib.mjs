@@ -24,6 +24,7 @@ export const solveQueueDependencyMethods = {
     item.dependencySummary = summary;
     const toolQueue = this.getToolQueue(item.tool);
     toolQueue.push(item);
+    this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
     if (this.autoStart) this.ensureConsumerRunning();
     await this.updateItemMessage(item, `${t('telegram.solve_after_released', { tasks: escapeMarkdown(summary) }, { locale: item.locale })}\n\n${item.infoBlock}`, false);
   },
@@ -33,6 +34,7 @@ export const solveQueueDependencyMethods = {
     this.failed.push(item);
     while (this.failed.length > 100) this.failed.shift();
     this.stats.totalFailed++;
+    this.log(`Failed waiting item: ${item.toString()}`);
     await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason: t('telegram.solve_after_dependency_failed', { task: escapeMarkdown(reason) }, { locale: item.locale }) }, { locale: item.locale }), false);
   },
   /** Recheck items that wait for other tasks; never throws. */

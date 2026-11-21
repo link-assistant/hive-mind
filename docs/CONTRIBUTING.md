@@ -17,6 +17,7 @@ This project leverages AI-driven development with human oversight. Follow these 
 - **File Size**: Maximum 1000 lines per file
 - **Testing**: 100% test coverage for critical paths
 - **Documentation**: Machine-readable, token-efficient
+- **Source layout**: Place new features that span several files in `src/<feature>/` and put shared feature internals under `lib/`. Use paths such as `src/hive-manager/task/report.mjs` without repeating the feature name in the filename. Move existing code incrementally when working on the feature and preserve its public entry points.
 
 ### Version Management with Changesets
 

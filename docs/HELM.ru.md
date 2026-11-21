@@ -409,13 +409,16 @@ kubectl describe pvc hive-mind
 **Решения:**
 
 1. Проверьте наличие секретов: `kubectl get secrets`
-2. Проверьте содержимое секрета: `kubectl describe secret hive-github-token`
-3. Выполните аутентификацию вручную внутри пода:
+2. Проверьте ожидаемые ключи секрета командой `kubectl describe secret hive-github-token`.
+3. Запустите менеджер внутри пода. Откройте ссылку провайдера в браузере на своей машине и следуйте инструкциям.
+
    ```bash
-   kubectl exec -it deployment/hive-mind -- /bin/bash
-   gh auth login
-   claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth github
+   kubectl exec -i deployment/hive-mind -- hive-manager auth claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth codex
    ```
+
+   [Ручные команды входа](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 #### Нехватка памяти
 

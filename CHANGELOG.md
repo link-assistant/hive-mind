@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.45.0
+
+### Minor Changes
+
+- 6f19ff0: Document commit and ready-for-review CI tiers, workspace-aware test selection, job sizing, file-size ratchets, and cancellation that preserves full checks.
+- 1996018: Add `hive-manager` for local and SSH deployment, recovery, maintenance and headless Claude, Codex and GitHub sign-in. The same Bash entry point runs standalone, ships in the npm package, and is available in the Hive Mind Docker images.
+
 ## 2.44.0
 
 ### Minor Changes

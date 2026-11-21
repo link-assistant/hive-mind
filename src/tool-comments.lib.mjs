@@ -166,43 +166,30 @@ TOOL_GENERATED_COMMENT_MARKERS.push(CI_WAIT_STUCK_MARKER, SESSION_EFFECT_UNVERIF
  */
 export const SESSION_ENDING_MARKERS = [NOW_WORKING_SESSION_IS_ENDED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER];
 
-/**
- * Issue #4091: the log comment of an AI session that is followed by
- * `--auto-restart-until-mergeable` monitoring must not say the working session
- * is ended: the process keeps watching the pull request (for hours, possibly)
- * and can still restart the AI. That footer says monitoring continues instead,
- * and a `Monitoring Ended` comment reports the decision when it stops.
- * The AI session did end, so the footer still opens a new dedup window.
- */
-export const AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER = 'This AI session has ended; monitoring of this pull request continues';
-export const MONITORING_ENDED_MARKER = 'Monitoring Ended';
-SESSION_ENDING_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
-TOOL_GENERATED_COMMENT_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+/** Session footer markers also open a new deduplication window. */
+export const AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER = 'This AI session has ended. Monitoring of this pull request continues';
+const LEGACY_MONITORING_CONTINUES_MARKER = 'This AI session has ended; monitoring of this pull request continues';
+const MONITORING_ENDED_MARKER = 'Monitoring Ended';
+SESSION_ENDING_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, LEGACY_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+TOOL_GENERATED_COMMENT_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, LEGACY_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
 
-const sessionFooterState = { monitoringEnded: false, promisePublished: false };
+let monitoringEnded = false;
 
 /** Whether monitoring of the pull request follows the AI session that is reporting now. */
-export const monitoringFollowsSession = argv => !sessionFooterState.monitoringEnded && Boolean(argv?.autoMerge || argv?.autoRestartUntilMergeable);
+export const monitoringFollowsSession = argv => !monitoringEnded && Boolean(argv?.autoMerge || argv?.autoRestartUntilMergeable);
 
 /** The watch loop (or its preflight) finished: later log comments end the working session. */
 export const markMonitoringEnded = () => {
-  sessionFooterState.monitoringEnded = true;
+  monitoringEnded = true;
 };
-
-/** A log comment told the reader monitoring continues; the end of monitoring owes them a decision. */
-export const noteMonitoringPromisePublished = () => {
-  sessionFooterState.promisePublished = true;
-};
-export const wasMonitoringPromisePublished = () => sessionFooterState.promisePublished;
 
 /** Tests only. */
 export const resetSessionFooterStateForTests = () => {
-  sessionFooterState.monitoringEnded = false;
-  sessionFooterState.promisePublished = false;
+  monitoringEnded = false;
 };
 
 /** The italic closing line of a log comment. */
-export const buildSessionEndFooter = ({ monitoringContinues = false } = {}) => (monitoringContinues ? `*${AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER} until it is mergeable; a final "${MONITORING_ENDED_MARKER}" comment will report the decision. Feel free to review and add any feedback on the solution draft: new comments restart the AI.*` : `*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`);
+export const buildSessionEndFooter = ({ monitoringContinues = false } = {}) => (monitoringContinues ? `*${AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER}. Feel free to review and add feedback while checks are running.*` : `*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`);
 
 /**
  * Determine whether a GitHub comment body matches any known tool-generated

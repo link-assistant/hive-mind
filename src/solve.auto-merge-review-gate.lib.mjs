@@ -3,7 +3,7 @@
  * Issue #4082: the review gate of the `--auto-restart-until-mergeable` loop.
  *
  * "CI passed, no conflicts, no uncommitted changes" is not enough to announce
- * "✅ Ready to merge". This module adds three checks to that decision:
+ * "✅ Ready to merge". This module adds four checks to that decision:
  *
  *   1. Unresolved review threads (cases 1, 4, 5). A thread seen for the first
  *      time restarts the AI with the finding, whoever wrote it: review bots
@@ -14,11 +14,8 @@
  *      description or the latest session summary ("merge the companion PR
  *      first", "Depends on owner/repo#12"). Unmet ones replace "Ready to merge"
  *      with "Ready for review — blocked by …".
- *   3. A review window (cases 2, 3). Review apps start on "ready for review"
- *      and on every push, often minutes to an hour after the session ended.
- *      After "Ready to merge" the loop keeps watching for this many minutes, so
- *      a new review, thread or comment restarts the AI instead of waiting for a
- *      human.
+ *   3. An optional review window (issues #4082 and #4106). It gives new reviews,
+ *      threads and comments time to arrive before the final readiness comment.
  *   4. Review apps (issue #4081). While a review app from `--review-bots`
  *      (Codex connector, CodeRabbit, …) is still reviewing the head commit,
  *      the loop waits up to `--review-bots-wait-minutes` before announcing
@@ -38,7 +35,7 @@ import { checkMergePrerequisites, formatPrerequisitesForComment } from './merge-
 import { READY_FOR_REVIEW_MARKER } from './tool-comments.lib.mjs';
 import { REVIEW_BOTS_START_GRACE_MINUTES, buildReviewBotFindingLines, createReviewBotFindingsTracker, createReviewBotMatcher, evaluateReviewBotActivity, fetchReviewBotActivity, formatReviewBotFindingsForComment, parseReviewBotsOption } from './review-bots.lib.mjs';
 
-export const DEFAULT_REVIEW_WINDOW_MINUTES = 120;
+export const DEFAULT_REVIEW_WINDOW_MINUTES = 0;
 export const READY_FOR_REVIEW_BLOCKED_SIGNATURE = `## 🟡 ${READY_FOR_REVIEW_MARKER} — blocked by`;
 
 const pick = (argv, camel, kebab) => argv?.[camel] ?? argv?.[kebab];
@@ -50,15 +47,13 @@ export const normalizeReviewWindowMinutes = value => {
 };
 
 /**
- * Gate options from argv. The review window and the review-app wait default
- * to 0 here: the CLI defaults (`DEFAULT_REVIEW_WINDOW_MINUTES`,
- * `DEFAULT_REVIEW_BOTS_WAIT_MINUTES`) come from solve.config.lib.mjs, so
- * direct callers of the loop keep returning as soon as the PR is ready.
+ * Gate options from argv. Direct callers wait for review apps only when they
+ * supply a duration. The CLI sets its own review-app default.
  */
 export const resolveReviewGateOptions = argv => ({
   threadsEnabled: pick(argv, 'autoRestartOnUnresolvedReviewThreads', 'auto-restart-on-unresolved-review-threads') ?? true,
   prerequisitesEnabled: pick(argv, 'checkMergePrerequisites', 'check-merge-prerequisites') ?? true,
-  reviewWindowMinutes: normalizeReviewWindowMinutes(pick(argv, 'autoRestartUntilMergeableReviewWindowMinutes', 'auto-restart-until-mergeable-review-window-minutes') ?? 0),
+  reviewWindowMinutes: normalizeReviewWindowMinutes(pick(argv, 'autoRestartUntilMergeableReviewWindowMinutes', 'auto-restart-until-mergeable-review-window-minutes') ?? DEFAULT_REVIEW_WINDOW_MINUTES),
   reviewBots: parseReviewBotsOption(pick(argv, 'reviewBots', 'review-bots')),
   reviewBotsWaitMinutes: normalizeReviewWindowMinutes(pick(argv, 'reviewBotsWaitMinutes', 'review-bots-wait-minutes') ?? 0),
 });
@@ -220,8 +215,8 @@ export const createReviewGate = ({ owner, repo, prNumber, issueNumber, commandRu
     },
 
     /**
-     * Called each time the pull request is found ready. Returns how long the
-     * loop should keep watching for late reviews, or `null` to stop now.
+     * Called once CI and review apps are clear. Returns how long to watch for
+     * late reviews before the final readiness decision.
      */
     reviewWindow(now = Date.now()) {
       if (options.reviewWindowMinutes <= 0) return null;

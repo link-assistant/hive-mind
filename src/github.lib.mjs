@@ -38,7 +38,7 @@ import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
-import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile, buildSessionEndFooter, monitoringFollowsSession, noteMonitoringPromisePublished } from './tool-comments.lib.mjs';
+import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile, buildSessionEndFooter, monitoringFollowsSession } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 // Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
@@ -495,7 +495,8 @@ export async function attachLogToGitHub(options) {
   const outcome = { uploadFailureCommentPosted: false };
   // Issue #4091: the size this upload covers (an interrupt uploads only what came after it), and a phase marker for the Telegram status.
   const coveredBytes = options?.logFile ? await statLogSize(options.logFile) : null;
-  if (getLastSolveProgress()) emitSolveProgress({ phase: 'uploading-log', since: new Date().toISOString() });
+  const progress = getLastSolveProgress();
+  if (progress && progress.phase !== 'finished') emitSolveProgress({ phase: 'uploading-log', since: new Date().toISOString() });
   const attached = await attachLogToGitHubOnce(withLatestLogUsage(options), outcome);
   if (attached === true && coveredBytes != null) noteUploadedLogSize(options.logFile, coveredBytes);
   lastLogAttachOutcome = { attached: attached === true, failureCommentPosted: Boolean(options?.errorMessage) && !options?.isUsageLimit && (attached === true || outcome.uploadFailureCommentPosted) };
@@ -503,7 +504,6 @@ export async function attachLogToGitHub(options) {
   // Issue #2400: once the log is attached, a later failure is news again.
   if (attached === true) forgetLogUploadFailureReports(options);
   if (attached === true) recordLogAttached();
-  if (attached === true && options?.targetType === 'pr' && !options?.errorMessage && !options?.isUsageLimit && (options?.monitoringContinues ?? monitoringFollowsSession(options?.argv))) noteMonitoringPromisePublished(); // Issue #4091
   return attached;
 }
 

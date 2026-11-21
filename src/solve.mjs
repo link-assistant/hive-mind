@@ -1280,8 +1280,9 @@ try {
   }
 
   // Start auto-restart-until-mergeable mode if enabled This runs after the normal watch mode completes (if any) --auto-merge implies --auto-restart-until-mergeable
+  let autoMergeResult = null;
   if (argv.autoMerge || argv.autoRestartUntilMergeable) {
-    const autoMergeResult = await startAutoRestartUntilMergeable({
+    autoMergeResult = await startAutoRestartUntilMergeable({
       issueUrl,
       owner,
       repo,
@@ -1311,7 +1312,10 @@ try {
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
-  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
+  // The watcher already checked readiness and reported its final disposition.
+  if (!['mergeable', 'ready_for_review_blocked', 'ready_status_publish_failed', 'auto-merged', 'merged'].includes(autoMergeResult?.reason)) {
+    await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
+  }
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Issue #2182: a failed session is still a finished session. Restore every pull request

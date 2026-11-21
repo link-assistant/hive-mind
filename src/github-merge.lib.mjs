@@ -468,7 +468,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false, o
       // with no other blockers, so without this field a draft PR was declared
       // mergeable and `gh pr merge` failed forever with
       // "Pull Request is still a draft".
-      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,mergeable,mergeStateStatus`);
+      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,mergeable,mergeStateStatus,headRefOid`);
       const pr = JSON.parse(stdout.trim());
 
       // Issue #1339: If mergeStateStatus is 'UNKNOWN', GitHub is still computing.
@@ -497,7 +497,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false, o
         console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${evaluation.mergeable}, state: ${pr.mergeStateStatus}, isDraft: ${pr.isDraft === true}`);
       }
 
-      return { mergeable: evaluation.mergeable, isDraft: evaluation.isDraft, mergeableState: evaluation.mergeableState, mergeStateStatus: evaluation.mergeStateStatus, reason: evaluation.reason };
+      return { mergeable: evaluation.mergeable, isDraft: evaluation.isDraft, mergeableState: evaluation.mergeableState, mergeStateStatus: evaluation.mergeStateStatus, reason: evaluation.reason, headSha: pr.headRefOid };
     } catch (error) {
       if (isTerminalGitHubEntityError(error)) {
         const terminalError = getTerminalGitHubEntityErrorMessage(error);
@@ -1163,7 +1163,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string, html_url: string, path: string}>>}
  */
-export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
+export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false, { throwOnError = false } = {}) {
   try {
     const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
     const runs = JSON.parse(stdout.trim() || '[]')
@@ -1189,6 +1189,7 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error fetching workflow runs for SHA ${sha}: ${error.message}`);
     }
+    if (throwOnError) throw error;
     return [];
   }
 }

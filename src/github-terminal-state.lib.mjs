@@ -174,6 +174,7 @@ export const checkGitHubTerminalState = async ({ owner, repo, issueNumber = null
   }
 
   const repoData = safeJsonParse(repoResult.stdout) || {};
+  let prData = null;
 
   if (prNumber) {
     const prResult = await runCommand(runner, ['gh api repos/', '/', '/pulls/', ''], owner, repo, prNumber);
@@ -185,7 +186,7 @@ export const checkGitHubTerminalState = async ({ owner, repo, issueNumber = null
       });
     }
 
-    const prData = safeJsonParse(prResult.stdout);
+    prData = safeJsonParse(prResult.stdout);
     if (prData) {
       const prState = String(prData.state || '').toLowerCase();
       if (prData.merged === true) {
@@ -279,7 +280,7 @@ export const checkGitHubTerminalState = async ({ owner, repo, issueNumber = null
           resolution: `Restore or re-create issue #${issueNumber}, or merge this pull request manually.`,
         })
       );
-      return ok({ repo: repoData }, mergeBlockers);
+      return ok({ repo: repoData, pr: prData }, mergeBlockers);
     }
 
     const issueData = safeJsonParse(issueResult.stdout);
@@ -292,13 +293,13 @@ export const checkGitHubTerminalState = async ({ owner, repo, issueNumber = null
           resolution: `Reopen issue #${issueNumber} so auto-merge can complete, or merge this pull request manually.`,
         })
       );
-      return ok({ issue: issueData, repo: repoData }, mergeBlockers);
+      return ok({ issue: issueData, repo: repoData, pr: prData }, mergeBlockers);
     }
 
-    return ok({ issue: issueData, repo: repoData }, mergeBlockers);
+    return ok({ issue: issueData, repo: repoData, pr: prData }, mergeBlockers);
   }
 
-  return ok({ repo: repoData }, mergeBlockers);
+  return ok({ repo: repoData, pr: prData }, mergeBlockers);
 };
 
 export default {

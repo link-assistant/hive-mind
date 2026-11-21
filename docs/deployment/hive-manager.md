@@ -108,7 +108,21 @@ Each package operation is available locally and inside a managed deployment. Use
 
 To preserve a failed Docker task before removing its container, run `tasks backup-container CONTAINER --output NEW_DIRECTORY`, then preview removal with `tasks cleanup-backed-up NEW_DIRECTORY`. Supply `--apply SHA256` with the preview’s approval digest to remove the exact stopped container after rechecking the backup checksum and container identity. For an older container without task labels, add `--execution UUID` to the backup command. The manager checks that the stored Docker task recorded the same container, session and exit code. With `deploy tasks`, choose a directory on a persistent mount with enough free space. The private backup contains the container’s filesystem, which you can inspect with `tar -tzf NEW_DIRECTORY/filesystem.tar.gz`. Back up mounted data separately. [Docker export](https://docs.docker.com/reference/cli/docker/container/export/)
 
-`tasks recover-failed` previews retries for confirmed memory-related failures. `--apply` rechecks the records and Docker state before resuming eligible tasks. The manager skips active executions, recorded retries, and failures superseded by a newer success in the same task family. Add `--wait SECONDS` to track the launched attempts and report their exit codes. A failed or unfinished retry makes the command exit nonzero. `tasks check-uploads` samples same-user Linux upload and sanitization processes. The defaults flag processes at least 30 minutes old, averaging at least 80% of one CPU over three seconds, with no observed I/O progress. `--terminate PID` signals the selected process after rechecking its identity and progress.
+`tasks recover-failed` previews first retries for detached Docker tasks with confirmed memory exhaustion. It skips active or paused families, tasks still tracked by the Telegram bot, operator stops recorded by start-command, and failures superseded by newer successes. Let the bot reconcile after a restart and use `tasks status UUID` to check the latest attempt before applying a plan.
+
+Select a known Telegram solve alias that exited 127 or a later confirmed memory failure by execution UUID and failed attempt number. Choose `--max-resumes` to match the deployment policy. The default is 1, and the maximum is 10. Recorded automatic restarts count toward the cap. These commands review a second attempt and allow one more retry.
+
+```bash
+hive-manager tasks status UUID
+hive-manager tasks recover-failed --execution UUID --attempt 2 --max-resumes 2
+hive-manager tasks recover-failed --execution UUID --attempt 2 --max-resumes 2 --apply --wait 60
+```
+
+The `snapshot` result shows the stopped container's writable-layer bytes, required bytes (twice the layer size plus 10 GiB), and the lowest available bytes across the Docker image-store filesystems. Run recovery where the local Docker daemon's storage paths are visible, using `deploy tasks` when the daemon runs inside the deployment. `--apply` rechecks the attempt, container, and headroom immediately before handing off to start-command. An alias recovery launches `solve` with the stored arguments and alias tool selection. If the attempt log has a tool session ID in its bounded tail, it replaces any stale `--resume` argument. `--wait SECONDS` tracks the specific attempt launched, and a blocked, failed, or unfinished retry makes the command exit nonzero.
+
+Keep the deployment's [Control Center recovery and reporting runbook](https://github.com/link-assistant/hive-mind-control-center/issues/1) for historical records that still need operator review. Check the native previews and `tasks status` before taking action on these records.
+
+`tasks check-uploads` samples same-user Linux upload and sanitization processes. The defaults flag processes at least 30 minutes old, averaging at least 80% of one CPU over three seconds, with no observed I/O progress. `--terminate PID` signals the selected process after rechecking its identity and progress.
 
 Run `tasks repair-records [UUID]` when a detached Docker resume is running and its stored execution still shows an older terminal attempt. The preview checks the exact labels, start timestamp, snapshot and original command. Apply with `--apply` to adopt an eligible snapshot and attach a completion watcher. This repair uses the store format from the image's pinned start-command 0.44.0. Use `tasks resume-all` for records already marked executing.
 
@@ -116,15 +130,24 @@ Run `tasks repair-records [UUID]` when a detached Docker resume is running and i
 
 `tasks report --collect UUID [--attempt NUMBER]` inspects up to 4 MiB of the selected attempt's log. It reports short success runs, retry and reconnection counts, and repeated commands, MCP calls or messages. The result contains counts and classifications without raw log lines. Historical collection needs stored log offsets to distinguish one attempt from the next.
 
-For repeat failures, use `--routes /path/to/routes.json` in place of `--follow-up`. The file is read in the environment that runs the command, so put it inside the container when using `deploy tasks`. Copy the `backend`, `kind` and `exitCode` values from `tasks report --group` and add the open issue number in the selected destination repository.
+For repeat failures, use `--routes /path/to/routes.json` in place of `--follow-up`. The file is read in the environment that runs the command, so put it inside the container when using `deploy tasks`. Copy the `backend`, `kind` and `exitCode` values from `tasks report --group` and add the issue number in the selected destination repository.
 
 ```json
 [{ "backend": "docker", "kind": "Memory exhaustion", "exitCode": 137, "issue": 318 }]
 ```
 
-A matching failure previews a comment for the configured issue. An unmatched failure previews a new issue. An optional `signature` from `--collect`, such as `codex-oom` or `stream-close-timeout`, takes precedence over a group-only match. For a signal-range Docker exit, add `--host-signature NAME` after reviewing the corresponding attempt's journal correlation on the Docker host. The report includes the selected correlation and can route by that signature. Changes to the selected issue or its preview evidence after review invalidate the digest.
+A failure routed to an open issue previews a comment. An unmatched failure previews a new issue. An optional `signature` from `--collect`, such as `codex-oom` or `stream-close-timeout`, takes precedence over a group-only match. For a signal-range Docker exit, add `--host-signature NAME` after reviewing the corresponding attempt's journal correlation on the Docker host. The report includes the selected correlation and can route by that signature. Changes to the selected issue or its preview evidence after review invalidate the digest.
 
-After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Review dependency-based requests before submitting them again.
+Use `--reconcile` to review historical reports. It checks the exact execution and attempt markers in GitHub issues and comments for the selected repository. Supply `--legacy-ledger FILE` to check a Control Center `auto-fix-reports.json` export as well. A reconciliation preview has no publication digest.
+
+```bash
+hive-manager tasks report --incident UUID --attempt 2 --destination OWNER/REPO \
+  --routes /path/to/routes.json --reconcile --legacy-ledger /path/to/auto-fix-reports.json
+```
+
+For a closed route, the preview links the issue and compares its close time with the installed Hive Mind release's publication time. Use `--installed-version VERSION` when reviewing a deployment that runs a different release. A closure after that version was released indicates that the fix may still need to be deployed. A closure before or at release time marks a possible regression for review. Use the legacy incident procedure for those records and use `tasks report --incident` with a reviewed digest for newly verified failures. Publication returns the existing GitHub report URL when the attempt has already been reported.
+
+After a Telegram bot restart, save the previous and current verbose logs locally. Use `deploy logs --timestamps` with `--until` and `--since` around the restart. Run `tasks recover-queue --previous previous.log --current current.log` to list requests from the last pre-restart run that never reached launch, excluding requests the current run already queued or began launching. Both files need their queue initialization line. `--include-commands` includes matching raw Telegram text for local review when available. Once the bot has reconciled, the deployment operator checks each candidate against the live queue and task records, confirms its dependencies and authorized chat with the request owner, and resubmits it once through that chat.
 
 On a Linux Docker host, `deploy docker-service live-restore` checks whether the local daemon keeps containers running when the daemon is unavailable. Run it with `--apply` as root on a systemd host with `jq` and `flock`. The command validates and backs up `/etc/docker/daemon.json`, reloads `docker.service`, and checks the running daemon. It restores the previous file if the setting fails to take effect. [Docker live restore](https://docs.docker.com/engine/daemon/live-restore/)
 

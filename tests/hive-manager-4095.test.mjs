@@ -535,12 +535,25 @@ cat <<'RECORDS'
 ${JSON.stringify({ executions: records })}
 RECORDS`
   );
-  executable('docker', '[[ $1 == ps ]]; printf "task-4-resume-1\\ttask-4\\t%s\\n" ' + id(4));
-  const environment = { HIVE_MIND_STATE_DIR: join(cwd, 'state') };
+  executable(
+    'docker',
+    `case "$1" in
+  ps) printf 'task-4-resume-1\\ttask-4\\t%s\\n' ${id(4)} ;;
+  container) [[ "\${!#}" == task-1 ]]; echo '{"name":"/task-1","id":"${'a'.repeat(64)}","state":"exited","exitCode":137,"size":1}' ;;
+  info) echo '{"DockerRootDir":"/docker"}' ;;
+  *) exit 1 ;;
+esac`
+  );
+  executable('df', `printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\\nfixture 20000000 1 16000000 1%% /\\n'`);
+  const environment = { HIVE_MIND_STATE_DIR: join(cwd, 'state'), DOCKER_HOST: 'unix:///var/run/docker.sock', DOCKER_CONTEXT: '' };
   const preview = run(['tasks', 'recover-failed'], { environment });
   assert.equal(preview.status, 0, preview.stderr);
   assert.doesNotMatch(preview.stdout, /fixture-secret|test\/repo/);
-  assert.deepEqual(JSON.parse(preview.stdout), { mode: 'preview', candidates: [{ id: id(1), exitCode: 137, finishedAt: null }], outcomes: [] });
+  assert.deepEqual(JSON.parse(preview.stdout), {
+    mode: 'preview',
+    candidates: [{ id: id(1), attempt: 1, nextAttempt: 2, exitCode: 137, finishedAt: null, recovery: 'memory-exhaustion', snapshot: { writableLayerBytes: 1, requiredBytes: 10737418242, availableBytes: 16384000000, state: 'ready' } }],
+    outcomes: [],
+  });
   assert.throws(() => readFileSync(join(cwd, 'invoked')), { code: 'ENOENT' });
 
   const applied = run(['tasks', 'recover-failed', '--apply'], { environment });

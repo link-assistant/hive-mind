@@ -40,6 +40,12 @@ export const createYargsConfig = yargsInstance =>
       alias: 'allowed-topics',
       default: getenv('TELEGRAM_ALLOWED_TOPICS', ''),
     })
+    .option('peerBots', {
+      type: 'string',
+      description: 'Known Hive Mind peers in Links Notation (chat ID, bot ID pairs)',
+      alias: 'peer-bots',
+      default: getenv('TELEGRAM_HIVE_MIND_PEER_BOTS', ''),
+    })
     .option('solveOverrides', {
       type: 'string',
       description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',

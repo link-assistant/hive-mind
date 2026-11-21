@@ -663,6 +663,7 @@ zh
       models "*/models* - 列出可用模型，合并本次安装自带的模型与所有实时来源的模型。用法：`/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - 显示使用限额"
       version "*/version* - 显示机器人和运行时版本"
+      who "*/who* - 识别机器人并显示当前运行的 Hive Mind 版本"
       language "*/language* `[en|ru|zh|hi]` - 设置或显示首选回复语言（内存中，按用户）"
       accept
         invites "`/accept_invites` - 接受所有待处理的 GitHub 邀请"
@@ -682,6 +683,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
+        addressing "群内有多个 Hive Mind 机器人时，请使用 `/command@BotUsername`。"
         note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/after、/enqueue、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"

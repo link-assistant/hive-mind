@@ -335,13 +335,7 @@ jobs:
           timeout 10s ./src/hive.mjs --version
       - name: Test telegram-bot.mjs execution
         run: bash scripts/test-telegram-bot-execution.sh
-      - name: Verify Docker task pause, unpause and retained resume
-        timeout-minutes: 5
-        run: |
-          start_version=$(sed -n 's/.* start-command@\([0-9.]*\) .*/\1/p' Dockerfile)
-          bun_version=$(sed -n 's/^ARG HIVE_MIND_BUN_VERSION=//p' Dockerfile)
-          node scripts/npm-install-with-retry.mjs install --prefix "$RUNNER_TEMP/pause-test" --no-audit --no-fund "bun@$bun_version" "start-command@$start_version"
-          PATH="$RUNNER_TEMP/pause-test/node_modules/.bin:$PATH" node experiments/issue-2530-pause-resume.mjs
+      - { name: 'Verify Docker task pause, unpause and retained resume', timeout-minutes: 5, run: bash scripts/test-docker-task-pause.sh }
       - name: Test memory-check.mjs execution
         run: |
           ./src/memory-check.mjs --help

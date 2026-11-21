@@ -5,11 +5,13 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http2';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readCleanupStatus, scopedCleanup } from '../src/hive-manager/storage/cleanup.mjs';
+import { snapshotUpper } from '../src/hive-manager/storage/lib/containerd.mjs';
 import { openTree, planFiles, removeApproved } from '../src/hive-manager/storage/lib/files.mjs';
 import { MemoryPressure, memoryGuard, run } from '../src/hive-manager/storage/lib/process.mjs';
 import { cleanupPreserved, preserveLayer } from '../src/hive-manager/storage/preserve.mjs';
@@ -62,6 +64,34 @@ test('deploy disk and cleanup expose the bounded report and scoped preview throu
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, pattern);
   }
+});
+
+test('reads writable snapshot metadata without activating a containerd mount', { skip: !linux, timeout: 5000 }, async t => {
+  const { cwd } = fixture(t);
+  const socket = join(cwd, 'containerd.sock');
+  const field = (number, value) => Buffer.concat([Buffer.from([(number << 3) | 2, value.length]), Buffer.from(value)]);
+  const mount = Buffer.concat([field(1, 'overlay'), field(4, 'lowerdir=/image'), field(4, 'upperdir=/var/lib/containerd/task fs'), field(4, 'workdir=/work')]);
+  const response = field(1, mount);
+  const frame = Buffer.alloc(5);
+  frame.writeUInt32BE(response.length, 1);
+  const server = createServer();
+  t.after(() => server.close());
+  const seen = [];
+  server.on('stream', async (stream, headers) => {
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    seen.push({ headers, request: Buffer.concat(chunks).subarray(5) });
+    stream.respond({ 'content-type': 'application/grpc' }, { waitForTrailers: true });
+    stream.once('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }));
+    stream.end(Buffer.concat([frame, response]));
+  });
+  server.listen(socket);
+  await once(server, 'listening');
+  assert.equal(await snapshotUpper(socket, id), '/var/lib/containerd/task fs');
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].headers[':path'], '/containerd.services.snapshots.v1.Snapshots/Mounts');
+  assert.equal(seen[0].headers['containerd-namespace'], 'moby');
+  assert.deepEqual(seen[0].request, Buffer.concat([field(1, 'overlayfs'), field(2, id)]));
 });
 
 test('reports running, paused and stopped layers and correlates a historical execution without a Docker size walk', { skip: !linux }, async t => {

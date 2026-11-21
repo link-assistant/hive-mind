@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, normalize } from 'node:path';
+import { snapshotUpper } from './containerd.mjs';
 import { output } from './process.mjs';
 
 export const containerId = /^[a-f0-9]{64}$/;
@@ -104,19 +105,16 @@ export async function upperDirectory(row, root, options) {
   }
   if (!candidate && ['overlay2', 'overlayfs'].includes(row.driver)) {
     // With Docker's containerd image store the container ID is the active snapshot key.
-    // The "mounts" subcommand prints the mount specification without mounting it.
     const sockets = ['/run/docker/containerd/containerd.sock', '/run/containerd/containerd.sock'];
     for (const socket of sockets) {
       const currentOptions = typeof options === 'function' ? options() : options;
       currentOptions?.check?.();
       try {
         if (!lstatSync(socket).isSocket()) continue;
-        const spec = await output('ctr', ['--address', socket, '--namespace', 'moby', 'snapshots', '--snapshotter', 'overlayfs', 'mounts', '/hive-manager-unused', row.id], currentOptions);
-        candidate = decodeMount(/(?:^|,)upperdir=([^,\s'"]+)/m.exec(spec)?.[1] ?? '');
+        candidate = await snapshotUpper(socket, row.id, currentOptions);
         if (absolute(candidate)) break;
-      } catch (error) {
+      } catch {
         currentOptions?.check?.();
-        if (error.code === 'ENOENT') continue;
       }
     }
   }

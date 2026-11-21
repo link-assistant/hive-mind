@@ -2,9 +2,11 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import console from 'node:console';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import * as runner from '../src/isolation-runner.lib.mjs';
@@ -51,6 +53,8 @@ try {
   // Telegram control path. The real status probe must see the paused container.
   await docker(['pause', name]);
   assert.equal(checked(await controls.getDockerTaskControlState(name)).state, 'paused');
+  const list = async () => JSON.parse(await cli(['--list', '--output-format', 'json'])).executions.find(record => record.uuid === status.uuid);
+  assert.equal((await list()).paused, true);
   assert.equal(checked(await controls.pauseTrackedSession(name)).alreadyPaused, true);
   assert.match((await controls.resumeStoppedSession(name)).error, /\/unpause/);
   const frozenOutput = await log();
@@ -60,6 +64,7 @@ try {
   checked(await controls.unpauseTrackedSession(name, { requestedBy: 'ci' }));
   await until(log, value => value !== frozenOutput, 'the process never continued');
   assert.equal(await pid(), originalPid);
+  assert.notEqual((await list()).paused, true);
   assert.equal(checked(await controls.unpauseTrackedSession(name)).notPaused, true);
   console.log(`Docker freeze, no task output and unfreeze verified for PID ${originalPid}.`);
 

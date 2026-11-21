@@ -3,6 +3,7 @@ import { extractStopTarget, isStopTargetRequester } from './telegram-start-stop-
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { resolveLocaleFromTelegramCtx, t } from './i18n.lib.mjs';
 import { getTelegramCommandArgumentsText } from './telegram-command-text.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import * as sessionMonitor from './session-monitor.lib.mjs';
 
 function stateLabel(state, tr) {
@@ -22,10 +23,12 @@ export function registerPauseResumeCommands(bot, options = {}) {
     const tracked = monitor.getActiveSessions().filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && visible(ctx, sessionInfo) && requester(ctx, sessionInfo));
     const lines = [];
     for (const { sessionName, sessionInfo } of tracked) {
+      // Probe sequentially and stop after one Telegram message's worth of tasks.
+      // eslint-disable-next-line no-await-in-loop
       const result = await monitor.getDockerTaskControlState(sessionName, { verbose: VERBOSE });
       if (!result.success || result.state === 'removed') continue;
       if ((command === 'pause' && result.state !== 'running') || (command === 'unpause' && result.state !== 'paused') || (command === 'resume' && !['exited', 'created'].includes(result.state))) continue;
-      lines.push(`${stateLabel(result.state, tr)} · ${sessionName}${sessionInfo.url ? `\n${sessionInfo.url}` : ''}`);
+      lines.push(`${stateLabel(result.state, tr)} · ${escapeMarkdown(sessionName)}${sessionInfo.url ? `\n${escapeMarkdown(sessionInfo.url)}` : ''}`);
       if (lines.length === 12) break;
     }
     const heading = command === 'list' ? tr('telegram.task_control_list') : tr('telegram.task_control_usage', { command });
@@ -36,7 +39,7 @@ export function registerPauseResumeCommands(bot, options = {}) {
     if (isOldMessage?.(ctx) || isForwarded?.(ctx)) return;
     const locale = resolveLocaleFromTelegramCtx(ctx);
     const tr = (key, params) => t(key, params, { locale });
-    const reply = text => safeReply(ctx, text, { reply_to_message_id: ctx.message?.message_id, fallbackLocale: locale });
+    const reply = text => safeReply(ctx, text, { parse_mode: 'Markdown', reply_to_message_id: ctx.message?.message_id, fallbackLocale: locale });
     if (ctx.chat?.type !== 'private' && (!isGroupChat?.(ctx) || (!isChatAuthorized?.(ctx.chat.id) && !isTopicAuthorized?.(ctx)))) {
       return reply(tr('telegram.task_control_unauthorized'));
     }
@@ -72,10 +75,10 @@ export function registerPauseResumeCommands(bot, options = {}) {
         if (active?.isActive || (queued && ![sessionName, info.sessionId, info.rootSessionName].includes(queued.sessionName))) return await reply(tr('telegram.task_control_conflict'));
       }
       const result = await operations[command](sessionName, { requestedBy, reason, verbose: VERBOSE });
-      if (!result.success) return await reply(tr('telegram.task_control_failed', { command, error: result.error }));
-      if (command === 'status') return await reply(`${stateLabel(result.state, tr)} · ${sessionName}${info.url ? `\n${info.url}` : ''}`);
+      if (!result.success) return await reply(tr('telegram.task_control_failed', { command, error: escapeMarkdown(result.error) }));
+      if (command === 'status') return await reply(`${stateLabel(result.state, tr)} · ${escapeMarkdown(sessionName)}${info.url ? `\n${escapeMarkdown(info.url)}` : ''}`);
       const key = { pause: result.alreadyPaused ? 'already_paused' : 'paused', unpause: result.notPaused ? 'not_paused' : 'unpaused', resume: 'resumed' }[command];
-      return await reply(tr(`telegram.task_control_${key}`, { session: result.sessionId }));
+      return await reply(tr(`telegram.task_control_${key}`, { session: escapeMarkdown(result.sessionId) }));
     } finally {
       release?.();
     }

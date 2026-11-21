@@ -208,9 +208,16 @@ export function createSessionPauseControls({ activeSessions, sessionsInFlight, f
       const command = buildPausedTaskCommand(info, lastSessionId);
       const size = await runner.getDockerContainerWritableLayerSize?.(current.container, options.verbose);
       if (Number.isFinite(size)) info.containerFilesystemLastBytes = size;
+      const previousArgs = info.args;
       info.args = command.args;
       info.explicitResumePending = { resumeCount: current.status.resumeCount || 0 };
-      await persist(sessionName, info);
+      try {
+        await persist(sessionName, info);
+      } catch (error) {
+        info.args = previousArgs;
+        delete info.explicitResumePending;
+        throw error;
+      }
       const resumed = await resumeKilledSessionInPlace({ sessionName, sessionInfo: { ...info, sessionId: current.container }, plan: { command: command.launch }, runner, requireRetained: true, verbose: options.verbose });
       if (!resumed.resumed) {
         const adopted = await reconcileInterruptedResume(entry, runner, options.verbose);

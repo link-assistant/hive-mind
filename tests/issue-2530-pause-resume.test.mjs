@@ -169,6 +169,28 @@ test('restart keeps a frozen task and /stop records intent before signalling it'
   assert.equal(saved.paused, undefined);
 });
 
+test('a failed durable write prevents a stop or retained resume', async () => {
+  const { state } = setup();
+  monitor.trackSession(SESSION, info());
+  monitor.setSessionStore({ persist: async () => false });
+  assert.match((await monitor.stopTrackedDockerSession(SESSION)).error, /persist task state/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, undefined);
+  state.docker = 'exited';
+  assert.match((await monitor.resumeStoppedSession(SESSION)).error, /persist task state/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).explicitResumePending, undefined);
+  assert.deepEqual(state.calls, []);
+});
+
+test('a live task remains paused when Docker refuses to stop it', async () => {
+  const { state } = setup({ stopIsolatedSession: async () => ({ success: false, error: 'Docker refused the stop' }) }, { docker: 'paused' });
+  monitor.trackSession(SESSION, info({ paused: true, pausedAt: WHEN }));
+  assert.match((await monitor.stopTrackedDockerSession(SESSION)).error, /Docker refused the stop/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).paused, true);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, undefined);
+  assert.equal(state.docker, 'paused');
+  assert.equal(monitor.getActiveSessionCount(), 0);
+});
+
 test('resume after stopping retains the clone, latest AI session and cumulative disk usage', async t => {
   const { state } = setup({}, { docker: 'exited' });
   const dir = await temporary(t);

@@ -304,6 +304,7 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | ----------------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`                            | （必填） | 来自 @BotFather 的 Telegram bot token                                               |
 | `TELEGRAM_ALLOWED_CHATS`                        | （全部） | 允许的聊天 ID（Links Notation）                                                     |
+| `TELEGRAM_HIVE_MIND_PEER_BOTS`                  | （无）   | 已知 Hive Mind 机器人的群 ID 和机器人数字 ID 对（Links Notation）                   |
 | `TELEGRAM_SOLVE_OVERRIDES`                      | （无）   | /solve 的覆盖选项（Links Notation）                                                 |
 | `TELEGRAM_HIVE_OVERRIDES`                       | （无）   | /hive 的覆盖选项（Links Notation）                                                  |
 | `TELEGRAM_SOLVE`                                | true     | 启用 /solve 命令                                                                    |
@@ -704,6 +705,7 @@ hive-telegram-bot [options]
 | `--task`                                 |      | boolean | true     | 启用 /task 和 /split 命令（使用 --no-task 禁用）                                                                                                                                     |
 | `--auth`                                 |      | boolean | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令（使用 --no-auth 禁用）                                                                                                                 |
 | `--configuration`                        | `-c` | string  |          | LINO 配置字符串                                                                                                                                                                      |
+| `--peer-bots`                            |      | string  |          | 已知 Hive Mind 机器人的群 ID 和机器人数字 ID 对（Links Notation）                                                                                                                    |
 | `--verbose`                              | `-v` | boolean | false    | 启用详细日志                                                                                                                                                                         |
 | `--dry-run`                              |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                     |
 | `--auto-start-screen-watch-message`      |      | boolean | false    | 实验性：为公开仓库的 `/solve` 会话自动启动单独的 `/terminal_watch` 消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。                                                         |

@@ -66,6 +66,44 @@ await test('mapLanguagesToTemplates maps a C-only repository to the C/C++ templa
   assert.deepEqual(unmatchedLanguages, ['Makefile']);
 });
 
+const swiftTemplate = 'link-foundation/swift-ai-driven-development-pipeline-template';
+const jsTemplate = 'link-foundation/js-ai-driven-development-pipeline-template';
+
+await test('Swift and JavaScript/TypeScript produce both recommendations in byte order (issue #4097)', () => {
+  const fixtures = [
+    {
+      languages: { JavaScript: 200, Swift: 900 },
+      expected: [
+        [swiftTemplate, 900],
+        [jsTemplate, 200],
+      ],
+    },
+    {
+      languages: { Swift: 900, JavaScript: 600, TypeScript: 400 },
+      expected: [
+        [jsTemplate, 1000],
+        [swiftTemplate, 900],
+      ],
+    },
+  ];
+  for (const { languages, expected } of fixtures) {
+    const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates(languages);
+    assert.deepEqual(
+      sortedTemplates.map(({ template, bytes }) => [template.repo, bytes]),
+      expected
+    );
+    assert.deepEqual(unmatchedLanguages, []);
+
+    const recommendations = buildTemplatesSection(languages)
+      .split('\n')
+      .filter(line => /^\d+\. /.test(line));
+    assert.equal(recommendations.length, expected.length);
+    expected.forEach(([repo], index) => {
+      assert.ok(recommendations[index].includes(`](${templateUrl(repo)})`), `Recommendation ${index + 1} must link to ${repo}`);
+    });
+  }
+});
+
 await test('diffCiCdTemplates reports unlisted and stale template repositories (issue #2573)', () => {
   const listed = CI_CD_TEMPLATES.map(t => t.repo.split('/')[1]);
   assert.deepEqual(diffCiCdTemplates([...listed, 'hive-mind', '.github']), { unlisted: [], stale: [] });
@@ -79,7 +117,7 @@ await test('diffCiCdTemplates reports unlisted and stale template repositories (
   assert.deepEqual(withoutPhp, { unlisted: [], stale: ['link-foundation/php-ai-driven-development-pipeline-template'] });
 });
 
-await test('every CI-CD-BEST-PRACTICES translation lists every template in both tables (issue #2573)', async () => {
+await test('every CI-CD-BEST-PRACTICES translation lists all templates and Swift tooling and setup (issues #2573 and #4097)', async () => {
   for (const suffix of ['', '.ru', '.zh', '.hi']) {
     const file = `docs/CI-CD-BEST-PRACTICES${suffix}.md`;
     const doc = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -88,6 +126,19 @@ await test('every CI-CD-BEST-PRACTICES translation lists every template in both 
       assert.ok(doc.includes(`| [${name}](${templateUrl(repo)})`), `${file}: "Recommended CI/CD Templates" must link ${repo}`);
       assert.ok(doc.includes(`| \`${repo}\``), `${file}: "Language → Template Mapping" must list ${repo}`);
     }
+
+    const swiftRows = doc.split('\n').filter(line => /^\| Swift\s+\|/.test(line));
+    for (const entry of [templateUrl(swiftTemplate), `| \`${swiftTemplate}\``, '`swift format`', '`-warnings-as-errors`']) {
+      assert.ok(
+        swiftRows.some(row => row.includes(entry)),
+        `${file}: missing Swift table entry ${entry}`
+      );
+    }
+    assert.ok(
+      swiftRows.some(row => ['changeset', 'SwiftPM', 'Git'].every(term => row.includes(term))),
+      `${file}: document Swift changesets and SwiftPM Git tags`
+    );
+    assert.ok(doc.includes(`${templateUrl(swiftTemplate)}/blob/main/docs/monorepo.md`), `${file}: link the Swift monorepo setup guide`);
   }
 });
 

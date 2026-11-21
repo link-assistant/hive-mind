@@ -1268,12 +1268,8 @@ try {
   // placeholder gone, a pull request that implemented nothing has an empty diff and the
   // loop restarts the AI instead of merging an empty change.
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
-  // Issue #2182: the AI working session is over at this point — everything below is
-  // monitoring and merging, not working. The pull request must therefore be back in
-  // "ready for review" BEFORE the auto-merge watch loop starts, because that loop can
-  // run for days and endWorkSession() (further down) is unreachable until it returns.
-  // In the reported run the PR was left in draft by an auto-restart iteration and
-  // `gh pr merge` answered "Pull Request is still a draft" 2692 times over 4d 12h.
+  // Issue #2182: restore "ready for review" before the auto-merge watch starts.
+  // A draft left by an auto-restart blocked every merge attempt until that watch stopped.
   if (prNumber) {
     const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
     await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'AI working session finished', reportError });
@@ -1312,10 +1308,7 @@ try {
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
-  // The watcher already checked readiness and reported its final disposition.
-  if (!['mergeable', 'ready_for_review_blocked', 'ready_status_publish_failed', 'auto-merged', 'merged'].includes(autoMergeResult?.reason)) {
-    await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
-  }
+  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached, autoMergeResult });
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Issue #2182: a failed session is still a finished session. Restore every pull request

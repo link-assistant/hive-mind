@@ -20,6 +20,7 @@ import { reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
 import { collectDockerImageReclaimPlan, formatDockerImageReclaimSummary, reclaimDockerImages, resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 import { formatBytes } from './cleanup.lib.mjs';
 import { TASK_PAUSE_MARKER } from './task-pause-marker.lib.mjs';
+import { pruneKeptWorkspaceCaches } from './workspace-cache-prune.lib.mjs';
 
 /**
  * Reclaim orphaned `@link-assistant/agent` snapshot stores (issue #2186).
@@ -81,6 +82,22 @@ export const cleanupSupersededDockerImages = async argv => {
   }
 };
 
+/**
+ * Issue #2293: a workspace kept inside a task container drops its regenerable
+ * build caches once its work is committed and pushed. Never fatal.
+ */
+export const cleanupKeptWorkspaceCaches = async (tempDir, argv, limitReached, { prune = pruneKeptWorkspaceCaches } = {}) => {
+  try {
+    const result = await prune(tempDir, { argv, limitReached });
+    if (result.pruned) await log(`🧹 Pruned ${result.paths.length} build cache director${result.paths.length === 1 ? 'y' : 'ies'} (${formatBytes(result.freedBytes)}) from the kept workspace: ${result.paths.join(', ')}`);
+    if (result.pruned && result.reason) await log(`   ⚠️  The prune stopped early: ${result.reason}`, { level: 'warning' });
+    else if (!result.pruned && result.reason && result.reason !== 'not a Docker-isolated task') await log(`   Build caches kept: ${result.reason}`);
+  } catch (cleanupError) {
+    reportError(cleanupError, { context: 'cleanup_kept_workspace_caches', tempDir, operation: 'prune_build_caches' });
+    await log(`⚠️  Could not prune the build caches of the kept workspace: ${cleanupError.message}`, { level: 'warning' });
+  }
+};
+
 // Cleanup temporary directory
 export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseMarkerPath = TASK_PAUSE_MARKER } = {}) => {
   // docker stop sends SIGTERM, which runs this cleanup even on private tasks
@@ -91,7 +108,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseM
       () => false
     )
   ) {
-    await log(`\n📁 Keeping paused task directory: ${tempDir}`);
+    await log(`\n📁 Keeping stopped task directory: ${tempDir}`);
     return;
   }
   // Determine if we should skip cleanup
@@ -122,6 +139,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseM
     const reason = argv.autoCleanupSource === 'repository-visibility-default' ? 'auto-cleanup is off by default for public repositories' : '--no-auto-cleanup';
     await log(`\n📁 Keeping directory (${reason}): ${tempDir}`);
   }
+  if (shouldKeepDirectory) await cleanupKeptWorkspaceCaches(tempDir, argv, limitReached);
 
   // Issue #2186: whatever was decided about the workspace above, agent state
   // whose worktree is already gone is reclaimed. The store belonging to

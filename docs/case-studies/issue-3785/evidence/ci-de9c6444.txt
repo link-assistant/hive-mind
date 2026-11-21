@@ -1,0 +1,47 @@
+Verified pushed commit:
+  de9c6444692eb2da640ded05aae0bc0eb26f8c03
+All eight workflows start 2026-10-31T05:18:58Z and pass on this exact head.
+This includes atomic Gemini proof publication and the corrected exact auth pin.
+The subsequent native package installer and image activation need fresh CI.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41172094806
+  Completes 05:42:49Z. Full ci-logs/checks-41172094806.log retained:
+    72,256 lines, reviewed in 49 chunks of at most 1500; no error annotations.
+  Line 63416: all 739 default test files pass.
+  Line 63478: both GitHub integration test files pass.
+  Lines 66909-66915: installed-package host/nested Docker task writes and
+    Agent/OpenCode atomic replacement, deletion/recreation, concurrent tasks
+    and private-redirection refusal pass.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41172094759
+  All three jobs pass; final workflow completes 05:52:55Z. Full
+    ci-logs/native-codex-41172094759.log retained: 1,791 lines, reviewed in
+    two bounded chunks; no error annotations. Lines 344/365 report seven
+    canonical-storage and five session-index tests passing. Line 701 confirms
+    actual status/logout/replacement across private homes.
+  All 94 native-codex-auth-build files downloaded and reviewed in 95 chunks.
+    Four strict-before assertion failures reproduce compression paths,
+    migration staging, identity and refresh owner death. No positive-control
+    assertion fails. The repaired native CLI passes canonical history/migration,
+    compression, identity provenance, TUI refusal, prompt history, request
+    admission and refresh owner-death refusal with explicit-login repair.
+  Build artifact 13032118608: 90,340 bytes, archive SHA-256
+    606475422dcc09690ef76a059bb1c33c893c19a9703ef46bdd8bf2cbcb798aa3.
+  Complete CLI artifact 13032432963: 114,239,444 bytes, archive SHA-256
+    0eba20694b7600cdf75e82b7d2c9f51d7e3cfa30ccfe33b58e09d377fc03ed2a.
+    Extracted executable: 419,096,400 bytes, SHA-256
+    61e786a8bb7fee18e8e1fe349ee1821786124ce0bf3c4f416e33ab5ec5b34bc3.
+  All four artifact collections, including the CLI, are preserved locally at
+    /tmp/issue-3785-recovery/codex-de9-artifacts.
+
+Other successful workflows at this SHA:
+  Gemini 41172094758 (six jobs; see ci-de9c6444-gemini.txt);
+  Workflows 41172094757; Links 41172094724; Claude 41172094784;
+  Qwen 41172094775; Security 41172094771.
+
+The passing Claude reproduction still demonstrates its unresolved native
+refresh owner-death defect. Production selection, installation of the compiled
+Codex adapter, broad lifecycle and the remaining acceptance inventory stay
+unfinished. Keep PR 3786 draft and unmerged.

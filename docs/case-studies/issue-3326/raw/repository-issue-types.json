@@ -1,0 +1,1 @@
+{"data":{"repository":{"owner":{"__typename":"User"},"issueTypes":null,"i3":{"number":3,"createdAt":"2026-10-15T11:10:11Z","issueType":null,"labels":{"nodes":[{"name":"bug"}]}},"i4":{"number":4,"createdAt":"2026-10-15T11:10:13Z","issueType":null,"labels":{"nodes":[]}}}}}

@@ -1,0 +1,26 @@
+ru
+  prompt
+    user
+      issue
+        to
+          solve "Задача для решения: {{issueUrl}}"
+        linked
+          to
+            pr "Задача для решения: задача, связанная с PR #{{prNumber}}"
+      prepared
+        branch "Подготовленная ветка: {{branchName}}"
+        working
+          directory "Подготовленный рабочий каталог: {{tempDir}}"
+        tmp
+          directory "Подготовленный временный каталог для логов и загрузок: {{workspaceTmpDir}}"
+        pull
+          request "Подготовленный Pull Request: {{prUrl}}"
+      forked
+        repository "Ваш форк репозитория: {{forkedRepo}}"
+      original
+        repository "Исходный репозиторий (upstream): {{owner}}/{{repo}}"
+      fork
+        actions
+          url "GitHub Actions в вашем форке: {{forkActionsUrl}}"
+      continue "Продолжай."
+      proceed "Приступай."

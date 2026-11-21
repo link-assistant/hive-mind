@@ -77,13 +77,13 @@ await test('formatBytesDelta adds an explicit sign', () => {
 });
 
 // --- measureDirectorySize ---
-await test('measureDirectorySize returns a positive number for an existing dir', () => {
+await test('measureDirectorySize returns a positive number for an existing dir', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-disk-diag-'));
   try {
     // Drop a few small files so the dir has measurable content.
     fs.writeFileSync(path.join(dir, 'a.txt'), 'hello');
     fs.writeFileSync(path.join(dir, 'b.txt'), 'world');
-    const bytes = measureDirectorySize(dir);
+    const bytes = await measureDirectorySize(dir);
     assert.ok(Number.isFinite(bytes), 'bytes must be finite');
     assert.ok(bytes >= 0, 'bytes must be non-negative');
   } finally {
@@ -91,25 +91,25 @@ await test('measureDirectorySize returns a positive number for an existing dir',
   }
 });
 
-await test('measureDirectorySize returns null for a missing path', () => {
+await test('measureDirectorySize returns null for a missing path', async () => {
   const bogus = path.join(os.tmpdir(), `hm-disk-diag-missing-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
-  assert.equal(measureDirectorySize(bogus), null);
+  assert.equal(await measureDirectorySize(bogus), null);
 });
 
-await test('measureDirectorySize handles a plain file too', () => {
+await test('measureDirectorySize handles a plain file too', async () => {
   const file = path.join(os.tmpdir(), `hm-disk-diag-file-${Date.now()}.txt`);
   fs.writeFileSync(file, 'x'.repeat(123));
   try {
-    const bytes = measureDirectorySize(file);
+    const bytes = await measureDirectorySize(file);
     assert.ok(Number.isFinite(bytes) && bytes >= 0);
   } finally {
     fs.rmSync(file, { force: true });
   }
 });
 
-await test('measureDirectorySize returns null for an empty/blank path', () => {
-  assert.equal(measureDirectorySize(''), null);
-  assert.equal(measureDirectorySize(null), null);
+await test('measureDirectorySize returns null for an empty/blank path', async () => {
+  assert.equal(await measureDirectorySize(''), null);
+  assert.equal(await measureDirectorySize(null), null);
 });
 
 // --- buildDiskMarker / parseDiskMarkers round-trip ---

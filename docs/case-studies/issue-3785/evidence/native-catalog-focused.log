@@ -1,0 +1,28 @@
+✔ Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (201.213578ms)
+✔ Dockerfile.dind keeps pinned runtimes out of automatic and command-triggered updates (20.796628ms)
+✔ coolify/Dockerfile keeps pinned runtimes out of automatic and command-triggered updates (6.415664ms)
+✔ outside pinned images the existing CLI update defaults remain available (0.674593ms)
+✔ the pinned native stock catalog is accepted independently of discovery order (4.757324ms)
+✔ native stock discovery rejects admin before trusting its file tree (602.525132ms)
+✔ native stock discovery rejects user before trusting its file tree (361.973756ms)
+✔ native stock discovery rejects repo before trusting its file tree (294.5316ms)
+✔ native stock discovery rejects outside-stock before trusting its file tree (252.520686ms)
+✔ native stock discovery rejects duplicate before trusting its file tree (333.547812ms)
+✔ native stock discovery rejects missing before trusting its file tree (333.84157ms)
+✔ native stock discovery rejects disabled before trusting its file tree (380.645796ms)
+✔ native stock discovery rejects plugin before trusting its file tree (297.81507ms)
+✔ native stock discovery rejects name before trusting its file tree (415.375853ms)
+✔ native stock discovery rejects errors before trusting its file tree (442.755767ms)
+✔ native stock discovery rejects wrong-cwd before trusting its file tree (352.2019ms)
+✔ native stock discovery rejects missing-errors before trusting its file tree (324.149217ms)
+✔ native stock discovery rejects malformed-skills before trusting its file tree (376.714022ms)
+✔ native stock discovery rejects extra-result before trusting its file tree (241.933373ms)
+✔ all stock-gate native children receive disposable homes without inherited credentials or overrides (932.479839ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5314.488778

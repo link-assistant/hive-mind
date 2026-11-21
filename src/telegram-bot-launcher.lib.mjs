@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop -- launch attempts are retried one after another with a delay */
 /**
  * Bot launcher with exponential backoff retry for Telegraf polling mode.
  *

@@ -1,0 +1,60 @@
+node:internal/errors:999
+  const err = new Error(message);
+              ^
+
+Error: Command failed: docker run --rm --cgroup-parent / --label hive-3785-mounts=642499 --network none --pids-limit 64 --ulimit data=1073741824:1073741824 --entrypoint node --mount type=bind,source=/tmp/gh-issue-solver-1792986793513,target=/work,readonly --mount type=bind,source=/tmp/hive-3785-mounts-5MucKo,target=/fixture --mount type=bind,source=/tmp/hive-3785-mounts-5MucKo/canonical-home,target=/operator --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/usr/bin/docker,target=/usr/local/bin/docker,readonly --mount type=bind,source=/lib/x86_64-linux-gnu/libc.so.6,target=/lib/x86_64-linux-gnu/libc.so.6,readonly --mount type=bind,source=/lib64/ld-linux-x86-64.so.2,target=/lib64/ld-linux-x86-64.so.2,readonly node:24-alpine --max-old-space-size=128 /fixture/root.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: production mount source stayed in the root-container namespace
++ actual - expected
+
++ '/operator/.codex/auth.json'
+- '/tmp/hive-3785-mounts-5MucKo/canonical-home/.codex/auth.json'
+
+    at file:///fixture/root.mjs:12:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '/operator/.codex/auth.json',
+  expected: '/tmp/hive-3785-mounts-5MucKo/canonical-home/.codex/auth.json',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.22.1
+
+    at genericNodeError (node:internal/errors:999:15)
+    at wrappedFn (node:internal/errors:544:14)
+    at ChildProcess.exithandler (node:child_process:420:12)
+    at ChildProcess.emit (node:events:514:20)
+    at maybeClose (node:internal/child_process:1156:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:334:5) {
+  code: 1,
+  killed: false,
+  signal: null,
+  cmd: 'docker run --rm --cgroup-parent / --label hive-3785-mounts=642499 --network none --pids-limit 64 --ulimit data=1073741824:1073741824 --entrypoint node --mount type=bind,source=/tmp/gh-issue-solver-1792986793513,target=/work,readonly --mount type=bind,source=/tmp/hive-3785-mounts-5MucKo,target=/fixture --mount type=bind,source=/tmp/hive-3785-mounts-5MucKo/canonical-home,target=/operator --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/usr/bin/docker,target=/usr/local/bin/docker,readonly --mount type=bind,source=/lib/x86_64-linux-gnu/libc.so.6,target=/lib/x86_64-linux-gnu/libc.so.6,readonly --mount type=bind,source=/lib64/ld-linux-x86-64.so.2,target=/lib64/ld-linux-x86-64.so.2,readonly node:24-alpine --max-old-space-size=128 /fixture/root.mjs',
+  stdout: '',
+  stderr: 'node:internal/modules/run_main:107\n' +
+    '    triggerUncaughtException(\n' +
+    '    ^\n' +
+    '\n' +
+    'AssertionError [ERR_ASSERTION]: production mount source stayed in the root-container namespace\n' +
+    '+ actual - expected\n' +
+    '\n' +
+    "+ '/operator/.codex/auth.json'\n" +
+    "- '/tmp/hive-3785-mounts-5MucKo/canonical-home/.codex/auth.json'\n" +
+    '\n' +
+    '    at file:///fixture/root.mjs:12:8 {\n' +
+    '  generatedMessage: false,\n' +
+    "  code: 'ERR_ASSERTION',\n" +
+    "  actual: '/operator/.codex/auth.json',\n" +
+    "  expected: '/tmp/hive-3785-mounts-5MucKo/canonical-home/.codex/auth.json',\n" +
+    "  operator: 'strictEqual',\n" +
+    "  diff: 'simple'\n" +
+    '}\n' +
+    '\n' +
+    'Node.js v24.22.1\n'
+}
+
+Node.js v26.12.1

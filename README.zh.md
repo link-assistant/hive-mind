@@ -150,94 +150,28 @@ sudo docker run hello-world
 
 ### 使用 Docker
 
-使用 Docker 运行 Hive Mind，实现更安全的本地安装，无需手动配置：
-
-**注意：** Docker 对本地安装更为安全，也可用于在服务器或 Kubernetes 集群上安装多个隔离实例。Kubernetes 部署请参见下方的 [Helm chart 安装](#helm-安装kubernetes实验性) 部分。
+在已安装 Docker 的主机上使用 [Hive Mind Manager](./docs/deployment/hive-manager.md)。如果已安装软件包，请从部署命令开始。
 
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
-
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
-gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
-claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# 未指定 `--think` 时，Hive Mind 按 `--think off` 处理。
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
-codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
-exit
-
-# Attach to main bash process
-docker attach hive-mind
-
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
-docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
-docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
-
-# Fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
-chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 可关闭）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
+在自己的电脑上打开命令显示的链接。将 Claude 授权码粘贴到正在运行的命令中。在 Codex 的浏览器页面输入其验证码，在 [GitHub 设备激活页面](https://github.com/login/device) 输入 GitHub 验证码。请登录要使用的服务。参阅[远程部署](./docs/deployment/hive-manager.md#profiles-and-remote-use)和[手动 Docker 和登录命令](./docs/deployment/hive-manager-manual.md)。
+
+```bash
+# 在实例中运行命令
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
+
+# 使用私有环境变量文件启动 Telegram 机器人
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
+```
+
+在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 仅关闭修复；未解决的审计问题仍会阻止任务启动）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
 
 **Docker 的优势：**
 
@@ -251,40 +185,11 @@ docker run -dit \
 
 #### 停止并删除 Docker 容器
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm 安装（Kubernetes）（实验性）
@@ -357,7 +262,9 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先），创建一个合并 issue，将其中最多 100 个附加为 GitHub 原生子 issue（GitHub 每个父 issue 的上限），并把每一个 issue（包括其余的）都列为必需的关闭引用，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。仍挂在更早的已关闭合并 issue 下的 issue 会被移到新的合并 issue 中；使用 `--auto-merge` 时，只有当 pull request 描述关闭了列出的每一个 issue 时才会合并。如果没有开放的 issue，CLI 会成功退出且不会创建任何内容；Telegram 会直接报告无需执行任何操作，不会启动工作会话。如果只有一个开放的 issue，则不会创建合并 issue：直接解决该 issue，就像传入了它的 URL 一样（Telegram 也会显示并启动该 issue 的 URL）。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
+
+> **退出码**：当本次运行取得进展（提交、文件修改或评论）或其 pull request 已合并时，`solve` 退出码为 0；运行结束但没有任何更改时退出码为 5：原因会写在 pull request 评论中，草稿 pull request 保持草稿状态，且不会报告 🎉 成功（[#3211](https://github.com/link-assistant/hive-mind/issues/3211)）。其他非零退出码表示失败。`hive` 和 Telegram 机器人将退出码 5 显示为 ⚠️ 未做更改而结束，而不是失败；直接调用 `solve` 并把所有非零退出码视为错误的脚本，在预期可能无更改时应接受 5，或设置 `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE=0` 以保留旧的退出码。
 
 **最常用选项：**
 
@@ -406,6 +313,10 @@ hive <github-url> [options]
 | `--help`                 | `-h` | 显示所有可用选项                                        | -      |
 
 > **📖 完整选项列表**：包含项目监控、YouTrack 集成及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#hive-options)。
+
+使用 `--once` 时，最终摘要会显示发现、完成、失败、跳过和等待的 Issue 数量，以及导致跳过的 PR 链接。退出码 3 表示没有处理任何 Issue；4 表示已完成部分工作，但仍有 Issue 等待；1 表示执行器或获取 Issue 失败。显式使用 `--dry-run` 时退出码为 0。执行器成功退出并不代表 PR 已合并。
+
+`--skip-issues-with-prs` 会跳过拥有自身开放 PR 的 Issue。父 Issue 的 PR 属于父 Issue，即使它引用了子 Issue。父 Issue 会等待所有开放子 Issue 关闭；处理已有 PR 时也遵循依赖顺序。如果没有可处理的 Issue，Hive 会建议使用 `--no-skip-issues-with-prs --auto-continue` 继续现有草稿。Telegram 会将没有处理 Issue 和部分完成的 hive 运行显示为警告；`--verbose` 会在日志中添加获取 Issue 的详细信息。
 
 ## 🤖 Telegram 机器人
 
@@ -470,6 +381,12 @@ Hive Mind 内置 Telegram 机器人接口（SwarmMindBot），支持远程命令
 
 ### 机器人命令
 
+在检测到多个 Hive Mind 机器人的群聊中，请使用 Telegram 的定向命令，例如 `/help@SwarmMindBot` 或 `/solve@SwarmMindBot <github-url>`。如果群聊中只检测到一个 Hive Mind 机器人，两种命令格式都可以使用。
+
+使用 `/who@SwarmMindBot` 可查询机器人的身份及其正在运行的 Hive Mind 版本。Hive Mind 通过 `/who` 查找其他机器人，并对旧版本机器人尝试发送定向的 `/version` 命令。对于使用自定义名称的机器人，请在 @BotFather 中启用机器人间通信模式。接收方启用此模式后，如果拥有群管理员权限或关闭了群隐私模式，即可收到非定向探测消息。[Telegram 消息投递规则](https://core.telegram.org/api/bots/bot-to-bot)
+
+Hive Mind 也会从管理员列表、成员变动和可见消息的发送者中识别 **Hive Mind** 或 **Swarm Mind** 名称。对于 Telegram 未公开身份的机器人，请在参与的机器人上设置 `TELEGRAM_HIVE_MIND_PEER_BOTS`（或 `--peer-bots`）。每个 Links Notation 数对包含群 ID 和机器人的数字 ID，例如 `((-1001234567890 987654321))`。请升级所有参与的机器人，以便在整个群聊中统一执行定向命令规则。
+
 大多数操作类命令仅在**群聊中**有效（不支持与机器人的私聊）。有意发送私密更新的命令（例如 `/terminal_watch`）也可以在私聊中使用：
 
 #### `/solve` - 解决 GitHub Issue
@@ -492,15 +409,15 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
@@ -515,9 +432,38 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
+用 `/solve`（或任意别名，可带选项，例如 `/codex --think medium`）回复包含 GitHub issue 或 pull request 链接的消息即可启动它们。单个链接照常启动。若有多个链接，每个有效链接都会作为单独的任务启动，就像为每个链接分别发送了一次命令：每次启动都回复同一条命令消息，逐个进行，两次启动之间随机间隔 10–15 秒。无法启动的链接（无效、未找到、已在运行或排队、被队列拒绝）会在所有有效链接启动后汇总在一条消息中。命令本身也可以列出多个链接，例如 `/solve <url-1> <url-2> --model opus`。
+
 > **📖 免费模型指南**：有关所有免费模型（包括 OpenCode Zen 和 Kilo Gateway 提供商）的全面信息，请参见 [docs/FREE_MODELS.zh.md](./docs/FREE_MODELS.zh.md)。
 
-> **📖 实时模型列表**：运行 `hive-models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
+> **📖 实时模型列表**：运行 `hive-manager models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
+
+#### `/after` 和 `/enqueue` - 在另一个任务之后启动任务
+
+```
+/after <任务链接> [选项]                        （回复被等待任务的消息）
+/after <uuid|被等待的链接> <任务链接> [选项]
+/after [选项]                                   （回复：之后再次运行同一链接）
+/enqueue ...                                    （同样的形式）
+```
+
+两个命令都会在另一个任务结束后启动恰好一个任务。被等待的任务的查找方式与
+`/stop`、`/log` 和 `/watch` 相同：会话 UUID 或 issue/pull request 链接，位于被回复的消息或命令本身中。
+其余部分与 `/solve` 相同（要启动的链接及其选项）。
+
+- `/after` 仅在被等待的任务**成功**时启动任务（没有更改的运行也算成功）。
+  如果被等待的任务失败、被取消或被终止，等待中的任务也会失败。
+- `/enqueue` 在被等待的任务**结束**后启动任务，无论结果如何。
+
+等待中的任务会在 `/queue` 的“等待其他任务”部分列出，并可在启动前用 `/stop` 停止。
+
+**`--respect-blockers`（实验性，默认关闭）。** 将其添加到 `/solve`、`/claude`、`/codex`
+或其他 solve 命令，即可像 `/hive` 一样遵守 issue 的 GitHub 关系：未关闭的“blocked by”
+issue、未关闭的子 issue（子 issue 阻塞其父 issue）以及祖先的阻塞项。如果所有未关闭的阻塞项
+都已排队或正在运行，任务会像 `/after` 一样等待它们。如果某个阻塞项既未排队也未运行，任务不会启动。
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` 会为所有 solve 命令启用此功能。包含多个链接的命令默认遵守阻塞项，
+并先启动未被阻塞的链接（`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`，或单个命令使用
+`--no-respect-blockers` 可关闭此行为）。
 
 #### `/hive` - 运行蜂群编排
 
@@ -562,6 +508,8 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
@@ -575,13 +523,15 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/fix --update-all-dependencies` 对依赖执行同样的流程。它会检测仓库使用的语言*以及*默认分支上提交的每个依赖清单文件，把两者映射到包生态系统，并创建一个 `Task`
 类型的 issue（带 `dependencies` 标签），其中列出每个生态系统、找到的清单文件、需要重新生成的锁文件，以及在该生态系统中真正能跨越大版本的命令。随后它会把该 issue 交给
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。详见
-[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
+[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。在检查仓库之前，它会合并所有打开的 Dependabot pull request，不等待 CI/CD，并在 issue 中要求修复这些合并引入的每一个错误。凡是其更新已在默认分支中的 pull request，无论是否冲突，都会作为“已被取代”关闭（[issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)、[issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)）。其余冲突的 pull request 通过 `@dependabot recreate` 重建；因落后于基础分支而被 ruleset 拦下的 pull request 通过 `@dependabot rebase` 变基；二者都在必需检查通过后合并。`--dependabot-wait-timeout <分钟>`（默认 30，`0` 表示不等待）限制这段等待时间，`--no-merge-dependabot-prs` 可跳过此步骤（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)）。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
 
 如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 和
 `/task --update-all-dependencies <repository>` 只执行相同的 issue
 生成步骤。它们会返回新建 issue 的 URL；回复
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
+
+`--update-all-dependencies` 启用 `--report-dependencies-issues`：向依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。可以保留必要的变通方案，让 pull request 继续推进。添加 `--no-report-dependencies-issues` 可关闭报告，也可在 `/solve` 或 `/hive` 上单独使用 `--report-dependencies-issues` 而不更新依赖。
 
 #### `/organize` - 分类开放议题
 
@@ -607,30 +557,29 @@ Shows:
 - Solve queue status
 ```
 
-#### `/pause` 和 `/resume` - 停止并继续任务
+#### Docker 任务控制
 
 ```text
-/pause <会话 UUID 或 GitHub issue/PR URL>
-/resume <会话 UUID 或 GitHub issue/PR URL>
+/pause <会话 ID 或 GitHub issue/PR URL> [--reason <原因>]
+/unpause <会话 ID 或 GitHub issue/PR URL>
+/stop <会话 ID 或 GitHub issue/PR URL>
+/resume <会话 ID 或 GitHub issue/PR URL>
+/status <会话 ID 或 GitHub issue/PR URL>
+/list
 ```
 
-也可以用任一命令回复任务消息。不带参数的 `/resume` 会列出您暂停的任务。
-任务请求者和原始聊天所有者可以在该群聊或与机器人的私聊中控制任务。
+发起人或原聊天所有者可以在任务所在群组或与机器人的私聊中控制任务。
+可提供容器名、会话 UUID、执行 UUID 或 URL，也可回复任务消息。
+`/list` 和不带目标的命令会列出你符合条件的 Docker 任务。
 
-`/pause` 会停止整个 Docker 任务容器，释放执行占用的 CPU 和 RAM，同时保留
-文件系统。暂停的任务在机器人重启后仍会保留，受到自动恢复和清理保护，
-并释放运行队列名额。再次提交相同 URL 会指向已有的暂停任务。
+`/pause` 冻结容器并释放 CPU 槽位，进程、RAM 和文件都会保留。
+`/unpause` 继续同一进程。`/queue` 和 `/limits` 会单独显示已暂停的
+任务，暂停满一小时后机器人会提醒一次。机器人重启后也能检测到手动
+执行的 Docker 暂停和解除暂停。
 
-`/resume` 从保留的文件系统快照继续工作。Solve 任务复用原始工作目录和最新
-记录的 AI 会话，保留本地修改及已安装的依赖。其他命令会使用保留的文件重新
-执行原始调用。执行 UUID 仍可用于查询，完成监控也会恢复。这会从磁盘数据和
-AI 对话状态继续工作；停止任务时会释放进程内存。
-
-任务暂停和继续需要 Docker 隔离以及支持快照恢复的 `start-command`
-（0.33.0 或更高版本；有限制资源的任务需要 0.35.0 或更高版本）。
-目前不支持 Router 和 Formal AI sidecar 任务。如果保留的容器或工作目录不可用，
-则拒绝继续，避免从空文件系统开始。暂停任务需要保留停止的容器时，
-会跳过 Docker system prune 清理。
+`/stop` 释放 RAM 并保留容器文件。`/resume` 会使用保留的工作区和最近
+记录的 AI 会话重启已停止的任务。执行 UUID 仍然有效。恢复需要原容器
+仍然存在，暂不支持使用路由器或 Formal AI sidecar 的任务。
 
 #### `/terminal_watch` - Live Session Log
 
@@ -687,7 +636,7 @@ Shows:
 - 可通过 `TELEGRAM_ALLOWED_CHATS` 配置可选的聊天 ID 限制
 - 如果未设置 `TELEGRAM_ALLOWED_CHATS`，私聊 `/auth` 会被禁用，且只有所列聊天的所有者可以使用
 - 命令以运行机器人的系统用户身份执行
-- 请确保已完成正确的身份验证（`gh auth login`、`claude-profiles`）
+- 请以运行机器人的用户身份登录所启用的服务。[无界面登录](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 最佳实践
 
@@ -854,7 +803,7 @@ OOM killer、磁盘写满或强制终止杀死的工作会话会自动重启，�
 
 ### 磁盘清理
 
-`hive-cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
+`hive-manager cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
 `/tmp/gh-issue-solver-*`、MCP 配置文件、日志下载目录等）来释放磁盘空间，同时
 **保留属于当前正在运行任务的文件夹**、受保护的系统路径，以及任何包含未提交或未推送
 更改的克隆。它通过运行中的进程和实时隔离会话检测活动任务，并使用与 `solve` 相同的
@@ -863,40 +812,40 @@ OOM killer、磁盘写满或强制终止杀死的工作会话会自动重启，�
 
 ```bash
 # 预览：列出保留的文件夹和将被删除的文件夹（不删除任何内容）
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # 实际删除过时的临时文件（会先要求确认）
-hive-cleanup
+hive-manager cleanup
 
 # 删除时不显示确认提示
-hive-cleanup --force
+hive-manager cleanup --force
 
 # 同时考虑非 hive-mind 临时项（更激进）
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # 允许删除 /tmp/start-command（默认保留；其中存放隔离日志）
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # 将实时/卡住的 agent PID 映射回 hive/start-command 任务会话
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # 跟踪指定的非 agent PID，例如浏览器子进程或 shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # 预览可以停止的孤立 agent
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # 审查预览后停止孤立 agent 进程树
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # 禁用活动任务检测（仅保留受保护的路径）
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
+运行 `hive-manager cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
 带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
 格式。
 
@@ -912,8 +861,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **身份验证：**
 
-- `gh auth login` - GitHub CLI 身份验证
-- `claude-profiles` - 将 Claude 身份验证配置文件迁移到服务器
+请以运行 Hive Mind 的用户身份执行 `hive-manager auth github`、`hive-manager auth claude` 或 `hive-manager auth codex`。[远程登录和手动命令](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter 集成：**
 
@@ -954,14 +902,14 @@ hive 任务时，优先使用内置进程诊断命令：
 
 ```bash
 # 显示 agent PID、start-command 会话 ID、GitHub 任务 URL、工作区、匹配原因和可能的孤立 agent。
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # 在同一报告中包含任意 PID。
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # 只停止已完成任务中的孤立 agent。
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 手动兜底：识别消耗资源的进程所属的 Screen 会话。
@@ -1053,28 +1001,28 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### 管理 Screen 会话的脚本
 
-`hive-screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
+`hive-manager screens` 管理已完成的 solve 会话。它随 `@link-assistant/hive-mind` 一起发布，因此安装该包后（全局安装、通过 `npx` 或在项目中）即可在 `PATH` 中使用。
 
 它会扫描已分离的 GNU screen 会话，查找已完成且 PR 可合并的 solve 运行（回滚内容同时包含 `process completed` 以及 `PR is mergeable!` 或 `PR merged!`），然后列出、进入或关闭它们。`--list`、`--enter` 和 `--close` 使用**相同的匹配条件**，因此 `--list` 显示的内容正是 `--close` 将要处理的集合——先用 `--list` 排查，再用 `--close` 重新运行。
 
 ```bash
 # 安全预览——显示所有已完成且可合并的 solve 会话。
-hive-screens --list
+hive-manager screens --list
 
 # 关闭最旧的已完成会话。
-hive-screens --close
+hive-manager screens --close
 
 # 进入最新的已完成会话。
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # 关闭所有已完成会话。
-hive-screens --close --all
+hive-manager screens --close --all
 
 # 扫描时输出诊断信息（匹配失败时很有用）。
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` 默认使用 `--all`，因此单独的 `hive-screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-screens --help` 查看完整选项列表。
+`--list` 默认使用 `--all`，因此单独的 `hive-manager screens --list` 会显示所有匹配项。`--enter` 和 `--close` 默认使用 `--oldest`，因为它们会改变状态。可传入 `--oldest`、`--newest` 或 `--all` 覆盖默认值。运行 `hive-manager screens --help` 查看完整选项列表。
 
 ### 重启服务器
 

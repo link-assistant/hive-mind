@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` 很重要：它审计的是**已提交的**锁文件，因此结果就是使用者会得到的结果，无法靠只发生在这台 runner 上的版本解析把它变绿。请把等价的任务放到定时计划中运行，因为只有定时运行才能发现在代码停止变动之后才发布的公告。相关的 workflow 任务写法参见 [CI/CD 最佳实践](./CI-CD-BEST-PRACTICES.zh.md)。
 
+当某个安全公告根本没有修复版本时，不要降低 `--audit-level`，也不要删除该任务。在例外文件中记录公告、包名、确切的受影响版本范围以及它在此处不适用的原因，并让检查在公告的范围发生变化（已发布修复）或不再被报告（例外已过时）时再次失败。本仓库通过 `scripts/check-npm-audit.mjs` 和 `scripts/npm-audit-exceptions.json` 实现这一点。
+
 ### 10. 把阻塞问题反馈给上游
 
 当更新被某个依赖的 bug 阻塞时，请到该项目的 GitHub 上提 issue，附带可复现示例、这里采用的变通方案，以及以代码形式给出的修复建议——然后在工作中链接这份反馈，而不是悄悄把版本退回去。带链接的版本锁定是一个被跟踪的决定；没有链接的版本锁定是永久的。
@@ -195,11 +197,12 @@ fix https://github.com/owner/repo --update-all-dependencies
 
 该命令会：
 
-1. **检测仓库使用的语言**，通过 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
-2. **列出默认分支的文件树**（`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`），找出所有已提交的清单文件和锁文件，并跳过 `node_modules/`、`vendor/`、`.venv/`、`target/` 等 vendored 目录。
-3. **把两种信号映射到包生态系统。** 任何一种信号单独使用都是错的：Linguist 会漏掉没有自身源代码的生态系统（GitHub Actions、Docker、Terraform），而清单文件会漏掉清单不常见或根本没有清单的语言。
-4. **创建一个维护 issue**，其中列出每个检测到的生态系统、找到的清单文件、需要重新生成的锁文件、该生态系统中能跨越大版本的命令、恰好覆盖这些生态系统的现成 `.github/dependabot.yml`，以及依据上述原则构建的标准提示词。该 issue 以 **Task** 类型创建，并带上 `dependencies` 标签。
-5. **把 issue 交给 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**，由它迭代直到更新被合并。凡是 `fix` 自己不消费的选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
+1. **不等待 CI/CD，合并所有打开的 Dependabot pull request**（[issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)），从最早的开始，并且先于任何其他检查——这样 issue 描述的是 Dependabot 更新落地之后的仓库，求解器也不必手动重做这些更新。
+2. **检测仓库使用的语言**，通过 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
+3. **列出默认分支的文件树**（`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`），找出所有已提交的清单文件和锁文件，并跳过 `node_modules/`、`vendor/`、`.venv/`、`target/` 等 vendored 目录。
+4. **把两种信号映射到包生态系统。** 任何一种信号单独使用都是错的：Linguist 会漏掉没有自身源代码的生态系统（GitHub Actions、Docker、Terraform），而清单文件会漏掉清单不常见或根本没有清单的语言。
+5. **创建一个维护 issue**，其中列出每个检测到的生态系统、找到的清单文件、需要重新生成的锁文件、该生态系统中能跨越大版本的命令、恰好覆盖这些生态系统的现成 `.github/dependabot.yml`，以及依据上述原则构建的标准提示词。该 issue 以 **Task** 类型创建，并带上 `dependencies` 标签。
+6. **把 issue 交给 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**，由它迭代直到更新被合并。凡是 `fix` 自己不消费的选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
 
 使用 `--dry-run` 可以预览 issue 而不实际创建，使用 `--no-solve` 可以只创建 issue 而不启动 `/solve`：
 
@@ -208,11 +211,30 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+issue 以 **Open Dependabot pull requests handled before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。GitHub 尚未计算出的可合并状态（`UNKNOWN`）会先重新读取。每个 pull request 都会先与基础分支比较：如果基础分支已经把它升级的每个依赖（包括 `global.json` 中的 .NET SDK 和 Rust 工具链）固定在相同或更新的版本，就以"已被取代"关闭，并在评论中列出这些版本，即使 GitHub 报告它可以合并（[issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)）。与基础分支冲突的 pull request（"the merge commit cannot be cleanly created"）绝不会用 `--admin` 重试，而是请 Dependabot 重建它（`@dependabot recreate`）。如果要求分支保持最新的 ruleset 即使在 `--admin` 下也拒绝合并（"Repository rule violations found"），会列出该 ruleset 及其必需检查，请 Dependabot 变基该 pull request（`@dependabot rebase`），并在必需检查通过后合并。Dependabot 有三分钟推送重建或变基后的提交，整个等待受 `--dependabot-wait-timeout <分钟>` 限制（默认 30；`0` 表示不等待）。当 Dependabot 的配置不再覆盖其文件时，它不会自行关闭这类 pull request（[issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)）。仍然无法合并的 pull request（草稿、未通过的必需检查、在等待时间内未完成的重建或变基）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新。`--dry-run` 只列出将被合并、关闭或重建的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
+
+```bash
+fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+```
+
+检查完仓库后会立即创建 issue，但只有当默认分支上不再有未完成的 GitHub Actions 运行时才会启动 `/solve`，因此 AI 工作不会基于仍在变化的默认分支开始，也不会依据即将改变的运行结果进行推理。等待期间每 30 秒轮询一次，超过 `--ci-wait-timeout <分钟>`（默认 60）后放弃等待，使用 `--no-wait-for-ci` 可跳过等待。等待期间，Telegram 回复会单独显示“⏳ 正在等待 CI/CD 完成”状态及仍在运行的工作流；如果运行在等待期间完成，其最新结果会以评论形式发布到 issue 中（[issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)）：
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### 为什么 issue 是 Task 类型，以及省略了什么
 
 `/solve --deep-analysis` **只对 Bug 类型的 issue** 输出根因分析和调试输出方面的指导，而依赖升级并没有需要查找的根因。把 issue 创建为 `Task` 会选中该提示词的非 bug 变体——调研、需求覆盖、方案规划——这才是这里真正有用的部分。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会被创建，只是不带这些属性。
 
-`--deep-analysis` 同时也提供了[原则 10](#10-把阻塞问题反馈给上游) 中向上游反馈的指导，因此 `fix` 会从 issue 正文中省略该段落，避免重复下发。其余段落均无条件包含。
+`--update-all-dependencies` 会启用 `--report-dependencies-issues`，与 `--deep-analysis` 独立。即使转发了 deep analysis，生成的依赖更新 issue 仍包含向上游报告的段落。向相关依赖的上游报告通用逻辑、重复代码、缺失功能及导致本地变通方案的缺陷。先搜索已有报告，提供最小复现、受影响版本、本地变通方案和修复或功能建议，并在 pull request 中链接这些报告。保留必要的变通方案，让上游修复不会阻塞 pull request。使用 `--no-report-dependencies-issues`（或 `--report-dependencies-issues=false`）可从生成的 issue 和求解器提示词中移除此指令。也可通过 `--report-dependencies-issues` 单独启用报告。
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## `--update-all-dependencies` 选项
 

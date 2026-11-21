@@ -1,0 +1,59 @@
+Exact pushed SHA e375e9df5070f8fe37f1ea375ef8006884056bed.
+Commit 2026-10-31T03:24:22Z; Gemini run 41164253228 created 03:24:35Z.
+https://github.com/link-assistant/hive-mind/actions/runs/41164253228
+
+The overall workflow fails four earlier-stage storage jobs, investigated in
+native-gemini-storage-matrix.txt. The actual native ACP/restore job
+124428264867 and credential-read job 124428265094 both complete successfully.
+This is partial CI evidence, not a passing-workflow or completion claim.
+
+Preserved full workflow log: ci-logs/native-gemini-41164253228.log, 3,674 lines,
+reviewed in chunks of at most 1,500 lines. The four separate failed job logs
+and their complete diagnostic artifacts are also retained locally.
+
+ACP artifact 13028532375, native-gemini-acp-restore-experiment, 286,113 bytes.
+SHA-256 1453b0b521c5ac5d51892c1cb159520f47fafa4fbaa3c39b88b3e179cd0c7826.
+Downloaded all 418 files to:
+  /tmp/issue-3785-recovery/gemini-e375-acp-artifacts
+Inspected 66 control logs: 17 strict before failures and no unexpected
+assertions or tracebacks in the remaining controls. All 60 native network
+logs have errors []. Native CLI/SDK/scheduler/transport remain uninstrumented;
+only the bounded loopback TLS provider uses synthetic responses.
+
+New source-stage evidence:
+  - Strict helper append/read rollback and identical-byte inode replacement
+    each fail before complete-evidence repair. Full repaired suite: 69 PASS.
+  - Actual legacy and agent-session headless inference lose recorded tool
+    evidence before repair; repaired and reconstructed packages refuse it.
+  - Actual terminal and ACP deliver the answer before audit refusal at stage
+    23. Both strict before controls fail. Stage 24 refuses response delivery
+    and a subsequent real prompt, retaining protected audit/project evidence
+    plus substituted bytes/inode. After/fresh controls: three PASS each.
+  - A native discovery peer appends its native summary while the original
+    terminal retains its writer. That terminal's next inference succeeds
+    with original history and the complete prior audit: two PASS.
+  - A real terminal waits on the inspected canonical lock inode. Release
+    admits exactly one original-history request: two PASS. Kill/reap before
+    release preserves project/metadata/audit; fresh recovery: three PASS.
+  - Fresh reconstruction applies twenty-four exact checked source stages,
+    compares all seventeen native manager/CLI/helper files byte for byte,
+    and verifies applicability checks make no source mutation.
+    Manager 91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28.
+    Helper 4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd.
+
+Surrounding controls:
+  - Actual root/child editing, fresh discovery and parent resume: three PASS.
+    Unselected private behavior and unsafe child-directory refusals pass.
+  - Actual terminal durable/manual restore: three PASS; automatic resume:
+    four PASS. ACP durable restore: three PASS. Both headless engines:
+    four PASS each, including whole private-home disposal and third reopen.
+  - Full metadata 54, terminal shell 28, authentication writers 41, native
+    request paths 30 and reads 11 assertions pass.
+  - Unsafe metadata, private behavior, canceled approval, checkpoint listing,
+    retained lifetime and live-owner refusal/recovery controls pass.
+
+This SHA precedes child-edit restoration through fresh parent sessions and
+the stage-specific CI suite correction. Their exact-head CI remains required.
+Process-local evidence does not prove persisted rollback authority, direct
+child continuation, all writers, publication/power loss, production installation
+or the complete six-tool lifecycle. Those acceptance criteria remain open.

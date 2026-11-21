@@ -75,7 +75,7 @@ export function buildUserMention({ user, id: idParam, username: usernameParam, f
     }
     case 'MarkdownV2': {
       // MarkdownV2 requires escaping special characters
-      const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+      const escapedName = displayName.replace(/([\\_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
       return `[${escapedName}](${link})`;
     }
     case 'HTML':

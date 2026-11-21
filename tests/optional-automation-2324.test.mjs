@@ -9,7 +9,10 @@ import { execFileSync } from 'node:child_process';
 test('Codex cancellation stops the real shell after the repeated-call breaker fires', { timeout: 15_000 }, () => {
   const evidence = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=128', 'experiments/issue-2324/codex-cancellation-probe.mjs'], { encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'] }));
   assert.equal(evidence.success, false);
-  assert.equal(evidence.input, 'finite cancellation probe | prompt data');
+  // Issue #4023 puts the location-privacy policy ahead of the prompt.
+  assert.equal(evidence.input, evidence.expectedInput);
+  assert.ok(evidence.input.endsWith('\n\nfinite cancellation probe | prompt data'), 'the prompt reaches Codex stdin verbatim');
+  assert.match(evidence.input, /^Location privacy: /);
   assert.match(evidence.breaker, /Repeated-tool-call breaker/);
   assert.ok(evidence.observations.length > 0, 'the production adapter must spawn a real child');
   assert.ok(evidence.observations.filter(observation => observation.delay === 500).every(observation => !observation.exists));
@@ -107,7 +110,7 @@ test('a single-component repository in a custom registry has no Docker Hub libra
     { current: '1.0.0' },
     {
       fetchImpl: async url => {
-        assert.equal(url, 'https://registry.example/v2/image/tags/list');
+        assert.equal(url, 'https://registry.example/v2/image/tags/list?n=1000');
         return { ok: true, json: async () => ({ tags: ['1.0.0', '1.1.0'] }) };
       },
     }

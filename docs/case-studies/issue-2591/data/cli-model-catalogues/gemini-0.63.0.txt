@@ -1,0 +1,134 @@
+Gemini CLI model catalogue evidence (issue #2591)
+================================================
+Collected: 2026-10-10, read-only inspection of the installed package. No model API was called.
+Binary:  ~/.bun/bin/gemini -> ~/.bun/install/global/node_modules/@google/gemini-cli/bundle/gemini.js
+Root:    P=~/.bun/install/global/node_modules/@google/gemini-cli
+
+1. Version
+----------
+$ gemini --version
+0.63.0
+$P/package.json:3   "version": "0.63.0",
+
+Which bundle chunk is live (several stale duplicate chunks ship in bundle/):
+$P/bundle/gemini.js:10    import "./chunk-RWBXO4OP.js";      (core: packages/core/dist/src/config/models.js)
+$P/bundle/gemini.js:110   const { main } = await import("./gemini-6YZTUGIX.js");   (CLI: packages/cli)
+Below, C=$P/bundle/chunk-RWBXO4OP.js and M=$P/bundle/gemini-6YZTUGIX.js.
+
+2. Model constants (C, "packages/core/dist/src/config/models.js")
+-----------------------------------------------------------------
+C:279950  PREVIEW_GEMINI_MODEL               = "gemini-3-pro-preview"
+C:279951  PREVIEW_GEMINI_3_1_MODEL           = "gemini-3.1-pro-preview"
+C:279952  PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL = "gemini-3.1-pro-preview-customtools"
+C:279953  PREVIEW_GEMINI_FLASH_MODEL         = "gemini-3-flash-preview"
+C:279954  DEFAULT_GEMINI_MODEL               = "gemini-2.5-pro"
+C:279955  BASE_GEMINI_FLASH_MODEL            = "gemini-3.5-flash"
+C:279956  LATEST_GEMINI_FLASH_MODEL          = "gemini-3.8-flash"
+C:279957  LEGACY_CCPA_FLASH_MODEL            = "gemini-3-flash"
+C:279960  BASE_GEMINI_FLASH_LITE_MODEL       = "gemini-3.1-flash-lite"
+C:279961  LATEST_GEMINI_FLASH_LITE_MODEL     = "gemini-3.5-flash-lite"
+C:279962  DEFAULT_GEMINI_FLASH_MODEL         = BASE_GEMINI_FLASH_MODEL       (= gemini-3.5-flash)
+C:279963  DEFAULT_GEMINI_FLASH_LITE_MODEL    = BASE_GEMINI_FLASH_LITE_MODEL  (= gemini-3.1-flash-lite)
+C:279976  PREVIEW_GEMINI_FLASH_LITE_MODEL    = "none"
+C:279977  GEMMA_4_31B_IT_MODEL               = "gemma-4-31b-it"
+C:279978  GEMMA_4_26B_A4B_IT_MODEL           = "gemma-4-26b-a4b-it"
+C:280013  PREVIEW_GEMINI_MODEL_AUTO          = "auto-gemini-3"
+C:280014  DEFAULT_GEMINI_MODEL_AUTO          = "auto-gemini-2.5"
+C:280015-280018  aliases: "auto", "pro", "flash", "flash-lite"
+
+C:279979-279997 VALID_GEMINI_MODELS = { gemini-3-pro-preview, gemini-3.1-pro-preview,
+  gemini-3.1-pro-preview-customtools, gemini-3-flash-preview, "none", gemini-2.5-pro,
+  gemini-3.5-flash, gemini-3-flash, gemini-3.1-flash-lite, gemini-3.8-flash,
+  gemini-3.5-flash-lite, gemma-4-31b-it, gemma-4-26b-a4b-it }
+  NOTE: gemini-2.5-flash and gemini-2.5-flash-lite are NOT in VALID_GEMINI_MODELS.
+  They survive only as entries of the (opt-in) dynamic model config
+  (C:361709 "gemini-2.5-flash", C:361716 "gemini-2.5-flash-lite", C:361832 resolution:
+  gemini-2.5-flash -> gemini-3.8-flash when useLatestFlash).
+
+C:279998-280012 getBackendModelMappings(): on the Code Assist backend
+  gemini-3.5-flash is sent as gemini-3-flash; with latest-flash GA access both
+  gemini-3.5-flash and gemini-3-flash are sent as gemini-3.8-flash; with latest
+  flash-lite GA access gemini-3.1-flash-lite is sent as gemini-3.5-flash-lite.
+C:381532-381545 hasLatestFlashGAAccess(): true when Gemini 3.1 is launched for the
+  auth type or experiment flag LATEST_FLASH_GA_LAUNCHED is set; then calls
+  setFlashModels(...) so DEFAULT_GEMINI_FLASH_MODEL becomes gemini-3.8-flash.
+
+3. Default model
+----------------
+M:8455  const defaultModel = GEMINI_MODEL_ALIAS_AUTO;               -> "auto"
+M:8456  const rawModel = argv.model || process3.env["GEMINI_MODEL"] || settings.model?.name;
+M:8458  resolvedModel = specifiedModel === "auto" ? defaultModel : specifiedModel || defaultModel;
+=> With no -m / GEMINI_MODEL / settings.model.name, Gemini CLI runs "auto"
+   (router between pro and flash; see getAutoModelDescription at C:280021-280025).
+
+4. Alias resolution (static path, the default)
+----------------------------------------------
+Dynamic config is off by default:
+C:379860  this.dynamicModelConfiguration = params.dynamicModelConfiguration ?? false;
+M:8652    dynamicModelConfiguration: settings.experimental?.dynamicModelConfiguration,
+So resolveModel() (C:280026) uses its switch statement (C:280050-280083):
+
+alias / id          | preview access, no GA flags | with Gemini 3.1 launched | latest-flash(-lite) GA | no preview access
+--------------------+-----------------------------+--------------------------+------------------------+------------------
+auto (C:280051)     | gemini-3-pro-preview        | gemini-3.1-pro-preview   | (pro unchanged)        | gemini-2.5-pro
+pro  (C:280052)     | gemini-3-pro-preview        | gemini-3.1-pro-preview   | (pro unchanged)        | gemini-2.5-pro
+auto-gemini-3       | gemini-3-pro-preview        | gemini-3.1-pro-preview   |                        | gemini-2.5-pro
+auto-gemini-2.5     | gemini-2.5-pro (C:280067)   |                          |                        | gemini-2.5-pro
+flash (C:280071)    | gemini-3-flash-preview      |                          | gemini-3.8-flash       | gemini-3.5-flash
+flash-lite (C:280075)| gemini-3.1-flash-lite      |                          | gemini-3.5-flash-lite  | gemini-3.1-flash-lite
+(custom tools + Gemini API key: pro -> gemini-3.1-pro-preview-customtools)
+Any other string is passed through unchanged (C:280079 default branch), then
+promoted to gemini-3.8-flash / gemini-3.5-flash-lite when GA flags are on
+(C:280087-280092 isPromotable*).
+
+Dynamic-config table (experimental opt-in) agrees, C:361778-361945 modelIdResolutions:
+  C:361855 auto  default "gemini-3-pro-preview" (no preview -> gemini-2.5-pro; 3.1 -> gemini-3.1-pro-preview)
+  C:361869 pro   same as auto
+  C:361901 flash default "gemini-3-flash-preview" (latest -> gemini-3.8-flash; no preview -> gemini-3.5-flash)
+  C:361914 flash-lite default gemini-3.1-flash-lite (latest -> gemini-3.5-flash-lite)
+  C:361937 auto-gemini-2.5 -> gemini-2.5-pro
+
+5. Models the /model picker offers (M:14998-15065 buildAvailableModels)
+-----------------------------------------------------------------------
+  auto (M:15021)                       "Let Gemini CLI decide ..."
+  gemini-2.5-pro           DEFAULT_GEMINI_MODEL           (M:15032)
+  gemini-3.5-flash         DEFAULT_GEMINI_FLASH_MODEL     (M:15036; gemini-3.8-flash under GA flag)
+  gemini-3.1-flash-lite    DEFAULT_GEMINI_FLASH_LITE_MODEL(M:15040; gemini-3.5-flash-lite under GA flag)
+  + with preview access: gemini-3-pro-preview or gemini-3.1-pro-preview(-customtools),
+    gemini-3-flash-preview (M:15044-15063)
+Dynamic config visible definitions (C:361644-361777, isVisible:true):
+  gemini-3.1-flash-lite, gemini-3.5-flash-lite, gemini-3.1-pro-preview, gemini-3-pro-preview,
+  gemini-3-flash-preview, gemini-3.5-flash, gemini-3.8-flash, gemini-2.5-pro, gemini-2.5-flash,
+  gemini-2.5-flash-lite, gemma-4-31b-it, gemma-4-26b-a4b-it, auto.
+
+6. Hive Mind catalogue comparison
+---------------------------------
+Hive Mind: /tmp/gh-issue-solver-1791617397327/src/models/catalog.mjs
+  :251-271 geminiModels ; :280 defaultModels.gemini = 'flash'
+  src/models/index.mjs:161 maps the user's alias through geminiModels before calling the CLI,
+  so the mapped value (not the alias) is what Gemini CLI receives.
+
+Hive key            -> Hive value              | Gemini CLI 0.63.0 reality
+auto                -> auto                    | OK (pass-through to CLI router)
+flash               -> gemini-2.5-flash        | STALE: CLI 'flash' = gemini-3-flash-preview / gemini-3.8-flash / gemini-3.5-flash
+pro                 -> gemini-2.5-pro          | STALE: CLI 'pro' = gemini-3-pro-preview / gemini-3.1-pro-preview (2.5-pro only w/o preview)
+flash-lite          -> gemini-2.5-flash-lite   | STALE: CLI 'flash-lite' = gemini-3.1-flash-lite / gemini-3.5-flash-lite
+gemini              -> gemini-2.5-flash        | Hive-only alias, stale target
+gemini-flash        -> gemini-2.5-flash        | Hive-only alias, stale target
+gemini-pro          -> gemini-2.5-pro          | Hive-only alias, stale target
+lite, 2.5-lite      -> gemini-2.5-flash-lite   | Hive-only; not in VALID_GEMINI_MODELS
+2.5-flash           -> gemini-2.5-flash        | Hive-only; not in VALID_GEMINI_MODELS
+2.5-pro             -> gemini-2.5-pro          | OK (still DEFAULT_GEMINI_MODEL, C:279954)
+3-flash             -> gemini-3-flash-preview  | OK (preview, C:279953)
+3-pro               -> gemini-3-pro-preview    | OK (preview, C:279950)
+gemini-2.5-flash    | listed                   | legacy: not in VALID_GEMINI_MODELS (C:279979-279997)
+gemini-2.5-flash-lite | listed                 | legacy: not in VALID_GEMINI_MODELS
+gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview | listed | OK
+
+MISSING from geminiModels (offered by CLI 0.63.0):
+  gemini-3.5-flash, gemini-3.8-flash, gemini-3-flash, gemini-3.1-flash-lite,
+  gemini-3.5-flash-lite, gemini-3.1-pro-preview, gemini-3.1-pro-preview-customtools,
+  gemma-4-31b-it, gemma-4-26b-a4b-it, auto-gemini-3, auto-gemini-2.5.
+
+Default: Hive defaultModels.gemini = 'flash' -> sends 'gemini-2.5-flash' (stale);
+Gemini CLI's own default is 'auto' (M:8455).

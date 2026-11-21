@@ -8,18 +8,28 @@ function addLine(parts, key, params, locale) {
   parts.push(tr(key, params, locale));
 }
 
+// Every value is Markdown already: `requester` comes from buildUserMention and
+// callers pass `url`/`optionsRaw`/`lockedOptions` through escapeMarkdown.
 export function buildTelegramInfoBlock({ locale = null, requester = '', urlKind = 'url', url = '', optionsRaw = '', lockedOptions = '' } = {}) {
   const labelKey = urlKind === 'issue' ? 'telegram.info_issue_label' : urlKind === 'pullRequest' ? 'telegram.info_pull_request_label' : 'telegram.info_url_label';
-  let infoBlock = `${tr('telegram.info_requested_by_label', {}, locale)}: ${requester}\n${tr(labelKey, {}, locale)}: ${url}`;
-  if (optionsRaw) infoBlock += `\n\n${tr('telegram.info_options_label', {}, locale)}: ${optionsRaw}`;
-  if (lockedOptions) infoBlock += `${optionsRaw ? '\n' : '\n\n'}${tr('telegram.info_locked_options_label', {}, locale)}: ${lockedOptions}`;
+  let infoBlock = `${tr('telegram.info_requested_by_label', {}, locale)}: ${requester}\n${tr(labelKey, {}, locale)}: ${url}`; // telegram-markdown-ok: mention and escaped URL from the caller
+  if (optionsRaw) infoBlock += `\n\n${tr('telegram.info_options_label', {}, locale)}: ${optionsRaw}`; // telegram-markdown-ok: escaped by the caller
+  if (lockedOptions) infoBlock += `${optionsRaw ? '\n' : '\n\n'}${tr('telegram.info_locked_options_label', {}, locale)}: ${lockedOptions}`; // telegram-markdown-ok: escaped by the caller
   return infoBlock;
 }
 
 export function buildSolveQueuedMessage({ locale = null, tool = 'claude', position = 1, infoBlock = '', reason = '' } = {}) {
   let message = tr('telegram.solve_queued', { tool, position }, locale);
   if (infoBlock) message += `\n\n${infoBlock}`;
-  if (reason) message += `\n\n${tr('telegram.waiting_label', {}, locale)}: ${reason}`;
+  if (reason) message += `\n\n${tr('telegram.waiting_label', {}, locale)}: ${reason}`; // telegram-markdown-ok: the caller escapes the throttling reason
+  return message;
+}
+
+/** Issue #4069: a task that starts only after other tasks (`/after`, `/enqueue`, `--respect-blockers`). `waitingText` is escaped Markdown. */
+export function buildSolveWaitingForTasksMessage({ locale = null, infoBlock = '', waitingText = '' } = {}) {
+  let message = tr('telegram.solve_after_queued', {}, locale);
+  if (waitingText) message += `\n${waitingText}`; // telegram-markdown-ok: planSolveLaunchWait escapes the task links
+  if (infoBlock) message += `\n\n${infoBlock}`;
   return message;
 }
 
@@ -51,6 +61,8 @@ export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '',
     addLine(message, 'telegram.help_solve_example', {}, locale);
     addLine(message, 'telegram.help_solve_alias_detail', {}, locale);
     addLine(message, 'telegram.help_solve_reply', {}, locale);
+    addLine(message, 'telegram.help_solve_after', {}, locale); // #4069
+    addLine(message, 'telegram.help_solve_respect_blockers', {}, locale);
     if (solveOverrides.length > 0) addLine(message, 'telegram.help_locked_options', { options: solveOverrides.join(' ') }, locale);
     message.push('');
   } else {
@@ -102,13 +114,14 @@ export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '',
     message.push('');
   }
 
-  const simpleCommandKeys = ['telegram.help_solve_queue', 'telegram.help_models', 'telegram.help_limits', 'telegram.help_version', 'telegram.help_language', 'telegram.help_accept_invites', 'telegram.help_merge', 'telegram.help_merge_usage', 'telegram.help_merge_description', 'telegram.help_subscribe', 'telegram.help_help', 'telegram.help_stop_start', 'telegram.help_stop_uuid', 'telegram.help_pause_resume', 'telegram.help_log', 'telegram.help_terminal_watch'];
+  const simpleCommandKeys = ['telegram.help_solve_queue', 'telegram.help_models', 'telegram.help_limits', 'telegram.help_version', 'telegram.help_who', 'telegram.help_language', 'telegram.help_accept_invites', 'telegram.help_merge', 'telegram.help_merge_usage', 'telegram.help_merge_description', 'telegram.help_subscribe', 'telegram.help_help', 'telegram.help_stop_start', 'telegram.help_stop_uuid', 'telegram.help_pause_resume', 'telegram.help_log', 'telegram.help_terminal_watch'];
   for (const key of simpleCommandKeys) addLine(message, key, {}, locale);
   message.push('');
   addLine(message, 'telegram.help_notifications', {}, locale);
   if (isolationBackend) addLine(message, 'telegram.help_isolation_mode', { isolationBackend }, locale);
   message.push('');
   addLine(message, 'telegram.help_group_note', {}, locale);
+  addLine(message, 'telegram.help_group_addressing', {}, locale);
   message.push('');
   addLine(message, 'telegram.help_common_options', {}, locale);
   addLine(message, 'telegram.help_model_option', { modelDescription }, locale);

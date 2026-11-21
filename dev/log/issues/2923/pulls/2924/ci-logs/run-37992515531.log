@@ -1,0 +1,311 @@
+prepare	Set up job	﻿2026-10-09T21:19:41.8668252Z Current runner version: '2.337.0'
+prepare	Set up job	2026-10-09T21:19:41.8704981Z ##[group]Runner Image Provisioner
+prepare	Set up job	2026-10-09T21:19:41.8706311Z Hosted Compute Agent
+prepare	Set up job	2026-10-09T21:19:41.8707394Z Version: 20261002.596
+prepare	Set up job	2026-10-09T21:19:41.8708445Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+prepare	Set up job	2026-10-09T21:19:41.8709630Z Build Date: 2026-10-02T22:28:27Z
+prepare	Set up job	2026-10-09T21:19:41.8710866Z Worker ID: {26c24b19-8973-4ad9-ad32-ac13c02cdaf2}
+prepare	Set up job	2026-10-09T21:19:41.8711998Z Region: eastus2
+prepare	Set up job	2026-10-09T21:19:41.8713005Z Cloud: Azure
+prepare	Set up job	2026-10-09T21:19:41.8713934Z ##[endgroup]
+prepare	Set up job	2026-10-09T21:19:41.8717136Z ##[group]Operating System
+prepare	Set up job	2026-10-09T21:19:41.8718204Z Ubuntu
+prepare	Set up job	2026-10-09T21:19:41.8719012Z 24.04.5
+prepare	Set up job	2026-10-09T21:19:41.8719925Z LTS
+prepare	Set up job	2026-10-09T21:19:41.8720848Z ##[endgroup]
+prepare	Set up job	2026-10-09T21:19:41.8721808Z ##[group]Runner Image
+prepare	Set up job	2026-10-09T21:19:41.8722779Z Image: ubuntu-24.04
+prepare	Set up job	2026-10-09T21:19:41.8723738Z Version: 20261004.327.1
+prepare	Set up job	2026-10-09T21:19:41.8725999Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+prepare	Set up job	2026-10-09T21:19:41.8729206Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+prepare	Set up job	2026-10-09T21:19:41.8731022Z ##[endgroup]
+prepare	Set up job	2026-10-09T21:19:41.8733128Z ##[group]GITHUB_TOKEN Permissions
+prepare	Set up job	2026-10-09T21:19:41.8736560Z Actions: read
+prepare	Set up job	2026-10-09T21:19:41.8737664Z Contents: read
+prepare	Set up job	2026-10-09T21:19:41.8738711Z Metadata: read
+prepare	Set up job	2026-10-09T21:19:41.8739615Z ##[endgroup]
+prepare	Set up job	2026-10-09T21:19:41.8742815Z Secret source: Actions
+prepare	Set up job	2026-10-09T21:19:41.8744544Z Cache mode: write
+prepare	Set up job	2026-10-09T21:19:41.8745904Z Prepare workflow directory
+prepare	Set up job	2026-10-09T21:19:41.9239180Z Prepare all required actions
+prepare	Set up job	2026-10-09T21:19:41.9310943Z Getting action download info
+prepare	Set up job	2026-10-09T21:19:42.1531067Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+prepare	Set up job	2026-10-09T21:19:42.2370761Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+prepare	Set up job	2026-10-09T21:19:42.4735683Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+prepare	Set up job	2026-10-09T21:19:42.8251866Z Complete job name: prepare
+prepare	Run actions/checkout@v7	﻿2026-10-09T21:19:42.9099970Z ##[group]Run actions/checkout@v7
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9100953Z with:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9101441Z   persist-credentials: false
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9102012Z   repository: link-assistant/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9106141Z   token: ***
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9106625Z   ssh-strict: true
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9107085Z   ssh-user: git
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9107582Z   clean: true
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9108047Z   sparse-checkout-cone-mode: true
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9108589Z   fetch-depth: 1
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9109027Z   fetch-tags: false
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9109480Z   show-progress: true
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9109950Z   lfs: false
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9110379Z   submodules: false
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9110852Z   set-safe-directory: true
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9111370Z   allow-unsafe-pr-checkout: false
+prepare	Run actions/checkout@v7	2026-10-09T21:19:42.9112206Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0137004Z Syncing repository: link-assistant/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0139897Z ##[group]Getting Git version info
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0141093Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0142926Z [command]/usr/bin/git version
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0197469Z git version 2.55.0
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0220279Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0232520Z Temporarily overriding HOME='/home/runner/work/_temp/af052799-2156-4a63-8e37-1edfaff20255' before making global git config changes
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0235352Z Adding repository directory to the temporary git global config as a safe directory
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0250103Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0299229Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0303027Z ##[group]Determining repository object format
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0305334Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0306628Z ##[group]Initializing the repository
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0309853Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0407482Z hint: Using 'master' as the name for the initial branch. This default branch name
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0412561Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0415541Z hint: to use in all of your new repositories, which will suppress this warning,
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0417103Z hint: call:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0418075Z hint:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0419227Z hint: 	git config --global init.defaultBranch <name>
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0420376Z hint:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0421285Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0422606Z hint: 'development'. The just-created branch can be renamed via this command:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0424883Z hint:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0425972Z hint: 	git branch -m <name>
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0427051Z hint:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0428619Z hint: Disable this message with "git config set advice.defaultBranchName false"
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0430482Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0433769Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0471980Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0473555Z ##[group]Disabling automatic garbage collection
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0476440Z [command]/usr/bin/git config --local gc.auto 0
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0513589Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0515669Z ##[group]Setting up auth
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0517174Z Removing SSH command configuration
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0520721Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0578383Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0956487Z Removing HTTP extra header
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.0962118Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1006405Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1237336Z Removing includeIf entries pointing to credentials config files
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1243167Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1289504Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1527655Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1570969Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1609626Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1651973Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1690419Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1723535Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1725122Z ##[group]Fetching the repository
+prepare	Run actions/checkout@v7	2026-10-09T21:19:43.1730717Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d1fa7c7000be14f39d433c665c4af56d6b94eeba:refs/remotes/origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5336829Z From https://github.com/link-assistant/hive-mind
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5337730Z  * [new ref]         d1fa7c7000be14f39d433c665c4af56d6b94eeba -> origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5348452Z [command]/usr/bin/git branch --list --remote origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5379066Z   origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5387926Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5415386Z d1fa7c7000be14f39d433c665c4af56d6b94eeba
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5419015Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5419609Z ##[group]Determining the checkout info
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5420587Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5425435Z [command]/usr/bin/git sparse-checkout disable
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5478470Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5512037Z ##[group]Checking out the ref
+prepare	Run actions/checkout@v7	2026-10-09T21:19:53.5516145Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.6721359Z Updating files:  24% (2112/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.7165865Z Updating files:  25% (2147/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.7513678Z Updating files:  26% (2233/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.7741782Z Updating files:  27% (2318/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.7997297Z Updating files:  28% (2404/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.8725275Z Updating files:  29% (2490/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.9133696Z Updating files:  30% (2576/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.9259380Z Updating files:  31% (2662/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:54.9429032Z Updating files:  32% (2748/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.1061609Z Updating files:  33% (2834/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.1282315Z Updating files:  34% (2919/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.1895935Z Updating files:  35% (3005/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.3633320Z Updating files:  36% (3091/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.4088318Z Updating files:  37% (3177/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.4838219Z Updating files:  38% (3263/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.5408118Z Updating files:  39% (3349/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.5727125Z Updating files:  40% (3434/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.5808770Z Updating files:  40% (3494/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.6541422Z Updating files:  41% (3520/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.7085225Z Updating files:  42% (3606/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.7344918Z Updating files:  43% (3692/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.7606369Z Updating files:  44% (3778/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.8035898Z Updating files:  45% (3864/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.8345471Z Updating files:  46% (3950/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.8409799Z Updating files:  47% (4035/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.9401607Z Updating files:  48% (4121/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:55.9714453Z Updating files:  49% (4207/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.0448526Z Updating files:  50% (4293/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.0507371Z Updating files:  51% (4379/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.0617069Z Updating files:  52% (4465/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.1028058Z Updating files:  53% (4551/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.1303143Z Updating files:  54% (4636/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.1400264Z Updating files:  55% (4722/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.1489093Z Updating files:  56% (4808/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.2550140Z Updating files:  57% (4894/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.3156057Z Updating files:  58% (4980/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.4152595Z Updating files:  59% (5066/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.4347721Z Updating files:  60% (5151/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.4620255Z Updating files:  61% (5237/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5002259Z Updating files:  62% (5323/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5145152Z Updating files:  63% (5409/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5292718Z Updating files:  64% (5495/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5680389Z Updating files:  65% (5581/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5835490Z Updating files:  65% (5625/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.5969618Z Updating files:  66% (5667/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.6018191Z Updating files:  67% (5752/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.6109023Z Updating files:  68% (5838/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.6206043Z Updating files:  69% (5924/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.7105108Z Updating files:  70% (6010/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.7283934Z Updating files:  71% (6096/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.9248595Z Updating files:  72% (6182/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:56.9717327Z Updating files:  73% (6268/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0043587Z Updating files:  74% (6353/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0117246Z Updating files:  75% (6439/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0163424Z Updating files:  76% (6525/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0206558Z Updating files:  77% (6611/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0254178Z Updating files:  78% (6697/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0306756Z Updating files:  79% (6783/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0763950Z Updating files:  80% (6868/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0824973Z Updating files:  81% (6954/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0868796Z Updating files:  82% (7040/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0916361Z Updating files:  83% (7126/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.0959742Z Updating files:  84% (7212/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1003304Z Updating files:  85% (7298/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1049068Z Updating files:  86% (7384/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1104190Z Updating files:  87% (7469/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1179025Z Updating files:  88% (7555/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1269985Z Updating files:  89% (7641/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1340615Z Updating files:  90% (7727/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1426366Z Updating files:  91% (7813/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1496030Z Updating files:  92% (7899/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1557712Z Updating files:  93% (7985/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1622551Z Updating files:  94% (8070/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1692350Z Updating files:  95% (8156/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1751873Z Updating files:  96% (8242/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1832190Z Updating files:  97% (8328/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1899503Z Updating files:  98% (8414/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1961330Z Updating files:  99% (8500/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1961887Z Updating files: 100% (8585/8585)
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.1962450Z Updating files: 100% (8585/8585), done.
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2062401Z Switched to a new branch 'main'
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2068201Z branch 'main' set up to track 'origin/main'.
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2154147Z ##[endgroup]
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2204926Z [command]/usr/bin/git log -1 --format=%H
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2238310Z d1fa7c7000be14f39d433c665c4af56d6b94eeba
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2249454Z ##[group]Removing auth
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2250377Z Removing SSH command configuration
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2255065Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2294557Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2530750Z Removing HTTP extra header
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2536249Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2586296Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2811391Z Removing includeIf entries pointing to credentials config files
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2815902Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2851864Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2865062Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2866207Z includeif.gitdir:/github/workspace/.git.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2877721Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2879811Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2898189Z /home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2908266Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-bbff4018\-fb21\-4719\-aa68\-effffa6418b9\.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2946985Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2974742Z /home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.2982540Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-bbff4018\-fb21\-4719\-aa68\-effffa6418b9\.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3025110Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3052409Z /github/runner_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3061553Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-bbff4018\-fb21\-4719\-aa68\-effffa6418b9\.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3098855Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3124405Z /github/runner_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3132710Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-bbff4018\-fb21\-4719\-aa68\-effffa6418b9\.config
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3171853Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3409560Z Removing credentials config '/home/runner/work/_temp/git-credentials-bbff4018-fb21-4719-aa68-effffa6418b9.config'
+prepare	Run actions/checkout@v7	2026-10-09T21:19:57.3419818Z ##[endgroup]
+prepare	Run actions/setup-node@v7	﻿2026-10-09T21:19:57.3678230Z ##[group]Run actions/setup-node@v7
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3678540Z with:
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3678746Z   node-version: 24.x
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3678973Z   check-latest: false
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3681538Z   token: ***
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3681843Z   package-manager-cache: true
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.3682121Z ##[endgroup]
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.4991090Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:57.5724104Z ##[group]Environment details
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8932662Z node: v24.21.0
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8933138Z npm: 11.19.0
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8933476Z yarn: 1.22.22
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8935039Z ##[endgroup]
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8939435Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:58.8958593Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:59.1263708Z /home/runner/.npm
+prepare	Run actions/setup-node@v7	2026-10-09T21:19:59.2091209Z npm cache is not found
+prepare	Install automation dependencies	﻿2026-10-09T21:19:59.2238775Z ##[group]Run npm ci --omit=dev --ignore-scripts
+prepare	Install automation dependencies	2026-10-09T21:19:59.2239237Z ^[[36;1mnpm ci --omit=dev --ignore-scripts^[[0m
+prepare	Install automation dependencies	2026-10-09T21:19:59.2497014Z shell: /usr/bin/bash -e {0}
+prepare	Install automation dependencies	2026-10-09T21:19:59.2497372Z ##[endgroup]
+prepare	Install automation dependencies	2026-10-09T21:20:03.9402389Z 
+prepare	Install automation dependencies	2026-10-09T21:20:03.9411803Z added 144 packages, and audited 145 packages in 5s
+prepare	Install automation dependencies	2026-10-09T21:20:03.9412167Z 
+prepare	Install automation dependencies	2026-10-09T21:20:03.9412403Z 36 packages are looking for funding
+prepare	Install automation dependencies	2026-10-09T21:20:03.9412738Z   run `npm fund` for details
+prepare	Install automation dependencies	2026-10-09T21:20:03.9416544Z 
+prepare	Install automation dependencies	2026-10-09T21:20:03.9416916Z found 0 vulnerabilities
+prepare	Compare the latest Formal AI tag with the last successful matrix	﻿2026-10-09T21:20:04.0004658Z ##[group]Run node scripts/e2e-matrix-schedule.mjs
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0005119Z ^[[36;1mnode scripts/e2e-matrix-schedule.mjs^[[0m
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0068803Z shell: /usr/bin/bash -e {0}
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0069071Z env:
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0071693Z   GH_TOKEN: ***
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0071991Z   E2E_METADATA_DIR: /home/runner/work/_temp/e2e-metadata
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:04.0072321Z ##[endgroup]
+prepare	Compare the latest Formal AI tag with the last successful matrix	2026-10-09T21:20:05.7450443Z Matrix skips: latest Formal AI v0.352.1, last successful matrix not recorded
+prepare	Run actions/upload-artifact@v7	﻿2026-10-09T21:20:05.7622225Z ##[group]Run actions/upload-artifact@v7
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7622553Z with:
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7622766Z   name: e2e-matrix-metadata
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7623210Z   path: /home/runner/work/_temp/e2e-metadata
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7623504Z   retention-days: 90
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7623733Z   if-no-files-found: warn
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7623971Z   compression-level: 6
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7624485Z   overwrite: false
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7624723Z   include-hidden-files: false
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7624978Z   archive: true
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.7625187Z ##[endgroup]
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.9079435Z With the provided path, there will be 1 file uploaded
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.9084074Z Artifact name is valid!
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:05.9085360Z Root directory input is valid!
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1197141Z Uploading artifact: e2e-matrix-metadata.zip
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1242328Z Beginning upload of artifact content to blob storage
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1791813Z Uploaded bytes 226
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1885376Z Finished uploading artifact content to blob storage!
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1887126Z SHA256 digest of uploaded artifact is 21ee8bcfe9e4656d511f8c2b3004894ecc3af506c5c0ffbfee56a3721ba9e874
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.1888453Z Finalizing artifact upload
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.4224870Z Artifact e2e-matrix-metadata successfully finalized. Artifact ID 11646185389
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.4226386Z Artifact e2e-matrix-metadata has been successfully uploaded! Final size is 226 bytes. Artifact ID is 11646185389
+prepare	Run actions/upload-artifact@v7	2026-10-09T21:20:06.4228999Z Artifact download URL: https://github.com/link-assistant/hive-mind/actions/runs/37992515531/artifacts/11646185389
+prepare	Post Run actions/setup-node@v7	﻿2026-10-09T21:20:06.4414817Z Post job cleanup.
+prepare	Post Run actions/setup-node@v7	2026-10-09T21:20:06.5764642Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --files-from manifest.txt --use-compress-program zstdmt
+prepare	Post Run actions/setup-node@v7	2026-10-09T21:20:07.4280388Z Sent 31964504 of 31964504 (100.0%), 44.6 MBs/sec
+prepare	Post Run actions/setup-node@v7	2026-10-09T21:20:07.5346344Z Cache saved with the key: node-cache-Linux-x64-npm-46fa1d15ff982bcbf3d1098ec2fe368068b54b7c52e5f8ea6744505968c8a321
+prepare	Post Run actions/checkout@v7	﻿2026-10-09T21:20:07.5491191Z Post job cleanup.
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6340313Z [command]/usr/bin/git version
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6393004Z git version 2.55.0
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6432780Z Temporarily overriding HOME='/home/runner/work/_temp/264fba84-fd4f-465b-b336-80fd6a2b0cb4' before making global git config changes
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6435157Z Adding repository directory to the temporary git global config as a safe directory
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6439037Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6472184Z Removing SSH command configuration
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6479317Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6516364Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6868360Z Removing HTTP extra header
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6875898Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.6956461Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.7282711Z Removing includeIf entries pointing to credentials config files
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.7290472Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+prepare	Post Run actions/checkout@v7	2026-10-09T21:20:07.7350934Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+prepare	Complete job	﻿2026-10-09T21:20:07.7794546Z Evaluate and set job outputs
+prepare	Complete job	2026-10-09T21:20:07.7799768Z Set output 'should_run'
+prepare	Complete job	2026-10-09T21:20:07.7801453Z Set output 'formal_ai_tag'
+prepare	Complete job	2026-10-09T21:20:07.7802603Z Cleaning up orphan processes

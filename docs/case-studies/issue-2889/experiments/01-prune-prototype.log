@@ -1,0 +1,33 @@
+$ docker rm -f kr2889-exp -> 0  
+$ docker image rm kr2889/snap:1 -> 1  Error response from daemon: No such image: kr2889/snap:1
+$ docker create --name kr2889-exp --entrypoint  rhysd/actionlint:1.7.12 sh -c p=$1; shift; if [ -f "$p" ]; then exec sh "$p"; fi; exec "$@" start-command-handoff /.start-command-resume-kr2889-exp sh -c  -> 0 659b2ab08fbf5cc463c03dbaebb6fdbbb26a727e4b2d64cb4bd7c95f843fcb03 
+$ docker start kr2889-exp -> 0 kr2889-exp 
+$ docker exec kr2889-exp touch /tmp/hive-mind-disk-baseline-x -> 0  
+$ docker kill kr2889-exp -> 0 kr2889-exp 
+$ docker inspect --size -f {{.SizeRw}} {{json .Config.Cmd}} {{.State.Status}} kr2889-exp -> 0 15215147 ["sh","-c","p=$1; shift; if [ -f \"$p\" ]; then exec sh \"$p\"; fi; exec \"$@\"","start-command-handoff","/.start-command-resume-kr2889-exp","sh","-c","gate=/tmp/hive-mind-disk-baseline-x; while [ ! -e \"$gate\" ]; do sleep 0.1; done; rm -f \"$gate\"; exec sh -c \"mkdir -p /tmp/ws/src /tmp/ws/target /tmp/ws/node_modules/.cache; echo fn > /tmp/ws/src/main.rs; printf 'Signature: 8a477f597d2
+$ docker start kr2889-exp -> 0 kr2889-exp 
+$ docker exec kr2889-exp ps -> 0 PID   USER     TIME  COMMAND
+    1 guest     0:00 sh -c gate=/tmp/hive-mind-disk-baseline-x; while [ ! -e "$gate" ]; do sleep 0.1; done; rm -f "$gate"; exec sh -c "mkdir -p /tmp/ws/src /tmp/ws/target /tmp/ws/node_modules/.cache; echo fn > /tmp/ws/src/main.rs; printf 'Signature: 8a477f597d28d172789f06886806bc55\n' > /tmp/ws/target/CACHEDIR.TAG; head -c 30000000 /dev/zero > /tmp/ws/target/big; head 
+$ docker exec kr2889-exp sh -c sig='Signature: 8a477f597d28d172789f06886806bc55'
+for root in /tmp /home /root /workspace; do
+  [ -d "$root" ] || continue
+  find "$root" -xdev -name .git -prune -o -type  -> 0 pruned 14868 /tmp/ws/target
+pruned 4 /tmp/ws/node_modules/.cache 
+$ docker kill kr2889-exp -> 0 kr2889-exp 
+$ docker inspect --size -f {{.SizeRw}} {{.State.Status}} {{.State.ExitCode}} kr2889-exp -> 0 3 exited 137 
+$ docker commit kr2889-exp kr2889/snap:1 -> 0 sha256:b91d6fdd4b26179dc8966b1da79f9aa208ecaa0932476ef00727887231db2a19 
+$ docker run --rm --entrypoint sh kr2889/snap:1 -c ls -la /tmp/ws /tmp/ws/target /tmp/ws/node_modules; cat /tmp/ws/src/main.rs -> 0 /tmp/ws:
+total 16
+drwxr-xr-x    4 guest    users         4096 Oct 15 19:31 .
+drwxrwxrwt    3 root     root          4096 Oct 15 19:31 ..
+drwxr-xr-x    2 guest    users         4096 Oct 15 19:31 node_modules
+drwxr-xr-x    2 guest    users         4096 Oct 15 19:31 src
+
+/tmp/ws/node_modules:
+total 8
+drwxr-xr-x    2 guest    users         4096 Oct 15 19:31 .
+drwxr-xr-x    4 guest    users         409
+$ docker rm -f kr2889-exp -> 0 kr2889-exp 
+$ docker image rm kr2889/snap:1 -> 0 Untagged: kr2889/snap:1
+Deleted: sha256:b91d6fdd4b26179dc8966b1da79f9aa208ecaa0932476ef00727887231db2a19
+Deleted: sha256:5259345e8c4c70cac9b79536e594a64f3349dea05f2ea9ea3a2b9213492d1f7e 

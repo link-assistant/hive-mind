@@ -16,7 +16,7 @@ import { parseArgsWithYargs } from './telegram-solve-command.lib.mjs';
 import { validateRuntimeModelName } from './models/index.mjs';
 import { FIX_MODES, parseFixRepository } from './fix.args.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from './telegram-markdown.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
@@ -82,7 +82,7 @@ export function buildFixCommandArgs(text) {
  * Options `/fix` consumes itself; everything else is forwarded to `/solve` and
  * must therefore be a valid `solve` option.
  */
-export const FIX_OWN_OPTIONS = Object.freeze([...FIX_MODES.map(mode => mode.flag), '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
+export const FIX_OWN_OPTIONS = Object.freeze([...FIX_MODES.map(mode => mode.flag), '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--wait-for-ci', '--no-wait-for-ci', '--ci-wait-timeout', '--merge-dependabot-prs', '--no-merge-dependabot-prs', '--dependabot-wait-timeout', '--help', '-h', '--version']);
 
 /**
  * Reject a `/fix` request that contains any option `fix` or `solve` cannot act on.
@@ -106,6 +106,7 @@ export async function validateFixCommandOptions(args) {
   // so check fix's own vocabulary first — otherwise the generic suggester points
   // at unrelated solve options.
   const partitioned = partitionFixArgs(list);
+  if (partitioned.errors.length > 0) return partitioned.errors.join('\n');
   for (const arg of partitioned.passthrough) {
     if (!arg.startsWith('-')) continue;
     const name = arg.split('=')[0];
@@ -139,7 +140,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
+  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [], detachHandler = handler => handler } = options;
 
   async function handleFixCommand(ctx) {
     const commandDisplay = '/fix';
@@ -195,7 +196,7 @@ export function registerFixCommand(bot, options) {
     // and is not part of the solve vocabulary the probe parser validates.
     const optionsError = await validateFixCommandOptions(filteredArgs);
     if (optionsError) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdownKeepingCodeSpans(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
@@ -235,7 +236,7 @@ export function registerFixCommand(bot, options) {
 
   bot.command(
     FIX_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-    handleFixCommand
+    detachHandler(handleFixCommand)
   );
 
   return { handleFixCommand, FIX_COMMAND_NAMES };

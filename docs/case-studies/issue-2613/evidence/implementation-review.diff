@@ -1,0 +1,1865 @@
+diff --git a/.changeset/fix-session-diagnostics-2613.md b/.changeset/fix-session-diagnostics-2613.md
+new file mode 100644
+index 00000000..bd6a35f2
+--- /dev/null
++++ b/.changeset/fix-session-diagnostics-2613.md
+@@ -0,0 +1,5 @@
++---
++"@link-assistant/hive-mind": patch
++---
++
++Bound version probes and clean up their descendants; preserve failed-session logs on pull request branches when Gist permissions are unavailable, honor startup log directories, and repair formal draft labeling and checks-only dispatch.
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 9f3863de..827f987e 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -26,6 +26,7 @@ on:
+         description: 'Manual release type'
+         required: true
+         type: choice
++        default: 'patch'
+         options:
+           - patch
+           - minor
+diff --git a/scripts/formal-ai-draft.lib.mjs b/scripts/formal-ai-draft.lib.mjs
+index 554215c7..8982640a 100644
+--- a/scripts/formal-ai-draft.lib.mjs
++++ b/scripts/formal-ai-draft.lib.mjs
+@@ -83,7 +83,7 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
+  * "it stays open and red until a later run succeeds": the later run is the next
+  * scheduled attempt, not this one looping.
+  */
+-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
++export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+ 
+ /**
+  * Flags that must never appear in a draft run.
+@@ -270,6 +270,23 @@ export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRA
+   return ['pr', 'edit', String(number), '--add-label', label, '--repo', repository];
+ }
+ 
++/** A fresh repository may not have the workflow's label yet. */
++export async function labelDraftPullRequest({ gh, repository, number }) {
++  const args = labelPullRequestArgs({ repository, number });
++  try {
++    await gh(args);
++  } catch (error) {
++    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
++    try {
++      await gh(['label', 'create', FORMAL_AI_DRAFT_LABEL, '--repo', repository, '--description', 'Automated Formal AI draft attempt', '--color', '5319e7']);
++    } catch (creationError) {
++      // Another issue's simultaneous run may have created it first.
++      if (!/already exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
++    }
++    await gh(args);
++  }
++}
++
+ /**
+  * Render a decision as `key=value` lines for `$GITHUB_OUTPUT`.
+  *
+diff --git a/scripts/formal-ai-draft.mjs b/scripts/formal-ai-draft.mjs
+index 9224530e..0822c341 100755
+--- a/scripts/formal-ai-draft.mjs
++++ b/scripts/formal-ai-draft.mjs
+@@ -24,13 +24,11 @@
+  * @see docs/FORMAL-AI-DRAFTS.md
+  */
+ 
+-import { execFile, spawn } from 'node:child_process';
++import { spawn } from 'node:child_process';
+ import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
+-import { promisify } from 'node:util';
+ 
+-import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+-
+-const execFileAsync = promisify(execFile);
++import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
++import { gh } from './github-actions.lib.mjs';
+ 
+ const flags = new Set(process.argv.slice(2));
+ const decideOnly = flags.has('--decide');
+@@ -40,12 +38,6 @@ const env = process.env;
+ const repository = env.GITHUB_REPOSITORY || '';
+ const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
+ 
+-/** `gh` with an argv array — no shell, so a webhook string can never become a command. */
+-const gh = async args => {
+-  const { stdout } = await execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+-  return stdout;
+-};
+-
+ const setOutput = text => {
+   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, text);
+   process.stdout.write(text);
+@@ -132,7 +124,7 @@ try {
+     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
+     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
+     if (!pullRequest.isDraft) await gh(keepPullRequestAsDraftArgs({ repository, number: pullRequest.number }));
+-    await gh(labelPullRequestArgs({ repository, number: pullRequest.number }));
++    await labelDraftPullRequest({ gh, repository, number: pullRequest.number });
+   }
+ } catch (error) {
+   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);
+diff --git a/src/github.lib.mjs b/src/github.lib.mjs
+index 7930db4d..a3009aea 100644
+--- a/src/github.lib.mjs
++++ b/src/github.lib.mjs
+@@ -10,6 +10,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
+ import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
+ export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
+ import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
++import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
+ import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
+ import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
+ // Issue #2189: bracket the log-upload phase with resource samples. The incident
+@@ -694,6 +695,7 @@ async function attachLogToGitHubOnce(options) {
+           isPublic: isPublicRepo,
+           description: uploadDescription,
+           verbose,
++          ...(targetType === 'pr' && tempDir ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: tempDir, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
+           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
+         });
+         failureReport.attempts = uploadResult.attempts;
+diff --git a/src/log-upload-branch.lib.mjs b/src/log-upload-branch.lib.mjs
+new file mode 100644
+index 00000000..4b916550
+--- /dev/null
++++ b/src/log-upload-branch.lib.mjs
+@@ -0,0 +1,43 @@
++import { collectAndCommitDevelopmentLogArtifacts } from './development-log.lib.mjs';
++import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
++
++/** Preserve an attachment on the existing PR branch when Gists are unavailable. */
++export async function publishLogToPullRequestBranch({ logFile, repositoryPath, owner, repo, prNumber, $, log, sessionId = null }) {
++  const failed = reason => ({ success: false, failureReason: reason });
++  const safeDollar = wrapDollarWithGhRetry($);
++  const command = safeDollar({ cwd: repositoryPath, mirror: false, capture: true });
++  const view = await command`gh pr view ${String(prNumber)} --repo ${`${owner}/${repo}`} --json headRefName,baseRefName,headRepository,headRepositoryOwner`;
++  if (view.code !== 0) return failed('Could not verify the pull request branch');
++  const pr = JSON.parse(view.stdout.toString());
++  const headRepository = `${pr.headRepositoryOwner?.login}/${pr.headRepository?.name}`;
++  const branch = pr.headRefName;
++  if (!branch || branch === pr.baseRefName || ['main', 'master'].includes(branch) || !pr.headRepositoryOwner?.login || !pr.headRepository?.name) return failed('Missing or unsafe pull request head');
++  const local = await command`git branch --show-current`;
++  if (local.code !== 0 || local.stdout.toString().trim() !== branch) return failed('Checkout does not match the pull request head');
++  const origin = await command`git remote get-url --push origin`;
++  const remoteRepository = origin.stdout
++    .toString()
++    .trim()
++    .match(/^(?:https:\/\/(?:[^/@]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/]+\/[^/]+?)(?:\.git)?$/)?.[1];
++  if (origin.code !== 0 || remoteRepository?.toLowerCase() !== headRepository.toLowerCase()) return failed('Origin does not match the pull request head repository');
++
++  await log?.('  🧾 Preserving the complete sanitized log on the pull request branch');
++  const artifacts = await collectAndCommitDevelopmentLogArtifacts({
++    enabled: true,
++    repositoryPath,
++    logFile,
++    issueNumber: branch.match(/^issue-(\d+)-/)?.[1] || null,
++    prNumber,
++    branchName: branch,
++    sessionId,
++    $: safeDollar,
++    log,
++  });
++  if (!artifacts.pushed || !artifacts.copiedLogRelativePath) return failed('Could not push the log attachment to the pull request branch');
++  const commit = await command`git rev-parse HEAD`;
++  const sha = commit.stdout.toString().trim();
++  if (commit.code !== 0 || !/^[a-f\d]{40,64}$/i.test(sha)) return failed('Could not resolve the published log commit');
++  const file = artifacts.copiedLogRelativePath.split('/').map(encodeURIComponent).join('/');
++  const url = `https://github.com/${headRepository}/blob/${sha}/${file}`;
++  return { success: true, type: 'repository', url, rawUrl: url, chunks: 1 };
++}
+diff --git a/src/log-upload.lib.mjs b/src/log-upload.lib.mjs
+index 05b35369..dfaf03e0 100644
+--- a/src/log-upload.lib.mjs
++++ b/src/log-upload.lib.mjs
+@@ -267,6 +267,10 @@ const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+ 
+ const formatDelay = ms => (ms >= 60_000 && ms % 60_000 === 0 ? `${ms / 60_000}m` : `${Math.round(ms / 1000)}s`);
+ 
++// Installation tokens cannot create Gists. Retrying or splitting the log cannot
++// grant this permission. Do not classify rate-limit 403s as permanent failures.
++export const isPermanentUploadFailure = output => /Resource not accessible by (?:integration|personal access token)|Bad credentials|requires authentication/i.test(String(output));
++
+ /**
+  * Pick the lines of a failed gh-upload-log run that explain the failure, e.g.
+  * "error: RPC failed; HTTP 408 curl 22 ...", without its option dump and stack.
+@@ -361,8 +365,9 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
+       await log(`  ❌ gh-upload-log failed (${label}, attempt ${attempt}/${maxAttempts}): ${output}`);
+     }
+     // 127: gh-upload-log is not installed; waiting will not change that.
+-    if (uploadResult.code === 127 || attempt === maxAttempts) {
+-      return { ok: false, parsed: null, output, attempts: attempt };
++    const permanent = uploadResult.code === 127 || isPermanentUploadFailure(output);
++    if (permanent || attempt === maxAttempts) {
++      return { ok: false, parsed: null, output, attempts: attempt, permanent };
+     }
+     const delayMs = delaysMs[attempt - 1];
+     await log(`  🔁 Retrying the ${label} upload in ${formatDelay(delayMs)} (attempt ${attempt + 1}/${maxAttempts})...`);
+@@ -381,7 +386,7 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
+  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null, parts?: Object[], attempts?: number, failureReason?: string}>}
+  *   `parts` is set when the log was published as several parts (issue #2301); `failureReason` when it was not published.
+  */
+-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES }) => {
++export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES, publishToBranch = null }) => {
+   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
+   let privateTempDirectory = null;
+ 
+@@ -390,6 +395,18 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
+     privateTempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-log-upload-'));
+     await fs.chmod(privateTempDirectory, 0o700);
+     const privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
++    const fallback = async () => {
++      if (publishToBranch) {
++        const publication = await publishToBranch(privateLogFile);
++        if (publication?.success && publication.url) {
++          Object.assign(result, publication);
++          delete result.failureReason;
++        } else if (publication?.failureReason) {
++          await log(`  ⚠️  Branch log publication failed: ${publication.failureReason}`);
++        }
++      }
++      return result;
++    };
+     // Issue #2189: this used to be readFile → sanitizeForPublication → writeFile,
+     // i.e. three full-size copies of the log in the heap at once. A 134 MB
+     // transcript reliably killed the run with "Reached heap limit". The streaming
+@@ -421,12 +438,12 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
+     } else {
+       result.failureReason = summarizeUploadFailure(whole.output);
+       const { size } = await fs.stat(privateLogFile);
+-      if (size <= partSizeBytes) {
+-        return result;
++      if (whole.permanent || size <= partSizeBytes) {
++        return await fallback();
+       }
+       const partPaths = await splitLogIntoLineAlignedParts({ sourcePath: privateLogFile, directory: privateTempDirectory, partSizeBytes });
+-      // The parts hold every byte; drop the whole copy so the fallback does not double the disk use.
+-      await fs.rm(privateLogFile, { force: true });
++      // Retain the sanitized whole file only when the branch fallback needs it.
++      if (!publishToBranch) await fs.rm(privateLogFile, { force: true });
+       await log(`  🔁 Uploading the complete log as ${partPaths.length} parts of about ${partSizeBytes >= 1024 * 1024 ? `${Math.round(partSizeBytes / 1024 / 1024)} MB` : `${Math.round(partSizeBytes / 1024)} KB`} each...`);
+       const parts = [];
+       for (const [index, partPath] of partPaths.entries()) {
+@@ -437,7 +454,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
+         if (!partUpload.ok) {
+           result.failureReason = summarizeUploadFailure(partUpload.output);
+           await log(`  ❌ Uploading the log as parts stopped at ${partLabel}`);
+-          return result;
++          return await fallback();
+         }
+         const part = { success: false, ...partUpload.parsed };
+         await resolveUploadUrls(part, verbose);
+diff --git a/src/solve.bootstrap.lib.mjs b/src/solve.bootstrap.lib.mjs
+index d1acabaf..7afc5b2a 100644
+--- a/src/solve.bootstrap.lib.mjs
++++ b/src/solve.bootstrap.lib.mjs
+@@ -1,6 +1,22 @@
+ #!/usr/bin/env node
+ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+ 
++// Resolve the log destination before startup diagnostics and strict parsing.
++// Leave validation to yargs; never consume the next option as a directory.
++export function resolveStartupLogDirectory(args) {
++  let directory = null;
++  for (let index = 0; index < args.length; index++) {
++    const arg = args[index];
++    if (arg === '--') break;
++    if (arg.startsWith('--log-dir=') || arg.startsWith('-l=')) directory = arg.slice(arg.indexOf('=') + 1) || null;
++    else if (arg === '--log-dir' || arg === '-l') {
++      const next = args[index + 1];
++      if (next && !next.startsWith('-')) directory = args[++index];
++    }
++  }
++  return directory;
++}
++
+ /**
+  * Handle lightweight early-exit paths before solve loads its full dependency graph.
+  *
+diff --git a/src/solve.mjs b/src/solve.mjs
+index 133343eb..8409da28 100755
+--- a/src/solve.mjs
++++ b/src/solve.mjs
+@@ -3,7 +3,7 @@
+ import './instrument.mjs';
+ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+ const earlyArgs = process.argv.slice(2);
+-const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
++const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
+ await handleSolveEarlyExit(earlyArgs);
+ const use = (globalThis.use = await ensureUseM());
+ const { $: __rawDollar$ } = await use('command-stream');
+@@ -71,7 +71,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
+ const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
+ const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
+ const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
+-const logFile = await initializeLogFile(null);
++const logFile = await initializeLogFile(resolveStartupLogDirectory(earlyArgs));
+ const versionInfo = await getVersionInfo();
+ const rawCommand = await logSolveStartup(versionInfo);
+ let finalResourceSnapshotRecorded = false;
+@@ -100,7 +100,6 @@ configureGitHubRateLimitLogging({
+   log,
+ });
+ await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
+-// Early logs go to cwd; custom log dir takes effect after argv is parsed.
+ let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
+ const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+ await showAttachLogsWarning(shouldAttachLogs);
+diff --git a/src/version-command.lib.mjs b/src/version-command.lib.mjs
+new file mode 100644
+index 00000000..5faa4741
+--- /dev/null
++++ b/src/version-command.lib.mjs
+@@ -0,0 +1,83 @@
++import { spawn } from 'node:child_process';
++
++// Shared across simultaneous reports: optional diagnostics must not start
++// every installed language runtime at once and exhaust a container.
++export const VERSION_COMMAND_CONCURRENCY = 4;
++let active = 0;
++const waiting = [];
++
++async function acquire() {
++  if (active >= VERSION_COMMAND_CONCURRENCY) await new Promise(resolve => waiting.push(resolve));
++  else active++;
++}
++
++function release() {
++  const next = waiting.shift();
++  if (next) next();
++  else active--;
++}
++
++/** Run a bounded probe, cleaning up its shell and descendants before returning. */
++export async function execVersionCommand(command, timeout = 5000, { onDiagnostic = null } = {}) {
++  await acquire();
++  try {
++    return await new Promise(resolve => {
++      const grouped = process.platform !== 'win32';
++      const child = spawn(command, { shell: true, detached: grouped, stdio: ['ignore', 'pipe', 'pipe'] });
++      const started = Date.now();
++      onDiagnostic?.(`version probe started: pid=${child.pid ?? 'unavailable'}, timeout=${timeout}ms, command=${command}`);
++      let output = '';
++      let bytes = 0;
++      let failed = false;
++      let drainTimer = null;
++      const stop = () => {
++        if (grouped && child.pid) {
++          try {
++            // exec's timeout only kills the shell. Its grandchildren need the
++            // dedicated process group, including after a successful shell exit.
++            process.kill(-child.pid, 'SIGKILL');
++          } catch {
++            /* the group already exited */
++          }
++        }
++        child.kill('SIGKILL');
++        // Let killed descendants close their pipes before settling. A detached
++        // descendant may retain a pipe, so cleanup itself remains bounded.
++        clearTimeout(drainTimer);
++        drainTimer = setTimeout(() => {
++          child.stdout.destroy();
++          child.stderr.destroy();
++        }, 100);
++      };
++      const timer = setTimeout(() => {
++        failed = true;
++        onDiagnostic?.(`version probe timed out: pid=${child.pid}, elapsed=${Date.now() - started}ms`);
++        stop();
++      }, timeout);
++      const consume = (chunk, stdout) => {
++        bytes += Buffer.byteLength(chunk);
++        if (bytes > 1024 * 1024) {
++          failed = true;
++          stop();
++        } else if (stdout) output += chunk.toString();
++      };
++      child.stdout.setEncoding('utf8');
++      child.stderr.setEncoding('utf8');
++      child.stdout.on('data', chunk => consume(chunk, true));
++      child.stderr.on('data', chunk => consume(chunk, false));
++      child.on('error', () => {
++        failed = true;
++      });
++      child.on('exit', stop);
++      child.on('close', code => {
++        clearTimeout(timer);
++        clearTimeout(drainTimer);
++        onDiagnostic?.(`version probe finished: pid=${child.pid ?? 'unavailable'}, code=${code}, elapsed=${Date.now() - started}ms, bytes=${bytes}, failed=${failed}`);
++        const trimmed = output.trim();
++        resolve(failed || code !== 0 || !trimmed || trimmed.includes('not found') ? null : trimmed);
++      });
++    });
++  } finally {
++    release();
++  }
++}
+diff --git a/src/version-info.lib.mjs b/src/version-info.lib.mjs
+index 5deb372d..5eb27ba9 100644
+--- a/src/version-info.lib.mjs
++++ b/src/version-info.lib.mjs
+@@ -4,546 +4,16 @@
+ // Provides comprehensive version information for bot, commands, and runtime
+ //
+ // Performance optimization (issue #1320):
+-// Uses Promise.all for parallel command execution instead of sequential execSync.
+-// This reduces version gathering time from ~30-150s to ~5s (limited by slowest command).
++// Runs commands concurrently with a shared limit and process-group cleanup.
++// Optional probes must not accumulate child processes across repeated reports.
+ 
+ import { getVersion } from './version.lib.mjs';
+ import { t } from './i18n.lib.mjs';
+ import { hasConnectedPlaywrightMcpServer } from './playwright-mcp.lib.mjs';
+-import { exec } from 'child_process';
+-import { promisify } from 'util';
++import { execVersionCommand } from './version-command.lib.mjs';
+ 
+-const execAsync = promisify(exec);
+-
+-/**
+- * Month name/abbreviation to zero-padded number mapping
+- */
+-const MONTH_MAP = {
+-  jan: '01',
+-  january: '01',
+-  feb: '02',
+-  february: '02',
+-  mar: '03',
+-  march: '03',
+-  apr: '04',
+-  april: '04',
+-  may: '05',
+-  jun: '06',
+-  june: '06',
+-  jul: '07',
+-  july: '07',
+-  aug: '08',
+-  august: '08',
+-  sep: '09',
+-  september: '09',
+-  oct: '10',
+-  october: '10',
+-  nov: '11',
+-  november: '11',
+-  dec: '12',
+-  december: '12',
+-};
+-
+-/**
+- * Normalize a date string to ISO format (YYYY-MM-DD).
+- * Handles formats like:
+- *   "20-Aug-23"       → "2023-08-20"
+- *   "20 April 2009"   → "2009-04-20"
+- *   "July 5th 2008"   → "2008-07-05"
+- *   "Jan 13 2026"     → "2026-01-13"
+- *   "2024-02-29"      → "2024-02-29" (passthrough)
+- * Returns the original string if parsing fails.
+- * @param {string} dateStr - Date string to normalize
+- * @returns {string} ISO date string or original
+- */
+-export function normalizeDate(dateStr) {
+-  if (!dateStr) return dateStr;
+-  const s = dateStr.trim();
+-
+-  // Already ISO: YYYY-MM-DD
+-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+-
+-  // "DD-Mon-YY" (e.g. "20-Aug-23")
+-  const dmy = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+-  if (dmy) {
+-    const month = MONTH_MAP[dmy[2].toLowerCase()];
+-    if (month) {
+-      const year = parseInt(dmy[3], 10);
+-      const fullYear = year >= 70 ? `19${dmy[3]}` : `20${dmy[3]}`;
+-      return `${fullYear}-${month}-${dmy[1].padStart(2, '0')}`;
+-    }
+-  }
+-
+-  // "DD Month YYYY" (e.g. "20 April 2009")
+-  const dmY = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+-  if (dmY) {
+-    const month = MONTH_MAP[dmY[2].toLowerCase()];
+-    if (month) return `${dmY[3]}-${month}-${dmY[1].padStart(2, '0')}`;
+-  }
+-
+-  // "Month DDth YYYY" or "Month DD YYYY" (e.g. "July 5th 2008", "Jan 13 2026")
+-  const mdY = s.match(/^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(\d{4})$/);
+-  if (mdY) {
+-    const month = MONTH_MAP[mdY[1].toLowerCase()];
+-    if (month) return `${mdY[3]}-${month}-${mdY[2].padStart(2, '0')}`;
+-  }
+-
+-  // "Month DD YYYY HH:MM:SS" (e.g. "Jan 13 2026 22:36:55")
+-  const mdYt = s.match(/^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
+-  if (mdYt) {
+-    const month = MONTH_MAP[mdYt[1].toLowerCase()];
+-    if (month) return `${mdYt[3]}-${month}-${mdYt[2].padStart(2, '0')} ${mdYt[4]}`;
+-  }
+-
+-  return s;
+-}
+-
+-/**
+- * Execute a command asynchronously and return its output, or null if it fails
+- * @param {string} command - Command to execute
+- * @param {number} timeout - Timeout in milliseconds (default: 5000ms)
+- * @returns {Promise<string|null>} Command output or null
+- */
+-async function execCommandAsync(command, timeout = 5000) {
+-  try {
+-    const { stdout } = await execAsync(command, { timeout, maxBuffer: 1024 * 1024 });
+-    const trimmed = stdout.trim();
+-    // Return null if the output looks like an error message
+-    if (trimmed.includes('not found') || trimmed.includes('command not found') || trimmed === '') {
+-      return null;
+-    }
+-    return trimmed;
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-/**
+- * Per-tool regex parsers to normalize raw --version output into uniform format:
+- *   <version> (<commit>, <revision>, <date>, etc.)
+- *
+- * Each parser returns { version, extra[] } or null if it doesn't match.
+- * The `version` is the most specific version string (for bug reporting).
+- * Items in `extra` are joined with ", " and placed in parentheses.
+- *
+- * @type {Record<string, (raw: string) => {version: string, extra: string[]} | null>}
+- */
+-const VERSION_PARSERS = {
+-  // rustc 1.94.1 (e408947bf 2026-03-25)
+-  rust: raw => {
+-    const m = raw.match(/^rustc\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+-    return { version: m[1], extra };
+-  },
+-  // cargo 1.94.1 (29ea6fb6a 2026-03-24)
+-  cargo: raw => {
+-    const m = raw.match(/^cargo\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+-    return { version: m[1], extra };
+-  },
+-  // go version go1.26.1 linux/amd64 → strip platform/arch
+-  go: raw => {
+-    const m = raw.match(/go([\d.]+(?:\S*)?)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS) → strip cli, normalize date
+-  php: raw => {
+-    const m = raw.match(/^PHP\s+([\d.]+(?:-\S+)?)\s*(.*)/);
+-    if (!m) return null;
+-    const tags = [];
+-    const parts = m[2].matchAll(/\(([^)]+)\)/g);
+-    for (const p of parts) {
+-      const tag = p[1].trim();
+-      // Skip "cli" — not meaningful for version display
+-      if (tag === 'cli') continue;
+-      // Normalize "built: Jan 13 2026 22:36:55" → "2026-01-13 22:36:55"
+-      const built = tag.match(/^built:\s+(.+)$/);
+-      if (built) {
+-        tags.push(normalizeDate(built[1]));
+-        continue;
+-      }
+-      tags.push(tag);
+-    }
+-    return { version: m[1], extra: tags };
+-  },
+-  // openjdk version "21" 2023-09-19 LTS
+-  java: raw => {
+-    const m = raw.match(/version\s+"([^"]+)"(?:\s+(.+))?/);
+-    if (!m) return null;
+-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+-  },
+-  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
+-  gcc: raw => {
+-    const m = raw.match(/^gcc\s+(?:\([^)]*\)\s+)?([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
+-  gpp: raw => {
+-    const m = raw.match(/^g\+\+\s+(?:\([^)]*\)\s+)?([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // clang version 17.0.0 (https://github.com/... 2e6139970eda) → strip URL, keep commit
+-  clang: raw => {
+-    const m = raw.match(/^clang\s+version\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    if (m[2]) {
+-      // Remove URLs, keep only hex commit hashes
+-      const parts = m[2]
+-        .trim()
+-        .split(/\s+/)
+-        .filter(p => !p.includes('://') && !p.includes('.git'));
+-      const commitParts = parts.filter(p => /^[0-9a-f]{7,}$/i.test(p));
+-      return { version: m[1], extra: commitParts };
+-    }
+-    return { version: m[1], extra: [] };
+-  },
+-  // LLD 17.0.0 (compatible with GNU linkers) — only version number matters
+-  lld: raw => {
+-    const m = raw.match(/^LLD\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Python 3.14.3
+-  python: raw => {
+-    const m = raw.match(/^Python\s+([\d.]+(?:\S*)?)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux] → strip arch, reformat
+-  ruby: raw => {
+-    const m = raw.match(/^ruby\s+([\d.]+(?:p\d+)?)\s*(?:\(([^)]+)\))?\s*(.*)/);
+-    if (!m) return null;
+-    const extra = [];
+-    if (m[2]) {
+-      // Parse "2026-03-11 revision 76cca827ab" → commit, date
+-      const revMatch = m[2].match(/^(\d{4}-\d{2}-\d{2})\s+revision\s+(\w+)$/);
+-      if (revMatch) {
+-        extra.push(revMatch[2]); // commit first
+-        extra.push(revMatch[1]); // then date
+-      } else {
+-        extra.push(m[2].trim());
+-      }
+-    }
+-    // Capture +PRISM or similar flags, but strip [arch] info
+-    const tail = m[3] ? m[3].trim() : '';
+-    if (tail) {
+-      const cleaned = tail.replace(/\[[\w-]+\]/g, '').trim();
+-      if (cleaned) extra.push(cleaned);
+-    }
+-    return { version: m[1], extra };
+-  },
+-  // Kotlin version 2.3.20-release-208 (JRE 21+35-LTS) → strip -release-NNN suffix
+-  kotlin: raw => {
+-    const m = raw.match(/^Kotlin\s+version\s+([\d.]+)(?:-release-\d+)?\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+-  },
+-  // Swift version 6.0.3 (swift-6.0.3-RELEASE) → strip redundant release tag
+-  swift: raw => {
+-    const m = raw.match(/^Swift\s+version\s+([\d.]+(?:\.\d+)?)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // R version 4.3.3 (2024-02-29) -- "Angel Food Cake" → normalize date
+-  r: raw => {
+-    const m = raw.match(/^R\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?(?:\s+--\s+"([^"]+)")?/);
+-    if (!m) return null;
+-    const extra = [];
+-    if (m[2]) extra.push(normalizeDate(m[2]));
+-    if (m[3]) extra.push(m[3]);
+-    return { version: m[1], extra };
+-  },
+-  // git version 2.43.0
+-  git: raw => {
+-    const m = raw.match(/^git\s+version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // gh version 2.89.0 (2026-03-26)
+-  gh: raw => {
+-    const m = raw.match(/^gh\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+-  },
+-  // glab version 1.36.0
+-  glab: raw => {
+-    const m = raw.match(/^glab\s+version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0 ... → strip arch info
+-  curl: raw => {
+-    const m = raw.match(/^curl\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // GNU Wget 1.21.4 built on linux-gnu.
+-  wget: raw => {
+-    const m = raw.match(/^GNU\s+Wget\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // cmake version 3.28.3
+-  cmake: raw => {
+-    const m = raw.match(/^cmake\s+version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // GNU Make 4.3
+-  make: raw => {
+-    const m = raw.match(/^GNU\s+Make\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // NASM version 2.16.01
+-  nasm: raw => {
+-    const m = raw.match(/^NASM\s+version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // flat assembler  version 1.73.32
+-  fasm: raw => {
+-    const m = raw.match(/version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Screen version 4.09.01 (GNU) 20-Aug-23 → normalize date, strip GNU
+-  screen: raw => {
+-    const m = raw.match(/^Screen\s+version\s+([\d.]+)\s*(?:\([^)]*\))?\s*(.*)/);
+-    if (!m) return null;
+-    const extra = [];
+-    const dateStr = m[2] ? m[2].trim() : '';
+-    if (dateStr) extra.push(normalizeDate(dateStr));
+-    return { version: m[1], extra };
+-  },
+-  // expect version 5.45.4
+-  expect: raw => {
+-    const m = raw.match(/^expect\s+version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // The OCaml toplevel, version 5.4.1
+-  ocaml: raw => {
+-    const m = raw.match(/version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // The Rocq Prover, version 9.1.1
+-  rocq: raw => {
+-    const m = raw.match(/version\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // elan 4.2.1 (3d5138e15 2026-03-18)
+-  elan: raw => {
+-    const m = raw.match(/^elan\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+-    return { version: m[1], extra };
+-  },
+-  // Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit abc123, Release) → strip arch/Release
+-  lean: raw => {
+-    const m = raw.match(/version\s+([\d.]+)(?:,\s*(.+?))\)?$/);
+-    if (!m) return null;
+-    const extra = m[2]
+-      ? m[2]
+-          .split(',')
+-          .map(s => s.trim().replace(/\)$/, ''))
+-          .filter(s => {
+-            if (!s) return false;
+-            // Strip arch patterns and "Release"
+-            if (/^\w+[-_]\w+[-_]\w+[-_]\w+$/.test(s)) return false;
+-            if (s === 'Release') return false;
+-            return true;
+-          })
+-      : [];
+-    return { version: m[1], extra };
+-  },
+-  // Google Chrome 146.0.7680.164
+-  chrome: raw => {
+-    const m = raw.match(/^Google\s+Chrome\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Chromium 137.0.7151.0
+-  chromium: raw => {
+-    const m = raw.match(/^Chromium\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Mozilla Firefox 139.0
+-  firefox: raw => {
+-    const m = raw.match(/^Mozilla\s+Firefox\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Microsoft Edge 146.0.3856.84
+-  msedge: raw => {
+-    const m = raw.match(/^Microsoft\s+Edge\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu) → keep only channel (stable)
+-  deno: raw => {
+-    const m = raw.match(/^deno\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    const extra = m[2]
+-      ? m[2]
+-          .split(',')
+-          .map(s => s.trim())
+-          .filter(s => s && s !== 'release' && !s.includes('-') && !s.includes('/'))
+-      : [];
+-    return { version: m[1], extra };
+-  },
+-  // Version 1.58.2  (Playwright CLI)
+-  playwright: raw => {
+-    const m = raw.match(/(?:Version\s+)?([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // @playwright/test@1.58.2
+-  playwrightTest: raw => {
+-    const m = raw.match(/@playwright\/test@([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // @playwright/mcp@0.0.69 or `-- @playwright/mcp@0.0.69
+-  playwrightMcp: raw => {
+-    const m = raw.match(/@playwright\/mcp@([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // @puppeteer/browsers@2.13.0
+-  puppeteerBrowsers: raw => {
+-    const m = raw.match(/@puppeteer\/browsers@([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // 2.1.87 (Claude Code) → strip redundant product name
+-  claudeCode: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // GitHub Copilot CLI 1.0.14.\nRun 'copilot update'...
+-  copilot: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    // Strip trailing dot from version (e.g. "1.0.14." -> "1.0.14")
+-    const version = m[1].replace(/\.$/, '');
+-    return { version, extra: [] };
+-  },
+-  // pyenv 2.6.26
+-  pyenv: raw => {
+-    const m = raw.match(/^pyenv\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // /workspace/.perl5/bin/perlbrew  - App::perlbrew/1.02
+-  perlbrew: raw => {
+-    const m = raw.match(/App::perlbrew\/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // rbenv 1.3.2-20-g23c3041
+-  rbenv: raw => {
+-    const m = raw.match(/^rbenv\s+([\d.]+(?:-[\w]+)*)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // Homebrew 5.1.2
+-  brew: raw => {
+-    const m = raw.match(/^Homebrew\s+([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // This is Zip 3.0 (July 5th 2008), by Info-ZIP. → normalize date
+-  zip: raw => {
+-    const m = raw.match(/Zip\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+-    if (!m) return null;
+-    return { version: m[1], extra: m[2] ? [normalizeDate(m[2])] : [] };
+-  },
+-  // UnZip 6.00 of 20 April 2009, by Debian. → normalize date
+-  unzip: raw => {
+-    const m = raw.match(/UnZip\s+([\d.]+)\s*(?:of\s+([^,]+))?/);
+-    if (!m) return null;
+-    return { version: m[1], extra: m[2] ? [normalizeDate(m[2].trim())] : [] };
+-  },
+-  // ii  xvfb  2:21.1.12-1ubuntu1.5  amd64  Virtual Framebuffer... → base version only
+-  xvfb: raw => {
+-    // dpkg output format
+-    const dpkg = raw.match(/^ii\s+xvfb\s+(\S+)/);
+-    if (dpkg) {
+-      // Strip epoch (e.g. "2:21.1.12-1ubuntu1.5" -> "21.1.12-1ubuntu1.5")
+-      // Then strip distro suffix (e.g. "21.1.12-1ubuntu1.5" -> "21.1.12")
+-      const ver = dpkg[1].replace(/^\d+:/, '').replace(/-.*$/, '');
+-      return { version: ver, extra: [] };
+-    }
+-    // X.Org X Server version output (if it ever works)
+-    const xorg = raw.match(/X\.Org\s+X\s+Server\s+([\d.]+)/);
+-    if (xorg) return { version: xorg[1], extra: [] };
+-    return null;
+-  },
+-  // Xvfb returns "Unrecognized option: -version" — this is handled by fixing the command
+-  // to use dpkg fallback first
+-
+-  // agent 1.0.0 or similar
+-  agent: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // codex-cli 0.117.0 or similar
+-  codex: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // opencode 1.3.10 or similar
+-  opencode: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // qwen-code version
+-  qwenCode: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-  // gemini version
+-  gemini: raw => {
+-    const m = raw.match(/([\d.]+)/);
+-    if (!m) return null;
+-    return { version: m[1], extra: [] };
+-  },
+-};
+-
+-/**
+- * Parse a raw version string using the per-tool parser, returning uniform format:
+- *   "<version>" or "<version> (<extra1>, <extra2>, ...)"
+- * Falls back to the raw string if no parser matches.
+- * @param {string} key - Tool key (must match a key in VERSION_PARSERS)
+- * @param {string} raw - Raw version string from command output
+- * @returns {string} Parsed version string in uniform format
+- */
+-export function parseVersion(key, raw) {
+-  if (!raw) return raw;
+-  const parser = VERSION_PARSERS[key];
+-  if (!parser) return raw;
+-  const result = parser(raw);
+-  if (!result) return raw;
+-  const { version, extra } = result;
+-  if (extra && extra.length > 0) {
+-    return `${version} (${extra.join(', ')})`;
+-  }
+-  return version;
+-}
++import { parseVersion, normalizeDate } from './version-parsers.lib.mjs';
++export { parseVersion, normalizeDate };
+ 
+ /**
+  * Command definitions for version checking
+@@ -661,13 +131,13 @@ const VERSION_COMMANDS = [
+  * @param {boolean} verbose - Enable verbose logging
+  * @returns {Promise<{key: string, value: string|null}>}
+  */
+-async function executeVersionCommand(cmdDef, verbose) {
+-  let result = await execCommandAsync(cmdDef.command);
++async function executeVersionCommand(cmdDef, verbose, runCommand) {
++  let result = await runCommand(cmdDef.command);
+ 
+   // Try fallbacks if primary command failed
+   if (!result && cmdDef.fallbacks) {
+     for (const fallback of cmdDef.fallbacks) {
+-      result = await execCommandAsync(fallback);
++      result = await runCommand(fallback);
+       if (result) break;
+     }
+   }
+@@ -701,18 +171,18 @@ const ARCH_NAMES = {
+  * @param {boolean} verbose - Enable verbose logging
+  * @returns {Promise<{environment: string, arch: string, os: string, kernel: string}>}
+  */
+-async function detectPlatformInfo(verbose) {
++async function detectPlatformInfo(verbose, runCommand) {
+   const info = { environment: '', arch: '', os: '', kernel: '' };
+ 
+   // Architecture
+   info.arch = ARCH_NAMES[process.arch] || process.arch;
+ 
+   // Kernel
+-  const uname = await execCommandAsync('uname -r 2>/dev/null');
++  const uname = await runCommand('uname -r 2>/dev/null');
+   if (uname) {
+     info.kernel = `Linux ${uname}`;
+   } else if (process.platform === 'darwin') {
+-    const darwinVer = await execCommandAsync('uname -r 2>/dev/null');
++    const darwinVer = await runCommand('uname -r 2>/dev/null');
+     info.kernel = darwinVer ? `Darwin ${darwinVer}` : 'Darwin';
+   } else if (process.platform === 'win32') {
+     info.kernel = 'Windows NT';
+@@ -721,7 +191,7 @@ async function detectPlatformInfo(verbose) {
+   // OS detection
+   if (process.platform === 'linux') {
+     // Try /etc/os-release for distro info
+-    const osRelease = await execCommandAsync('cat /etc/os-release 2>/dev/null');
++    const osRelease = await runCommand('cat /etc/os-release 2>/dev/null');
+     if (osRelease) {
+       const nameMatch = osRelease.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+       if (nameMatch) {
+@@ -736,7 +206,7 @@ async function detectPlatformInfo(verbose) {
+     }
+     if (!info.os) info.os = 'Linux';
+   } else if (process.platform === 'darwin') {
+-    const swVers = await execCommandAsync('sw_vers -productVersion 2>/dev/null');
++    const swVers = await runCommand('sw_vers -productVersion 2>/dev/null');
+     info.os = swVers ? `macOS ${swVers}` : 'macOS';
+   } else if (process.platform === 'win32') {
+     info.os = 'Windows';
+@@ -745,16 +215,16 @@ async function detectPlatformInfo(verbose) {
+   }
+ 
+   // Environment detection: docker container, VM, or host
+-  const isDocker = await execCommandAsync('cat /proc/1/cgroup 2>/dev/null | grep -qi docker && echo docker || test -f /.dockerenv && echo docker || echo no');
++  const isDocker = await runCommand('cat /proc/1/cgroup 2>/dev/null | grep -qi docker && echo docker || test -f /.dockerenv && echo docker || echo no');
+   if (isDocker && isDocker.trim() === 'docker') {
+     info.environment = 'docker container';
+   } else {
+     // Check for VM/hypervisor
+-    const systemdDetect = await execCommandAsync('systemd-detect-virt 2>/dev/null');
++    const systemdDetect = await runCommand('systemd-detect-virt 2>/dev/null');
+     if (systemdDetect && systemdDetect !== 'none') {
+       info.environment = `virtual machine (${systemdDetect})`;
+     } else {
+-      const dmi = await execCommandAsync('cat /sys/class/dmi/id/product_name 2>/dev/null');
++      const dmi = await runCommand('cat /sys/class/dmi/id/product_name 2>/dev/null');
+       if (dmi && /virtual|vmware|kvm|qemu|hyper-v|xen|bochs/i.test(dmi)) {
+         info.environment = `virtual machine`;
+       } else {
+@@ -777,8 +247,9 @@ async function detectPlatformInfo(verbose) {
+  * @param {string} [processVersion] - Optional: version from the running process (for restart warning)
+  * @returns {Promise<Object>} Version information object
+  */
+-export async function getVersionInfo(verbose = false, processVersion = null) {
++export async function getVersionInfo(verbose = false, processVersion = null, { runCommand = execVersionCommand } = {}) {
+   const startTime = Date.now();
++  if (verbose && runCommand === execVersionCommand) runCommand = command => execVersionCommand(command, 5000, { onDiagnostic: message => console.log(`[VERBOSE] ${message}`) });
+ 
+   try {
+     if (verbose) {
+@@ -792,7 +263,7 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
+     }
+ 
+     // Execute all version commands in parallel
+-    const results = await Promise.all(VERSION_COMMANDS.map(cmd => executeVersionCommand(cmd, verbose)));
++    const results = await Promise.all(VERSION_COMMANDS.map(cmd => executeVersionCommand(cmd, verbose, runCommand)));
+ 
+     // Convert results array to object
+     const versions = {};
+@@ -807,7 +278,7 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
+     }
+ 
+     // Platform information — detailed detection
+-    const platformInfo = await detectPlatformInfo(verbose);
++    const platformInfo = await detectPlatformInfo(verbose, runCommand);
+     versions.platformEnvironment = platformInfo.environment;
+     versions.platformArch = platformInfo.arch;
+     versions.platformOs = platformInfo.os;
+diff --git a/src/version-parsers.lib.mjs b/src/version-parsers.lib.mjs
+new file mode 100644
+index 00000000..3b02329d
+--- /dev/null
++++ b/src/version-parsers.lib.mjs
+@@ -0,0 +1,510 @@
++// Pure version normalization, independent of subprocess execution.
++/**
++ * Month name/abbreviation to zero-padded number mapping
++ */
++const MONTH_MAP = {
++  jan: '01',
++  january: '01',
++  feb: '02',
++  february: '02',
++  mar: '03',
++  march: '03',
++  apr: '04',
++  april: '04',
++  may: '05',
++  jun: '06',
++  june: '06',
++  jul: '07',
++  july: '07',
++  aug: '08',
++  august: '08',
++  sep: '09',
++  september: '09',
++  oct: '10',
++  october: '10',
++  nov: '11',
++  november: '11',
++  dec: '12',
++  december: '12',
++};
++
++/**
++ * Normalize a date string to ISO format (YYYY-MM-DD).
++ * Handles formats like:
++ *   "20-Aug-23"       → "2023-08-20"
++ *   "20 April 2009"   → "2009-04-20"
++ *   "July 5th 2008"   → "2008-07-05"
++ *   "Jan 13 2026"     → "2026-01-13"
++ *   "2024-02-29"      → "2024-02-29" (passthrough)
++ * Returns the original string if parsing fails.
++ * @param {string} dateStr - Date string to normalize
++ * @returns {string} ISO date string or original
++ */
++export function normalizeDate(dateStr) {
++  if (!dateStr) return dateStr;
++  const s = dateStr.trim();
++
++  // Already ISO: YYYY-MM-DD
++  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
++
++  // "DD-Mon-YY" (e.g. "20-Aug-23")
++  const dmy = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
++  if (dmy) {
++    const month = MONTH_MAP[dmy[2].toLowerCase()];
++    if (month) {
++      const year = parseInt(dmy[3], 10);
++      const fullYear = year >= 70 ? `19${dmy[3]}` : `20${dmy[3]}`;
++      return `${fullYear}-${month}-${dmy[1].padStart(2, '0')}`;
++    }
++  }
++
++  // "DD Month YYYY" (e.g. "20 April 2009")
++  const dmY = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
++  if (dmY) {
++    const month = MONTH_MAP[dmY[2].toLowerCase()];
++    if (month) return `${dmY[3]}-${month}-${dmY[1].padStart(2, '0')}`;
++  }
++
++  // "Month DDth YYYY" or "Month DD YYYY" (e.g. "July 5th 2008", "Jan 13 2026")
++  const mdY = s.match(/^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(\d{4})$/);
++  if (mdY) {
++    const month = MONTH_MAP[mdY[1].toLowerCase()];
++    if (month) return `${mdY[3]}-${month}-${mdY[2].padStart(2, '0')}`;
++  }
++
++  // "Month DD YYYY HH:MM:SS" (e.g. "Jan 13 2026 22:36:55")
++  const mdYt = s.match(/^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
++  if (mdYt) {
++    const month = MONTH_MAP[mdYt[1].toLowerCase()];
++    if (month) return `${mdYt[3]}-${month}-${mdYt[2].padStart(2, '0')} ${mdYt[4]}`;
++  }
++
++  return s;
++}
++
++/**
++ * Per-tool regex parsers to normalize raw --version output into uniform format:
++ *   <version> (<commit>, <revision>, <date>, etc.)
++ *
++ * Each parser returns { version, extra[] } or null if it doesn't match.
++ * The `version` is the most specific version string (for bug reporting).
++ * Items in `extra` are joined with ", " and placed in parentheses.
++ *
++ * @type {Record<string, (raw: string) => {version: string, extra: string[]} | null>}
++ */
++const VERSION_PARSERS = {
++  // rustc 1.94.1 (e408947bf 2026-03-25)
++  rust: raw => {
++    const m = raw.match(/^rustc\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
++    return { version: m[1], extra };
++  },
++  // cargo 1.94.1 (29ea6fb6a 2026-03-24)
++  cargo: raw => {
++    const m = raw.match(/^cargo\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
++    return { version: m[1], extra };
++  },
++  // go version go1.26.1 linux/amd64 → strip platform/arch
++  go: raw => {
++    const m = raw.match(/go([\d.]+(?:\S*)?)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS) → strip cli, normalize date
++  php: raw => {
++    const m = raw.match(/^PHP\s+([\d.]+(?:-\S+)?)\s*(.*)/);
++    if (!m) return null;
++    const tags = [];
++    const parts = m[2].matchAll(/\(([^)]+)\)/g);
++    for (const p of parts) {
++      const tag = p[1].trim();
++      // Skip "cli" — not meaningful for version display
++      if (tag === 'cli') continue;
++      // Normalize "built: Jan 13 2026 22:36:55" → "2026-01-13 22:36:55"
++      const built = tag.match(/^built:\s+(.+)$/);
++      if (built) {
++        tags.push(normalizeDate(built[1]));
++        continue;
++      }
++      tags.push(tag);
++    }
++    return { version: m[1], extra: tags };
++  },
++  // openjdk version "21" 2023-09-19 LTS
++  java: raw => {
++    const m = raw.match(/version\s+"([^"]+)"(?:\s+(.+))?/);
++    if (!m) return null;
++    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
++  },
++  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
++  gcc: raw => {
++    const m = raw.match(/^gcc\s+(?:\([^)]*\)\s+)?([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
++  gpp: raw => {
++    const m = raw.match(/^g\+\+\s+(?:\([^)]*\)\s+)?([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // clang version 17.0.0 (https://github.com/... 2e6139970eda) → strip URL, keep commit
++  clang: raw => {
++    const m = raw.match(/^clang\s+version\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    if (m[2]) {
++      // Remove URLs, keep only hex commit hashes
++      const parts = m[2]
++        .trim()
++        .split(/\s+/)
++        .filter(p => !p.includes('://') && !p.includes('.git'));
++      const commitParts = parts.filter(p => /^[0-9a-f]{7,}$/i.test(p));
++      return { version: m[1], extra: commitParts };
++    }
++    return { version: m[1], extra: [] };
++  },
++  // LLD 17.0.0 (compatible with GNU linkers) — only version number matters
++  lld: raw => {
++    const m = raw.match(/^LLD\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Python 3.14.3
++  python: raw => {
++    const m = raw.match(/^Python\s+([\d.]+(?:\S*)?)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux] → strip arch, reformat
++  ruby: raw => {
++    const m = raw.match(/^ruby\s+([\d.]+(?:p\d+)?)\s*(?:\(([^)]+)\))?\s*(.*)/);
++    if (!m) return null;
++    const extra = [];
++    if (m[2]) {
++      // Parse "2026-03-11 revision 76cca827ab" → commit, date
++      const revMatch = m[2].match(/^(\d{4}-\d{2}-\d{2})\s+revision\s+(\w+)$/);
++      if (revMatch) {
++        extra.push(revMatch[2]); // commit first
++        extra.push(revMatch[1]); // then date
++      } else {
++        extra.push(m[2].trim());
++      }
++    }
++    // Capture +PRISM or similar flags, but strip [arch] info
++    const tail = m[3] ? m[3].trim() : '';
++    if (tail) {
++      const cleaned = tail.replace(/\[[\w-]+\]/g, '').trim();
++      if (cleaned) extra.push(cleaned);
++    }
++    return { version: m[1], extra };
++  },
++  // Kotlin version 2.3.20-release-208 (JRE 21+35-LTS) → strip -release-NNN suffix
++  kotlin: raw => {
++    const m = raw.match(/^Kotlin\s+version\s+([\d.]+)(?:-release-\d+)?\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
++  },
++  // Swift version 6.0.3 (swift-6.0.3-RELEASE) → strip redundant release tag
++  swift: raw => {
++    const m = raw.match(/^Swift\s+version\s+([\d.]+(?:\.\d+)?)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // R version 4.3.3 (2024-02-29) -- "Angel Food Cake" → normalize date
++  r: raw => {
++    const m = raw.match(/^R\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?(?:\s+--\s+"([^"]+)")?/);
++    if (!m) return null;
++    const extra = [];
++    if (m[2]) extra.push(normalizeDate(m[2]));
++    if (m[3]) extra.push(m[3]);
++    return { version: m[1], extra };
++  },
++  // git version 2.43.0
++  git: raw => {
++    const m = raw.match(/^git\s+version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // gh version 2.89.0 (2026-03-26)
++  gh: raw => {
++    const m = raw.match(/^gh\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    return { version: m[1], extra: m[2] ? [m[2]] : [] };
++  },
++  // glab version 1.36.0
++  glab: raw => {
++    const m = raw.match(/^glab\s+version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0 ... → strip arch info
++  curl: raw => {
++    const m = raw.match(/^curl\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // GNU Wget 1.21.4 built on linux-gnu.
++  wget: raw => {
++    const m = raw.match(/^GNU\s+Wget\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // cmake version 3.28.3
++  cmake: raw => {
++    const m = raw.match(/^cmake\s+version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // GNU Make 4.3
++  make: raw => {
++    const m = raw.match(/^GNU\s+Make\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // NASM version 2.16.01
++  nasm: raw => {
++    const m = raw.match(/^NASM\s+version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // flat assembler  version 1.73.32
++  fasm: raw => {
++    const m = raw.match(/version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Screen version 4.09.01 (GNU) 20-Aug-23 → normalize date, strip GNU
++  screen: raw => {
++    const m = raw.match(/^Screen\s+version\s+([\d.]+)\s*(?:\([^)]*\))?\s*(.*)/);
++    if (!m) return null;
++    const extra = [];
++    const dateStr = m[2] ? m[2].trim() : '';
++    if (dateStr) extra.push(normalizeDate(dateStr));
++    return { version: m[1], extra };
++  },
++  // expect version 5.45.4
++  expect: raw => {
++    const m = raw.match(/^expect\s+version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // The OCaml toplevel, version 5.4.1
++  ocaml: raw => {
++    const m = raw.match(/version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // The Rocq Prover, version 9.1.1
++  rocq: raw => {
++    const m = raw.match(/version\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // elan 4.2.1 (3d5138e15 2026-03-18)
++  elan: raw => {
++    const m = raw.match(/^elan\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
++    return { version: m[1], extra };
++  },
++  // Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit abc123, Release) → strip arch/Release
++  lean: raw => {
++    const m = raw.match(/version\s+([\d.]+)(?:,\s*(.+?))\)?$/);
++    if (!m) return null;
++    const extra = m[2]
++      ? m[2]
++          .split(',')
++          .map(s => s.trim().replace(/\)$/, ''))
++          .filter(s => {
++            if (!s) return false;
++            // Strip arch patterns and "Release"
++            if (/^\w+[-_]\w+[-_]\w+[-_]\w+$/.test(s)) return false;
++            if (s === 'Release') return false;
++            return true;
++          })
++      : [];
++    return { version: m[1], extra };
++  },
++  // Google Chrome 146.0.7680.164
++  chrome: raw => {
++    const m = raw.match(/^Google\s+Chrome\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Chromium 137.0.7151.0
++  chromium: raw => {
++    const m = raw.match(/^Chromium\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Mozilla Firefox 139.0
++  firefox: raw => {
++    const m = raw.match(/^Mozilla\s+Firefox\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Microsoft Edge 146.0.3856.84
++  msedge: raw => {
++    const m = raw.match(/^Microsoft\s+Edge\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu) → keep only channel (stable)
++  deno: raw => {
++    const m = raw.match(/^deno\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    const extra = m[2]
++      ? m[2]
++          .split(',')
++          .map(s => s.trim())
++          .filter(s => s && s !== 'release' && !s.includes('-') && !s.includes('/'))
++      : [];
++    return { version: m[1], extra };
++  },
++  // Version 1.58.2  (Playwright CLI)
++  playwright: raw => {
++    const m = raw.match(/(?:Version\s+)?([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // @playwright/test@1.58.2
++  playwrightTest: raw => {
++    const m = raw.match(/@playwright\/test@([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // @playwright/mcp@0.0.69 or `-- @playwright/mcp@0.0.69
++  playwrightMcp: raw => {
++    const m = raw.match(/@playwright\/mcp@([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // @puppeteer/browsers@2.13.0
++  puppeteerBrowsers: raw => {
++    const m = raw.match(/@puppeteer\/browsers@([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // 2.1.87 (Claude Code) → strip redundant product name
++  claudeCode: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // GitHub Copilot CLI 1.0.14.\nRun 'copilot update'...
++  copilot: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    // Strip trailing dot from version (e.g. "1.0.14." -> "1.0.14")
++    const version = m[1].replace(/\.$/, '');
++    return { version, extra: [] };
++  },
++  // pyenv 2.6.26
++  pyenv: raw => {
++    const m = raw.match(/^pyenv\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // /workspace/.perl5/bin/perlbrew  - App::perlbrew/1.02
++  perlbrew: raw => {
++    const m = raw.match(/App::perlbrew\/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // rbenv 1.3.2-20-g23c3041
++  rbenv: raw => {
++    const m = raw.match(/^rbenv\s+([\d.]+(?:-[\w]+)*)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // Homebrew 5.1.2
++  brew: raw => {
++    const m = raw.match(/^Homebrew\s+([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // This is Zip 3.0 (July 5th 2008), by Info-ZIP. → normalize date
++  zip: raw => {
++    const m = raw.match(/Zip\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
++    if (!m) return null;
++    return { version: m[1], extra: m[2] ? [normalizeDate(m[2])] : [] };
++  },
++  // UnZip 6.00 of 20 April 2009, by Debian. → normalize date
++  unzip: raw => {
++    const m = raw.match(/UnZip\s+([\d.]+)\s*(?:of\s+([^,]+))?/);
++    if (!m) return null;
++    return { version: m[1], extra: m[2] ? [normalizeDate(m[2].trim())] : [] };
++  },
++  // ii  xvfb  2:21.1.12-1ubuntu1.5  amd64  Virtual Framebuffer... → base version only
++  xvfb: raw => {
++    // dpkg output format
++    const dpkg = raw.match(/^ii\s+xvfb\s+(\S+)/);
++    if (dpkg) {
++      // Strip epoch (e.g. "2:21.1.12-1ubuntu1.5" -> "21.1.12-1ubuntu1.5")
++      // Then strip distro suffix (e.g. "21.1.12-1ubuntu1.5" -> "21.1.12")
++      const ver = dpkg[1].replace(/^\d+:/, '').replace(/-.*$/, '');
++      return { version: ver, extra: [] };
++    }
++    // X.Org X Server version output (if it ever works)
++    const xorg = raw.match(/X\.Org\s+X\s+Server\s+([\d.]+)/);
++    if (xorg) return { version: xorg[1], extra: [] };
++    return null;
++  },
++  // Xvfb returns "Unrecognized option: -version" — this is handled by fixing the command
++  // to use dpkg fallback first
++
++  // agent 1.0.0 or similar
++  agent: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // codex-cli 0.117.0 or similar
++  codex: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // opencode 1.3.10 or similar
++  opencode: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // qwen-code version
++  qwenCode: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++  // gemini version
++  gemini: raw => {
++    const m = raw.match(/([\d.]+)/);
++    if (!m) return null;
++    return { version: m[1], extra: [] };
++  },
++};
++
++/**
++ * Parse a raw version string using the per-tool parser, returning uniform format:
++ *   "<version>" or "<version> (<extra1>, <extra2>, ...)"
++ * Falls back to the raw string if no parser matches.
++ * @param {string} key - Tool key (must match a key in VERSION_PARSERS)
++ * @param {string} raw - Raw version string from command output
++ * @returns {string} Parsed version string in uniform format
++ */
++export function parseVersion(key, raw) {
++  if (!raw) return raw;
++  const parser = VERSION_PARSERS[key];
++  if (!parser) return raw;
++  const result = parser(raw);
++  if (!result) return raw;
++  const { version, extra } = result;
++  if (extra && extra.length > 0) {
++    return `${version} (${extra.join(', ')})`;
++  }
++  return version;
++}
+diff --git a/tests/issue-2613-regressions.test.mjs b/tests/issue-2613-regressions.test.mjs
+new file mode 100644
+index 00000000..0482bd6b
+--- /dev/null
++++ b/tests/issue-2613-regressions.test.mjs
+@@ -0,0 +1,236 @@
++/**
++ * @hive-mind-test-suite default
++ */
++import assert from 'node:assert/strict';
++import { execFile } from 'node:child_process';
++import fs from 'node:fs/promises';
++import os from 'node:os';
++import path from 'node:path';
++import test from 'node:test';
++import { promisify } from 'node:util';
++import { fileURLToPath } from 'node:url';
++import { setTimeout as delay } from 'node:timers/promises';
++import { execVersionCommand, VERSION_COMMAND_CONCURRENCY } from '../src/version-command.lib.mjs';
++import { uploadLogWithGhUploadLog } from '../src/log-upload.lib.mjs';
++import { publishLogToPullRequestBranch } from '../src/log-upload-branch.lib.mjs';
++import { resolveStartupLogDirectory } from '../src/solve.bootstrap.lib.mjs';
++import { buildSolveArgv, labelDraftPullRequest } from '../scripts/formal-ai-draft.lib.mjs';
++
++const execFileAsync = promisify(execFile);
++const root = fileURLToPath(new URL('../', import.meta.url));
++const permissionDenied = { code: 1, stdout: '', stderr: 'HTTP 403: Resource not accessible by integration (https://api.github.com/gists)' };
++
++test('simultaneous version reports share the concurrency limit and return valid output', { timeout: 10_000 }, async () => {
++  let running = 0;
++  let peak = 0;
++  const onDiagnostic = message => {
++    if (message.includes('started:')) peak = Math.max(peak, ++running);
++    if (message.includes('finished:')) running--;
++  };
++  const probe = () => execVersionCommand(`"${process.execPath}" --max-old-space-size=32 -e 'setTimeout(() => console.log("1.2.3"), 100)'`, 2000, { onDiagnostic });
++  const batches = await Promise.all([Promise.all(Array.from({ length: 4 }, probe)), Promise.all(Array.from({ length: 4 }, probe))]);
++  assert.deepEqual(batches.flat(), Array(8).fill('1.2.3'));
++  assert.equal(peak, VERSION_COMMAND_CONCURRENCY);
++  assert.equal(running, 0);
++});
++
++async function withDirectory(fn) {
++  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'issue-2613-'));
++  try {
++    await fn(directory);
++  } finally {
++    await fs.rm(directory, { recursive: true, force: true });
++  }
++}
++
++test('a timed-out version probe kills its shell descendants', { timeout: 10_000, skip: process.platform !== 'linux' }, async () => {
++  await withDirectory(async directory => {
++    const script = path.join(directory, 'probe.mjs');
++    const pidFile = path.join(directory, 'pid.txt');
++    // Finite runtime and a 32 MB heap: this probe never stresses the host.
++    await fs.writeFile(script, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setTimeout(() => {}, 4000);`);
++    let pid;
++    try {
++      assert.equal(await execVersionCommand(`"${process.execPath}" --max-old-space-size=32 "${script}"; wait`, 600), null);
++      pid = Number(await fs.readFile(pidFile, 'utf8'));
++      // Linux can retain a killed process as a zombie until its parent reaps it.
++      let state;
++      // SIGKILL and shell close can race with the child's final kernel exit.
++      // Wait for that observable state, rather than treating a dying task as a leak.
++      for (let attempt = 0; attempt < 20; attempt++) {
++        state = await fs.readFile(`/proc/${pid}/stat`, 'utf8').catch(() => '');
++        if (!state || /\) Z /.test(state)) break;
++        await delay(10);
++      }
++      assert.ok(!state || /\) Z /.test(state), `version probe left process ${pid} running: ${state}`);
++    } finally {
++      pid ??= Number(await fs.readFile(pidFile, 'utf8').catch(() => '0'));
++      if (pid) {
++        try {
++          process.kill(pid, 'SIGKILL');
++        } catch {
++          /* already exited */
++        }
++      }
++    }
++  });
++});
++
++test('startup log directory supports aliases, equals syntax and the argument separator', () => {
++  assert.equal(resolveStartupLogDirectory(['--log-dir', '/first', '-l=/last']), '/last');
++  assert.equal(resolveStartupLogDirectory(['--log-dir=/logs']), '/logs');
++  assert.equal(resolveStartupLogDirectory(['-l', '/logs']), '/logs');
++  assert.equal(resolveStartupLogDirectory(['--', '--log-dir=/ignored']), null);
++  assert.equal(resolveStartupLogDirectory(['--log-dir', '--verbose']), null);
++});
++
++test('formal drafts preserve development logs and create missing labels', async () => {
++  assert.ok(buildSolveArgv({ issueUrl: 'https://github.com/o/r/issues/1' }).includes('--development-log'));
++  const calls = [];
++  await labelDraftPullRequest({
++    repository: 'o/r',
++    number: 2,
++    gh: async args => {
++      calls.push(args);
++      if (calls.length === 1) throw new Error("'formal-ai-draft' not found in repository labels");
++    },
++  });
++  assert.equal(calls.length, 3);
++  assert.equal(calls[1][0], 'label');
++  assert.deepEqual(calls[0], calls[2]);
++  await assert.rejects(
++    labelDraftPullRequest({
++      repository: 'o/r',
++      number: 2,
++      gh: async () => {
++        throw new Error('HTTP 403');
++      },
++    }),
++    /HTTP 403/
++  );
++});
++
++test('checks-only workflow dispatch has defaults for all required inputs', async () => {
++  const workflow = await fs.readFile(path.join(root, '.github/workflows/release.yml'), 'utf8');
++  const dispatch = workflow.slice(workflow.indexOf('  workflow_dispatch:'), workflow.indexOf('\npermissions:'));
++  assert.match(dispatch, /bump_type:[\s\S]*?default: 'patch'/);
++});
++
++test('branch fallback commits only its sanitized log and refuses other checkouts', { timeout: 20_000 }, async () => {
++  await withDirectory(async directory => {
++    const repositoryPath = path.join(directory, 'checkout');
++    const remote = path.join(directory, 'remote.git');
++    await fs.mkdir(repositoryPath);
++    const git = (...args) => execFileAsync('git', args, { cwd: repositoryPath });
++    await git('init', '--initial-branch=issue-2613-test');
++    await execFileAsync('git', ['init', '--bare', '--initial-branch=main', remote]);
++    await git('config', 'user.email', 'test@example.com');
++    await git('config', 'user.name', 'Test');
++    await git('commit', '--allow-empty', '-m', 'Initial');
++    await git('remote', 'add', 'origin', remote);
++    await fs.writeFile(path.join(repositoryPath, 'unrelated.txt'), 'staged work');
++    await git('add', 'unrelated.txt');
++    const logFile = path.join(directory, 'session.log');
++    await fs.writeFile(logFile, 'complete diagnostics\n');
++    const { $: realDollar } = await globalThis.use('command-stream');
++    let remoteUrl = 'https://github.com/o/r.git';
++    let failPush = false;
++    const fakeDollar =
++      options =>
++      async (strings, ...values) => {
++        const command = strings.join('?');
++        if (command.startsWith('gh pr view')) return { code: 0, stdout: JSON.stringify({ headRefName: 'issue-2613-test', baseRefName: 'main', headRepositoryOwner: { login: 'o' }, headRepository: { name: 'r' } }) };
++        if (command === 'git remote get-url --push origin') return { code: 0, stdout: remoteUrl };
++        if (failPush && command.startsWith('git push origin')) return { code: 1, stdout: '', stderr: 'remote: permission denied' };
++        return realDollar({ ...options, mirror: false })(strings, ...values);
++      };
++    const options = { logFile, repositoryPath, owner: 'o', repo: 'r', prNumber: 2614, $: fakeDollar, log: async () => {} };
++    const result = await publishLogToPullRequestBranch(options);
++    assert.equal(result.success, true);
++    assert.match(result.url, /\/blob\/[a-f\d]{40}\/dev\/log\//);
++    const { stdout: staged } = await git('diff', '--cached', '--name-only');
++    assert.equal(staged.trim(), 'unrelated.txt');
++    const { stdout: committed } = await git('show', '--format=', '--name-only', 'HEAD');
++    assert.ok(!committed.includes('unrelated.txt'));
++    const { stdout: files } = await git('ls-tree', '-r', '--name-only', 'HEAD');
++    const solveLog = files
++      .trim()
++      .split('\n')
++      .find(file => file.endsWith('/solve.log'));
++    assert.equal(await fs.readFile(path.join(repositoryPath, solveLog), 'utf8'), 'complete diagnostics\n');
++    failPush = true;
++    const unpublished = await publishLogToPullRequestBranch({ ...options, sessionId: 'failed-push' });
++    assert.equal(unpublished.success, false);
++    assert.equal(unpublished.url, undefined, 'an unpushed log must not be reported as attached');
++    failPush = false;
++    remoteUrl = 'https://github.com/other/repository.git';
++    assert.equal((await publishLogToPullRequestBranch(options)).success, false);
++    remoteUrl = 'https://github.com/o/r.git';
++    await git('switch', '-c', 'other');
++    assert.equal((await publishLogToPullRequestBranch(options)).success, false);
++  });
++});
++
++test('permanent Gist permission failure is attempted once without splitting', { timeout: 15_000 }, async () => {
++  await withDirectory(async directory => {
++    const logFile = path.join(directory, 'session.log');
++    await fs.writeFile(logFile, 'complete diagnostic line\n'.repeat(20));
++    let calls = 0;
++    const sleeps = [];
++    const result = await uploadLogWithGhUploadLog({
++      logFile,
++      isPublic: true,
++      partSizeBytes: 64,
++      runUpload: async () => {
++        calls++;
++        return permissionDenied;
++      },
++      sleep: async delay => sleeps.push(delay),
++    });
++    assert.equal(result.success, false);
++    assert.equal(calls, 1);
++    assert.deepEqual(sleeps, []);
++  });
++});
++
++test('failed Gist upload publishes the complete sanitized log through the branch fallback', { timeout: 15_000 }, async () => {
++  await withDirectory(async directory => {
++    const logFile = path.join(directory, 'session.log');
++    const secret = `ghp_${'A'.repeat(36)}`;
++    const content = `diagnostic start\ncredential: ${secret}\ncomplete final diagnostic\n`;
++    await fs.writeFile(logFile, content);
++    let received;
++    const result = await uploadLogWithGhUploadLog({
++      logFile,
++      isPublic: true,
++      runUpload: async () => permissionDenied,
++      sleep: async () => {},
++      publishToBranch: async sanitizedFile => {
++        received = await fs.readFile(sanitizedFile, 'utf8');
++        return { success: true, type: 'repository', url: 'https://github.com/link-assistant/hive-mind/blob/abc/dev/log/session.log' };
++      },
++    });
++    assert.equal(result.success, true);
++    assert.equal(result.type, 'repository');
++    assert.ok(!received.includes(secret));
++    assert.match(received, /^diagnostic start\n/);
++    assert.match(received, /complete final diagnostic\n$/);
++  });
++});
++
++test('solve --log-dir writes startup and parsing diagnostics in the requested directory', { timeout: 30_000 }, async () => {
++  await withDirectory(async directory => {
++    const logDir = path.join(directory, 'mounted-logs');
++    const emptyPath = path.join(directory, 'empty-bin');
++    await fs.mkdir(emptyPath);
++    const { stdout: globalModules } = await execFileAsync('npm', ['root', '-g']);
++    await fs.writeFile(path.join(emptyPath, 'npm'), `#!/bin/sh\nif [ "$1 $2" = 'root -g' ]; then echo '${globalModules.trim()}'; else exit 1; fi\n`, { mode: 0o755 });
++    await assert.rejects(execFileAsync(process.execPath, [path.join(root, 'src/solve.mjs'), 'https://github.com/o/r/issues/1', '--log-dir', logDir, '--verbose', '--definitely-invalid-option'], { cwd: directory, env: { ...process.env, PATH: emptyPath }, maxBuffer: 1024 * 1024 }), { code: 1 });
++    const logs = await fs.readdir(logDir).catch(() => []);
++    assert.equal(logs.length, 1, 'the directory bind-mounted by Formal AI Draft must contain its log');
++    const content = await fs.readFile(path.join(logDir, logs[0]), 'utf8');
++    assert.match(content, /Solve\.mjs Log/);
++    assert.match(content, /Raw command executed/);
++    assert.match(content, /Unknown argument/);
++  });
++});
+diff --git a/tests/test-version-info.mjs b/tests/test-version-info.mjs
+index 35085e78..4670e3fc 100644
+--- a/tests/test-version-info.mjs
++++ b/tests/test-version-info.mjs
+@@ -14,10 +14,21 @@
+  */
+ 
+ import assert from 'node:assert/strict';
+-import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
++import { getVersionInfo as gatherVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
+ import { preloadAllLocales } from '../src/i18n.lib.mjs';
+ import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+ 
++// Unit tests must not launch all installed AI agents and language runtimes on
++// every assertion. Real process cleanup is covered by issue-2613-regressions.
++const runCommand = async command => {
++  if (command.startsWith('uname')) return '6.8.0-test';
++  if (command.includes('/etc/os-release')) return 'PRETTY_NAME="Test Linux"';
++  if (command.includes('/proc/1/cgroup')) return 'docker';
++  if (command.startsWith('git ')) return 'git version 2.43.0';
++  return null;
++};
++const getVersionInfo = (verbose, processVersion) => gatherVersionInfo(verbose, processVersion, { runCommand });
++
+ await preloadAllLocales();
+ 
+ // ============================================================================
+diff --git a/tests/version-info.test.mjs b/tests/version-info.test.mjs
+index bc3b0fe7..bd9f7eab 100644
+--- a/tests/version-info.test.mjs
++++ b/tests/version-info.test.mjs
+@@ -13,9 +13,13 @@
+  */
+ 
+ import assert from 'node:assert/strict';
+-import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
++import { getVersionInfo as gatherVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
+ import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+ 
++// These assertions validate report structure, independent of installed tools.
++// Real subprocess lifecycle tests live in issue-2613-regressions.test.mjs.
++const getVersionInfo = verbose => gatherVersionInfo(verbose, null, { runCommand: async () => null });
++
+ // ============================================================================
+ // formatVersionMessage Tests - Browser versions (Issue #1506)
+ // ============================================================================

@@ -35,11 +35,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, describeLeaseLauncher, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 import { drainTaskSessionData } from './router-session-drain.lib.mjs';
 import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
+import { routerSidecarExtraArgs, verifyRouterSidecarStorage } from './router-storage-contract.lib.mjs';
 
+/** Whether a host path exists, without blocking the bot's event loop on a stat (issue #3278). */
+const pathExists = target =>
+  fs.promises.access(target).then(
+    () => true,
+    () => false
+  );
 const execFileAsync = promisify(execFile);
 
 const LOG_PREFIX = 'router-sidecar';
@@ -119,7 +126,11 @@ export const resolveRouterTokenSecret = ({ state, env = process.env, generate = 
  * upstream so a routed task never holds one (R12), and it finds that token the
  * same way gh does, through `GH_CONFIG_DIR`.
  */
-export const getRouterCredentialMounts = ({ homeDir = os.homedir(), existsSync = fs.existsSync } = {}) => [...ROUTER_CREDENTIAL_MOUNTS, ROUTER_GH_CONFIG_MOUNT].map(mount => ({ ...mount, source: path.join(homeDir, ...mount.home.split('/')) })).filter(mount => existsSync(mount.source));
+export const getRouterCredentialMounts = async ({ homeDir = os.homedir(), existsSync: exists = pathExists } = {}) => {
+  const mounts = [...ROUTER_CREDENTIAL_MOUNTS, ROUTER_GH_CONFIG_MOUNT].map(mount => ({ ...mount, source: path.join(homeDir, ...mount.home.split('/')) }));
+  const present = await Promise.all(mounts.map(mount => exists(mount.source)));
+  return mounts.filter((_, index) => present[index]);
+};
 
 /** Does the sidecar hold a vendor credential, as opposed to only a GitHub one? */
 const hasVendorCredential = mounts => mounts.some(mount => mount.envVar !== ROUTER_GH_CONFIG_MOUNT.envVar);
@@ -133,6 +144,7 @@ const hasVendorCredential = mounts => mounts.some(mount => mount.envVar !== ROUT
  * with credentials that stop working the moment the current access token lapses.
  */
 export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts = [], containerName = ROUTER_SIDECAR_CONTAINER_NAME, env = process.env } = {}) => {
+  const extraArgs = routerSidecarExtraArgs(env);
   const args = ['run', '--detach', '--name', containerName, '--label', `${ROUTER_SIDECAR_LABEL}=sidecar`, '--restart', 'no'];
 
   // Issue #2190: the internal network is the *primary* one, so the alias is
@@ -173,8 +185,7 @@ export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts
   const codexClientVersion = String(env?.CODEX_CLIENT_VERSION || '').trim();
   if (codexClientVersion) args.push('--env', `CODEX_CLIENT_VERSION=${codexClientVersion}`);
 
-  const extraArgs = String(env?.HIVE_MIND_ROUTER_EXTRA_ARGS || '').trim();
-  if (extraArgs) args.push(...extraArgs.split(/\s+/));
+  args.push(...extraArgs);
 
   args.push(image, '-c', ROUTER_SIDECAR_BIND_COMMAND);
   // No `-p`: the endpoint is reachable only from the internal network.
@@ -332,7 +343,7 @@ export const finalizeEndedLease = async ({ lease, env = process.env, run = execF
 
 /** Re-derive the sidecar record from Docker, revoking the tokens of leases that died. */
 export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
-  const state = readRouterSidecarState({ env, fsImpl });
+  const state = await readRouterSidecarState({ env, fsImpl });
   const leases = await reconcileSidecarLeases(state.leases, {
     run,
     timeoutMs,
@@ -349,7 +360,7 @@ export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, r
     imageDigest: container.exists ? container.imageDigest : state.imageDigest,
     startedAt: container.running ? state.startedAt : null,
   };
-  writeRouterSidecarState(next, { env, fsImpl });
+  await writeRouterSidecarState(next, { env, fsImpl });
   return { state: next, container, leaseCount: leases.length };
 };
 
@@ -367,8 +378,8 @@ export const stopRouterSidecar = async ({ env = process.env, fsImpl = fs, run = 
   }
   await dockerOk(run, ['network', 'rm', ROUTER_SIDECAR_NETWORK_NAME], { timeoutMs });
 
-  const state = readRouterSidecarState({ env, fsImpl });
-  writeRouterSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
+  const state = await readRouterSidecarState({ env, fsImpl });
+  await writeRouterSidecarState({ ...state, startedAt: null, leases: [] }, { env, fsImpl });
   if (log) await log(`🛑 Router sidecar stopped (${reason}); data volume '${ROUTER_DATA_VOLUME_NAME}' preserved for audit`);
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: removed container=${container.exists} network='${ROUTER_SIDECAR_NETWORK_NAME}'`);
   return { stopped: container.exists };
@@ -383,7 +394,7 @@ export const stopRouterSidecar = async ({ env = process.env, fsImpl = fs, run = 
  *
  * @returns {Promise<{baseUrl: string|null, token: string|null, tokenId: string|null, leaseCount: number, external: boolean, error: string|null}>}
  */
-export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, imageTimeoutMs = DEFAULT_IMAGE_TIMEOUT_MS, homeDir = os.homedir(), existsSync = fs.existsSync, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
+export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, imageTimeoutMs = DEFAULT_IMAGE_TIMEOUT_MS, homeDir = os.homedir(), existsSync: exists = pathExists, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
   if (!sessionId) throw new Error('acquireRouterSidecar requires a sessionId');
 
   const endpoint = resolveRouterBaseUrl({ env });
@@ -399,6 +410,12 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
 
   if (!isRouterSidecarEnabled(env)) {
     return { baseUrl: null, token: null, tokenId: null, leaseCount: 0, external: false, error: 'HIVE_MIND_ROUTER_SIDECAR is disabled but no HIVE_MIND_ROUTER_URL was provided' };
+  }
+
+  try {
+    routerSidecarExtraArgs(env);
+  } catch {
+    return { baseUrl: null, token: null, tokenId: null, leaseCount: 0, external: false, error: 'Router extra resource arguments are invalid; only documented resource limits are supported.' };
   }
 
   return withRouterSidecarLock(async () => {
@@ -440,7 +457,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
         }
       }
 
-      const credentialMounts = getRouterCredentialMounts({ homeDir, existsSync });
+      const credentialMounts = await getRouterCredentialMounts({ homeDir, existsSync: exists });
       // A GitHub credential alone would leave the router with nothing to answer
       // a model request with, so it does not count towards this check.
       if (!hasVendorCredential(credentialMounts)) {
@@ -477,14 +494,17 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
       return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: 'router sidecar did not become healthy' };
     }
 
+    const storage = await verifyRouterSidecarStorage({ run, timeoutMs });
+    if (!storage.valid) return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: storage.error };
+
     const issued = await issueRouterTaskToken({ sessionId, githubRepo, run, timeoutMs, log, verbose });
     if (issued.error || !issued.token) {
       return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: issued.error || 'router issued no token' };
     }
 
     container = await inspectDockerContainer(ROUTER_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
-    const leases = [...state.leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tokenId: issued.tokenId, acquiredAt: now().toISOString(), containerSeen: false }];
-    writeRouterSidecarState({ ...state, leases, tokenSecret, startedAt, image: container.image, imageDigest: container.imageDigest, lastUpdate: now().toISOString() }, { env, fsImpl });
+    const leases = [...state.leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tokenId: issued.tokenId, acquiredAt: now().toISOString(), containerSeen: false, launcher: describeLeaseLauncher() }];
+    await writeRouterSidecarState({ ...state, leases, tokenSecret, startedAt, image: container.image, imageDigest: container.imageDigest, lastUpdate: now().toISOString() }, { env, fsImpl });
 
     return { baseUrl: getInternalRouterBaseUrl(), token: issued.token, tokenId: issued.tokenId, leaseCount: leases.length, external: false, error: null };
   }, lockOptions);
@@ -576,13 +596,13 @@ export const attachTaskToRouterNetwork = async ({ sessionId, run = execFileAsync
  *
  * @returns {Promise<{wired: boolean, error: string|null}>}
  */
-export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent', homeDir = TASK_CONTAINER_HOME, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
+export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent', dialect = null, homeDir = TASK_CONTAINER_HOME, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   if (!sessionId) return { wired: false, error: 'no sessionId' };
   const caCertificate = await readRouterCaCertificate({ containerName, run, timeoutMs });
   if (!caCertificate) return { wired: false, error: 'the router printed no TLS CA (`router tls ca`), so the task could not be given anything to trust' };
   const routerIp = githubMode === 'transparent' ? await readRouterNetworkIp({ containerName, run, timeoutMs }) : null;
   if (githubMode === 'transparent' && !routerIp) return { wired: false, error: `the router has no address on '${ROUTER_SIDECAR_NETWORK_NAME}', so api.github.com could not be pointed at it` };
-  const script = buildRouterTaskWiringScript({ routerIp, caCertificate, homeDir, tool, baseUrl, githubMode });
+  const script = buildRouterTaskWiringScript({ routerIp, caCertificate, homeDir, tool, baseUrl, githubMode, dialect });
   try {
     await dockerText(run, ['exec', '--user', '0', sessionId, 'sh', '-c', script], { timeoutMs });
   } catch (error) {
@@ -602,7 +622,7 @@ export const releaseRouterSidecar = async ({ sessionId, env = process.env, fsImp
   if (!isRouterSidecarEnabled(env) || resolveRouterBaseUrl({ env }).external) return { leaseCount: 0, stopped: false };
 
   return withRouterSidecarLock(async () => {
-    const state = readRouterSidecarState({ env, fsImpl });
+    const state = await readRouterSidecarState({ env, fsImpl });
     const released = state.leases.find(lease => lease.sessionId === sessionId);
     if (released) await finalizeEndedLease({ lease: released, env, run, timeoutMs, log, verbose });
 
@@ -610,7 +630,7 @@ export const releaseRouterSidecar = async ({ sessionId, env = process.env, fsImp
       state.leases.filter(lease => lease.sessionId !== sessionId),
       { run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX, onDropped: lease => finalizeEndedLease({ lease, env, run, timeoutMs, log, verbose }) }
     );
-    writeRouterSidecarState({ ...state, leases: remaining }, { env, fsImpl });
+    await writeRouterSidecarState({ ...state, leases: remaining }, { env, fsImpl });
 
     if (remaining.length > 0) {
       if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: '${sessionId}' released; ${remaining.length} lease(s) still hold the sidecar up`);

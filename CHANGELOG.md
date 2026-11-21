@@ -1,5 +1,956 @@
 # @link-assistant/hive-mind
 
+## 2.45.1
+
+### Patch Changes
+
+- 1825819: Recommend the Kotlin pipeline template in `fix --ci-cd` and document it in the CI/CD guide and translations.
+- 3a57521: Recommend the Swift pipeline template in `fix --ci-cd` and document standalone and multi-language Swift adoption in the CI/CD guides.
+
+## 2.45.0
+
+### Minor Changes
+
+- 6f19ff0: Document commit and ready-for-review CI tiers, workspace-aware test selection, job sizing, file-size ratchets, and cancellation that preserves full checks.
+- 1996018: Add `hive-manager` for local and SSH deployment, recovery, maintenance and headless Claude, Codex and GitHub sign-in. The same Bash entry point runs standalone, ships in the npm package, and is available in the Hive Mind Docker images.
+
+## 2.44.0
+
+### Minor Changes
+
+- 33df1ac: Wait for automated PR review apps and act on their findings (#4081).
+
+  - New `--review-bots` option. It is an allowlist of review apps and defaults to the Codex connector, CodeRabbit, Copilot review, Gemini Code Assist, Sourcery, Qodo, Cursor and Greptile. Use `default,<login>` to add an app, or `none` to turn this off. Summaries and reviews from these apps that report findings (the Codex `codex-review-state` marker with `has_unresolved_findings: true`, or CodeRabbit's `Actionable comments posted: N`) are feedback for `--auto-restart-until-mergeable`. CI and deploy bots stay ignored.
+  - Before "Ready to merge", the loop waits while a review app is still reviewing the head commit (a 👀 reaction or an in-progress notice). The wait lasts up to `--review-bots-wait-minutes`, default 15.
+  - Findings restart the AI. If the AI leaves them unaddressed, "Ready to merge" becomes "Ready for review — blocked by review bot findings", which names each summary, and `--auto-merge` does not merge.
+  - Every backend's system prompt now tells the AI to wait for review apps after marking the PR ready or pushing, and to address every finding.
+
+## 2.43.5
+
+### Patch Changes
+
+- 5599f27: Fix `solve` sessions that stayed stuck for hours after their final log (#4091).
+
+  - Workflow runs on the HEAD commit that have not started are now bounded instead of blocking until the 24 h watch timeout. This covers runs held in a `concurrency` queue (`pending` with 0 jobs) and runs waiting for an approval (`waiting` / `action_required`). After `HIVE_MIND_STUCK_PENDING_RUN_MINUTES` one notice is posted on the PR. After `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES` monitoring stops with an explicit reason. These runs are never cancelled or re-run.
+  - `/solve` now prints `[HIVE-MIND SOLVE]` phase markers. Telegram shows the log upload and watch phases (blocker, elapsed time, deadline) instead of `⏳ Executing...`.
+  - Waits after the final log have a 30 s heartbeat and a deadline. Log sanitize and upload report their progress. A hung GitHub probe is skipped, and repeated hangs stop monitoring.
+  - While monitoring continues, the log comment no longer says the working session has ended. A `Monitoring Ended` comment reports the final decision.
+  - On `/stop`, the watch loop stops before the log upload and only the log tail since the last upload is attached. The notice now says "stopped by operator" and gives the last phase instead of `SIGKILL; cause unknown`.
+  - Watch-loop lines have ISO-8601 UTC timestamps, and the issue JSON is no longer printed on every check.
+
+## 2.43.4
+
+### Patch Changes
+
+- 1baeac2: `--auto-restart-until-mergeable` no longer reports "✅ Ready to merge" over open review findings, and the task image can run corepack-based git hooks again (issue #4082).
+
+  - Unresolved review threads are listed in the AI's feedback whatever their age or author, review bots included. Before, only comments newer than the last commit counted. The watch loop restarts the AI on each thread it has not handed over yet. Threads the AI was given but left unresolved hold "Ready to merge" back and are named in the comment. The prompt tells the AI to resolve each thread after a verified fix.
+  - Submitted reviews are read too: a bot review that requests changes, a human review, or a same-account comment without tool markers restarts the AI.
+  - Merge-order prerequisites declared in the pull request description or the latest session summary ("merge the companion PR first", "Depends on owner/repo#12") are checked on GitHub. While one is unmet, "Ready to merge" becomes "🟡 Ready for review — blocked by …", and auto-merge does not merge.
+  - After "Ready to merge" the loop keeps watching for late reviews for `--auto-restart-until-mergeable-review-window-minutes` (default 120; `0` exits at once). New options: `--auto-restart-on-unresolved-review-threads` and `--check-merge-prerequisites`, both on by default.
+  - The Docker images install a pinned `corepack`, which Node 26 no longer bundles. Solve also tells the AI when a repository's git hooks cannot run here (a missing corepack, pnpm, yarn, pre-commit, lefthook, …), so their checks are run by hand instead of being skipped silently.
+
+  Every prompt sent to an AI tool is now printed in full in the log, after all formatting, as a clearly marked block (PR #4083 review feedback on issue #4082).
+
+  - Claude, Codex, Agent, OpenCode, Gemini, Qwen, agent-commander, the task command and the /organize classifier log the exact user, system or combined prompt where it is sent. Each block shows its line and character count and how the prompt is delivered (argument, file, stdin or stream-json frame), and sits between `---BEGIN … PROMPT---` and `---END … PROMPT---` markers. This happens on every run, not only with `--dry-run` or `--verbose`.
+  - Live input frames written to the tool stdin mid-session (forwarded comments, status updates, queued frames) are printed as readable text in `LIVE INPUT PROMPT` blocks.
+  - The /organize classifier receives its repository context and issues as indented JSON instead of one long line. Chunk sizes are measured on that formatted text.
+
+  Also, for the CI dependency freshness gate: `links-notation` is updated to 0.31.7.
+
+## 2.43.3
+
+### Patch Changes
+
+- 8321025: `--auto-restart-until-mergeable` no longer posts `🛑 Automation stopped: the AI session failed` after `🚨 Solution Draft Failed` for the same failed session (issue #4087). The failure comment already holds the error, the models and the log, and says the session ended, so one failure now gives one comment.
+
+  - The `tool_failure` and `tool_failure_after_resume` stop comments are skipped when the `Solution Draft Failed` comment reached the pull request. This covers both the comment with the attached log and the `Log Upload Failed` variant, which has the same heading and error.
+  - The stop comment is still posted when no failure comment reached the pull request (`--attach-logs` is off, or nothing could be posted), so every failure is still reported once.
+  - The terminal log lines and the recorded loop failure are unchanged.
+
+## 2.43.2
+
+### Patch Changes
+
+- cbfc3a4: A Codex turn that degenerates, runs out of output tokens or runs too long no longer ends the run with nine hours of work left uncommitted. Account identifiers no longer reach published logs (issue #4079).
+
+  - **Degenerate output.** A run of 200 identical or filler lines (`.`, blank) in text the model writes stops the turn, and the session is resumed with a continuation prompt. This covers stdout items and the `codex.tool_result` arguments on stderr. Set `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT` to change the limit, or `0` to disable it.
+  - **`max_output_tokens`.** `Incomplete response returned, reason: max_output_tokens` now resumes the same Codex session from the current working tree instead of failing the run, up to `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` (3) times per run.
+  - **Long turns.** A single turn is split, and the session resumed, after `HIVE_MIND_CODEX_MAX_TURN_MINUTES` (240) or `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS` (100M; needs `--verbose`), up to `HIVE_MIND_CODEX_MAX_TURN_SPLITS` (20) times per run. A turn is never stopped while a command or file change is running.
+  - **Codex stderr.** A multi-line Codex telemetry record (for example, a tool call's arguments) now goes to the trace file with its header instead of into the log. Repeated lines collapse into `… previous line repeated N more times`.
+  - **Account identifiers.** `user.email`, `user.account_id` and similar values are redacted to `<redacted>` in Codex stderr, in the trace file and in every log sanitized for publishing.
+  - **Recovery branch.** On a continue run, work a failed run preserved on `recovery/<branch>` is restored to the working tree if the PR branch has not moved. Otherwise the session is told where the work is. The failure comment now names the recovery branch.
+
+## 2.43.1
+
+### Patch Changes
+
+- a49032b: A Claude failure no longer publishes a line of an SDK debug dump or of printed source as its reason, such as `CLAUDE execution failed with } ReadableStream { locked: false, state: 'readable', supportsBYOB: false }` (issue #4077).
+
+  - With `--verbose`, Claude Code runs with `ANTHROPIC_LOG=debug`. `@anthropic-ai/sdk` logs every streamed response as `response 200 <url> Headers {` … `} ReadableStream {…}`. This is the only SDK debug line without a `[log_<id>]` prefix. These lines and the `[log_<id>, request-id: …] post … succeeded …` summary lines are now recognised as debug output.
+  - A new shared guard, `isSourceFragmentErrorText`, is applied at the publishing boundary for every tool (`isMeaningfulErrorText`). It rejects the tail of an inspected object or code block (`}`, `]`, `)`), quoted header keys, inspected function values, stack frames and SDK debug-logger lines.
+  - When Claude is killed without a readable reason, the message now names the signal, e.g. `Claude command failed with exit code 137 (SIGKILL)`.
+  - `@sentry/node` and `@sentry/profiling-node` are updated to 11.13.0 for the dependency freshness gate.
+
+## 2.43.0
+
+### Minor Changes
+
+- b033632: New Telegram commands `/after` and `/enqueue`, and a `--respect-blockers` option for the solve commands (issue #4069).
+
+  - `/after` and `/enqueue` start exactly one task after another task has finished. They find the task to wait for the way `/stop`, `/log` and `/watch` do: a session UUID or an issue/pull request link, in the replied message or in the command. Everything else works as in `/solve`: `/after <task-link> [options]` as a reply, `/after <uuid|awaited-link> <task-link> [options]`, or `/after [options]` as a reply to run the same link again afterwards.
+  - `/after` starts the task only when the awaited task succeeds (a run without changes counts as a success). When the awaited task fails, is cancelled or is killed, the waiting task fails too, and so does any chain behind it. `/enqueue` starts the task once the awaited task finishes, whatever the outcome.
+  - A waiting task appears in `/queue` under "Waiting for other tasks". It can be stopped with `/stop` before it starts, and joins its tool queue as an ordinary queued task once it is released.
+  - `--respect-blockers` (experimental, off by default; `TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` turns it on for every solve command) reads the issue's GitHub relations the way `/hive` does (#2615). These are open "blocked by" issues, open sub-issues (a sub-issue blocks its parent) and the blockers of its ancestors. If every open blocker is already queued or running, the task waits for them as with `/after`. If a blocker is neither queued nor running, the task is not started. Pull requests, and issues whose relations cannot be read, start as before.
+  - A command with several links (#4067) now respects blockers by default (`TELEGRAM_BATCH_RESPECT_BLOCKERS`, or `--no-respect-blockers` for one command). The relations are read once, unblocked links start first, and each blocked link waits for the batch links that block it.
+
+## 2.42.0
+
+### Minor Changes
+
+- 632281f: `/solve`, `/claude`, `/codex` and the other solve aliases now start every GitHub issue or pull request link when the command replies to a message with several links, instead of refusing with `Found N GitHub links in the message` (issue #4067).
+
+  - Each valid link starts as its own task, as if the command had been sent once per link with the same options. Each "Starting…" or "Queued…" message replies to the same command message.
+  - Links start one at a time, with a random 10–15 second pause between two starts.
+  - Links that cannot be started (not an issue or pull request link, not found, already running or queued, rejected by the queue) get one summary after every valid link has started.
+  - A repository link in a list is not started (it would solve the whole repository); the summary says to send `/solve <repository-url>` alone for that.
+  - An error in the options is answered once, and nothing starts. `/stop` during a batch stops the links not yet started.
+  - Duplicated links start once. Captions and hidden (`text_link`) links of the replied message are read too.
+  - A command can also list several links itself: `/solve <url-1> <url-2> --model opus`.
+  - A reply to a message with a single link works as before.
+
+  Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile), and the `use-m` bootstrap pin to 8.17.2.
+
+## 2.41.0
+
+### Minor Changes
+
+- cfe1f9e: A fresh clone with uncommitted changes no longer stops `solve` with `Repository has uncommitted changes after clone` (issue #4063). The trigger was a repository whose committed bytes do not match its own `.gitattributes`, such as a CRLF `mvnw.cmd` committed under `text eol=crlf`.
+
+  - New `--uncommitted-changes-after-clone` option:
+    - `warn-ai` (default): the run continues, and only the AI is told, in its regular user prompt (never in the system prompt). The AI gets the exact `git status` output and how to fix the cause, for example with `git add --renormalize`. Every tool gets this, in new and continued sessions, and the user sees it only with `--verbose`.
+    - `warn-user`: continue and log a warning for the user.
+    - `warn-ai-and-user`: tell both.
+    - `ignore`: continue silently.
+    - `fail`: stop the run, as before.
+  - New `--neutralize-checkout-conversion-artifacts` option, on by default: files whose bytes equal the commit are kept out of `git status` and the pull request by unsetting their content conversion in the clone-local `.git/info/attributes`. `--no-neutralize-checkout-conversion-artifacts` turns this off.
+  - `--verbose` logs the attribute and line-ending diagnostics.
+  - The changes already present right after the clone are no longer repeated as "uncommitted changes" restart feedback.
+
+  Also, for the CI dependency freshness gate: `secretlint`, `@secretlint/core` and `@secretlint/profiler` are updated to v14, `@link-foundation/sensitive-data-sanitizer` to 0.23.0 and `links-notation` to 0.31.6. Secretlint v14 ships the recommended preset in `@secretlint/core/builtin`, and its `@secretlint/secretlint-rule-preset-recommend` package is no longer published. Secret scanning now loads the preset from there, with the same rule ids.
+
+- 6995621: A red Formal AI draft is now explained from solve's own `solve-*.log` (newest first), not from whichever `*.log` in the log directory is newest (issue #4065). A caller's capture files, such as formal-ai's `attempt.log`, no longer hide the `Finished without changes: …` reason behind `docker run exited N without a session log error`. Any other `*.log` is read only when no `solve-*.log` exists.
+
+  Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 and its `string-argv` dependency to 0.4.0.
+
+## 2.40.5
+
+### Patch Changes
+
+- f4c7263: `/fix --update-all-dependencies` now handles every open Dependabot pull request before it creates the issue (#4061). Before this fix, links-notation#396 and #407 stayed open and were listed in links-notation#408:
+
+  - **Superseded pull requests are closed whatever their mergeability.** Only conflicting pull requests used to be compared with the base branch, so the mergeable but behind #407 was merged instead of closed. Every non-draft pull request is now compared first. The comparison also reads the .NET SDK `"version"` in `global.json` (Dependabot's `dotnet-sdk` ecosystem), `rust-toolchain(.toml)`, and `image:` lines. Repeated pins in several workflows are named once.
+  - **Pull requests that a ruleset keeps out because they are behind are rebased.** `--admin` cannot bypass a ruleset with no bypass actors, so `gh pr merge` failed with "Repository rule violations found". Dependabot is now asked to `@dependabot rebase` the pull request, which is merged once its required checks pass. A freshly rebased head whose checks are not reported yet keeps waiting. The wait is bounded by the new `--dependabot-wait-timeout <minutes>` option (default 30, `0` to not wait), which `/fix` and `/task` accept.
+  - **Clearer reports.** The issue keeps the whole `gh` error, not only its first line, and names the ruleset, its required checks and whether it can be bypassed. `--verbose` prints each supersession verdict and the merge state after a failed merge. The issue context now names the hive-mind version that collected it, so an issue written by an outdated deployment can be recognised.
+
+  `links-notation` 0.31.5 and `rc-config-loader` 4.2.0 are also taken, to keep the dependency freshness gate green. The unused direct `lino-objects-codec` dependency is dropped instead of moving to 1.0.0, which requires Node.js 26.13.1 while hive-mind supports Node.js 24; `lino-i18n` keeps its own `^0.9.6` copy.
+
+## 2.40.4
+
+### Patch Changes
+
+- 600f1f9: Fix the CI/CD errors, false negatives and warnings found on `main` (#4055):
+
+  - **Native recovery on `linux-arm64`.** Selected native SQLite corruption recovery no longer fails with `requires closed database handles` when SQLx is still closing a dropped connection on its worker thread. The VFS reports the holder through `errno`: `EBUSY` for this process and `EWOULDBLOCK` for a native peer. The backup waits at most 5 s for this process's own handles and still refuses live peers. `HIVE_CODEX_SQLITE_TRACE=1` traces each attempt and is off by default.
+  - **Formal AI draft health.** Repeated draft failures no longer split into separate streaks by release version. Twelve drafts that failed on missing `2.40.0` and `2.40.1` images stayed green because neither streak reached the threshold.
+  - **Dependabot.** The `docker-compose` entry matched no dependency and warned daily, so it is removed. A daily `Dependabot Health` workflow fails when a Dependabot group pull request stays open long enough to block newer updates (dependabot/dependabot-core#16791).
+  - **Native experiment probes.** Compiles that take 7–10 s had a 30 s limit, and one slow runner failed the job with only `exit code 1`. The five probe scripts now share a 120 s compile limit, the configuration lock probe prints the compiler output and elapsed time on failure, and each experiment job prints the newest log on failure.
+  - **Process liveness checks.** A task that its reaper is releasing shows `X (dead)` in `/proc/<pid>/stat`, right after `Z`. Six checks, including the runtime probe cleanup in `verify-agent-runtime`, treated it as alive, which failed a Router native-lifetime test at random.
+  - **Native Codex variants and Docker images.** 2.40.2 published its main package while npm was still processing the linux-arm64 variant, so the arm64 image installed without it and no 2.40.2 image was published. The release now publishes the main package only after npm can install every variant, and the Docker jobs also wait for the variants a release pins. The image build prints why native Codex was refused.
+  - **Native usage reproduction race.** Before the repair, upstream Codex sometimes revokes an in-flight usage request when it reloads the changed authentication, so the probe that expects the retired response failed at random. The probe now prints the response with `CODEX_PROBE_DIAGNOSTICS=1`, reports that outcome as inconclusive, and the workflow repeats it up to five times.
+  - **Credential sanitizer 0.22.5.** The library now keeps an `Authorization:` placeholder that closes a double-backtick code span (link-foundation/sensitive-data-sanitizer#181), so the adapter's code-span exemption is removed and the regression tests guard the library's own behaviour.
+
+- 1144b6e: Codex runs in a repository with its own skills no longer fail with "Codex exposed skill instructions outside the capability allowlist" (#4057). Every skill under the checkout's `.agents/skills` and `.codex/skills` is admitted without an issue requirement. This includes skills linked from `.agents/skills` into `.claude/skills`, the layout used by Hive Mind's handoff and Playwright skills, as long as the file stays inside the checkout. Skills Codex discovers outside the checkout and the task `CODEX_HOME` (`$HOME/.agents/skills`, `/etc/codex/skills`, symlinks leaving the checkout) are now switched off for the task only, with `[[skills.config]] enabled = false` in the per-task `CODEX_HOME`, instead of failing the run. The catalog is then probed again, and the run still fails closed if Codex keeps showing them. Verbose logs list the trusted skill roots and each refused skill with its origin. Hosts still on 2.39.x should upgrade: the repository-skill fix from #3785 was versioned as 2.40.0/2.40.1, but neither version reached npm; 2.40.2 was the first published version with it.
+
+  The publication sanitizer also no longer masks an `Authorization:` header named in prose when the code span closes right after the colon. This text appears in the 2.40.2 release note, and masking it removed the closing backtick and broke the `` `Authorization: token <value>` `` example that followed on the same line. Real tokens stay masked (sensitive-data-sanitizer#177).
+
+  `@link-foundation/sensitive-data-sanitizer` 0.22.4 fixes the `ERR_SANITIZATION` failure on a letter run of about 4 MiB in text with emoji or other non-Latin-1 characters (sensitive-data-sanitizer#172), so Hive Mind's own long-run fallback is removed. `lino-i18n` 0.6.0, `links-notation` 0.31.4 and `start-command` 0.44.0 are also taken.
+
+## 2.40.3
+
+### Patch Changes
+
+- 48f69e7: `--auto-restart-until-mergeable` no longer waits silently for hours on CI signals that will never change (#4048).
+
+  **Out-of-band runs.** A failed or running `workflow_dispatch`, `schedule`, `repository_dispatch` or `workflow_run` run on the HEAD commit no longer holds the multi-mechanism CI consensus or the `/merge` queue (`checkPRCIStatus`). GitHub leaves these runs out of the pull request's merge state, and a `CLEAN`/`MERGEABLE` PR is now trusted by the consensus exactly as by `getMergeBlockers` (#2031).
+
+  **Ghost runs.** Workflow runs stuck in `queued` with zero jobs, for example after a GitHub Actions incident, are handled as follows (`HIVE_MIND_STUCK_QUEUED_RUN_MINUTES`, default 30):
+  - on older PR commits they are ignored and reported;
+  - on HEAD they are cancelled (falling back to force-cancel) and re-run, at most `HIVE_MIND_STUCK_RUN_RERUN_ATTEMPTS` times (default 2), and only when githubstatus.com reports no active Actions/Webhooks incident. Runs that started on their own are never touched.
+
+  **Visibility.** Each disagreement now logs which checks and runs disagree, together with the githubstatus.com incidents that overlap the wait. After `HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS` identical checks (default 15), one `CI wait is stuck` comment is posted on the PR.
+
+  **Stopping.** A stop request now parks the auto-merge, watch and auto-continue loops, so they no longer start new checks while the interrupt handler uploads the log.
+
+  The publication sanitizer also keeps an `` `Authorization:` `` header named in prose with no value (the closing backtick was read as the value and masked, which broke the 2.40.2 release note and `tests/issue-3445-release-notes-not-masked.test.mjs` on main; upstream sensitive-data-sanitizer#177).
+
+## 2.40.2
+
+### Patch Changes
+
+- e778b7a: Publish the native Codex executables as per-platform variant versions of this package (`@link-assistant/hive-mind@<version>-native-codex-linux-x64` and `-linux-arm64`, under their own dist-tags) instead of bundling both in the main tarball. npm refused the 2.40.0 and 2.40.1 tarballs (249,847,872 and 249,862,346 bytes) with `E413 Payload Too Large`, so neither version, nor any Docker image, was released (#4050). The main package pins both variants as optional dependency aliases at publication; the runtime admits only the variant whose version matches the main package, and `HIVE_MIND_NATIVE_CODEX_DEBUG=1` (off by default) names the refused phase. Every tarball is now gated below a 157 MiB budget before upload with an annotation naming its largest files, and an E413 fails on the first attempt instead of being retried. Pull request images install the same packed variant at the alias path. See `src/native-codex/PACKAGES.md`.
+
+  The publication sanitizer no longer masks a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes, which lost its closing backtick). Real tokens stay masked; this works around sensitive-data-sanitizer#177 until it is fixed upstream.
+
+- 6d8ace1: A generic authentication failure no longer stops a run on the first try (#4053). Claude Code reports every 401/403, including a Cloudflare page (`Failed to authenticate. API Error: 403 Attention Required! | Cloudflare`), as `authentication_failed`. These are now treated as unconfirmed and re-checked by retrying, with the session preserved: 3 times by default (`HIVE_MIND_MAX_AUTH_FAILURE_RETRIES`, `HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS`, `HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS`). While status.claude.com or status.openai.com reports a relevant incident, retries continue within the transient retry budget (`HIVE_MIND_PROVIDER_STATUS_CHECK=false` disables the lookup). `/hive` is only stopped once the failure is confirmed, and the report and the Telegram message state how often it was re-checked and what the status page said. Explicit reasons (revoked or expired token, billing, disabled organization) still stop at once. The same applies to Codex 401s and Claude CLI validation, and Cloudflare challenge pages are retryable for every tool.
+
+  `/limits` now reports HTTP 5xx, 408, 425, timeouts and network errors as "Claude/Codex limits are temporarily unavailable (…). They will be retried on the next /limits call." These failures are no longer cached, including by the Router. The misleading bare `(active)` subscription status is dropped; only an exact end date is shown, when the provider publishes one.
+
+## 2.40.1
+
+### Patch Changes
+
+- b83e3e0: Fix the credential sanitizer masking the scheme word instead of the credential in `Authorization: token <value>` (and any other scheme), which published the value; shell expressions such as `$(gh auth token)` stay as they are (#3739). All sanitizers (terminal, logs, publication, residual check) now run on @link-foundation/sensitive-data-sanitizer instead of Hive Mind's own rule list, masking credentials only; known local values (credential environment variables, every gh hosts.yml token, `gh auth token`) are collected by the library, which also fixes the `gh auth status` collector that found no token on current gh versions (#3740). Remaining library differences have workarounds linked to their upstream issues.
+
+  Upgrade the engine to 0.22.3 and remove every obsolete adapter rule, including the masked-prose, wrapped-binary, wrapped-text, encoded-mask, escaped-JSON, Authorization-scheme, Markdown-value, constructor and private-key-type workarounds now handled upstream; native private-key types receive native full redaction. Eliminate quadratic stream-boundary scans (#3747), retain Actions permissions and useful account diagnostics (#2837), and repair then verify AI-created development-log evidence before staging with file/line/rule diagnostics (#2841).
+
+  Keep Telegram bot credentials off the running process command line: support a private configuration file, re-exec legacy inline credential options through environment transport, retain configuration precedence, and document Helm Secrets and private files. Replace token-shaped deployment examples with explicit placeholders and check their embedded template sources (#2647, #3951).
+
+  Stop retrying log uploads that `gh-upload-log`'s own sanitizer refuses (`Sanitization failed (ERR_…)`), because the same bytes are refused every time; failures that `gh-upload-log` 0.13.2 marks as retryable are still retried. Cap upload parts at 48 MiB by cutting overlong lines on a UTF-8 boundary, and isolate long ASCII letter/digit runs from non-ASCII text in upload parts (sensitive-data-sanitizer#172), re-sending a refused file as such parts. The failure comment suggests upgrading to `gh-upload-log` 0.13.2 for `ERR_LIMIT` and 2 MiB parts for `ERR_SANITIZATION`, instead of a command that is refused again (#4042). Pin that option placeholders such as `--secrets <path>` stay readable while real values are masked (#4043). Add regressions for closed sanitization issues, and name the disk-space remedy when the sanitized upload copy hits ENOSPC (#1212).
+
+  Scan long base64, hex, percent, escape and entity runs linearly, so a multi-MiB screenshot record no longer overflows V8's regexp stack and blocks a whole log (#4049). Sanitize around long letter runs when the library itself overflows on two-byte text, failing closed when a credential reaches into a run (sensitive-data-sanitizer#172), and document the slow scan of one very long credential value (sensitive-data-sanitizer#173).
+
+## 2.40.0
+
+### Minor Changes
+
+- 8334b4d: Fix false failures, false passes and noisy warnings in CI/CD (issue #4025): install lychee with retries and a checksum check, keep the lychee cache between runs and fail when lychee writes no report, keep the fixture cleanup inside its timeout, run the full unit suite on pull requests, report "finished without changes" for Formal AI drafts instead of a recovered log-upload 403, and refresh stale dependency pins (agent 0.27.2, jscpd 5.4.3, create-pull-request v8.1.2, use-m 8.17.0, @clack/prompts 1.9.0). Fail the Security check on open CodeQL results and fix the open alerts on main. Override minimatch to 11.0.5 with a key that npm 10 and npm 11 resolve the same way. Fail the status gate on cancellations unless a newer commit superseded the run, and add status gates to Links, Security and Workflows. Run ShellCheck on standalone scripts. Drop checkout credentials in jobs that never push. Link the native CLI pin exceptions to the open tracking issue #4027, and fail a pull request whose freshness exception links an issue that the same pull request closes.
+- b438782: Fix false CI signals found in #4029:
+
+  - **Red `Checks and release` on main.** The capability lifecycle gate now accepts the typed refusal of an unpinned npm-latest Codex (0.167.0 ships different stock skills than the pinned 0.164.0). It then restores the pinned stock runtime before the next phases.
+  - **Docker checks.** Image-gate helpers mounted into the container now trigger them.
+  - **Freshness gate.** azure/setup-helm v5.1.0 and lino-objects-codec 0.9.6 keep it green.
+  - **Formal AI Draft.** Dispatched checks are no longer left `pending` forever: the reporter waits up to 200 minutes and then posts a terminal status.
+  - **Cleanup.** The log explains why the stale branch count exceeds the fixture count.
+  - **Status gate.** A job with an unknown result (for example `abandoned`) or no result now fails the pipeline instead of passing it.
+  - **Formal AI Draft conclusions.** Only `success`, `neutral` and `skipped` are mirrored as green; any other conclusion is a failure.
+  - **Release.** If main gained untested source changes while a release run was testing its commit, the release no longer rebases onto them and publishes. The run for the newer commit tests and releases them.
+  - **Native Codex build.** The job timeout is 150 minutes instead of 120. Successful arm64 builds take up to 110 minutes, so a slow runner could fail a healthy release.
+  - **Noise.** Every workflow that checks out sets `init.defaultBranch`, which removes the `git init` hints. ShellCheck runs from a pinned venv instead of `pipx run`, which removes the PATH warning.
+
+- 0e2621e: Keep geolocation private by default across all AI runners, neutralize host timezone hints, and clear Codex's optional search location configuration. Add --share-geolocation to opt in for location-dependent tasks.
+- c9f8a95: Give Claude and Codex authentication errors separate limits sections, prefer authenticated Claude entitlement flags over cached plan labels, and identify stored Codex subscription metadata. Invalidate limits caches when credentials rotate or disappear, respect effective tool homes and explicitly selected Router usage authority, and keep verbose diagnostics free of credentials and account identifiers. Discover Codex plugin catalogs in task-owned storage without writable links to the operator marketplace.
+
+  Reject explicitly selected Router launches with missing task tokens, invalid endpoints or unavailable tool routes, and use the selected image's route dialect consistently.
+
+  Restrict extra Router Docker options to documented resource limits. Before issuing a task token, inspect the actual new or reused sidecar's data/audit environment and writable canonical named volume; refuse redirected, ambiguous or overlapping storage without logging its environment.
+
+  Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
+
+  Reject malformed JSON/TOML, unsafe links and concurrent edits before the existing global configuration audit repairs state. Bound configuration reads even during concurrent growth. Require a clean re-audit of known surfaces before native connection checks in solve, hive and the root Telegram bot, including when auto-repair is disabled. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.
+
+  Audit Codex TOML registrations semantically, including quoted, dotted and inline declarations. Remove each unapproved registration with its nested settings and preserve unrelated typed configuration. TOML repairs normalize formatting and remove comments; clean configuration is left unchanged.
+
+  Reject global instruction files, rules, legacy prompts and hook manifests during admission. Remove inline global hooks/instructions, unapproved Codex profile registrations and custom agent declarations while preserving unrelated settings and concurrency limits. Retain instruction files and hook manifests for explicit removal or quarantine.
+
+  Pin image installations to Claude Code 2.1.319 and Codex 0.164.0. Verify installed Codex stock skills against a content manifest generated by a pristine instance of that CLI version, including hidden files and nested payloads. Reject changed, incomplete, linked or oversized stock content before configuration repair. Disable Claude's automatic updater and exclude both pinned tools from Hive Mind's idle and command-triggered updates in images. Unpinned tools retain their existing update behavior.
+
+  Install the PR branch as a release-shaped npm package in Docker checks. Require the installed configuration command and a network-disabled stock-runtime verification in root, DinD and Coolify images. Check the pinned native CLI versions, known global surfaces and actual Codex-generated stock tree without credentials or repair; reject missing or unapproved stock, bound probe responses and clean up the native process before deleting disposable state.
+
+  Give every stock-gate native subprocess a disposable home and working directory with a minimal environment. Exclude inherited credentials, config overrides and preload hooks from version checks and stock materialization; force disposable file-based Codex credential storage.
+
+  Require native Codex discovery to return exactly the pinned stock skills in the disposable home. Reject additional user, repository or admin skills, missing/duplicate/disabled entries, alternate paths, plugin associations and discovery errors before checking the stock file tree. Keep native paths and error excerpts out of rejection diagnostics.
+
+  Verify Docker mount sources against their actual device/inode backing before fresh task launch. Translate root-container bind/volume sources into the selected local daemon namespace when direct paths fail, reject unverifiable sources before running the task, and release acquired service leases on preparation failure. Keep probes read-only, bounded and network-disabled; retain missing-image pulls through the existing detached lifecycle. Optional mount-stage tracing omits source paths and daemon diagnostics.
+
+  Require an installed-package mount-backing check in Docker PR verification for both host-socket and nested daemons. Launch two concurrent synthetic filesystem tasks, verify host-visible session writes and unchanged fixture auth, and wait for both children before cleanup even if a peer fails. Native CLI refresh, full history and release/deployment lifecycle gates remain separate requirements.
+
+  Include branch-package source, dependency, image startup and verification-script changes when deciding whether PR image checks are required. Incremental source-only updates must not skip installed-runtime or daemon mount verification.
+
+  Audit explicit CLAUDE_CONFIG_DIR and CODEX_HOME configuration roots alongside conventional global locations. Validate all selected inputs before any repair, reject linked ancestors, malformed state, concurrent edits and changed path selectors, and preserve unrelated settings, auth and conversation evidence. Apply the same selection in solve, hive, the root bot and installed-runtime verification.
+
+  Include local system and managed configuration in launcher admission and read-only audits. Inspect Claude managed settings, drop-ins and MCP registrations, and Codex system defaults, legacy managed settings, requirements and admin payloads. Reject unapproved capabilities, unsafe paths, malformed/oversized input and concurrent edits while leaving managed security policy byte-for-byte intact. Refuse unattested dynamic policy helpers and required configuration servers without executing helpers or fetching remote policy. Preserve MCP identity constraints and executable-policy restrictions rather than treating them as installed extensions.
+
+  Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
+
+  Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.
+
+  Supply a pinned official Docker client in the standard and Coolify images for host-socket task isolation. Execute it in build/runtime verification and distinguish client failures from daemon readiness in the required packaged mount gate. Keep daemon retry and cleanup behavior intact.
+
+  Disable Claude account-synced skills/plugins, cloud connectors and automatic marketplace installation explicitly in fresh settings and launcher admission. Reject missing policy with repair disabled and managed policy that overrides these pins, preserve unrelated settings during repair, remove restored synced plugin payloads, and honor the selected native Claude directory in configuration commands.
+
+  Run the installed read-only runtime verifier against restored Coolify state before startup or setup access. Exit on verification failure and preserve Hive Mind startup failures instead of keeping a failed deployment alive.
+
+  Project Agent 0.27.2 and OpenCode 1.19.5 native XDG data directories into Docker tasks so auth atomic replacements and complete data-side history files reach the same backing directory. Reject missing backing, changed directory identities, private auth/database overrides and configuration/cache/state overlap before native invocation. Keep Agent's executable cache in a task-owned tmpfs. Withhold these vendor data mounts for Router tasks. Pin OpenCode and preserve both data-layout versions through image update exclusions and installed runtime checks. Add required installed-package synthetic directory tests for both daemon layouts; native host probes separately verify history resume and replacement reads. Cross-process refresh and the complete six-tool lifecycle contract remain unfinished.
+
+  Require the existing branch-package Docker image and daemon checks before automatic or manual publication from main, including test-only changes and manual releases with no detected diff. Refuse publishing when that gate is skipped, cancelled or failed. Keep PR image selection and docs-only push behavior. The complete native auth/history and contamination lifecycle gates remain unfinished.
+
+  Follow the pinned Claude CLI's independent secure-storage directory in limits readers, including explicitly empty selectors and native NFC path normalization. Verify selection and logout with disposable synthetic credentials; production canonical mounts and coordinated refresh remain unfinished.
+
+  Watch selected Claude configuration, account-state and independent credential roots in Router mode. Reject settings that redirect those roots or inject host credential/file-descriptor sources, while retaining the existing handling of transient native state writes.
+
+  Install Agent's PATH search executable from the architecture-matched pinned Codex package in all images, so masking shared executable caches does not break native search. Verify it at runtime and execute it inside both concurrent synthetic tasks with the production cache mask. Select required image checks for image-installer changes as well.
+
+  Rebuild task-scoped Codex configuration with semantic TOML parsing. Remove operator plugin declarations in quoted, dotted, inline and nested forms while preserving unrelated strings, dates and large integers. Refuse malformed configuration before native discovery without exposing parser excerpts.
+
+  Include native Codex profile-v2 configuration files in global admission and semantic repair. Bound their enumeration and reject unsafe, malformed, oversized or changed profiles before any configuration mutation.
+
+  Pin Gemini 0.65.0 and Qwen 0.27.0 alongside the other four installed tool runtimes. Verify their native versions in disposable state during installed-runtime admission and exclude all six pinned CLIs from automatic updates.
+
+  Include a bounded content digest in the internal limits credential-generation key. Same-size writes with unchanged filesystem timestamps must invalidate successful cached usage. Keep file bytes and digests out of diagnostics.
+
+  Add a reusable Linux descriptor-based refresh lock for participating canonical-state adapters. Preserve one lock inode, bound waits, reap cancelled waiters and release ownership on process death without unlinking the file. Validate identity before commit. Native CLI integration and writers outside the adapter remain unfinished.
+
+  Allocate a fresh private Codex configuration/discovery directory for every preflight, including degraded fallbacks, outside the operator tool home. Concurrent tasks for the same repository cannot overwrite each other's configuration or erase capabilities. Reject linked allocation directories and clean up failed preflights. Retain execution homes until full native history metadata and SQLite have verified shared storage.
+
+  Publish migrated and recovered Codex rollouts only after copying and syncing a private snapshot on the destination filesystem. Refuse linked destinations and preserve concurrent canonical writers. Keep original migration evidence and durable recovered conflicts instead of overwriting conversations during recovery. Recognize compressed and reverted native rollout filenames by their stable thread identity during recovery. Complete canonical history projection and lifecycle cleanup remain unfinished.
+
+  Share Codex native archived transcripts and thread-writer locks alongside active rollouts across fresh task configurations and Docker tasks. Preserve archived location during recovery, refuse unavailable or linked canonical Docker history, and retain nonempty private lock directories for offline migration. Verify real pinned native writer exclusion and archive/read/unarchive/resume in CI. Full history indexes, SQLite and maintenance coordination remain unfinished.
+
+  Refuse Codex resume/recovery when canonical history inspection fails with permission or I/O errors. A failed inspection cannot authorize a retry or trigger private recovery fallback.
+
+  Reject global Claude output-style payloads and selected output-style instructions in user and managed configuration. Preserve managed security settings and task-local styles; refuse unsafe or concurrently changed payloads before repair.
+
+  Require persistent Claude projects and sessions directories before Docker launch. Refuse missing, linked or unusable storage and directory-creation errors; create fresh history with private permissions. Preserve explicit Router suppression.
+
+  Stop packaged-runtime catalog probe process groups even after their native leader exits. Wait for the leader and live Linux group members before deleting disposable configuration, and retain the private fixture if cleanup cannot establish that they stopped.
+
+  Reject linked history/data ancestors during Docker host preparation. On Linux, create directories through held parent descriptors so concurrent parent replacement cannot redirect creation; refuse changed public paths and preserve existing state and permissions.
+
+  Persist native Codex migration recovery journals alongside shared rollouts and writer locks. Refuse online movement of existing private pending journals, retain their inode across task configuration disposal, and require the journal mount before Docker launch. Apply descriptor-based directory preparation to scoped history parents as well. Keep the combined interrupted-migration and fresh-resume native controls separate from the unfinished production history contract.
+
+  Audit Codex global system, compaction and realtime prompt overrides in conventional homes, selected homes and profiles. Repair user registrations without reading prompt targets; refuse managed overrides while preserving administrator policy and native authentication identities.
+
+  Refuse custom global model-catalog selectors, which can supply model-owned instruction templates. Preserve their model/security configuration and referenced catalogs for explicit reconciliation into task scope.
+
+  Refuse Codex startup `.env` files in conventional and selected global homes. The native loader can redirect skill discovery through HOME before configuration parsing. Preserve opaque environment data for explicit reconciliation, reject unsafe links/types, and recheck concurrent additions before admission.
+
+  Ship a reproducible Gemini 0.65.0 native adapter recipe in the actual npm package. Verify all pinned upstream and generated native files before publishing a separate executable generation, activate its package-manager command in both image variants, and require its full byte inventory during installed-runtime admission. Preserve the original upstream package and existing optional dependency resolution. Default canonical storage selection, migration and the complete six-tool lifecycle remain unfinished.
+
+  Build and package pinned native Codex runtimes for Linux x64 and arm64. Require verified native bytes for package publication and image admission, and activate a separate checked runtime without modifying the upstream launcher or user state.
+
+  Honor the native Codex authentication selector in limits and subscription reads. Refuse unsafe or conflicting canonical storage before using cached results, and prevent private configuration from redirecting canonical bearer credentials.
+
+  Preserve the selected native Codex credential authority during capability discovery. Avoid private credential snapshots, reject unsafe or conflicting selected credentials before allocating task state, and admit native command bytes before selected discovery runs.
+
+  Preserve explicitly selected canonical Codex authentication during Formal AI configuration. Skip credential snapshots, admit storage before and after native configuration writes, select private configuration for the writer, and require the actual installed writer control in both image checks.
+
+  Refuse ambiguous private Codex configuration paths alongside selected canonical credentials. Preserve explicitly empty selectors for refusal instead of replacing them with an operator-home fallback in limits and Formal AI configuration.
+
+  Copy Cargo-owned native executables into a bounded fresh artifact before strict byte and version admission. Preserve compiler hardlinks while refusing changed or oversized source inputs, symbolic links, nonregular files and distributed binary aliases.
+
+  Pin native Codex admission of final SQLite and log storage in the compiled release recipe. Require the actual platform and installed-command probes to refuse private configuration and command-line redirection before database creation.
+
+  Read Codex compiled model metadata with the task environment and actual selected binary. Admit selected native command bytes before discovery and use bundled metadata without loading account or private configuration.
+
+  Refuse existing canonical Codex SQLite database and journal aliases, nonregular entries and independent writers during startup admission. Preserve healthy native files and outside evidence, and require actual symlink/hardlink controls in compiled and installed package checks.
+
+  Discard pending usage and profile responses after credentials change, preserve newer limits cache entries when older requests finish last, and revalidate selected Codex storage before publishing a response. Invalidate cached rate-limit errors when accounts change.
+
+  Require strict native app-server configuration when canonical Codex history is selected, so rejected storage configuration cannot be swallowed by default-configuration fallback before databases open.
+
+  Revalidate selected limits storage after asynchronous credential hashing and each coalesced caller's account generation before returning cached or completed responses.
+
+  Refuse Docker launches that would drop explicitly selected native Codex, Gemini
+  or Qwen authentication/history storage and mount a competing conventional
+  source. Preserve explicit Router selection and reject before preparing host
+  state. Complete native Docker projections and default migration remain open.
+
+  Bind selected native Codex account usage requests to their captured credential
+  revision and refuse retired responses after logout, credential replacement or
+  malformed authority. Require actual process controls through development,
+  optimized, installed-package and both image verification paths.
+
+  Project an explicitly selected dedicated Codex credential parent into Docker
+  tasks and propagate its admitted directory identity through launch, preflight,
+  Formal AI and limits reads. Reject competing legacy credentials, unsafe paths
+  and substituted backing before execution. Require actual native root/two-peer
+  replacement, logout, reauthentication and private-home disposal controls in
+  both daemon image checks. Default selection, migration and full history remain
+  unfinished.
+
+  Admit measured optimized Codex executables within a finite 384 MiB package and
+  installer size ceiling, with a full-size packaging regression and preserved
+  platform, alias and recipe-ceiling refusals.
+
+  Keep the image and runtime pins aligned with main (Formal AI 0.355.34,
+  start-command 0.43.0, Agent 0.27.2, links-notation 0.31.3, lino-arguments
+  ^0.4.1) while preserving this branch's copyfile global installs and native
+  adapter activation steps.
+
+  Project explicitly selected dedicated Claude credential parents into Docker
+  tasks, revalidate launch identity in limits/profile/cache readers and before
+  native connection and execution, and require actual pinned root/two-peer
+  replacement and logout controls in both daemon image checks. Keep independent
+  configuration private; default migration, full history and native refresh
+  owner-death coordination remain unfinished.
+
+  Require Router credential-file admission before Claude and Codex command
+  creation, including resumes, connection probes and fallback commands. Preserve
+  security exit 77 through startup and execution error handlers. Ignore the
+  legacy guard-disable switch, refuse missing task tokens and bound polling to
+  one second. Refuse unreadable, linked, non-regular, oversized and malformed
+  configuration inputs without exposing credential contents. Parse Codex provider
+  TOML semantically and require its endpoint and credential environment pin.
+  Start routed Codex commands without a login profile so it cannot replace the
+  admitted environment before the native CLI starts.
+
+  Use Claude's selected configuration root for preparation and Docker projection
+  of its existing project and session history directories. Preserve private
+  configuration and conventional evidence, refuse unavailable or unsafe selected
+  history, and retain Router suppression. Complete history and default migration
+  remain unfinished.
+
+  Validate native Router API credentials and endpoints against the declared task
+  lease and selected route dialect before admission. Forward that dialect into
+  nested task environments and refuse missing or divergent launch values without
+  exposing them. Full native authority and audit lifecycle remain unfinished.
+
+  Use ARM64 Linux directory and no-follow flags in every native Codex storage
+  adapter. Verify real directory admission and final-symlink refusal on each
+  native CI runner before compiling the full CLI, and repin the exact prepared
+  source inventory. Complete optimized package and installed-image gates remain
+  required on both platforms.
+
+  Check final Router environments in Agent, OpenCode, Gemini and Qwen native
+  execution and connection paths. Preserve typed security refusal through output
+  and stream errors, monitor listed shared credential files, and skip login
+  profiles for routed Qwen commands. Forward explicit Router selection through
+  shared connection checks and preserve Hive startup exit 77. Full native
+  credential-store authority and durable Router audit remain unfinished.
+
+  Arm Router monitoring before post-command input/logging awaits in Agent,
+  OpenCode, Gemini and Qwen. Retain detected violations after file removal and
+  stop abandoned commands before closing their guard. Add bounded real
+  parent/child cleanup controls for Agent's actual streaming-input startup.
+
+  Apply retained Router monitoring before Claude/Codex input and logging, forward
+  explicit selection to their actual native environments, and cancel abandoned
+  commands before retry. Stop Claude live-input polling and attempt timers on
+  exception paths, retaining existing timeout and result-close behavior.
+
+  Inspect native Agent/OpenCode credential registries and Gemini/Qwen OAuth
+  files at conventional and selected roots before Router launch and while running.
+  Resolve relative roots against the native cwd, expand Qwen tilde selection and
+  refuse OpenCode's inline registry without exposing credential contents.
+
+  Keep Router guard decisions independent of diagnostic failures. Handle throwing
+  or rejected loggers and synchronous stop-handler exceptions without unhandled
+  rejections, preserving the first violation and exactly one stop callback.
+
+  Admit and monitor actual version and connection-validation commands for all six
+  Router tools. Forward explicit selection into child environments, preserve
+  Agent/Codex overlays, and retain security refusals before ordinary fallback.
+
+  Install global image packages with Bun's copyfile backend so pinned Codex
+  metadata and bundled native payloads have independent inodes. Preserve strict
+  single-link admission and verify actual Bun installation and native command
+  activation in all three image layouts with finite synthetic package controls.
+
+  Add selected native Codex SQLite operation checks, coordinated corruption
+  recovery and startup refusal to the pinned unreleased native recipe. Require
+  actual retired-directory/database refusal, recovery, concurrent-peer and startup
+  controls in optimized builds, installed npm commands and both final images.
+  Ignore inherited C compiler and SQLite library overrides during checked builds.
+  Atomic external rename exclusion, fresh-process rollback and the complete
+  six-tool canonical storage lifecycle remain unfinished.
+
+  Bind selected native Gemini authentication and conversation storage to optional
+  launcher-admitted directory identities. Refuse mismatched or malformed markers
+  before inference and retain initial selectors/identities across native account,
+  authentication and history operations. Verify the exact npm-installed adapter
+  with independent source reconstruction and native before/after controls.
+  Default canonical migration and the complete Docker lifecycle remain unfinished.
+
+  Admit selected native Gemini commands and canonical storage before connection
+  probes or task preparation. Forward retained directory identities and recheck
+  native bytes, credentials and selected authority before execution and retries.
+  Preserve typed refusals through connection and retry handling; verify the
+  production launcher against the extracted npm artifact with real dependencies.
+
+  Project selected native Gemini authentication and conversation parent directories
+  independently into Docker tasks. Reuse canonical credential admission, retain
+  directory identities through daemon mount-source resolution, and preserve private
+  configuration, Router suppression and refusals for unsupported selectors.
+  Exercise actual native conversation resume and external credential publication
+  with two live Docker peers; require the installed-image control in both daemon
+  layouts. Default migration, concurrent native refresh and the complete storage
+  lifecycle remain unfinished.
+
+  Share Claude's native credential parent and refresh locks by default. Docker
+  preparation moves the conventional credential file into a private
+  `.hive-mind-auth/claude` authority within the selected configuration root, then
+  projects that parent through the native secure-storage selector so root and
+  tasks coordinate on the same `.oauth_refresh.lock`, while configuration stays
+  private. Existing installations migrate automatically. Identical copies are
+  deduplicated, a newer or replacement login is adopted, cleared copies are
+  superseded privately, and conflicting stores are refused rather than
+  silently chosen. Direct tasks and `/limits` follow the same authority. Set
+  `HIVE_MIND_CLAUDE_AUTH_AUTHORITY=conventional` to opt out.
+
+  Stop the global Codex profile from repopulating with curated capabilities after deployment and model probes. With only `features.remote_plugin = false`, Codex 0.164+ starts its local curated marketplace sync, so every `codex exec` cloned more than 500 curated SKILL.md files into `~/.codex/.tmp/plugins`. The images, the runtime gate and the startup audit now also pin `features.plugins = false`. The audit reports and repairs an unpinned or enabled loader in the base config, profiles and managed layers, and removes the `.tmp/plugins` checkout as a catalog rather than an enabled plugin. Task scopes re-enable the loader only privately, and only when they must discover or load selected plugins.
+
+  Also pin `features.apps = false` in the global Codex profile. Otherwise the default-on hosted `codex_apps` connector server attaches on every model start. Docker PR verification now runs an installed capability lifecycle gate in both daemon layouts. It drives the real Claude and Codex CLIs with synthetic credentials behind a loopback provider, covering:
+
+  - deployment probes;
+  - account and curated sync, through a positive control without the pins;
+  - real CLI updates;
+  - task completion;
+  - root and Router restarts;
+  - maintenance-archive restore.
+
+  After each phase, the gate requires an empty capability manifest, a clean audit, no capability traffic, and unchanged canonical auth and history.
+
+  Give every task the plugins, skills and MCP servers its own repository declares, and nothing else. Credentials stay linked to the host, while capabilities stay inside the task and its container:
+
+  - Codex: repository skills in `.agents/skills` and `.codex/skills` are discovered for the task. An allowlisted subset of the repository's `.codex/config.toml` (`mcp_servers`, in-checkout `[[skills.config]]` entries and enabled plugin declarations) is copied into the disposable per-task `CODEX_HOME`. The checkout is not trusted wholesale, so it cannot replace the operator's provider, base URL or sandbox policy.
+  - Codex bundled system skills are disabled per task by default. `HIVE_MIND_CODEX_SYSTEM_SKILLS=1` restores the previous behaviour, and a system skill the task explicitly requires stays enabled.
+  - Claude: `.claude/skills` keep loading natively. Servers from the repository's `.mcp.json` are merged into the session's temporary `--strict-mcp-config` file. Plugins enabled in `.claude/settings.json` are materialized in a private temporary directory and passed with `--plugin-dir`. Nothing is written to `~/.claude`, `~/.claude.json` or another task.
+  - Playwright MCP remains the only default capability. A repository server never replaces it.
+
+  Refresh dependencies to their latest releases:
+
+  - Claude Code 2.1.319: official release checksum verified; the native credential probe sequence passes.
+  - Agent 0.27.2. This also corrects the runtime gate, which still expected 0.27.0.
+  - OpenCode 1.19.5.
+  - Qwen 0.27.0, which contains the upstream lock-ownership fix QwenLM/qwen-code#15661. The native Qwen workflow now requires that fix to hold.
+  - jscpd 5.4.3.
+  - minimatch 11.0.5 for development linting through an npm override (Dependabot GHSA-g3hv-75wg-m249). Remove it once eslint releases its minimatch 11 upgrade.
+  - peter-evans/create-pull-request 8.1.2 for the changeset PR workflow step.
+
+  Gemini 0.67.0 and Codex 0.167.0 stay pinned at 0.65.0 and 0.164.0. Their native adapter recipe and stock-skill manifest are hash-locked to the inspected versions.
+
+## 2.39.14
+
+### Patch Changes
+
+- faf2833: Count active executions and foreground CLI task trees for queue display and throttling. Exclude idle Codex app-server/updater services and vendor helpers, deduplicate wrappers and tracked jobs, and retain Docker and detached task counts.
+
+## 2.39.13
+
+### Patch Changes
+
+- c85adb4: Correct the Hello World E2E evaluator to recognize framed act program output and distinguish a verified, run-bound four-file session evidence bundle from program changes. Select the explicitly named free Nemotron 3.5 Lightning E2E control after the older free control was withdrawn, without remapping existing aliases or changing user defaults.
+
+  Keep real GitHub E2E resources opt-in: manual dispatch remains available, while automatic schedule/release-triggered runs require the optional ENABLE_REAL_GITHUB_E2E=true repository variable. Captured regressions remain in the default test suite, and full E2E success still requires physical fixture cleanup.
+
+  Keep real PR Docker builds and container integration opt-in through ENABLE_DOCKER_PR_BUILDS=true. Preserve the full PR build scripts for explicit runs and all actual default-branch production builds; retain the Docker release-order contract in default source tests.
+
+  Use the existing named PR-essential source-test profile for pull request events and explicit feature-branch dispatches while retaining every selected test in the full default-branch unit suite. Add no PR-number source-admission input or checkout override. Keep real GitHub integration and credential resolution explicitly opt-in on the full branch lane.
+
+- e71b941: Extract source-suite profile selection and execution into one builtins-only runner, keeping the release workflow below its existing warning threshold without changing test commands or integration gates. Include the existing source-size regression in the essential PR profile so this main-only failure is caught before merge.
+
+## 2.39.12
+
+### Patch Changes
+
+- c27e413: Reject missing or invalid draft image selections instead of substituting latest, while keeping bounded retries and explicit image overrides. Expose distinct errors for unavailable selected images and exhausted pull retries, and refresh the dependency versions required by CI.
+
+## 2.39.11
+
+### Patch Changes
+
+- bd93586: `/fix --update-all-dependencies` and `/task --update-all-dependencies` no longer leave conflicting Dependabot pull requests open (issue #3863). Mergeability that GitHub has not computed yet is re-read before merging, "the merge commit cannot be cleanly created" counts as a conflict instead of triggering a pointless `--admin` retry, a conflicting pull request is closed when the base branch already pins every dependency it bumps at the same or a newer version, and otherwise Dependabot is asked to `@dependabot recreate` it and the recreated pull request is merged within a bounded wait. The issue section is now headed "Open Dependabot pull requests handled before this issue was created" and lists merged, closed and still-open pull requests separately, without claiming that Dependabot closes them by itself.
+
+## 2.39.10
+
+### Patch Changes
+
+- 9f66230: A successful Claude session no longer counts as failed when its last command is `gh pr checks` on a pull request without CI ("no checks reported", exit 1) or with pending checks (exit 8). A genuine final-command failure is now reported as "Claude reported success, but its last command `<command>` exited with code N: <error line>" instead of the flattened raw output, and the full output stays in the log.
+
+  Fork pull requests now have their workflow files read at the head SHA, so the lookup no longer fails with HTTP 404. When a lookup does fail, the wait message gives the reason instead of an empty "()" list. Commit SHAs that the log itself links as commits are no longer masked as tokens. `--auto-restart-until-mergeable` no longer announces "Auto-merge mode enabled - will attempt to merge".
+
+  Also refreshes the dependency pins flagged by the CI freshness gate: Formal AI 0.355.27 in every image and the bootstrap constant, nektos/act v0.2.94, eslint 10.14.0, lino-objects-codec 0.9.4, and the lockfile entries `npm update` moves.
+
+## 2.39.9
+
+### Patch Changes
+
+- 4238993: Prefer focused local validation and existing CI coverage across all solver prompts, account for build costs and local resources, and suggest owner-controlled CI/CD adoption. Remove repeated guidance and align translated prompt catalogs.
+
+  Prefer drafting all requirements before verification. Load all solver and auxiliary prompt templates from separate root UI, user-prompt and system-prompt Lino catalogs, preserving English output and work-locale fallback with a strict recursive locale merger.
+
+## 2.39.8
+
+### Patch Changes
+
+- 2af6b96: Reset transient retry budgets after genuine provider progress across all six AI tools, so later capacity failures resume the existing session after long-running work. Preserve Gemini and OpenCode sessions during retries, retry transport exceptions in every adapter, and recognize additional temporary provider errors.
+
+## 2.39.7
+
+### Patch Changes
+
+- 7b3ece2: Explain Claude access denials with billing and account recovery steps when the CLI omits its terminal error. Prefer explicit subscription diagnostics from the session transcript, preserve the HTTP status and request ID, and keep opaque SDK body dumps out of failure reports across all tools.
+
+  Refresh runtime, container and CI dependency pins to satisfy dependency freshness checks, preserving Hive's concurrency alias with the updated configuration parser.
+
+## 2.39.6
+
+### Patch Changes
+
+- 4fc0eff: `/solve <repository-url>` is idempotent now (#3684). A combined issue created by an earlier repository-mode run is never counted as work; when an open combined issue already requires every open issue it is reused instead of creating another one, when issues were opened since then its scope is updated in place, and only issues that are not its sub-issues yet are attached. A kill recovery that replays the repository URL therefore lands on the same combined issue and continues the same pull request instead of opening a second and third combined issue.
+
+  Other one-time actions are no longer repeated on a repeated run either: `/fix --ci-cd` and `/fix --update-all-dependencies` reuse (and refresh) their open fixed-title issue, `/task --split` reports an earlier split instead of splitting the parent again, and the "Repository Initialization Required" notice is posted only once. With `--verbose`, repository mode logs whether it was replayed with `--resume`, which combined issues of earlier runs it found and which one it reused or why it created a new one.
+
+  Images ship Node.js 26.12.1 (was 26.12.0) and the lockfile has node-abi 3.100.0, so the dependency freshness check passes again.
+
+## 2.39.5
+
+### Patch Changes
+
+- 766e2ea: Formal AI sidecar: check on every start that `box` can write the `hive-mind-formal-ai-memory` volume and `chown -R` it (as root) only when it cannot, logging `[formal-ai] memory volume was owned by <uid:gid>; fixed`; turn a `logging_failure` in the sidecar's first stdout lines into a warning in the bot log and the solve log; and save `docker logs --timestamps` to a rotated `formal-ai-sidecar-<start>.log` in the bot log directory before every `docker rm` of the sidecar (`HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP`, default 50) (#3583).
+
+## 2.39.4
+
+### Patch Changes
+
+- a552987: A Claude, Codex or OpenCode run that stops on a usage limit is now reported as a usage limit, with its reset time, even when the tool does not say so in its last output line (#3570). Before, such a run failed with "Claude command failed with exit code 1" and was never resumed.
+
+  - **Claude:** on a failed exit, solve checks five sources, and any one of them is enough:
+    - the `result` event or the last line;
+    - the synthetic assistant `is_api_error_message`;
+    - the session transcript tail (`isApiErrorMessage`);
+    - the last `rate_limit_event` (`rejected` with `resetsAt`);
+    - the `ANTHROPIC_LOG=debug` 429 headers (`anthropic-ratelimit-unified-status: rejected` with `anthropic-ratelimit-unified-reset`).
+
+    An epoch reset gives the full date, for example `Oct 20, 2026, 11:00 AM` (UTC). A `rejected` event without `resetsAt` stays the #1924 throttle.
+
+  - **Codex:** on a non-zero exit that a signal did not cause, solve reads the last turn of the thread's rollout. A `token_count.rate_limits` window at 100% with `resets_at`, or an `error` event with `usage_limit_exceeded`, counts as a usage limit. A limit from an earlier turn does not. The Codex runner now also returns `limitTimezone`.
+  - **OpenCode:** a usage limit inside any `{"type":"error"}` record is found, not only one in the last stdout chunk.
+  - `ANTHROPIC_LOG=debug` dumps and base64 body lines are no longer used as the failure reason.
+  - In verbose mode, every source is logged with its verdict (`🔍 Usage-limit cross-check (issue #3570):`). solve warns `⚠️ Usage limit found only in: …` when the tool's own output missed the limit.
+
+  Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `jscpd` 5.4.2 (devDependency and its platform packages) and the `@opentelemetry/api` 1.10.0 lockfile entry.
+
+## 2.39.3
+
+### Patch Changes
+
+- 4d5658e: A push answered by GitHub with `remote: fatal error in commit_refs` / `[remote rejected] … (failure)` is now treated as a transient GitHub server error, not a branch divergence (#3552):
+
+  - `git push`/`fetch`/`pull` retry it with the usual backoff instead of giving up after one attempt (`transient=no`).
+  - If every retry fails, the solver reports `GitHub server error while pushing …` and tells the user to check githubstatus.com and rerun. It no longer says "Local and remote branch histories differ" or asks the user to merge a branch that does not exist on the remote.
+  - Push explanations no longer claim "the remote branch changed" when the remote branch does not exist.
+  - The release version push retries such errors without rebasing, and the Helm `gh-pages` pushes retry them too.
+  - In verbose mode, the push-rejection classification and the remote branch state are logged.
+
+  Every GitHub operation now goes through one shared retry loop, and lint enforces it (#3552 review):
+
+  - command-stream's `$` resolves a failed `gh` call instead of rejecting, so `gh` commands sent through `wrapDollarWithGhRetry` ran only once, rate limits and 5xx included. `retryGitHubOperation` (`src/github-operation-retry.lib.mjs`) retries both shapes. `ghWithRateLimitRetry`, `ghRetry`, `ghCmdRetry`, `gitCmdRetry`, the runner and sync adapters, and the release scripts all use it in place of their own loops.
+  - `wrapDollarWithGitRetry` (codex, agent, gemini, opencode, qwen) now retries `gh` too, and wrapping an executor twice no longer nests two loops.
+  - Previously unretried call sites in `src/` and `scripts/` are routed through the shared loop. A retried `gh issue create` checks for the created issue first, so it is never filed twice.
+  - The `gh-rate-limit` ESLint rules decide per call site, not per file. They cover the `spawn`/`execFile` argv style and, for git, `scripts/`.
+  - Shell scripts and workflow steps run GitHub operations through `node scripts/github-retry.mjs …`. `scripts/check-github-retry-shell.mjs`, which is part of `npm run lint`, rejects any that do not. A deliberate single shot is marked `github-retry-ok: <reason>`.
+
+  Also brings the pins that the CI dependency-freshness gate reported as stale up to date: `start-command` 0.38.0 (all Dockerfiles), `links-notation` 0.27.1 (use-m pins), the `ignore` lockfile entry 7.0.13, `formal-ai` 0.355.0 (all Dockerfiles; its new GPU stack is behind a non-default feature), `@dotenvx/dotenvx` 2.38.1 (use-m pin), and the `@formatjs/icu-messageformat-parser` 3.5.22, `fast-uri` 3.1.9 and `intl-messageformat` 12.1.4 lockfile entries.
+
+## 2.39.2
+
+### Patch Changes
+
+- acc3d47: `/fix` replies in Telegram now go Starting → Waiting for CI/CD → Executing, and dynamic values are escaped in every legacy-Markdown message (#3505):
+
+  - The CI wait is one simple `⏳ Waiting for CI/CD on <branch> to finish...` line. It no longer lists pending runs, whose raw `in_progress` status broke Telegram Markdown and made the reply fall back to plain text.
+  - No `✅ CI/CD on main finished` line stays in the reply, and `Executing...` is shown only once the task runs.
+  - The `Issue:` line is placed in the info block under `Repository:` with the first progress marker and never moves.
+  - A new ESLint rule `telegram-safety/no-unescaped-telegram-markdown` reports unescaped dynamic values in legacy-Markdown Telegram messages. All its hits were fixed: recovery lifecycle, `/tokens`, `/organize`, `/stop` and `/start` reasons, queue warnings and errors, and the leak notifier.
+  - A "Did you mean" suggestion containing a backtick no longer breaks its code span.
+  - "❌ Invalid options" replies keep their "Did you mean `--model` option?" code spans while the rest of the error is escaped.
+  - The "stopped by user" completion reads `Work session stopped by user (@name)` instead of `stopped by user by @name`.
+  - `eslint-plugin-n` 18.5.0 (the dependency-freshness gate required it).
+
+## 2.39.1
+
+### Patch Changes
+
+- dbb8292: GitHub release notes keep the Markdown structure of the changeset (issue #3445). The formatter no longer trims every line, so later paragraphs and nested lists of a changeset stay inside its list item, as in `CHANGELOG.md`. It also keeps every `### Major/Minor/Patch Changes` section, the first `- <hash>:` marker, text after `---`, a literal `\n` and trailing quotes. Major and Minor releases are now formatted too, and `--verbose` logs what was found. The release section is taken from the whole `## <version>` heading line, so `2.3.1` no longer matches `2.3.10`, and a multi-line manual release description is indented in `CHANGELOG.md` like a changeset.
+
+  The publication sanitizer no longer masks code and option names in release notes: `false`, `…` and `<placeholder>` values, identifiers such as `KNOWN_LOCAL_TOKEN_ENV_VARS`, and options such as `--tokens-budget-stats` or `--max-tokens`. Real credentials next to them are still masked.
+
+  `scripts/repair-release-notes.mjs` rebuilds published releases from `CHANGELOG.md`. It is a dry run by default; `--apply` updates the releases and `--backup-dir` saves the old bodies. It was used to repair the 368 damaged releases.
+
+## 2.39.0
+
+### Minor Changes
+
+- 8ffc571: The requirements report is now experimental and off by default, Telegram status messages show the pull request as soon as it exists, and auto-restart no longer stops on a stale "no progress" verdict (#3469):
+
+  - `--requirements-report` (or `HIVE_MIND_REQUIREMENTS_REPORT=true`) turns the #2406 report back on. Without it no prompt tokens are spent on the report, the merge guard does not check it, and no completion restart waits for it.
+  - A running session's reply gets its `Pull request:` line once solve prints its PR URL, and `/fix` replies also show the PR of the issue that `/fix` created.
+  - `--auto-restart-until-mergeable` restarts when HEAD moved after a repeated session, and a completion restart no longer counts as a repeated session.
+  - Node 26 (V8 14.6) resolves a top-level `await import()` of a module that is still evaluating too early (nodejs/node#66806). Every such import in `src/` is now static, so the merge guards no longer throw `Cannot access '…' before initialization`.
+  - The agentic CLI updater reads a CLI's version from the package that owns its binary, so gh-setup-git-identity and claude-profiles no longer report a false "Could not update".
+  - Quiet probes pass `mirror: false` (`$` has no `silent` option), so the 403 of `gh api user` under an installation token no longer appears in the log.
+  - Clearer warnings when Docker disk space cannot be read and when a directly started session matches no queue item, and a mid-sentence `fix: <foreign issue URL>` is no longer treated as an intended close.
+  - With `--requirements-report`, the merge guard and the report template now compute the same digest of the issue feedback. Before, the guard left out the session-start comment its own solve had posted, so every fresh report was rejected as "changed after verification". Interactive-mode tool comments now start with a hidden `<!-- hive-mind:interactive-mode -->` line for the same reason.
+
+## 2.38.0
+
+### Minor Changes
+
+- 03d1372: `/fix --update-all-dependencies` and `/task --update-all-dependencies` now merge every open Dependabot pull request before creating the maintenance issue, without waiting for CI/CD (issue #3413). Pull requests are merged oldest first with the repository's preferred merge method, pinned to the reviewed head commit, and retried once with `--admin` when only branch rules block them. The generated issue starts with a section that lists each merged pull request and the checks that were not passing at merge time, and asks the solver to fix every error those merges introduced. It also lists the pull requests that could not be merged, so their updates are applied by hand. `--dry-run` only lists the pull requests, and `--no-merge-dependabot-prs` turns the step off.
+
+  Also refreshes the `@dotenvx/dotenvx` (2.38.0) and `links-notation` (0.27.0) runtime pins flagged by the dependency freshness gate.
+
+## 2.37.1
+
+### Patch Changes
+
+- 68f606a: Auto-continue and auto-restart no longer report a pull request or issue description edit that never happened (issue #2293). Feedback detection used to treat a REST `updated_at` later than the last commit as "description was edited", but GitHub bumps `updated_at` for comments, labels, cross-references and pull request creation, and real edits after the last commit were usually made by the previous solver session under the same account. The check now reads the GraphQL edit history (`userContentEdits` for descriptions, `RenamedTitleEvent` for titles), ignores bot edits and edits by the solver's own account inside a solver session window (derived from the session marker comments and the pull request creation time), and reports each remaining edit with its evidence: time, editor and a diff excerpt. When there is no separate linked issue (the issue number falls back to the pull request number), the pull request is no longer checked a second time as its own issue, and the auto-restart loop no longer watches the pull request's own title and description as issue feedback. Every auto-restart reason now comes with evidence. The "Auto-restart N/M" comment used to say only "CI failures detected" or "Issue title and description edited", so nobody could check from the pull request whether a restart was justified. It now lists each failing check with the URL of its run, each triggering comment with its author, time and link, and each issue title or description edit with what changed. The same lines are written to the log. When the same checks fail on consecutive restarts, both the comment and the next session's prompt say so, and the session is told to re-read the failing job logs and change approach. When the same checks fail with the same output on 3 restarts in a row (URLs, timestamps, commit ids and durations are ignored), the run stops as a failure instead of restarting again: the pull request goes back to draft, uncommitted work is committed, and a stop comment quotes the repeated output. A check whose output changes still counts as progress, and a check without output is never treated as repeated. `HIVE_MIND_CI_FAILURE_REPEAT_STOP` sets the count, and `0` turns the stop off. Under `--verbose`, Codex's `RUST_LOG=debug` tracing no longer fills a third of the solve log: TRACE/DEBUG/INFO lines go to a `<log>.codex-trace.log` file next to it, each distinct WARN or ERROR line is logged once with its repeat count at the end, and Codex's compaction diagnostics still read every line. The watch loop's probes (the pull request's comment threads, the account login, `.merged`, `.state` and `mergeStateStatus`) are read without being mirrored, so the raw comments JSON (180 KB on link-foundation/meta-language#196) no longer lands in the log on every check. A task container that is kept after the task (`HIVE_MIND_KEEP_TASK_CONTAINER`) no longer holds gigabytes of regenerable build output: once the workspace has no uncommitted changes and nothing unpushed, its `CACHEDIR.TAG` directories (Cargo `target/`) and `node_modules/.cache` are deleted, and the log says what was freed or why the caches stayed. The configuration docs now explain that `keepContainer false` / `keepContainerOnFail false` in `$ --status` is start-command's default, which keeps a container whose command exited non-zero. `$ --status` showing the `containerId` of a removed container, and options printed as `[object Object]`, are reported upstream as link-foundation/start#225 and link-foundation/start#226.
+
+  A failed `$ --status` query no longer ends the tracking of a work session (issue #2303). Every failure of start-command used to look like a missing record, so a single transient failure, or a `$` that could not write its own store on a full disk, posted "Work session ended, but its exit status is unknown" with no kill diagnosis and no automatic resume. A failed query is now told apart from a missing record. The session stays tracked for five consecutive failures (the streak is persisted and cleared by the next answer), and a written log footer still settles the outcome at once. After that, a docker session is judged by `docker inspect`: a running container stays tracked, an exited one uses docker's own exit code (`OOMKilled` counts as a kill), and a container that is gone without an exit footer is reported as killed. That kill gets the kill diagnosis and the default `--on-session-kill=resume` recovery. Other backends use the existing liveness probe. A docker work session whose exit docker never observed is now reported as a kill instead of a success. When start-command's watcher lost a still-running container (for example `docker logs -f` failing on a full disk), the record said `executed` with exit 0 (or `-1` with `exitReason: watcher-lost-container` on newer start-command), and Hive Mind announced "Work session finished successfully". Such an exit (`endTimeSource: observed-at` or `watcher-lost-container`) is now reclassified as killed, so the kill diagnosis, the pull request notice and the default `--on-session-kill=resume` recovery run. A `-1` log footer no longer skips the container liveness check. The monitor also samples the host disk while a session runs, and an `ENOSPC` line in the log counts as evidence, so the diagnosis and the Telegram headline can name the real cause ("killed (disk full)"). A container that start-command already removed is no longer reported as "Docker container kept".
+
+  Require complete issue delivery before automated merges (#2406): every tool's system, initial and continuation prompts (including the minimal claude resume prompt) now state the complete-delivery goal and ask for a requirements report; Codex keeps `features.goals=true` in both the direct and agent-commander paths regardless of `--auxiliary-model-calls-disabled`; the shared merge path fails closed unless the pull request description holds a requirements report tied to the current head SHA and to a digest of the issue, its comments and all pull request feedback, with `done` status and evidence for every criterion, and it merges with `--match-head-commit`; after a solve, bounded completion restarts run without any optional flag until the report passes.
+
+  Install jq in every hive-mind Docker image built from a Box base (Dockerfile, Dockerfile.dind and coolify/Dockerfile; Dockerfile.formal-ai and Dockerfile.e2e inherit it) when the base lacks it, and check it in scripts/verify-docker-image.sh so an image without jq fails verification. AI tools' `… | jq …` commands and the solver's printed "Raw command" (`… | jq -c .`) no longer exit 127 with `jq: command not found` (issue #2846).
+
+  Kill recovery of a task started with a Telegram alias such as `/codex` runs `solve`, never the alias (issue #2887). A regression test replays the router#728 incident and checks both the in-place `$ --resume` command and the fresh-launch fallback. If an in-place recovery session still exits with 126 or 127 and that exit is only noticed when the session completes, the session is no longer dropped. Recovery starts again as a fresh isolated session under the same attempt number. A fresh session that fails this way is not retried again. The completion message for an exit of 127 or 126 now says "command not found" or "command not executable" in every locale. A recovery container's own exit 127 is still reported as a failure, not as its predecessor's `oom-killed`.
+
+  Kill recovery in a new Docker container can now resume Codex threads (issue #2888). solve writes Codex rollouts from its repository-scoped `CODEX_HOME` to the mounted `~/.codex/sessions` directory, so a recovery container can find them. For runs started before this change, recovery copies the thread's rollout out of the killed container. If the thread still cannot be found, recovery starts a new Codex session on the same branch and says so in the recovery notice, instead of launching `codex exec resume` that would fail at once with "no rollout found". solve also starts a new session, with a warning, when it is asked to resume a thread whose rollout is not in its scoped `CODEX_HOME`. A recovery session that solve refuses to start for lack of disk space (exit 75) no longer uses up a recovery attempt. Once enough space is free, it is relaunched under the same attempt number, at most 6 times per recovery chain. agent, gemini, qwen and opencode keep their sessions inside the container, where no new container can read them, so a fresh recovery drops their `--resume` and the notice says so. claude keeps its `--resume`, because its transcripts are in a mounted folder, except under `--use-router`. Two solves of the same repository that share the Codex sessions folder at the same moment no longer fail with EEXIST: the second one uses the link the first one made.
+
+  In-place kill recovery now copies less and cleans up after itself. Containers started by start-command 0.37.0 or later resume with `docker start` and skip the snapshot queue and disk wait entirely, and the notice says "no snapshot needed". Older containers that Hive Mind started behind its fail-closed start gate are briefly started while the gate still holds them idle, so their regenerable build caches (directories tagged with `CACHEDIR.TAG`, such as Cargo `target/`, and `node_modules/.cache`) can be deleted before the commit. Source trees are never touched. The notice then reports "Removed X GiB of regenerable build caches" and "Snapshotting X GiB (Y free, Z needed)". Once the snapshot-derived container has started, the stopped original is removed. When the task's last container is removed, its `start-command-resume/*` snapshot images are removed too. A killed session's completion no longer removes the container that a `docker start` recovery is now running in. The snapshot images of a container that start-command already removed are removed too. In-place kill recovery no longer fills the disk when several task containers are killed at once. Container snapshots (`docker commit` of the stopped container's writable layer) now run one at a time, and each starts only when the Docker data root has twice the writable layer plus 10 GiB free. While a recovery waits, its notice says so ("Waiting for N other container snapshots to finish first" or "Waiting for disk: X free, Y needed"); if the space does not appear within ten minutes, the recovery starts a fresh isolated session instead of snapshotting. A layer whose size cannot be measured still has to leave the 10 GiB reserve free (issue #2889).
+
+  Kill-recovery notices, completion links and log attachments now use the session's own pull request. When an issue is linked to several pull requests (for example a parent plan pull request that lists its sub-issues), the bot picks the one on the `issue-<n>-*` branch of the session's issue and never one whose branch belongs to another issue; the session-log fallback prefers the `PR URL:` line printed by solve over the first pull request mentioned in the log. Without an own pull request, a failed recovery is reported on the session's issue. `/merge` uses the same choice, so a ready sub-issue is merged through its own pull request, never through an older parent plan pull request that also closes it (issue #2891).
+
+  The issue-link repair now respects the agent's decisions (issue #3174). Wording such as "#236 to #246 stay open", "#2 and #3 stay open" or "#2, #3 remain open" keeps every listed issue open, not only the first one. The repair checks the pull request's description history and no longer re-adds a sub-issue closing line that the session removed after an earlier repair added it. It reports the conflict once in a pull request comment instead, and the merge guard keeps the merge blocked until someone decides. A negated keyword such as "does not close #N" now gets a warning, because GitHub still closes #N. The repair and post-merge closing treat that issue as kept open, and the guard refuses a merge that GitHub would use to close it. The post-session link repair and the pre-merge guard now add or require `Fixes` lines only for issues the pull request is meant to close (with #3282). They skip sub-issues that are already closed, sub-issues created after the pull request was opened (a plan's output), and sub-issues another open pull request closes, including PRs stacked on another branch that GitHub does not link, found in all of an issue's cross-references, not only the first 100. They also skip a primary issue that the description marks with "Part of #N", "Towards #N" or "#N stays open", together with its sub-issues, so a tracking umbrella can be solved one sub-issue at a time. Issues listed in a repository-mode block and issues with an explicit closing keyword stay required. The repair removes `Fixes` lines that an earlier repair added for such issues, and the merge guard refuses a merge that GitHub would use to close them.
+
+  Repository mode (`/solve <repository-url>`) no longer selects status pages as work (issue #3176). Open issues opened by a bot (coverage reports, dependency dashboards), issues with a label from the new `--skip-issue-labels` option (default `hive-mind:skip,dashboard,status`, `none` to turn it off) and issues whose body contains `<!-- hive-mind:skip -->` are left out of the combined issue, its sub-issues and its required closing references, so the pull request no longer closes them and their workflow no longer reopens them into the next run. The combined issue and the log list each skipped issue with the reason; `--include-bot-issues` selects bot-authored issues again. A repository whose only open issues are skipped is reported as having no work, and the Telegram preflight applies the same options.
+
+  The Telegram bot no longer blocks its event loop on file or process I/O while it serves commands (issue #3278): the state lock, model catalogue cache, sidecar and CLI-refresh state, session snapshots, router session drain, session-monitor log scans, Formal AI attribution and the Docker launch path (host path probes, host-path preparation, push-guard install) now use async, timeout-bounded calls, and the bot's docker and gh `$` calls are bounded with an AbortSignal. The `hive/require-exec-timeout` lint rule now checks command-stream `$` calls, including a renamed `$` and `quietProbe($)`, and reports a `timeout` option that command-stream ignores, both lint baselines record the reason for every remaining entry with an exact count, and a new watchdog test runs every bot command, `/fix`, `/task`, `/split` and `/terminal_watch` included, against slow stubbed dependencies and fails when the event loop is blocked past its budget. Two waiters that see the same stale state lock break it once and never run together.
+
+  Formal AI now behaves the same through `--tool claude`, `--tool codex` and `--tool agent` (issue #3279): commits made during a Claude Code or Codex CLI session carry the same four Formal-AI trailers and the same evidence bundle (with a `claude-stream.jsonl` or `codex-stream.jsonl` stream) that Agent CLI sessions already had, and the hosted-model guard now checks the model and the generations that really answered instead of rejecting the client name. Prices for models served outside a client's own vendor live in one registry keyed by the served model, so a Formal AI session costs $0.00 (Link.Assistant) in every client, and a non-Anthropic model behind a non-Anthropic `ANTHROPIC_BASE_URL` no longer inherits Claude Code's Anthropic list price.
+
+  A no-change Formal AI run no longer marks its draft pull request "ready for review (solution draft verified)" (issue #3330). If a run's effect cannot be measured (no baseline, unreadable git, or unreadable comments), the pull request keeps the state it had before the run and gets a "Could not verify the session's effect" notice that says why. A Formal AI non-executed terminal state such as `planned_not_executed`, with no commit, now counts as finished without changes (exit code 5) on its own, without reading comments. When `/user` is forbidden to an installation token, the comment author is taken from GraphQL `viewer` (`<app-slug>[bot]`), or `github-actions[bot]` inside GitHub Actions. The readiness gate (`getPullRequestChangeStats`) now ignores `dev/log/**` and AI tool scratch files, using the same predicate as the session verdict. solve no longer announces such a run as SUCCESS, the Formal AI draft and E2E containers receive `GITHUB_ACTIONS`, and the next session on an unverified draft gets its feedback instead of being told the previous session failed.
+
+  The E2E Hello World matrix (issue #3332) now tests the Formal AI version Hive Mind ships (`FORMAL_AI_BOOTSTRAP_VERSION`, cross-checked against the Dockerfile pins) instead of the GitHub Releases `latest`. It records the shipped, GitHub release and crates.io versions in the job summary and the `e2e-matrix-metadata` artifact, and annotates a disagreement between releases and crates.io with a link to formal-ai#1203. Rows on the default `GITHUB_TOKEN` ask for the workflow under `ci/`, which that token can push, and the harness runs it with act. A rejected workflow push is reported as `harness: workflow push rejected (no workflows permission)`, together with the exact secret a maintainer must set. The summary reports the harness verdict apart from the model verdict, and a red Formal AI row links formal-ai#1209 and formal-ai#1154. solve reports the same rejection on the pull request: when GitHub refused a push because the credential may not create or update a workflow file and the workflow is still missing from the pull request, a notice says which credential permission a maintainer must grant, and a rejection a later push recovered from is not reported.
+
+  After a merge, Hive Mind now checks every issue the pull request is meant to close and closes the ones GitHub left open, for example after a merge into a branch other than the default one (issues #3354, #3355 and #3357). It waits up to 5 minutes (checks after 10, 20, 40 and 60 seconds) for GitHub on a default-branch merge, then closes each remaining issue as completed with a comment that names the pull request, the merge commit and why GitHub did not close it. The result appears in the log, in the auto-merge comment and in the Telegram merge queue message. Issues the description keeps open ("does not close", "Part of"), issues only a repair block or a sidebar link names, and deferred sub-issues are never closed. This is on by default; `--no-auto-close-linked-issues` or `HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false` only reports the open issues. `/merge`, solve's auto-merge, the merge queue, the merged-PR sweeper and `close-linked-issues` now share this one implementation, which replaces the previous per-path closing code.
+
+  Pull requests merged outside Hive Mind (the GitHub UI, a person's `gh pr merge`, GitHub auto-merge) now get their intended issues closed too (issue #3356). The Telegram bot (your own pull requests) and hive (the monitored repository or owner) run a sweeper every 5 minutes over pull requests merged in the last 24 hours. It skips ones merged in the last 5 minutes, checks each one only once, and stores its cursor in `~/.hive-mind/merged-pr-sweeper.json` (or `HIVE_MIND_MERGED_PR_SWEEPER_STATE`). It never touches pull requests merged before it was first enabled. The new `close-linked-issues --pr <url> [--dry-run]` command does the same for one pull request and prints what it would close and what it skips and why. `close-linked-issues --repo <owner/repo> --since <date>` (or `--owner`) backfills older merges.
+
+  A closing reference to an issue in another repository that the pull request author wrote in the description (above any repair block) no longer blocks the merge, and the issue is closed explicitly after the merge, because GitHub does not close it (issue #3358). Foreign references that the link repair appended, or that come from a sub-issue tree, still block the merge, as in issue #3276. A sidebar-only foreign link still blocks it too. `--no-allow-cross-repository-closing` or `HIVE_MIND_ALLOW_CROSS_REPOSITORY_CLOSING=false` restores the previous rule, which blocks every foreign closing reference.
+
+  After the post-merge check closes an issue, Hive Mind now walks up its parent issues and closes each one whose work is complete (issue #3359). A parent is closed only when four things hold. First, every sub-issue is closed as completed; one closed as not planned or as a duplicate counts only if the parent description says so. Second, the description has no unchecked task-list item and no open "Done when" item. Third, nothing blocks it. Fourth, nobody reopened it after its last sub-issue closed. Otherwise, the parent gets one status comment with the reasons, which is updated instead of repeated. Sub-issues are never closed because their parent closed. This is on by default; turn it off with `--no-close-completed-parents` or `HIVE_MIND_CLOSE_COMPLETED_PARENTS=false`.
+
+  Dependencies are current, and CI demands it everywhere a version is declared (issue #3282). The freshness gate now also checks transitive `package-lock.json` entries that `npm update` would move, images held in Dockerfile `ARG`s or pinned by digest, image references in source code, the coolify Dockerfile and the example workflows users copy. It ignores prose and commented-out lines, and reads every page of a registry's tags. A hold on an older version must name its open follow-up issue, such as link-assistant/router 0.x (#3395). Formal AI stays just another model: `hive` and `solve` also stop an unleased Formal AI sidecar and unload an image unused past `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER`, not only the Telegram bot, and a host that never ran Formal AI makes no Docker call for it. Model validation and the runtime share one list of the tools Formal AI runs through. The Telegram bot treats a command argument as a GitHub URL only when it names the github.com host, and the merge queue's MarkdownV2 escaping covers backslashes, also in its CI run links. Claude Code now receives the system prompt, and a resumed session's prompt, exactly as written. Before, every `"` in them arrived as `\"`, and with command-stream 0.18.0 /bin/sh expanded their `$(...)` and backticks: every run logged `/bin/sh: 1: .png: not found`. The command Hive Mind logs (and `--dry-run` returns) is now quoted so that it runs as shown. Tests replay commands through the command-stream version production pins (2.4.0, now a devDependency). The 0.17.2 copy that agent-commander 0.11.0 brought in split a command at a quoted `|` after an apostrophe. This was reported upstream as link-assistant/agent-commander#53, and agent-commander 0.11.1 fixes it by moving to command-stream 2.4.0, so only one copy remains.
+
+## 2.37.0
+
+### Minor Changes
+
+- 8f1906a: `/fix --ci-cd` and `/fix --update-all-dependencies` no longer create duplicate issues and wait for default-branch CI/CD before the task starts (#3326):
+
+  - Issue creation checks which issue types the repository supports before passing `--type` (user-owned repositories have none), and when `gh issue create` fails it first looks for the issue it may already have created instead of blindly retrying. `gh` 2.102.0 creates the issue and only then fails with `type "Bug" not found`, which used to produce a second, label-less issue (reported upstream as cli/cli#14703).
+  - `/fix` creates the issue right away, then waits for running CI/CD on the default branch to finish (polling every 30 s, `--ci-wait-timeout <minutes>`, default 60; `--no-wait-for-ci` to skip) and comments the final results on the issue before `/solve` starts.
+  - Telegram shows the separate "⏳ Waiting for CI/CD on `main` to finish" status with the running workflows and elapsed time, then the CI result and the issue link (en/ru/zh/hi).
+
+## 2.36.1
+
+### Patch Changes
+
+- 35bdc2d: The post-session link repair no longer adds `Fixes` lines for sub-issues the pull request description keeps open ("Part of #7", "#236 to #246 stay open"), together with their own sub-issues, or for sub-issues in other repositories, and it removes such lines that an earlier repair added (issues #3174 and #3276). Before any merge, hive-mind now refuses a pull request that GitHub would use to close an issue in another repository, or an issue the description keeps open, for example through "does not close #7", which GitHub still closes.
+
+## 2.36.0
+
+### Minor Changes
+
+- 20ed4dd: Cap a Docker task container to 2 CPUs once it has kept all of its CPUs busy for 15 minutes, and lift the cap after it averages below 65% of the cap for 15 minutes (issue #2801). This is on by default for `--isolation docker`. It is configurable with `--container-cpu-penalty-*` / `TELEGRAM_CONTAINER_CPU_PENALTY_*`, and `--no-container-cpu-penalty` turns it off.
+
+  The dependency freshness gate now checks the Formal AI pin against crates.io, the registry `cargo install` pulls it from, instead of GitHub tags: v0.353.0 was tagged but never published there.
+
+## 2.35.10
+
+### Patch Changes
+
+- f8922ed: Make `/claude`, `/codex` and `/agent` with `--model formal-ai` reliable end to end:
+
+  - The Telegram bot keeps answering every chat while a command prepares its task (for example while a Formal AI image is pulled). Slow command work (the launch commands, `/models`, `/auth`, `/log`, `/stop`, `/terminal_watch`, `/limits`, `/version`) runs outside the update loop, logs are written asynchronously, `gh` calls have a timeout (`HIVE_MIND_GITHUB_EXEC_TIMEOUT_MS`), and lint rules keep blocking calls out of the bot process.
+  - A run that changed nothing finishes with ⚠️ "Finished without changes" and exit code 5 instead of 🎉 (the queue and Docker monitor do not count it as a failure; `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE=0` keeps exit 0), keeps a draft PR in draft, and reports a session that looped on one command. An echoed tool output is no longer posted as the working-session summary.
+  - Telegram alias session recovery executes the real solve command, keeps resume hints, and reports, cleans up and retries snapshot recoveries that fail to start, on the issue when there is no pull request.
+  - Docker sessions are only reported as finished after their container was observed (or the launch failed), and an unknown exit code is shown as "status unknown" instead of success. `start-screen` sessions record their exit status.
+  - Formal AI images are resolved local-first, an accepted fallback image is reused instead of re-pulled, a timed-out pull keeps running detached instead of leaving a containerd lease, and sidecar leases survive while their session or its launcher is alive.
+  - Codex runs against Formal AI keep a pinned `CODEX_HOME` and config across restarts and classify Formal AI failures.
+  - Formal AI has the same two spellings on every tool (Codex no longer accepts `openai/formal-ai`, which ran against OpenAI), and `hive` validates it like `solve`.
+  - A submitted PR review counts as progress, unreadable comments are not "no comment", and a Codex usage limit reported in a stream error is detected.
+  - Recoverable agent tool errors no longer abort the run.
+  - The DinD image clears stale `dockerd`/`containerd` pid files before starting.
+  - Formal AI draft runs report their checks on the draft head, keep tool state between iterations, and can be called from other repositories.
+  - `npm run lint` fails on any warning.
+  - Pinned versions: `@link-assistant/agent` 0.26.15, `start-command` 0.37.8, Node.js 26.12.0, `formal-ai` 0.353.2, `@dotenvx/dotenvx` 2.35.0.
+
+## 2.35.9
+
+### Patch Changes
+
+- f0b34db: Every original `solve` option now survives the auto-resume/auto-restart relaunch after a usage-limit reset. Previously, the relaunch rebuilt its command line from a short allowlist, so `--auto-merge`, `--think`, `--language`, `--disable-report-issue`, `--no-tool-check` and every other option were silently dropped. Forwarding now goes through one definition-driven mechanism (`src/cli-option-forwarding.lib.mjs`), which is also used for the printed manual-resume commands, the "did you mean the issue?" suggestion and hive → solve. An explicit `--model sonnet` is no longer lost on resume, an implicit fallback model is no longer pinned, and hive no longer forwards the internal `--previous-anthropic-cost` (#3190).
+
+  Docker images install Formal AI 0.353.1, `@link-assistant/agent` 0.26.13 and start-command 0.37.5; command-stream is pinned to 2.4.0, links-notation to 0.26.0, Sentry to 11.7.0 and eslint-plugin-prettier to 5.5.7.
+
+## 2.35.8
+
+### Patch Changes
+
+- 58073a1: Fix `/queue` status accuracy (issue #2823): tasks that are still running are no
+  longer listed under Completed, queued tasks that fail after launch (non-zero
+  exit or kill) now move to Failed with their exit code or signal, the summary
+  counts come from the lists shown (`Pending, Processing, Completed, Failed`),
+  long replies repeat the tool and list headers in every continuation message,
+  and bare repository URLs render as `owner/repo` links.
+
+  Docker images build on Box 2.10.4; command-stream is pinned to 2.3.0 and
+  lino-objects-codec is 0.9.2.
+
+## 2.35.7
+
+### Patch Changes
+
+- ed0e1e7: `/solve <repository-url>` on a repository with exactly one open issue now solves that issue directly, as if its URL had been given, instead of creating a combined issue whose only sub-issue is that same issue. The Telegram bot shows and launches the issue URL in that case (#3108).
+
+  Docker images install start-command 0.37.1; lino-objects-codec is 0.9.1.
+
+## 2.35.6
+
+### Patch Changes
+
+- a785441: Stop reporting successful Claude sessions as "Solution Draft Failed" when the
+  CLI does not exit after its result. The solver stops such a CLI itself after
+  30 seconds (Issue #1280), and command-stream 0.12+ reports that as an exit chunk
+  with code 143. That code was counted as a failure, and the AI's own work summary
+  was published as the error ("CLAUDE execution failed with I fixed the four…"),
+  turning a ready PR back into a draft. Both exit paths now share one rule. A tool's
+  work summary is never published as a failure reason for any tool, and the
+  SIGKILL follow-up is sent while the CLI's process group is still alive.
+
+  The post-result close timeout now follows Claude Code's background tasks. In
+  every reported run, print mode was still waiting for a CI or test waiter task
+  when the 30-second timer stopped it. While background tasks run, the solver now
+  waits up to Claude Code's own print-mode wait ceiling. It pauses the timer when
+  a finished task starts another turn, and logs which tasks it is waiting for. A
+  CLI with nothing pending is still stopped after 30 seconds.
+
+  command-stream is pinned to 2.1.0 for the dependency freshness gate.
+
+## 2.35.5
+
+### Patch Changes
+
+- ab70b10: `--auto-restart-until-mergeable` no longer spends every restart on sessions that only reword the same report of a CI blocker (#2839). The no-progress check between AI sessions now compares only the commit and the working tree, so a reworded final message no longer counts as progress. Restarts for failing CI now ask the AI to fix every failing check, including checks that already fail on the default branch, because a pull request with failing CI cannot be released. When a check needs a human action, such as a missing secret or access to a private submodule, the AI is told to make the pull request's CI pass without it and to make CI on the default branch fail with an explicit message saying what a human has to do. When a failing check also fails on the head of the base branch or on the solver's placeholder commit, the prompt includes links to those runs as evidence. The system prompts of every tool now say the same when they ask for passing CI before finishing. A new human comment also skips the no-progress check in `--watch` mode, as it already did in `--auto-restart-until-mergeable`.
+
+  Dependencies refreshed for the freshness gate: Bun 1.4.3 and start-command 0.37.0 (Docker images), prettier 3.9.10, and the use-m pins command-stream 2.0.2 and links-notation 0.25.2.
+
+## 2.35.4
+
+### Patch Changes
+
+- 37b71de: Support the obvious "latest version" alias of every model family (issue #2591): `--model astra` now resolves to the newest GPT Astra and `sol` to GPT-6.1 Sol. The aliases (`astra`/`sol`/`luna`/`terra`/`daybreak-*` for codex, `opus`/`sonnet`/`haiku`/`fable`/`mythos` and `opus-5.5`-style spellings for claude, `max`/`plus`/`flash` for qwen) are derived from model names, including those the installed Codex CLI reports, so new families need no code change. The "Available models" listings now show what each CLI currently offers instead of obsolete and `openai.`-prefixed entries (codex: 62 → 13). Gemini uses its CLI's rolling `flash`/`pro`/`auto` aliases, Qwen accepts `coder-model`, agent and opencode map premium aliases to the newest Claude and Gemini models, and opencode defaults to `big-pickle` because `grok-code` is deprecated. Set `HIVE_MIND_MODEL_DEBUG=1` (or `--verbose`) to trace how a `--model` value was resolved.
+
+## 2.35.3
+
+### Patch Changes
+
+- 3675177: Name the model that actually ran in failure comments and choose the fallback
+  from it. Claude's `system/init` and assistant `message.model` IDs are recorded
+  as the stream arrives, so a session that crashed, was killed or ended with an
+  error before its `result` event still reports `claude-opus-5-5` instead of the
+  bundled alias mapping. When no actual model is known the comment says
+  "Requested (actual model unknown — session ended before result)" instead of
+  presenting the alias mapping as the model. Retries pick the default fallback
+  from the reported model, so `claude-opus-5-5` steps down to `opus-5` instead of
+  skipping to `opus-4-8`.
+
+## 2.35.2
+
+### Patch Changes
+
+- a033296: Fix CI/CD false negatives found in issue #2923: post-publish verification now waits up to 25 minutes for npm to expose a version (2.35.1 took 874s, more than the old 330s window), treats `E409 Cannot publish over previously staged version` as already published, and keeps its registry probes quiet unless `HIVE_MIND_PUBLISH_VERBOSE=true`. The release gate now also releases a version that reached npm without a GitHub release, so its Docker images and Helm chart are produced. The E2E matrix explains why it skipped, and the agent no longer logs "recovered" for an error that still fails the run. The `--verbose` leftover-process check no longer warns about the task-owned `formal-ai serve`, which Hive Mind keeps for later sessions and stops at exit.
+
+  Dependencies refreshed for the freshness gate: start-command 0.36.0 (Docker images), lino-i18n 0.4.0, jscpd 5.4.1, and the use-m pins @dotenvx/dotenvx 2.34.2 and links-notation 0.25.1.
+
+## 2.35.1
+
+### Patch Changes
+
+- 4a562ed: Use the cheapest pricing tier by default for every tool (issue #2771): short context (Claude 200K / Haiku 5.5 100K, Codex 272K, Gemini Pro 200K, Qwen 256K) unless `--sub-session-size` explicitly asks for more, standard speed (no Fast/priority/Ultrafast) via the new `--speed` option (`--speed flex`, alias `batch`, opts into OpenAI's half-price Flex tier), plain model names instead of `[1m]`, and `opus`/`sonnet`/`haiku` aliases now map to the latest and cheapest Claude 5.5 models while all pinned versions stay supported.
+
+## 2.35.0
+
+### Minor Changes
+
+- 183d6aa: Enable dependency issue reporting by default with --update-all-dependencies, and
+  add --report-dependencies-issues for independent control. Generated dependency
+  issues and all solver tools ask for upstream reports of shared logic, duplicated
+  code, missing features and bugs requiring workarounds, while allowing local
+  workarounds to keep the pull request moving. Preserve explicit opt-outs through
+  /fix and Telegram /task issue generation and solve handoffs.
+
+  Refresh the paired Sentry SDK packages to 11.6.0 to satisfy the dependency
+  freshness gate after the new upstream release.
+
+## 2.34.3
+
+### Patch Changes
+
+- 96394c9: Report Codex process exit codes, signals, plain CLI errors, and fresh cgroup OOM evidence in failure messages. Preserve termination metadata for existing SIGKILL recovery and provide the container memory budget to Codex before execution.
+
+  Refresh the regular, DinD and Coolify Box base images to 2.10.3 to satisfy dependency freshness after its release during validation.
+
+## 2.34.2
+
+### Patch Changes
+
+- c21ccd1: Report hive runs that process no issues or leave blocked work as warnings with distinct nonzero exit codes. Keep skipped issues separate from completed work, surface discovery failures and existing PR links, and honor deprecated tool-check switches.
+
+  Keep sub-issues eligible when a parent's PR also references them, in both batch discovery and worker rechecks, including the REST fallback. Preserve parent-last dependency scheduling when including existing PRs and suggest --no-skip-issues-with-prs --auto-continue when no eligible issues remain, including translated Telegram warnings.
+
+## 2.34.1
+
+### Patch Changes
+
+- feca4bc: Preserve Claude provider errors and usage-limit reset information when an earlier tool command failed, including streams without a final newline. Prevent background-task continuation of error results and include the file utility in all task images for attachment validation.
+
+## 2.34.0
+
+### Minor Changes
+
+- 0307dcd: `hive` now respects GitHub sub-issues and issue dependencies (#2615). It only queues issues that have no open "blocked by" issues (their own or inherited from a parent issue) and no open sub-issues, and starts the issue that unblocks the longest chain of work first, so `--concurrency` runs exactly the issues that can be worked on in parallel. Waiting issues are listed with the reason, dependency cycles are reported, and a worker rechecks relations right before it starts an issue. With `--once`, hive checks again for newly unblocked issues while work keeps completing (for example with `--auto-merge`). `hive https://github.com/owner/repo/issues` is now accepted as the repository URL. Use `--no-respect-issue-relations` to queue every matching issue at once as before.
+
+## 2.33.17
+
+### Patch Changes
+
+- 33e3a76: Bound version probes and clean up their descendants even when diagnostic callbacks fail. Preserve complete sanitized failed-session logs on verified pull request branches when Gist permissions are unavailable, honor log directories before argument parsing, retain Formal AI development logs, and tolerate simultaneous creation of the draft label.
+
+## 2.33.16
+
+### Patch Changes
+
+- 3ad8eb4: Identify the offending URL segment or argument in input validation errors (with a compiler-style caret under URL typos, bold and in a code block on Telegram), suggest likely URL path and host corrections as natural questions, and stop solve on invalid options.
+
+## 2.33.15
+
+### Patch Changes
+
+- fe9650e: Fix the CI/CD false negatives found on `main` (issue #2625). The dependency-freshness gate now blocks pull requests only and warns on pushes. The fixture cleanup reports ruleset-retained branches as retained, not as errors. `release.yml` can be dispatched with `mode=checks` alone. The Formal AI draft creates its label when it is missing. Log uploads no longer retry a token that cannot create gists. `solve --log-dir` now actually writes the session log into that directory. The default Agent model moves from the withdrawn `opencode/nemotron-3-super-free` to `kilo/nemotron-3-super-free`. Result verification works with integration tokens and prints the real failure reason. Command-stream is bumped to 2.0.0, Sentry to 11.5.0, agent-commander to 0.11.0 and the image Node.js to 26.11.0.
+- 3031ced: A pull request URL whose branch names an issue from another repository (such as `issue-320-…` created while solving `link-assistant/agent#320`) now uses the issue its description closes. Before, every pre-merge gate looked for the missing issue and held back `--auto-merge`. A held-back auto-merge no longer attaches a log that is already attached. AI work that is not attached yet is posted together with the held-back notice in one comment. Every solution draft log comment, for all tools, now shows cost estimation, context and tokens usage and models used (#2563).
+- 957e1ea: Stop appending a generated "Changes" section (file and line counts, file list) to a pull request description after the agent has written it, on both normal completion and restarts. Missing issue-closing links are still appended, now after a separator. The initial placeholder description and its replacement when the agent never updated it are unchanged.
+
+## 2.33.14
+
+### Patch Changes
+
+- e8ce7bb: `fix --ci-cd` now recommends the C/C++ pipeline template (`link-foundation/cpp-ai-driven-development-pipeline-template`) for C, C++ and CMake repositories, and `docs/CI-CD-BEST-PRACTICES.md` and its translations list it. A GitHub integration test fails when a new link-foundation pipeline template is published but not yet listed. Also refresh `lino-i18n` to 0.3.0 and `lino-objects-codec` to 0.9.0 for the dependency freshness gate.
+- 65df4c1: Stop presenting an earlier container OOM event as the cause of a failure (#2498). In the reported run, a child process (`rustc`) was OOM-killed and the session kept working. It later stopped for an unrelated reason, an expired Claude login. The pull-request notice is now titled "ℹ️ Work session stopped on its own — the earlier container OOM event did not cause it" and leads with the real stop line from the log; the old title was "⚠️ Container OOM event during a failed work session". The Telegram and PR diagnostics now label the OOM event "Event … (not the cause of this stop)" instead of "Cause". start-command's `memoryExhausted` / `exitReason: memory-exhaustion (cgroup-oom-killer)` derived only from Docker's sticky `State.OOMKilled` flag is no longer shown as separate evidence of memory exhaustion (reported upstream as link-foundation/start#180).
+
+  Also spread out automatic recoveries after an out-of-memory kill, and record the container's own memory limit (#2498). Every automatic recovery now waits its own random delay before it starts, whether it is a killed session resumed by the monitor or a tool resumed by solve after the tool was OOM-killed. The delay is 30–90 s by default, set with `--session-kill-resume-delay <min-max>` or `HIVE_MIND_SESSION_KILL_RESUME_DELAY`; `0` turns it off. Sessions hit by the same event therefore no longer compete for memory, CPU and the API in the same second. Resource snapshots now also read the task's cgroup: its memory limit, current and peak usage, and the `memory.events` `oom`/`oom_kill` counters. These are logged and stored in the `📈 [RESOURCES]` marker, and the kill diagnosis quotes them. Until now the logs only showed host RAM (for example "10.4 GB of 11.7 GB available") for a container capped at 2.9 GB, and nothing showed how many processes the OOM killer took.
+
+  Update all Docker images to start-command 0.35.4 (attempt-scoped resume evidence, start#187) and retain its per-task cgroup counters in status/list and diagnostics. An earlier container OOM cannot override a later SIGTERM or runtime heap abort; unrelated bot-cgroup counters and host victims are labelled as context. Report raw process and allocation-event counts without inferring OOM scope from their ratio. A user stop during the recovery delay cancels the pending launch, the environment delay works with parsed CLI defaults, and invalid timer ranges fall back to 30–90 seconds.
+
+  Keep resumed tasks under monitoring by reading terminal and stop evidence only from the current attempt, and reset inherited completion caches. Recovery notices now distinguish scheduling, launch acceptance, observed execution output, quiet pending runs and terminal outcomes. Update one durable GitHub lifecycle comment and the Telegram task reply at phase changes and five-minute intervals; in-process retries log and publish their actual result, clear their heartbeat timer, and do not infer OOM solely from SIGKILL. Preserve known tool outcomes after later output evicts them from the log tail. Report a missing recovery exit code as an unknown outcome in notifications and durable completion history, including restored completion latches. Refresh command-stream and dotenvx dynamic pins; all 168 dependency declarations are current.
+
+  Finish immediately once the pull request is merged (#2498, package-registry-manager#31). A session with kill or container-OOM evidence now has its pull request's merge state checked, including a session started on a pull request URL. After a merge, no recovery is launched and no kill, recovery or OOM notice or "killed session" log is published; Telegram says "Pull request merged, but the work session exited with code …" for a later kill. solve's in-process retry of a killed AI tool stops when the pull request has merged and cancels a retry that is already scheduled. With the pull request still open, an OOM event that did not stop the session is titled "Work session completed — an earlier container OOM event did not stop it", and solve's final log is not uploaded a second time. Update the runtime pins for `command-stream` to 1.6.2 and `links-notation` to 0.23.0.
+
+- fcd5a3a: Telegram Bot API calls are now governed instead of only counted (#2571): chats refused with `retry_after` are held, requests are paced to the documented per-chat, per-group and broadcast windows, and low-priority refreshes (queue cards, `/top`, `/merge`) yield to replies and are skipped rather than retried. Waiting cards are edited only for news, so a big queue no longer triggers 429s. `/limits` shows the last 429 with its age and `retry_after`, and how much the bot held back. Also fixes, from the production log: usage-API 429/401 responses are cached (honouring `Retry-After`) and shared between concurrent callers, `bot.catch` no longer replies into a throttled chat, the `/stop` "Cancelled" card escapes user names, a truncated `gh` comment response no longer loses or duplicates the log-link comment, and the agentic CLI updater logs why an update failed.
+
 ## 2.33.13
 
 ### Patch Changes

@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2917-f40b047595f4",
+  "mergedAt": null,
+  "number": 2918,
+  "state": "OPEN",
+  "title": "fix(queue,monitor): count running docker task containers in /limits and dispatch; follow and adopt operator-resumed tasks (#2917)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2918"
+}

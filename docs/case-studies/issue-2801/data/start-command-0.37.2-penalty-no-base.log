@@ -1,0 +1,24 @@
+14:46:40 start-command version: 0.37.2; NCPU=6 MODE=none BASE=4 TRIGGER=20%
+│
+│ log       /tmp/start-command/logs/isolation/docker/cac39e3d-ace6-4b05-90d5-71cd9f43c215.log
+│ session   cac39e3d-ace6-4b05-90d5-71cd9f43c215
+14:46:48 start NanoCpus=0
+14:46:52 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791816406846,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816408267}
+14:46:55 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791816406846,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816412112}
+14:46:59 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791816406846,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816415979}
+14:47:03 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791816406846,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816419916}
+14:47:06 busy NanoCpus=0 cpuPenalty={"phase":"observing","since":1791816406846,"limitCpus":null,"baseCpus":null,"penaltyCount":0,"penalizedMs":0,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816424491}
+14:47:10 busy NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":1467,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816430094}
+14:47:10 --- container made idle
+14:47:14 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":5661,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816434154}
+14:47:17 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":9218,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816437711}
+14:47:21 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":12644,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816441137}
+14:47:24 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":15994,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816444487}
+14:47:28 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":19376,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816447869}
+14:47:31 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":22848,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816451341}
+14:47:34 idle NanoCpus=2000000000 cpuPenalty={"phase":"penalized","since":1791816428493,"limitCpus":2,"baseCpus":null,"penaltyCount":1,"penalizedMs":26285,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816454778}
+14:47:38 idle NanoCpus=6000000000 cpuPenalty={"phase":"observing","since":1791816456401,"limitCpus":6,"baseCpus":null,"penaltyCount":1,"penalizedMs":27908,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816456505}
+14:47:38 --- log lines from start-command:
+[start] CPU penalty applied: 2 CPUs (4.85 of 6 CPUs for 20000ms)
+[start] CPU penalty lifted: 6 CPUs (0.02 of 2 CPUs for 20000ms)
+14:47:43 final NanoCpus= cpuPenalty={"phase":"observing","since":1791816456401,"limitCpus":6,"baseCpus":null,"penaltyCount":1,"penalizedMs":27908,"containerName":"issue-2801-start-none-34444","attemptNumber":1,"updatedAt":1791816460734}

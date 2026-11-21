@@ -1,0 +1,22 @@
+58889:test-suites	Run default test suite	2026-10-28T12:43:58.9905929Z
+58890:test-suites	Run default test suite	2026-10-28T12:43:58.9908783Z ❌ locale files recommend short commands and no legacy solve-prefixed commands
+58891:test-suites	Run default test suite	2026-10-28T12:43:58.9910079Z    Error: ENOENT: no such file or directory, open '/home/runner/work/hive-mind/hive-mind/src/locales/en.lino'
+58892:test-suites	Run default test suite	2026-10-28T12:43:58.9918279Z ✅ help message includes /queue using backtick code block
+58893:test-suites	Run default test suite	2026-10-28T12:43:58.9963915Z ✅ telegram-bot.mjs fallback routes only the /queue command
+58894:test-suites	Run default test suite	2026-10-28T12:43:58.9964900Z ✅ duplicate URL messages recommend /queue and /stop
+58895:test-suites	Run default test suite	2026-10-28T12:43:58.9971026Z ✅ telegram-solve-queue.lib.mjs uses /queue in verbose command logs
+58896:test-suites	Run default test suite	2026-10-28T12:43:59.0008541Z ✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+58897:test-suites	Run default test suite	2026-10-28T12:43:59.0011422Z ✅ help message includes /accept_invites using backtick code block
+58898:test-suites	Run default test suite	2026-10-28T12:43:59.0015075Z ✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+58899:test-suites	Run default test suite	2026-10-28T12:43:59.0015599Z
+58900:test-suites	Run default test suite	2026-10-28T12:43:59.0016088Z ================================================================================
+58901:test-suites	Run default test suite	2026-10-28T12:43:59.0016634Z Test Results for /queue command:
+58902:test-suites	Run default test suite	2026-10-28T12:43:59.0017127Z   ✅ Passed: 24
+58903:test-suites	Run default test suite	2026-10-28T12:43:59.0017583Z   ❌ Failed: 1
+58904:test-suites	Run default test suite	2026-10-28T12:43:59.0017993Z   Total: 25
+58905:test-suites	Run default test suite	2026-10-28T12:43:59.0018755Z ================================================================================
+58906:test-suites	Run default test suite	2026-10-28T12:43:59.0111999Z
+58907:test-suites	Run default test suite	2026-10-28T12:43:59.0112647Z Failed test files:
+58908:test-suites	Run default test suite	2026-10-28T12:43:59.0113231Z   - tests/test-solve-queue-command.mjs (exit 1)
+58909:test-suites	Run default test suite	2026-10-28T12:43:59.0249158Z ##[error]Process completed with exit code 1.
+58910:test-suites	Upload integration evidence	﻿2026-10-28T12:43:59.0383212Z ##[group]Run actions/upload-artifact@v7

@@ -46,6 +46,25 @@ function formatUsageLine(display, options) {
   return `${requests}${source}, ${lt('telegram_peak', { peak: display.peak }, options)}`;
 }
 
+// Issue #2571: "Last 429: editMessageText" alone could not tell an operator
+// whether the refusal was a minute or a day ago, or how long Telegram asked for.
+function formatLastRateLimitLine(lastRateLimit, options) {
+  const { method, ageSeconds, retryAfterSeconds } = lastRateLimit;
+  if (!Number.isFinite(ageSeconds)) return lt('telegram_last_rate_limit', { method }, options);
+  const line = lt('telegram_last_refusal', { method, ago: formatRetryDuration(ageSeconds, options) }, options);
+  return retryAfterSeconds ? `${line}, ${lt('telegram_retry_after', { duration: formatRetryDuration(retryAfterSeconds, options) }, options)}` : line;
+}
+
+// Issue #2571: how much the bot held itself back, so restraint is visible
+// rather than only the 429s it failed to prevent.
+function formatRestraintLine(telegramRateLimit, options) {
+  const delayed = telegramRateLimit.delayedRequests || 0;
+  const held = telegramRateLimit.heldRequests || 0;
+  const retried = telegramRateLimit.retriedRequests || 0;
+  if (delayed + held + retried === 0) return null;
+  return lt('telegram_restraint', { delayed, held, retried }, options);
+}
+
 /**
  * @param {object|null} telegramRateLimit - Snapshot from TelegramRateLimitTracker
  * @param {object} options - { locale }
@@ -69,7 +88,9 @@ export function formatTelegramLimitsSection(telegramRateLimit, options = {}) {
   section += `${getProgressBar(usedPercentage)} ${usedPercentage}%${suffix} (${label})\n`;
   section += `${formatUsageLine(display, { locale })}\n`;
   section += `${lt('telegram_rate_limit_responses', { count: telegramRateLimit.rateLimitResponses }, { locale })}\n`;
-  if (lastRateLimit) section += `${lt('telegram_last_rate_limit', { method: lastRateLimit.method }, { locale })}\n`;
+  if (lastRateLimit) section += `${formatLastRateLimitLine(lastRateLimit, { locale })}\n`;
+  const restraint = formatRestraintLine(telegramRateLimit, { locale });
+  if (restraint) section += `${restraint}\n`;
   return section;
 }
 

@@ -23,6 +23,13 @@
  *   link-foundation/js-ai-driven-development-pipeline-template, which added the
  *   same self-healing check for its issue #36.
  *
+ * Issue #2923 extends it to the GitHub release: a version can reach npm while
+ *   its release job dies (2.34.1 and 2.35.1 timed out verifying npm), leaving no
+ *   GitHub release, Docker images or Helm chart. Asking npm alone reports
+ *   "nothing to release" for that version forever, so a missing GitHub release
+ *   re-runs the release without a bump (same as
+ *   link-foundation/js-ai-driven-development-pipeline-template#211).
+ *
  * Uses only Node built-ins so it has no dependency on node_modules state.
  */
 
@@ -52,16 +59,29 @@ export function readPackageInfo({ path = './package.json', readFile = readFileSy
 }
 
 /**
+ * Whether the GitHub release `v<version>` exists.
+ * @param {{runner: (command: string, args: string[]) => Promise<{code: number, stdout?: string, stderr?: string}>, repository: string, version: string}} opts
+ * @returns {Promise<boolean|null>} null when the state is unknown (no repository, network or 5xx failure).
+ */
+export async function githubReleaseExists({ runner, repository, version }) {
+  if (!repository) return null;
+  const result = await runner('gh', ['api', `repos/${repository}/releases/tags/v${version}`, '--jq', '.id']);
+  if (result.code === 0) return true;
+  return /HTTP 404|Not Found/i.test(`${result.stderr || ''}${result.stdout || ''}`) ? false : null;
+}
+
+/**
  * Decide what the release job should do.
  *
  * @param {object} opts
  * @param {number} opts.changesetCount
  * @param {string} opts.version
  * @param {(version: string) => Promise<boolean>} opts.isPublished
+ * @param {(version: string) => Promise<boolean|null>} [opts.hasGithubRelease] - null means unknown.
  * @param {Console} [opts.logger]
  * @returns {Promise<{hasChangesets: boolean, changesetCount: number, shouldRelease: boolean, skipBump: boolean, version: string}>}
  */
-export async function decideRelease({ changesetCount, version, isPublished, logger = console }) {
+export async function decideRelease({ changesetCount, version, isPublished, hasGithubRelease = async () => true, logger = console }) {
   const hasChangesets = changesetCount > 0;
   logger.log(`Found ${changesetCount} changeset file(s)`);
 
@@ -74,6 +94,14 @@ export async function decideRelease({ changesetCount, version, isPublished, logg
   logger.log(`No changesets. Checking whether ${version} is already on npm...`);
   const published = await isPublished(version);
   if (published) {
+    const released = await hasGithubRelease(version);
+    if (released === false) {
+      // publish-to-npm.mjs reports an existing version as published, so the
+      // GitHub release, Docker images and Helm chart run for it (issue #2923).
+      logger.log(`Version ${version} is on npm but has no GitHub release v${version}. Releasing it without a version bump (self-healing release).`);
+      return { hasChangesets, changesetCount, shouldRelease: true, skipBump: true, version };
+    }
+    if (released === null) logger.warn(`Could not check the GitHub release v${version}; not releasing. Re-run the job if the release is missing.`);
     logger.log(`Version ${version} is already published. Nothing to release.`);
     return { hasChangesets, changesetCount, shouldRelease: false, skipBump: false, version };
   }

@@ -1,0 +1,57 @@
+Actual native Gemini CLI 0.65.0, reconstructed twenty-four-stage package.
+Manager 91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28.
+History helper 4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd.
+This adds verification of existing native paths; no native source patch.
+
+Command:
+  probe-gemini-native-cli.py PACKAGE --history --history-subagent
+    --history-subagent-restore --history-subagent-engine legacy|agent
+    --diagnostics LOG
+
+Each independent actual engine control:
+  1. The root invokes its real generalist. The child edits a real file, invokes
+     complete_task, and the parent finishes inference with the child result.
+     Both full conversations, child tool call and result reside canonically,
+     without a private transcript copy.
+  2. The actual native pre-edit writer acknowledges exactly one child-edit
+     checkpoint with a retained Git commit and original parent model history.
+     It has no private checkpoint metadata copy.
+  3. Delete the complete original private home. A fresh actual ACP loads the
+     parent session. Its next request retains original/later prompts and the
+     complete child result.
+  4. Actual ACP /restore uses the saved metadata/Git without any inference.
+     It restores both the edited file and an independently modified companion.
+     Its next actual provider request retains the original parent prompt and
+     excludes the later prompt/child result. Complete preceding root and child
+     audit bytes remain unchanged as prefixes.
+  5. Stop/reap ACP and delete its complete private home. A third actual native
+     CLI resumes the restored parent history and project, retaining both full
+     preceding audit prefixes after the second home disposal.
+
+Results:
+  Legacy engine: five PASS assertions, seven real model requests, errors [].
+  Agent-session engine: five PASS assertions, seven real model requests, errors [].
+  All seven are actual streamGenerateContent calls through the verifying TLS
+  fixture; the restore command itself adds no model request.
+  Existing default legacy child behavior: three PASS assertions.
+  Unselected agent-session child execution: two PASS assertions, private
+  recording retained and canonical history untouched.
+  Agent-session unsafe child mode/symlink/parent replacement: one PASS each,
+  before child inference/editing, preserving protected directories/audit bytes.
+  All native process groups finish or are stopped and reaped. Phase/output,
+  request/input, heap/data/stack bounds remain in effect.
+
+Retained local diagnostics:
+  /tmp/issue-3785-recovery/gemini-child-restore-draft-control.log
+  /tmp/issue-3785-recovery/gemini-child-restore-agent-draft-control.log
+  Their native diagnostic, ACP protocol and network JSON companions.
+  /tmp/issue-3785-recovery/gemini-child-restore-regression-*-control.log
+  Fresh-source CI retains both engine cycles and agent-session private/unsafe
+  controls with their native protocol and network transcripts.
+
+Limits:
+  This restores a child edit through the parent checkpoint and parent session.
+  It does not prove direct child continuation, concurrent children, all agent
+  definitions, task/plan memory, interrupted publication or power loss. Those
+  criteria, production installation and the complete all-six lifecycle remain
+  unfinished. Exact-head Node 24 CI is required for this new coverage.

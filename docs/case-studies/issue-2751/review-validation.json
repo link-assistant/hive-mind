@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-08",
+  "reviewComment": "https://github.com/link-assistant/hive-mind/pull/2754#issuecomment-6063814951",
+  "mainCommit": "3466bca11432dc792705660b81be3147161d75a5",
+  "mergeCommit": "4aff99b3",
+  "reportingTestCommit": "5e2f7952",
+  "reportingRuntimeChangesRequired": false,
+  "focusedTests": {
+    "command": "node --test tests/report-dependencies-issues.test.mjs tests/hive-outcomes-2685.test.mjs",
+    "passed": 46,
+    "failed": 0,
+    "reportingTests": 13,
+    "hiveTests": 33,
+    "reportingChoicesThroughHandoffs": 7,
+    "log": "evidence/review-focused.log.gz"
+  },
+  "cliDryRun": {
+    "defaultIncludesReporting": true,
+    "explicitOptOutOmitsReporting": true,
+    "createdIssues": 0,
+    "startedSolvers": 0
+  },
+  "baselineDefaultTests": {
+    "command": "node scripts/run-tests.mjs --suite default --continue-on-failure",
+    "passedFiles": 581,
+    "failedFiles": 0,
+    "exitCode": 0,
+    "log": "evidence/review-default-tests-before-sentry.log.gz"
+  },
+  "sentryRefresh": {
+    "from": "11.5.0",
+    "to": "11.6.0",
+    "changedLockfilePackages": 7,
+    "unrelatedPackagesChanged": 0,
+    "nativeProfilerVersion": "2.4.4",
+    "inventoryCountNote": "The freshness checker adds lockfile records only when outdated; resolving the two Sentry lock entries reduces its inventory from 170 to 168.",
+    "before": {
+      "currentDeclarations": 166,
+      "totalDeclarations": 170,
+      "staleDeclarations": 4,
+      "unresolvedDeclarations": 0,
+      "freshnessExitCode": 1,
+      "pinRegressionExitCode": 1,
+      "offlineSmokeExitCode": 0
+    },
+    "after": {
+      "currentDeclarations": 168,
+      "totalDeclarations": 168,
+      "staleDeclarations": 0,
+      "unresolvedDeclarations": 0,
+      "freshnessExitCode": 0,
+      "pinRegressionExitCode": 0,
+      "offlineSmokeExitCode": 0,
+      "integrationTestsPassed": 15,
+      "logSanitizationTestsPassed": 13,
+      "npmAuditVulnerabilities": 0
+    },
+    "smokeCommand": "node experiments/issue-2751/sentry-upgrade-smoke.mjs"
+  },
+  "defaultTests": {
+    "command": "node scripts/run-tests.mjs --suite default --continue-on-failure",
+    "status": "passed",
+    "log": "evidence/review-default-tests.log.gz",
+    "passedFiles": 581,
+    "failedFiles": 0,
+    "exitCode": 0,
+    "phase": "after the paired Sentry 11.6.0 refresh"
+  },
+  "checks": {
+    "eslint": "passed",
+    "prettier": "passed",
+    "duplication": "passed (11.11%, threshold 12%)",
+    "secretlint": "passed",
+    "syntax": "passed",
+    "lineLimits": "passed",
+    "docsValidation": "passed",
+    "docsLanguageSync": "passed",
+    "packageManagerDeclaration": "passed",
+    "changeset": "passed (exactly one minor Changeset added relative to current main)",
+    "manualVersionChanges": "passed (none)",
+    "dependencyFreshness": "passed (168/168 current)"
+  },
+  "verifiedAt": "2026-10-08T21:29:40.844245+00:00",
+  "nodeVersion": "26.11.0"
+}

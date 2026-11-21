@@ -3,8 +3,9 @@
 import './instrument.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
-const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+const { handleSolveEarlyExit, resolveStartupLogDirectory } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
+const { promptText } = await import('./prompt-text.lib.mjs');
 const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
@@ -34,12 +35,10 @@ const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, exitOnRouterAuthViolation, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 const { notifyIssueAboutPrePullRequestFailure } = await import('./solve.pre-pr-failure-notifier.lib.mjs');
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
@@ -68,12 +67,13 @@ const { createDevelopmentLogFinalizer } = await import('./development-log.finali
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's own usage-limit notifications (so they're excluded from the "did the AI post anything?" check in --auto-attach-solution-summary).
 const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-comments.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+const { canonicalFormalAiModel, validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
-const logFile = await initializeLogFile(null);
+await initializeLogFile(null);
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(resolveStartupLogDirectory(earlyArgs), { getLogFile, setLogFile, log });
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
 let finalResourceSnapshotRecorded = false;
@@ -95,6 +95,8 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
+argv._solveResumeExtraArgs = (await import('./solve.forwarded-args.lib.mjs')).getManualResumeSolveCliArgs(); // Issue #3190: printed resume commands keep every original option
+await (await import('./solve.log-dir.lib.mjs')).moveLogFileToLogDir(argv.logDir, { getLogFile, setLogFile, log }); // Issue #2625: --log-dir was parsed but never applied
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 configureGitHubRateLimitLogging({
@@ -102,11 +104,10 @@ configureGitHubRateLimitLogging({
   log,
 });
 await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
-// Early logs go to cwd; custom log dir takes effect after argv is parsed.
 let { checkForUncommittedChanges, agentCommanderLib } = await resolveUncommittedChangesTool({ argv, claudeLib });
 const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
 await showAttachLogsWarning(shouldAttachLogs);
-const absoluteLogPath = path.resolve(logFile);
+const absoluteLogPath = path.resolve(getLogFile());
 // Initialize Sentry integration (unless disabled)
 if (argv.sentry) {
   await initializeSentry({
@@ -158,9 +159,12 @@ if (!issueUrl) {
 // issue/pull request URL, collect every open issue of that repository, create a
 // single combined issue that lists them as GitHub native sub-issues, and solve
 // that issue instead — so one pull request can close all of them at once.
+// Issue #3108: with exactly one open issue, that issue is solved directly.
 {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
-  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
+  const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
+  // Issue #3176: bot-maintained status pages and skip-labeled issues are not work.
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log, selection: repositoryModeSelectionFromArgv(argv), verbose: argv.verbose, resumeId: argv.resume || null });
   if (repositoryMode.handled) {
     // Issue #2266: an empty repository is a normal, successful terminal state.
     // Exit 0 so callers do not turn "nothing to do" into a task failure.
@@ -231,8 +235,19 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 }
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
+// Check before model discovery, CLI freshness and connection probes can launch a native tool.
+try {
+  const { assertRouterTaskAuthentication } = await import('./router-auth-guard.lib.mjs');
+  assertRouterTaskAuthentication({ tool, env: { ...process.env, ...(argv.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+} catch (error) {
+  if (!(await exitOnRouterAuthViolation(error, { log, safeExit }))) throw error;
+}
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
 if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
+// Validation accepts `--model Formal-AI`; every tool, the sidecar and the
+// pricing read the canonical spelling. Other models are left exactly as typed.
+argv.model = canonicalFormalAiModel(argv.model) ?? argv.model;
+if (argv.fallbackModel) argv.fallbackModel = canonicalFormalAiModel(argv.fallbackModel) ?? argv.fallbackModel;
 argv.originalModel ||= argv.model;
 // Validate --plan-model if provided (Issue #1223)
 if (argv.planModel) {
@@ -246,6 +261,12 @@ if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.s
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+// Enforce the audited global surfaces before any native CLI connection probe.
+// Disabling repair does not permit execution with known contamination.
+if (tool === 'claude' || tool === 'codex') {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ tool, env: process.env, autoRepair: !prepareOnly && isAgentConfigAutoRepairEnabled({ argv }), requireClean: !prepareOnly, log, verbose: argv.verbose });
+}
 // Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
 // version the task needs — a stale binary is the usual reason a brand-new model
 // name is rejected. Best effort by design: `ensureAgenticCliFreshness` never
@@ -271,15 +292,6 @@ if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCh
     await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space on this host (${availableMB}MB available, ${requiredMB}MB required) — the issue itself was not attempted`, { skipPreExit: true });
   }
   await safeExit(1, 'System checks failed');
-}
-// Issue #2190: the global Claude/Codex configuration must stay minimal. Globally
-// synced plugins/skills (e.g. Codex's remote "Superpowers" plugin) rewrite agent
-// behaviour and multiply token usage, so drift is reported and, unless
-// --no-agent-config-auto-repair is given, removed before the tool starts. A
-// dry run only reports.
-if (tool === 'claude' || tool === 'codex') {
-  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
-  await runAgentConfigAudit({ tool, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), log, verbose: argv.verbose });
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
 if (!argv.dryRun && argv.playwrightMcp !== false) {
@@ -342,7 +354,7 @@ const skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess
 // Issue #2175: the mode/fork/linked-issue resolution lives in solve.mode.lib.mjs
 // so this file stays under the 1350-line early-warning threshold (issue #1593).
 const solveMode = await import('./solve.mode.lib.mjs');
-const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, extractLinkedIssueNumber, reportError, cleanErrorMessage });
+const resolvedMode = await solveMode.resolveSolveMode({ argv, owner, repo, urlNumber, issueUrl, isIssueUrl, isPrUrl, skipForkForPrivateUpstream, shouldAttachLogs, log, safeExit, githubLib, processAutoContinueForIssue, handleMaintainerForkAccess, reportError, cleanErrorMessage });
 const { issueNumber, prBranch, mergeStateStatus, prState, forkOwner, forkRepoName, isContinueMode } = resolvedMode;
 // `prNumber` is reassigned below when auto-PR creation opens the pull request.
 let prNumber = resolvedMode.prNumber;
@@ -383,6 +395,7 @@ try {
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
   await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
   // Verify default branch and status using the new module Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
+  let cloneStatus = null;
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
     log,
@@ -392,6 +405,7 @@ try {
     owner,
     repo,
     issueUrl,
+    onCloneStatus: result => (cloneStatus = result), // issue #4063: a dirty fresh clone is reported to the AI, not fatal
   });
   // Create or checkout branch using the new module
   branchName = await createOrCheckoutBranch({
@@ -429,17 +443,17 @@ try {
         // Merge failed - likely due to conflicts
         await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
         autoMergeFeedbackLines.push('');
-        autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
-        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
-        autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text1'));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text2', { defaultBranch: String(defaultBranch) }));
+        autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text3'));
         autoMergeFeedbackLines.push('');
       }
     } catch (mergeError) {
       await log(`${formatAligned('❌', 'Merge error:', mergeError.message)}`, { level: 'error' });
       autoMergeFeedbackLines.push('');
-      autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE ERROR:');
-      autoMergeFeedbackLines.push(`git merge ${defaultBranch} failed with error: ${mergeError.message}`);
-      autoMergeFeedbackLines.push('Please check the repository state and resolve any issues.');
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text4'));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text5', { defaultBranch: String(defaultBranch), value2: String(mergeError.message) }));
+      autoMergeFeedbackLines.push(promptText('prompt.templates.solve.module.text6'));
       autoMergeFeedbackLines.push('');
     }
   }
@@ -542,35 +556,15 @@ try {
     tempDir,
     $,
   });
-  // Initialize feedback lines
+  // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
+  // Issues #4063/#4082: the after-clone notice and the git hooks that cannot run here go in cloneStatusLines (feedbackLines only reach the prompt in continue mode)
+  const cloneStatusLines = [...(cloneStatus?.promptLines || []), ...(await (await import('./git-hooks-preflight.lib.mjs')).runGitHooksPreflight({ tempDir, log })).promptLines];
   let feedbackLines = null;
-  // Add auto-merge feedback lines if any
-  if (autoMergeFeedbackLines && autoMergeFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...autoMergeFeedbackLines);
-  }
-  // Merge feedback lines
-  if (preparedFeedbackLines && preparedFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...preparedFeedbackLines);
-  }
-  // Check for uncommitted changes and merge with feedback
-  const uncommittedFeedbackLines = await checkUncommittedChanges({
-    tempDir,
-    argv,
-    log,
-    $,
-  });
-  if (uncommittedFeedbackLines && uncommittedFeedbackLines.length > 0) {
-    if (!feedbackLines) {
-      feedbackLines = [];
-    }
-    feedbackLines.push(...uncommittedFeedbackLines);
-  }
+  if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
+  if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  if (isContinueMode) feedbackLines = await (await import('./recovery-branch-restore.lib.mjs')).withRestoredRecoveryBranchWork(feedbackLines, { tempDir, branchName, $, log }); // Issue #4079: before the uncommitted-changes check
+  const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
+  if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
   const forkActionsUrl = await checkForkActions({
     argv,
@@ -582,8 +576,9 @@ try {
   });
   // Execute tool command with all prompts and settings
   let toolResult;
-  // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
-  beginWorkingSession();
+  await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
+  beginWorkingSession(); // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091: later phases (log upload, watch) replace "⏳ Executing..." in Telegram
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -610,6 +605,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,
@@ -642,6 +638,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,
@@ -668,6 +665,7 @@ try {
       mergeStateStatus,
       forkedRepo,
       feedbackLines,
+      cloneStatusLines,
       forkActionsUrl,
       owner,
       repo,
@@ -779,7 +777,7 @@ try {
           await log('');
         } else if (argv.url) {
           const toolForResume = argv.tool || 'claude';
-          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs });
           await log(`💡 To continue this ${toolForResume} session with solve:`);
           await log('');
           await log(`   ${solveResumeCmd}`);
@@ -792,7 +790,7 @@ try {
         try {
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -854,7 +852,7 @@ try {
           try {
             // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
-            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -952,7 +950,7 @@ try {
         await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
       }
       if (argv.url) {
-        const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+        const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs });
         await log(`   Solve resume mode:   ${solveResumeCmd}`);
       }
       await log('');
@@ -962,11 +960,11 @@ try {
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
-        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        const { commitUncommittedChangesOnCriticalError, describePreservedWork } = await import('./critical-error-commit.lib.mjs');
         // Issue #2161: when the subscription is gone it is unknown whether/when it
         // will be restored, so the emergency commit is the only thing standing
         // between the operator and hours of lost work — name it as such.
-        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
+        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage }).then(preserved => preserved && { ...preserved, failureCommentNote: preserved.committed ? describePreservedWork(preserved) : null }); // Issue #4079: the failure comment names the recovery branch
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
@@ -980,7 +978,7 @@ try {
         tempDir,
         branchName,
         committed: preservedWork ? preservedWork.committed : null,
-        resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
+        resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs }) : null,
       });
       for (const line of reportLines) await log(line, { level: 'error' });
     }
@@ -995,7 +993,7 @@ try {
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
-        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir })) : null;
+        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir, extraArgs: argv._solveResumeExtraArgs })) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: logTargetType,
@@ -1015,7 +1013,7 @@ try {
           // If not a usage limit case, fall back to generic failure format
           // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
           // steps too — whoever finds the run in the morning reads that, not the log.
-          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
+          errorMessage: limitReached ? undefined : [subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage, preservedWork?.failureCommentNote].filter(Boolean).join('\n\n'), // Issue #4079: name the recovery branch
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
@@ -1136,6 +1134,9 @@ try {
   // Issue #2212: runs last on purpose — the earlier loops may still rewrite the pull
   // request description, so the closing references are verified against its final state.
   applyPostSolveRestart(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
+  // Issue #2406: bounded completion restarts until the requirements report satisfies the merge guard; only with the experimental --requirements-report (#3469).
+  const { runIssueCompletionUntilVerified } = await import('./solve.issue-completion.lib.mjs');
+  applyPostSolveRestart(await runIssueCompletionUntilVerified({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }, { logger: log }));
   await attachLogAfterPostSolveRestarts({ restartIterationsRan: postSolveRestarts.filter(Boolean).length, shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage });
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

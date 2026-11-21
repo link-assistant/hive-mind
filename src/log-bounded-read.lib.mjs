@@ -103,14 +103,14 @@ export async function readLogHeadText(logPath, { fsImpl = fsPromises, maxBytes =
  * @param {number} [options.maxBytes=DEFAULT_BOUNDED_LOG_BYTES]
  * @returns {Promise<string>} Text (empty when the log cannot be read)
  */
-export async function readLogTailText(logPath, { fsImpl = fsPromises, maxBytes = DEFAULT_BOUNDED_LOG_BYTES } = {}) {
+export async function readLogTailText(logPath, { fsImpl = fsPromises, maxBytes = DEFAULT_BOUNDED_LOG_BYTES, minByteOffset = 0 } = {}) {
   if (!logPath) return '';
   try {
     const { size } = await fsImpl.stat(logPath);
     const limit = Math.min(size, toPositiveInt(maxBytes, DEFAULT_BOUNDED_LOG_BYTES));
-    const start = Math.max(0, size - limit);
-    const text = await readRangeText(fsImpl, logPath, start, limit);
-    if (start === 0) return text;
+    const start = Math.min(size, Math.max(0, size - limit, minByteOffset));
+    const text = await readRangeText(fsImpl, logPath, start, size - start);
+    if (start === 0 || start === minByteOffset) return text;
     const firstNewline = text.indexOf('\n');
     return firstNewline >= 0 ? text.slice(firstNewline + 1) : text;
   } catch {
@@ -138,7 +138,7 @@ export async function readLogTailText(logPath, { fsImpl = fsPromises, maxBytes =
  * @param {boolean} [options.verbose=false]
  * @returns {Promise<string>} Text (empty when the log cannot be read)
  */
-export async function readLogTextBounded(logPath, { fsImpl = fsPromises, readFile = null, maxBytes = DEFAULT_BOUNDED_LOG_BYTES, verbose = false } = {}) {
+export async function readLogTextBounded(logPath, { fsImpl = fsPromises, readFile = null, maxBytes = DEFAULT_BOUNDED_LOG_BYTES, minByteOffset = 0, verbose = false } = {}) {
   if (!logPath) return '';
   const limit = toPositiveInt(maxBytes, DEFAULT_BOUNDED_LOG_BYTES);
   const read = readFile || fsImpl.readFile.bind(fsImpl);
@@ -150,17 +150,19 @@ export async function readLogTextBounded(logPath, { fsImpl = fsPromises, readFil
     // unstattable path is not an error — `size` simply stays null and the whole
     // "file" is handed to that reader below.
   }
+  if (size !== null && minByteOffset > 0 && size - minByteOffset <= limit) return readRangeText(fsImpl, logPath, Math.min(size, minByteOffset), Math.max(0, size - minByteOffset)).catch(() => '');
   if (size === null || size <= limit) {
     try {
-      return String(await read(logPath, 'utf8'));
+      const text = String(await read(logPath, 'utf8'));
+      return minByteOffset > 0 ? Buffer.from(text).subarray(minByteOffset).toString('utf8') : text;
     } catch (error) {
       if (verbose) console.log(`[VERBOSE] log-bounded-read: could not read ${logPath}: ${error?.message || error}`);
       return '';
     }
   }
   const half = Math.max(1, Math.floor(limit / 2));
-  const head = await readLogHeadText(logPath, { fsImpl, maxBytes: half });
-  const tail = await readLogTailText(logPath, { fsImpl, maxBytes: half });
+  const head = minByteOffset > 0 ? await readRangeText(fsImpl, logPath, Math.min(size, minByteOffset), Math.min(half, Math.max(0, size - minByteOffset))).catch(() => '') : await readLogHeadText(logPath, { fsImpl, maxBytes: half });
+  const tail = await readLogTailText(logPath, { fsImpl, maxBytes: half, minByteOffset });
   if (verbose) {
     console.log(`[VERBOSE] log-bounded-read: ${logPath} is ${size} bytes; using ${head.length}+${tail.length} char head/tail excerpt`);
   }

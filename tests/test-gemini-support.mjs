@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { buildSystemPrompt, buildUserPrompt } from '../src/gemini.prompts.lib.mjs';
 import { buildGeminiArgs, detectGeminiPlainTextError, executeGeminiCommand, parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
+import { withGeolocationPolicy } from '../src/geolocation-policy.lib.mjs';
 import { buildModelOptionDescription, defaultModels, getToolDisplayName, primaryModelNames, resolveModelId, validateModelName } from '../src/models/index.mjs';
 
 let testsPassed = 0;
@@ -55,9 +56,12 @@ function renderTaggedTemplateCommand(strings, values) {
 test('Gemini model defaults and aliases are centralized', () => {
   assert.equal(defaultModels.gemini, 'flash');
   assert.deepEqual(primaryModelNames.gemini, ['flash', 'pro', 'flash-lite', 'auto', 'formal-ai']);
-  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
-  assert.equal(resolveModelId('pro', 'gemini'), 'gemini-2.5-pro');
-  assert.equal(resolveModelId('flash-lite', 'gemini'), 'gemini-2.5-flash-lite');
+  // Issue #2591: Gemini CLI's rolling aliases pass through so the CLI picks its newest model.
+  assert.equal(resolveModelId('flash', 'gemini'), 'flash');
+  assert.equal(resolveModelId('pro', 'gemini'), 'pro');
+  assert.equal(resolveModelId('flash-lite', 'gemini'), 'flash-lite');
+  assert.equal(resolveModelId('3.8-flash', 'gemini'), 'gemini-3.8-flash');
+  assert.equal(validateModelName('gemini-2.5-flash', 'gemini').valid, true);
   assert.equal(validateModelName('gemini-2.5-pro', 'gemini').valid, true);
   assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
   assert.ok(buildModelOptionDescription().includes('for gemini: flash, pro, flash-lite, auto'));
@@ -197,13 +201,17 @@ await asyncTest('executeGeminiCommand uses structured headless stream-json invoc
   assert.equal(result.resultModelUsage['gemini-2.5-flash'].inputTokens, 5);
   assert.equal(captured.options.cwd, tempDir);
   assert.ok(captured.command.includes('--output-format stream-json'));
-  assert.ok(captured.command.includes('--model gemini-2.5-flash'));
+  assert.ok(captured.command.includes('--model flash'));
   assert.ok(captured.command.includes('--approval-mode yolo'));
   assert.ok(captured.command.includes('--skip-trust'));
   // Issue #1809: the prompt is now piped via command-stream stdin instead of a
   // temp prompt file, so no $TMPDIR/gemini_prompt_ path should appear.
   assert.ok(!captured.command.includes('gemini_prompt_'));
-  assert.equal(captured.options.stdin, 'System prompt\n\nProceed.\n');
+  // Issue #4023 appends the location-privacy policy to every system prompt.
+  // This file is not in the pull-request suite, so the stale expectation first
+  // failed on main (issue #4025).
+  assert.equal(captured.options.stdin, `${withGeolocationPolicy('System prompt', { model: 'flash', verbose: false })}\n\nProceed.\n`);
+  assert.match(captured.options.stdin, /\n\nLocation privacy: /);
   assert.ok(logs.some(line => line.includes('Gemini command completed')));
 });
 

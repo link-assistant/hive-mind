@@ -26,6 +26,10 @@ import { describeChildExit } from './child-exit.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue, prepareUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
+import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
+import { commentCiWaitResult, waitForDefaultBranchCi } from './fix.ci-wait.lib.mjs';
+import { fixProgressLogLine, formatDurationShort } from './fix-progress.lib.mjs';
+import { summarizeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
 
 setupStdioLogInterceptor();
 
@@ -44,6 +48,23 @@ Modes (exactly one is required):
 Options:
   --dry-run          Print the issue that would be created without creating it
   --no-solve         Create the issue but do not start /solve on it
+  --no-wait-for-ci   Start /solve right away instead of first waiting for the
+                     default branch CI/CD to finish
+  --ci-wait-timeout <minutes>
+                     Longest wait for the default branch CI/CD (default: 60)
+  --no-merge-dependabot-prs
+                     --update-all-dependencies only: do not merge the open
+                     Dependabot pull requests before creating the issue (by
+                     default they are merged without waiting for CI/CD;
+                     conflicting ones are closed when superseded by the
+                     default branch, otherwise recreated by Dependabot)
+  --dependabot-wait-timeout <minutes>
+                     --update-all-dependencies only: longest wait for
+                     Dependabot to rebase or recreate its pull requests and
+                     for the checks a branch rule requires before merging
+                     (default: 30; 0 does not wait)
+  --no-report-dependencies-issues
+                     Disable upstream reporting during dependency updates
   --version          Show version number
   --help, -h         Show help
 
@@ -54,7 +75,9 @@ Examples:
   fix.mjs https://github.com/owner/repo --ci-cd --tool codex --model gpt-5.5
   fix.mjs https://github.com/owner/repo --update-all-dependencies
   fix.mjs owner/repo --update-all-dependencies --dry-run
-  fix.mjs owner/repo --ci-cd --think max --no-solve`);
+  fix.mjs owner/repo --update-all-dependencies --no-merge-dependabot-prs
+  fix.mjs owner/repo --ci-cd --think max --no-solve
+  fix.mjs owner/repo --ci-cd --ci-wait-timeout 30`);
 }
 
 function resolveSolveCommand() {
@@ -84,7 +107,7 @@ const MODE_HANDLERS = {
     create: createUpdateDependenciesIssue,
     summarize: prepared => {
       const manifests = prepared.ecosystems.reduce((sum, entry) => sum + entry.manifests.length, 0);
-      return [`Default branch: ${prepared.defaultBranch || 'unknown'}`, `Latest commit:  ${prepared.commit?.sha ? prepared.commit.sha.slice(0, 7) : 'unknown'}`, `Ecosystems:     ${prepared.ecosystems.length} (${manifests} manifest file(s))${prepared.filesTruncated ? ' [file listing truncated by GitHub]' : ''}`, `                ${prepared.ecosystems.map(entry => entry.ecosystem.label).join(', ') || 'none detected'}`];
+      return [summarizeDependabotPullRequests(prepared.dependabot), `Default branch: ${prepared.defaultBranch || 'unknown'}`, `Latest commit:  ${prepared.commit?.sha ? prepared.commit.sha.slice(0, 7) : 'unknown'}`, `Ecosystems:     ${prepared.ecosystems.length} (${manifests} manifest file(s))${prepared.filesTruncated ? ' [file listing truncated by GitHub]' : ''}`, `                ${prepared.ecosystems.map(entry => entry.ecosystem.label).join(', ') || 'none detected'}`];
     },
   },
 };
@@ -110,6 +133,11 @@ async function main() {
 
   const parsed = partitionFixArgs(rawArgs);
 
+  if (parsed.errors.length > 0) {
+    for (const error of parsed.errors) console.error(`❌ ${error}`);
+    process.exit(1);
+  }
+
   if (parsed.modes.length === 0) {
     console.error(`❌ /fix requires a mode. Pass one of: ${FIX_MODES.map(mode => mode.flag).join(', ')}.`);
     process.exit(1);
@@ -132,7 +160,11 @@ async function main() {
   const repository = parsed.repository;
   console.log(`🔧 /fix ${handler.label} for ${repository.fullName}`);
 
-  const prepared = await handler.prepare({ repository, log: message => console.log(`   ${message}`) });
+  const verbose = parsed.passthrough.includes('--verbose');
+  // Issue #3413: open Dependabot pull requests are merged (listed on --dry-run)
+  // before the issue is prepared, without waiting for their CI/CD.
+  const modeOptions = parsed.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(parsed.passthrough), mergeDependabotPrs: parsed.mergeDependabotPrs, dependabotWaitTimeoutMs: Math.round(parsed.dependabotWaitTimeoutMinutes * 60 * 1000), dryRun: parsed.dryRun, verbose } : {};
+  const prepared = await handler.prepare({ repository, ...modeOptions, log: message => console.log(`   ${message}`) });
   for (const line of handler.summarize(prepared)) console.log(`   ${line}`);
 
   if (parsed.dryRun) {
@@ -142,13 +174,17 @@ async function main() {
     return;
   }
 
-  console.log('\n📝 Creating issue...');
+  console.log('\n📝 Creating issue (or reusing the open one of an earlier run)...');
   const issue = await handler.create({
     repository,
     prepared,
     log: message => console.log(message),
+    verbose,
   });
-  console.log(`✅ Created issue: ${issue.url}`);
+  console.log(issue.reused ? `♻️  Reusing the open issue of an earlier run${issue.refreshed ? ' (body refreshed)' : ''}: ${issue.url}` : `✅ Created issue: ${issue.url}`);
+  const branch = prepared.defaultBranch || null;
+  // Issue #3326: `[HIVE-MIND FIX]` lines let the Telegram bot show each phase.
+  console.log(fixProgressLogLine({ phase: 'issue-created', issueUrl: issue.url, branch }));
 
   const solveArgs = buildSolveArgs({ issueUrl: issue.url, passthrough: parsed.passthrough, mode: parsed.mode });
 
@@ -157,6 +193,37 @@ async function main() {
     console.log(`   solve ${solveArgs.join(' ')}`);
     return;
   }
+
+  // Issue #3326: the issue is created right away, but /solve starts only once
+  // the default branch CI/CD has finished.
+  let ciOutcome = 'skipped';
+  let ciWaitedMs = 0;
+  if (parsed.waitForCi) {
+    const timeoutMs = Math.round(parsed.ciWaitTimeoutMinutes * 60 * 1000);
+    console.log(`\n⏳ Waiting for CI/CD on ${branch || 'the default branch'} to finish before starting /solve (timeout: ${formatDurationShort(timeoutMs)}; pass --no-wait-for-ci to skip)...`);
+    let lastPendingKey = null;
+    const result = await waitForDefaultBranchCi({
+      repository,
+      branch,
+      timeoutMs,
+      verbose,
+      onProgress: ({ pending, waitedMs }) => {
+        const pendingKey = pending.map(item => `${item.name}:${item.status}`).join(', ');
+        if (pendingKey !== lastPendingKey) console.log(`   CI/CD still running: ${pendingKey}`);
+        lastPendingKey = pendingKey;
+        console.log(fixProgressLogLine({ phase: 'waiting-for-ci', issueUrl: issue.url, branch, pending, waitedMs, timeoutMs }));
+      },
+    });
+    ciOutcome = result.outcome;
+    ciWaitedMs = result.waitedMs;
+    const summary = { idle: 'no CI/CD running', finished: `CI/CD finished after ${formatDurationShort(result.waitedMs)}`, timeout: `CI/CD still running after ${formatDurationShort(result.waitedMs)}; starting anyway`, unknown: 'could not check CI/CD; starting anyway' }[result.outcome];
+    console.log(`${result.outcome === 'idle' || result.outcome === 'finished' ? '✅' : '⚠️ '} ${summary}`);
+    console.log(fixProgressLogLine({ phase: 'ci-finished', issueUrl: issue.url, branch, outcome: result.outcome, waitedMs: result.waitedMs, timeoutMs }));
+    if (result.outcome === 'finished' || result.outcome === 'timeout') {
+      if (await commentCiWaitResult({ issueUrl: issue.url, branch, result })) console.log('   Posted the latest CI/CD results to the issue.');
+    }
+  }
+  console.log(fixProgressLogLine({ phase: 'solving', issueUrl: issue.url, branch, ciOutcome, waitedMs: ciWaitedMs }));
 
   const solveCommand = resolveSolveCommand();
   console.log(`\n🚀 Starting /solve: solve ${solveArgs.join(' ')}`);

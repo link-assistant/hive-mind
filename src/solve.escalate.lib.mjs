@@ -68,22 +68,28 @@ export const DEFAULT_ESCALATE_STEPS = 1;
  */
 const TIER_ALIASES = {
   haiku: 'haiku',
+  'haiku-5-5': 'haiku',
+  'claude-haiku-5-5': 'haiku',
   'haiku-4-5': 'haiku',
   'claude-haiku-4-5': 'haiku',
   'claude-haiku-4-5-20251001': 'haiku',
   sonnet: 'sonnet',
+  'sonnet-5-5': 'sonnet',
   'sonnet-5': 'sonnet',
   'sonnet-4-6': 'sonnet',
   'sonnet-4-5': 'sonnet',
+  'claude-sonnet-5-5': 'sonnet',
   'claude-sonnet-5': 'sonnet',
   'claude-sonnet-4-6': 'sonnet',
   'claude-sonnet-4-5': 'sonnet',
   opus: 'opus',
+  'opus-5-5': 'opus',
   'opus-5': 'opus',
   'opus-4-8': 'opus',
   'opus-4-7': 'opus',
   'opus-4-6': 'opus',
   'opus-4-5': 'opus',
+  'claude-opus-5-5': 'opus',
   'claude-opus-5': 'opus',
   'claude-opus-4-8': 'opus',
   'claude-opus-4-7': 'opus',
@@ -362,9 +368,8 @@ export const runEscalation = async ({ issueUrl, owner, repo, issueNumber, prNumb
   // Get PR merge state status for the iterations
   let currentMergeStateStatus = null;
   try {
-    // `$` is wrapped via wrapDollarWithGhRetry above; the lazy import keeps this module
-    // network-free for tests, so the lint rule (which only detects top-level rebinds) can't see it.
-    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- $ is rate-limit-safe (wrapDollarWithGhRetry), rebound lazily on line 334.
+    // `$` is wrapped via wrapDollarWithGhRetry above (rebound lazily, which keeps
+    // this module network-free for tests).
     const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
     if (prStateResult.code === 0) {
       currentMergeStateStatus = prStateResult.stdout.toString().trim();

@@ -80,7 +80,7 @@ export async function handleCompareApiNotReady({ argv, forkedRepo, owner, repo, 
     await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
 
     const forkInfoResult = await $({
-      silent: true,
+      mirror: false,
     })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
 
     let isFork = false;

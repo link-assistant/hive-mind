@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Feedback detection module for solve.mjs
  * Handles comment counting and feedback detection for continue mode
@@ -11,6 +12,24 @@ import { QUIET_PROBE, quietProbe } from './quiet-probe.lib.mjs'; // issue #2130:
 // Issue #1827: tool-generated comments (markers + in-memory tracked IDs) must
 // not count as feedback in watch/continue mode, mirroring checkForNonBotComments.
 import { isToolGeneratedComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
+import { detectExternalContentEdits, formatEditEvidence } from './description-edits.lib.mjs'; // issue #2293
+import { buildUnresolvedReviewThreadLines, fetchUnresolvedReviewThreads } from './review-threads.lib.mjs'; // issue #4082: findings stay listed until their thread is resolved
+/**
+ * Issue #4082 (case 4): the latest decisive review of each reviewer, kept when
+ * it still requests changes. COMMENTED and PENDING reviews do not change a
+ * reviewer's decision; APPROVED and DISMISSED close an earlier change request.
+ */
+export const selectOutstandingChangeRequests = reviews => {
+  const latestByReviewer = new Map();
+  for (const review of Array.isArray(reviews) ? reviews : []) {
+    if (!['CHANGES_REQUESTED', 'APPROVED', 'DISMISSED'].includes(review?.state)) continue;
+    const reviewer = review.user?.login || 'ghost';
+    const previous = latestByReviewer.get(reviewer);
+    if (!previous || new Date(review.submitted_at || 0) >= new Date(previous.submitted_at || 0)) latestByReviewer.set(reviewer, review);
+  }
+  return [...latestByReviewer.values()].filter(review => review.state === 'CHANGES_REQUESTED');
+};
+
 export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $, repositoryPath = null } = params;
 
@@ -218,13 +237,13 @@ export const detectAndCountFeedback = async params => {
 
         // Add comment info if counts are > 0 to avoid wasting tokens
         if (newPrComments > 0) {
-          feedbackLines.push(`New comments on the pull request: ${newPrComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text1', { newPrComments: String(newPrComments) }));
         }
         if (newPrReviewComments > 0) {
-          feedbackLines.push(`New review comments on the pull request: ${newPrReviewComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text2', { newPrReviewComments: String(newPrReviewComments) }));
         }
         if (newIssueComments > 0) {
-          feedbackLines.push(`New comments on the issue: ${newIssueComments}`);
+          feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text3', { newIssueComments: String(newIssueComments) }));
         }
 
         // Enhanced feedback detection for all continue modes
@@ -240,64 +259,52 @@ export const detectAndCountFeedback = async params => {
             feedbackSources.push(`New comments (${totalNewComments})`);
           }
 
-          // 2. Check for edited descriptions
-          // Issue #895: Filter out edits made during current work session to prevent
-          // infinite restart loops. When the agent updates the PR description as part of
-          // its work, this should not trigger a restart. Only external edits (before work
-          // started) should be considered feedback.
+          // 2. Check for edited titles/descriptions
+          // Issue #895: edits made during the current work session are the agent's own.
+          // Issue #2293: `updated_at` is bumped by comments, labels, cross-references and
+          // pull request creation, and most real edits after the last commit were made by
+          // the previous solver session (same account). Read the actual edit history,
+          // ignore edits made inside the solver's own sessions, and report evidence.
           try {
-            // Check PR description edit time
-            const prDetailsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
-            if (prDetailsResult.code === 0) {
-              const prDetails = JSON.parse(prDetailsResult.stdout.toString());
-              const prUpdatedAt = new Date(prDetails.updated_at);
-              if (prUpdatedAt > lastCommitTime) {
-                // Issue #895: Check if the edit happened during current work session
-                // If the PR was updated after work started, it's likely the agent's own edit
-                if (workStartTime && prUpdatedAt > new Date(workStartTime)) {
-                  if (argv.verbose) {
-                    await log('   Note: PR description updated during current work session (likely by agent itself) - ignoring', { verbose: true });
-                  }
-                  // Don't treat this as external feedback
-                } else {
-                  // The PR was updated after last commit but before work started - external feedback
-                  feedbackLines.push('Pull request description was edited after last commit');
-                  feedbackDetected = true;
-                  feedbackSources.push('PR description edited');
-                }
-              }
+            const editTargets = [{ kind: 'pr', number: prNumber, label: 'Pull request', source: 'PR description edited' }];
+            if (issueNumber && Number(issueNumber) !== Number(prNumber)) {
+              editTargets.push({ kind: 'issue', number: issueNumber, label: 'Issue', source: 'Issue description edited' });
+            } else if (issueNumber && argv.verbose) {
+              await log('   Note: No separate linked issue (issue number equals PR number) - checking PR edits only', { verbose: true });
             }
-
-            // Check issue description edit time if we have an issue
-            if (issueNumber) {
-              const issueDetailsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}`;
-              if (issueDetailsResult.code === 0) {
-                const issueDetails = JSON.parse(issueDetailsResult.stdout.toString());
-                const issueUpdatedAt = new Date(issueDetails.updated_at);
-                if (issueUpdatedAt > lastCommitTime) {
-                  // Issue #895: Check if the edit happened during current work session
-                  if (workStartTime && issueUpdatedAt > new Date(workStartTime)) {
-                    if (argv.verbose) {
-                      await log('   Note: Issue description updated during current work session (likely by agent itself) - ignoring', { verbose: true });
-                    }
-                    // Don't treat this as external feedback
-                  } else {
-                    // The issue was updated after last commit but before work started - external feedback
-                    feedbackLines.push('Issue description was edited after last commit');
-                    feedbackDetected = true;
-                    feedbackSources.push('Issue description edited');
-                  }
+            // Solver session windows come from the PR's comments; the PR's creation opens the first one.
+            let prCreatedAt = null;
+            for (const target of editTargets) {
+              const detection = await detectExternalContentEdits({ owner, repo, number: target.number, since: lastCommitTime, until: workStartTime, comments: prConversationComments, currentUser, openedAt: target.kind === 'pr' ? undefined : prCreatedAt, $: quietProbe($) });
+              if (target.kind === 'pr' && detection.ok) prCreatedAt = detection.createdAt;
+              if (!detection.ok) {
+                if (argv.verbose) await log(`   Warning: Could not read edit history of #${target.number}: ${detection.error}`, { verbose: true });
+                continue;
+              }
+              if (argv.verbose) {
+                for (const { edit, reason } of detection.ignored) {
+                  await log(`   Ignored ${target.kind === 'pr' ? 'PR' : 'issue'} #${target.number} ${formatEditEvidence(edit)} - ${reason}`, { verbose: true });
                 }
               }
+              if (detection.external.length === 0) continue;
+              const fields = [...new Set(detection.external.map(edit => (edit.field === 'title' ? 'title' : 'description')))].join(' and ');
+              feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text4', { value1: String(target.label), fields: String(fields) }));
+              for (const edit of detection.external) {
+                const evidence = formatEditEvidence(edit);
+                feedbackLines.push(`  - ${evidence}`);
+                await log(`   ✏️  ${target.label} #${target.number} ${evidence}`);
+              }
+              feedbackDetected = true;
+              feedbackSources.push(target.source);
             }
           } catch (error) {
             reportError(error, {
               context: 'check_description_edits',
               prNumber,
-              operation: 'fetch_pr_timeline',
+              operation: 'fetch_content_edits',
             });
             if (argv.verbose) {
-              await log(`Warning: Could not check description edit times: ${cleanErrorMessage(error)}`, {
+              await log(`Warning: Could not check description edits: ${cleanErrorMessage(error)}`, {
                 level: 'warning',
               });
             }
@@ -314,7 +321,7 @@ export const detectAndCountFeedback = async params => {
               if (commitsResult.code === 0) {
                 const commits = JSON.parse(commitsResult.stdout.toString());
                 if (commits.length > 0) {
-                  feedbackLines.push(`New commits on ${defaultBranch} branch: ${commits.length}`);
+                  feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text5', { defaultBranch: String(defaultBranch), value2: String(commits.length) }));
                   feedbackDetected = true;
                   feedbackSources.push(`New commits on ${defaultBranch} (${commits.length})`);
                 }
@@ -335,7 +342,7 @@ export const detectAndCountFeedback = async params => {
 
           // 4. Check pull request state (non-open indicates closed or merged)
           if (prState && prState !== 'OPEN') {
-            feedbackLines.push(`Pull request state: ${prState}`);
+            feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text6', { prState: String(prState) }));
             feedbackDetected = true;
             feedbackSources.push(`PR state ${prState}`);
           }
@@ -366,7 +373,7 @@ export const detectAndCountFeedback = async params => {
               const failedChecks = checkRuns.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime);
 
               if (failedChecks.length > 0) {
-                feedbackLines.push(`Failed pull request checks: ${failedChecks.length}`);
+                feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text7', { value1: String(failedChecks.length) }));
                 feedbackDetected = true;
                 feedbackSources.push(`Failed PR checks (${failedChecks.length})`);
               }
@@ -387,10 +394,11 @@ export const detectAndCountFeedback = async params => {
             const reviewsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
             if (reviewsResult.code === 0) {
               const reviews = JSON.parse(reviewsResult.stdout.toString());
-              const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);
+              // Issue #4082 (case 4): a change request stays open until its reviewer approves or it is dismissed, however old it is.
+              const changesRequestedReviews = selectOutstandingChangeRequests(reviews);
 
               if (changesRequestedReviews.length > 0) {
-                feedbackLines.push(`Changes requested in reviews: ${changesRequestedReviews.length}`);
+                feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text8', { value1: String(changesRequestedReviews.length) }));
                 feedbackDetected = true;
                 feedbackSources.push(`Changes requested (${changesRequestedReviews.length})`);
               }
@@ -404,6 +412,20 @@ export const detectAndCountFeedback = async params => {
             if (argv.verbose) {
               await log(`Warning: Could not check PR reviews: ${cleanErrorMessage(error)}`, { level: 'warning' });
             }
+          }
+
+          // 8. Issue #4082 (case 4): unresolved review threads, whatever their
+          // age. Comments above are counted only after the last commit, so any
+          // push (even a merge of the default branch) hid a finding that was
+          // still open. Thread state is GitHub's own "not addressed yet" signal.
+          const threads = await fetchUnresolvedReviewThreads({ owner, repo, prNumber, commandRunner: quietProbe($) });
+          if (threads.ok && threads.threads.length > 0) {
+            feedbackLines.push(...buildUnresolvedReviewThreadLines(threads.threads));
+            feedbackDetected = true;
+            feedbackSources.push(`Unresolved review threads (${threads.threads.length})`);
+            await log(formatAligned('🧵', 'Unresolved review threads:', String(threads.threads.length), 2));
+          } else if (!threads.ok && argv.verbose) {
+            await log(`Warning: Could not read review threads: ${threads.error}`, { level: 'warning' });
           }
 
           // Handle --continue-only-on-feedback option
@@ -421,6 +443,7 @@ export const detectAndCountFeedback = async params => {
               await log('   • Merge status is not CLEAN (conflicts, unstable, blocked, etc.)');
               await log('   • Failed pull request checks');
               await log('   • Changes requested via review');
+              await log('   • Unresolved review threads');
               process.exit(1);
             }
           }

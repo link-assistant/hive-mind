@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2888-8db813f3ae0c",
+  "mergedAt": null,
+  "number": 2893,
+  "state": "OPEN",
+  "title": "fix(session-recovery): fresh kill recovery resumes only reachable tool sessions; exit-75 refusals don't spend attempts (#2888)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2893"
+}

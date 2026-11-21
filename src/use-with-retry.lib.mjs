@@ -36,11 +36,11 @@ const RETRYABLE_RM_CODES = new Set(['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'E
 // point broke unchanged Hive Mind commits in issue #2150. Keep every runtime
 // dependency reproducible; explicit versions and subpaths remain untouched.
 export const USE_M_PACKAGE_VERSIONS = Object.freeze({
-  '@dotenvx/dotenvx': '2.33.0',
-  'command-stream': '1.6.2',
+  '@dotenvx/dotenvx': '2.38.2',
+  'command-stream': '3.0.0',
   getenv: '2.0.0',
-  'links-notation': '0.23.0',
-  'lino-arguments': '0.3.0',
+  'links-notation': '0.31.8',
+  'lino-arguments': '0.4.1',
   telegraf: '4.16.3',
   yargs: '18.2.0',
   zx: '8.8.5',

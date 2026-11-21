@@ -106,6 +106,20 @@ export const formatDockerSize = bytes => {
 };
 
 /**
+ * Say how much disk a removal freed, and how that figure was obtained.
+ *
+ * A `docker system df` delta is what the daemon reports the images no longer
+ * occupy. Without it the figure is the sum of the removed images' sizes, which
+ * overstates the space when they share layers with images that stay — so it is
+ * labelled as an upper bound rather than passed off as a measurement.
+ *
+ * @param {number} bytes
+ * @param {'measured'|'estimated'} [source]
+ * @returns {string}
+ */
+export const describeBytesFreed = (bytes, source = 'measured') => (source === 'estimated' ? `up to ${formatDockerSize(bytes)} (estimated from image sizes; layers shared with other images stay on disk)` : `${formatDockerSize(bytes)} (measured by \`docker system df\`)`);
+
+/**
  * Read the facts about one local image the removal rules need.
  *
  * @returns {Promise<{id: string, repoTags: string[], repoDigests: string[], size: number|null}|null>} Null when the image is not on the host.
@@ -267,14 +281,14 @@ export const removeFormalAiImage = async (image, { run = execFileAsync, timeoutM
  *
  * @param {object} options
  * @param {(image: object) => boolean} [options.select] - Which listed images to remove (default: all removable ones).
- * @returns {Promise<{removed: object[], kept: object[], failed: object[], bytesFreed: number}>}
+ * @returns {Promise<{removed: object[], kept: object[], failed: object[], bytesFreed: number, bytesFreedSource: 'measured'|'estimated'}>}
  */
 export const removeFormalAiImages = async ({ env = process.env, run = execFileAsync, timeoutMs, select = () => true, log = null, verbose = false } = {}) => {
   const images = await listFormalAiImages({ env, run, timeoutMs });
   const chosen = images.filter(image => select(image));
   const kept = chosen.filter(image => !image.removable);
   const removable = chosen.filter(image => image.removable);
-  if (removable.length === 0) return { removed: [], kept, failed: [], bytesFreed: 0 };
+  if (removable.length === 0) return { removed: [], kept, failed: [], bytesFreed: 0, bytesFreedSource: 'measured' };
 
   const before = await readDockerImagesDiskUsage({ run, timeoutMs });
   const removed = [];
@@ -287,13 +301,15 @@ export const removeFormalAiImages = async ({ env = process.env, run = execFileAs
   }
   const after = removed.length > 0 ? await readDockerImagesDiskUsage({ run, timeoutMs }) : before;
   const estimated = removed.reduce((sum, image) => sum + (image.size ?? 0), 0);
-  const bytesFreed = before !== null && after !== null ? Math.max(0, before - after) : estimated;
+  const measured = before !== null && after !== null;
+  const bytesFreed = measured ? Math.max(0, before - after) : estimated;
   for (const image of kept) if (verbose && log) await log(`[VERBOSE] formal-ai-image-store: keeping ${image.repoTags[0] ?? image.id}: ${image.reason}`);
-  return { removed, kept, failed, bytesFreed };
+  return { removed, kept, failed, bytesFreed, bytesFreedSource: measured ? 'measured' : 'estimated' };
 };
 
 export default {
   FORMAL_AI_IMAGE_SOURCE_LABEL,
+  describeBytesFreed,
   dockerReferenceRepository,
   formatDockerSize,
   inspectDockerImage,

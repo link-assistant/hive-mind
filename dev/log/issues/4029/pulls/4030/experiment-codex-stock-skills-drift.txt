@@ -1,0 +1,13 @@
+pinned=0.164.0 newer=0.167.0 previous=0.163.0
+0. start previous codex 0.163.0 (P3 staged previous release)
+  marker: 3eadc798bef12c4a
+  audit: CodexStockBaselineError: Codex stock runtime differs from the pristine pinned CLI 0.164.0 baseline. Restore verified stock content before launch; no repair is permitted.
+1. start pinned codex 0.164.0
+  marker: a49d0ab9dc3eb676
+  audit: matches the pinned baseline
+2. start newer codex 0.167.0 (what P3 'first native start with the updated binaries' does)
+  marker: 999fb1722808600e
+  audit: CodexStockBaselineError: Codex stock runtime differs from the pristine pinned CLI 0.164.0 baseline. Restore verified stock content before launch; no repair is permitted.
+3. start pinned codex 0.164.0 again (restores the verified stock runtime)
+  marker: a49d0ab9dc3eb676
+  audit: matches the pinned baseline

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -22,8 +23,9 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { quietProbe } = await import('./quiet-probe.lib.mjs'); // Issue #2293: one-word answers (`false`, `OPEN`) of every watch check stay out of the log
 // Import path and fs for cleanup operations
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -34,16 +36,17 @@ const lib = await import('./lib.mjs');
 // no-op stubs (or omitting them entirely) broke session-log renaming in restart/watch iterations
 // ("⚠️ Could not rename log file: getLogFile is not a function").
 const { log, formatAligned, extractToolErrorCore, getLogFile, setLogFile } = lib;
-const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+import { ensurePullRequestBaseBranch } from './solve.pr-base-guard.lib.mjs';
 const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { classifySessionResult } = await import('./session-result.lib.mjs'); // Issue #2316
 const { takeRepeatedToolCallFeedback } = await import('./tool-call-loop-guard.lib.mjs');
 const { buildUncommittedChangesFeedback } = await import('./uncommitted-changes-feedback.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
-const { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
+import { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
-const { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } = await import('./session-progress.lib.mjs');
+import { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } from './session-progress.lib.mjs';
+import { emitSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -58,7 +61,7 @@ const { reportError } = sentryLib;
  */
 export const checkPRMerged = async (owner, repo, prNumber) => {
   try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
+    const prResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
     if (prResult.code === 0) {
       return prResult.stdout.toString().trim() === 'true';
     }
@@ -85,7 +88,7 @@ export const checkPRMerged = async (owner, repo, prNumber) => {
  */
 export const checkPRClosed = async (owner, repo, prNumber) => {
   try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.state'`;
+    const prResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.state'`;
     if (prResult.code === 0) {
       return prResult.stdout.toString().trim() === 'closed';
     }
@@ -189,7 +192,23 @@ export const getUncommittedChangesDetails = async tempDir => {
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
  */
+/**
+ * Issue #4091: an AI restart from the watch loop is the only time the Telegram
+ * status says `⏳ Executing...` again, and the AI's own mirrored output keeps
+ * its untimestamped console form (the watch loop timestamps its lines).
+ */
 export const executeToolIteration = async params => {
+  const timestamps = lib.isConsoleTimestampsEnabled?.() === true;
+  lib.setConsoleTimestamps?.(false);
+  emitSolveProgress({ phase: 'executing', since: new Date().toISOString() });
+  try {
+    return await executeToolIterationNow(params);
+  } finally {
+    lib.setConsoleTimestamps?.(timestamps);
+  }
+};
+
+const executeToolIterationNow = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, argv } = params;
   // Issue #2313: after two identical sessions with the same input, the next input
   // must differ; and the input is recorded so "no progress" is only concluded
@@ -541,7 +560,7 @@ export const executeToolIteration = async params => {
     // funnels through here, so one call covers watch mode, auto-restart-until-
     // mergeable, keep-working, escalation and auto-ensure. The loops read the
     // verdict before they claim their next iteration from the shared budget.
-    const sessionProgress = await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: params.sessionLabel || null });
+    const sessionProgress = await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: params.sessionLabel || null, stallEvidence: params.stallEvidence !== false });
     if (sessionProgress?.repeated) {
       await log(formatAligned('⚠️', 'No progress:', 'this session ended exactly like the previous one', 2));
     }
@@ -554,9 +573,6 @@ export const executeToolIteration = async params => {
       const { repairRequiredIssueLinks } = await import('./pr-issue-link-repair.lib.mjs');
       if (issueNumber) await repairRequiredIssueLinks({ owner, repo, issueNumber, prNumber, argv, logger: log });
       if (toolResult?.success === true && toolResult?.errorDuringExecution !== true) {
-        // Issue #2318: regenerate the description's Changes section from the diff, for every model.
-        const { refreshPullRequestChangesSection } = await import('./pull-request-changes.lib.mjs');
-        const { changeStats } = await refreshPullRequestChangesSection({ owner, repo, prNumber, $, log });
         await ensurePullRequestIsReady({
           owner,
           repo,
@@ -566,7 +582,6 @@ export const executeToolIteration = async params => {
           formatAligned,
           reason: 'restart iteration finished successfully',
           requireChanges: true,
-          changeStats: changeStats?.measured ? changeStats : null,
           reportError,
         });
       } else {
@@ -577,7 +592,7 @@ export const executeToolIteration = async params => {
           $,
           log,
           formatAligned,
-          reason: toolResult?.errorInfo?.message || 'restart iteration failed or verification did not succeed',
+          reason: extractToolErrorCore({ toolResult }) || 'restart iteration failed or verification did not succeed',
           reportError,
         });
       }
@@ -591,7 +606,8 @@ export const executeToolIteration = async params => {
  * @returns {string[]} Array of instruction lines
  */
 export const buildAutoRestartInstructions = () => {
-  return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
+  // Issue #2839: pre-existing CI failures are not exempt - the pull request cannot be released while CI fails.
+  return ['', '='.repeat(60), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text1'), '='.repeat(60), '', promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text2'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text3'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text4'), promptText('prompt.templates.solve-restart-shared.buildAutoRestartInstructions.text5'), ''];
 };
 
 // Issue #2313: shared with the pre-session check in solve.preparation.lib.mjs.

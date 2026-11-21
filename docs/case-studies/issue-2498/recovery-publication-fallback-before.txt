@@ -1,0 +1,19 @@
+✅ pinned command-stream returns truthy stream objects even for empty output
+✅ stream results still stringify and expose common string methods
+✅ postKillRecoveryNotice falls back to the exit description when gh prints nothing
+✅ postKillRecoveryNotice uses stdout when stderr is empty
+✅ postKillRecoveryNotice returns null url when gh succeeds silently
+❌ src/ has no truthiness checks on raw command-stream stdout/stderr
+   AssertionError [ERR_ASSERTION]: use `result.stdout?.toString()` instead of `result.stdout` in boolean/fallback contexts
++ actual - expected
+
++ [
++   "src/solve.tool-kill-resume.lib.mjs:45: if (posted?.ok === false) throw new Error(posted.stderr || 'GitHub comment publication failed');"
++ ]
+- []
+
+    at file:///tmp/gh-issue-solver-1791240758223/tests/test-command-stream-1x-results.mjs:103:10
+    at test (file:///tmp/gh-issue-solver-1791240758223/tests/test-command-stream-1x-results.mjs:36:11)
+    at file:///tmp/gh-issue-solver-1791240758223/tests/test-command-stream-1x-results.mjs:88:7
+
+📊 6 test(s): ✅ 5 passed, ❌ 1 failed

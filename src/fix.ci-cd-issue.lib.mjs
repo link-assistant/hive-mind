@@ -9,7 +9,7 @@
 
 import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle, dedupeRunsByWorkflow } from './fix.ci-cd.lib.mjs';
 import { detectLanguages, getActiveWorkflows, getDefaultBranch, getLatestCommit, getLatestRunsForWorkflows, getRecentBranchRuns, getRunsForCommit, runCommand } from './fix.github.lib.mjs';
-import { createTaskIssue } from './task.issue-creation.lib.mjs';
+import { createOrReuseTaskIssue } from './task.issue-creation.lib.mjs';
 
 export async function prepareCiCdIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null }) {
   const [languages, defaultBranch] = await Promise.all([detectLanguages(repository, run, warn), getDefaultBranch(repository, run, warn)]);
@@ -76,9 +76,10 @@ export async function prepareCiCdIssue({ repository, run = runCommand, warn = me
   };
 }
 
-export async function createCiCdIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message) }) {
+export async function createCiCdIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), verbose = false }) {
   const issueDraft = prepared || (await prepareCiCdIssue({ repository, run, warn, log }));
-  const issue = await createTaskIssue({
+  // Issue #3684: a repeated run refreshes the open issue of an earlier run.
+  const issue = await createOrReuseTaskIssue({
     repository,
     title: issueDraft.title,
     body: issueDraft.body,
@@ -86,6 +87,7 @@ export async function createCiCdIssue({ repository, prepared = null, run = runCo
     labels: [...CI_CD_ISSUE_LABELS],
     run,
     log,
+    verbose,
   });
   return { ...issue, prepared: issueDraft };
 }

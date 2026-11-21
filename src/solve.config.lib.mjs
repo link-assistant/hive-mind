@@ -1,3 +1,4 @@
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 // CLI configuration module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
 
@@ -7,7 +8,7 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
-import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
+import { detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
@@ -15,6 +16,7 @@ import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLi
 import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
 import { supportsAdaptiveThinking } from './config.lib.mjs';
 import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
+import { normalizeSpeed } from './pricing-tier.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -27,8 +29,10 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // Exported so hive.config.lib.mjs can automatically register solve options
 // without manual duplication (see issue #1209).
 // NOTE: Options with function defaults (like 'model') are defined inline in createYargsConfig
-// and excluded from this map since functions cannot be cleanly shared as data.
+// and excluded from this map since functions cannot be cleanly shared as data
+// (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
+  'share-geolocation': SHARE_GEOLOCATION_OPTION,
   resume: {
     type: 'string',
     description: 'Resume from a previous session ID (when limit was reached)',
@@ -177,6 +181,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     // Issue #2408: one attempt could not recover a second OOM in a long run.
     default: 3,
   },
+  // Issue #2498: one OOM event can kill several sessions at once; staggering
+  // their recoveries keeps them from rushing the same resources together.
+  'session-kill-resume-delay': {
+    type: 'string',
+    description: 'Random delay in seconds, as "<min>-<max>" or a fixed "<seconds>" ("0" disables), waited before each automatic recovery after a kill, so sessions killed by the same out-of-memory event do not all restart at the same moment. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_DELAY.',
+    // Resolve the default after parsing so the environment can still override it.
+    default: undefined,
+    defaultDescription: '30-90',
+  },
   // Issue #2395: the repeated-tool-call breaker (#2247, #2316) stopped sessions
   // that were waiting for CI, so it never runs unless explicitly enabled.
   'detect-repeated-tool-calls': {
@@ -225,6 +238,19 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Explicitly fail on absence of new comments in auto-continue or continue mode',
     default: false,
   },
+  // Issue #4063: a fresh clone can already be "dirty" (e.g. a CRLF file marked
+  // `text eol=crlf`). That used to stop every run on such a repository.
+  'uncommitted-changes-after-clone': {
+    type: 'string',
+    description: "What to do when the working tree has uncommitted changes right after the clone: 'warn-ai' (default) continues and tells only the AI in its prompt, so it can fix the cause (details are logged with --verbose); 'warn-user' continues and logs a warning; 'warn-ai-and-user' does both; 'ignore' continues silently; 'fail' stops the run.",
+    choices: ['warn-ai', 'warn-user', 'warn-ai-and-user', 'ignore', 'fail'],
+    default: 'warn-ai',
+  },
+  'neutralize-checkout-conversion-artifacts': {
+    type: 'boolean',
+    description: 'Keep files that a fresh clone reports as modified although their bytes equal the commit (committed content that does not match .gitattributes, e.g. CRLF marked `text eol=crlf`) out of git status and the pull request, by unsetting their content conversion in the clone-local .git/info/attributes (default: true; use --no-neutralize-checkout-conversion-artifacts to disable).',
+    default: true,
+  },
   'auto-commit-uncommitted-changes': {
     type: 'boolean',
     description: 'Automatically commit and push uncommitted changes made by Claude (disabled by default)',
@@ -257,6 +283,35 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum wall-clock hours the --auto-restart-until-mergeable/--auto-merge monitoring loop may run before stopping and reporting (default: 24, 0 = unlimited)',
     default: 24,
+  },
+  // Issue #4082: review apps and humans often review after "Ready to merge";
+  // the loop keeps watching this long so their findings restart the AI.
+  'auto-restart-until-mergeable-review-window-minutes': {
+    type: 'number',
+    description: 'Minutes the --auto-restart-until-mergeable loop keeps watching after "Ready to merge" for new reviews, review threads and comments, which restart the AI (default: 120, 0 = exit right away)',
+    default: 120,
+  },
+  'auto-restart-on-unresolved-review-threads': {
+    type: 'boolean',
+    description: 'In --auto-restart-until-mergeable, restart the AI on unresolved pull request review threads (review bots included) and hold "Ready to merge" back while threads it was given stay unresolved (default: true)',
+    default: true,
+  },
+  'check-merge-prerequisites': {
+    type: 'boolean',
+    description: 'Before "Ready to merge", check merge-order prerequisites declared in the PR description or session summary ("Depends on #12", "merge the companion PR first") and post "Ready for review — blocked by …" while they are unmet (default: true)',
+    default: true,
+  },
+  // Issue #4081: review apps (Codex connector, CodeRabbit, …) review the PR
+  // minutes after it is marked ready or pushed; their findings are feedback.
+  'review-bots': {
+    type: 'string',
+    description: 'Comma-separated logins of automated PR review apps whose findings count as feedback and are waited for before "Ready to merge" ("default" = chatgpt-codex-connector[bot], coderabbitai[bot], copilot-pull-request-reviewer[bot], gemini-code-assist[bot], sourcery-ai[bot], qodo-merge-pro[bot], cursor[bot], greptile-apps[bot]; "default,my-reviewer[bot]" adds one; "none" disables). CI and deploy bots stay ignored',
+    default: 'default',
+  },
+  'review-bots-wait-minutes': {
+    type: 'number',
+    description: 'In --auto-restart-until-mergeable/--auto-merge, maximum minutes to wait for a review app that is still reviewing the head commit before posting "Ready to merge" or merging; the AI prompt asks it to wait as long (default: 15, 0 = do not wait)',
+    default: 15,
   },
   'resume-on-auto-restart': {
     type: 'boolean',
@@ -342,6 +397,23 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support.',
     default: false,
   },
+  // Issues #3354 to #3359: post-merge issue closing. No yargs default, so an
+  // unset option falls back to its HIVE_MIND_* environment switch (on unless "false").
+  'auto-close-linked-issues': {
+    type: 'boolean',
+    description: 'After a merge, close every issue the pull request description closes that GitHub left open (non-default base branch, or GitHub missed it), with a comment naming the PR and merge commit. Issues the description keeps open are never closed. With --no-auto-close-linked-issues they are only reported. Default: on (HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false turns it off).',
+    default: undefined,
+  },
+  'allow-cross-repository-closing': {
+    type: 'boolean',
+    description: 'Allow a closing reference to an issue in another repository when the author wrote it in the description (not in the link-repair block, and not a sub-issue of the pull request issue tree); it is closed explicitly after the merge. The link repair never adds one. Default: on (HIVE_MIND_ALLOW_CROSS_REPOSITORY_CLOSING=false restores the hard block).',
+    default: undefined,
+  },
+  'close-completed-parents': {
+    type: 'boolean',
+    description: 'After closing issues on merge, walk up their parent issues (any repository) and close a parent whose sub-issues are all completed, whose description has no open task-list or "Done when" items, that nothing blocks and that no person reopened since; otherwise post or update one status comment. Default: on (HIVE_MIND_CLOSE_COMPLETED_PARENTS=false turns it off).',
+    default: undefined,
+  },
   'min-disk-space': {
     type: 'number',
     description: 'Minimum required disk space in MB (default: 10240)',
@@ -391,8 +463,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'disable-1m-context': {
     type: 'boolean',
-    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window.',
-    default: true,
+    description: 'Hold the model to its short-context (cheapest) pricing tier instead of the 1M extended window. Default: auto — short context unless --sub-session-size asks for more than the short tier (e.g. --sub-session-size 500k) or the model has a [1m] suffix. Pass --disable-1m-context to force short context, or --no-disable-1m-context to allow the 1M window. Short tiers: Claude 200K (Haiku 5.5: 100K), Codex/OpenAI 272K, Gemini Pro 200K, Qwen3 Coder Plus/Flash 256K. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 and passes plain model names; for Codex -c model_context_window=272000; for Gemini/Qwen the compaction threshold.',
+    default: undefined,
+  },
+  speed: {
+    type: 'string',
+    description: 'Service/speed tier: standard (default, cheapest normal tier), flex (Codex/OpenAI only, ~0.5x price = Batch API rates, slower and may be queued; aliases: batch, slow, economy), fast (priority, ~2x price), ultrafast (Codex only, up to 8x). Claude: standard/flex set CLAUDE_CODE_DISABLE_FAST_MODE=1, fast/ultrafast leave Claude Code fast mode to your Claude settings. Codex: -c service_tier=default|flex|fast|ultrafast.',
+    // coerce (not yargs `choices`) so the documented aliases are accepted and normalized.
+    coerce: normalizeSpeed,
+    default: 'standard',
   },
   'fallback-model': {
     type: 'string',
@@ -553,8 +632,9 @@ export const SOLVE_OPTION_DEFINITIONS = {
   //   sidecar instead of bind-mounting the operator's vendor credentials into
   //   the task container. The task then holds a token scoped to itself alone,
   //   every request lands in that token's own audit log, and the subscription
-  //   never leaves the sidecar. Experimental: GitHub traffic and `--model
-  //   formal-ai` are not routed yet (see docs/ROUTER.md).
+  //   never leaves the sidecar. Experimental: `--model formal-ai` is served
+  //   through the router, but the Formal AI sidecar's own upstream calls are
+  //   not routed yet (see docs/ROUTER.md).
   'use-router': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting Claude/Codex credentials into the task container. Each task receives its own scoped, short-lived token and its own request log, and the AI subscription stays in the router. Requires --isolation docker (or the Telegram bot in docker isolation mode).',
@@ -604,6 +684,14 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'boolean',
     description: 'Prompt for updating every dependency of every ecosystem in the repository to its latest version (manifests, lockfiles, base images, GitHub Actions and toolchain pins), crossing major versions deliberately and adopting the new upstream features instead of hand-rolled equivalents. Disabled by default. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
     default: false,
+  },
+  'report-dependencies-issues': {
+    type: 'boolean',
+    description: 'Prompt for reporting general logic, duplicated code, missing features and bugs that require local workarounds to dependency upstreams, while keeping workarounds so the pull request can proceed. Enabled by --update-all-dependencies; use --no-report-dependencies-issues to disable separately. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
+    // Preserve an omitted value so the dependency-update default cannot
+    // overwrite an explicit false during solve/hive/Telegram passthrough.
+    default: undefined,
+    defaultDescription: 'enabled with --update-all-dependencies',
   },
   'use-handoff': {
     type: 'boolean',
@@ -663,12 +751,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auxiliary-model-calls-disabled': {
     type: 'boolean',
     description:
-      "Disable every AI tool's non-essential auxiliary model calls — the safety classifier, conversation-title generation, recap, narration, next-prompt suggestion and per-tool-batch summaries — so a run pays only for the task. Summarization is the exception and stays on: auto-compaction is what lets a long-horizon task survive its context window, and no compaction switch is ever touched. For --tool codex: -c features.goals=false and -c features.personality=false. For --tool gemini: model.skipNextSpeakerCheck=true and tools.disableLLMCorrection=true. For --tool qwen: model.skipNextSpeakerCheck=true, experimental.emitToolUseSummaries=false and ui.enableFollowupSuggestions=false. For --tool opencode: the built-in `title` and `summary` agents are disabled in the per-task opencode.json, while `compaction` stays enabled. --tool agent makes none of these calls by default (--generate-title defaults to false, --summarize-session stays on). Default: true; --no-auxiliary-model-calls-disabled lets those tools make the calls. For --tool claude the same switches (CLAUDE_CODE_CLASSIFIER_SUMMARY, CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES, CLAUDE_CODE_ENABLE_NARRATION, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION, CLAUDE_CODE_ENABLE_REMOTE_RECAP, all pinned to 0) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag.",
+      "Disable every AI tool's non-essential auxiliary model calls — the safety classifier, conversation-title generation, recap, narration, next-prompt suggestion and per-tool-batch summaries — so a run pays only for the task. Summarization is the exception and stays on: auto-compaction is what lets a long-horizon task survive its context window, and no compaction switch is ever touched. For --tool codex: -c features.personality=false (native goals stay on). For --tool gemini: model.skipNextSpeakerCheck=true and tools.disableLLMCorrection=true. For --tool qwen: model.skipNextSpeakerCheck=true, experimental.emitToolUseSummaries=false and ui.enableFollowupSuggestions=false. For --tool opencode: the built-in `title` and `summary` agents are disabled in the per-task opencode.json, while `compaction` stays enabled. --tool agent makes none of these calls by default (--generate-title defaults to false, --summarize-session stays on). Default: true; --no-auxiliary-model-calls-disabled lets those tools make the calls. For --tool claude the same switches (CLAUDE_CODE_CLASSIFIER_SUMMARY, CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES, CLAUDE_CODE_ENABLE_NARRATION, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION, CLAUDE_CODE_ENABLE_REMOTE_RECAP, all pinned to 0) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag.",
     default: true,
   },
   'agent-config-auto-repair': {
     type: 'boolean',
-    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn.',
+    description: 'Automatically repair audited global Claude/Codex configuration before a task starts (enabled by default). Unrepaired findings stop execution. Use --no-agent-config-auto-repair to inspect without changing configuration; a contaminated configuration still blocks tasks.',
     default: true,
   },
   'auto-gh-configuration-repair': {
@@ -722,6 +810,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org. Enabled by default; use --no-auto-accept-invite to disable.',
     default: true,
   },
+  'requirements-report': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Ask the AI tool for a requirements report in the pull request description (a JSON inventory of every issue requirement with evidence, tied to the current commit), restart it until the report is complete, and require that report before any automated merge. Disabled by default: without it no prompt mentions the report and the merge guard checks only the issue links. HIVE_MIND_REQUIREMENTS_REPORT=true enables it for processes without this flag, such as the merge queue.',
+    default: undefined,
+  },
   'prompt-ensure-all-requirements-are-met': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Add a prompt hint to the system prompt to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically by --finalize during finalize cycle iterations only.',
@@ -748,6 +841,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] After the main solve completes, check that the pull request description closes every GitHub native sub-issue of the issue being solved with a reference GitHub actually recognizes. When references are missing, automatically restart the AI tool and ask it to double check that each of those sub-issues was really addressed in this single pull request. Accepts a number of restarts (default: 5), or "forever"/"unlimited" to remove the limit. Bare flag means the default of 5. Enabled automatically when solving a repository URL; there the closing references required by the combined issue body are checked too, and --auto-merge is held back while any of them is missing.',
     alias: ['ensure-all-sub-issues', 'ensure-sub-issues'],
     default: undefined,
+  },
+  'skip-issue-labels': {
+    type: 'string',
+    description: 'Repository mode only (solving a repository URL): comma separated issue labels that mark an open issue as not work, so it is left out of the combined issue and its closing references. Default: "hive-mind:skip,dashboard,status". Use "none" to skip no labels. Issues whose body contains <!-- hive-mind:skip --> are always left out.',
+    default: undefined,
+  },
+  'include-bot-issues': {
+    type: 'boolean',
+    description: 'Repository mode only (solving a repository URL): also select open issues opened by bots (reports, dashboards). By default they are left out of the combined issue and its closing references, and listed with the reason.',
+    default: false,
   },
   escalate: {
     type: 'string',
@@ -921,8 +1024,8 @@ export const normalizeAndValidateThink = argv => {
   }
 };
 
-// Parse command line arguments - now needs yargs and hideBin passed in
-export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
+// Parse CLI arguments through the shared Lino adapter; retain the factory parameter for callers.
+export const parseArguments = async (_yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
   const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
@@ -939,86 +1042,42 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
-  let yargsInstance;
+  // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
+  // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
+  // Save the original stderr.write
+  const originalStderrWrite = process.stderr.write;
+  const stderrBuffer = [];
+
+  // Temporarily override stderr.write to capture output
+  process.stderr.write = function (chunk, encoding, callback) {
+    stderrBuffer.push(chunk.toString());
+    // Call the callback if provided (for compatibility)
+    if (typeof encoding === 'function') {
+      encoding();
+    } else if (typeof callback === 'function') {
+      callback();
+    }
+    return true;
+  };
+
   try {
-    // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
-    // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
-    // Save the original stderr.write
-    const originalStderrWrite = process.stderr.write;
-    const stderrBuffer = [];
+    argv = parseCliArgumentsWithLino({
+      argv: ['node', 'solve', ...rawArgs],
+      commandName: 'solve',
+      createYargsConfig,
+      positionalAliases: ['issue-url'],
+    });
+  } finally {
+    // Always restore stderr.write
+    process.stderr.write = originalStderrWrite;
 
-    // Temporarily override stderr.write to capture output
-    process.stderr.write = function (chunk, encoding, callback) {
-      stderrBuffer.push(chunk.toString());
-      // Call the callback if provided (for compatibility)
-      if (typeof encoding === 'function') {
-        encoding();
-      } else if (typeof callback === 'function') {
-        callback();
-      }
-      return true;
-    };
-
-    try {
-      yargsInstance = createYargsConfig(yargs());
-      argv = parseCliArgumentsWithLino({
-        argv: ['node', 'solve', ...rawArgs],
-        commandName: 'solve',
-        createYargsConfig,
-        positionalAliases: ['issue-url'],
-      });
-    } finally {
-      // Always restore stderr.write
-      process.stderr.write = originalStderrWrite;
-
-      // In verbose mode, show what was captured from stderr (for debugging)
-      if (global.verboseMode && stderrBuffer.length > 0) {
-        const captured = stderrBuffer.join('');
-        if (captured.trim()) {
-          console.error('[Suppressed yargs stderr]:', captured);
-        }
+    // In verbose mode, show what was captured from stderr (for debugging)
+    if (global.verboseMode && stderrBuffer.length > 0) {
+      const captured = stderrBuffer.join('');
+      if (captured.trim()) {
+        console.error('[Suppressed yargs stderr]:', captured);
       }
     }
-  } catch (error) {
-    // Issue #2041: the yargs `.check()` for --think (added to createYargsConfig so
-    // non-CLI consumers like the Telegram bot reject invalid values) throws an
-    // already-enhanced error. Propagate it verbatim instead of swallowing it into
-    // `error.argv`, otherwise the CLI would silently drop the invalid --think and
-    // crash later during normalization.
-    if (error && error._enhanced && !(error.message && /Unknown argument/.test(error.message))) {
-      throw error;
-    }
-    // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), enhance it with suggestions
-    // Check if this error has already been enhanced to avoid re-processing
-    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
-      try {
-        // Enhance the error message with helpful suggestions
-        // Use the yargsInstance we already created, or create a new one if needed
-        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
-        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
-        const enhancedError = new Error(enhancedMessage);
-        enhancedError.name = error.name;
-        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
-        throw enhancedError;
-      } catch (enhanceErr) {
-        // If enhancing fails, just throw the original error
-        if (global.verboseMode) {
-          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
-        }
-        // If the enhance error itself is already enhanced, throw it
-        if (enhanceErr._enhanced) {
-          throw enhanceErr;
-        }
-        throw error;
-      }
-    }
-    // For other validation errors, show a warning in verbose mode
-    if (error.message && global.verboseMode) {
-      console.error('Yargs parsing warning:', error.message);
-    }
-    // Try to get the argv even with the error
-    argv = error.argv || {};
   }
 
   // Post-processing: Fix model default for opencode and codex tools

@@ -43,14 +43,29 @@
  * @module formal-ai-draft
  */
 
+import { resolveCiRunUrl } from '../src/ci-run-url.lib.mjs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
 /** Applied to a draft this workflow opened, so the drafts can be listed and closed as a batch. */
 export const FORMAL_AI_DRAFT_LABEL = 'formal-ai-draft';
 
 /** Put this on an issue before opening it (or on the issue template) to suppress the attempt. */
 export const FORMAL_AI_DRAFT_OPT_OUT_LABEL = 'no-formal-ai-draft';
 
-/** The published image that bakes formal-ai, the Agent CLI and hive-mind together. */
+/**
+ * The published image that bakes formal-ai, the Agent CLI and hive-mind together.
+ * The draft workflow pins the tag of the checked-out version instead
+ * (`scripts/formal-ai-draft-image.lib.mjs`); this is the fallback.
+ */
 export const DEFAULT_HIVE_MIND_IMAGE = 'konard/hive-mind:latest';
+
+/** Where the image keeps the `formal-ai` binary; a caller-built binary is mounted over it. */
+export const FORMAL_AI_BINARY_CONTAINER_PATH = '/usr/local/bin/formal-ai';
+
+/** Annotation titles the draft job writes and the health check reads back. */
+export const DRAFT_DECISION_ANNOTATION_TITLE = 'Formal AI draft decision';
+export const DRAFT_FAILURE_ANNOTATION_TITLE = 'Formal AI draft failed';
 
 /**
  * The identity every commit on a draft branch carries.
@@ -76,14 +91,16 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * rather than letting `auto` decide, because the four trailers and the evidence
  * bundle are the done-when condition, not a nice-to-have.
  *
- * `--no-auto-restart-until-mergeable` is the one flag not named in the issue.
- * It defaults to true, and left on, a CI run watches the pull request's checks
- * and restarts the model until they are green — for up to
- * `--auto-restart-until-mergeable-timeout-hours` (24). That directly contradicts
- * "it stays open and red until a later run succeeds": the later run is the next
- * scheduled attempt, not this one looping.
+ * `--no-auto-restart-until-mergeable` and `--no-auto-restart-on-uncommitted-changes`
+ * are not named in the issue. Both default to true. Left on, the first watches
+ * the pull request's checks and restarts the model until they are green, for
+ * up to `--auto-restart-until-mergeable-timeout-hours` (24); the second
+ * restarts it whenever files are left uncommitted, which has meant five more
+ * sessions over Formal AI's own derivation files. Both contradict "it
+ * stays open and red until a later run succeeds": the later run is the next
+ * attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable']);
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -212,17 +229,148 @@ export function buildGitIdentityEnv(identity = DRAFT_GIT_IDENTITY) {
  * @param {string} [params.containerLogDir] where that directory appears in the container
  * @param {string[]} [params.forwardEnv] names of environment variables to forward
  * @param {Record<string,string>} [params.setEnv] literal, non-secret variables to set
+ * @param {string[]} [params.extraMounts] further `-v` mounts, e.g. a caller-built Formal AI binary
  * @returns {string[]}
  */
-export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv() } = {}) {
+export function buildDockerArgv({ solveArgv, solveCommand = 'solve', image = DEFAULT_HIVE_MIND_IMAGE, hostLogDir = null, containerLogDir = '/home/box/logs', forwardEnv = ['GH_TOKEN'], setEnv = buildGitIdentityEnv(), extraMounts = [] } = {}) {
   if (!Array.isArray(solveArgv) || solveArgv.length === 0) throw new Error('buildDockerArgv needs the solve argv from buildSolveArgv()');
 
   const argv = ['run', '--rm', '--user', 'box'];
   for (const name of forwardEnv) argv.push('-e', name);
   for (const [name, value] of Object.entries(setEnv)) argv.push('-e', `${name}=${value}`);
   if (hostLogDir) argv.push('-v', `${hostLogDir}:${containerLogDir}`);
+  for (const mount of extraMounts) argv.push('-v', mount);
   argv.push(image, solveCommand, ...solveArgv);
   return argv;
+}
+
+/**
+ * Variables that tell solve it runs in a `--rm` container, inside GitHub
+ * Actions, and which workflow run keeps its log as an artifact. Without them a failed log upload named a
+ * path inside a container that no longer existed.
+ *
+ * @param {Record<string,string|undefined>} [env]
+ * @returns {Record<string,string>}
+ */
+export function buildRunContextEnv(env = process.env) {
+  const runUrl = resolveCiRunUrl(env);
+  // Issue #3330: solve takes the Actions token identity (`github-actions[bot]`)
+  // when `/user` is forbidden, but only if it can tell it runs in Actions.
+  return { HIVE_MIND_EPHEMERAL_CONTAINER: '1', ...(runUrl ? { HIVE_MIND_CI_RUN_URL: runUrl } : {}), ...(env.GITHUB_ACTIONS === 'true' ? { GITHUB_ACTIONS: 'true' } : {}) };
+}
+
+const LOG_LINE_PREFIX = /^\[[^\]]*\] \[([A-Z]+)\] /;
+
+/**
+ * The first error a solve session log reports, without its timestamp, level
+ * and ❌ marker: the first `❌` line, else the first `[ERROR]` line.
+ *
+ * @param {string} text session log contents
+ * @returns {string|null}
+ */
+export function firstErrorLine(text) {
+  const lines = String(text || '').split('\n');
+  const message = line =>
+    line
+      .replace(LOG_LINE_PREFIX, '')
+      .replace(/^❌\s*/, '')
+      .trim() || null;
+  const marked = lines.find(line => line.replace(LOG_LINE_PREFIX, '').startsWith('❌'));
+  if (marked) return message(marked);
+  const errorLine = lines.find(line => LOG_LINE_PREFIX.exec(line)?.[1] === 'ERROR');
+  return errorLine ? message(errorLine) : null;
+}
+
+/** solve's last word on a run that changed nothing (src/solve.finalize.lib.mjs). */
+const FINISHED_WITHOUT_CHANGES = /^⚠️\s+Finished without changes: (.+)$/u;
+
+/**
+ * Why a draft run is red, for the `Formal AI draft failed` annotation and the
+ * health check that reads it back.
+ *
+ * Issue #4025: every red draft since #3211 exited 5 ("finished without
+ * changes"), yet the annotation said "Failed to fetch authenticated GitHub
+ * username ... HTTP 403". That ❌ line is gh-upload-log failing to create a
+ * gist with the workflow token, an error solve recovers from by saving the
+ * log on the pull request branch. When solve reports it finished without
+ * changes, that line and its reason are the outcome; otherwise the first
+ * error is.
+ *
+ * @param {string} text session log contents
+ * @returns {string|null}
+ */
+export function draftFailureReason(text) {
+  for (const line of String(text || '').split('\n')) {
+    const match = FINISHED_WITHOUT_CHANGES.exec(line.replace(LOG_LINE_PREFIX, '').trim());
+    if (match) return `Finished without changes: ${match[1].trim()}`;
+  }
+  return firstErrorLine(text);
+}
+
+/** solve's own run log name (src/solve.validation.lib.mjs: `solve-<timestamp>.log`). */
+const SOLVE_LOG_NAME = /^solve-.*\.log$/u;
+
+/**
+ * The session log a red draft is explained from, among the files in the log
+ * directory.
+ *
+ * Issue #4065: the newest `*.log` used to win, but the caller owns that
+ * directory. formal-ai's command capture files (`attempt.log`,
+ * `attempt.stdout.log`) were rewritten on every output chunk, so they were
+ * always newer than `solve-*.log`, and the "Finished without changes" line was
+ * never read. solve's own log is picked by name, newest first; any other
+ * `*.log` is only a fallback when no `solve-*.log` exists (for example the
+ * `formal-ai-draft-failure.log` written before solve starts).
+ *
+ * @param {Array<{name: string, mtimeMs: number}>} entries
+ * @returns {string|null} the chosen file name
+ */
+export function selectSessionLog(entries) {
+  const logs = (entries || []).filter(entry => entry.name.endsWith('.log'));
+  const solveLogs = logs.filter(entry => SOLVE_LOG_NAME.test(entry.name));
+  const [newest] = (solveLogs.length ? solveLogs : logs).slice().sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return newest ? newest.name : null;
+}
+
+/**
+ * The message of the `Formal AI draft failed` annotation for a run that exited
+ * `status`, read from the session log in `logDir`.
+ *
+ * @param {Object} params
+ * @param {string} params.logDir host log directory
+ * @param {number} params.status docker run exit status
+ * @param {Object} [params.fileSystem] `{ readdirSync, statSync, readFileSync }`
+ * @returns {string}
+ */
+export function draftFailureMessage({ logDir, status, fileSystem = { readdirSync, statSync, readFileSync } }) {
+  let text = '';
+  try {
+    const entries = fileSystem
+      .readdirSync(logDir)
+      .filter(name => name.endsWith('.log'))
+      .map(name => ({ name, mtimeMs: fileSystem.statSync(join(logDir, name)).mtimeMs }));
+    const name = selectSessionLog(entries);
+    if (name) text = fileSystem.readFileSync(join(logDir, name), 'utf8');
+  } catch {
+    // No log is itself the finding; the fallback message says so.
+  }
+  return draftFailureReason(text) || `docker run exited ${status} without a session log error`;
+}
+
+const escapeAnnotationData = value => String(value).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+const escapeAnnotationProperty = value => escapeAnnotationData(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
+
+/**
+ * A `::notice`/`::error` workflow command. Escaped, so a message taken from a
+ * session log cannot end the command and start another one.
+ *
+ * @param {'notice'|'warning'|'error'} level
+ * @param {string} title
+ * @param {string} message
+ * @returns {string}
+ */
+export function formatWorkflowAnnotation(level, title, message) {
+  return `::${level} title=${escapeAnnotationProperty(title)}::${escapeAnnotationData(message)}`;
 }
 
 /**
@@ -268,6 +416,40 @@ export function keepPullRequestAsDraftArgs({ repository, number }) {
  */
 export function labelPullRequestArgs({ repository, number, label = FORMAL_AI_DRAFT_LABEL }) {
   return ['pr', 'edit', String(number), '--add-label', label, '--repo', repository];
+}
+
+/**
+ * `gh` arguments that create the draft label. No `--force`, so a label a
+ * maintainer has already customised is never overwritten.
+ *
+ * @param {{repository: string, label?: string}} params
+ * @returns {string[]}
+ */
+export function createDraftLabelArgs({ repository, label = FORMAL_AI_DRAFT_LABEL }) {
+  return ['label', 'create', label, '--color', 'C5DEF5', '--description', 'Pull request drafted by the Formal AI draft workflow', '--repo', repository];
+}
+
+/**
+ * Label a draft, creating the label the first time it is missing (#2625:
+ * the repository never had it, so `gh pr edit --add-label` failed with
+ * "'formal-ai-draft' not found" and no draft was ever labelled).
+ *
+ * @param {{gh: (args: string[]) => Promise<string>, repository: string, number: number|string}} params
+ */
+export async function labelDraftPullRequest({ gh, repository, number }) {
+  const args = labelPullRequestArgs({ repository, number });
+  try {
+    await gh(args);
+  } catch (error) {
+    if (!/label.*not found|not found.*label|formal-ai-draft.*not found/i.test(`${error.message}\n${error.stderr || ''}`)) throw error;
+    try {
+      await gh(createDraftLabelArgs({ repository }));
+    } catch (creationError) {
+      // Another issue's simultaneous run may have created it first.
+      if (!/already[ _]exists/i.test(`${creationError.message}\n${creationError.stderr || ''}`)) throw creationError;
+    }
+    await gh(args);
+  }
 }
 
 /**

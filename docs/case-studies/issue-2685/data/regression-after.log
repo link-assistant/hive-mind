@@ -1,0 +1,62 @@
+✅ parseIssueRef / formatIssueRef
+✅ buildIssueRelationsQuery batches by repository and never contains single quotes
+✅ calculator: only #229-#232 are ready, #229 (critical path) first, parent #227 waits
+✅ calculator: ties keep hive order (--issue-order) and ready issues are not limited to one
+✅ calculator: closing #229 opens the next frontier
+✅ calculator: when every child is closed the parent becomes ready
+✅ a child inherits its parent’s open blockers, but not a blocker inside the same subtree
+✅ closed blockers do not hold an issue regardless of close reason
+✅ dependency cycles are reported and nothing in them is queued
+✅ issues without relation data are queued (fail open, previous behaviour)
+✅ fetcher walks up to ancestors and to blockers of ancestors in a few batched queries
+✅ fetcher splits large candidate lists into batches
+✅ fetcher keeps partial data when gh exits non-zero because of a GraphQL error
+✅ gate filters and orders issue objects, keeps unknown fields, and logs why issues wait
+✅ gate is a no-op when disabled and fails open when relations cannot be read
+✅ gate rechecks a single issue right before a worker starts it
+✅ --once starts another round only while issues wait and work keeps completing
+✅ IssueQueue.defer releases an issue without completing it, so it can be queued again
+✅ hive.mjs wires the gate in before --max-issues, defers at dequeue and accepts /issues URLs
+
+19 tests passed
+✔ tests/hive-issue-relations-2615.test.mjs (142.551904ms)
+✔ production replay: nineteen PR skips produce no-work exit and name PR #228 (819.860932ms)
+✔ empty does not claim successful work (395.411675ms)
+✔ blocked does not claim successful work (387.233364ms)
+✔ archived does not claim successful work (430.909642ms)
+✔ recheck-skip does not claim successful work (406.1366ms)
+✔ GitHub discovery failure is a failure, not an empty successful result (393.624279ms)
+✔ discovery errors propagate in --no-all-issues mode (322.364433ms)
+✔ discovery errors propagate in --project-mode mode (345.204488ms)
+✔ discovery errors propagate in --youtrack-mode mode (345.860801ms)
+✔ disk deferral stops a nonempty queue and preserves exit 75 (363.604184ms)
+✔ a genuinely completed solver succeeds (473.283781ms)
+✔ worker failure stays nonzero (449.325229ms)
+✔ dry runs explicitly report simulation and retain exit zero (369.926123ms)
+✔ rechecking a skipped issue never increments completed (1.315065ms)
+✔ captured PR body closes all nineteen issues under the shared parser (20.971097ms)
+✔ completed work with blocked issues reports a partial outcome (455.469316ms)
+✔ hive honors --no-tool-check without a tool greeting (408.242229ms)
+✔ hive honors --skip-tool-check without a tool greeting (315.248983ms)
+✔ hive honors --skip-claude-check without a tool greeting (334.588194ms)
+✔ waiting issues are counted once across discovery and worker deferral (0.84652ms)
+✔ repository fallback preserves useful issues and surfaces partial discovery errors (2.887347ms)
+✔ repository-list failure also reaches the report (0.518447ms)
+✔ Telegram reports hive no-work as a warning and preserves unrelated failures (124.731917ms)
+✅ a workspace that a live process is sitting in is never removed
+✅ protected paths and the directory holding the active log file survive
+✅ an unreadable /proc keeps everything instead of guessing
+✅ a missing temp root is skipped rather than failing the cleanup
+✅ hive.mjs forwards argv to every cleanupTempDirectories call
+✅ cleanupTempDirectories no longer globs whole temp roots
+
+6 passed, 0 failed
+✔ tests/temp-cleanup-2160.test.mjs (99.467228ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7377.416153

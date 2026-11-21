@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Qwen Code CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -22,11 +26,13 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
+import { qwenModels, defaultModels } from './models/index.mjs';
 import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { isEdgeBlockedResponse } from './subscription-error.lib.mjs'; // Issue #4053
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
@@ -35,6 +41,8 @@ import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-ca
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -46,6 +54,7 @@ const getCommandResultOutput = result => `${result?.stdout?.toString() || ''}${r
 
 const isQwenAuthError = output => {
   const text = (output || '').toString().toLowerCase();
+  if (isEdgeBlockedResponse(text)) return false; // Issue #4053: a CDN challenge page is transient, not an auth failure
   return text.includes('401') || text.includes('unauthorized') || text.includes('authentication') || text.includes('auth') || text.includes('login') || text.includes('api key') || text.includes('oauth free tier');
 };
 
@@ -269,9 +278,11 @@ export const buildQwenPricingInfo = (state, mappedModel) => {
 
   // Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
   // server, so the session belongs to Link.Assistant at $0.00 - not to Qwen Code.
-  if (isFormalAiModel(mappedModel) || isFormalAiModel(modelId)) {
+  // Issue #3279: one registry keyed by the served model prices it for every tool.
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage) ?? servedModelPricingInfo(mappedModel, tokenUsage);
+  if (servedPricing) {
     return {
-      pricingInfo: { ...buildFormalAiPricingInfo(modelId, tokenUsage), source: 'qwen-stream-json' },
+      pricingInfo: { ...servedPricing, modelId, source: 'qwen-stream-json' },
       publicPricingEstimate: 0,
       tokenUsage,
       resultModelUsage: buildQwenResultModelUsage(tokenUsage),
@@ -334,7 +345,7 @@ const addQwenEventToState = (state, rawEvent) => {
 // telemetry: they are counted for diagnostics and otherwise ignored. Plain-text
 // stderr signals are unaffected — auth/usage-limit/retry classification still
 // reads the raw combined output.
-export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout' } = {}) => {
+export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout', onEvent = null } = {}) => {
   const nextState = createQwenParserState(state);
   const text = output?.toString?.() ?? String(output || '');
   nextState.plainText += text;
@@ -359,6 +370,7 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
     for (const item of items) {
       if (isProtocolStream) {
         addQwenEventToState(nextState, item);
+        onEvent?.(item);
         continue;
       }
       const eventType = item?.type || item?.event || 'unknown';
@@ -370,23 +382,29 @@ export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout
 };
 
 // Function to validate Qwen connection
-export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen') => {
+export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen', { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'qwen', useRouter, log, env: () => ({ ...process.env, ...buildGeolocationEnv() }) });
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
   const mappedModel = mapModelToId(model);
 
   try {
     await log('🔍 Validating Qwen Code connection...');
 
     try {
-      const versionResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --version`;
+      assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Qwen Code CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Qwen Code version check failed (${versionError.code}), proceeding with connection test...`, { level: 'warning' });
     }
 
-    const testResult = await $`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${'Respond with exactly: hi'} --model ${mappedModel} --output-format json --yolo`;
+    assertRouterTaskAuthentication({ tool: 'qwen', env: guardEnv() });
+    const testResult = await runConnection`timeout ${Math.floor(timeouts.qwenCli / 1000)} ${qwenPath} --prompt ${promptText('prompt.templates.connection.qwen')} --model ${mappedModel} --output-format json --yolo`;
     const output = getCommandResultOutput(testResult);
 
     if (testResult.code !== 0) {
@@ -411,6 +429,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
     await log('✅ Qwen Code connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Qwen Code connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Qwen Code is installed and accessible as qwen', { level: 'error' });
     return false;
@@ -419,7 +438,7 @@ export const validateQwenConnection = async (model = defaultModels.qwen, qwenPat
 
 // Main function to execute Qwen Code with prompts and settings
 export const executeQwen = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, qwenPath = 'qwen', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, qwenPath = 'qwen', $ } = params;
 
   const { buildUserPrompt, buildSystemPrompt } = await import('./qwen.prompts.lib.mjs');
 
@@ -435,6 +454,7 @@ export const executeQwen = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,
@@ -462,16 +482,7 @@ export const executeQwen = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   return await executeQwenCommand({
@@ -493,12 +504,22 @@ export const executeQwen = async params => {
 };
 
 export const executeQwenCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'qwen',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
   const promptFile = path.join(os.tmpdir(), `qwen_prompt_${Date.now()}_${process.pid}.txt`);
   const systemPromptFile = path.join(os.tmpdir(), `qwen_system_prompt_${Date.now()}_${process.pid}.txt`);
 
@@ -532,11 +553,15 @@ export const executeQwenCommand = async params => {
     if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'qwen', log });
     // Issue #2236: Qwen's next-speaker probe, per-tool-batch LLM labels and follow-up prompt
     // suggestions are all for an interactive reader; auto-compaction
-    // (context.autoCompactThreshold) is deliberately left alone.
+    // (context.autoCompactThreshold) is set separately below (issue #2771).
     if (isAuxiliaryModelCallsDisabled(argv)) await ensureGeminiFamilyAuxiliaryDisabled({ tool: 'qwen', log });
+    // Issue #2771: keep compaction (context.autoCompactThreshold) below the long-context price
+    // cliff, honouring --sub-session-size.
+    await applyGeminiFamilyPricingTier({ tool: 'qwen', argv, modelId: mappedModel, log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'qwen', model: argv.model || defaultModels.qwen, toolPath: qwenPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
-    const qwenEnv = { ...process.env, ...toolInvocation.env };
+    Object.assign(toolInvocation.env, buildGeolocationEnv(argv));
+    const qwenEnv = { ...process.env, ...toolInvocation.env, ...buildGeolocationEnv(argv) };
     const resumeSession = argv.resume || null;
     const resumeArgs = resumeSession ? ` --resume ${shellQuote(resumeSession)}` : '';
     const appendSystemPromptArg = systemPrompt ? ` --append-system-prompt "$(cat ${shellQuote(systemPromptFile)})"` : '';
@@ -544,16 +569,32 @@ export const executeQwenCommand = async params => {
     // stale `formal-ai with --global` block in the operator profile cannot override it.
     const commandScript = `${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} --model "${mappedModel}" --output-format stream-json --yolo${resumeSession ? ` --resume "${resumeSession}"` : ''}${systemPrompt ? ` --append-system-prompt "$(cat "${systemPromptFile}")"` : ''} --prompt "$(cat "${promptFile}")")`;
+    // PR #4083 feedback: "$(cat file)" drops trailing newlines, so log the text exactly as qwen receives it.
+    const asArgument = text => String(text ?? '').replace(/\n+$/, '');
+    await logFinalPrompts({
+      log,
+      tool: 'qwen',
+      prompts: [
+        { kind: 'user', text: asArgument(prompt), delivery: `the --prompt argument, read from file ${promptFile}`, keepEmpty: true },
+        { kind: 'system', text: asArgument(systemPrompt), delivery: `the --append-system-prompt argument, read from file ${systemPromptFile}` },
+      ],
+    });
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
+    let sessionId = argv.resume || null;
+    let routerStream;
 
     try {
-      const execCommand = dollar({
+      if (argv.useRouter === true) qwenEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'qwen', cwd: tempDir, env: qwenEnv });
+      const launch = dollar({
         cwd: tempDir,
         mirror: false,
         env: qwenEnv,
-      })`sh -lc ${commandScript}`;
+      });
+      const execCommand = isRouterAuthGuardRequired(qwenEnv) ? launch`sh -c ${commandScript}` : launch`sh -lc ${commandScript}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'qwen', env: qwenEnv, cwd: tempDir, log });
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -570,12 +611,14 @@ export const executeQwenCommand = async params => {
       let allOutput = '';
 
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
           allOutput += output;
-          qwenState = parseQwenStreamJsonOutput(output, qwenState);
+          qwenState = parseQwenStreamJsonOutput(output, qwenState, { onEvent: retryProgress.observe });
+          await retryProgress.flushLog();
+          sessionId = qwenState.sessionId || sessionId;
           await toolCallLoopGuard.observeOutput(output);
         }
 
@@ -593,7 +636,8 @@ export const executeQwenCommand = async params => {
       }
 
       if (qwenState.buffer.trim()) {
-        qwenState = parseQwenStreamJsonOutput(`${qwenState.buffer}\n`, { ...qwenState, buffer: '' });
+        qwenState = parseQwenStreamJsonOutput(`${qwenState.buffer}\n`, { ...qwenState, buffer: '' }, { onEvent: retryProgress.observe });
+        await retryProgress.flushLog();
       }
 
       // Issue #2136: make the ignored non-protocol JSON visible, so a future
@@ -604,7 +648,7 @@ export const executeQwenCommand = async params => {
         await log(`🪞 JSON records on qwen stderr (ignored, not protocol events): ${qwenTelemetryTypes.map(([type, count]) => `${type}=${count}`).join(', ')}`, { verbose: true });
       }
 
-      const sessionId = qwenState.sessionId || null;
+      sessionId = qwenState.sessionId || sessionId;
       const resultSummary = qwenState.lastTextContent || null;
       const errorMessage = qwenState.errors
         .map(error => error.message)
@@ -759,16 +803,22 @@ export const executeQwenCommand = async params => {
         resultSummary,
       };
     } catch (error) {
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'qwen', cwd: tempDir, env: qwenEnv });
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_qwen',
         qwenPath,
         operation: 'run_qwen_command',
       });
 
+      if (await retryTransientFailure({ tool: 'qwen', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await log(`\n\n❌ Error executing Qwen Code command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         pricingInfo: null,

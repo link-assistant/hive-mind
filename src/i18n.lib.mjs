@@ -1,5 +1,6 @@
 // i18n module for hive-mind.
-// - Translation files live in src/locales/<locale>.lino and are stored
+// - UI, user-prompt, and system-prompt files live in locales/, locales/prompts/,
+//   and locales/prompts/system/, respectively. Catalogues are stored
 //   in Links Notation, parsed and resolved via lino-i18n.
 // - Supported locales: en (default fallback), ru, zh, hi.
 // - Two locale tracks: ui (user-facing strings) and work (AI prompts /
@@ -12,7 +13,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createI18n } from 'lino-i18n';
-import { loadLocalesFromFile } from 'lino-i18n/loaders';
+import { loadLocaleTree } from './locale-catalogs.lib.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +24,8 @@ const LINO_COMPATIBILITY_ALIASES = ['collapseTail', 'parentLabel'];
 
 const localeCache = new Map(); // locale -> { key: string }
 const userLocales = new Map(); // userId/chatId -> locale (in-memory)
-const localesDir = path.join(__dirname, 'locales');
+const localesDir = path.join(__dirname, '..', 'locales');
+let catalogueTree;
 
 let currentUiLocale = DEFAULT_LOCALE;
 let currentWorkLocale = DEFAULT_LOCALE;
@@ -54,12 +56,11 @@ export function detectLocale() {
 }
 
 async function readLocaleFile(locale) {
-  const linoFile = path.join(localesDir, `${locale}.lino`);
-  const loaded = await loadLocalesFromFile(linoFile, {
+  catalogueTree ??= loadLocaleTree(localesDir, {
     compatibilityAliases: LINO_COMPATIBILITY_ALIASES,
   });
-  const match = loaded.find(catalogue => catalogue.locale === locale) || loaded[0];
-  return match?.translations || {};
+  const loaded = await catalogueTree;
+  return { ...loaded[DEFAULT_LOCALE], ...loaded[locale] };
 }
 
 function refreshI18nRuntime() {
@@ -240,3 +241,6 @@ export async function preloadAllLocales() {
     }
   }
 }
+
+// Synchronous prompt builders need catalogs before their first invocation.
+await preloadAllLocales();

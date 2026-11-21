@@ -20,20 +20,25 @@
  *   4. **Opt-outs win.** `HIVE_MIND_FORMAL_AI_PREFETCH=true` keeps the image,
  *      `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER=0` disables unloading, and a disabled
  *      sidecar lifecycle (`HIVE_MIND_FORMAL_AI_SIDECAR=0`) is left alone.
+ *   5. **The Hive Mind image is never removed.** It may be what serves Formal
+ *      AI, but Docker-isolated tasks need it too (issue #3208).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2305
  */
 
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import { promisify } from 'node:util';
 
+import { dockerExecFileAsync } from './docker-pull-detached.lib.mjs';
 import { dockerOk, dockerText } from './docker-sidecar.lib.mjs';
-import { formatDockerSize, removeFormalAiImages } from './formal-ai-image-store.lib.mjs';
+import { resolveFormalAiFallbackImage } from './formal-ai-image.lib.mjs';
+import { describeBytesFreed, inspectDockerImage, removeFormalAiImages } from './formal-ai-image-store.lib.mjs';
+import { archiveFormalAiSidecarLogs } from './formal-ai-sidecar-logs.lib.mjs';
 import { FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_LABEL, FORMAL_AI_SIDECAR_NETWORK_NAME, isFormalAiSidecarEnabled, readFormalAiSidecarState, reconcileFormalAiSidecar, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 import { describeFormalAiUsage, formatFormalAiDuration, isFormalAiPrefetchEnabled, resolveFormalAiUnloadAfterMs } from './formal-ai-usage.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+// The shared runner, so archiving a sidecar's log streams it to disk instead
+// of buffering it (issue #3583).
+const execFileAsync = dockerExecFileAsync;
 
 /**
  * Why unloading is switched off for this deployment, or null when it is on.
@@ -75,7 +80,7 @@ export const unloadIdleFormalAiSidecar = async ({ env = process.env, fsImpl = fs
       const { leaseCount } = await reconcileFormalAiSidecar({ env, fsImpl, run, timeoutMs, log, verbose, now });
       if (leaseCount > 0) return { status: 'busy', leaseCount };
 
-      const state = readFormalAiSidecarState({ env, fsImpl });
+      const state = await readFormalAiSidecarState({ env, fsImpl });
       const usage = describeFormalAiUsage({ state, env, now });
       if (usage.recent) {
         if (verbose && log) await log(`[VERBOSE] formal-ai-unload: Formal AI used ${formatFormalAiDuration(usage.idleMs)} ago; unloading after ${formatFormalAiDuration(usage.unloadAfterMs)} idle`);
@@ -84,24 +89,32 @@ export const unloadIdleFormalAiSidecar = async ({ env = process.env, fsImpl = fs
 
       // Containers first: an image a container still references cannot be
       // removed. `--volumes` takes the container's anonymous volumes with it;
-      // named volumes — the memory volume above all — are never touched.
+      // named volumes — the memory volume above all — are never touched. Each
+      // container's stdout is saved before it goes (issue #3583).
       const containers = await listFormalAiSidecarContainers({ run, timeoutMs });
-      for (const container of containers) await dockerOk(run, ['rm', '--force', '--volumes', container], { timeoutMs });
+      for (const container of containers) {
+        await archiveFormalAiSidecarLogs({ containerName: container, env, fsImpl, run, timeoutMs, log, verbose });
+        await dockerOk(run, ['rm', '--force', '--volumes', container], { timeoutMs });
+      }
       if (containers.length > 0) await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
 
       const images = await removeFormalAiImages({ env, run, timeoutMs, log, verbose });
       if (containers.length === 0 && images.removed.length === 0 && images.failed.length === 0) {
-        if (verbose && log) await log('[VERBOSE] formal-ai-unload: no Formal AI image on this host');
+        if (verbose && log) {
+          const fallback = resolveFormalAiFallbackImage(env);
+          const servedByFallback = fallback ? await inspectDockerImage(fallback, { run, timeoutMs }) : null;
+          await log(servedByFallback ? `[VERBOSE] formal-ai-unload: nothing to unload; the Hive Mind image ${fallback} can serve Formal AI and is kept` : '[VERBOSE] formal-ai-unload: no Formal AI image on this host');
+        }
         return { status: 'nothing-to-unload', kept: images.kept.map(image => image.id) };
       }
 
       const at = now().toISOString();
-      const lastUnload = { at, idleMs: usage.idleMs, images: images.removed.map(image => image.id), failed: images.failed.map(image => image.id), containers: containers.length, bytesFreed: images.bytesFreed };
-      writeFormalAiSidecarState({ ...readFormalAiSidecarState({ env, fsImpl }), image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUnload }, { env, fsImpl });
+      const lastUnload = { at, idleMs: usage.idleMs, images: images.removed.map(image => image.id), failed: images.failed.map(image => image.id), containers: containers.length, bytesFreed: images.bytesFreed, bytesFreedSource: images.bytesFreedSource };
+      await writeFormalAiSidecarState({ ...(await readFormalAiSidecarState({ env, fsImpl })), image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUnload }, { env, fsImpl });
 
       if (log) {
         const why = usage.used ? `unused for ${formatFormalAiDuration(usage.idleMs)}` : 'never used on this host';
-        await log(`🧹 Formal AI unloaded (${why}): removed ${images.removed.length} image(s) and ${containers.length} container(s), freeing ${formatDockerSize(images.bytesFreed)}; memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' preserved`);
+        await log(`🧹 Formal AI unloaded (${why}): removed ${images.removed.length} image(s) and ${containers.length} container(s), freeing ${describeBytesFreed(images.bytesFreed, images.bytesFreedSource)}; memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}' preserved`);
         if (images.failed.length > 0) await log(`⚠️ Could not remove Formal AI image(s): ${images.failed.map(image => `${image.repoTags[0] ?? image.id}: ${image.error}`).join('; ')}`);
       }
       return { status: 'unloaded', ...lastUnload };

@@ -10,23 +10,9 @@
  * Markdown formatting markers.
  */
 
-/**
- * Escape special characters for Telegram's legacy Markdown parser.
- * In Telegram's Markdown, these characters need escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
- * However, for plain text (not inside markup), we primarily need to escape _ and *
- * to prevent them from being interpreted as formatting.
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text safe for Markdown parse_mode
- */
-function escapeMarkdown(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
-  // Escape underscore and asterisk which are the most common issues in URLs
-  // These can cause "Can't find end of entity" errors when Telegram tries to parse them
-  return text.replace(/_/g, '\\_').replace(/\*/g, '\\*');
-}
+// Test the shipped escaper, not a copy (issue #4025). The copy here escaped
+// only `_` and `*`; the real one also escapes the other legacy entity openers.
+import { escapeMarkdown } from '../src/telegram-markdown.lib.mjs';
 
 // Test cases
 const testCases = [

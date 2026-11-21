@@ -1,0 +1,29 @@
+Native C and SQLite build-environment admission, 2026-10-31
+
+The release helper removed Cargo/Rust overrides while preserving inherited
+CC/CFLAGS and libsqlite3-sys selectors. The pinned dependency's build.rs line
+53 lets LIBSQLITE3_SYS_USE_PKG_CONFIG bypass its bundled-source branch.
+Its lines 279–299 also read SQLITE_MAX_* and LIBSQLITE3_FLAGS. C/target
+compiler flags can change the selected FILESTAT guard's build inputs.
+
+The added unit regression fails before repair because CC and all other
+injected selectors survive. The helper now removes global, host and target
+C compiler/archiver/flag overrides, bundled SQLite selectors and custom
+SQLite limits, then restores only recipe-declared values. PATH and cache
+locations retain their prior behavior.
+
+sqlite-native-build-overrides-before.log
+sha256: 10e74fe71e542df489d3c6fd5ec4d6cab21f8f1996b3d3ccbed3a6748275e1c1
+lines: 14
+
+sqlite-native-build-overrides-final.log
+sha256: 887e4859f5c43d03939561daeae53c909133efe40eea6fce25d560ea7ca5a888
+lines: 11
+
+Before: the new unit fails on inherited CC.
+After: all 22 native build/admission unit tests pass. The same override
+control also passes against the preceding production recipe, which does not
+declare LIBSQLITE3_FLAGS; unlisted inherited flags remain absent there.
+
+This verifies helper environment construction. Full native, optimized,
+installed-package and final-image verification remains pending.

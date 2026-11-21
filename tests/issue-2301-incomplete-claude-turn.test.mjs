@@ -156,7 +156,8 @@ test('the monitor resumes an exit-1 session after a child OOM event and reports 
       dockerContainerSizeProvider: async () => null,
       readFile: async () => await fs.readFile(logPath, 'utf8'),
       lookupLinkedPullRequest: async () => 'https://github.com/link-foundation/links-notation/pull/319',
-      env: {},
+      lookupPullRequestState: async () => null, // #2498: offline — the real pull request may have merged since
+      env: { HIVE_MIND_SESSION_KILL_RESUME_DELAY: '0' },
       isolationRunner: {
         generateSessionId: () => recoverySessionId,
         executeWithIsolation: async (command, args, opts) => {
@@ -165,17 +166,20 @@ test('the monitor resumes an exit-1 session after a child OOM event and reports 
         },
       },
       runCommand: async (_command, args) => {
-        comments.push(await fs.readFile(args[args.indexOf('--body-file') + 1], 'utf8'));
+        const inputFlag = args.includes('--input') ? '--input' : '--body-file';
+        const input = await fs.readFile(args[args.indexOf(inputFlag) + 1], 'utf8');
+        comments.push(args.includes('--input') ? JSON.parse(input).body : input);
         return { code: 0, stdout: 'https://github.com/link-foundation/links-notation/pull/319#issuecomment-1', stderr: '' };
       },
     });
     assert.equal(launches.length, 1);
     assert.ok(launches[0].args.includes('--resume'));
     assert.ok(launches[0].args.includes(toolSessionId));
-    assert.match(edits[0] || '', new RegExp(recoverySessionId));
-    assert.match(comments[0] || '', /new working session was started/i);
-    assert.match(comments[0] || '', new RegExp(recoverySessionId));
-    assert.match(comments[0] || '', /container OOM event/i);
+    assert.match(edits.at(-1) || '', new RegExp(recoverySessionId));
+    const launchNotice = comments.find(body => body.includes('new working session was started'));
+    assert.match(launchNotice || '', /new working session was started/i);
+    assert.match(launchNotice || '', new RegExp(recoverySessionId));
+    assert.match(launchNotice || '', /container OOM event/i);
   } finally {
     resetSessionMonitorForTests();
     await fs.rm(logPath, { force: true });

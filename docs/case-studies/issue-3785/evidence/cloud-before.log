@@ -1,0 +1,193 @@
+✖ admission refuses absent cloud policy when repair is disabled (80.26293ms)
+✖ admission refuses empty cloud policy when repair is disabled (62.125719ms)
+✖ admission refuses skills enabled cloud policy when repair is disabled (110.962662ms)
+✖ admission refuses plugins enabled cloud policy when repair is disabled (29.423081ms)
+✖ admission refuses connectors enabled cloud policy when repair is disabled (24.062183ms)
+✖ admission refuses marketplace enabled cloud policy when repair is disabled (54.089209ms)
+✖ cloud policy repair preserves protected state and unrelated security settings (21.369869ms)
+✖ new quiet configuration disables skills, plugins and connectors (6.307435ms)
+✖ configure-claude resolves the same selected native directory as admission (0.624736ms)
+✖ managed synced plugins reject admission before any user repair (24.207614ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1071.469498
+
+✖ failing tests:
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses absent cloud policy when repair is disabled (80.26293ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses empty cloud policy when repair is disabled (62.125719ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses skills enabled cloud policy when repair is disabled (110.962662ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses plugins enabled cloud policy when repair is disabled (29.423081ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses connectors enabled cloud policy when repair is disabled (24.062183ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:21:3
+✖ admission refuses marketplace enabled cloud policy when repair is disabled (54.089209ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:24:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:28:1
+✖ cloud policy repair preserves protected state and unrelated security settings (21.369869ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    {
+  -   disableClaudeAiConnectors: true,
+      env: {
+  -     CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+        CUSTOM: 'preserve',
+  -     ENABLE_CLAUDEAI_MCP_SERVERS: 'false'
+      },
+      model: 'synthetic',
+      permissions: {
+        deny: [
+          'Read(secret)'
+        ]
+      },
+  -   syncClaudeAiPlugins: false,
+  -   syncClaudeAiSkills: false
+    }
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:41:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { model: 'synthetic', permissions: { deny: [Array] }, env: { CUSTOM: 'preserve' } },
+    expected: { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, disableClaudeAiConnectors: true, env: { CUSTOM: 'preserve', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' }, model: 'synthetic', permissions: { deny: [Array] } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:48:1
+✖ new quiet configuration disables skills, plugins and connectors (6.307435ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - false
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:53:104)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:57:1
+✖ configure-claude resolves the same selected native directory as admission (0.624736ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '/home/box/.claude/settings.json'
+  - '/synthetic/effective/settings.json'
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:58:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/home/box/.claude/settings.json',
+    expected: '/synthetic/effective/settings.json',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-claude-cloud-baseline.test.mjs:61:1
+✖ managed synced plugins reject admission before any user repair (24.207614ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-claude-cloud-baseline.test.mjs:65:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /managed.*not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }

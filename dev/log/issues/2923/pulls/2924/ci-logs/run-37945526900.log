@@ -1,0 +1,249 @@
+Dependabot	UNKNOWN STEP	﻿2026-10-09T15:14:57.9597411Z Current runner version: '2.337.0'
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9635235Z ##[group]Runner Image Provisioner
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9636686Z Hosted Compute Agent
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9637988Z Version: 20261002.596
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9639205Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9640941Z Build Date: 2026-10-02T22:28:27Z
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9642347Z Worker ID: {06d1da83-6fe8-49e0-b3c7-91af63018394}
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9643787Z Region: centralus
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9644952Z Cloud: Azure
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9645952Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9649024Z ##[group]Operating System
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9650458Z Ubuntu
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9651561Z 24.04.5
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9652788Z LTS
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9653783Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9654959Z ##[group]Runner Image
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9656258Z Image: ubuntu-24.04
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9657400Z Version: 20261004.327.1
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9659762Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9663156Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9664617Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9666414Z ##[group]GITHUB_TOKEN Permissions
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9668668Z Contents: read
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9669411Z Metadata: read
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9670066Z Packages: read
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9671083Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9673228Z Secret source: None
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9674296Z Cache mode: read
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:57.9675354Z Prepare workflow directory
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:58.0036919Z Prepare all required actions
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:58.0109410Z Getting action download info
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:58.2911952Z Download action repository 'github/dependabot-action@main' (SHA:772c6f6d747e9a594aa3c25f04b34f86703384d1)
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.0028923Z Complete job name: Dependabot
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.0879340Z ##[group]Run mkdir -p  ./dependabot-job-1619488595-1791556630
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.0880896Z ^[[36;1mmkdir -p  ./dependabot-job-1619488595-1791556630^[[0m
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1201539Z shell: /usr/bin/bash -e {0}
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1202714Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1567976Z ##[group]Run github/dependabot-action@main
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1568707Z env:
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1569217Z   DEPENDABOT_DISABLE_CLEANUP: 1
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1569855Z   DEPENDABOT_ENABLE_CONNECTIVITY_CHECK: 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1574431Z   GITHUB_TOKEN: ***
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1575377Z   GITHUB_DEPENDABOT_JOB_TOKEN: ***
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1576373Z   GITHUB_DEPENDABOT_CRED_TOKEN: ***
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1577041Z   GITHUB_REGISTRIES_PROXY: ***
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.1577604Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.3312240Z 🤖 ~ starting update ~
+Dependabot	UNKNOWN STEP	2026-10-09T15:14:59.3356322Z Fetching job details
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:01.3618448Z Adding GitHub Packages credential
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:01.3621902Z ##[group]Pulling updater images
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:01.3687143Z Pulling image ghcr.io/dependabot/dependabot-updater-npm:4255dd2875e811a3970731d314212c0a3f708b6e (attempt 1)...
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:01.4796524Z Successfully sent metric (dependabot.action.ghcr_image_pull) to remote API endpoint
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:30.2785517Z Pulled image ghcr.io/dependabot/dependabot-updater-npm:4255dd2875e811a3970731d314212c0a3f708b6e
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:30.2798707Z Pulling image ghcr.io/dependabot/proxy:v2.0.20261007225806@sha256:a39e7ef7188c9a4b36692df47a0e8f876e83199e657cd0b6be00e736fbe03c2f (attempt 1)...
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:30.3946744Z Successfully sent metric (dependabot.action.ghcr_image_pull) to remote API endpoint
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.1368933Z Pulled image ghcr.io/dependabot/proxy:v2.0.20261007225806@sha256:a39e7ef7188c9a4b36692df47a0e8f876e83199e657cd0b6be00e736fbe03c2f
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.1371242Z ##[endgroup]
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.1371686Z Starting update process
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.3143219Z Created proxy container: a855924a72e86a855fd1dc6a3a154f98f09beef37cd0a2ae1389ae53655c670c
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.5886713Z   proxy | 2026/10/09 15:15:31 proxy starting, commit: 20763b13426c928305a465bbada1fde7a88104fe
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.5890784Z   proxy | 2026/10/09 15:15:31 Listening (:1080)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.7835709Z Created container: e9aadfdfb4e1a1c50949a5cd291bc6cb61951364eb2315eecbc54d7731adf422
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.8856268Z Started container e9aadfdfb4e1a1c50949a5cd291bc6cb61951364eb2315eecbc54d7731adf422
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:31.9259638Z updater | Updating certificates in /etc/ssl/certs...
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:32.5216423Z updater | rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:32.5288160Z updater | 1 added, 0 removed; done.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:32.5289246Z Running hooks in /etc/ca-certificates/update.d...
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:32.5325455Z updater | done.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:32.8190973Z updater | fetch_files command is no longer used directly
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:34.7531370Z updater | 2026/10/09 15:15:34 INFO <job_1619488595> Starting job processing
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:34.7547640Z updater | 2026/10/09 15:15:34 INFO <job_1619488595> Job definition: {"job":{"command":"version","allowed-updates":[{"dependency-type":"direct","update-type":"all"}],"commit-message-options":{"prefix":null,"prefix-development":null,"include-scope":null},"credentials-metadata":[{"type":"git_source","host":"github.com"}],"debug":null,"dependencies":null,"dependency-groups":[{"name":"all-dependencies","rules":{"patterns":["*"]}}],"dependency-group-to-refresh":null,"existing-pull-requests":[],"existing-group-pull-requests":[{"dependency-group-name":"all-dependencies","dependencies":[{"dependency-name":"@sentry/node","dependency-version":"10.75.2","directory":"/"},{"dependency-name":"@sentry/profiling-node","dependency-version":"10.75.2","directory":"/"}],"pr-number":2285}],"experiments":{"record-ecosystem-versions":true,"record-update-job-unknown-error":true,"azure-registry-backup":true,"automatic-github-packages-auth":true,"blocked-versions":true,"workflow-job-summary":true,"async-retry":true,"enable-npmrc-credential-generation":true,"proxy-read-only-git-credentials":true,"proxy-egress-observe":true,"proxy-egress-enforce":true,"maven-wrapper-updater":true,"prioritize-scm-source":true,"enable-yarn-berry-conflicting-dependencies":true},"ignore-conditions":[],"lockfile-only":false,"package-manager":"npm_and_yarn","requirements-update-strategy":null,"reject-external-code":false,"security-advisories":[],"security-updates-only":false,"source":{"provider":"github","repo":"link-assistant/hive-mind","branch":null,"directory":"/.","api-endpoint":"https://api.github.com/","hostname":"github.com"},"updating-a-pull-request":false,"update-subdependencies":false,"vendor-dependencies":false,"enable-beta-ecosystems":false,"repo-private":false,"cooldown":{"default-days":0,"semver-major-days":0,"semver-minor-days":0,"semver-patch-days":0,"include":[],"exclude":["*"]},"multi-ecosystem-update":true,"exclude-paths":null}}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:34.8639728Z   proxy | 2026/10/09 15:15:34 [002] GET https://github.com:443/link-assistant/hive-mind.git/info/refs?service=git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:34.8641437Z   proxy | 2026/10/09 15:15:34 [002] * authenticating git server request (host: github.com)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.0151666Z   proxy | 2026/10/09 15:15:35 [002] 200 https://github.com:443/link-assistant/hive-mind.git/info/refs?service=git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.2965536Z updater | 2026/10/09 15:15:35 INFO <job_1619488595> Started process PID: 999 with command: {} git clone --no-tags --depth 1 --recurse-submodules --shallow-submodules https://github.com/link-assistant/hive-mind /home/dependabot/dependabot-updater/repo {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.3652193Z   proxy | 2026/10/09 15:15:35 [004] GET https://github.com:443/link-assistant/hive-mind/info/refs?service=git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.3654276Z   proxy | 2026/10/09 15:15:35 [004] * authenticating git server request (host: github.com)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.4515887Z   proxy | 2026/10/09 15:15:35 [004] 200 https://github.com:443/link-assistant/hive-mind/info/refs?service=git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.4531546Z   proxy | 2026/10/09 15:15:35 [005] POST https://github.com:443/link-assistant/hive-mind/git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.4532853Z   proxy | 2026/10/09 15:15:35 [005] * authenticating git server request (host: github.com)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.5279332Z   proxy | 2026/10/09 15:15:35 [005] 200 https://github.com:443/link-assistant/hive-mind/git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.5694639Z   proxy | 2026/10/09 15:15:35 [006] POST https://github.com:443/link-assistant/hive-mind/git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:35.5696230Z   proxy | 2026/10/09 15:15:35 [006] * authenticating git server request (host: github.com)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:36.0835562Z   proxy | 2026/10/09 15:15:36 [006] 200 https://github.com:443/link-assistant/hive-mind/git-upload-pack
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:51.2326288Z updater | 2026/10/09 15:15:51 INFO <job_1619488595> Process PID: 999 completed with status: pid 999 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:51.2327515Z updater | 2026/10/09 15:15:51 INFO <job_1619488595> Total execution time: 15.94 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:51.2334252Z updater | 2026/10/09 15:15:51 INFO <job_1619488595> Started process PID: 1041 with command: {} git -C /home/dependabot/dependabot-updater/repo ls-files --stage {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:51.4737029Z updater | 2026/10/09 15:15:51 INFO <job_1619488595> Process PID: 1041 completed with status: pid 1041 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:51.4738616Z updater | 2026/10/09 15:15:51 INFO <job_1619488595> Total execution time: 0.24 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:52.3633041Z updater | 2026/10/09 15:15:52 INFO <job_1619488595> Started process PID: 1137 with command: {} git lfs pull --include .yarn,./yarn/cache {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:52.5418862Z updater | 2026/10/09 15:15:52 INFO <job_1619488595> Process PID: 1137 completed with status: pid 1137 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:52.5420891Z 2026/10/09 15:15:52 INFO <job_1619488595> Total execution time: 0.18 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0828956Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Started process PID: 1260 with command: {} git rev-parse HEAD {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0866442Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Process PID: 1260 completed with status: pid 1260 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0867521Z 2026/10/09 15:15:53 INFO <job_1619488595> Total execution time: 0.0 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0906594Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0907734Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0919170Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0928096Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Fetching version for package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.0937067Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Started process PID: 1267 with command: {} corepack npm -v {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2508964Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Process PID: 1267 completed with status: pid 1267 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2510754Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Total execution time: 0.16 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2511758Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version of npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2518640Z 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2519632Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2520839Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2521780Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2522661Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2529408Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2531036Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2532202Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2533709Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2542245Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2551121Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2552238Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2561127Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2564964Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2565982Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2566922Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2567877Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2568882Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2574332Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2578246Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2579277Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2580511Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2581562Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2582568Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2588873Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2592301Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2593266Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2594535Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2595520Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2596477Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2613263Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2614589Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2615815Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2617066Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2642730Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2643662Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2650997Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2652366Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2653591Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2654224Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2654796Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2655327Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2662959Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2665909Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2666974Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2667516Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2668020Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2668504Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2683927Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2685552Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2686503Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2687353Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2688212Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2689049Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2695768Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2697989Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2698839Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.2699332Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.5146902Z   proxy | 2026/10/09 15:15:53 [008] POST /update_jobs/1619488595/record_ecosystem_versions
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.6443996Z   proxy | 2026/10/09 15:15:53 [008] 204 /update_jobs/1619488595/record_ecosystem_versions
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.6450065Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Base commit SHA: 790c18dec9ec0dd2281de05a48f2047690a60415
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.6451357Z 2026/10/09 15:15:53 INFO <job_1619488595> Finished job processing
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.6465992Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Starting job processing
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7289001Z   proxy | 2026/10/09 15:15:53 [010] GET /update_jobs/1619488595/blocked_versions?package-manager=npm_and_yarn
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7938526Z   proxy | 2026/10/09 15:15:53 [010] 200 /update_jobs/1619488595/blocked_versions?package-manager=npm_and_yarn
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7966731Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7967628Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7975131Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7978457Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Fetching version for package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.7984302Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Started process PID: 1280 with command: {} corepack npm -v {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9631615Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Process PID: 1280 completed with status: pid 1280 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9632778Z 2026/10/09 15:15:53 INFO <job_1619488595> Total execution time: 0.17 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9633365Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version of npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9648714Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9650071Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9651231Z 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9652007Z 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9652635Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9653164Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9653717Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9654589Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9655118Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9655685Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Detected package manager: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9656207Z 2026/10/09 15:15:53 INFO <job_1619488595> Resolving package manager for: npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9662444Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9664954Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Installed version for npm: 11.17.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9665474Z 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9665999Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> No version requirement found for npm
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9672304Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Guessed version info "npm" : "11"
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9676092Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Running node command: node -v
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9683023Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Started process PID: 1293 with command: {} node -v {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9734873Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Process PID: 1293 completed with status: pid 1293 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9735908Z 2026/10/09 15:15:53 INFO <job_1619488595> Total execution time: 0.01 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9736540Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Command executed successfully: node -v
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9737090Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Using node version: 24.21.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9739701Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Processing engine constraints for node
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9743640Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Parsed constraints for node: >=24.0.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9748285Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Running node command: node -v
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9754643Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Started process PID: 1295 with command: {} node -v {}
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9789538Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Process PID: 1295 completed with status: pid 1295 exit 0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9790802Z updater | 2026/10/09 15:15:53 INFO <job_1619488595> Total execution time: 0.0 seconds
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9791821Z 2026/10/09 15:15:53 INFO <job_1619488595> Command executed successfully: node -v
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:53.9792816Z 2026/10/09 15:15:53 INFO <job_1619488595> Using node version: 24.21.0
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0617168Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @secretlint/core in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0620442Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @secretlint/profiler in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0623604Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @secretlint/secretlint-rule-preset-recommend in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0625595Z 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @sentry/node in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0627441Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @sentry/profiling-node in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0629302Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for agent-commander in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0632233Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for dayjs in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0635486Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for decimal.js-light in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0641402Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for lino-arguments in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0642590Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for lino-i18n in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0646439Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for lino-objects-codec in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0665272Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for secretlint in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0666299Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for semver in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0667211Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for tinyld in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0671208Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @changesets/cli in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0672470Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for @eslint/js in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0677583Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for eslint in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0681614Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for eslint-config-prettier in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0687810Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for eslint-plugin-prettier in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0693735Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for husky in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0699866Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for jscpd in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0707261Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for lint-staged in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0715974Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for prettier in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.0721882Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Checking specificity for test-anywhere in group 'all-dependencies' (applies_to: version-updates)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.1149397Z   proxy | 2026/10/09 15:15:54 [012] POST /update_jobs/1619488595/update_dependency_list
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.1932628Z   proxy | 2026/10/09 15:15:54 [012] 204 /update_jobs/1619488595/update_dependency_list
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.2749957Z   proxy | 2026/10/09 15:15:54 [014] POST /update_jobs/1619488595/increment_metric
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3483029Z   proxy | 2026/10/09 15:15:54 [014] 204 /update_jobs/1619488595/increment_metric
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3494257Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Starting grouped update job for link-assistant/hive-mind
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3495349Z 2026/10/09 15:15:54 INFO <job_1619488595> Found 1 group(s).
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3497898Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Detected existing pull request # for the dependency group 'all-dependencies'.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3499497Z 2026/10/09 15:15:54 INFO <job_1619488595> Deferring creation of a new pull request. The existing pull request will update in a separate job.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3501046Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Marking group 'all-dependencies' as handled.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.3504382Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Adding dependencies as handled: (@secretlint/core, @secretlint/profiler, @secretlint/secretlint-rule-preset-recommend, @sentry/node, @sentry/profiling-node, agent-commander, dayjs, decimal.js-light, lino-arguments, lino-i18n, lino-objects-codec, secretlint, semver, tinyld, @changesets/cli, @eslint/js, eslint, eslint-config-prettier, eslint-plugin-prettier, husky, jscpd, lint-staged, prettier, test-anywhere, @sentry/node, @sentry/profiling-node).
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.4318750Z   proxy | 2026/10/09 15:15:54 [016] PATCH /update_jobs/1619488595/mark_as_processed
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.5441198Z   proxy | 2026/10/09 15:15:54 [016] 204 /update_jobs/1619488595/mark_as_processed
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:54.5446886Z updater | 2026/10/09 15:15:54 INFO <job_1619488595> Finished job processing
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.3329933Z Cleaned up container e9aadfdfb4e1a1c50949a5cd291bc6cb61951364eb2315eecbc54d7731adf422
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.3485402Z   proxy | 2026/10/09 15:15:56 0/9 calls cached (0%)
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.3491223Z   proxy | 2026/10/09 15:15:56 Posting metrics to remote API endpoint
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.6028791Z 🤖 ~ finished ~
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.6186056Z Post job cleanup.
+Dependabot	UNKNOWN STEP	2026-10-09T15:15:56.7642276Z Cleaning up orphan processes

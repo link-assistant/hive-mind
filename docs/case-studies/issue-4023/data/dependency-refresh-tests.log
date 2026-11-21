@@ -1,0 +1,91 @@
+PASS: issue #2264 dependency freshness gate and idle operational CLI refresh
+✔ tests/dependency-freshness-2264.test.mjs (778.294634ms)
+✔ location sharing requires an explicit boolean opt-in (3.775603ms)
+✔ all six system prompt builders apply the selected policy (96.196137ms)
+✔ every work locale supplies both policies (0.668176ms)
+✔ hive forwarding and solve relaunches preserve both choices (310.272622ms)
+✔ agent-commander and task planning preserve privacy and opt-in (4.646428ms)
+Issue #2187 current dependency pin checks passed
+✔ tests/test-issue-2187-current-dependency-pins.mjs (145.114702ms)
+
+📋 isCorruptInstallError
+
+✅ detects SyntaxError cause as corrupt install
+✅ detects "Unexpected end of input" cause message
+✅ detects "Failed to resolve the path" message
+✅ detects ERR_INVALID_PACKAGE_CONFIG by code (issue #1712)
+✅ detects ERR_INVALID_PACKAGE_CONFIG on cause
+✅ detects a missing transitive module inside an installed package (issue #2113)
+✅ detects use-m alias cleanup races after self-healing (issue #2113)
+✅ detects "Invalid package config" by message (no code)
+✅ does not flag unrelated errors
+
+📋 extractCorruptedFilePath
+
+✅ extracts file path from import-failed message
+✅ extracts directory path from resolve-failed message
+✅ extracts package.json path from invalid-package-config message (issue #1712)
+✅ extracts alias path from use-m cleanup failure (issue #2113)
+✅ returns null when no path is present
+
+📋 isTransientInstallError (issue #2092)
+
+✅ detects a failed global npm install
+✅ does not flag unrelated errors as transient installs
+✅ retries a failed global install with backoff and no cleanup
+✅ repairs a pinned alias install when an older alias owns the package binary
+✅ rethrows the install failure after exhausting attempts
+
+📋 resolveAliasDir (issue #2092)
+
+✅ walks up nested paths to the alias install dir
+✅ keeps versioned alias dirs intact
+✅ falls back to the parent directory without an alias segment
+
+📋 removeAliasWithRetry (issue #2113)
+
+✅ gives recursive rm an explicit retry budget for transient filesystem races
+
+📋 useWithRetry — happy path
+
+✅ returns module on first try when use() succeeds
+
+📋 useWithRetry — recovery
+
+✅ retries after SyntaxError cause and cleans up alias dir
+✅ retries after resolve-path failure and cleans up alias dir
+✅ retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (issue #1712)
+✅ retries after a transitive module is missing and cleans up the whole alias dir (issue #2113)
+✅ recovers when use-m self-healing loses an ENOTEMPTY cleanup race (issue #2113)
+✅ does not retry on unrelated errors
+✅ rethrows after exhausting attempts on corrupt install
+✅ continues retrying when cleanup itself fails
+
+📋 useWithRetry — Node's poisoned ESM cache (issue #2092)
+
+✅ falls back to a cache-busted import when the same path fails again
+✅ keeps retrying normally when the cache-busted import also fails
+✅ does not cache-bust for resolve-path failures
+
+📋 wrapUseWithRetry (issue #2092)
+
+✅ pins mutable runtime package specifiers (issue #2150)
+✅ unwraps Node 24's CommonJS namespace marker (issue #2150)
+✅ preserves real ESM namespaces with meaningful named exports
+✅ wrapped use recovers from a corrupt command-stream install
+✅ wrapped use forwards extra arguments
+✅ wrapping is idempotent
+✅ non-corrupt errors propagate through the wrapper
+✅ ensureUseM returns a retry-wrapped use
+
+📊 43 test(s): ✅ 43 passed, ❌ 0 failed
+
+✔ tests/test-use-with-retry.mjs (198.603942ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2115.621162

@@ -5,12 +5,15 @@
 import { getAutoRestartLimitFailure, hasAutoRestartLimitFailure } from './auto-restart-exhaustion.lib.mjs';
 // Issue #2247 (H3): stopping because two consecutive sessions were identical is
 // a failure for the same reason an exhausted budget is - the task is unfinished.
-import { getNoProgressFailure, hasNoProgressFailure } from './session-progress.lib.mjs';
+import { getNoProgressFailure, hasNoProgressFailure, REPEATED_CI_FAILURE_STOP_REASON } from './session-progress.lib.mjs';
 // Issue #2301: an AI session that failed inside the auto-restart or watch loop fails the run,
 // exactly as a failed first session does.
 import { getLoopToolFailure, hasLoopToolFailure } from './automation-failure.lib.mjs';
+// Issue #3211: a run that changed nothing finishes with ⚠️ and exit 5, not ✅ and 0.
+import { reevaluateRunWithoutChanges } from './session-changes.lib.mjs';
+import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 
-export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
+export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit, formalAiIdleDuties = null }) {
   const runFinalizationStep = async (label, step) => {
     try {
       await step();
@@ -24,7 +27,17 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     }
   };
 
+  // Measured before the work directory goes away; a later session (watch, auto-restart) may have made the change after all.
+  let withoutChanges = null;
+  await runFinalizationStep('session change check', async () => {
+    withoutChanges = await reevaluateRunWithoutChanges({ log });
+  });
   await runFinalizationStep('temporary directory cleanup', () => cleanupTempDirectory(tempDir, argv, limitReached));
+  // Issue #3282: offload a Formal AI image unused past its window without waiting for the bot.
+  await runFinalizationStep('Formal AI idle cleanup', async () => {
+    const idleDuties = formalAiIdleDuties ?? (await import('./formal-ai-maintenance.lib.mjs')).runFormalAiIdleDuties;
+    await idleDuties({ log, verbose: argv?.verbose === true });
+  });
 
   await runFinalizationStep('final log reference', async () => {
     // Show final log file reference so users always know where to find the complete log
@@ -56,9 +69,10 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
   // over, because repeating an identical session cannot finish the task either.
   if (hasNoProgressFailure()) {
     const failure = getNoProgressFailure();
-    await log('\n❌ Stopped after two consecutive AI sessions produced identical results - no restart can make progress.', { level: 'error' });
+    const repeatedCi = failure.reason === REPEATED_CI_FAILURE_STOP_REASON; // Issue #2293
+    await log(repeatedCi ? `\n❌ Stopped after the same checks failed with the same output ${failure.occurrences} restarts in a row - another restart is unlikely to fix them.` : '\n❌ Stopped after two consecutive AI sessions produced identical results - no restart can make progress.', { level: 'error' });
     await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
-    await safeExit(1, 'No progress between sessions');
+    await safeExit(1, repeatedCi ? 'Same CI failure repeated' : 'No progress between sessions');
     return;
   }
 
@@ -67,6 +81,12 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     await log(`\n❌ The AI session failed and ${failure.mode ? `\`--${failure.mode}\`` : 'the automation'} stopped (${failure.reason}).`, { level: 'error' });
     if (failure.message) await log(`   ${failure.message}`, { level: 'error' });
     await safeExit(1, `AI session failed (${failure.reason})`);
+    return;
+  }
+
+  if (withoutChanges) {
+    await log(`\n⚠️  Finished without changes: ${withoutChanges.reason}`, { level: 'warning' });
+    await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
     return;
   }
 

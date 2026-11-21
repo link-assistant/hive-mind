@@ -1,0 +1,73 @@
+✔ the default delay is a random 30–90 seconds (7.713496ms)
+✔ the delay is configurable by flag or environment, and 0 turns it off (0.68098ms)
+✖ parsed CLI defaults allow the environment delay and explicit flags override it (53.445673ms)
+✖ non-finite and overflowing timer delays fall back to the default (0.72905ms)
+✔ a recovery session starts only after its random delay (3.421451ms)
+✔ sessions killed by one OOM event are not restarted at the same moment (2.100107ms)
+✔ a delay of 0 starts the recovery immediately, and a refused plan never waits (1.42021ms)
+✔ an in-process resume after a tool kill waits its random delay too, and says so (1.781193ms)
+✔ a stop requested during the recovery delay cancels both launch paths (1.540414ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1291.35532
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-delay.test.mjs:40:1
+✖ parsed CLI defaults allow the environment delay and explicit flags override it (53.445673ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   maxSeconds: 90,
+  +   minSeconds: 30
+  -   maxSeconds: 0,
+  -   minSeconds: 0
+    }
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-recovery-delay.test.mjs:43:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { minSeconds: 30, maxSeconds: 90 },
+    expected: { minSeconds: 0, maxSeconds: 0 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-recovery-delay.test.mjs:47:1
+✖ non-finite and overflowing timer delays fall back to the default (0.72905ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   maxSeconds: Infinity,
+  +   minSeconds: Infinity
+  -   maxSeconds: 90,
+  -   minSeconds: 30
+    }
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-recovery-delay.test.mjs:49:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { minSeconds: Infinity, maxSeconds: Infinity },
+    expected: { minSeconds: 30, maxSeconds: 90 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

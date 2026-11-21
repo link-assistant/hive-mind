@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -9,48 +10,61 @@ import { isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
-import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
+import { createClaudeUsageLimitEvidence } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
+import { detectSubscriptionError, formatSubscriptionDetectionLine } from './subscription-error.lib.mjs'; // Issue #2161
+import { createAuthFailureRetry, resolveClaudeFailureEvidence } from './claude.access-error.lib.mjs'; // Issue #4053: auth re-check
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { createSubAgentCallEntry, accumulateSubAgentUsage, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
-import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, startClaudeNativeCommand } from './claude.command-builder.lib.mjs';
 import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { buildSessionForceKilledComment } from './session-force-killed-comment.lib.mjs'; // Issue #1510/#2492
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
-import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
+import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
+import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
+import { ensureClaudeAuthAuthority } from './claude-auth-authority.lib.mjs'; // Issue #3785: direct runs adopt the shared credential authority (and a newer conventional login) and refresh under the same locks as Docker tasks
+import { shellQuote } from './shell-command.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
+import { resolveRepositoryClaudePluginArgs } from './claude-repository-config.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { capSubSessionSizeToShortContext, describePricingTier, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, describeBenignFinalToolResult, describeFinalToolResultFailure, formatFinalToolResultOutput, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { assessClaudeTurnCompletion, buildIncompleteTurnContinuationPrompt, createClaudePrintTurnTracker } from './claude.print-turn.lib.mjs'; // Issue #2301
+import { interpretClaudeExitCode, isProcessGroupAlive, describeExitCode } from './claude.process-exit.lib.mjs'; // Issue #3015; #4077 names the signal in the fallback
+import { createClaudeResultCloseController } from './claude.result-close.lib.mjs'; // Issue #3015
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory, publishRepeatedToolCallVerdict, resolveRepeatedToolCallLimit } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10), #2316, #2395
 import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
-import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
+import { stringifyErrorValue, isSourceFragmentErrorText } from './error-text.lib.mjs'; // Issue #2141; #4077
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection } from './claude.connection.lib.mjs';
+import { extractClaudeEventModelIds, getLatestObservedModelFor, recordObservedModel, resetObservedModels } from './observed-models.lib.mjs'; // Issue #2840
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 export { formatNumber, mapModelToId, checkModelVisionCapability };
 export { getClaudeVersion, resolveThinkingSettings, setClaudeVersion, validateClaudeConnection };
 export { handleClaudeRuntimeSwitch };
 export const checkPlaywrightMcpAvailability = ensureClaudePlaywrightMcpServer;
 export const executeClaude = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
   // Issue #2056: reset fresh sessions while retaining issue #1886's true-resume accumulation.
   beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
@@ -65,9 +79,7 @@ export const executeClaude = async params => {
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
   const mappedModel = mapModelToId(argv.model);
   const modelSupportsVision = await checkModelVisionCapability(mappedModel);
-  if (argv.verbose) {
-    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
-  }
+  if (argv.verbose) await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   const prompt = buildUserPrompt({
     issueUrl,
     issueNumber,
@@ -80,6 +92,7 @@ export const executeClaude = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,
@@ -108,19 +121,8 @@ export const executeClaude = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts in executeClaudeCommand), dry runs included.
   }
-  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
@@ -132,8 +134,6 @@ export const executeClaude = async params => {
       branchName,
       prompt,
       systemPrompt,
-      escapedPrompt,
-      escapedSystemPrompt,
       argv,
       log,
       setLogFile,
@@ -148,23 +148,22 @@ export const executeClaude = async params => {
       owner,
       repo,
       prNumber,
+      prUrl, // Issue #3279: Formal-AI-Pull-Request trailer
       // Issue #1708: forwarded so the bidirectional handler can poll
       // issue title/body changes and uncommitted changes during the session.
       issueNumber,
     })
   );
 };
-// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
-// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+// Separate cost/session accounting keeps this runner within the file-size cap (issues #1710, #2175).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
-// Issue #2175: session token accounting lives in claude.session-tokens.lib.mjs
-// so this file stays under the 1350-line early-warning threshold (issue #1593).
 import { calculateSessionTokens } from './claude.session-tokens.lib.mjs';
 export { calculateSessionTokens };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
-import { isStderrError } from './claude.stderr.lib.mjs';
+import { isStderrError, createClaudeStderrObserver } from './claude.stderr.lib.mjs';
 import { checkForUncommittedChanges } from './claude.uncommitted-changes.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083 feedback: full final prompts in every log
 export { checkForUncommittedChanges };
 export { isStderrError };
 export const executeClaudeCommand = async params => {
@@ -172,8 +171,7 @@ export const executeClaudeCommand = async params => {
     tempDir,
     branchName,
     prompt,
-    systemPrompt,
-    escapedSystemPrompt,
+    systemPrompt: originalSystemPrompt,
     argv,
     log,
     setLogFile,
@@ -183,6 +181,7 @@ export const executeClaudeCommand = async params => {
     forkedRepo,
     feedbackLines,
     claudePath,
+    waitForRetryDelay = waitWithCountdown,
     $, // Add command-stream $ to params
     // For interactive mode
     owner,
@@ -192,28 +191,37 @@ export const executeClaudeCommand = async params => {
     // and issue body/title polling in setupBidirectionalHandler.
     issueNumber,
   } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
+  const claudeAttribution = await createToolAttribution({ tool: 'claude', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl: params.prUrl, log, createAttributionSession: params.createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from stream-json
+  let claudeBaseUrl = null; // Issue #3279: the endpoint Claude Code was pointed at, for pricing the served model
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
-  const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
+  // Issue #2840: model IDs reported by this session's stream, kept even if it never reaches a result.
+  resetObservedModels();
   let retryCount = 0;
-  // Issue #2169: total-time budget shared by every transient-error retry of this run (default
-  // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
+  // Bound each continuous outage; provider progress starts a fresh retry window (#3831).
   const transientRetryBudget = createTransientRetryBudget();
+  const authFailureRetry = createAuthFailureRetry({ tool: 'claude', budget: transientRetryBudget, log }); // Issue #4053: re-check unconfirmed auth failures
+  const retryProgress = createRetryProgressObserver({
+    tool: 'claude',
+    budget: transientRetryBudget,
+    argv,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+    log,
+  });
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   let incompleteTurnRecoveryAttempts = 0;
   let incompleteTurnPrompt = null;
-  // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
-  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
-  // once so its resume/restart caps persist across recursive retry calls.
+  // Issue #1834: resume before a fresh restart; preserve recovery caps across retries.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
     const promptForAttempt = [prompt, baseBranchInterventionPrompt, incompleteTurnPrompt].filter(Boolean).join('\n\n');
-    const escapedPromptForAttempt = escapePromptForShell(promptForAttempt);
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
-      // Issue #2169: the count cap is a backstop now, so report the retry budget instead.
       await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount} (${transientRetryBudget.describeProgress()})`)}`);
     }
     if (argv.verbose) {
@@ -234,6 +242,7 @@ export const executeClaudeCommand = async params => {
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
+    const usageLimitEvidence = createClaudeUsageLimitEvidence(); // Issue #3570: transcript, rate_limit_event and debug 429 headers, cross-checked on failure
     let isOverloadError = false;
     let is503Error = false;
     let isInternalServerError = false;
@@ -259,7 +268,7 @@ export const executeClaudeCommand = async params => {
     // when the last command (the solution's verification) failed. Track the
     // last tool outcome separately so later successful commands clear earlier
     // exploratory failures, while a terminal failure vetoes success.
-    let terminalToolResult = { observed: false, failed: false, benign: false, error: null };
+    let terminalToolResult = updateTerminalToolResult(null, null);
     // Issue #2160: an in-session tool failure the AI handles itself (a blocked command, its own
     // Bash timeout, a bare non-zero exit status). Kept apart from lastToolResultError so it is not
     // reported as the session error, but still available as the last-resort detail for a
@@ -303,8 +312,23 @@ export const executeClaudeCommand = async params => {
     const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
+    let routerStream;
+    let routerGuardEnv = process.env;
+    let startupTimeoutId = null;
+    let activityTimeoutId = null;
+    let resultClose;
+    const clearAttemptTimeouts = () => {
+      if (startupTimeoutId) clearTimeout(startupTimeoutId);
+      if (activityTimeoutId) clearTimeout(activityTimeoutId);
+      startupTimeoutId = activityTimeoutId = null;
+      resultClose?.stop();
+    };
     const useRouter = argv.useRouter === true || /^(1|true|yes|on)$/i.test(String(process.env.HIVE_MIND_USE_ROUTER || ''));
-    const mappedModel = await resolveClaudeModelForExecution(argv.model, { useRouter });
+    // Issue #2771: cheapest pricing tier by default — standard speed, short context and a plain
+    // model name; `[1m]` is only passed where Claude Code needs it for a long-context run.
+    const claudePricingTier = resolvePricingTier({ tool: 'claude', model: argv.model, modelId: mapModelToId(argv.model), disable1mContext: argv.disable1mContext, subSessionSize: argv.subSessionSize, speed: argv.speed });
+    const claudeContextModel = resolveClaudeModelForContext(argv.model, { longContext: claudePricingTier.longContext, mapModelToId });
+    const mappedModel = await resolveClaudeModelForExecution(claudeContextModel.model, { useRouter });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'claude', model: argv.model, toolPath: claudePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const resolvedPlanModel = argv.planModel ? await resolveClaudeModelForExecution(argv.planModel, { useRouter }) : undefined; // Issue #1223
@@ -318,6 +342,14 @@ export const executeClaudeCommand = async params => {
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (useClaudeFallbackModel) claudeArgs += ` --fallback-model ${mappedFallbackModel}`;
     let queuedFeedback = [];
+    let bidirectionalHandlerFinalized = false;
+    const finalizeAttemptInput = async () => {
+      if (!bidirectionalHandlerFinalized) {
+        bidirectionalHandlerFinalized = true;
+        queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      }
+      return queuedFeedback;
+    };
     // Issue #817: When --accept-incomming-comments-as-input is set and we are
     // not resuming a prior session, drive Claude via NDJSON stream-json input
     // so incoming PR comments can be streamed as additional user turns.
@@ -328,29 +360,43 @@ export const executeClaudeCommand = async params => {
     }
     const claudeWorkLanguage = await import('./i18n.lib.mjs').then(i18n => i18n.getWorkLocale?.() ?? null).catch(() => null);
     await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
-    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
+    const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright, projectDir: tempDir });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
+    const { args: repositoryPluginArgs } = await resolveRepositoryClaudePluginArgs({ projectDir: tempDir, log }); // Issue #3785: repository plugins, this session only
+    for (let i = 1; i < repositoryPluginArgs.length; i += 2) claudeArgs += ` --plugin-dir "${repositoryPluginArgs[i]}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
     if (streamingInput) {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
-      claudeArgs += ` -p --input-format stream-json --append-system-prompt "${escapedSystemPrompt}"`;
+      claudeArgs += ` -p --input-format stream-json --append-system-prompt ${shellQuote(systemPrompt)}`;
     } else {
-      claudeArgs += ` -p "${escapedPromptForAttempt}" --append-system-prompt "${escapedSystemPrompt}"`;
+      claudeArgs += ` -p ${shellQuote(promptForAttempt)} --append-system-prompt ${shellQuote(systemPrompt)}`;
     }
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${claudeArgs} | jq -c .)`;
+    // PR #4083 feedback: the exact final prompts, always logged in full (not only with --verbose).
+    await logFinalPrompts({
+      log,
+      tool: 'claude',
+      prompts: [
+        { kind: 'user', text: promptForAttempt, delivery: streamingInput ? 'the first stream-json frame on stdin' : 'the -p argument', keepEmpty: true },
+        { kind: 'system', text: systemPrompt, delivery: 'the --append-system-prompt argument' },
+      ],
+    });
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
-    if (argv.verbose) {
-      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${promptForAttempt}\n---END USER PROMPT---`, { verbose: true });
-      await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
-    }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      const { parsed: requestedSubSessionSize, contextWindowTokens: fetchedContextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      // Issue #2771: a short-context run never compacts above its pricing tier, and percentages are of the window it really has.
+      const { parsed: parsedSubSessionSize, capped: subSessionSizeCapped } = capSubSessionSizeToShortContext(requestedSubSessionSize, { longContext: claudePricingTier.longContext, shortContextTokens: claudePricingTier.shortContextTokens });
+      const contextWindowTokens = !claudePricingTier.longContext && requestedSubSessionSize.kind === 'percent' ? claudePricingTier.shortContextTokens : fetchedContextWindowTokens;
+      await log(`💰 Pricing tier: ${describePricingTier(claudePricingTier)}${claudeContextModel.changed ? ` — model ${argv.model} runs as ${claudeContextModel.model}` : ''}${subSessionSizeCapped ? ` — --sub-session-size capped to ${parsedSubSessionSize.tokens} tokens` : ''}`, { verbose: !claudeContextModel.changed && !subSessionSizeCapped });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
       // Issue #2130: `toolInvocation.env` points the native CLI at the local Formal AI server (base URL + API key).
-      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens }), ...toolInvocation.env };
+      if (!useRouter) await ensureClaudeAuthAuthority({ env: process.env, establish: false, verbose: !!argv.verbose }).catch(error => log(`❌ ${error.message}`, { level: 'error' }).then(() => Promise.reject(error)));
+      const claudeEnv = { ...getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, subSessionSize: parsedSubSessionSize, contextWindowTokens, pricingTier: claudePricingTier }), ...toolInvocation.env, ...buildGeolocationEnv(argv) };
+      if (useRouter) claudeEnv.HIVE_MIND_USE_ROUTER = '1';
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
+      claudeBaseUrl = (await claudeAttribution.prepareEnv(claudeEnv)).ANTHROPIC_BASE_URL || null; // Issue #3279: attribution hooks via GIT_CONFIG_*; endpoint kept for pricing
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
         await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
@@ -359,28 +405,21 @@ export const executeClaudeCommand = async params => {
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
-        // Issue #1706: log applied env vars (--disable-1m-context, --sub-session-size).
-        const sub1706 = ['CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
+        // Issue #1706 / #2771: log applied env vars (--disable-1m-context, --sub-session-size, --speed).
+        const sub1706 = ['CLAUDE_CODE_DISABLE_FAST_MODE', 'CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
         if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
-      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-      const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
+      // Issue #3282: command-stream quotes each value itself. Extra "..." around one reached Claude as \" (and older command-stream let /bin/sh expand it).
+      const mcpDisableArgs = [...(mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : []), ...repositoryPluginArgs];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
       const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
-      if (argv.resume) {
-        const simpleEscapedPrompt = promptForAttempt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
-      } else if (streamingInput) {
-        // Issue #817: Drive Claude via --input-format stream-json on a pipe
-        // stdin. Initial prompt + later PR comments are written as NDJSON
-        // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
-        const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
-      } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
-      }
+      await assertAdmittedClaudeAuth({ env: { ...process.env, ...claudeEnv } });
+      routerGuardEnv = { ...process.env, ...claudeEnv };
+      assertRouterTaskAuthentication({ tool: argv.tool || 'claude', cwd: tempDir, env: routerGuardEnv });
+      execCommand = startClaudeNativeCommand({ $, tempDir, claudeEnv, command: toolInvocation.command, resume: argv.resume, streamingInput, effectiveModel, fallbackModelArgs, mcpDisableArgs, disallowedToolsArgs, promptForAttempt, systemPrompt });
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: argv.tool || 'claude', env: routerGuardEnv, cwd: tempDir, log });
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
       }
@@ -394,41 +433,19 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       let exitCode = 0;
       let stdoutLineBuffer = '';
+      const stderrObserver = createClaudeStderrObserver({ evidence: usageLimitEvidence, errors: stderrErrors });
       let resultEventReceived = false;
       const printTurn = createClaudePrintTurnTracker(); // Issue #2301
       let postResultCancelledToolResultCount = 0;
       let subagentToolResultErrorCount = 0;
-      let resultTimeoutId = null;
       let forceExitTriggered = false;
-      const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
       let firstChunkReceived = false;
-      let startupTimeoutId = null;
       let isStartupTimeout = false;
       let lastEventTime = null;
-      let activityTimeoutId = null;
       let isActivityTimeout = false;
       // Issue #1516: Kill process group (-pid) so leaked /bin/sh children don't survive
       // prettier-ignore
       const killProcessTree = signal => { try { const pid = execCommand.pid || execCommand._pid; if (pid) { process.kill(-pid, signal); return; } } catch { /* not group leader */ } execCommand.kill(signal); };
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token. Any other credential surfacing on disk while Claude runs
-      // is a security violation: the process is killed at once and solve exits
-      // with EXIT_CODE_ROUTER_AUTH_VIOLATION. Inert unless HIVE_MIND_USE_ROUTER
-      // and a router token are present in the environment.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: argv.tool || 'claude',
-        cwd: tempDir,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          forceExitTriggered = true;
-          try {
-            killProcessTree('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
-      });
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -439,7 +456,9 @@ export const executeClaudeCommand = async params => {
             // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
             const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) {
+                // Issue #3015: result.code is set once the shell exits, while the CLI in its group can still run.
+                const pid = execCommand.pid || execCommand._pid;
+                if (pid ? isProcessGroupAlive(pid) : !execCommand.result?.code) {
                   log(`⚠️ Process tree did not exit after SIGTERM, sending SIGKILL (Issue #1516)`, { verbose: true });
                   killProcessTree('SIGKILL');
                 }
@@ -466,10 +485,10 @@ export const executeClaudeCommand = async params => {
       }
       // Issue #1472: Helper to reset activity timeout on each stdout chunk
       const resetActivityTimeout = () => {
-        if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
+        if (timeouts.streamActivityMs > 0 && !resultClose.isAwaitingExit()) {
           if (activityTimeoutId) clearTimeout(activityTimeoutId);
           activityTimeoutId = setTimeout(async () => {
-            if (!forceExitTriggered && !resultEventReceived) {
+            if (!forceExitTriggered && !resultClose.isAwaitingExit()) {
               isActivityTimeout = true;
               const idleSeconds = lastEventTime ? `${Math.round((Date.now() - lastEventTime) / 1000)}s` : 'unknown';
               await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}) — force-killing (Issue #1472)`, { level: 'warning' });
@@ -492,7 +511,103 @@ export const executeClaudeCommand = async params => {
           return true;
         },
       });
-      for await (const chunk of execCommand.stream()) {
+      // Issue #1280/#3015: stop a CLI that does not exit after its result, but not while print mode
+      // is still waiting for background tasks (up to its own CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS).
+      resultClose = createClaudeResultCloseController({ streamCloseMs: timeouts.resultStreamCloseMs, printBgWaitCeilingMs: claudeCode.printBgWaitCeilingMs, fallbackWaitMs: timeouts.streamActivityMs, log, isForceExitTriggered: () => forceExitTriggered, onTimeout: forceExitOnTimeout, onTurnReopened: () => resetActivityTimeout() });
+      // Apply the same result semantics to NDJSON lines and the final unterminated buffer.
+      const processResultEvent = async data => {
+        resultEventReceived = true;
+        await resultClose.onResult();
+        // Issue #1708: result event = AI is idle and waiting for next
+        // user input. Flush any frames queued by --queue-comments-to-input.
+        if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
+          try {
+            await bidirectionalHandler.markAiIdle();
+          } catch (idleErr) {
+            if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
+          }
+        }
+        // Issue #2687: error results can also carry subtype: success. The error flag
+        // decides success; a prior tool failure must not replace the provider diagnosis.
+        resultSuccessReceived = data.subtype === 'success' && data.is_error !== true;
+        await log(`📌 Claude result: subtype=${data.subtype || 'unknown'} is_error=${data.is_error === true} api_error=${data.api_error || 'none'} http=${data.api_error_status || 'n/a'}`, { verbose: true });
+        const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
+        if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
+        if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
+        // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
+        if (resultSuccessReceived && data.result && typeof data.result === 'string') {
+          resultSummary = data.result;
+          await log('📝 Captured result summary from Claude output', { verbose: true });
+        }
+        if (data.num_turns !== undefined) {
+          resultNumTurns = data.num_turns;
+          await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
+        }
+        if (resultSuccessReceived && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
+        if (data.is_error === true) {
+          lastMessage = data.result || JSON.stringify(data);
+          const subtype = data.subtype || 'unknown';
+          if (subtype === 'error_during_execution') {
+            errorDuringExecution = true;
+            if ((data.errors || []).some(e => isENOSPC(e))) {
+              commandFailed = true;
+              await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
+            } else {
+              await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+            }
+          } else {
+            commandFailed = true;
+            await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
+          }
+          if (data.api_error === 'usage_limit_reached' || isUsageLimitError(lastMessage)) {
+            commandFailed = true;
+            limitReached = true;
+            await log('⚠️ Detected session limit in result', { verbose: true });
+          }
+          if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
+            isInternalServerError = true;
+          }
+          // Issue #1353: Detect "Request timed out" from Claude CLI
+          if (lastMessage.includes('Request timed out')) {
+            isRequestTimeout = true;
+            await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
+          }
+          // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
+          // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
+          // (regression from #1924): account usage limits ("session limit" / "weekly limit")
+          // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
+          // isUsageLimitError() guard routes those to the usage-limit handler below instead.
+          if (data.api_error_status === 429 && data.api_error !== 'usage_limit_reached' && !isUsageLimitError(lastMessage)) {
+            isRateLimitError = true;
+            await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
+          }
+          // Issue #2161: account/subscription block. `data.error` carries the
+          // machine-readable code ("oauth_org_not_allowed" for the reported
+          // case) alongside api_error_status 403 — a far stronger signal than
+          // the rendered sentence, so it is passed to the detector first.
+          if (!subscriptionError) {
+            subscriptionError = detectSubscriptionError({
+              message: lastMessage,
+              tool: 'claude',
+              errorCode: typeof data.error === 'string' ? data.error : null,
+              apiErrorStatus: data.api_error_status,
+              terminalReason: data.terminal_reason,
+            });
+            if (subscriptionError) {
+              // Not verbose: this is the reason the whole run is about to end.
+              await log(formatSubscriptionDetectionLine(subscriptionError));
+              await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
+            }
+          }
+          // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
+          // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
+          if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
+            const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
+            await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
+          }
+        }
+      };
+      for await (const chunk of routerStream) {
         // Issue #1510: Continue processing stream after SIGTERM to capture final output
         // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
         if (!firstChunkReceived) {
@@ -516,6 +631,7 @@ export const executeClaudeCommand = async params => {
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
               if (data === null || typeof data !== 'object') continue; // Issue #1968: skip bare null/primitive NDJSON lines
+              await claudeAttribution.observe(data); // Issue #3279
               // Issue #1510: Track last event time for all modes (not just interactive)
               // so activity timeout can report accurate idle duration
               lastEventTime = Date.now();
@@ -548,7 +664,15 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
+              usageLimitEvidence.observeEvent(data);
+              // Issue #2840: the model that actually runs, recorded as it arrives so a crash or kill keeps it.
+              for (const observed of extractClaudeEventModelIds(data)) {
+                if (recordObservedModel({ ...observed, requestedModel: argv.model })) await log(`🤖 Model reported by Claude (${observed.source}${observed.fromSubagent ? ', sub-agent' : ''}): ${observed.modelId}`);
+              }
               const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
+              if (!afterResult) retryProgress.observe(data);
+              await retryProgress.flushLog();
+              await resultClose.observeEvent(data);
               terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
               messageCount += eventFacts.messageCountDelta;
               toolUseCount += eventFacts.toolUseCountDelta;
@@ -605,97 +729,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
-              if (data.type === 'result') {
-                if (!resultEventReceived) {
-                  resultEventReceived = true;
-                  await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
-                  resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
-                }
-                // Issue #1708: result event = AI is idle and waiting for next
-                // user input. Flush any frames queued by --queue-comments-to-input.
-                if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
-                  try {
-                    await bidirectionalHandler.markAiIdle();
-                  } catch (idleErr) {
-                    if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
-                  }
-                }
-                if (data.subtype === 'success') resultSuccessReceived = true;
-                const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
-                if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
-                if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
-                // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
-                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
-                  resultSummary = data.result;
-                  await log('📝 Captured result summary from Claude output', { verbose: true });
-                }
-                if (data.num_turns !== undefined) {
-                  resultNumTurns = data.num_turns;
-                  await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
-                }
-                if (data.subtype === 'success' && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
-                if (data.is_error === true) {
-                  lastMessage = data.result || JSON.stringify(data);
-                  const subtype = data.subtype || 'unknown';
-                  if (subtype === 'error_during_execution') {
-                    errorDuringExecution = true;
-                    if ((data.errors || []).some(e => isENOSPC(e))) {
-                      commandFailed = true;
-                      await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
-                    } else {
-                      await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
-                    }
-                  } else {
-                    commandFailed = true;
-                    await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
-                  }
-                  if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
-                    limitReached = true;
-                    await log('⚠️ Detected session limit in result', { verbose: true });
-                  }
-                  if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
-                    isInternalServerError = true;
-                  }
-                  // Issue #1353: Detect "Request timed out" from Claude CLI
-                  if (lastMessage.includes('Request timed out')) {
-                    isRequestTimeout = true;
-                    await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
-                  }
-                  // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
-                  // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
-                  // (regression from #1924): account usage limits ("session limit" / "weekly limit")
-                  // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
-                  // isUsageLimitError() guard routes those to the usage-limit handler below instead.
-                  if (data.api_error_status === 429 && !isUsageLimitError(lastMessage)) {
-                    isRateLimitError = true;
-                    await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
-                  }
-                  // Issue #2161: account/subscription block. `data.error` carries the
-                  // machine-readable code ("oauth_org_not_allowed" for the reported
-                  // case) alongside api_error_status 403 — a far stronger signal than
-                  // the rendered sentence, so it is passed to the detector first.
-                  if (!subscriptionError) {
-                    subscriptionError = detectSubscriptionError({
-                      message: lastMessage,
-                      tool: 'claude',
-                      errorCode: typeof data.error === 'string' ? data.error : null,
-                      apiErrorStatus: data.api_error_status,
-                      terminalReason: data.terminal_reason,
-                    });
-                    if (subscriptionError) {
-                      // Not verbose: this is the reason the whole run is about to end.
-                      await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
-                      await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
-                    }
-                  }
-                  // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
-                  // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
-                  if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
-                    const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
-                    await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
-                  }
-                }
-              }
+              if (data.type === 'result') await processResultEvent(data);
               if (data.type === 'text' && data.text) lastMessage = data.text;
               else if (data.type === 'error') {
                 lastMessage = stringifyErrorValue(data.error, { fallback: JSON.stringify(data) }); // Issue #2141: `data.error` is often an object; render it as text so the reason is never "[object Object]" and the substring checks below get a real string
@@ -738,7 +772,7 @@ export const executeClaudeCommand = async params => {
                 });
                 if (subscriptionError) {
                   if (apiErrorText) lastMessage = apiErrorText;
-                  await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                  await log(formatSubscriptionDetectionLine(subscriptionError));
                   await log(`   code=${subscriptionError.code || 'n/a'} request_id=${data.request_id || 'unknown'} uuid=${data.uuid || 'unknown'}`, { verbose: true });
                 }
               }
@@ -792,7 +826,7 @@ export const executeClaudeCommand = async params => {
               // Not JSON or parsing failed, output as-is if it's not empty
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'stdout' });
-                lastMessage = line;
+                if (!usageLimitEvidence.observeRawLine(line).isDebugOutput && !isSourceFragmentErrorText(line)) lastMessage = line; // Issue #3570: a base64 debug dump is not a failure reason; #4077: nor is a printed-object/source fragment
                 // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
@@ -814,20 +848,20 @@ export const executeClaudeCommand = async params => {
             }
             const ceilingSeconds = printTurn.observeStderr(errorOutput);
             if (ceilingSeconds !== null) await log(`⚠️ Claude Code print mode reached its ${ceilingSeconds}s background-task wait ceiling and is stopping background tasks (issue #2301)`, { level: 'warning' });
-            for (const line of errorOutput.split('\n')) {
-              if (isStderrError(line)) stderrErrors.push(line.trim());
-            }
+            stderrObserver.write(errorOutput);
           }
         } else if (chunk.type === 'exit') {
-          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280) — kept for forward-compat.
-          exitCode = chunk.code;
-          if (chunk.code !== 0) {
-            commandFailed = true;
-          }
+          // command-stream v0.9.4 stream() did not yield exit chunks (Issue #1280); newer releases do.
+          // Issue #3015: our own SIGTERM after a successful result (exit 143) is not a failure.
+          const exitVerdict = interpretClaudeExitCode({ code: chunk.code, forceExitTriggered, resultCloseTimeoutFired: resultClose.state().timeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          if (exitVerdict.ignored) await log(`ℹ️ ${exitVerdict.reason} (Issue #3015)`, { verbose: true });
         }
       }
 
       // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      stderrObserver.flush();
       // Issue #1472: Also forward remaining buffer events to interactive handler
       if (stdoutLineBuffer.trim()) {
         try {
@@ -835,7 +869,9 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
+          usageLimitEvidence.observeEvent(data);
           const afterResult = printTurn.observeEvent(data).afterResult && !streamingInput;
+          await resultClose.observeEvent(data);
           terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts, { afterResult });
           messageCount += eventFacts.messageCountDelta;
           toolUseCount += eventFacts.toolUseCountDelta;
@@ -854,17 +890,7 @@ export const executeClaudeCommand = async params => {
             lastToolResultError = null;
             lastBenignToolResultError = null;
           }
-          if (data?.type === 'result') {
-            resultEventReceived = true;
-            if (data.subtype === 'success') {
-              resultSuccessReceived = true;
-              if (data.result && typeof data.result === 'string') resultSummary = data.result;
-              if (data.modelUsage) resultModelUsage = data.modelUsage;
-            }
-            const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
-            if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
-            if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
-          }
+          if (data?.type === 'result') await processResultEvent(data);
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
             try {
@@ -876,6 +902,7 @@ export const executeClaudeCommand = async params => {
           if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'stdout' });
+          if (!usageLimitEvidence.observeRawLine(stdoutLineBuffer).isDebugOutput && !isSourceFragmentErrorText(stdoutLineBuffer)) lastMessage = stdoutLineBuffer; // Issue #4077
         }
       }
       if (startupTimeoutId) {
@@ -886,28 +913,24 @@ export const executeClaudeCommand = async params => {
         clearTimeout(activityTimeoutId);
         activityTimeoutId = null;
       }
-      if (resultTimeoutId) {
-        clearTimeout(resultTimeoutId); // Issue #1280
+      resultClose.stop(); // Issue #1280
+      if (resultEventReceived) {
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
-      }
-      // Issue #2190: one last read after the stream closed, so a credential
-      // written in the final moments of the session cannot slip past the
-      // interval; a violation ends the run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, limitTimezone: null, messageCount, toolUseCount, anthropicTotalCostUSD, errorDuringExecution: true, resultSummary: null, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) } };
       }
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;
-        if (exitCode === 0 && resultExitCode !== 0) {
-          exitCode = resultExitCode;
-          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
-        }
         // Specifically detect "command not found" via exit code 127
         if (resultExitCode === 127 && !commandFailed) {
           commandFailed = true;
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
+        }
+        if (exitCode === 0 && resultExitCode !== 0) {
+          // A real CLI failure takes precedence over an earlier in-session tool failure.
+          // A forced close is judged by the timeout/recovery logic (Issue #3015: same helper as the exit chunk).
+          const exitVerdict = interpretClaudeExitCode({ code: resultExitCode, forceExitTriggered, resultCloseTimeoutFired: resultClose.state().timeoutFired, resultSuccessReceived });
+          exitCode = exitVerdict.exitCode;
+          if (exitVerdict.failed) commandFailed = true;
+          await log(exitVerdict.ignored ? `ℹ️ ${exitVerdict.reason} (Issue #3015)` : `⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
         }
       }
       // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
@@ -930,7 +953,7 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
-      queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      queuedFeedback = await finalizeAttemptInput();
       const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
       if (baseBranchIntervention && !baseBranchCommandIntervention.wasSent()) {
         if ((sessionId || argv.resume) && baseBranchInterventionResumeCount < 1) {
@@ -967,7 +990,7 @@ export const executeClaudeCommand = async params => {
       // Issue #2301: an incomplete print-mode turn is checked first. Its last tool results are the
       // cancellation artifacts of the background-task sweep, not the verdict of finished work.
       const printTurnState = printTurn.snapshot();
-      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, maxRecoveryAttempts: claudeCode.incompleteTurnMaxResumes, sessionId: sessionId || argv.resume });
+      const turnCompletion = assessClaudeTurnCompletion({ resultEvent: streamingInput ? null : printTurnState.resultEvent, stoppedTaskCount: printTurnState.stoppedTaskCount, ceilingSeconds: printTurnState.ceilingSeconds, recoveryAttempts: incompleteTurnRecoveryAttempts, maxRecoveryAttempts: claudeCode.incompleteTurnMaxResumes, sessionId: sessionId || argv.resume, solverStopped: resultClose.state().stoppedWithBackgroundTasks });
       if (subagentToolResultErrorCount > 0) await log(`ℹ️ ${subagentToolResultErrorCount} subagent tool result error(s) were handled inside subagents and do not decide this session's result`, { verbose: true });
       if (turnCompletion.cancelledTasks > 0 || postResultCancelledToolResultCount > 0) {
         await log(`⚠️ ${turnCompletion.cause}: ${turnCompletion.cancelledTasks} task(s) [${printTurnState.stoppedTaskIds.join(', ')}], ${postResultCancelledToolResultCount} synthetic tool result(s), ${printTurnState.resultCount} result event(s)`, { verbose: true });
@@ -992,12 +1015,12 @@ export const executeClaudeCommand = async params => {
       // succeed regardless of that envelope. Earlier failures remain harmless
       // when a later success supersedes them, and issue #2160's bare self-handled
       // exit statuses remain benign (updateTerminalToolResult).
-      if (!turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
+      if (!commandFailed && !errorDuringExecution && exitCode === 0 && !turnCompletion.incomplete && resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
         commandFailed = true;
         errorDuringExecution = true;
-        lastMessage = `Final tool result failed: ${terminalToolResult.error}`;
-        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
-      }
+        lastMessage = describeFinalToolResultFailure(terminalToolResult); // Issue #3922: short headline; full output below
+        await log(`\n\n❌ Command failed: ${lastMessage}\n${formatFinalToolResultOutput(terminalToolResult)}`, { level: 'error' });
+      } else if (!commandFailed && resultSuccessReceived && terminalToolResult.failed && terminalToolResult.benign) await log(describeBenignFinalToolResult(terminalToolResult)); // Issue #3922
       // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what
       // gets reported. Without this the Kotlin run was filed as `Prompt is too long`,
       // which described the consequence and hid the cause.
@@ -1013,6 +1036,10 @@ export const executeClaudeCommand = async params => {
       if (dominantToolCallFailure) {
         await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
       }
+      // Issues #3015/#3570/#3759: cross-check terminal evidence without publishing a work summary as an error.
+      let crossCheckedLimit, retryAuth; // Issue #4053: retryAuth = unconfirmed auth failure being re-checked
+      if (commandFailed) ({ lastMessage, limitReached, subscriptionError, crossCheckedLimit, retryAuth } = await resolveClaudeFailureEvidence({ lastMessage, limitReached, subscriptionError, exitCode, resultSuccessReceived, resultSummary, evidence: usageLimitEvidence, tempDir, sessionId, log, authFailureRetry, argv, waitForRetryDelay }));
+      if (retryAuth) return await executeWithRetry();
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1035,16 +1062,10 @@ export const executeClaudeCommand = async params => {
         await log(`🔍 Transient-error pattern seen in a successful run — not retrying (Issue #2169). Pattern: ${retryableLastError.label || 'flagged by stream detector'}; last message: ${JSON.stringify(lastMessage.substring(0, 200))}`, { verbose: true });
         await log(`   Classification evidence: ${describeClassificationEvidence(lastMessage, retryableLastError.label)}`, { verbose: true });
       }
-      // Issue #2161: an account/subscription block short-circuits every retry
-      // path. Stale transient flags from earlier in the run (an overload at hour
-      // one, say) must not schedule a retry that is guaranteed to fail the same
-      // way — and each retry would burn another full startup against a provider
-      // that has already refused the credentials.
-      if (!runProducedSuccess && isTransientError && !subscriptionError) {
-        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 3min–30min
+      // Account/subscription blocks supersede stale transient flags (#2161, #2687).
+      if (!runProducedSuccess && isTransientError && !subscriptionError && !limitReached) {
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
-        // Issue #2169: stream timeouts keep their own short count cap; API errors are governed by
-        // the 12-hour budget with a 3-minute floor on every wait.
+        // Issue #2169: stream timeouts keep a short cap; API waits use the outage budget.
         const maxRetries = isTimeoutRetry ? retryLimits.maxStreamTimeoutRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
@@ -1081,7 +1102,7 @@ export const executeClaudeCommand = async params => {
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
@@ -1104,7 +1125,7 @@ export const executeClaudeCommand = async params => {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }
           }
-          await waitWithCountdown(delay, log);
+          await waitForRetryDelay(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
@@ -1135,8 +1156,8 @@ export const executeClaudeCommand = async params => {
         }
       }
       if (commandFailed) {
-        // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        // A terminal account block supersedes stale quota evidence (issue #3759).
+        const limitInfo = subscriptionError ? { isUsageLimit: false } : crossCheckedLimit?.isUsageLimit ? crossCheckedLimit : detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
@@ -1155,7 +1176,7 @@ export const executeClaudeCommand = async params => {
         } else if (lastMessage.includes('context_length_exceeded')) {
           await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
         } else {
-          await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+          await log(exitCode === 0 ? `\n\n❌ Claude session failed (the CLI itself exited with code 0): ${String(lastMessage).slice(0, 300)}` : `\n\n❌ Claude command failed with exit code ${describeExitCode(exitCode)}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
             await log(`📌 Session ID: ${sessionId}`);
             await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
@@ -1203,7 +1224,7 @@ export const executeClaudeCommand = async params => {
           // `Prompt is too long` still names the call that filled the context. The explanation is
           // built at the reporting boundary rather than by mutating `lastMessage`, because the
           // transient-error classifier above compares that string exactly (`Request timed out`).
-          errorInfo: { message: explainFailureWithToolHistory({ message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), dominant: dominantToolCallFailure }), exitCode, repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure }, // Issue #2247 (H4/H10)
+          errorInfo: { message: explainFailureWithToolHistory({ message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${describeExitCode(exitCode)}`, toolLabel: 'Claude' }), dominant: dominantToolCallFailure }), exitCode, repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure }, // Issue #2247 (H4/H10)
           subscriptionError, // Issue #2161: terminal account block — /solve stops and preserves the work
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
@@ -1244,6 +1265,10 @@ export const executeClaudeCommand = async params => {
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     } catch (error) {
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: argv.tool || 'claude', env: routerGuardEnv, cwd: tempDir });
+      clearAttemptTimeouts();
+      await finalizeAttemptInput().catch(() => {});
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { message: routerError.message } };
       reportError(error, {
         context: 'execute_claude',
         command: params.command,
@@ -1276,12 +1301,12 @@ export const executeClaudeCommand = async params => {
           transientRetryBudget.grant();
           if (sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, actualModel: getLatestObservedModelFor(argv.model), errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
           await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1} in ${delayLabel} (session preserved, ${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
-          await waitWithCountdown(delay, log);
+          await waitForRetryDelay(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
@@ -1306,15 +1331,15 @@ export const executeClaudeCommand = async params => {
         errorInfo: { message: error.message || error.toString() },
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
+    } finally {
+      clearAttemptTimeouts();
+      await finalizeAttemptInput().catch(() => {});
     }
   }; // End of executeWithRetry function
-  // Start the execution with retry logic
-  const claudeResult = (await executeWithRetry()) || {};
-  // Issue #2119: `--model formal-ai` runs against the local Link.Assistant model
-  // server. Claude reports no pricing record of its own, so without this the
-  // session was published with Anthropic's cost and no provider at all.
-  const formalAiPricing = applyFormalAiPricingOverride({ model: argv.model, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null });
-  return { ...claudeResult, ...formalAiPricing };
+  const claudeResult = (await executeWithRetry().finally(() => claudeAttribution.finalize({ branchName }))) || {}; // Start with retry logic; attribution is finalized on every path (issue #3279)
+  // Issue #2119, #3279: price by the model that answered (Formal AI: $0); a non-Anthropic model behind a non-Anthropic ANTHROPIC_BASE_URL loses Claude's Anthropic list price.
+  const servedPricing = applyServedModelPricing({ tool: 'claude', model: argv.model, servedModels: Object.keys(claudeResult.resultModelUsage || {}), baseUrl: claudeBaseUrl, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null, resultModelUsage: claudeResult.resultModelUsage ?? null });
+  return { ...claudeResult, ...servedPricing };
 };
 // Export all functions as default object too
 // prettier-ignore

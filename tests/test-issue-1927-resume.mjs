@@ -19,7 +19,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-import { createSessionStore } from '../src/session-store.lib.mjs';
+import { createSessionStore as createStore } from '../src/session-store.lib.mjs';
 import { trackSession, monitorSessions, resumeTrackedSessions, setSessionStore, setSessionLogger, getActiveSessionCount, getTrackedSessionInfo, resetSessionMonitorForTests } from '../src/session-monitor.lib.mjs';
 import { assert, printSummary, getFailCount } from './test-helpers.mjs';
 
@@ -44,6 +44,19 @@ function makeBot() {
   };
 }
 
+// Event appends are asynchronous; every store a test opened is flushed before
+// its directory is removed.
+const openStores = [];
+function createSessionStore(options) {
+  const store = createStore(options);
+  openStores.push(store);
+  return store;
+}
+async function removeStoreDir(dir) {
+  await Promise.all(openStores.splice(0).map(store => store.flush()));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // =============================================================================
 // 1. Restart round-trip: a session tracked before "crash" is resumed afterwards.
 // =============================================================================
@@ -56,7 +69,7 @@ function makeBot() {
     setSessionStore(store1);
     trackSession('uuid-before', { chatId: 5, messageId: 7, startTime: BEFORE, url: 'https://github.com/acme/widgets/issues/42', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-before', logPath: '/var/log/before.log' }, false);
     assert(getActiveSessionCount() === 1, 'run #1 tracks the session in memory');
-    assert(store1.load().length === 1, 'run #1 mirrors the session to the durable store');
+    assert((await store1.load()).length === 1, 'run #1 mirrors the session to the durable store');
 
     // Simulate a hard crash: wipe in-memory state (store survives on disk).
     resetSessionMonitorForTests();
@@ -81,7 +94,7 @@ function makeBot() {
     );
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -106,7 +119,7 @@ function makeBot() {
     assert(getTrackedSessionInfo('uuid-after') === null, 'the after-bot-start session is NOT registered');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -127,7 +140,7 @@ function makeBot() {
     assert(getActiveSessionCount() === 1, 'no duplicate registration occurs');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 
@@ -142,7 +155,7 @@ function makeBot() {
     resetSessionMonitorForTests();
     setSessionStore(store1);
     trackSession('uuid-done', { chatId: 5, messageId: 7, startTime: BEFORE, url: 'u1', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-done' }, false);
-    assert(store1.load().length === 1, 'session is persisted while running');
+    assert((await store1.load()).length === 1, 'session is persisted while running');
 
     // It completes successfully — drive the real monitor so completeSession runs
     // and removes it from the durable snapshot.
@@ -150,7 +163,7 @@ function makeBot() {
       statusProvider: async () => ({ exists: true, status: 'executed', exitCode: 0 }),
     });
     assert(getActiveSessionCount() === 0, 'a successfully-completed session leaves the in-memory registry');
-    assert(store1.load().length === 0, 'a completed session is dropped from the durable snapshot');
+    assert((await store1.load()).length === 0, 'a completed session is dropped from the durable snapshot');
 
     // Restart: nothing to resume.
     resetSessionMonitorForTests();
@@ -161,7 +174,7 @@ function makeBot() {
     assert(getActiveSessionCount() === 0, 'no sessions are re-registered after completion');
   } finally {
     resetSessionMonitorForTests();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await removeStoreDir(dir);
   }
 }
 

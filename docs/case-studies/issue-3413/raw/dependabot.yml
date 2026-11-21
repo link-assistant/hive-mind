@@ -1,0 +1,222 @@
+# Every committed manifest outside dev/log is listed here, and
+# scripts/ci/check-dependabot.py fails CI when one is missing (issue #348).
+#
+# dev/log/** is not listed: those files are snapshots of other repositories'
+# templates, kept as evidence of what an issue found. Updating them would
+# rewrite the record, so they deliberately keep their historical versions,
+# as scripts/ci/check-dependencies.py already does.
+#
+# Updates run daily, like the freshness gate in dependencies.yml that fails
+# CI once a release is out. In each ecosystem, minor and patch updates arrive as
+# one grouped pull request (AutoMerge.yml can merge it once CI passes); a
+# major update arrives on its own, because crossing a major means reading the
+# changelog and adapting the code, not just bumping a number.
+version: 2
+updates:
+  # /js commits both package-lock.json (npm ci, npm audit, npm outdated in
+  # dependencies.yml and security.yml) and bun.lock (bun install
+  # --frozen-lockfile in javascript.yml). npm only rewrites the first and bun
+  # only the second, so both entries are needed. The cost is two pull
+  # requests for one bump in /js; each regenerates its own lockfile.
+  - package-ecosystem: "npm"
+    directories:
+      - "/js"
+      - "/docs/website"
+      - "/docs/comparison"
+      - "/benchmarks/js"
+      - "/benchmarks/tools"
+    schedule:
+      interval: "daily"
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "javascript"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "bun"
+    directory: "/js"
+    schedule:
+      interval: "daily"
+    groups:
+      bun-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "javascript"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "pip"
+    directories:
+      - "/python"
+      - "/benchmarks/python"
+      - "/scripts/ci"
+      - "/cpp/tools"
+    schedule:
+      interval: "daily"
+    groups:
+      pip-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "python"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "cargo"
+    directories:
+      - "/rust"
+      - "/experiments"
+      - "/experiments/issue-209/lino-shapes"
+      - "/experiments/issue-282/parity/rust"
+      - "/experiments/issue-301/rust-probe"
+      - "/experiments/issue-314/rust-differential"
+      - "/experiments/issue-314/rust-probe"
+      - "/experiments/issue-315/rust-probe"
+      - "/experiments/issue-316/rust-timing"
+    schedule:
+      interval: "daily"
+    groups:
+      cargo-minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Everywhere else links-notation is a path dependency. The one registry
+      # pin, links-notation-before = "=0.21.1" in issue-316/rust-timing, is the
+      # release that experiment measures against; bumping it changes the result.
+      - dependency-name: "links-notation"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "rust"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # experiments/debug_test.csproj is not listed: it compiles every .cs file
+  # under experiments/ against an API removed long ago and has not built since
+  # (experiments/issue-348/check-csharp-experiments.sh records it).
+  - package-ecosystem: "nuget"
+    directories:
+      - "/csharp"
+      - "/benchmarks/csharp"
+      - "/examples/binary/csharp"
+      - "/docs/case-studies/csharp-peg-simplification/solutions/01-parse-expression/project"
+      - "/docs/case-studies/csharp-peg-simplification/solutions/02-capture-validate/project"
+      - "/docs/case-studies/csharp-peg-simplification/solutions/03-semantic-predicates/project"
+      - "/docs/case-studies/csharp-peg-simplification/solutions/04-hybrid-approach/project"
+      - "/docs/case-studies/csharp-peg-simplification/solutions/05-minimized-hybrid/project"
+      - "/experiments/DebugParser"
+      - "/experiments/cref-repro"
+      - "/experiments/minimal-peg-rules"
+      - "/experiments/issue-282/parity/csharp"
+      - "/experiments/issue-288/csharp"
+      - "/experiments/issue-301/csharp-probe"
+      - "/experiments/issue-302/csharp-probe"
+      - "/experiments/issue-314/ports/csharp-differential"
+      - "/experiments/issue-314/ports/csharp-probe"
+      - "/experiments/issue-315/csharp-probe"
+    schedule:
+      interval: "daily"
+    groups:
+      nuget-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "csharp"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # csharp/global.json pins the SDK; setup-dotnet and .gitpod.Dockerfile read it.
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/csharp"
+    schedule:
+      interval: "daily"
+    labels: ["dependencies", "csharp"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # java/.mvn/wrapper/maven-wrapper.properties pins the Maven ./mvnw runs.
+  # Dependabot's maven ecosystem learned the wrapper in dependabot-core#14812
+  # (rolling out behind a flag); until it reaches this repository,
+  # scripts/ci/check-dependencies.py fails CI when a newer Maven is out.
+  - package-ecosystem: "maven"
+    directories:
+      - "/java"
+      - "/benchmarks/java"
+    schedule:
+      interval: "daily"
+    groups:
+      maven-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "java"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # The root composer.json is the Packagist distribution of php/
+  # (scripts/ci/php-distribution.mjs keeps the two in step).
+  - package-ecosystem: "composer"
+    directories:
+      - "/"
+      - "/php"
+      - "/benchmarks/php"
+    schedule:
+      interval: "daily"
+    groups:
+      composer-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "php"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/go"
+      - "/benchmarks/go"
+      - "/experiments/issue-282/parity/go"
+      - "/experiments/issue-288/go"
+      - "/experiments/issue-301/go-probe"
+      - "/experiments/issue-302/go-probe"
+      - "/experiments/issue-314/ports/go-probe"
+      - "/experiments/issue-315/go-probe"
+    schedule:
+      interval: "daily"
+    groups:
+      gomod-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "go"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      pre-commit-minor-and-patch:
+        update-types: ["minor", "patch"]
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # .gitpod.Dockerfile, and the probe that builds the same image with the
+  # SDK csharp/global.json pins (experiments/issue-348/gitpod-sdk.Dockerfile).
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/experiments/issue-348"
+    schedule:
+      interval: "daily"
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"

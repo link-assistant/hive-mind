@@ -19,9 +19,11 @@
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -59,11 +61,13 @@ export const dockerOk = async (run, args, options) => {
  * because it describes the failure without the command line, but stderr is
  * empty when the process is killed on a timeout — so whatever survives is
  * masked before anyone reads it.
+ *
+ * Every `--env` value is dropped (docker argv policy: any of them may be a
+ * secret the shape rules cannot recognize); everything else, stderr included,
+ * goes through the shared @link-foundation/sensitive-data-sanitizer engine
+ * (#3739/#3740) like any other text meant for a human.
  */
-const maskDockerArgvSecrets = text =>
-  String(text ?? '')
-    .replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***')
-    .replace(/(--(?:api-key|token|secret|password)[= ])(\S+)/g, '$1***');
+const maskDockerArgvSecrets = text => sanitizeCredentialText(String(text ?? '').replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***'));
 
 /** The message a failed `docker` invocation should be reported with. */
 export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.toString?.().trim() || error?.message || String(error));
@@ -71,15 +75,18 @@ export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.
 /**
  * Inspect a container without treating "absent" as an error.
  *
- * @returns {Promise<{exists: boolean, running: boolean, image: string|null, imageDigest: string|null}>}
+ * `status` is Docker's `.State.Status` (`created`, `running`, `restarting`,
+ * `paused`, `exited`, `dead`, …), or null when the answer did not carry it.
+ *
+ * @returns {Promise<{exists: boolean, running: boolean, status: string|null, image: string|null, imageDigest: string|null}>}
  */
 export const inspectDockerContainer = async (name, { run = execFileAsync, timeoutMs } = {}) => {
   try {
-    const raw = await dockerText(run, ['inspect', name, '--format', '{{.State.Running}}|{{.Config.Image}}|{{.Image}}'], { timeoutMs });
-    const [running, image, imageDigest] = raw.split('|');
-    return { exists: true, running: running === 'true', image: image || null, imageDigest: imageDigest || null };
+    const raw = await dockerText(run, ['inspect', name, '--format', '{{.State.Running}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}'], { timeoutMs });
+    const [running, image, imageDigest, status] = raw.split('|');
+    return { exists: true, running: running === 'true', status: status || null, image: image || null, imageDigest: imageDigest || null };
   } catch {
-    return { exists: false, running: false, image: null, imageDigest: null };
+    return { exists: false, running: false, status: null, image: null, imageDigest: null };
   }
 };
 
@@ -177,10 +184,13 @@ export const ensureDockerVolume = async ({ name, label, role = 'data', run = exe
 /** Path of a sidecar's durable record inside the bot state directory. */
 export const resolveSidecarStatePath = (fileName, env = process.env) => path.join(resolveBotStateDir(env), fileName);
 
-/** Read a durable sidecar record. A missing or corrupt file is an empty record, never a throw. */
-export const readSidecarState = ({ fileName, emptyState, env = process.env, fsImpl = fs } = {}) => {
+/**
+ * Read a durable sidecar record. A missing or corrupt file is an empty record, never a throw.
+ * Async because the bot reads it while it serves Telegram updates (issue #3278).
+ */
+export const readSidecarState = async ({ fileName, emptyState, env = process.env, fsImpl = fs } = {}) => {
   try {
-    const parsed = JSON.parse(fsImpl.readFileSync(resolveSidecarStatePath(fileName, env), 'utf8'));
+    const parsed = JSON.parse(await fsImpl.promises.readFile(resolveSidecarStatePath(fileName, env), 'utf8'));
     return { ...emptyState, ...parsed, leases: Array.isArray(parsed?.leases) ? parsed.leases : [] };
   } catch {
     return { ...emptyState, leases: [] };
@@ -193,56 +203,109 @@ export const readSidecarState = ({ fileName, emptyState, env = process.env, fsIm
  * `mode` exists because the router's record holds its JWT signing secret, which
  * mints subscription access: that file must not be world-readable (issue #2164).
  */
-export const writeSidecarState = (state, { fileName, env = process.env, fsImpl = fs, mode = 0o600 } = {}) => {
+export const writeSidecarState = async (state, { fileName, env = process.env, fsImpl = fs, mode = 0o600 } = {}) => {
   const target = resolveSidecarStatePath(fileName, env);
-  fsImpl.mkdirSync(path.dirname(target), { recursive: true });
+  await fsImpl.promises.mkdir(path.dirname(target), { recursive: true });
   const temporary = `${target}.tmp`;
-  fsImpl.writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode });
-  fsImpl.renameSync(temporary, target);
+  await fsImpl.promises.writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode });
+  await fsImpl.promises.rename(temporary, target);
   return state;
 };
 
 /**
- * How long a lease whose container has never been seen running is kept.
+ * How long a lease whose task container does not exist yet is kept.
  *
  * A lease is taken *before* start-command creates the task container, because
  * the endpoint and the token have to be known when the task's environment is
  * built. During that window the container legitimately does not exist yet — and
  * creating it can take a long time when the isolation image still has to be
- * pulled.
+ * pulled. The grace covers only that window: once Docker reports the container
+ * at all, its own state decides (issue #3210). Within the window the launch
+ * state decides too: a lease whose launcher has exited ends at once, so the
+ * fixed hour only bounds a launcher that hangs or runs on another host.
  */
 export const LEASE_START_GRACE_MS = 60 * 60 * 1000;
 
 /**
- * Drop leases whose task container no longer runs, so a crashed run cannot pin
- * a sidecar up forever.
+ * Who is launching the task a lease was taken for: the process that holds the
+ * lease until start-command has created the container, and releases it when
+ * the launch fails.
+ */
+export const describeLeaseLauncher = ({ pid = process.pid, host = os.hostname() } = {}) => ({ pid, host });
+
+const isProcessAlive = pid => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to someone else.
+    return error?.code === 'EPERM';
+  }
+};
+
+/**
+ * Whether the launch a lease is waiting for can no longer happen: the process
+ * that took the lease on this host has exited without creating the container
+ * (issue #3210). A lease from another host (or an older lease without a
+ * launcher) cannot be judged this way and keeps the plain launch grace.
+ */
+export const isLeaseLaunchAbandoned = (lease, { host = os.hostname(), processAlive = isProcessAlive } = {}) => {
+  const launcher = lease?.launcher;
+  if (!launcher || !Number.isInteger(launcher.pid) || launcher.pid <= 0 || launcher.host !== host) return false;
+  return !processAlive(launcher.pid);
+};
+
+// Container states in which the task is still starting or still alive. Anything
+// else Docker reports (`exited`, `dead`, `removing`) means the task is over.
+const LIVE_CONTAINER_STATUSES = new Set(['created', 'running', 'restarting', 'paused']);
+
+const isContainerAlive = container => container.running || LIVE_CONTAINER_STATUSES.has(container.status);
+
+const describeDroppedLease = (lease, container, launchAbandoned = false) => {
+  if (container.exists) return `task container stopped${container.status ? ` (${container.status})` : ''}`;
+  if (!lease.containerSeen && launchAbandoned) return `the process launching it (pid ${lease.launcher.pid}) exited before creating the task container`;
+  return lease.containerSeen ? 'task container no longer exists' : 'task container never appeared within the launch grace';
+};
+
+/**
+ * Drop leases whose task container is gone or stopped, so a crashed or finished
+ * run cannot pin a sidecar up.
  *
  * Liveness is re-derived from Docker on every call rather than trusted from the
  * store, which is what lets a restarted bot converge instead of orphaning.
+ *
+ * - The container exists and is alive: the lease is kept and marked as seen.
+ * - The container exists but has stopped: the lease ends at once, whether or
+ *   not it was ever seen running — a short task can finish between two ticks.
+ * - The container does not exist: the lease is kept only while it was never
+ *   seen, the process launching it is still alive and the launch grace has not
+ *   elapsed. The launch grace is only a backstop for a launcher that hangs or
+ *   runs on another host; a launcher that exited ends the lease at once.
  *
  * @param {Array<object>} leases
  * @param {{onDropped?: (lease: object) => Promise<void>|void}} options
  *   `onDropped` lets a sidecar clean up what the lease owned — the router
  *   revokes the task's token there.
  */
-export const reconcileSidecarLeases = async (leases, { run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => Date.now(), onDropped = null, logPrefix = 'docker-sidecar' } = {}) => {
+export const reconcileSidecarLeases = async (leases, { run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => Date.now(), onDropped = null, logPrefix = 'docker-sidecar', host, processAlive } = {}) => {
   const live = [];
   for (const lease of leases) {
     if (!lease?.sessionId) continue;
     const container = await inspectDockerContainer(lease.sessionId, { run, timeoutMs });
-    if (container.exists && container.running) {
+    if (container.exists && isContainerAlive(container)) {
       live.push(lease.containerSeen ? lease : { ...lease, containerSeen: true });
       continue;
     }
-    if (!lease.containerSeen) {
+    const launchAbandoned = !container.exists && !lease.containerSeen && isLeaseLaunchAbandoned(lease, { host, processAlive });
+    if (!container.exists && !lease.containerSeen && !launchAbandoned) {
       const age = now() - (Date.parse(lease.acquiredAt ?? '') || 0);
       if (age < LEASE_START_GRACE_MS) {
-        if (verbose && log) await log(`[VERBOSE] ${logPrefix}: keeping lease '${lease.sessionId}' whose container has not appeared yet (${Math.round(age / 1000)}s into the ${Math.round(LEASE_START_GRACE_MS / 1000)}s launch grace)`);
+        if (verbose && log) await log(`[VERBOSE] ${logPrefix}: keeping lease '${lease.sessionId}' whose task container does not exist yet (${Math.round(age / 1000)}s into the ${Math.round(LEASE_START_GRACE_MS / 1000)}s launch grace)`);
         live.push(lease);
         continue;
       }
     }
-    if (verbose && log) await log(`[VERBOSE] ${logPrefix}: dropping stale lease '${lease.sessionId}' (container exists=${container.exists} running=${container.running})`);
+    if (verbose && log) await log(`[VERBOSE] ${logPrefix}: dropping lease '${lease.sessionId}': ${describeDroppedLease(lease, container, launchAbandoned)}`);
     if (onDropped) await onDropped(lease);
   }
   return live;
@@ -279,8 +342,10 @@ export default {
   dockerOk,
   dockerText,
   ensureDockerVolume,
+  describeLeaseLauncher,
   ensureInternalDockerNetwork,
   inspectDockerContainer,
+  isLeaseLaunchAbandoned,
   readDockerContainerAddress,
   readDockerImageDigest,
   readSidecarState,

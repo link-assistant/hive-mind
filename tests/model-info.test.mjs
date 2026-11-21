@@ -111,7 +111,7 @@ test('resolveModelId resolves "grok" for agent tool', () => {
 });
 
 test('resolveModelId resolves "sonnet" for agent tool', () => {
-  assert.equal(resolveModelId('sonnet', 'agent'), 'anthropic/claude-3-5-sonnet');
+  assert.equal(resolveModelId('sonnet', 'agent'), 'anthropic/claude-sonnet-5-5'); // newest Sonnet (issue #2591)
 });
 
 test('resolveModelId resolves "gpt5" for codex tool', () => {
@@ -123,7 +123,7 @@ test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
 });
 
 test('resolveModelId resolves "flash" for gemini tool', () => {
-  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
+  assert.equal(resolveModelId('flash', 'gemini'), 'flash'); // Gemini CLI rolling alias (issue #2591)
 });
 
 test('resolveModelId strips [1m] suffix', () => {
@@ -385,7 +385,7 @@ test('resolveModelId resolves "qwen" for qwen tool', () => {
 });
 
 test('resolveModelId resolves "gemini" for gemini tool', () => {
-  assert.equal(resolveModelId('gemini', 'gemini'), 'gemini-2.5-flash');
+  assert.equal(resolveModelId('gemini', 'gemini'), 'flash'); // Gemini CLI rolling alias (issue #2591)
 });
 
 // ============================================================================

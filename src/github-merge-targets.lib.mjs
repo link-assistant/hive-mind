@@ -18,8 +18,9 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getLinkedPRsFromTimeline } from './github-merge-ready-sync.lib.mjs';
 
 const execRaw = promisify(execCallback);
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 

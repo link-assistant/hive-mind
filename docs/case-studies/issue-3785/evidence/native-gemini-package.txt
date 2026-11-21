@@ -1,0 +1,91 @@
+Native Gemini installation from the actual published-package file allowlist.
+This establishes executable installation, not the unfinished canonical defaults.
+
+Before:
+  npm pack --ignore-scripts produces a valid @link-assistant/hive-mind artifact,
+  but its installed source has no native Gemini package installer. The strict
+  probe fails: "The actual installed npm artifact must include its native
+  Gemini installer." Log: gemini-packaged-native-before.log.
+
+Recipe:
+  Gemini 0.65.0 archive integrity is pinned in its committed lockfile and recipe.
+  Every one of its 449 original files is hashed; five exact bundle edits and
+  eighteen new helpers have checked payload hashes and output hashes.
+  The generator reproduces all recipe bytes outside the checkout, with an
+  explicit repository formatter configuration. Original Apache licensing stays
+  in the complete source generation and the published Hive Mind package.
+  Source inventory SHA-256:
+    057029767b3fddcd8f5eb2dddab2a891383ac3cc0b60256fa4490e5f72a9df93
+  Native manager SHA-256:
+    80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+  Atomic publication helper SHA-256:
+    3b2b4dbc2296e6da81d314879e466f100f211579ebee13a63a74d9129bae28d8
+
+Reproduce:
+  bash experiments/issue-3785/check_packaged_gemini.sh \
+    /path/to/pristine-package /path/to/tested-stage-27-package \
+    /path/to/fresh-proof-prefix
+  The pristine source and output prefix must share a canonical parent directory.
+  Preserve the original archive's executable entrypoint mode; the first local
+  activation fixture omitted it and correctly failed before any command ran.
+
+After:
+  The packed artifact installs all 23 changed outputs byte-identically to the
+  independently reconstructed and tested package. All 449 original input bytes
+  remain unchanged. Reinstall allocates no new generation. A changed upstream
+  file refuses publication, preserves that changed input and leaves no partial
+  executable generation. An extra executable file or changed native helper
+  refuses verification; restoring the original exact generation verifies.
+  Stock command admission fails without executing it. Activation atomically
+  replaces its package-manager bin symlink after full verification. The native
+  --version returns 0.65.0. Reinstall keeps the selected bin inode.
+
+Activated-package runtime controls: 96 passing assertions.
+  Native writers/accounts 41; actual request authority 30; private-config
+  canonical reads 11. Actual ACP restore/reopen 3; automatic terminal
+  restore/reopen 4; generalist child edit/restore/reopen 5; partial plan intent
+  replacement recovery 2. All four network diagnostics contain errors [].
+  No CLI exports or SDK functions are replaced in the complete CLI controls.
+  Eight focused package/command refusal unit tests also pass.
+  Logs: /tmp/issue-3785-recovery/gemini-packaged-native-activated-v2-*.
+  Reviewed results: gemini-packaged-native-activated-v2-review.json.
+  The final recipe groups pairs of unchanged source lines to keep every
+  generated file within the 1000-line contribution guideline. Native output
+  hashes/sizes remain identical for all 23 changed files. A fresh final npm
+  artifact again passes all five installer, original-byte, refusal, activation
+  and native-version controls (gemini-packaged-native-final-lines-install.log).
+
+Both Dockerfiles activate from their actually installed npm package after all
+Bun global package transactions. The installed runtime verifier checks complete
+native bytes before the provider's version probe. The disposable Bun fixture
+passes using the actually installed branch package, activated Gemini command
+and real network-disabled pinned Codex stock tree. It survives a subsequent Bun
+global transaction after activation and passes the installed runtime verifier.
+A further run installs gh-upload-log@latest after activation, exercising an
+actual changed operational-tool transaction; native admission still passes.
+The first fixture omitted the image's explicit Claude cloud policy and correctly refused. A second
+run refused the mutable host Codex 0.166.0; the final probe defaults to the locked
+stock 0.164.0 binary. These setup corrections do not weaken admission.
+  Logs: gemini-native-image-package-v4.log and -v5.log (three lines each, exit 0).
+All 741 local default test files pass across sequential segments. The original
+heap-capped invocation passed its first 562 files but overrode a bounded worker's
+explicit heap limit through NODE_OPTIONS. That test passes all 40 assertions
+without the global override; its resumed segment passes all 178 remaining files.
+The newly added command-admission test file also passes separately. No worker
+regression fix or increased timeout was needed.
+Repository-wide ESLint and the shell retry check pass. Duplication is 10.04%,
+below the configured 12% threshold. Full-repository Prettier reaches the imposed
+256 MiB V8 heap limit, including a bounded tracked-file attempt; complete format
+verification remains for CI's larger runner. All changed-file format checks pass.
+No cgroup OOM kill occurs. Shell/workflow lint, secret scan of changed inputs,
+Python parsing, file limits and whitespace checks pass.
+Fresh required image CI remains a separate gate for both complete images.
+
+Boundaries:
+  Installation requires exclusive ownership of package directories. Nested
+  executable dependencies keep their original directory identity; complete
+  dependency provenance is not claimed. No authentication, configuration or
+  history is moved by this installer. SIGKILL orphan generations are retained.
+  Default canonical selection, private configuration, prior-state migration,
+  all backends/writers and the complete production lifecycle remain unfinished.
+  Production Codex still copies auth.json. PR 3786 remains draft and unmerged.

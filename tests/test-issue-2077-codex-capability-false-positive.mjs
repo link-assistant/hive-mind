@@ -103,7 +103,7 @@ const degraded = await runCodexCapabilityPreflight({
 
 assert.equal(degraded.required, false, 'an unresolvable requirement does not stop execution');
 assert.equal(degraded.degraded, true);
-assert.equal(degraded.codexHome, path.join(fallbackHome, 'hive-mind', 'repositories', 'suenot', 'marketmaker-images'), 'degraded execution still uses a provenance-checked repository scope');
+assert.equal(path.dirname(degraded.codexHome), path.join(path.dirname(fallbackHome), '.hive-mind', 'codex-tasks', 'suenot', 'marketmaker-images'), 'degraded execution still uses a fresh provenance-checked task scope');
 assert(
   logs.some(message => message.includes('Codex capability preflight skipped')),
   'the operator is warned about the skipped preflight'

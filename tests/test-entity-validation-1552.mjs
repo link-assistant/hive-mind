@@ -66,7 +66,7 @@ async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, typ
         let suggestion = '';
         const issueCheck = mocks.issueCheck?.(owner, repo, number);
         if (issueCheck?.code === 0 && issueCheck?.data) {
-          suggestion = `\n\n💡 However, Issue #${number} exists: "${issueCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/issues/${number}`;
+          suggestion = `\n\n💡 However, Issue #${number} exists: "${issueCheck.data.title}"\n   Did you mean https://github.com/${owner}/${repo}/issues/${number}?`;
         }
         return {
           valid: false,
@@ -80,7 +80,7 @@ async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, typ
         let suggestion = '';
         const prCheck = mocks.prCheck?.(owner, repo, number);
         if (prCheck?.code === 0 && prCheck?.data) {
-          suggestion = `\n\n💡 However, Pull Request #${number} exists: "${prCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/pull/${number}`;
+          suggestion = `\n\n💡 However, Pull Request #${number} exists: "${prCheck.data.title}"\n   Did you mean https://github.com/${owner}/${repo}/pull/${number}?`;
         }
         return {
           valid: false,

@@ -1,0 +1,29 @@
+link-assistant/formal-ai:data/view/en/app.lino: gloss "An appearance in a game (e.g., a player with 10 apps in a season played 10 times)"
+link-assistant/formal-ai:data/view/en/visit.lino: gloss "a temporary stay (e.g., as a guest)"
+link-assistant/formal-ai:data/view/en/formal.lino: gloss "being in accord with established forms and conventions and requirements (as e.g. of formal dress)"
+link-assistant/formal-ai:data/view/en/painter.lino: gloss "A rope connected to the bow of a boat, used to attach it to e.g. a jetty or another boat."
+link-assistant/formal-ai:data/view/en/highest.lino: gloss "Consummate; advanced (e.g. in development) to the utmost extent or culmination, or possessing a quality in its supreme degree, at its zenith."
+link-assistant/formal-ai:data/view/en/highest.lino: gloss "(in several set phrases) Very traditionalist and conservative, especially in favoring older ways of doing things; see e.g. high church, High Tory."
+link-assistant/formal-ai:data/view/en/autonomous.lino: gloss "(of persons) free from external control and constraint in e.g. action and judgment"
+link-assistant/formal-ai:rust/src/seed/entity_names.rs: /// Stable slug used in trace logs, e.g. `elon_musk`.
+link-assistant/formal-ai:rust/src/seed/entity_names.rs: /// Wikidata entity id grounding the name, e.g. `Q317521`.
+link-assistant/formal-ai:rust/src/sequences/symbols.rs: //! - **scalar symbols** — arbitrary `u64` element ids (e.g. tokens, colours);
+link-assistant/formal-ai:rust/src/sequences/symbols.rs: /// Markers give sequence roots a typed tag (e.g. `"unicode_sequence"`).
+link-assistant/formal-ai:rust/src/program_coreference.rs: /// program artifact — e.g. "cancel the sorting", "Отмени сортировку",
+link-assistant/formal-ai:rust/src/translation/meaning.rs: //! - a Q-item (e.g. `Q2095` "food"), which is language-neutral and holds
+link-assistant/formal-ai:rust/src/translation/meaning.rs: //! - a Lexeme sense `L<id>-S<id>` (e.g. `L8485-S1` "the English noun hello,
+link-assistant/formal-ai:data/view/en/agent.lino: gloss "(grammar) The participant of a situation that carries out the action in this situation, e.g. 'the boy' in the sentences 'The boy kicked the ball' and 'The ball was kicked by the boy'."
+link-assistant/formal-ai:experiments/codemod-h-to-jsx.mjs: // Lowercase/standard tag: e.g. "div", "section". Must be a valid JSX name.
+link-assistant/formal-ai:experiments/codemod-h-to-jsx.mjs: // `tag`. So an h() call whose tag is a lowercase *variable* (e.g. the
+link-assistant/formal-ai:data/cache/wordnet/en/formal.lino: definition "being in accord with established forms and conventions and requirements (as e.g. of formal dress)"
+link-assistant/formal-ai:experiments/capture-issue-353.cjs: // A fresh context per scenario keeps localStorage (e.g. an agent opt-in) from
+link-assistant/formal-ai:experiments/capture-issue-353.cjs: await page.goto(`${BASE_URL}/`);
+link-assistant/formal-ai:experiments/issue-550-capture.cjs: // :3456 (e.g. `npx serve src/web --listen 3456`). The Services panel only
+link-assistant/formal-ai:experiments/issue-550-capture.cjs: await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+link-assistant/formal-ai:data/cache/wiktionary/en/app.lino: definition "An appearance in a game (e.g., a player with 10 apps in a season played 10 times)"
+link-assistant/formal-ai:data/cache/wiktionary/en/agent.lino: definition '(grammar) The participant of a situation that carries out the action in this situation, e.g. "the boy" in the sentences "The boy kicked the ball" and "The ball was kicked by the boy".'
+link-assistant/formal-ai:rust/src/seed/grounding_overrides.rs: /// One field-level fact carried by an override, e.g. section `labels`, key
+link-assistant/formal-ai:rust/src/seed/grounding_overrides.rs: /// id node (e.g. `Q131560`). Returns `None` for an empty document.
+link-assistant/formal-ai:data/cache/wordnet/en/autonomous.lino: definition "(of persons) free from external control and constraint in e.g. action and judgment"
+link-assistant/formal-ai:rust/src/attachment_context.rs: /// Display file name (e.g. `report.txt`).
+link-assistant/formal-ai:rust/src/attachment_context.rs: /// MIME type (e.g. `text/plain`); empty when unknown.

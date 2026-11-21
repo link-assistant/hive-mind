@@ -1,0 +1,102 @@
+
+--- The flag is off by default and readable from the environment ---
+  PASS: router isolation is off when nothing asks for it
+  PASS: --use-router turns it on
+  PASS: HIVE_MIND_USE_ROUTER=true is inherited by nested invocations
+  PASS: HIVE_MIND_USE_ROUTER=0 keeps it off
+
+--- Endpoint resolution rejects anything that is not a bare origin ---
+  PASS: a bare http origin is accepted
+  PASS: a lone trailing slash is normalized away
+  PASS: a path is rejected rather than silently dropped
+  PASS: embedded credentials are rejected
+  PASS: a non-http scheme is rejected
+  PASS: without an override the task targets the sidecar alias
+  PASS: the sidecar endpoint is not reported as external
+  PASS: HIVE_MIND_ROUTER_URL marks the router as externally managed
+  PASS: an unusable override yields no endpoint
+  PASS: an unusable override explains itself
+
+--- The sidecar is a pinned, TLS-terminating router on 443 ---
+  PASS: the router listens on 443, the only port gh will build an endpoint for
+  PASS: so the internal endpoint is https with no port, matching the certificate authority name
+  PASS: the image is pinned to an exact version rather than :latest
+  PASS: the certificate claims exactly the internal alias and api.github.com — the second is what lets an unmodified gh verify the interception, and the list is asserted whole so an extra SAN cannot slip in unnoticed
+
+--- GitHub routing: transparent for our own sidecar, declared for an external one ---
+  PASS: our own sidecar intercepts api.github.com by name, with no gh reconfiguration
+  PASS: an external router is on a network we cannot rewrite, so nothing is claimed
+  PASS: an operator-supplied HTTPS endpoint is wired through GH_HOST instead
+  PASS: and an operator can turn GitHub routing off entirely
+  PASS: no explicit gh host is needed for the default path
+  PASS: plaintext is refused here, where the reason can be explained
+
+--- Routed tasks are pointed at the router, per tool surface ---
+  PASS: claude is redirected via ANTHROPIC_BASE_URL
+  PASS: and the task's token is offered in both forms the router accepts
+  PASS: and nothing else is injected
+  PASS: gh keeps its own host: the interception happens in DNS, so every gh command form is covered
+  PASS: gh authenticates to the router with the same scoped token, and holds no GitHub credential
+  PASS: Node-based clients are given the router CA as an addition to the system store
+  PASS: clients that replace the store are given a bundle that still contains the public roots
+  PASS: codex is redirected via the OpenAI-compatible surface under /v1
+  PASS: and gets a CODEX_HOME of its own, because codex ignores OPENAI_BASE_URL without a provider entry there
+  PASS: the generated provider entry speaks the wire API the router serves
+  PASS: and names the router as its base URL
+  PASS: an external router is reached by pointing gh at its host
+  PASS: with the task token as its enterprise credential
+  PASS: an unrouted-GitHub task is given no GitHub credential of ours at all
+  PASS: no token means no redirect: a task is never pointed at a router it cannot authenticate to
+
+--- git is sent through the router, and cannot fall back to an inherited credential ---
+  PASS: github.com is rewritten to the router git proxy, over a trusted CA
+  PASS: and the operator’s inherited credential helper is cleared, so no real GitHub token can be presented
+  PASS: the token rides in a scoped header rather than in a remote URL, where it would reach reflogs and error messages
+  PASS: nothing is rewritten when GitHub is not routed
+
+--- The task container is finished off from the host, inside the start gate ---
+  PASS: the CA is written into the task container
+  PASS: api.github.com is resolved to the router, which is what makes gh routing transparent
+  PASS: and the entry is added only once, so a reused sidecar does not duplicate it
+  PASS: the replacement bundle starts from the system roots
+  PASS: a claude task gets no codex provider entry
+  PASS: a codex task does
+  PASS: an externally-hosted gh endpoint needs no hosts entry
+
+--- Vendor credentials are withheld from routed tasks (R2, R9) ---
+  PASS: a routed claude task loses both Claude credential paths
+  PASS: a routed codex task loses both Codex credential paths
+  PASS: the gh credential is withheld once GitHub is routed
+  PASS: default behaviour is unchanged: claude tasks still receive the real subscription (R9)
+  PASS: nothing named .claude survives into a routed container
+  PASS: nothing named .codex or .agents survives into a routed container
+  PASS: the git identity is still mounted: it is not a subscription credential (issue #1939)
+  PASS: once gh is routed, its host credential is withheld too (R12)
+
+--- The launcher wires it end to end ---
+  PASS: a default launch injects no router endpoint
+  PASS: a routed launch points Claude Code at the sidecar
+  PASS: the task's own token is passed in, not the operator's credential
+  PASS: and at the CA it will be given while the start gate still holds it
+  PASS: no Claude credential mount appears anywhere in a routed launch command
+  PASS: the push guard and the router git settings share one GIT_CONFIG_COUNT
+  PASS: with the push-guard hook first
+  PASS: and the github.com rewrite among them
+  PASS: without an issued token an explicitly selected Router launch is rejected
+  PASS: a guard that could not be installed leaves only the router git settings
+  PASS: and no hooksPath is set for a hook the task was never given
+  PASS: nor is the hook directory mounted
+
+--- An experimental run states its own limits (R10, R16) ---
+  PASS: every routed run names the destructive-API gap the router still forwards, and cites the upstream issue (R13)
+  PASS: and no longer claims force pushes are unblocked — router#273 closed that from 0.110.0, and the pin is past it
+  PASS: the pinned image is at or above 0.110.0, so it carries the compare-based force-push mediation the warning above stopped claiming was missing
+  PASS: the default path routes GitHub, so it claims no gap there
+  PASS: a run without GitHub routing says so
+  PASS: --model formal-ai explains how it reaches the router (R11)
+  PASS: #3215: the provider-qualified spelling is Formal AI too, not an unknown alias
+  PASS: a model alias is called out, because the router resolves advertised ids only
+  PASS: a dated id is not
+  PASS: and a non-Claude tool is flagged as the less exercised path
+
+Result: 80 passed, 0 failed

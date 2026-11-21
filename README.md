@@ -150,95 +150,25 @@ sudo docker run hello-world
 
 ### Using Docker
 
-Run the Hive Mind using Docker for safer local installation - no manual setup required:
-
-**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
+Run [Hive Mind Manager](./docs/deployment/hive-manager.md) on a host with Docker. If the package is already installed, start at the deployment command.
 
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
+```
 
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
+Open the displayed links on your own machine. Paste Claude's authorization code back into the running command. Enter the Codex code in its browser flow and the GitHub code on the [GitHub device page](https://github.com/login/device). Sign in to the services you use. See [remote deployment](./docs/deployment/hive-manager.md#profiles-and-remote-use) and [manual Docker and login commands](./docs/deployment/hive-manager-manual.md).
 
-# Verify container started
-docker ps -a
+```bash
+# Run a command in the instance
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
 
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
-gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
-claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
-codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# Verify Playwright MCP is registered for both CLIs in this container image
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
-exit
-
-# Attach to main bash process
-docker attach hive-mind
-
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# On the host, create the directories used by the current Docker workflow:
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
-touch -a /root/.hive-mind/claude.json
-
-# In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
-# Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
-docker run -dit --user box --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
-
-# After the first start, fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
-chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
-
-# Important: mounted ~/.codex data overrides the image-baked Codex config.
-# If the host directory was created before Playwright MCP was added to the image,
-# re-register it once inside the running container:
-docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080'
+# Start the Telegram bot with a private environment file
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 **Benefits of Docker:**
@@ -251,46 +181,17 @@ docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -
 
 The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/home/box/.codex` directory from the host that replaces the image's default Codex configuration.
 
-Before `codex exec`, Hive Mind scans the issue and its comments for explicit required plugin selectors and Agent Skill names. It resolves skill providers from Codex's marketplace catalog and installs them under `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`, so enablement persists across restarts without affecting other repositories. Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190), Docker-isolated tasks receive only the credential file and the session directories, never the whole `.codex`/`.claude` folder or `/home/box/.agents`; the global configuration is audited and trimmed to a minimal profile on every start (`--no-agent-config-auto-repair` to opt out). An unavailable requirement stops before the AI session with the exact capability and a catalog remediation command.
+Before `codex exec`, Hive Mind scans the issue and its comments for explicit required plugin selectors and Agent Skill names. It resolves skill providers from Codex's marketplace catalog and installs them under `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`, so enablement persists across restarts without affecting other repositories. Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190), Docker-isolated tasks receive only the credential file and the session directories, never the whole `.codex`/`.claude` folder or `/home/box/.agents`; the global configuration is audited and trimmed to a minimal profile on every start (`--no-agent-config-auto-repair` disables repair; remaining audited findings still stop execution). An unavailable requirement stops before the AI session with the exact capability and a catalog remediation command.
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
-#### Stoping and removing docker container
+#### Stopping and removing the Docker container
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm Installation (Kubernetes) (Experimental)
@@ -363,7 +264,9 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first), creates one combined issue that attaches up to 100 of them as GitHub native sub-issues (GitHub's limit per parent) and lists every one of them, including the rest, as a required closing reference, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. Issues still attached to an earlier, closed combined issue are moved to the new one, and with `--auto-merge` the pull request is merged only once its description closes every listed issue. When no issues are open, the CLI exits successfully without creating anything; Telegram reports the no-work result directly without starting a work session. When exactly one issue is open, no combined issue is created: that issue is solved directly, as if its URL had been passed (Telegram also shows and launches the issue URL). See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
+
+> **Exit codes**: `solve` exits 0 when the run made progress (a commit, a file change or a comment) or its pull request was merged, and 5 when it finished without changes: it explains why in a pull request comment, keeps a draft pull request in draft and never reports 🎉 success ([#3211](https://github.com/link-assistant/hive-mind/issues/3211)). Any other nonzero code is a failure. `hive` and the Telegram bot report exit 5 as ⚠️ finished without changes, not as a failure; scripts that call `solve` directly and treat every nonzero exit as an error should accept 5 when an unchanged run is expected, or set `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE=0` to keep the old exit code.
 
 **Most frequently used options:**
 
@@ -412,6 +315,10 @@ hive <github-url> [options]
 | `--help`                 | `-h`  | Show all available options                             | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
+
+With `--once`, the final summary reports found, completed, failed, skipped and waiting issues, including PR links that caused skips. Exit 3 means no issues were processed; exit 4 means some work completed with issues still waiting; exit 1 indicates worker or discovery failures. Explicit dry runs exit 0. A successful solver exit does not establish that its PR was merged.
+
+`--skip-issues-with-prs` skips issues with their own open PRs. A parent issue's PR belongs to the parent even when it references its sub-issues. Parents wait until their open sub-issues are closed; dependency ordering also applies when including existing PRs. When no eligible issues remain, Hive suggests `--no-skip-issues-with-prs --auto-continue` to continue existing drafts. Telegram displays no-work and partial hive runs as warnings; `--verbose` adds discovery details to the log.
 
 ## 🤖 Telegram Bot
 
@@ -477,6 +384,12 @@ Want to see the Hive Mind in action? Request a free demo or get faster support b
 
 ### Bot Commands
 
+In a group with multiple detected Hive Mind bots, use Telegram's addressed command syntax, such as `/help@SwarmMindBot` or `/solve@SwarmMindBot <github-url>`. A group with one detected Hive Mind bot accepts both forms.
+
+Use `/who@SwarmMindBot` to get the bot's identity and running Hive Mind version. Hive Mind uses `/who` to discover peers and tries an addressed `/version` for older peers. For custom-named bots, enable Bot-to-Bot Communication Mode in @BotFather. Group administrators or bots with Group Privacy Mode disabled can receive unaddressed probes when Bot-to-Bot Communication Mode is enabled on the receiving account. [Telegram delivery rules](https://core.telegram.org/api/bots/bot-to-bot)
+
+Hive Mind also recognizes **Hive Mind** and **Swarm Mind** names from the group administrator list, membership updates, and visible message authors. For peers Telegram keeps hidden, set `TELEGRAM_HIVE_MIND_PEER_BOTS` (or `--peer-bots`) on the participating bots. Each Links Notation pair contains a Telegram group ID and a numeric peer bot ID, for example `((-1001234567890 987654321))`. Upgrade each participating bot to enforce addressed-only routing across the group.
+
 Most operational commands work in **group chats only** (not in private messages with the bot). Commands that intentionally deliver private updates, such as `/terminal_watch`, may also be used in direct messages:
 
 #### `/solve` - Solve GitHub Issues
@@ -499,15 +412,15 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
@@ -528,17 +441,61 @@ Current tool defaults in Hive Mind:
 | ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
 | `codex`    | newest `gpt-*-sol` in the installed catalogue (`gpt-6-sol` bundled default) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
-| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `opencode` | `big-pickle`                                                                | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
-| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
+Reply with `/solve` (or any alias, with options such as `/codex --think medium`)
+to a message that contains GitHub issue or pull request links to start them. A
+single link starts as usual. With several links, each valid link starts as its
+own task, as if the command was sent once per link: every start is a reply to
+the same command message, one at a time, with a random 10–15 second pause
+between two starts. Links that could not be started (invalid, not found,
+already running or queued, rejected by the queue) are listed in one summary
+after every valid link was started. A command can also list several links
+itself, for example `/solve <url-1> <url-2> --model opus`.
+
+#### `/after` and `/enqueue` - Start a Task After Another Task
+
+```
+/after <task-link> [options]                     (reply to the awaited task's message)
+/after <uuid|awaited-link> <task-link> [options]
+/after [options]                                 (reply: run the same link again afterwards)
+/enqueue ...                                     (same forms)
+```
+
+Both commands start exactly one task after another task has finished. The task
+to wait for is found the way `/stop`, `/log` and `/watch` find a task: a session
+UUID or an issue/pull request link, in the replied message or in the command.
+Everything else works as in `/solve` (the link to start and its options).
+
+- `/after` starts the task only when the awaited task **succeeds** (a run
+  without changes counts as a success). When the awaited task fails, is
+  cancelled or is killed, the waiting task fails too.
+- `/enqueue` starts the task once the awaited task **finishes**, whatever the
+  outcome.
+
+A waiting task is listed in `/queue` under "Waiting for other tasks" and can be
+stopped with `/stop` before it starts.
+
+**`--respect-blockers` (experimental, off by default).** Add it to `/solve`,
+`/claude`, `/codex` or any other solve command to respect the issue's GitHub
+relations, as `/hive` does: open "blocked by" issues, open sub-issues (a
+sub-issue blocks its parent) and the blockers of its ancestors. When every open
+blocker is already queued or running, the task waits for them as with `/after`.
+When a blocker is neither queued nor running, the task is not started.
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` turns it on for every solve command. A
+command with several links respects blockers by default and starts the
+unblocked links first (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`, or
+`--no-respect-blockers` for one command, turns that off).
+
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
-> **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
+> **📖 Live model list**: run `hive-manager models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
 
 #### `/hive` - Run Hive Orchestration
 
@@ -583,6 +540,8 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` detects the target repository's languages, inspects the latest
@@ -606,8 +565,19 @@ there. It then hands the issue off to
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`.
 See
 [Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
-for details. Exactly one mode is required per run: `/fix` with no mode, or with
-both, is rejected.
+for details. Before inspecting the repository it merges every open Dependabot
+pull request without waiting for CI/CD, and the issue asks the solver to fix
+every error those merges introduced. A pull request whose updates the default
+branch already has is closed as superseded, whether it conflicts or not
+([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863), [issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)).
+A conflicting one is otherwise rebuilt with `@dependabot recreate`; one that a
+ruleset keeps out because it is behind is rebased with `@dependabot rebase`;
+both are merged once their required checks pass. `--dependabot-wait-timeout
+<minutes>` (default 30, `0` to not wait) bounds that wait, and
+`--no-merge-dependabot-prs` skips this step
+([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
+Exactly one mode is required per run: `/fix` with no mode, or with both, is
+rejected.
 
 If the full `/fix` workflow is unavailable, `/task --ci-cd <repository>` and
 `/task --update-all-dependencies <repository>` run only the same
@@ -615,6 +585,8 @@ issue-generation step. They return the created issue URL; reply with
 `/solve --development-log --deep-analysis --auto-merge` (adding
 `--update-all-dependencies` for the dependency issue) to continue through the
 normal solve workflow.
+
+`--update-all-dependencies` enables `--report-dependencies-issues`: report shared logic, duplicated code, missing features and bugs requiring workarounds to dependency upstreams. Local workarounds may stay so the pull request can proceed. Add `--no-report-dependencies-issues` to disable reporting, or use `--report-dependencies-issues` on `/solve` or `/hive` without updating dependencies.
 
 #### `/organize` - Classify Open Issues
 
@@ -646,35 +618,32 @@ Shows:
 - Solve queue status
 ```
 
-#### `/pause` and `/resume` - Stop and Continue a Task
+#### Docker task controls
 
 ```text
-/pause <session-uuid or GitHub issue/PR URL>
-/resume <session-uuid or GitHub issue/PR URL>
+/pause <session ID or GitHub issue/PR URL> [--reason <text>]
+/unpause <session ID or GitHub issue/PR URL>
+/stop <session ID or GitHub issue/PR URL>
+/resume <session ID or GitHub issue/PR URL>
+/status <session ID or GitHub issue/PR URL>
+/list
 ```
 
-Reply to a task message with either command, or use `/resume` without arguments
-to list your paused tasks. The task requester and the originating chat owner
-can control a task in its group chat or in a direct message with the bot.
+The requester or original chat owner can control the task in its group or in a
+direct message with the bot. Pass a container name, session UUID, execution
+UUID, or URL, or reply to the task message. `/list` and the commands without
+a target show your matching Docker tasks.
 
-`/pause` stops the entire Docker task container, releasing its execution CPU
-and RAM while preserving its filesystem. Paused tasks survive bot restarts,
-stay protected from automatic recovery and cleanup, and free a running queue
-slot. Submitting the same URL again points to the existing paused task.
+`/pause` freezes the container and frees its CPU slot. The process, memory,
+and files stay in place. `/unpause` continues the same process. `/queue` and
+`/limits` show paused tasks separately, and the bot alerts you once after an
+hour of pause. The bot detects manual Docker pauses and unpauses, including
+after a bot restart.
 
-`/resume` continues from a snapshot of the retained filesystem. Solve tasks
-reuse their original working directory and the latest recorded AI session,
-including local edits and installed dependencies. Other commands restart their
-original invocation against the retained files. The execution UUID remains
-addressable, and completion monitoring resumes. This continues work from disk
-and AI conversation state; process memory is released when the task stops.
-
-Task pause/resume requires Docker isolation and a version of `start-command`
-supporting snapshot resume (0.33.0 or later; 0.35.0 or later for tasks with
-resource limits). Router and Formal AI sidecar tasks are currently unsupported.
-A missing retained container or unavailable workspace prevents resume rather
-than starting with an empty filesystem. Docker system pruning is skipped while
-paused tasks need their stopped containers.
+Use `/stop` to release RAM and keep the container's files. `/resume` restarts
+an exited task with its retained workspace and the latest recorded AI session.
+The execution UUID remains usable. Resume requires the retained container and
+currently excludes tasks using a router or Formal AI sidecar.
 
 #### `/terminal_watch` - Live Session Log
 
@@ -732,7 +701,7 @@ When enabled with `--auto-start-screen-watch-message`, the bot automatically sta
 - Private `/auth` is disabled unless `TELEGRAM_ALLOWED_CHATS` is set and only
   owners of listed chats can use it
 - Commands run as the system user running the bot
-- Ensure proper authentication (`gh auth login`, `claude-profiles`)
+- Set up the bot user's credentials for its enabled providers. [Headless sign-in](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 Best Practices
 
@@ -902,7 +871,7 @@ died unsupervised is finalized and reported. See
 
 ### Disk Cleanup
 
-`hive-cleanup` frees disk space by removing stale hive-mind temporary
+`hive-manager cleanup` frees disk space by removing stale hive-mind temporary
 directories/files (per-task clones like `/tmp/gh-issue-solver-*`, MCP config
 files, log download dirs, …) while **keeping folders that belong to
 currently-running tasks**, protected system paths, and any clone with
@@ -913,40 +882,40 @@ branch).
 
 ```bash
 # Preview: list kept folders and folders that would be deleted (deletes nothing)
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # Actually delete stale temp artifacts (asks for confirmation first)
-hive-cleanup
+hive-manager cleanup
 
 # Delete without the confirmation prompt
-hive-cleanup --force
+hive-manager cleanup --force
 
 # Also consider non-hive-mind temp entries (more aggressive)
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # Allow deleting /tmp/start-command (kept by default; holds isolation logs)
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / system cleanup (apt caches, journald logs, npm cache)
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # Map live/stuck agent PIDs back to hive/start-command task sessions
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Trace a specific non-agent PID, for example a browser child or shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # Preview orphaned terminal-session agents that can be stopped
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # Stop orphaned agent process trees after reviewing the preview
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # Disable active-task detection (only protected paths are kept)
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Run `hive-cleanup --help` for the full list of options. The command is dry-run
+Run `hive-manager cleanup --help` for the full list of options. The command is dry-run
 friendly and writes a timestamped `cleanup-*.log` for every run. Process
 diagnostic output redacts common token shapes before printing command lines.
 
@@ -962,8 +931,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **Authentication:**
 
-- `gh auth login` - GitHub CLI authentication
-- `claude-profiles` - Claude authentication profile migration to server
+Sign in with `hive-manager auth github`, `hive-manager auth claude`, or `hive-manager auth codex` as the account that runs Hive Mind. [Remote sign-in and manual commands](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter Integration:**
 
@@ -1006,14 +974,14 @@ that launched it:
 ```bash
 # Show agent PIDs, start-command session IDs, GitHub task URLs, workspaces,
 # match reasons, and possible orphaned terminal-session agents.
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Include an arbitrary PID in the same report.
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # Kill only agents whose matched start-command task is already terminal.
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: identify screens that are parents of processes that are eating
@@ -1106,7 +1074,7 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-`hive-screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
+`hive-manager screens` manages finished solve sessions. It ships with `@link-assistant/hive-mind`, so once the package is
 installed (globally, through `npx`, or in a project) it is available on `PATH`.
 
 It scans detached GNU screen sessions, looks for solve runs that are done and
@@ -1118,25 +1086,25 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 
 ```bash
 # Safe preview — show every finished, mergeable solve session.
-hive-screens --list
+hive-manager screens --list
 
 # Close the oldest finished session.
-hive-screens --close
+hive-manager screens --close
 
 # Attach to the newest finished session.
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # Close every finished session.
-hive-screens --close --all
+hive-manager screens --close --all
 
 # Print diagnostic output while scanning (useful when matching fails).
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` defaults to `--all` so a bare `hive-screens --list` shows every match.
+`--list` defaults to `--all` so a bare `hive-manager screens --list` shows every match.
 `--enter` and `--close` default to `--oldest` because they are destructive.
 Supply `--oldest`, `--newest`, or `--all` to override. Run
-`hive-screens --help` for the full option list.
+`hive-manager screens --help` for the full option list.
 
 ### Reboot server.
 

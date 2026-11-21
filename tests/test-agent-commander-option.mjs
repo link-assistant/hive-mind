@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  */
 
 import assert from 'node:assert/strict';
 import { stdout } from 'node:process';
 
+import { buildCodexGeolocationConfigArgs, withGeolocationPolicy } from '../src/geolocation-policy.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
 import { AGENT_COMMANDER_TOOLS, buildAgentCommanderControllerOptions, buildAgentCommanderToolOptions, executeWithAgentCommander, summarizeAgentCommanderResult, validateAgentCommanderConnection } from '../src/agent-commander.lib.mjs';
@@ -51,37 +52,42 @@ for (const [key, value] of Object.entries(CLAUDE_MEMORY_DISABLE_ENV)) {
 const memoryArgs = buildCodexMemoryDisableConfigArgs(true);
 assert.deepEqual(memoryArgs, ['-c', 'features.memories=false', '-c', 'features.external_agent_memory_import=false']);
 const auxiliaryArgs = buildCodexAuxiliaryDisableConfigArgs(true);
-assert.deepEqual(auxiliaryArgs, ['-c', 'features.goals=false', '-c', 'features.personality=false']);
+assert.deepEqual(auxiliaryArgs, ['-c', 'features.personality=false']);
+const geolocationArgs = buildCodexGeolocationConfigArgs();
 const policyArgs = [...memoryArgs, ...auxiliaryArgs];
+// Issue #2771: every codex run pins the standard (cheapest) speed tier and the
+// short-context window, right after the reasoning args.
+// Issue #2406: native goals then stay on in every run, independent of both opt-outs.
+const pricingArgs = ['-c', 'service_tier=default', '-c', 'model_context_window=272000', '-c', 'features.goals=true'];
 
 const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
-assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...policyArgs]);
+assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs, ...policyArgs]);
 
 const codexXHighToolOptions = buildAgentCommanderToolOptions({ think: 'xhigh' }, 'codex');
-assert.deepEqual(codexXHighToolOptions.extraArgs, ['-c', 'model_reasoning_effort=xhigh', '-c', 'model_reasoning_summary=auto', ...policyArgs]);
+assert.deepEqual(codexXHighToolOptions.extraArgs, ['-c', 'model_reasoning_effort=xhigh', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs, ...policyArgs]);
 
 const codexMaxToolOptions = buildAgentCommanderToolOptions({ think: 'max' }, 'codex');
-assert.deepEqual(codexMaxToolOptions.extraArgs, ['-c', 'model_reasoning_effort=max', '-c', 'model_reasoning_summary=auto', ...policyArgs]);
+assert.deepEqual(codexMaxToolOptions.extraArgs, ['-c', 'model_reasoning_effort=max', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs, ...policyArgs]);
 
 const codexUltraToolOptions = buildAgentCommanderToolOptions({ think: 'ultra' }, 'codex');
-assert.deepEqual(codexUltraToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=500000', ...policyArgs], 'ultra reasoning effort must be paired with a rollout token budget cap');
+assert.deepEqual(codexUltraToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=500000', ...geolocationArgs, ...pricingArgs, ...policyArgs], 'ultra reasoning effort must be paired with a rollout token budget cap');
 
 const codexUltraCustomBudgetToolOptions = buildAgentCommanderToolOptions({ think: 'ultra', rolloutTokenBudget: 250000 }, 'codex');
-assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000', ...policyArgs]);
+assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000', ...geolocationArgs, ...pricingArgs, ...policyArgs]);
 
 const codexMemoryOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false }, 'codex');
-assert.deepEqual(codexMemoryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...auxiliaryArgs], '--no-agent-memory-disabled should leave the codex command line alone apart from the unrelated #2236 policy');
+assert.deepEqual(codexMemoryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs, ...auxiliaryArgs], '--no-agent-memory-disabled should leave the codex command line alone apart from the unrelated #2236 policy');
 
 // Issue #2236: the two opt-outs are independent — turning one off must not turn
 // the other off, and turning both off must leave the command line as it was.
 const codexAuxiliaryOptOut = buildAgentCommanderToolOptions({ auxiliaryModelCallsDisabled: false }, 'codex');
-assert.deepEqual(codexAuxiliaryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...memoryArgs], '--no-auxiliary-model-calls-disabled should leave the #2178 memory args alone');
+assert.deepEqual(codexAuxiliaryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs, ...memoryArgs], '--no-auxiliary-model-calls-disabled should leave the #2178 memory args alone');
 
 const codexBothOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false, auxiliaryModelCallsDisabled: false }, 'codex');
-assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto'], 'opting out of both policies must add no arguments at all');
+assert.deepEqual(codexBothOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...geolocationArgs, ...pricingArgs], 'opting out of both policies must add no policy arguments, only the #2771 pricing tier and the #2406 goals');
 
 const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
-assert.deepEqual(geminiToolOptions, { debug: true });
+assert.deepEqual(geminiToolOptions, { debug: true, extraEnv: { TZ: 'UTC' } });
 
 const claudeOptions = buildAgentCommanderControllerOptions({
   tool: 'claude',
@@ -121,7 +127,7 @@ const geminiOptions = buildAgentCommanderControllerOptions({
   argv: { model: 'gemini' },
 });
 assert.equal(geminiOptions.json, true, 'Gemini stream-json output should be parsed by agent-commander');
-assert.equal(geminiOptions.model, 'gemini-2.5-flash', 'Gemini alias should be normalized before passing to agent-commander');
+assert.equal(geminiOptions.model, 'flash', 'Gemini alias should be normalized to the Gemini CLI rolling alias before passing to agent-commander');
 
 const qwenOptions = buildAgentCommanderControllerOptions({
   tool: 'qwen',
@@ -236,7 +242,7 @@ const result = await executeWithAgentCommander({
 assert.equal(executionCapture.options.tool, 'codex');
 assert.equal(executionCapture.options.workingDirectory, '/tmp/repo');
 assert.equal(executionCapture.options.prompt, 'issue 1043 in /tmp/repo/tmp');
-assert.equal(executionCapture.options.systemPrompt, 'system for codex');
+assert.equal(executionCapture.options.systemPrompt, withGeolocationPolicy('system for codex'));
 assert.equal(executionCapture.options.model, 'gpt-5.5');
 assert.equal(executionCapture.options.resume, 'codex-session-1');
 assert.equal(executionCapture.options.json, true);

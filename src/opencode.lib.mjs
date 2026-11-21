@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // OpenCode-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -21,18 +25,23 @@ const os = (await use('os')).default;
 import { log, isMeaningfulErrorText, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
-import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
+import { extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
+import { combineClaudeUsageLimitVerdicts, usageLimitTextVerdict } from './claude.usage-limit-sources.lib.mjs'; // Issue #3570
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
 import { calculateAgentPricing } from './agent.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export { parseOpenCodeTokenUsage };
 
@@ -43,7 +52,11 @@ export const mapModelToId = model => {
 };
 
 // Function to validate OpenCode connection
-export const validateOpenCodeConnection = async (model = defaultModels.opencode) => {
+export const validateOpenCodeConnection = async (model = defaultModels.opencode, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'opencode', useRouter, log, env: () => ({ ...process.env, ...buildGeolocationEnv() }) });
+  const guardEnv = () => ({ ...process.env, ...(useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
+  await assertSharedToolData({ tool: 'opencode' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 
@@ -61,7 +74,8 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Check if OpenCode CLI is installed and get version
       try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
+        assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           if (retryCount === 0) {
@@ -69,6 +83,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  OpenCode CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
@@ -76,7 +91,8 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+      assertRouterTaskAuthentication({ tool: 'opencode', env: guardEnv() });
+      const testResult = await runConnection`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -96,6 +112,7 @@ export const validateOpenCodeConnection = async (model = defaultModels.opencode)
       await log('✅ OpenCode connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       await log(`❌ Failed to validate OpenCode connection: ${error.message}`, { level: 'error' });
       await log('   💡 Make sure OpenCode CLI is installed and accessible', { level: 'error' });
       return false;
@@ -118,7 +135,7 @@ export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailabil
 
 // Main function to execute OpenCode with prompts and settings
 export const executeOpenCode = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, opencodePath = 'opencode', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, opencodePath = 'opencode', $ } = params;
 
   // Import prompt building functions from opencode.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./opencode.prompts.lib.mjs');
@@ -136,6 +153,7 @@ export const executeOpenCode = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,
@@ -165,16 +183,7 @@ export const executeOpenCode = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   // Execute the OpenCode command
@@ -195,13 +204,23 @@ export const executeOpenCode = async params => {
 };
 
 export const executeOpenCodeCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   // Retry configuration
   let retryCount = 0;
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'opencode',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
 
   const executeWithRetry = async () => {
     // Execute opencode command from the cloned repository directory
@@ -230,7 +249,8 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
-    const opencodeEnv = { ...process.env };
+    const opencodeEnv = { ...process.env, ...buildGeolocationEnv(argv) };
+    await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
 
     // Apply Playwright MCP session state before launching OpenCode.
     if (argv.playwrightMcp === false) {
@@ -240,12 +260,14 @@ export const executeOpenCodeCommand = async params => {
 
     // Build OpenCode command
     let execCommand;
+    let routerStream;
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'opencode', model: argv.model, toolPath: opencodePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: opencodeEnv });
-    Object.assign(opencodeEnv, toolInvocation.env);
+    Object.assign(opencodeEnv, toolInvocation.env, buildGeolocationEnv(argv));
+    await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
     const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments
@@ -265,6 +287,7 @@ export const executeOpenCodeCommand = async params => {
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `opencode_prompt_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
+    await logFinalPrompts({ log, tool: 'opencode', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
 
     // Build the full command - pipe the prompt file to opencode
     const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${opencodeArgs})`;
@@ -277,6 +300,7 @@ export const executeOpenCodeCommand = async params => {
     // Fixes issue #755: "Permission required to run: Access file outside working directory"
     // Reference: https://opencode.ai/docs/config - see permissions documentation
     const opencodeConfigPath = path.join(tempDir, 'opencode.json');
+    let sessionId = argv.resume || null;
     const opencodeConfig = {
       $schema: 'https://opencode.ai/config.json',
       permission: {
@@ -322,6 +346,9 @@ export const executeOpenCodeCommand = async params => {
 
     try {
       // Pipe the prompt file to opencode via stdin
+      await assertSharedToolData({ tool: 'opencode', env: opencodeEnv });
+      if (argv.useRouter === true) opencodeEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'opencode', cwd: tempDir, env: opencodeEnv });
       if (argv.resume) {
         const commandRunner = $({
           cwd: tempDir,
@@ -338,6 +365,7 @@ export const executeOpenCodeCommand = async params => {
         execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --model ${mappedModel}`;
       }
 
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'opencode', env: opencodeEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -349,12 +377,14 @@ export const executeOpenCodeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       let exitCode = 0;
-      let sessionId = null;
+
       let limitReached = false;
       let limitResetTime = null;
+      let limitTimezone = null;
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let allOutput = ''; // Collect all output for error detection
+      const errorRecordTexts = []; // Issue #3570: `{"type":"error"}` records, a usage-limit source besides the last chunk
 
       // Issue #2119: frame records by balanced JSON instead of by newlines, so
       // pretty-printed, concatenated and chunk-split records are all counted.
@@ -381,7 +411,10 @@ export const executeOpenCodeCommand = async params => {
           // Issue #1968: a bare `null`/primitive record must not abort the
           // rest of the chunk (data.type access would throw on null).
           if (data === null || typeof data !== 'object') continue;
+          sessionId ||= data.sessionID || data.session_id || data.sessionId || null;
+          retryProgress.observe(data);
           accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+          if (isAgentErrorRecord(data) && !isRecoverableAgentToolError(data)) errorRecordTexts.push(extractAgentErrorText(data));
           // Track text content for result summary
           // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
           // Issue #2130: OpenCode-derived CLIs nest assistant text under `part`
@@ -412,7 +445,7 @@ export const executeOpenCodeCommand = async params => {
         }
       };
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output, { stream: 'stdout' });
@@ -421,6 +454,7 @@ export const executeOpenCodeCommand = async params => {
 
           // Issue #1263: Parse JSON output to extract text content for result summary
           handleOpenCodeRecords(stdoutScanner.write(output));
+          await retryProgress.flushLog();
           await toolCallLoopGuard.observeOutput(output);
         }
 
@@ -432,6 +466,7 @@ export const executeOpenCodeCommand = async params => {
 
             // Issue #1263: Also parse stderr for text content
             handleOpenCodeRecords(stderrScanner.write(errorOutput), { source: 'stderr' });
+            await retryProgress.flushLog();
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -440,7 +475,9 @@ export const executeOpenCodeCommand = async params => {
 
       // Release any record that was still being assembled when the stream ended.
       handleOpenCodeRecords(stdoutScanner.flush());
+      await retryProgress.flushLog();
       handleOpenCodeRecords(stderrScanner.flush(), { source: 'stderr' });
+      await retryProgress.flushLog();
 
       if (stderrJsonRecordCount > 0) {
         await log(`🪞 JSON records parsed from OpenCode stderr: ${stderrJsonRecordCount} (issue #2136: stderr is not a protocol stream — check these before trusting usage/summary)`, { verbose: true });
@@ -541,11 +578,14 @@ export const executeOpenCodeCommand = async params => {
           await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
         }
 
-        // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        // Check for usage limit errors first (more specific). Issue #3570: a failed
+        // step is reported as a `{"type":"error"}` record, which need not be the last chunk.
+        const verdicts = [usageLimitTextVerdict('last stdout chunk', lastMessage), ...errorRecordTexts.map(text => usageLimitTextVerdict('error record', text))];
+        const limitInfo = combineClaudeUsageLimitVerdicts(verdicts, 'OpenCode');
+        for (const v of verdicts) await log(`   ${v.isUsageLimit ? '✔' : '·'} usage-limit source ${v.source}: ${v.reason}`, { verbose: true });
         if (limitInfo.isUsageLimit) {
           limitReached = true;
-          limitResetTime = limitInfo.resetTime;
+          [limitResetTime, limitTimezone] = [limitInfo.resetTime, limitInfo.timezone];
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -575,6 +615,7 @@ export const executeOpenCodeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
           // Issue #1845: surface the actual error so callers can show it to users
@@ -621,6 +662,7 @@ export const executeOpenCodeCommand = async params => {
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'opencode', cwd: tempDir, env: opencodeEnv });
       // Clean up the opencode.json config file even on error
       try {
         await fs.unlink(opencodeConfigPath);
@@ -628,6 +670,7 @@ export const executeOpenCodeCommand = async params => {
         // Ignore cleanup errors
       }
 
+      if (authenticationError) return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
       reportError(error, {
         context: 'execute_opencode',
         command: params.command,
@@ -635,10 +678,14 @@ export const executeOpenCodeCommand = async params => {
         operation: 'run_opencode_command',
       });
 
+      if (await retryTransientFailure({ tool: 'opencode', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         tokenUsage: streamingTokenUsage.stepCount > 0 ? streamingTokenUsage : null,

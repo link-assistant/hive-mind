@@ -16,6 +16,12 @@ export const createYargsConfig = yargsInstance =>
       alias: 'c',
       default: getenv('TELEGRAM_CONFIGURATION', ''),
     })
+    .option('configurationFile', {
+      type: 'string',
+      description: 'Path to a private LINO configuration file (chmod 600)',
+      alias: 'configuration-file',
+      default: getenv('HIVE_MIND_CONFIGURATION_FILE', ''),
+    })
     .option('token', {
       type: 'string',
       description: 'Telegram bot token from @BotFather',
@@ -33,6 +39,12 @@ export const createYargsConfig = yargsInstance =>
       description: 'Allowed topic IDs in Links Notation format "chatId topicId" pairs',
       alias: 'allowed-topics',
       default: getenv('TELEGRAM_ALLOWED_TOPICS', ''),
+    })
+    .option('peerBots', {
+      type: 'string',
+      description: 'Known Hive Mind peers in Links Notation (chat ID, bot ID pairs)',
+      alias: 'peer-bots',
+      default: getenv('TELEGRAM_HIVE_MIND_PEER_BOTS', ''),
     })
     .option('solveOverrides', {
       type: 'string',
@@ -89,12 +101,27 @@ export const createYargsConfig = yargsInstance =>
       default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
     })
     .option('autoStartScreenWatchMessage', { type: 'boolean', description: 'Experimental: auto-start separate /terminal_watch messages for public /solve sessions', alias: 'auto-start-screen-watch-message', default: getenv('TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE', getenv('TELEGRAM_AUTO_WATCH_MESSAGE', 'false')) === 'true' })
+    // Issues #3354 to #3359: post-merge issue closing and the merged-PR sweeper, on by default.
+    .option('autoCloseLinkedIssues', { type: 'boolean', description: 'After a merge (/merge, the merge queue, or a merge done outside Hive Mind found by the merged-PR sweeper), close every issue the PR description closes that GitHub left open; --no-auto-close-linked-issues only reports them', alias: 'auto-close-linked-issues', default: getenv('HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES', 'true') !== 'false' })
+    .option('allowCrossRepositoryClosing', { type: 'boolean', description: 'Allow an author-written closing reference to an issue in another repository and close it after the merge (the link repair never adds one)', alias: 'allow-cross-repository-closing', default: getenv('HIVE_MIND_ALLOW_CROSS_REPOSITORY_CLOSING', 'true') !== 'false' })
+    .option('closeCompletedParents', { type: 'boolean', description: 'After closing issues on merge, close parent issues whose work is complete, otherwise post a status comment on them', alias: 'close-completed-parents', default: getenv('HIVE_MIND_CLOSE_COMPLETED_PARENTS', 'true') !== 'false' })
     // Issue #594: bot-owner toggle for --show-limits virtual option in /solve and /hive.
     .option('showLimits', { type: 'boolean', description: 'Experimental: allow /solve and /hive callers to use --show-limits to embed Claude/Codex usage at start, end, and delta in the completion message', alias: 'show-limits', default: getenv('TELEGRAM_SHOW_LIMITS', 'true') !== 'false' })
+    // Issue #4069: GitHub blockers and sub-issues before a task starts. A single /solve
+    // respects them only with --respect-blockers (experimental); a list of links does by default.
+    .option('solveRespectBlockers', { type: 'boolean', description: 'Experimental: /solve, /claude, /codex and the other solve commands respect GitHub blockers and open sub-issues by default, as with --respect-blockers', alias: 'solve-respect-blockers', default: getenv('TELEGRAM_SOLVE_RESPECT_BLOCKERS', 'false') === 'true' })
+    .option('batchRespectBlockers', { type: 'boolean', description: 'A solve command with several links starts unblocked issues first and queues the others after their blockers (--no-respect-blockers turns it off per command)', alias: 'batch-respect-blockers', default: getenv('TELEGRAM_BATCH_RESPECT_BLOCKERS', 'true') !== 'false' })
     .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'docker' so Telegram-bot work sessions run in Docker isolation; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'docker') })
     .option('containerCpu', { type: 'string', description: 'Optional Docker task CPU limit as a core count (for example 1.5) or host percentage (for example 50%)', alias: 'container-cpu', default: getenv('TELEGRAM_CONTAINER_CPU', '') })
     .option('containerMemory', { type: 'string', description: 'Docker task RAM limit as a byte size (for example 2GiB) or host percentage; defaults to 25% for Docker tasks', alias: 'container-memory', default: getenv('TELEGRAM_CONTAINER_MEMORY', '') })
     .option('containerDisk', { type: 'string', description: 'Optional Docker task writable-layer disk limit as a byte size (for example 20GB) or available-filesystem percentage (for example 10%)', alias: 'container-disk', default: getenv('TELEGRAM_CONTAINER_DISK', '') })
+    // Issue #2801: cap a Docker task that keeps every CPU busy for too long.
+    .option('containerCpuPenalty', { type: 'boolean', description: 'Cap a Docker task to --container-cpu-penalty-cpus CPUs after it uses all CPUs for the trigger window, and lift the cap after the release window below the release threshold (on by default; --no-container-cpu-penalty disables it)', alias: 'container-cpu-penalty', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY', 'true') !== 'false' })
+    .option('containerCpuPenaltyCpus', { type: 'string', description: 'CPUs a penalized Docker task is capped to (default: 2)', alias: 'container-cpu-penalty-cpus', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_CPUS', '') })
+    .option('containerCpuPenaltyTrigger', { type: 'string', description: "Average share of the task's CPUs (host CPUs, or --container-cpu when lower) that counts as using all of them (default: 95%)", alias: 'container-cpu-penalty-trigger', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER', '') })
+    .option('containerCpuPenaltyTriggerWindow', { type: 'string', description: 'How long the trigger average must hold before the cap is applied (default: 15m)', alias: 'container-cpu-penalty-trigger-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_TRIGGER_WINDOW', '') })
+    .option('containerCpuPenaltyRelease', { type: 'string', description: 'Average share of the penalty cap the task must stay below to have the cap lifted (default: 65%)', alias: 'container-cpu-penalty-release', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE', '') })
+    .option('containerCpuPenaltyReleaseWindow', { type: 'string', description: 'How long the release average must hold before the cap is lifted (default: 15m)', alias: 'container-cpu-penalty-release-window', default: getenv('TELEGRAM_CONTAINER_CPU_PENALTY_RELEASE_WINDOW', '') })
     .help('h')
     .alias('h', 'help')
     .parserConfiguration({

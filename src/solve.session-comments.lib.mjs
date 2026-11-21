@@ -22,6 +22,44 @@ import { isToolGeneratedComment, isToolTrackedCommentId, NO_CHANGES_PRODUCED_MAR
 
 const noopLog = async () => {};
 
+/** The login GitHub shows on comments made with an Actions `GITHUB_TOKEN`. */
+export const GITHUB_ACTIONS_BOT_LOGIN = 'github-actions[bot]';
+
+/**
+ * Issue #3330: the logins comments of this token appear under.
+ *
+ * `gh api user` answers 403 "Resource not accessible by integration" for an
+ * installation token (the workflow's `GITHUB_TOKEN`, a GitHub App token), so
+ * the token's identity is then read from GraphQL `viewer` - `<app-slug>[bot]`
+ * for an app - and, inside GitHub Actions, falls back to `github-actions[bot]`.
+ * A bot login may be reported without its `[bot]` suffix, so both are matched.
+ *
+ * @returns {Promise<string[]|null>} null when no identity could be determined
+ */
+export const resolveCommentAuthorLogins = async ({ $, log = noopLog, env = process.env }) => {
+  const probe = quietProbe($);
+  const read = async run => {
+    try {
+      const result = await run;
+      return result?.code === 0 ? (result.stdout ?? '').toString().trim() : '';
+    } catch {
+      return '';
+    }
+  };
+  const user = await read(probe`gh api user --jq .login`);
+  if (user) return [user];
+  const viewer = await read(probe`gh api graphql -f ${'query=query { viewer { login } }'} --jq .data.viewer.login`);
+  if (viewer) {
+    await log(`🔎 /user is not readable with this token; using its GraphQL identity '${viewer}'`, { verbose: true });
+    return viewer.endsWith('[bot]') ? [viewer] : [viewer, `${viewer}[bot]`];
+  }
+  if (env?.GITHUB_ACTIONS === 'true') {
+    await log(`🔎 /user is not readable with this token; assuming the Actions token identity '${GITHUB_ACTIONS_BOT_LOGIN}'`, { verbose: true });
+    return [GITHUB_ACTIONS_BOT_LOGIN];
+  }
+  return null;
+};
+
 /**
  * Check if new comments were created by the AI during the session.
  * This is used by --auto-attach-solution-summary to determine if the AI
@@ -39,20 +77,28 @@ const noopLog = async () => {};
  * @param {number} options.issueNumber - Issue number
  * @param {Function} options.$ - command-stream helper
  * @param {Function} [options.log]
- * @returns {Promise<boolean>} - True if AI created comments during the session
+ * @param {(boolean|null)} [options.unknownAs=false] - returned when a GitHub read fails.
+ *   The summary attachment keeps `false`; the #3211 no-changes verdict passes
+ *   `null` so a failed read is "not measured" instead of "no comment" (#3215).
+ * @returns {Promise<(boolean|null)>} - True if AI created comments during the session
  */
-export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog }) => {
+export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log = noopLog, unknownAs = false, env = process.env }) => {
   const probe = quietProbe($);
+  let unreadable = false;
+  const readList = async (result, what) => {
+    if (result.code === 0) return JSON.parse(result.stdout.toString().trim() || '[]');
+    unreadable = true;
+    await log(`⚠️  Could not read ${what} (exit code ${result.code})`, { verbose: true });
+    return null;
+  };
   try {
-    // Get the current user's GitHub username
-    const userResult = await probe`gh api user --jq .login`;
-    if (userResult.code !== 0) {
-      return false; // Cannot determine, default to not attaching
+    // The token's GitHub login(s); #3330: `/user` is forbidden for installation tokens.
+    const logins = await resolveCommentAuthorLogins({ $, log, env });
+    if (!logins) {
+      await log('⚠️  Could not determine which GitHub account this token comments as', { verbose: true });
+      return unknownAs; // Cannot determine, default to not attaching
     }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      return false;
-    }
+    const currentUser = logins[0];
 
     await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
     // Issue #1625: A comment counts as an "AI comment" only if it was posted
@@ -72,7 +118,7 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
       const skippedCounts = {};
       const skippedByIdCount = { n: 0 };
       for (const comment of comments) {
-        if (!comment || !comment.user || comment.user.login !== currentUser) continue;
+        if (!comment || !comment.user || !logins.includes(comment.user.login)) continue;
         if (!(new Date(comment.created_at) > sessionStartTime)) continue;
         const isReview = kind === 'review';
         if (!isReview) {
@@ -103,9 +149,8 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
     // Check comments on the PR first (if we have a PR)
     if (prNumber) {
       // Check PR conversation comments
-      const prCommentsResult = await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
-      if (prCommentsResult.code === 0) {
-        const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
+      const prComments = await readList(await probe`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`, `PR #${prNumber} comments`);
+      if (prComments) {
         const newPrComments = filterNewAiComments(prComments, 'pr');
         await log(`   📨 PR conversation comments after session start by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
         if (newPrComments.length > 0) {
@@ -113,12 +158,24 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
         }
       }
       // Check PR review comments (inline code comments)
-      const reviewCommentsResult = await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
-      if (reviewCommentsResult.code === 0) {
-        const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
+      const reviewComments = await readList(await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`, `PR #${prNumber} review comments`);
+      if (reviewComments) {
         const newReviewComments = filterNewAiComments(reviewComments, 'review');
         await log(`   📝 PR review (inline) comments after session start by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
         if (newReviewComments.length > 0) {
+          return true;
+        }
+      }
+      // Issue #3215: a submitted review (with or without inline comments) is a
+      // comment too. Reviews carry `submitted_at`; pending ones have none.
+      const reviews = await readList(await probe`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`, `PR #${prNumber} reviews`);
+      if (reviews) {
+        const newReviews = filterNewAiComments(
+          reviews.filter(review => review?.submitted_at).map(review => ({ ...review, created_at: review.submitted_at })),
+          'review'
+        );
+        await log(`   📝 PR reviews after session start by '${currentUser}': ${newReviews.length}`, { verbose: true });
+        if (newReviews.length > 0) {
           return true;
         }
       }
@@ -126,9 +183,8 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
 
     // Check issue comments (if different from PR number or no PR)
     if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await probe`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-      if (issueCommentsResult.code === 0) {
-        const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
+      const issueComments = await readList(await probe`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`, `issue #${issueNumber} comments`);
+      if (issueComments) {
         const newIssueComments = filterNewAiComments(issueComments, 'issue');
         await log(`   📨 Issue comments after session start by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
         if (newIssueComments.length > 0) {
@@ -136,11 +192,11 @@ export const checkForAiCreatedComments = async ({ sessionStartTime, owner, repo,
         }
       }
     }
-    return false;
+    return unreadable ? unknownAs : false;
   } catch (error) {
     // On error, default to not attaching (safer choice)
     await log(`⚠️  Could not check for AI comments: ${error.message}`, { verbose: true });
-    return false;
+    return unknownAs;
   }
 };
 
@@ -191,5 +247,7 @@ export const postNoChangesProducedComment = async ({ owner, repo, prNumber, chan
 export default {
   buildNoChangesProducedComment,
   checkForAiCreatedComments,
+  GITHUB_ACTIONS_BOT_LOGIN,
   postNoChangesProducedComment,
+  resolveCommentAuthorLogins,
 };

@@ -1,0 +1,28 @@
+Run: https://github.com/link-assistant/hive-mind/actions/runs/42308272102
+Head: a16a51aa20095d483aedea397e3ad9863e42a411
+Source log: ci-logs/checks-42308272102-job-128203052100.log:3951-3975
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3505781Z Dependency freshness: 163/180 declarations current, 5 lockfile entries behind their allowed range
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3506598Z EXCEPTION src/router-isolation.lib.mjs:81: ghcr.io/link-assistant/router: https://github.com/link-assistant/hive-mind/issues/3395
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3507494Z STALE coolify/Dockerfile:22: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3508195Z STALE coolify/Dockerfile:257: @link-assistant/agent 0.27.0 -> 0.27.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3508813Z STALE coolify/Dockerfile:41: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3509422Z STALE Dockerfile:22: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3509942Z STALE Dockerfile:343: @link-assistant/agent 0.27.0 -> 0.27.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3510432Z STALE Dockerfile:41: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3510874Z STALE Dockerfile.dind:32: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3511225Z STALE Dockerfile.dind:358: @link-assistant/agent 0.27.0 -> 0.27.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3511621Z STALE Dockerfile.dind:51: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3512015Z STALE Dockerfile.e2e:15: @link-assistant/agent 0.27.0 -> 0.27.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3512364Z STALE Dockerfile.formal-ai:28: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3512701Z STALE Dockerfile.formal-ai:7: formal-ai 0.355.33 -> 0.355.34 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3513143Z STALE package-lock.json#lino-arguments: lino-arguments 0.4.0 -> 0.4.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3513532Z STALE package.json#dependencies: lino-arguments ^0.4.0 -> 0.4.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3514000Z STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: links-notation 0.30.1 -> 0.31.2 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3514767Z STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: lino-arguments 0.4.0 -> 0.4.1 (exact)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3515311Z STALE package-lock.json#@isaacs/nonrecursive-glob-match: @isaacs/nonrecursive-glob-match 1.0.3 -> 1.1.0 (npm update)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3516098Z STALE package-lock.json#glob: glob 14.0.3 -> 14.0.4 (npm update)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3516853Z STALE package-lock.json#links-notation: links-notation 0.11.2, 0.13.0, 0.23.0, 0.27.1 -> 0.11.2, 0.13.0, 0.23.0, 0.27.1, 0.31.2 (npm update)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3517530Z STALE package-lock.json#lino-arguments: lino-arguments 0.3.0, 0.4.0 -> 0.3.0, 0.4.1 (npm update)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3518268Z STALE package-lock.json#minimatch: minimatch 10.2.6, 11.0.4 -> 10.2.6, 11.0.5 (npm update)
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3518645Z Dependency freshness failed: 21 stale, 0 unresolved.
+detect-changes	Verify dependency freshness and detect changes	2026-11-06T22:56:15.3602103Z ##[error]Process completed with exit code 1.

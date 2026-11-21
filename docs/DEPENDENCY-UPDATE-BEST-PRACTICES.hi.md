@@ -17,14 +17,14 @@
 
 "सभी" का अर्थ शाब्दिक है। dependency वह हर चीज़ है जिसे build repository के बाहर से लेता है:
 
-| श्रेणी                         | उदाहरण                                                                        |
+| श्रेणी                           | उदाहरण                                                                        |
 | ------------------------------ | ----------------------------------------------------------------------------- |
 | Runtime dependencies           | `dependencies`, `[dependencies]`, `require`, `install_requires`               |
 | Development dependencies       | test runners, linters, formatters, type checkers, build plugins               |
 | Lockfile की transitive entries | `package-lock.json`, `Cargo.lock`, `uv.lock`, `composer.lock`, `Gemfile.lock` |
 | Base images                    | हर `Dockerfile`, `docker-compose.yml`, `devcontainer.json` का हर `FROM`       |
 | CI/CD actions                  | `.github/workflows/*.yml` और composite `action.yml` का हर `uses:`             |
-| Toolchains और भाषा के pins     | `engines`, `rust-version`, `go` directive, `TargetFramework`, `.nvmrc`        |
+| Toolchains और भाषा के pins      | `engines`, `rust-version`, `go` directive, `TargetFramework`, `.nvmrc`        |
 | Infrastructure modules         | Terraform modules और providers, Helm chart dependencies, git submodules       |
 | Pre-commit hooks               | `.pre-commit-config.yaml` की revisions                                        |
 
@@ -34,23 +34,23 @@
 
 अधिकांश package managers का डिफ़ॉल्ट कमांड जानबूझकर manifest में पहले से लिखी बाधाओं के **भीतर** ही रहता है, इसलिए वह कभी major संस्करण पार नहीं करता। दाईं ओर का कॉलम वह कमांड है जो वास्तव में बाधाओं को फिर से लिखता है। हर कमांड को उसी tool के अपने दस्तावेज़ के विरुद्ध सत्यापित किया गया है; उद्धरण [`docs/case-studies/issue-2184/data/ecosystem-update-commands.json`](./case-studies/issue-2184/data/ecosystem-update-commands.json) में हैं।
 
-| Ecosystem             | बाधाओं के भीतर रहता है           | नवीनतम तक अपडेट करता है, major पार करते हुए                                          |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| JavaScript/TypeScript | `npm update`                     | `npx npm-check-updates -u && npm install`                                            |
-| Python                | `pip install -U`                 | `uv lock --upgrade` • `pip-compile --upgrade` • `poetry update`                      |
-| Rust                  | `cargo update`                   | `cargo upgrade --incompatible && cargo update` (cargo-edit)                          |
-| Go                    | —                                | `go get -u ./... && go mod tidy`                                                     |
-| C#/.NET               | `dotnet list package --outdated` | `dotnet outdated -u` (dotnet-outdated)                                               |
-| Java/Kotlin/Scala     | `./gradlew dependencyUpdates`    | `mvn versions:use-latest-releases versions:update-properties`                        |
+| Ecosystem             | बाधाओं के भीतर रहता है              | नवीनतम तक अपडेट करता है, major पार करते हुए                                             |
+| --------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | `npm update`                     | `npx npm-check-updates -u && npm install`                                           |
+| Python                | `pip install -U`                 | `uv lock --upgrade` • `pip-compile --upgrade` • `poetry update`                     |
+| Rust                  | `cargo update`                   | `cargo upgrade --incompatible && cargo update` (cargo-edit)                         |
+| Go                    | —                                | `go get -u ./... && go mod tidy`                                                    |
+| C#/.NET               | `dotnet list package --outdated` | `dotnet outdated -u` (dotnet-outdated)                                              |
+| Java/Kotlin/Scala     | `./gradlew dependencyUpdates`    | `mvn versions:use-latest-releases versions:update-properties`                       |
 | PHP                   | `composer update`                | पहले `composer require vendor/pkg:^X`, फिर `composer update --with-all-dependencies` |
-| Ruby                  | `bundle update`                  | Gemfile की बाधाएँ बढ़ाने के बाद `bundle update --all`                                |
-| Elixir/Erlang         | `mix deps.update --all`          | `mix.exs` संपादित करें, फिर `mix deps.update --all`                                  |
-| Dart/Flutter          | `dart pub upgrade`               | `dart pub upgrade --major-versions`                                                  |
-| Swift                 | `swift package update`           | `Package.swift` की requirements संपादित करें, फिर `swift package update`             |
-| Haskell               | `cabal outdated`                 | `cabal update` • `stack upgrade --resolver latest`                                   |
-| GitHub Actions        | —                                | हर `uses:` को नवीनतम release तक बढ़ाएँ (tag या pinned digest)                        |
-| Docker                | —                                | हर `FROM` tag बढ़ाएँ और digest फिर से pin करें                                       |
-| Infrastructure        | —                                | `terraform init -upgrade` • `helm dependency update` • `pre-commit autoupdate`       |
+| Ruby                  | `bundle update`                  | Gemfile की बाधाएँ बढ़ाने के बाद `bundle update --all`                                   |
+| Elixir/Erlang         | `mix deps.update --all`          | `mix.exs` संपादित करें, फिर `mix deps.update --all`                                    |
+| Dart/Flutter          | `dart pub upgrade`               | `dart pub upgrade --major-versions`                                                 |
+| Swift                 | `swift package update`           | `Package.swift` की requirements संपादित करें, फिर `swift package update`               |
+| Haskell               | `cabal outdated`                 | `cabal update` • `stack upgrade --resolver latest`                                  |
+| GitHub Actions        | —                                | हर `uses:` को नवीनतम release तक बढ़ाएँ (tag या pinned digest)                         |
+| Docker                | —                                | हर `FROM` tag बढ़ाएँ और digest फिर से pin करें                                           |
+| Infrastructure        | —                                | `terraform init -upgrade` • `helm dependency update` • `pre-commit autoupdate`      |
 
 उस तालिका में तीन जाल छिपे हैं:
 
@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` महत्वपूर्ण है: यह lockfile का **जैसा वह commit किया गया है वैसा ही** audit करता है, इसलिए परिणाम वही होता है जो उपभोक्ता को मिलेगा, और उसे ऐसे resolution से हरा नहीं किया जा सकता जो केवल इसी runner पर होता है। समतुल्य job को schedule पर रखें, क्योंकि केवल scheduled run ही ऐसी advisory देख सकता है जो code बदलना बंद होने के बाद प्रकाशित हुई हो। workflow job स्वयं के लिए [CI/CD सर्वोत्तम प्रथाएँ](./CI-CD-BEST-PRACTICES.hi.md) देखें।
 
+जब किसी advisory का कोई patched release ही न हो, तो `--audit-level` को कमज़ोर न करें और job को न हटाएँ। एक exceptions file में advisory, package, सटीक vulnerable range और यह कारण दर्ज करें कि यह यहाँ लागू क्यों नहीं होता, और gate को तब फिर से fail होने दें जब advisory की range बदल जाए (fix आ गया) या वह report होना बंद हो जाए (exception पुराना हो गया)। यह repository इसे `scripts/check-npm-audit.mjs` और `scripts/npm-audit-exceptions.json` से करती है।
+
 ### 10. रुकावटों की सूचना upstream दें
 
 जब कोई अपडेट किसी dependency के bug से रुका हो, तो उस project के GitHub पर एक issue खोलें जिसमें पुनरुत्पादन योग्य उदाहरण, यहाँ अपनाया गया workaround और code में सुझाया गया fix हो — फिर चुपचाप version वापस pin करने के बजाय उस report को अपने काम से link करें। link सहित pin एक ट्रैक किया गया निर्णय है; बिना link वाला pin स्थायी है।
@@ -195,11 +197,12 @@ fix https://github.com/owner/repo --update-all-dependencies
 
 यह कमांड:
 
-1. **repository की भाषाओं का पता लगाता है**, GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) से, प्रति भाषा bytes के क्रम में।
-2. **default branch की file tree सूचीबद्ध करता है** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) और हर committed manifest और lockfile खोजता है, `node_modules/`, `vendor/`, `.venv/` और `target/` जैसी vendored directories छोड़ते हुए।
-3. **दोनों संकेतों को package ecosystems पर मैप करता है।** अकेला कोई भी संकेत गलत है: Linguist उन ecosystems को नहीं देखता जिनका अपना source code नहीं है (GitHub Actions, Docker, Terraform), और manifests उस भाषा को नहीं देखते जिसका manifest असामान्य या अनुपस्थित है।
-4. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, ठीक उन्हीं ecosystems के लिए तैयार `.github/dependabot.yml`, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
-5. **issue को `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंपता है**, जो अपडेट merge होने तक iterate करता है। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को अग्रेषित किया जाता है।
+1. **CI/CD की प्रतीक्षा किए बिना हर खुला Dependabot pull request merge करता है** ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)), सबसे पुराने से शुरू करके और किसी भी अन्य जाँच से पहले — ताकि issue Dependabot के अपडेट लागू होने के बाद की repository का वर्णन करे और solver उन्हें हाथ से दोबारा न करे।
+2. **repository की भाषाओं का पता लगाता है**, GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) से, प्रति भाषा bytes के क्रम में।
+3. **default branch की file tree सूचीबद्ध करता है** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) और हर committed manifest और lockfile खोजता है, `node_modules/`, `vendor/`, `.venv/` और `target/` जैसी vendored directories छोड़ते हुए।
+4. **दोनों संकेतों को package ecosystems पर मैप करता है।** अकेला कोई भी संकेत गलत है: Linguist उन ecosystems को नहीं देखता जिनका अपना source code नहीं है (GitHub Actions, Docker, Terraform), और manifests उस भाषा को नहीं देखते जिसका manifest असामान्य या अनुपस्थित है।
+5. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, ठीक उन्हीं ecosystems के लिए तैयार `.github/dependabot.yml`, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
+6. **issue को `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंपता है**, जो अपडेट merge होने तक iterate करता है। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को अग्रेषित किया जाता है।
 
 issue बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, और `/solve` शुरू किए बिना issue बनाने के लिए `--no-solve` का:
 
@@ -208,11 +211,30 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+issue **Open Dependabot pull requests handled before this issue was created** खंड से शुरू होता है: हर merge किया गया pull request, merge के समय पास न होने वाले checks के साथ, और एक bold निर्देश कि उन merges से आई हर build, test, lint, security और deprecation त्रुटि ठीक की जाए जब तक default branch का CI/CD फिर से हरा न हो जाए — अपडेट revert किए बिना। merge, repository द्वारा अनुमत पहली merge विधि (merge commit, squash, rebase) का उपयोग करता है, `--match-head-commit` को जाँचे गए commit पर pin करता है, और जब केवल branch नियम (required checks, required reviews, पुरानी branch) रोकते हैं तो एक बार `--admin` के साथ पुनः प्रयास करता है। GitHub द्वारा अभी तक न गणना की गई mergeability (`UNKNOWN`) पहले दोबारा पढ़ी जाती है। हर pull request की पहले base branch से तुलना की जाती है: यदि base branch पहले से उसके हर बढ़ाए गए dependency (`global.json` का .NET SDK और Rust toolchain भी) को उसी या नए version पर pin करती है, तो उसे superseded के रूप में उन versions का नाम लेने वाली टिप्पणी के साथ बंद किया जाता है, भले ही GitHub उसे mergeable बताए ([issue #4061](https://github.com/link-assistant/hive-mind/issues/4061))। base branch से conflict करने वाले pull request ("the merge commit cannot be cleanly created") को कभी `--admin` के साथ दोबारा नहीं आज़माया जाता; इसके बजाय Dependabot से उसे दोबारा बनाने को कहा जाता है (`@dependabot recreate`)। जब branch को up to date रखने वाला कोई ruleset `--admin` के साथ भी merge अस्वीकार करता है ("Repository rule violations found"), तो उस ruleset और उसके required checks का नाम दिया जाता है, Dependabot से pull request को rebase करने को कहा जाता है (`@dependabot rebase`), और required checks पास होने पर उसे merge किया जाता है। Dependabot के पास नया head push करने के लिए तीन मिनट हैं, और पूरी प्रतीक्षा `--dependabot-wait-timeout <मिनट>` से सीमित है (डिफ़ॉल्ट 30; `0` = प्रतीक्षा नहीं)। जब Dependabot का configuration उनकी file को अब कवर नहीं करता, तो वह ऐसे pull requests को स्वयं बंद नहीं करता ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863))। जो pull requests फिर भी merge नहीं हो पाते — drafts, fail हुए required checks, प्रतीक्षा के भीतर पूरे न हुए recreations या rebases — वे खुले रहते हैं और issue में सूचीबद्ध होते हैं ताकि उनके अपडेट solver के pull request में लागू किए जाएँ। `--dry-run` केवल वही सूचीबद्ध करता है जो merge, बंद या recreate होगा, और `--no-merge-dependabot-prs` इस चरण को बंद करता है। `/task --update-all-dependencies` भी इन्हीं नियमों का पालन करता है:
+
+```bash
+fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+```
+
+repository का निरीक्षण होते ही issue बना दिया जाता है, लेकिन `/solve` तभी शुरू होता है जब default branch पर कोई GitHub Actions run pending न हो, ताकि AI का काम बदलती हुई default branch से शुरू न हो और उन runs पर निर्भर न करे जिनका परिणाम अभी बदलने वाला है। प्रतीक्षा हर 30 सेकंड में जाँच करती है, `--ci-wait-timeout <minutes>` (default 60) के बाद रुक जाती है और `--no-wait-for-ci` से छोड़ी जा सकती है। प्रतीक्षा के दौरान Telegram reply में अलग "⏳ CI/CD के पूरा होने की प्रतीक्षा" status दिखता है जिसमें अभी चल रहे runs होते हैं, और यदि runs प्रतीक्षा के दौरान पूरे हो गए तो उनके नवीनतम परिणाम issue पर comment के रूप में जोड़े जाते हैं ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### issue Task क्यों है, और वह क्या छोड़ता है
 
 `/solve --deep-analysis` मूल-कारण और debug-output संबंधी मार्गदर्शन **केवल bug-प्रकार के issues के लिए** देता है, और dependency bump में खोजने के लिए कोई मूल कारण नहीं होता। issue को `Task` के रूप में बनाना उस prompt का non-bug रूप चुनता है — शोध, आवश्यकताओं की कवरेज, समाधान की योजना — जो यहाँ उपयोगी है। issue types संगठन-स्तर पर और labels repository-स्तर पर कॉन्फ़िगर होते हैं, इसलिए यदि लक्ष्य repository इनमें से कोई भी स्वीकार नहीं करती, तब भी issue उनके बिना बना दिया जाता है।
 
-`--deep-analysis` [सिद्धांत 10](#10-रुकावटों-की-सूचना-upstream-दें) का upstream-रिपोर्टिंग मार्गदर्शन भी देता है, इसलिए `fix` उस अनुच्छेद को issue के मुख्य भाग से हटा देता है ताकि वह दो बार न पहुँचे। बाकी हर अनुच्छेद बिना शर्त शामिल होता है।
+`--update-all-dependencies` से `--report-dependencies-issues` चालू होता है, जो `--deep-analysis` से स्वतंत्र है। deep analysis आगे भेजे जाने पर भी बनाए गए dependency issue में upstream reporting का अनुच्छेद रहता है। संबंधित dependency के upstream को साझा logic, duplicated code, missing features और स्थानीय workarounds की वजह बनने वाले bugs की सूचना दें। पहले मौजूदा reports खोजें; न्यूनतम reproducer, प्रभावित versions, workaround और fix या feature का सुझाव जोड़ें और pull request में reports के links दें। ज़रूरी workarounds रखें ताकि upstream fixes pull request को रोकें नहीं। `--no-report-dependencies-issues` (या `--report-dependencies-issues=false`) से generated issue और solver prompt दोनों से यह निर्देश हटता है। `--report-dependencies-issues` से reporting अकेले भी चालू की जा सकती है।
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## `--update-all-dependencies` विकल्प
 

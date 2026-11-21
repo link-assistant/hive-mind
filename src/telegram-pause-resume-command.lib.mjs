@@ -1,71 +1,90 @@
-/** Telegram task pause/resume, addressed by UUID, issue/PR URL, or a reply. */
+/** Commands accept the same task identifiers and replies as /stop. */
 import { extractStopTarget, isStopTargetRequester } from './telegram-start-stop-command.lib.mjs';
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
+import { resolveLocaleFromTelegramCtx, t } from './i18n.lib.mjs';
+import { getTelegramCommandArgumentsText } from './telegram-command-text.lib.mjs';
 import * as sessionMonitor from './session-monitor.lib.mjs';
 
+function stateLabel(state, tr) {
+  if (state === 'paused') return tr('telegram.task_state_paused');
+  if (state === 'running') return tr('telegram.task_state_running');
+  if (state === 'exited' || state === 'created') return tr('telegram.task_state_stopped', { state });
+  return state;
+}
+
 export function registerPauseResumeCommands(bot, options = {}) {
-  const { VERBOSE = false, isOldMessage, isForwarded, isGroupChat, isChatAuthorized, isTopicAuthorized, safeReply = defaultSafeReply, monitor = sessionMonitor } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isGroupChat, isChatAuthorized, isTopicAuthorized, safeReply = defaultSafeReply, monitor = sessionMonitor, detachHandler = handler => handler, claimUrl, getSolveQueue } = options;
+  const operations = { pause: monitor.pauseTrackedSession, unpause: monitor.unpauseTrackedSession, resume: monitor.resumeStoppedSession, status: monitor.getDockerTaskControlState };
+  const visible = (ctx, info) => ctx.chat?.type === 'private' || String(info.chatId) === String(ctx.chat?.id);
+  const requester = (ctx, info) => isStopTargetRequester({ userId: ctx.from?.id, sessionInfo: info });
+
+  async function list(ctx, command, reply, tr) {
+    const tracked = monitor.getActiveSessions().filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && visible(ctx, sessionInfo) && requester(ctx, sessionInfo));
+    const lines = [];
+    for (const { sessionName, sessionInfo } of tracked) {
+      const result = await monitor.getDockerTaskControlState(sessionName, { verbose: VERBOSE });
+      if (!result.success || result.state === 'removed') continue;
+      if ((command === 'pause' && result.state !== 'running') || (command === 'unpause' && result.state !== 'paused') || (command === 'resume' && !['exited', 'created'].includes(result.state))) continue;
+      lines.push(`${stateLabel(result.state, tr)} · ${sessionName}${sessionInfo.url ? `\n${sessionInfo.url}` : ''}`);
+      if (lines.length === 12) break;
+    }
+    const heading = command === 'list' ? tr('telegram.task_control_list') : tr('telegram.task_control_usage', { command });
+    await reply([heading, ...(lines.length ? lines : [tr('telegram.task_control_empty')])].join('\n\n'));
+  }
 
   async function handle(ctx, command) {
     if (isOldMessage?.(ctx) || isForwarded?.(ctx)) return;
-    const reply = text => safeReply(ctx, text, { reply_to_message_id: ctx.message?.message_id });
-    if (ctx.chat?.type !== 'private') {
-      if (!isGroupChat?.(ctx) || (!isChatAuthorized?.(ctx.chat.id) && !isTopicAuthorized?.(ctx))) {
-        await reply('❌ This chat is not authorized to control tasks.');
-        return;
-      }
+    const locale = resolveLocaleFromTelegramCtx(ctx);
+    const tr = (key, params) => t(key, params, { locale });
+    const reply = text => safeReply(ctx, text, { reply_to_message_id: ctx.message?.message_id, fallbackLocale: locale });
+    if (ctx.chat?.type !== 'private' && (!isGroupChat?.(ctx) || (!isChatAuthorized?.(ctx.chat.id) && !isTopicAuthorized?.(ctx)))) {
+      return reply(tr('telegram.task_control_unauthorized'));
     }
-    const target = extractStopTarget(ctx.message?.text, ctx.message?.reply_to_message);
-    if (!target.value) {
-      const paused = command === 'resume' ? monitor.getPausedSessions().filter(({ sessionInfo }) => isStopTargetRequester({ userId: ctx.from?.id, sessionInfo }) && (ctx.chat.type === 'private' || sessionInfo.chatId === ctx.chat.id)) : [];
-      const listing = paused.map(({ sessionName, sessionInfo }) => `${sessionName}\n${sessionInfo.url || ''}`).join('\n\n');
-      await reply(`Usage: /${command} <session UUID or issue/PR URL>, or reply to a task message with /${command}.${listing ? `\n\nYour paused tasks:\n${listing}` : ''}`);
-      return;
+    const args = getTelegramCommandArgumentsText(ctx.message?.text);
+    const nameOrUrl = args.split(/(?:^|\s+)--reason(?:\s|$)/, 1)[0].trim();
+    const replyTarget = ctx.message?.reply_to_message;
+    const target = extractStopTarget(nameOrUrl ? `/${command} ${nameOrUrl}` : '', replyTarget);
+    if ((!nameOrUrl && !target.value) || command === 'list') return list(ctx, command, reply, tr);
+    const name = /^[a-z\d][a-z\d_.-]*$/i.test(nameOrUrl) ? nameOrUrl : null;
+    const entry = name ? monitor.findTrackedSessionByIdentifier(name) : target.kind === 'uuid' ? monitor.findTrackedSessionByIdentifier(target.value) : monitor.findStoppableSessionByUrl(target.value, VERBOSE) || monitor.findStoppableSessionByUrl(target.value, VERBOSE, { includeRetained: true });
+    if (!entry) return reply(tr('telegram.task_control_missing'));
+    const { sessionName, sessionInfo: info } = entry;
+    if (!visible(ctx, info)) return reply(tr('telegram.task_control_unauthorized'));
+    if (!requester(ctx, info)) {
+      const member = await ctx.telegram.getChatMember(info.chatId, ctx.from?.id).catch(() => null);
+      if (member?.status !== 'creator') return reply(tr('telegram.task_control_owner'));
     }
-    const entry = target.kind === 'uuid' ? monitor.findControllableSession(target.value) : monitor.findStoppableSessionByUrl(target.value, VERBOSE);
-    if (!entry) {
-      await reply('ℹ️ No tracked task found for this UUID or URL.');
-      return;
-    }
-    const info = entry.sessionInfo;
-    // Never let an owner of one authorized chat control another chat's task.
-    if (ctx.chat.type !== 'private' && String(info.chatId) !== String(ctx.chat.id)) {
-      await reply('❌ This task belongs to another chat.');
-      return;
-    }
-    if (!isStopTargetRequester({ userId: ctx.from?.id, sessionInfo: info })) {
-      try {
-        const member = await ctx.telegram.getChatMember(info.chatId, ctx.from.id);
-        if (member?.status !== 'creator') {
-          await reply(`❌ /${command} is only available to the task requester or the originating chat owner.`);
-          return;
-        }
-      } catch {
-        await reply(`❌ Failed to verify permissions for /${command}.`);
-        return;
-      }
-    }
-    const identifier = entry.sessionName;
-    const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || null;
-    if (VERBOSE) console.log(`[VERBOSE] /${command} target=${identifier} requester=${ctx.from?.id}`);
-    await reply(`${command === 'pause' ? '⏸️ Stopping' : '▶️ Resuming'} task ${identifier}…`);
-    let result;
+    const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : String(ctx.from?.id || '');
+    const reason =
+      command === 'pause'
+        ? args
+            .match(/(?:^|\s)--reason\s+(.+)$/s)?.[1]
+            ?.trim()
+            .slice(0, 300)
+        : undefined;
+    let release;
     try {
-      result = await (command === 'pause' ? monitor.pauseTrackedSession(identifier, { requestedBy, verbose: VERBOSE }) : monitor.resumePausedSession(identifier, { verbose: VERBOSE }));
-    } catch (error) {
-      result = { success: false, error: error.message };
-    }
-    if (!result.success) {
-      await reply(`❌ Failed to ${command} task: ${result.error}`);
-    } else if (command === 'pause') {
-      await reply(`⏸️ Task ${identifier} ${result.alreadyPaused ? 'is already paused' : 'paused'}. Its container is stopped and its files are preserved.\n\nUse /resume ${identifier} to continue.`);
-    } else {
-      await reply(`▶️ Task resumed as ${result.sessionId}. Completion monitoring is active.\n\nUse /pause ${identifier} to pause it again.`);
+      if (command === 'resume' && info.url) {
+        release = claimUrl?.(info.url);
+        if (claimUrl && !release) return await reply(tr('telegram.task_control_conflict'));
+        const active = await monitor.hasActiveSessionForUrlAsync?.(info.url, VERBOSE, { exceptSessionName: sessionName });
+        const queued = getSolveQueue?.()?.findLaunchConflict(info.url, []);
+        if (active?.isActive || (queued && ![sessionName, info.sessionId, info.rootSessionName].includes(queued.sessionName))) return await reply(tr('telegram.task_control_conflict'));
+      }
+      const result = await operations[command](sessionName, { requestedBy, reason, verbose: VERBOSE });
+      if (!result.success) return await reply(tr('telegram.task_control_failed', { command, error: result.error }));
+      if (command === 'status') return await reply(`${stateLabel(result.state, tr)} · ${sessionName}${info.url ? `\n${info.url}` : ''}`);
+      const key = { pause: result.alreadyPaused ? 'already_paused' : 'paused', unpause: result.notPaused ? 'not_paused' : 'unpaused', resume: 'resumed' }[command];
+      return await reply(tr(`telegram.task_control_${key}`, { session: result.sessionId }));
+    } finally {
+      release?.();
     }
   }
-  const handlePauseCommand = ctx => handle(ctx, 'pause');
-  const handleResumeCommand = ctx => handle(ctx, 'resume');
-  bot.command('pause', handlePauseCommand);
-  bot.command('resume', handleResumeCommand);
-  return { handlePauseCommand, handleResumeCommand };
+
+  const handlers = {};
+  for (const command of ['pause', 'unpause', 'resume', 'list', 'status']) {
+    handlers[command] = detachHandler(ctx => handle(ctx, command));
+    bot.command(command, handlers[command]);
+  }
+  return handlers;
 }

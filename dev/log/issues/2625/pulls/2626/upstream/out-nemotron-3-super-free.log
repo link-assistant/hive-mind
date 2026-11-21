@@ -1,0 +1,271 @@
+{
+  "type": "config",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.681Z",
+  "service": "default",
+  "source": "lino-arguments (CLI args > env vars > .lenv > defaults)",
+  "config": {
+    "verbose": false,
+    "dryRun": false,
+    "generateTitle": false,
+    "outputResponseModel": true,
+    "summarizeSession": false,
+    "retryOnRateLimits": true,
+    "compactJson": false,
+    "disableAutoupdate": false,
+    "disablePrune": false,
+    "enableExperimentalModels": false,
+    "disableAutocompact": false,
+    "experimental": false,
+    "experimentalWatcher": false,
+    "retryTimeout": 604800,
+    "maxRetryDelay": 1200,
+    "minRetryInterval": 30,
+    "streamChunkTimeoutMs": 120000,
+    "streamStepTimeoutMs": 600000,
+    "mcpDefaultToolCallTimeout": 120000,
+    "mcpMaxToolCallTimeout": 600000,
+    "verifyImagesAtReadTool": true,
+    "readOnly": false,
+    "permissionMode": "auto"
+  },
+  "message": "Agent configuration resolved"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.684Z",
+  "service": "default",
+  "version": "0.26.11",
+  "command": "/home/box/.bun/bin/bun /home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js --model opencode/nemotron-3-super-free -p Reply with exactly: hello --no-summarize-session --no-generate-title",
+  "workingDirectory": "/tmp/agent-smoke",
+  "scriptPath": "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+  "message": "Agent started"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.684Z",
+  "service": "default",
+  "directory": "/tmp/agent-smoke",
+  "message": "creating instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.685Z",
+  "service": "project",
+  "directory": "/tmp/agent-smoke",
+  "message": "fromDirectory"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.692Z",
+  "service": "storage",
+  "index": 0,
+  "message": "running migration"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.698Z",
+  "service": "storage",
+  "index": 1,
+  "message": "running migration"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.702Z",
+  "service": "default",
+  "processArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "opencode/nemotron-3-super-free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "bunArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "opencode/nemotron-3-super-free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "cliModelArg": "opencode/nemotron-3-super-free",
+  "yargsModel": "opencode/nemotron-3-super-free",
+  "message": "model resolution: argv sources"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.702Z",
+  "service": "default",
+  "rawModel": "opencode/nemotron-3-super-free",
+  "providerID": "opencode",
+  "modelID": "nemotron-3-super-free",
+  "message": "using explicit provider/model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.705Z",
+  "service": "provider",
+  "status": "started",
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.708Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/config.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.713Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.713Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.jsonc",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.772Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "message": "no cache found, awaiting refresh"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.773Z",
+  "service": "models.dev",
+  "file": {},
+  "message": "refreshing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:16.993Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "message": "cache unavailable, using bundled data"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:17.268Z",
+  "service": "provider",
+  "message": "init"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:17.289Z",
+  "service": "claude-oauth",
+  "subscriptionType": "max",
+  "scopes": [
+    "user:file_upload",
+    "user:inference",
+    "user:mcp_servers",
+    "user:plugins",
+    "user:profile",
+    "user:sessions:claude_code"
+  ],
+  "message": "loaded oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:17.290Z",
+  "service": "provider",
+  "source": "credentials file (max)",
+  "message": "using claude oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:17.292Z",
+  "service": "provider-registry",
+  "available": [
+    "formal-ai",
+    "formalai",
+    "@link-assistant",
+    "opencode",
+    "kilo",
+    "claude-oauth",
+    "link-assistant"
+  ],
+  "message": "providers available"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:56:17.292Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 587,
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "error",
+  "timestamp": "2026-10-07T13:56:17.614Z",
+  "service": "default",
+  "providerID": "opencode",
+  "modelID": "nemotron-3-super-free",
+  "availableModels": [
+    "ling-3.0-flash-fin-free",
+    "fledge-alpha-free",
+    "ling-3.1-flash-free",
+    "longcat-2.5-preview-free",
+    "exo-free",
+    "space-bunny-free",
+    "mimo-v2.6-flash-free",
+    "nemotron-3-ultra-free",
+    "nemotron-3.5-lightning-free",
+    "big-pickle"
+  ],
+  "message": "model not found in provider — refusing to proceed with explicit provider/model"
+}
+
+{
+  "type": "error",
+  "errorType": "Error",
+  "message": "Model \"nemotron-3-super-free\" not found in provider \"opencode\". Available models include: ling-3.0-flash-fin-free, fledge-alpha-free, ling-3.1-flash-free, longcat-2.5-preview-free, exo-free, space-bunny-free, mimo-v2.6-flash-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, big-pickle. Use --model opencode/<model-id> with a valid model, or omit the provider prefix for auto-resolution."
+}

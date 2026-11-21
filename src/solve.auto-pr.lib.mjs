@@ -11,6 +11,7 @@ import { handleCompareApiNotReady } from './solve.auto-pr-compare-readiness.lib.
 import { waitForCompareApiReady, verifyBranchOnGitHub } from './solve.auto-pr-push-sync.lib.mjs'; // Issue #2175: extracted to keep this file under the 1350-line warning threshold.
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTransientCompareApiError } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too. Issue #1829: isTransientCompareApiError lets the compare-API readiness gate degrade gracefully on transient diff-render failures.
+import { isIntegrationForbidden } from './github-identity.lib.mjs';
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
@@ -60,7 +61,7 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
 
     // Pre-check: If CLAUDE.md would be ignored by .gitignore, automatically switch to .gitkeep mode
     if (useClaudeFile && useAutoGitkeepFile) {
-      const checkResult = await $({ cwd: tempDir, silent: true })`git check-ignore CLAUDE.md 2>/dev/null`;
+      const checkResult = await $({ cwd: tempDir, mirror: false })`git check-ignore CLAUDE.md 2>/dev/null`;
       if (checkResult.code === 0) {
         await log(formatAligned('ℹ️', 'Pre-check:', 'CLAUDE.md is in .gitignore, switching to .gitkeep mode\n'));
         useClaudeFile = false;
@@ -558,9 +559,7 @@ Proceed.
 
         // Get issue title for PR title
         await log(formatAligned('📋', 'Getting issue:', 'Title from GitHub...'), { verbose: true });
-        const issueTitleResult = await $({
-          silent: true,
-        })`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title 2>&1`;
+        const issueTitleResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title 2>&1`;
         let issueTitle = `Fix issue #${issueNumber}`;
         if (issueTitleResult.code === 0) {
           issueTitle = issueTitleResult.stdout.toString().trim();
@@ -571,7 +570,7 @@ Proceed.
 
         // Get current GitHub user to set as assignee (but validate it's a collaborator)
         await log(formatAligned('👤', 'Getting user:', 'Current GitHub account...'), { verbose: true });
-        const currentUserResult = await $({ silent: true })`gh api user --jq .login 2>&1`;
+        const currentUserResult = await quietProbe($)`gh api user --jq .login 2>&1`;
         let currentUser = null;
         let canAssign = false;
 
@@ -615,6 +614,9 @@ Proceed.
             // User doesn't have permission, but that's okay - we just won't assign
             await log('   User is not a collaborator (will skip assignment)', { verbose: true });
           }
+        } else if (isIntegrationForbidden(`${currentUserResult.stdout?.toString() ?? ''}${currentUserResult.stderr?.toString() ?? ''}`)) {
+          // Issue #3469: an installation token (e.g. GITHUB_TOKEN) cannot read GET /user by design.
+          await log('   Current user: unknown (a GitHub App installation token cannot read GET /user); skipping assignment', { verbose: true });
         } else {
           await log('   Warning: Could not get current user', { verbose: true });
         }
@@ -624,7 +626,7 @@ Proceed.
         await log(formatAligned('🔄', 'Fetching:', `Latest ${targetBranch} branch...`));
         const fetchBaseResult = await $({
           cwd: tempDir,
-          silent: true,
+          mirror: false,
         })`git fetch origin ${targetBranch}:refs/remotes/origin/${targetBranch} 2>&1`;
 
         if (fetchBaseResult.code !== 0) {
@@ -642,7 +644,7 @@ Proceed.
         await log(formatAligned('🔍', 'Checking:', 'Commits between branches...'));
         const commitCheckResult = await $({
           cwd: tempDir,
-          silent: true,
+          mirror: false,
         })`git rev-list --count origin/${targetBranch}..HEAD 2>&1`;
 
         if (commitCheckResult.code === 0) {
@@ -655,7 +657,7 @@ Proceed.
             // Check if the branch was already merged
             const mergedCheckResult = await $({
               cwd: tempDir,
-              silent: true,
+              mirror: false,
             })`git branch -r --merged origin/${targetBranch} | grep -q "origin/${branchName}" 2>&1`;
             const wasAlreadyMerged = mergedCheckResult.code === 0;
 
@@ -938,7 +940,7 @@ ${prBody}`,
                 await new Promise(resolve => setTimeout(resolve, waitTime));
 
                 lastVerifyResult = await $({
-                  silent: true,
+                  mirror: false,
                 })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
 
                 if (lastVerifyResult.code === 0) {

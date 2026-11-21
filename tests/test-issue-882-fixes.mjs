@@ -28,7 +28,8 @@ test('Model mapping - Claude tool should not accept grok-code', () => {
 
 test('Model mapping - Agent tool should accept sonnet', () => {
   const mapped = mapModelForTool('agent', 'sonnet');
-  assert.strictEqual(mapped, 'anthropic/claude-3-5-sonnet', 'sonnet should map to anthropic/claude-3-5-sonnet for agent');
+  // Issue #2591: agent's sonnet follows the newest Claude Sonnet (anthropic/claude-3-5-sonnet is gone from models.dev)
+  assert.strictEqual(mapped, 'anthropic/claude-sonnet-5-5', 'sonnet should map to anthropic/claude-sonnet-5-5 for agent');
 
   const isCompatible = isModelCompatibleWithTool('agent', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with agent tool');
@@ -36,8 +37,8 @@ test('Model mapping - Agent tool should accept sonnet', () => {
 
 test('Model mapping - Claude tool should accept sonnet', () => {
   const mapped = mapModelForTool('claude', 'sonnet');
-  // Updated for Issue #2003: sonnet now maps to Sonnet 5
-  assert.strictEqual(mapped, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5 for claude');
+  // Updated for Issue #2771: sonnet now maps to Sonnet 5.5
+  assert.strictEqual(mapped, 'claude-sonnet-5-5', 'sonnet should map to claude-sonnet-5-5 for claude');
 
   const isCompatible = isModelCompatibleWithTool('claude', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with claude tool');
@@ -97,7 +98,7 @@ test('Model mapping - Qwen should handle qwen alias correctly', () => {
 
 test('Model mapping - Gemini should handle gemini alias correctly', () => {
   const mapped = mapModelForTool('gemini', 'gemini');
-  assert.strictEqual(mapped, 'gemini-2.5-flash', 'gemini should map to gemini-2.5-flash for gemini');
+  assert.strictEqual(mapped, 'flash', 'gemini should map to the Gemini CLI flash alias (issue #2591)');
 
   const isCompatible = isModelCompatibleWithTool('gemini', 'gemini-2.5-pro');
   assert.strictEqual(isCompatible, true, 'gemini-2.5-pro should be compatible with gemini tool');

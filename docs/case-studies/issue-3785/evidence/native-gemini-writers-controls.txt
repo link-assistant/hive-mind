@@ -1,0 +1,209 @@
+Gemini CLI 0.65.0; source commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
+Coordinated manager SHA-256: d4071e79ec12bd57017e020c58944bfb94e8f0d13ffe6995b78e6799bffe4610
+Shared transaction engine SHA-256: bc3b3820a64324a7a388a729728f98217d28454a6e1263d6a2e384b0e3bb8959
+Synthetic native OAuth factory/client/cache writer/logout; no operator state.
+External token verification, user info and token endpoint transports are stubbed.
+
+Stock direct-refresh regression, after a healthy actual native G0 header:
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal
+actual refresh token: synthetic-refresh-G0
+expected refresh token: synthetic-refresh-G1
+The native wrapper overwrites a provider's rotated token before async publication.
+
+Read-stage refresh regression, after healthy native G0 headers in both processes:
+AssertionError [ERR_ASSERTION]: two-refreshes: expired native credentials must exchange
+actual result: selected rejected, exchanges 0
+expected event: exchange predecessor G0
+
+Rejected-factory recovery regression against the first writer stage:
+AssertionError [ERR_ASSERTION]: owner-death: native writer result
+actual: selected rejected, exchanges 0
+expected: selected G2, exchanges 0
+The native promise map retains an initialization rejection after canonical repair.
+
+Authority replacement regression after allowing factory retries:
+AssertionError [ERR_ASSERTION]: factory-root-replacement: native writer result
+actual: selected G2, exchanges 0
+expected: selected rejected, exchanges 0
+Binding the directory identity across retries repairs this further regression.
+
+First coordinated stage (13 controls; CI 41099170547 on 427f336085):
+PASS: actual native Gemini inference-overlap (SDK request, synthetic transport)
+PASS: actual native Gemini two-refreshes
+PASS: actual native Gemini login (inspected cache publication, not full browser login)
+PASS: actual native Gemini logout
+PASS: actual native Gemini owner-death
+PASS: actual native Gemini network-refusal
+PASS: actual native Gemini metadata-rewrite
+PASS: actual native Gemini factory-root-replacement
+PASS: actual native Gemini invalid-grant
+PASS: actual native Gemini non-rotating
+PASS: actual native Gemini direct-refresh
+PASS: actual native Gemini direct-no-cache
+PASS: actual native Gemini publication-race
+
+Each checks durable canonical bytes, stable lock identity and no private auth copy.
+Uncertain generations remain blocked without another exchange, including after
+metadata rewrites. A distinct publication repairs uncertainty; a same-refresh-token
+publication refuses. Fresh same-process factory calls then observe G2. A competing
+external G2 is preserved and reconciled by a fresh native reader.
+Selected native refresh options require retry=false, retry count 0 and no-response
+retries 0. The fixture checks options; it does not run a live provider retry test.
+
+After extracting the shared engine, the actual Qwen manager and retained-client
+read sets (14 each) and the complete 14 native writer controls still pass.
+All 738 local default test files pass; this does not certify native experiment code.
+An actual OAuth SDK model request stays pending while a peer reads G1, verifying
+that the credential lock is released during that request. Full CLI inference is open.
+Gemini read-stage CI 41094570644 passes on 823fb80335. The first writer stage
+passes CI 41099170547 on 427f336085. Expanded login/revocation CI is pending.
+
+Unfinished: account metadata, all other
+provider factories/backends, full CLI model requests, history and production wiring.
+These selected experiments do not complete the issue's six-tool acceptance matrix.
+
+Expanded native login/revocation stage, verified locally after the regressions:
+Coordinated manager SHA-256: 0ecbf961fccd030706d8aa06689e8eb1a10cb8f8e21686fa3003e2319f71410c
+Shared engine SHA-256: d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174
+Before repair, auth-code, initial-login and revoke each fail with selected rejected
+instead of entering the real native operation after healthy fixture admission.
+
+PASS: actual native Gemini inference-overlap; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini two-refreshes; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini login; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini logout; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini owner-death; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini network-refusal; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini metadata-rewrite; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini factory-root-replacement; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini invalid-grant; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini non-rotating; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini direct-refresh; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini direct-no-cache; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini publication-race; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-publication-race; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-network-refusal; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-incomplete; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-uncertain-repair; canonical publication, private configurations and stable lock identity.
+PASS: actual native Gemini auth-code-unsafe-intent; preserve uncertainty and credentials without an exchange.
+PASS: actual native Gemini revoke; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-direct; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-old; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini revoke-network-refusal; current generation, durable local removal and stable lock identity.
+PASS: actual native Gemini initial-login; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-browser; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-malformed; interactive login refuses unsafe existing authority before browser or exchange.
+
+Code exchange requires a complete new refresh generation and compare-and-publish.
+A concurrent external G2 is preserved; unsafe legacy intent refuses before exchange.
+A distinct login generation repairs a valid uncertain predecessor intent. Failed or
+incomplete code responses preserve existing storage without merging account tokens.
+Revocation uses current canonical authority, refuses stale explicit tokens, and
+removes local authority durably before its external request, including on failure.
+The real native SDK request options disable refresh, code and revocation retries.
+
+Initial manual login feeds the actual native terminal code prompt. Initial browser
+login runs the native local HTTP callback and generated state. Only external browser
+launch and provider transports/verification are stubbed; no live Google session runs.
+A fresh native peer reads G1 after each successful initial flow. Malformed existing
+credentials refuse before browser launch or code exchange.
+
+All 11 latest canonical reader/private-scope controls pass; all nine no-selector
+native stale-header reproductions remain unchanged. All 14 Qwen manager controls,
+14 retained-client controls and 14 native writer controls pass with this engine.
+Production installation, account metadata, other native constructors, full CLI
+inference and the complete history/lifecycle/six-tool matrix remain unfinished.
+
+Expanded canonical account/callback stage, verified locally:
+Coordinated manager SHA-256: d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d
+The shared engine remains d8c3408738e965afbc53b8354dcab7745421a11f7744a119545931b61b88d174.
+Account helper SHA-256: a34d60e457b3459680ed65b7b08e5e9288efdf554d32e93787ef5e760af80c9d
+
+Before repair, native account publication completes into private configuration;
+the strict test fails with ENOENT for canonical google_accounts.json. The separate
+cached-login callback test fails with selected rejected instead of healthy G0.
+After healthy G0 then logout, a same-process login fails with zero exchanges and
+selected rejected instead of entering the native authorization-code flow. These
+regressions are preserved in the bounded native process probe.
+
+Final stage: all 41 controls pass. In addition to the prior refresh/login/revoke
+cases, these pass:
+PASS: actual native Gemini initial-relogin; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini initial-revoke-relogin; native authorization flow, durable publication and fresh peer headers.
+PASS: actual native Gemini account-cache; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-callback; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-switch; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-scope-disposal; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-stale-response; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-logout; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-private-conflict; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-malformed; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-permissions; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-hardlink; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-symlink; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-directory; canonical account metadata, native callbacks and generation boundaries.
+PASS: actual native Gemini account-unsafe-oversized; canonical account metadata, native callbacks and generation boundaries.
+
+Native account path reporting, synchronous/asynchronous getters, cache publication,
+account counts, user-info publication and logout now use canonical metadata. Reads
+refuse unsafe links, modes, directories, oversized or malformed state and competing
+private copies. Atomic metadata publication uses the credential transaction lock
+and file/directory synchronization. Only a matching current access/refresh pair
+can publish user info; a delayed G0 response cannot label G2. Metadata carries a
+refresh-generation digest. Account switches retain the old account count; logout
+clears active state while preserving lifetime history. All fixtures are synthetic.
+
+Actual native post-auth events retain the account email and authorized_user type.
+Each cached-login process requires one event; successful refresh/code publication
+requires the next event after durable publication. Initial native manual/browser
+flows preserve their callbacks. Same-process login after logout and after native
+revocation enters the real terminal code flow and publishes G1 for a fresh peer.
+The final canonical read/private-scope set passes all 11 cases, and all nine
+no-selector native stale-header reproductions remain unchanged. Expanded CI is
+pending; full CLI requests, other provider constructors, full history and production
+installation remain unfinished.
+
+Native constructor/request stage (local, 2026-10-30):
+Input manager SHA-256: d7770e02fce0af146f78d6f509c83c53de8f0a5eb2933d6956707291ff3a8c9d
+Admitted manager SHA-256: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+Probe: experiments/issue-3785/probe-gemini-native-request-auth.mjs
+30 before controls preserve existing refusals and reproduce alternate authority.
+Strict constructor-api-key regression before admission:
+  actual: { selected: 'accepted', requests: 1 }
+  expected: { selected: 'rejected', requests: 0 }
+The real native Google SDK countTokens implementation sends that one request;
+only its provider fetch boundary is synthetic.
+30 selected controls pass after admission; API-key/Vertex/gateway constructors
+refuse before transport, and retained native Code Assist handles refuse changed
+endpoint, version, auth headers, client, selector and missing credentials.
+Each retained-handle case completes one healthy native G0 dispatch first.
+Canonical replacement completes its next native dispatch with G1.
+30 no-selector controls preserve native constructor/request behavior.
+Complete CLI inference/history, arbitrary pre-existing clients, API-key/ADC
+canonical backends, production installation and fresh CI remain unfinished.
+Combined native request stage preserves all 41 writer/login/account controls,
+11 canonical-read/private-scope controls and nine legacy read reproductions.
+The original-package rotation control again fails for the exact G0/G1 refresh
+mismatch after restricting the new callback assertion to the coordinated stage.
+All five CI pre-coordination login/revocation/account regressions retain their
+specific original failures. Local ESLint, actionlint and Python syntax pass.
+
+Actual full CLI healthy control (local Node 26.12.1, 2026-10-30):
+Probe: experiments/issue-3785/probe-gemini-native-cli.py
+Exact admitted manager: c52e6e574c9bd960a60a3a3364351be8eccf1d1236d933d44204ded015047792
+No native export, OAuth SDK or Code Assist methods are instrumented.
+The complete CLI executes OAuth token verification, user-info, Code Assist
+initialization and an actual streaming model request through a TLS-verifying
+loopback provider fixture. The proxy forwards no external traffic.
+Native JSON output contains SYNTHETIC-GEMINI-COMPLETE and exits successfully.
+Canonical credentials stay unchanged; canonical account metadata is present;
+private credentials and private account metadata remain absent.
+Node 24 CI, full-CLI refresh/crash controls, conversation disposal/resume,
+alternate backends and production installation remain unfinished.
+Actual full CLI history negative control requires successful native inference
+and transcript publication first. After full process-group reaping and private
+home disposal, a fresh peer lists no sessions and resume reports:
+  Error resuming session: No previous sessions found for this project.
+Exactly one model request occurs. The strict regression fails with:
+  AssertionError: A fresh native CLI must discover canonical conversation history.

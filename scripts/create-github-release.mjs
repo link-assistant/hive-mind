@@ -15,13 +15,16 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 import { readFileSync } from 'fs';
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
+import { extractChangelogSection } from './format-release-notes.lib.mjs';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
 // Load use-m dynamically
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
+// Issue #3552: every gh call below is retried on transient GitHub faults.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -57,16 +60,10 @@ try {
   // Read CHANGELOG.md
   const changelog = readFileSync('./CHANGELOG.md', 'utf8');
 
-  // Extract changelog entry for this version
-  // Read from CHANGELOG.md between this version header and the next version header
-  const versionHeaderRegex = new RegExp(`## ${version}[\\s\\S]*?(?=## \\d|$)`);
-  const match = changelog.match(versionHeaderRegex);
-
-  let releaseNotes = '';
-  if (match) {
-    // Remove the version header itself and trim
-    releaseNotes = match[0].replace(`## ${version}`, '').trim();
-  }
+  // Extract changelog entry for this version: the lines between its `## x.y.z`
+  // heading and the next `## ` heading. The heading must match the whole line,
+  // so 2.3.1 never reads the section of 2.3.10 (issue #3445).
+  let releaseNotes = extractChangelogSection(changelog, version);
 
   if (!releaseNotes) {
     releaseNotes = `Release ${version}`;

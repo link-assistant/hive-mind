@@ -1,0 +1,33 @@
+  "command": "gate='/tmp/hive-mind-disk-baseline-ed4a06
+[VERBOSE] isolation-runner: log footer for /tmp/start-command/logs/isolation/docker/56e99f89-541c-4daa-a9b1-cff98fc99cc0.log reports exit 0 (finished 2026-10-06 19:47:08.096)
+[VERBOSE] Session ed4a0621-809f-4b0c-905a-1562a2fe4cfe reported oomKilled=true, but its log footer says exit 0 (executed) and wins — the session SURVIVED the out-of-memory event (issue #2134)
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "17e6fbda-538c-434d-be92-ddb81dc8bee4",
+  "pid": 394332,
+  "processIds": {
+    "wrapperPid": 394332,
+    "containerId": "d153394f2baacae4698e71bb4e3d85b45f40b7436ca4dfe35df4b324cf1ff0a5",
+    "containerPid": 3190365
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/t
+[VERBOSE] isolation-runner: docker inspect for '183ac87a-9306-4b68-b188-88cb4e35efae': running
+[VERBOSE] Session 183ac87a-9306-4b68-b188-88cb4e35efae: reusing the writable-layer size observed at 2026-10-06T19:44:30.334Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "5cb364fc-9bf8-46f6-a22a-3db9bd78e7cd",
+  "pid": 375679,
+  "processIds": {
+    "wrapperPid": 375679,
+    "containerId": "056f7ed03b6e2243f62f51c071bab43d34467eb45457a915f01ddcc382fb8b66",
+    "containerPid": 3154654
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/t
+[VERBOSE] isolation-runner: docker inspect for '2607f870-225a-45fb-8bea-f16922aa7613': running
+unexpected end of JSON input
+  ❌ Failed to post comment with log link: unexpected end of JSON input
+
+📈 Resource usage (log upload end):
+   CPU load: 27.03 26.45 18.29 (6 CPUs)

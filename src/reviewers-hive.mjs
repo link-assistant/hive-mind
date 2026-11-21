@@ -6,7 +6,7 @@ const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry, execGhWithRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } = await import('./cli-arguments.lib.mjs');
 const path = (await use('path')).default;

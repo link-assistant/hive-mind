@@ -1,0 +1,21 @@
+✔ simultaneous version reports share the concurrency limit and return valid output (948.528057ms)
+✔ a timed-out version probe kills its shell descendants (624.241638ms)
+✔ startup log directory supports aliases, equals syntax and the argument separator (1.036283ms)
+✔ formal drafts preserve development logs and create missing labels (2.24627ms)
+✔ checks-only workflow dispatch has defaults for all required inputs (1.025411ms)
+✔ branch fallback commits only its sanitized log and refuses other checkouts (1374.521906ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the log upload
+✔ permanent Gist permission failure is attempted once without splitting (51.222433ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+  ⚠️  The GitHub token may not publish logs (e.g. a workflow GITHUB_TOKEN cannot create gists); not retrying the log upload
+✔ failed Gist upload publishes the complete sanitized log through the branch fallback (74.305903ms)
+✔ solve --log-dir writes startup and parsing diagnostics in the requested directory (3788.550186ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6884.188101

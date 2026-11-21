@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { processesForTool, readToolProcessSnapshot } from './queue-work.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
-
-const execAsync = promisify(exec);
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
@@ -27,6 +24,14 @@ export function formatQueueItemLink(url) {
   if (match && !/[\])]/.test(url)) {
     const [, owner, repo, number] = match;
     return `[${owner}/${repo}#${number}](${url})`;
+  }
+  // Issue #2823: a bare repository URL (`/codex https://github.com/owner/repo`)
+  // was shown as a long raw URL next to compact issue/PR links. Render it as
+  // `[owner/repo](url)` too.
+  const repoMatch = url.match(/^https?:\/\/(?:www\.)?github\.com\/([^/\s?#]+)\/([^/\s?#]+?)(?:\.git)?\/?(?:[?#].*)?$/i);
+  if (repoMatch && !/[\])]/.test(url)) {
+    const [, owner, repo] = repoMatch;
+    return `[${owner}/${repo}](${url})`;
   }
   return escapeTopLevelMarkdown(url);
 }
@@ -59,8 +64,11 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
   if (!items || items.length === 0) return '';
   let section = `${indent}*${label}* (${items.length}):\n`;
   for (const item of [...items].reverse().slice(0, max)) {
-    section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
+    // Issue #3215: a solve that finished without changes is listed as done, but not as a success.
+    const noChanges = item.sessionOutcome?.noChanges === true;
+    section += `${indent}  ${noChanges ? '⚠️' : emoji} ${formatQueueItemLink(item.url)}`;
     if (withError && item.error) section += ` — ${escapeTopLevelMarkdown(item.error)}`;
+    else if (noChanges) section += ` — ${escapeTopLevelMarkdown(lt('queue_no_changes', {}, { locale }))}`;
     section += '\n';
   }
   if (items.length > max) {
@@ -78,7 +86,7 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
  * @param {string} url
  * @returns {string}
  */
-function normalizeQueueUrl(url) {
+export function normalizeQueueUrl(url) {
   return typeof url === 'string' ? url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase() : '';
 }
 
@@ -99,9 +107,10 @@ function normalizeQueueUrl(url) {
  * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, rootStartTime, recoveries, status}`).
  * @param {string} opts.tool - Tool key to filter by.
  * @param {number} [opts.now] - Current epoch ms (injectable for tests).
+ * @param {boolean} [opts.byExecution] - Preserve already-reconciled execution identities.
  * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number, recoveries?: number}>}
  */
-export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
+export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now(), byExecution = false }) {
   const byKey = new Map();
 
   for (const item of processingItems) {
@@ -116,18 +125,20 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
 
   for (const session of sessionItems) {
     if ((session.tool || 'claude') !== tool) continue;
-    if (!session.url) continue; // can't render a clickable link without a URL
-    const key = normalizeQueueUrl(session.url);
+    if (!session.url && !session.pid && !(byExecution && session.sessionName)) continue;
+    const identity = session.sessionName || session.id || (session.pid ? `pid:${session.pid}` : null);
+    const key = (byExecution && identity) || normalizeQueueUrl(session.url) || identity;
     if (key && byKey.has(key)) continue; // already represented by an in-memory item
     // Issue #2408: a recovery session counts from when the work started.
-    const since = session.rootStartTime || session.startTime;
+    const since = session.pausedAt || session.rootStartTime || session.startTime || session.startedAt || session.createdAt;
     const startMs = since ? new Date(since).getTime() : null;
     byKey.set(key || session.sessionName, {
-      url: session.url,
+      url: session.url || `${tool} (${session.pid ? `PID ${session.pid}` : session.sessionName})`,
       // Tracked sessions report a backend status (e.g. 'executing'); fall back to
       // the generic "processing" label rendered by formatQueueProcessingItems.
       queueStatus: null,
       waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+      ...(session.status === 'paused' ? { paused: true } : {}),
       recoveries: Number.isFinite(session.recoveries) ? session.recoveries : 0,
     });
   }
@@ -163,7 +174,7 @@ export function formatQueueExecutingItems({ items, max = Infinity, locale, label
   for (const item of items.slice(0, max)) {
     // Issue #2408: `🔁 N` marks work that was automatically recovered N times.
     const recovered = item.recoveries > 0 ? `, 🔁 ${item.recoveries}` : '';
-    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (${item.paused ? '⏸' : '▶️'} ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
   }
   if (items.length > max) {
     out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
@@ -194,6 +205,82 @@ export function groupQueueItemsByTool(items) {
 }
 
 /**
+ * When a history item ended, for ordering merged history lists oldest-first
+ * (the renderers reverse them to most-recent-first). Items without any
+ * timestamp sort as 0, and the stable sort keeps their original order.
+ *
+ * @param {object} item
+ * @returns {number} Epoch ms, or 0 when unknown.
+ */
+function historyItemTime(item) {
+  const value = item?.sessionOutcome?.finishedAt || item?.startedAt || item?.createdAt || null;
+  const ms = value ? new Date(value).getTime() : 0;
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/**
+ * Describe why a launched session failed, for the `❌ link — reason` row
+ * (issue #2823): the signal for a kill, otherwise the exit code, otherwise the
+ * backend status.
+ *
+ * @param {{exitCode?: (number|null), status?: (string|null), signal?: (string|null)}} outcome
+ * @param {string|null} [locale]
+ * @returns {string}
+ */
+export function formatQueueSessionFailure(outcome, locale = null) {
+  if (!outcome) return '';
+  const exitCode = Number.isInteger(outcome.exitCode) ? outcome.exitCode : null;
+  const exitText = exitCode !== null ? lt('queue_exit_code', { code: exitCode }, { locale }) : null;
+  if (outcome.signal) return exitText ? `${outcome.signal} (${exitText})` : outcome.signal;
+  if (exitText) return exitText;
+  return outcome.status ? String(outcome.status) : lt('queue_failed', {}, { locale });
+}
+
+/**
+ * Split one tool's queue history into what is really Completed and what really
+ * Failed (issue #2823).
+ *
+ * `SolveQueue.completed` records successful *launches*: an item lands there as
+ * soon as its detached session starts. Listing it as "Completed" while the same
+ * task is still listed under "Processing" is a false positive, and a session
+ * that later exits with a failure was never shown under "Failed" (a false
+ * negative). The rules:
+ *
+ * - a launched item whose session has not reported an outcome yet and whose
+ *   URL is still executing is shown only under Processing;
+ * - a launched item whose session finished with a failure moves to Failed,
+ *   with the failure reason as its error;
+ * - every other launched item (finished successfully, or with no known
+ *   outcome and no longer executing) stays in Completed;
+ * - launch failures (`SolveQueue.failed`) stay in Failed.
+ *
+ * @param {object} opts
+ * @param {Array} [opts.completed] - Launched items for one tool.
+ * @param {Array} [opts.failed] - Launch failures for one tool.
+ * @param {Array<{url: string}>} [opts.executing] - Output of {@link collectExecutingItems}.
+ * @param {string|null} [opts.locale] - Locale for failure reasons.
+ * @returns {{completed: Array, failed: Array, executingHidden: Array}}
+ */
+export function partitionQueueHistory({ completed = [], failed = [], executing = [], locale = null } = {}) {
+  const executingKeys = new Set(executing.map(item => normalizeQueueUrl(item.url)).filter(Boolean));
+  const done = [];
+  const failedAfterLaunch = [];
+  const executingHidden = [];
+  for (const item of completed) {
+    const outcome = item.sessionOutcome || null;
+    if (!outcome && executingKeys.has(normalizeQueueUrl(item.url))) {
+      executingHidden.push(item);
+    } else if (outcome?.failed) {
+      failedAfterLaunch.push({ url: item.url, tool: item.tool, createdAt: item.createdAt, startedAt: item.startedAt, sessionOutcome: outcome, error: formatQueueSessionFailure(outcome, locale) });
+    } else {
+      done.push(item);
+    }
+  }
+  const allFailed = failedAfterLaunch.length ? [...failed, ...failedAfterLaunch].sort((a, b) => historyItemTime(a) - historyItemTime(b)) : [...failed];
+  return { completed: done, failed: allFailed, executingHidden };
+}
+
+/**
  * Render one tool queue's block for the detailed status as a set of *separate,
  * individually-labeled lists* — Processing, Pending, Completed, Failed — instead
  * of one merged bullet list (issue #1891 follow-up). Empty lists are omitted.
@@ -210,11 +297,12 @@ export function groupQueueItemsByTool(items) {
  * @param {string|null} opts.locale - Locale for labels/durations.
  * @returns {string} The formatted block (with a trailing blank line).
  */
-export function formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale }) {
+export function formatQueueToolSection({ tool, executing, paused = [], pendingItems, completed, failed, labels, max, locale }) {
   let block = `*${tool}*\n`;
 
   // Processing list.
   block += formatQueueExecutingItems({ items: executing, locale, label: labels.processing });
+  block += formatQueueExecutingItems({ items: paused, locale, label: labels.paused });
 
   // Pending list + the shared waiting reason once (when all items agree on it).
   block += formatQueuePendingItems({ items: pendingItems, locale, label: labels.pending });
@@ -286,46 +374,13 @@ export async function getRunningSessionItems(verbose = false) {
 }
 
 /**
- * Count running processes by name.
+ * Count foreground CLI jobs, collapsing wrappers and excluding idle services.
  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
-export async function getRunningProcesses(processName, verbose = false) {
-  try {
-    const { stdout } = await execAsync(`pgrep -l -x ${processName} 2>/dev/null || true`);
-    const lines = stdout
-      .trim()
-      .split('\n')
-      .filter(line => line.trim());
-
-    const processes = lines
-      .map(line => {
-        const parts = line.trim().split(/\s+/);
-        return {
-          pid: parts[0],
-          name: parts.slice(1).join(' ') || processName,
-        };
-      })
-      .filter(p => p.pid);
-
-    if (verbose) {
-      console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);
-      if (processes.length > 0) {
-        console.log(`[VERBOSE] /queue processes: ${JSON.stringify(processes)}`);
-      }
-    }
-
-    return {
-      count: processes.length,
-      processes: processes.map(p => `${p.pid}:${p.name}`),
-    };
-  } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] /queue error counting ${processName} processes:`, error.message);
-    }
-    return { count: 0, processes: [] };
-  }
+export async function getRunningProcesses(processName, verbose = false, options = {}) {
+  return processesForTool(await readToolProcessSnapshot(verbose, options), processName);
 }
 
 /**

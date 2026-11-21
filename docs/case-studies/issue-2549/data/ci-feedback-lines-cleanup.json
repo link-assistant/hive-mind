@@ -1,0 +1,19 @@
+{
+  "resources": {
+    "repository": "link-assistant/hive-mind",
+    "baseBranch": "e2e/integration/66871236-6fbf-424a-a527-2a4557ce0017/feedback-lines",
+    "branches": [
+      "e2e/integration/66871236-6fbf-424a-a527-2a4557ce0017/feedback-lines",
+      "e2e/integration/66871236-6fbf-424a-a527-2a4557ce0017/feedback-lines-head"
+    ],
+    "issueNumber": 2551,
+    "issueUrl": "https://github.com/link-assistant/hive-mind/issues/2551",
+    "pullRequestNumber": 2552
+  },
+  "kept": false,
+  "errors": [],
+  "retainedBranches": [
+    "e2e/integration/66871236-6fbf-424a-a527-2a4557ce0017/feedback-lines-head",
+    "e2e/integration/66871236-6fbf-424a-a527-2a4557ce0017/feedback-lines"
+  ]
+}

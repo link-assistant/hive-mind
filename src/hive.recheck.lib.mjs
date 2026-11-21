@@ -5,13 +5,13 @@ import { log, cleanErrorMessage } from './lib.mjs';
 import { batchCheckPullRequestsForIssues, batchCheckArchivedRepositories } from './github.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 /**
  * Recheck conditions for an issue right before processing
  * This ensures the issue should still be processed even if conditions changed since queuing
  * @param {string} issueUrl - The URL of the issue to check
  * @param {Object} argv - Command line arguments with configuration
- * @returns {Promise<{shouldProcess: boolean, reason?: string}>}
+ * @returns {Promise<{shouldProcess: boolean, reason?: string, pullRequests?: Array}>}
  */
 export async function recheckIssueConditions(issueUrl, argv) {
   try {
@@ -29,10 +29,9 @@ export async function recheckIssueConditions(issueUrl, argv) {
 
     // Check 1: Verify issue is still open
     try {
-      const { execSync } = await import('child_process');
-      const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
-        encoding: 'utf8',
-      }).trim();
+      // Issue #3552: async and retried, so a GitHub 502 does not skip the recheck.
+      const { stdout } = await execGhWithRetry(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, { execOptions: { encoding: 'utf8', timeout: 60_000 } });
+      const issueState = String(stdout).trim();
 
       if (issueState === 'closed') {
         return {
@@ -48,13 +47,14 @@ export async function recheckIssueConditions(issueUrl, argv) {
 
     // Check 2: If skipIssuesWithPrs is enabled, verify issue still has no open PRs
     if (argv.skipIssuesWithPrs) {
-      const prResults = await batchCheckPullRequestsForIssues(owner, repo, [issueNum]);
+      const prResults = await batchCheckPullRequestsForIssues(owner, repo, [issueNum], { excludeAncestorPullRequests: true });
       const prInfo = prResults[issueNum];
 
       if (prInfo && prInfo.openPRCount > 0) {
         return {
           shouldProcess: false,
           reason: `Issue now has ${prInfo.openPRCount} open PR${prInfo.openPRCount > 1 ? 's' : ''}`,
+          pullRequests: prInfo.linkedPRs,
         };
       }
       await log(`      ✅ Issue still has no open PRs`, { verbose: true });

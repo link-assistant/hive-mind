@@ -1,0 +1,21 @@
+Codex 0.164.0 compression/path investigation.
+Full rebuilt path-projection positive remains pending in CI.
+
+REPRODUCED: actual native compression ignores the separately held canonical maintenance lock without its selector.
+
+REPRODUCED: actual native compression and peer reads succeed, but shared SQLite retains a deleted private alias and fresh resume fails despite intact canonical history.
+
+
+running 9 tests
+test tests::a_selected_root_must_not_disappear_with_the_private_configuration ... ok
+test tests::already_canonical_paths_do_not_require_a_private_home ... ok
+test tests::compressed_and_not_yet_materialized_rollouts_keep_the_selected_filename ... ok
+test tests::linked_canonical_ancestors_and_rollout_files_refuse ... ok
+test tests::linked_or_public_canonical_roots_refuse ... ok
+test tests::parent_escape_and_nonhistory_namespaces_refuse ... ok
+test tests::persisted_active_and_archived_paths_survive_private_configuration_disposal ... ok
+test tests::public_or_hardlinked_history_refuses_and_preserves_bytes ... ok
+test tests::unrelated_or_unprojected_paths_refuse_without_fallback ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

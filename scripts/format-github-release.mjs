@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
 
 /**
  * Format GitHub release notes using the format-release-notes.mjs script
@@ -19,7 +19,9 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-r
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
+// Issue #3552: every gh call below is retried on transient GitHub faults.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -58,7 +60,7 @@ try {
   // Get the release ID for this version
   let releaseId = '';
   try {
-    const result = await $`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`.run({ capture: true });
+    const result = await $({ capture: true })`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`;
     releaseId = result.stdout.trim();
   } catch {
     console.log(`Could not find release for ${tag}`);

@@ -24,13 +24,14 @@
  * @see docs/FORMAL-AI-DRAFTS.md
  */
 
-import { execFile, spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
-import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
-
-const execFileAsync = promisify(execFile);
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
+import { gh } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
 const decideOnly = flags.has('--decide');
@@ -39,12 +40,6 @@ const dryRun = flags.has('--dry-run');
 const env = process.env;
 const repository = env.GITHUB_REPOSITORY || '';
 const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
-
-/** `gh` with an argv array — no shell, so a webhook string can never become a command. */
-const gh = async args => {
-  const { stdout } = await execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  return stdout;
-};
 
 const setOutput = text => {
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, text);
@@ -83,6 +78,8 @@ const { eventName, action, issue } = await resolveIssue();
 const decision = decideDraft({ eventName, action, issue, layer: env.AUTOMATION_LAYER || 'default' });
 
 console.log(`Formal AI draft: ${decision.run ? 'attempting' : 'skipping'} — ${decision.reason}`);
+// Read back by the scheduled health check, which flags a decision that repeats.
+console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, decision.code));
 setOutput(formatDecisionOutputs(decision));
 setOutput(`issue_number=${issue?.number ?? ''}\n`);
 
@@ -99,12 +96,66 @@ mkdirSync(hostLogDir, { recursive: true });
 // failure looks like the model's rather than the mount's.
 chmodSync(hostLogDir, 0o777);
 
+// A draft that fails before solve starts (an image that is not published, a
+// missing binary artifact) used to leave the log directory empty, so the upload
+// step warned "No files were found" and the artifact held no record of why
+// (issue #4050, run 43274283479). The failure itself is now that record.
+const DRAFT_FAILURE_LOG = 'formal-ai-draft-failure.log';
+const fail = message => {
+  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, message));
+  try {
+    appendFileSync(join(hostLogDir, DRAFT_FAILURE_LOG), `${new Date().toISOString()} ${message}\n`);
+  } catch (error) {
+    console.log(`Could not record the failure in ${hostLogDir}: ${error.message}`);
+  }
+  process.exit(1);
+};
+
+// A caller testing a Formal AI build (`workflow_call` with
+// `formal_ai_binary_artifact`) runs it in place of the image's own binary.
+const extraMounts = [];
+const binary = (env.FORMAL_AI_DRAFT_BINARY || '').trim();
+if (binary) {
+  if (!existsSync(binary)) fail(`FORMAL_AI_DRAFT_BINARY is ${binary}, which does not exist; the downloaded artifact must contain a file named formal-ai`);
+  chmodSync(binary, 0o755);
+  extraMounts.push(`${binary}:${FORMAL_AI_BINARY_CONTAINER_PATH}:ro`);
+}
+
+// The image is the tag of the checked-out version, so the container runs the
+// same hive-mind as these scripts; `docker run` alone would pull once and fail
+// the draft on the first registry timeout.
+const imageOptions = { override: env.FORMAL_AI_DRAFT_IMAGE, version: JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version };
+const pullRunner = args =>
+  new Promise(resolve => {
+    const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    const collect = stream => chunk => {
+      output += chunk;
+      stream.write(chunk);
+    };
+    child.stdout.on('data', collect(process.stdout));
+    child.stderr.on('data', collect(process.stderr));
+    child.on('error', error => resolve({ code: 1, output: `${output}\n${error.message}` }));
+    child.on('close', code => resolve({ code: code ?? 1, output }));
+  });
+
+let image = resolveDraftImages(imageOptions).image;
+if (!dryRun) {
+  try {
+    image = await pullDraftImage({ ...imageOptions, run: pullRunner, sleep, warn: message => console.log(formatWorkflowAnnotation('warning', 'Formal AI draft image', message)) });
+  } catch (error) {
+    fail(error.message);
+  }
+}
+
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),
   forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT'],
-  image: env.FORMAL_AI_DRAFT_IMAGE || DEFAULT_HIVE_MIND_IMAGE,
+  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env) },
+  image,
   hostLogDir,
   containerLogDir,
+  extraMounts,
 });
 
 console.log(`\n$ docker ${dockerArgv.join(' ')}\n`);
@@ -115,6 +166,9 @@ const status = await new Promise((resolve, reject) => {
   child.on('error', reject);
   child.on('close', code => resolve(code ?? 1));
 });
+
+// Why the session log says the run is red, so the run's summary says it too (#4065: solve-*.log, not the newest *.log).
+if (status !== 0) console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage({ logDir: hostLogDir, status })));
 
 // --- The failure policy ---------------------------------------------------
 //
@@ -132,7 +186,7 @@ try {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
     if (!pullRequest.isDraft) await gh(keepPullRequestAsDraftArgs({ repository, number: pullRequest.number }));
-    await gh(labelPullRequestArgs({ repository, number: pullRequest.number }));
+    await labelDraftPullRequest({ gh, repository, number: pullRequest.number });
   }
 } catch (error) {
   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);

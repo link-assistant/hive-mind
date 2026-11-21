@@ -267,12 +267,12 @@ test('resolveDefaultFallbackModel walks fable -> fable-5', () => {
   assert.strictEqual(resolveDefaultFallbackModel('claude', 'fable'), 'fable-5');
 });
 
-test('gpt-6-astra falls back to gpt-5.6-sol', () => {
-  assert.strictEqual(defaultFallbackModels.codex['gpt-6-astra'], 'gpt-5.6-sol');
+test('gpt-6-astra falls back to gpt-6.1-sol', () => {
+  assert.strictEqual(defaultFallbackModels.codex['gpt-6-astra'], 'gpt-6.1-sol');
 });
 
-test('openai.gpt-6-astra falls back to the prefixed gpt-5.6-sol', () => {
-  assert.strictEqual(defaultFallbackModels.codex['openai.gpt-6-astra'], 'openai.gpt-5.6-sol');
+test('openai.gpt-6-astra falls back to the prefixed gpt-6.1-sol', () => {
+  assert.strictEqual(defaultFallbackModels.codex['openai.gpt-6-astra'], 'openai.gpt-6.1-sol');
 });
 
 test('gpt-5.6-cyber falls back to gpt-5.6-sol', () => {
@@ -280,7 +280,7 @@ test('gpt-5.6-cyber falls back to gpt-5.6-sol', () => {
 });
 
 test('resolveDefaultFallbackModel resolves gpt-6-astra', () => {
-  assert.strictEqual(resolveDefaultFallbackModel('codex', 'gpt-6-astra'), 'gpt-5.6-sol');
+  assert.strictEqual(resolveDefaultFallbackModel('codex', 'gpt-6-astra'), 'gpt-6.1-sol');
 });
 
 // ============================================================
@@ -302,9 +302,14 @@ test('the codex default advances to gpt-6-sol while GPT-6 Astra stays preview-on
 console.log('\n=== 9. Backward Compatibility ===');
 
 const preservedClaudeAliases = {
-  opus: 'claude-opus-5',
-  sonnet: 'claude-sonnet-5',
-  haiku: 'claude-haiku-4-5-20251001',
+  // Bare aliases follow Claude Code's own aliases (Issue #2771); the pinned
+  // 5.0 / 4.5 snapshots stay reachable through their versioned aliases.
+  opus: 'claude-opus-5-5',
+  sonnet: 'claude-sonnet-5-5',
+  haiku: 'claude-haiku-5-5',
+  'opus-5': 'claude-opus-5',
+  'sonnet-5': 'claude-sonnet-5',
+  'haiku-4-5': 'claude-haiku-4-5-20251001',
   'fable-5': 'claude-fable-5',
   'claude-fable-5': 'claude-fable-5',
   'mythos-5': 'claude-mythos-5',

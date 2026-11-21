@@ -19,9 +19,9 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.352.1
+ARG FORMAL_AI_VERSION=0.355.34
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.99-slim-bookworm AS formal-ai-builder
+FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
@@ -40,13 +40,20 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Box 2.10.2 keeps the box#112 one-toolchain invariant and refreshes the base
+# Box 2.10.5 retains the box#112 one-toolchain invariant and the base
 # runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
 # repaired the Docker Hub multi-arch publishing failure reported in box#119;
 # both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
-# of record, as the reproducible source for this pin.
-FROM ghcr.io/link-foundation/box:2.10.2
+# of record, as the reproducible source for this pin. Box #129 also adds file
+# for validating downloaded attachments. Box 2.10.5 enables Docker live
+# restore in the nested DinD daemon (box#131).
+FROM ghcr.io/link-foundation/box:2.10.5
+# Host-socket task isolation needs an explicitly installed client even when
+# its daemon runs outside this image.
+COPY --from=docker:29.9.2-cli /usr/local/bin/docker /usr/local/bin/docker
+RUN docker --version
 ARG HIVE_MIND_VERSION=latest
+ARG HIVE_MIND_INSTALL_SOURCE=false
 # Task-container prerequisite installs stay within the workspace (formal-ai#1159).
 ENV FORMAL_AI_INSTALL_GRANT=workspace
 # Release builds pass the exact published package version here. Bake it as the
@@ -88,6 +95,7 @@ ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=0 \
     CLAUDE_CODE_ENABLE_REMOTE_RECAP=0 \
     CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \
+    ENABLE_CLAUDEAI_MCP_SERVERS=false \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
@@ -121,6 +129,15 @@ WORKDIR /home/box
 # steps run as they read (issue #2187).
 SHELL ["/bin/bash", "-c"]
 
+# The solver verifies downloaded attachments with file before opening them.
+# Box's runtime does not guarantee this utility (issue #2687).
+RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file
+
+# AI tools pipe JSON through jq, and the solver's printed "Raw command" ends in
+# `| jq -c .`. Box's runtime does not guarantee this utility either; without it
+# those commands exit 127 with `jq: command not found` (issue #2846).
+RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
+
 # --- Current Node.js and Bun (issue #2187) ---
 # Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's
 # ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was
@@ -129,10 +146,10 @@ SHELL ["/bin/bash", "-c"]
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0. The current 2.10.2 base already ships exactly the
-# versions pinned below, so on that base this layer adds no second version —
-# nvm reports the pin already installed and the prune loop removes nothing
-# (checked by experiments/issue-2187-runtime-block-on-new-base.sh).
+# box 2.7.0. The current 2.10.5 base keeps one version per language. When a
+# pin below differs from the base, replace the runtime and repoint the default
+# before pruning superseded Node.js versions (the prune behavior is covered
+# by tests/test-issue-2187-runtime-versions.mjs).
 #
 # The layer is kept anyway, because it is the floor rather than the source of
 # the runtime. The base's versions are box's decision and can move under us in
@@ -155,8 +172,15 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=26.10.0
-ARG HIVE_MIND_BUN_VERSION=1.4.2
+ARG HIVE_MIND_NODE_VERSION=26.13.1
+ARG HIVE_MIND_BUN_VERSION=1.4.5
+# Node >= 25 no longer bundles corepack, and the inherited copy is skipped
+# by the scan below, so without this `command -v corepack` finds nothing and every git
+# hook that runs the package manager through corepack (lefthook with
+# `packageManager: pnpm@…`) fails with `spawnSync corepack ENOENT` (issue #4082).
+# Corepack goes in before the inherited globals: its pnpm/yarn shims must not
+# replace a pnpm or yarn that the base installed explicitly.
+ARG HIVE_MIND_COREPACK_VERSION=0.36.0
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -171,6 +195,8 @@ RUN set -e && \
     nvm install "${HIVE_MIND_NODE_VERSION}" && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
+    npm install -g "corepack@${HIVE_MIND_COREPACK_VERSION}" --no-fund --force && \
+    corepack --version && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
@@ -222,17 +248,31 @@ RUN mkdir -p /home/box/.local/bin && \
 
 # Install Claude Code through Anthropic's native installer. Bun blocks the
 # @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+ENV DISABLE_AUTOUPDATER=1
+# Keep the content-attested runtimes pinned through Hive Mind's idle updater too.
+ENV HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex,agent,opencode,gemini,qwen
 RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
-    bash /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh 2.1.319 && \
     rm /tmp/claude-code-install.sh && \
-    claude --version
+    test "$(claude --version)" = '2.1.319 (Claude Code)'
 
 # Install AI coding assistant CLIs
-RUN bun install -g @openai/codex && \
-    bun install -g @qwen-code/qwen-code && \
-    bun install -g @google/gemini-cli && \
-    bun install -g @github/copilot && \
-    bun install -g opencode-ai
+# Native storage probes and clean-runtime manifests attest these exact versions.
+# Upgrade them together with the storage adapters and their lifecycle evidence.
+# Copy package bytes independently of Bun's cache for native runtime admission.
+RUN bun install --backend=copyfile -g @openai/codex@0.164.0 # https://github.com/link-assistant/hive-mind/issues/4027
+RUN test "$(codex --version)" = 'codex-cli 0.164.0'
+RUN bun install --backend=copyfile -g @qwen-code/qwen-code@0.27.0 # https://github.com/link-assistant/hive-mind/issues/4027
+RUN bun install --backend=copyfile -g @google/gemini-cli@0.65.0 # https://github.com/link-assistant/hive-mind/issues/4027
+RUN bun install --backend=copyfile -g @github/copilot
+RUN bun install --backend=copyfile -g opencode-ai@1.19.5 # https://github.com/link-assistant/hive-mind/issues/4027
+RUN test "$(opencode --version)" = '1.19.5'
+
+# Agent must search without executing binaries from its shared data directory.
+# Use the architecture-matched executable supplied by the pinned Codex package.
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    node /tmp/hive-mind-source/scripts/install-image-ripgrep.mjs \
+      /home/box/.bun/install/global/node_modules/@openai/codex /home/box/.local/bin/rg
 
 # Install hive-mind workflow utilities
 # Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
@@ -240,7 +280,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.35.4: 0.29.1 fixed detached docker
+# start-command is pinned to 0.44.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -287,8 +327,29 @@ RUN bun install -g @openai/codex && \
 # (see src/session-kill-resume.in-place.lib.mjs). Its new `--on-kill-resume`
 # is not used yet. 0.35.1 fixes start#178: it no longer treats the sticky
 # `OOMKilled` flag as a kill when the main process exits 0-127 on its own
-# (see docs/case-studies/issue-2408).
-# `@link-assistant/agent` is pinned to current 0.26.11. Version 0.26.1 stopped the
+# (see docs/case-studies/issue-2408). 0.35.2 fixes start#180: the sticky
+# flag no longer determines the exit reason for ordinary exits. It also
+# samples the task cgroup OOM counters/peak (#182) and supports cancellable
+# recovery delays (#181). Hive Mind consumes the counters but keeps its own
+# recovery policy so deliberate solve stops and attempt budgets are honoured.
+# 0.35.3 stops inferring OOM scope from process/event ratios (#185). 0.35.4 fixes
+# start#187 (filed from issue #2498): an explicit `--resume` moves the previous
+# attempt's memory evidence into `attemptHistory` and records the new attempt's
+# start time, log byte offset and lifecycle boundary. 0.36.0 adds opt-in Docker
+# resource limits and requires exit-time evidence before an OOM verdict. 0.37.0
+# adds copy-free Docker command resumes, persistent task labels and faithful
+# shell argument and exit-code handling. 0.37.1 observes Docker CPU limits
+# applied after launch and recovers CPU penalty monitors after crashes. 0.37.2
+# attributes exit 137 to recent Docker OOM events when the last cgroup sample
+# misses the final kill; 0.37.3-0.37.6 only change the release pipeline.
+# 0.37.7 keeps penalizedMs and lifts the CPU cap promptly when the monitor
+# stops gracefully. 0.37.8 keeps the command running and exits with its own
+# code when stdout/stderr is a closed pipe (start#222). 0.38.0 gives executions
+# a stable identity (refuses a reused explicit `--session-id`, exports
+# START_EXECUTION_ID/START_SESSION_NAME/START_ATTEMPT, adds aliases and
+# continuation chains; start#229-#231). Hive Mind passes `--session`, not
+# `--session-id`, so the refusal does not affect its launches.
+# `@link-assistant/agent` is pinned to current 0.27.2. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
 # with no `objects/info/alternates` and no garbage collection — so a harness that
@@ -299,19 +360,32 @@ RUN bun install -g @openai/codex && \
 # link-assistant/agent#298 (PR #300) shares the repository's objects and prunes
 # projects whose recorded worktree is gone. `src/agent.lib.mjs` enforces the same
 # floor at runtime, so the pin and the guard cannot drift apart.
-RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
-    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+# 0.26.14 reports a failed tool call only on its tool_use event instead of a
+# top-level error event (link-assistant/agent#332), so a missing file read no
+# longer ends the run.
+RUN --mount=type=bind,source=.,target=/tmp/hive-mind-source,readonly \
+    if [ "${HIVE_MIND_INSTALL_SOURCE}" = "true" ]; then \
+      bash /tmp/hive-mind-source/scripts/install-image-package.sh /tmp/hive-mind-source; \
+    else \
+      bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"; \
+    fi && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
-    bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.26.11 && \
-    bun install -g start-command@0.35.4 && \
-    bun install -g gh-setup-git-identity && \
-    bun install -g gh-pull-all && \
-    bun install -g gh-load-issue && \
-    bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log@latest
+    bun install --backend=copyfile -g @link-assistant/claude-profiles && \
+    bun install --backend=copyfile -g @link-assistant/agent@0.27.2 && \
+    bun install --backend=copyfile -g start-command@0.44.0 && \
+    bun install --backend=copyfile -g gh-setup-git-identity && \
+    bun install --backend=copyfile -g gh-pull-all && \
+    bun install --backend=copyfile -g gh-load-issue && \
+    bun install --backend=copyfile -g gh-load-pull-request && \
+    bun install --backend=copyfile -g gh-upload-log@latest
+
+# Activate the adapters from the installed Hive Mind artifact after global installs.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-gemini.mjs"
+# Debug output prints only on a refusal: the admission phase and error code, e.g.
+# MODULE_NOT_FOUND when Bun skipped a variant npm had not finished processing (#4055).
+RUN --network=none HIVE_MIND_NATIVE_CODEX_DEBUG=1 node "$(dirname "$(readlink -f "$(command -v hive)")")/install-native-codex.mjs"
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
@@ -343,14 +417,19 @@ RUN if command -v codex &>/dev/null; then \
 # "openai-curated-remote" plugin catalog (Superpowers and friends) into
 # ~/.codex/plugins/cache on every start unless features.remote_plugin is false;
 # those skills force approval gates and multiply token usage in autonomous runs.
+# Issue #3785: remote_plugin=false alone makes Codex 0.164+ clone the whole
+# curated marketplace into ~/.codex/.tmp/plugins on every model start; only
+# plugins=false stops it. Task scopes that select plugins re-enable it privately.
+# features.apps (default on) attaches the hosted ChatGPT connectors MCP server
+# to every start; apps=false keeps the global baseline Playwright-only.
 RUN if command -v codex &>/dev/null; then \
       mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
       if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
-        sed -i 's/^\[features\]$/[features]\nremote_plugin = false/' "$HOME/.codex/config.toml"; \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false\nplugins = false\napps = false/' "$HOME/.codex/config.toml"; \
       else \
-        printf '\n[features]\nremote_plugin = false\n' >> "$HOME/.codex/config.toml"; \
+        printf '\n[features]\nremote_plugin = false\nplugins = false\napps = false\n' >> "$HOME/.codex/config.toml"; \
       fi && \
-      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && grep -q '^plugins = false' "$HOME/.codex/config.toml" && grep -q '^apps = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
     fi
 
 # Fail the image build if MCP registration is merely present but unavailable.
@@ -368,6 +447,8 @@ RUN if command -v claude >/dev/null 2>&1; then \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
+COPY --chmod=0755 src/hive-manager/cli.sh /usr/local/bin/hive-manager
+
 # Autonomous headless hive-mind runs never benefit from tools that wait for
 # human interaction (AskUserQuestion, EnterPlanMode) or that register local
 # session cron jobs (CronCreate/List/Delete) or create worktrees
@@ -382,21 +463,13 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# Behavior matrix:
-#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST exist
-#     in the published package and MUST succeed. Build fails otherwise.
-#   - PR builds (HIVE_MIND_VERSION=latest): the currently published package on
-#     npm may pre-date this PR and not yet ship `configure-claude`. In that
-#     case we log and skip — the baseline is re-applied at runtime by solve.
+# Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    elif command -v configure-claude >/dev/null 2>&1; then \
-      configure-claude --settings-path /home/box/.claude/settings.json && \
-      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
-    else \
-      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
-    fi
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
+
+# Required installed-package baseline: no provider access or development source.
+RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"
 
 CMD ["/bin/bash"]

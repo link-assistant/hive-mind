@@ -91,6 +91,8 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
             messageId: item.messageInfo?.messageId,
             messageThreadId: item.messageInfo?.messageThreadId ?? item.ctx?.message?.message_thread_id ?? null,
             startTime: new Date(),
+            // Issue #3209: the execution gets a short grace to appear in `$ --status`.
+            launchedAt: new Date().toISOString(),
             url: item.url,
             command: item.command || 'solve',
             commandAlias: item.commandAlias || null,

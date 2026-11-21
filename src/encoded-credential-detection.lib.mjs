@@ -79,18 +79,84 @@ const MIN_PRINTABLE_RATIO = 0.9;
 // Standard base64 and URL-safe base64 share one scan; `decodeBase64Bounded`
 // normalizes the alphabet before decoding.
 //
-// These are stored as source strings rather than RegExp instances on purpose.
+// Runs are found by linear scanners, never by one regular expression with an
+// unbounded quantifier: V8 keeps backtracking state for `[…]{24,}={0,2}`,
+// `\b[0-9a-f]{32,}\b` and their kin on its regexp stack, so a run of about
+// 8 MiB (one JSONL line holding an image) threw `RangeError: Maximum call stack
+// size exceeded` and the fail-closed publication boundary blocked the whole
+// log. Each scanner returns exactly the matches the documented pattern would.
 // Scanning recurses — sanitizing a decoded payload rescans it for further
-// encoded runs — and a shared `/g` RegExp carries mutable `lastIndex` state,
-// so a nested scan would rewind the enclosing one and loop forever. Every scan
-// compiles its own instance via `matchRuns`.
-const BASE64_RUN = `[A-Za-z0-9+/_-]{${MIN_ENCODED_RUN_LENGTH},}={0,2}`;
-const HEX_RUN = String.raw`\b[0-9a-fA-F]{32,}\b`;
+// encoded runs — so scanners keep no shared state (no shared `/g` RegExp whose
+// `lastIndex` a nested scan would rewind).
+const isBase64Code = code => (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 43 || code === 47 || code === 95 || code === 45;
+const isHexCode = code => (code >= 48 && code <= 57) || (code >= 65 && code <= 70) || (code >= 97 && code <= 102);
+const isAsciiWordCode = code => (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 95;
+const isBlankCode = code => code === 32 || code === 9;
+
+/** End of the run of `accept` characters that starts at `from`. */
+const runEnd = (text, from, accept) => {
+  let end = from;
+  while (end < text.length && accept(text.charCodeAt(end))) end++;
+  return end;
+};
+
+/** Matches of `[A-Za-z0-9+/_-]{24,}={0,2}`. */
+const findBase64Runs = text => {
+  const runs = [];
+  for (let index = 0; index < text.length; index++) {
+    if (!isBase64Code(text.charCodeAt(index))) continue;
+    const end = runEnd(text, index, isBase64Code);
+    if (end - index >= MIN_ENCODED_RUN_LENGTH) {
+      let padded = end;
+      while (padded < text.length && padded - end < 2 && text.charCodeAt(padded) === 61) padded++;
+      runs.push({ run: text.slice(index, padded), index });
+    }
+    index = end;
+  }
+  return runs;
+};
+
+/** Matches of `\b[0-9a-fA-F]{32,}\b`. */
+const findHexRuns = text => {
+  const runs = [];
+  for (let index = 0; index < text.length; index++) {
+    if (!isHexCode(text.charCodeAt(index))) continue;
+    const end = runEnd(text, index, isHexCode);
+    const bounded = (index === 0 || !isAsciiWordCode(text.charCodeAt(index - 1))) && (end === text.length || !isAsciiWordCode(text.charCodeAt(end)));
+    if (bounded && end - index >= 32) runs.push({ run: text.slice(index, end), index });
+    index = end;
+  }
+  return runs;
+};
+
+/** Matches of a regular expression for one fixed-shape unit, merged into runs of at least `minUnits`. */
+const findUnitRuns = (text, unitSource, minUnits) => {
+  const unit = new RegExp(unitSource, 'g');
+  const runs = [];
+  let start = -1;
+  let end = -1;
+  let units = 0;
+  const flush = () => {
+    if (units >= minUnits) runs.push({ run: text.slice(start, end), index: start });
+  };
+  let match;
+  while ((match = unit.exec(text)) !== null) {
+    if (match.index === end) units++;
+    else {
+      flush();
+      start = match.index;
+      units = 1;
+    }
+    end = match.index + match[0].length;
+  }
+  flush();
+  return runs;
+};
 
 // Base64 is very often *wrapped*: the `base64` CLI breaks its output at 76
 // characters by default, MIME bodies wrap at 76, PEM at 64, and pretty-printed
 // JSON viewers wrap at whatever the terminal is. A wrapped blob defeats
-// {@link BASE64_RUN} completely — each line is matched as a separate run, and
+// {@link findBase64Runs} completely — each line is matched as a separate run, and
 // an individual line is a byte-misaligned slice that decodes to noise, so the
 // printable-ratio gate discards it and the credential inside is never seen.
 //
@@ -106,9 +172,49 @@ const HEX_RUN = String.raw`\b[0-9a-fA-F]{32,}\b`;
 // 17 MB log is most of the file: 2235 ms per scan, against 23 ms for the
 // line-anchored form below, for identical results.
 const MIN_WRAPPED_LINE_LENGTH = 16;
-const WRAPPED_FULL_LINE = String.raw`(\r?\n)([ \t]*)([A-Za-z0-9+/_-]{${MIN_WRAPPED_LINE_LENGTH},}={0,2})[ \t]*(?=\r?\n|$)`;
-const WRAPPED_TAIL_LINE = new RegExp(String.raw`^[ \t]*\r?\n[ \t]*[A-Za-z0-9+/_-]{1,${MIN_WRAPPED_LINE_LENGTH - 1}}={0,2}(?=[ \t]*(?:\r?\n|$))`);
 const BASE64_LINE_CHARACTER = /[A-Za-z0-9+/_-]/;
+
+/**
+ * Matches of `(\r?\n)([ \t]*)([A-Za-z0-9+/_-]{16,}={0,2})[ \t]*(?=\r?\n|$)`,
+ * found line by line so that a multi-megabyte line cannot overflow the regexp
+ * stack.
+ *
+ * @returns {Array<{index: number, start: number, end: number, lastIndex: number}>}
+ */
+const findWrappedFullLines = content => {
+  const lines = [];
+  for (let newline = content.indexOf('\n'); newline !== -1; newline = content.indexOf('\n', newline + 1)) {
+    const start = runEnd(content, newline + 1, isBlankCode);
+    const base64End = runEnd(content, start, isBase64Code);
+    if (base64End - start < MIN_WRAPPED_LINE_LENGTH) continue;
+    let end = base64End;
+    while (end < content.length && end - base64End < 2 && content.charCodeAt(end) === 61) end++;
+    const lastIndex = runEnd(content, end, isBlankCode);
+    const next = content.charCodeAt(lastIndex);
+    if (lastIndex === content.length || next === 10 || (next === 13 && content.charCodeAt(lastIndex + 1) === 10)) {
+      lines.push({ index: newline > 0 && content.charCodeAt(newline - 1) === 13 ? newline - 1 : newline, start, end, lastIndex });
+    }
+  }
+  return lines;
+};
+
+/**
+ * Length of a match of `[ \t]*\r?\n[ \t]*[A-Za-z0-9+/_-]{1,15}={0,2}(?=[ \t]*(?:\r?\n|$))`
+ * at `from`, or 0.
+ */
+const wrappedTailLineLength = (content, from) => {
+  let at = runEnd(content, from, isBlankCode);
+  if (content.charCodeAt(at) === 13) at++;
+  if (content.charCodeAt(at) !== 10) return 0;
+  const start = runEnd(content, at + 1, isBlankCode);
+  const base64End = runEnd(content, start, isBase64Code);
+  if (base64End === start || base64End - start >= MIN_WRAPPED_LINE_LENGTH) return 0;
+  let end = base64End;
+  while (end < content.length && end - base64End < 2 && content.charCodeAt(end) === 61) end++;
+  const after = runEnd(content, end, isBlankCode);
+  const next = content.charCodeAt(after);
+  return after === content.length || next === 10 || (next === 13 && content.charCodeAt(after + 1) === 10) ? end - from : 0;
+};
 
 // Percent-encoding leaves unreserved characters alone, and every character a
 // GitHub token is made of is unreserved. `encodeURIComponent(JSON.stringify(…))`
@@ -118,12 +224,33 @@ const BASE64_LINE_CHARACTER = /[A-Za-z0-9+/_-]/;
 // never reached. Anchoring the run at a `%` keeps scanning linear — the engine
 // only ever starts matching at an escape — and {@link hasEnoughEscapes} then
 // discards runs that are really just prose with one stray escape in them.
-const PERCENT_ESCAPE = String.raw`%[0-9a-fA-F]{2}`;
-const PERCENT_UNRESERVED = String.raw`[A-Za-z0-9._~!*'()-]`;
-const PERCENT_RUN = `${PERCENT_ESCAPE}(?:${PERCENT_ESCAPE}|${PERCENT_UNRESERVED})*`;
+const PERCENT_UNRESERVED = new Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._~!*'()-");
+const isPercentEscapeAt = (text, index) => text.charCodeAt(index) === 37 && isHexCode(text.charCodeAt(index + 1)) && isHexCode(text.charCodeAt(index + 2));
 
-const ESCAPE_RUN = String.raw`(?:\\u00[0-9a-fA-F]{2}|\\x[0-9a-fA-F]{2}){8,}`;
-const ENTITY_RUN = String.raw`(?:&#x?[0-9a-fA-F]{1,5};){8,}`;
+/** Matches of `%[0-9a-fA-F]{2}(?:%[0-9a-fA-F]{2}|[A-Za-z0-9._~!*'()-])*`. */
+const findPercentRuns = text => {
+  const runs = [];
+  for (let index = text.indexOf('%'); index !== -1; index = text.indexOf('%', index)) {
+    if (!isPercentEscapeAt(text, index)) {
+      index++;
+      continue;
+    }
+    let end = index + 3;
+    for (;;) {
+      if (isPercentEscapeAt(text, end)) end += 3;
+      else if (end < text.length && PERCENT_UNRESERVED.has(text[end])) end++;
+      else break;
+    }
+    runs.push({ run: text.slice(index, end), index });
+    index = end;
+  }
+  return runs;
+};
+
+/** Matches of `(?:\\u00[0-9a-fA-F]{2}|\\x[0-9a-fA-F]{2}){8,}`; units never overlap, they all start at a backslash. */
+const findEscapeRuns = text => findUnitRuns(text, String.raw`\\u00[0-9a-fA-F]{2}|\\x[0-9a-fA-F]{2}`, 8);
+/** Matches of `(?:&#x?[0-9a-fA-F]{1,5};){8,}`; units never overlap, they all start at `&`. */
+const findEntityRuns = text => findUnitRuns(text, String.raw`&#x?[0-9a-fA-F]{1,5};`, 8);
 
 /** Escapes a percent-encoded run needs before it is worth decoding. */
 const MIN_PERCENT_ESCAPES = 4;
@@ -138,25 +265,12 @@ const MIN_PERCENT_ESCAPES = 4;
 const hasEnoughEscapes = run => (run.match(/%[0-9a-fA-F]{2}/g) || []).length >= MIN_PERCENT_ESCAPES;
 
 /**
- * Collect every match of `source` in `text` up front, before any callback can
+ * Collect every run a decoder recognizes up front, before any callback can
  * run. Materializing the list first keeps recursive scanning safe.
  *
- * @param {string} text
- * @param {string} source regular-expression source
  * @returns {Array<{run: string, index: number}>}
  */
-const runsOf = (decoder, text) => (decoder.findRuns ? decoder.findRuns(text) : matchRuns(text, decoder.pattern));
-
-const matchRuns = (text, source) => {
-  const pattern = new RegExp(source, 'g');
-  const runs = [];
-  let match;
-  while ((match = pattern.exec(text)) !== null) {
-    runs.push({ run: match[0], index: match.index });
-    if (match[0].length === 0) pattern.lastIndex++;
-  }
-  return runs;
-};
+const runsOf = (decoder, text) => decoder.findRuns(text);
 
 /**
  * Whether the short line following a group of base64 lines is the payload's
@@ -204,23 +318,19 @@ export const findWrappedBase64Runs = text => {
   const content = String(text ?? '');
   if (content.length < MIN_WRAPPED_FOLDED_LENGTH || content.indexOf('\n') === -1) return [];
 
-  const pattern = new RegExp(WRAPPED_FULL_LINE, 'g');
   const groups = [];
   let group = null;
   let previousEnd = -1;
-  let match;
 
-  while ((match = pattern.exec(content)) !== null) {
-    const contentStart = match.index + match[1].length + match[2].length;
-    const contentEnd = contentStart + match[3].length;
+  for (const line of findWrappedFullLines(content)) {
     // A following line is part of the same blob only when this match begins
     // exactly where the previous one stopped, i.e. no other line came between.
-    if (group && match.index === previousEnd) group.end = contentEnd;
+    if (group && line.index === previousEnd) group.end = line.end;
     else {
       if (group) groups.push(group);
-      group = { breakStart: match.index, start: contentStart, end: contentEnd };
+      group = { breakStart: line.index, start: line.start, end: line.end };
     }
-    previousEnd = pattern.lastIndex;
+    previousEnd = line.lastIndex;
   }
   if (group) groups.push(group);
 
@@ -237,8 +347,8 @@ export const findWrappedBase64Runs = text => {
     // matched as a full line of its own — but only when it really belongs to
     // the payload, since the next line of a log is very often a short word.
     let to = end;
-    const tail = WRAPPED_TAIL_LINE.exec(content.slice(to));
-    if (tail && tailContinuesPayload(content.slice(start, end), tail[0])) to += tail[0].length;
+    const tailLength = wrappedTailLineLength(content, to);
+    if (tailLength > 0 && tailContinuesPayload(content.slice(start, end), content.slice(to, to + tailLength))) to += tailLength;
 
     const run = content.slice(from, to);
     if (run.indexOf('\n') !== -1) runs.push({ run, index: from });
@@ -266,6 +376,21 @@ export const findWrappedBase64Runs = text => {
  */
 const MAX_WRAPPED_HOLD_CHARS = 256 * 1024;
 
+const recordSeparatorKind = text => (text.includes('\r') ? (text.includes('\n') ? 'mixed' : '\r') : '\n');
+
+// Use native search for uniform separators; scan only the preceding line for
+// mixed separators. Cache the kind during a wrapped-line walk, so an absent
+// separator never rescans the whole blob once per line (#3747).
+export const previousRecordSeparator = (text, before = text.length, kind = recordSeparatorKind(text)) => {
+  if (before <= 0) return -1;
+  if (kind !== 'mixed') return text.lastIndexOf(kind, before - 1);
+  for (let index = before - 1; index >= 0; index--) {
+    const code = text.charCodeAt(index);
+    if (code === 10 || code === 13) return index;
+  }
+  return -1;
+};
+
 /**
  * Offset from which a record-oriented sanitizer must retain `text[0, end)`
  * because its final lines may be the beginning of a wrapped base64 blob whose
@@ -278,6 +403,8 @@ const MAX_WRAPPED_HOLD_CHARS = 256 * 1024;
 export const wrappedBase64HoldStart = (text, end) => {
   const content = String(text ?? '');
   if (end <= 0 || end > content.length) return null;
+  const kind = recordSeparatorKind(content);
+  const previous = before => previousRecordSeparator(content, before, kind);
 
   // Step back over exactly one record separator. Doing this before each
   // backwards search is what lets the walk move from line to line: without it
@@ -296,7 +423,7 @@ export const wrappedBase64HoldStart = (text, end) => {
   // Walk complete lines backwards for as long as each is base64 and nothing
   // else. Trailing `=` padding means the blob ended, so nothing is held.
   while (cursor > 0) {
-    const separator = Math.max(content.lastIndexOf('\n', cursor - 1), content.lastIndexOf('\r', cursor - 1));
+    const separator = previous(cursor);
     const start = separator + 1;
     const line = content.slice(start, cursor).trim();
     if (line.length < MIN_WRAPPED_LINE_LENGTH || !/^[A-Za-z0-9+/_-]+$/.test(line)) break;
@@ -311,7 +438,7 @@ export const wrappedBase64HoldStart = (text, end) => {
     // released there is nothing left to join the group to, and a credential
     // straddling the two is invisible to both halves. So the opening line is
     // held on its own, for exactly one record.
-    const openerStart = wrappedBase64OpenerStart(content, end, beforeSeparator);
+    const openerStart = wrappedBase64OpenerStart(content, end, beforeSeparator, previous);
     return openerStart === null || end - openerStart > MAX_WRAPPED_HOLD_CHARS ? null : openerStart;
   }
 
@@ -319,7 +446,7 @@ export const wrappedBase64HoldStart = (text, end) => {
   // shape `body=<first segment>` takes — so it is held too. That costs one
   // extra record of latency and is released as soon as the blob ends.
   const beforeGroup = beforeSeparator(lineStart);
-  const previousSeparator = Math.max(content.lastIndexOf('\n', beforeGroup - 1), content.lastIndexOf('\r', beforeGroup - 1));
+  const previousSeparator = previous(beforeGroup);
   return Math.max(previousSeparator + 1, 0);
 };
 
@@ -338,17 +465,22 @@ export const wrappedBase64HoldStart = (text, end) => {
  * @param {string} content
  * @param {number} end offset just past the last complete record
  * @param {(index: number) => number} beforeSeparator steps back over one record separator
+ * @param {(index: number) => number} previous finds the preceding record separator
  * @returns {number|null} start offset of the line to hold, or null to release
  */
-const wrappedBase64OpenerStart = (content, end, beforeSeparator) => {
+const wrappedBase64OpenerStart = (content, end, beforeSeparator, previous) => {
   const lineEnd = beforeSeparator(end);
   if (lineEnd <= 0) return null;
-  const lineStart = Math.max(content.lastIndexOf('\n', lineEnd - 1), content.lastIndexOf('\r', lineEnd - 1)) + 1;
+  const lineStart = previous(lineEnd) + 1;
   const line = content.slice(lineStart, lineEnd).trimEnd();
 
   // A run that carries padding is a blob that already ended, so nothing
   // follows it and there is nothing to wait for.
-  const run = /[A-Za-z0-9+/_-]+$/.exec(line)?.[0];
+  // An unanchored `[alphabet]+$` retries every start on a closed JSON
+  // image line, taking quadratic CPU before stdout can drain (#3747).
+  let runStart = line.length;
+  while (runStart > 0 && BASE64_LINE_CHARACTER.test(line[runStart - 1])) runStart--;
+  const run = runStart < line.length ? line.slice(runStart) : undefined;
   if (!run || run.length < MIN_WRAPPED_LINE_LENGTH) return null;
 
   // Decoded directly rather than through `decodeBase64Bounded`, whose floor is
@@ -592,11 +724,11 @@ const DECODERS = Object.freeze([
   // Wrapped base64 is tried before the single-line form so that its (wider)
   // range wins the overlap merge in `sanitizeEncodedCredentials`.
   { encoding: 'base64-wrapped', findRuns: findWrappedBase64Runs, decode: decodeWrappedBase64, encode: encodeWrappedBase64Like, accept: isWrappedBase64Candidate },
-  { encoding: 'base64', pattern: BASE64_RUN, decode: decodeBase64Bounded, encode: encodeBase64Like },
-  { encoding: 'hex', pattern: HEX_RUN, decode: decodeHex, encode: encodeHex },
-  { encoding: 'percent', pattern: PERCENT_RUN, decode: decodePercent, encode: encodePercent, accept: hasEnoughEscapes },
-  { encoding: 'escape', pattern: ESCAPE_RUN, decode: decodeEscapes, encode: encodeEscapes },
-  { encoding: 'entity', pattern: ENTITY_RUN, decode: decodeEntities, encode: encodeEntities },
+  { encoding: 'base64', findRuns: findBase64Runs, decode: decodeBase64Bounded, encode: encodeBase64Like },
+  { encoding: 'hex', findRuns: findHexRuns, decode: decodeHex, encode: encodeHex },
+  { encoding: 'percent', findRuns: findPercentRuns, decode: decodePercent, encode: encodePercent, accept: hasEnoughEscapes },
+  { encoding: 'escape', findRuns: findEscapeRuns, decode: decodeEscapes, encode: encodeEscapes },
+  { encoding: 'entity', findRuns: findEntityRuns, decode: decodeEntities, encode: encodeEntities },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -929,16 +1061,22 @@ const decoderFor = encoding => DECODERS.find(decoder => decoder.encoding === enc
  *   values we hold locally; their encoded forms are matched exactly, without
  *   relying on the decode step
  * @param {string} [options.redactedMarker]
+ * @param {string[]} [options.encodings] only handle runs with these encoding
+ *   tags (default: all)
  * @returns {string}
  */
 export const sanitizeEncodedCredentials = (input, options = {}) => {
   const text = String(input ?? '');
-  const { sanitizePlaintext, knownTokens = [], redactedMarker = '[REDACTED]' } = options;
+  const { sanitizePlaintext, knownTokens = [], redactedMarker = '[REDACTED]', encodings = null } = options;
   if (text.length === 0 || typeof sanitizePlaintext !== 'function') return text;
+  // Issue #3739: callers that delegate most encodings elsewhere restrict this
+  // layer to the ones they still need (`encodings: ['base64-wrapped']`).
+  const handles = encoding => !Array.isArray(encodings) || encodings.includes(encoding);
 
   const replacements = [];
 
   for (const { start, end, encoding, run, decoded } of findDecodableRuns(text)) {
+    if (!handles(encoding)) continue;
     const sanitized = sanitizePlaintext(decoded);
     if (sanitized === decoded) continue;
 
@@ -954,7 +1092,8 @@ export const sanitizeEncodedCredentials = (input, options = {}) => {
 
   // Exact encoded forms of credentials we already hold are matched without
   // decoding, which also covers runs too large to decode in full.
-  for (const { start, end } of findEncodedKnownTokenRuns(text, knownTokens)) {
+  for (const { start, end, encoding } of findEncodedKnownTokenRuns(text, knownTokens)) {
+    if (!handles(encoding)) continue;
     replacements.push({ start, end, replacement: redactedMarker });
   }
 
@@ -995,6 +1134,9 @@ export const findEncodedCredentialResiduals = (input, options = {}) => {
   const text = String(input ?? '');
   return sanitizeEncodedCredentials(text, options) === text ? [] : [{ ruleId: 'encoded-credential' }];
 };
+
+/** Linear run scanners, exposed so tests can compare them with the patterns they implement. */
+export const __runScannersForTests = Object.freeze({ base64: findBase64Runs, hex: findHexRuns, percent: findPercentRuns, escape: findEscapeRuns, entity: findEntityRuns, wrappedLines: findWrappedFullLines, wrappedTail: wrappedTailLineLength });
 
 export default {
   base64AlignmentFragments,

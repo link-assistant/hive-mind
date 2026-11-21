@@ -1,0 +1,57 @@
+Router native task environment, 2026-10-31 UTC
+
+The production task-environment factory sets native API keys and endpoints.
+The file guard previously accepted a different or missing native key and a
+redirected endpoint because it did not compare them with the declared Router
+task lease. Codex even accepted a matching wrong endpoint in its provider pin.
+The factory also dropped the selected route dialect in nested execution.
+
+Strict reproduction uses buildRouterTaskEnv and inspectRouterAuthSurface,
+isolated synthetic HOME/workspace directories and no native CLI or network:
+node --test experiments/issue-3785/probe-router-task-environment.mjs
+Six healthy controls pass and all twenty-four divergent/dialect controls fail
+before repair. Before log SHA256:
+2bca63bd534d10bd54a711bcd2f58de8d4cab8e5b5a18289f657a42c0863e77c
+
+Resolve the expected endpoint through the existing route resolver. Require the
+native credential and endpoint to match the declared lease exactly; refuse a
+missing origin, invalid dialect and task tokens with surrounding whitespace.
+Forward the selected dialect from the factory. Diagnostics contain field names
+and generic refusal reasons, never the submitted token or endpoint value.
+
+All 42 final factory/guard controls pass across Claude, Agent, Codex, OpenCode,
+Qwen and Gemini. Actual production Claude/Codex new/resumed command construction
+and connection validation also refuse changed/missing keys and redirected
+endpoints before command creation. Explicit argv selection is covered. A key
+changed after the version command prevents the paid probe and fallback; an
+incorrect matching Codex provider pin cannot authorize the wrong endpoint.
+
+Final focused invocation, sequential files:
+node --test --test-concurrency=1
+  tests/issue-3785-router-task-environment.test.mjs
+  tests/issue-3785-router-native-admission.test.mjs
+  tests/issue-3785-router-connection-admission.test.mjs
+  tests/issue-3785-router-admission.test.mjs
+  tests/claude-prompt-argv-3282.test.mjs
+  tests/codex-formal-ai-restart-3212.test.mjs
+  tests/test-issue-2190-router-hardening.mjs
+All 153 tests pass; the last file also passes its 114 internal controls.
+Focused log SHA256:
+6f7b491ae835e02405b646460ee6f99026dbf61a11e6e2391c645a4dccb79004
+
+Repository lint, Secretlint and file limits pass. Duplication is 10.04%, below
+12%. Changed files pass formatting. The default runner passed its first 564
+files, then exposed one old exact-key fixture missing the newly forwarded
+HIVE_MIND_ROUTER_ROUTES key. Correct that expectation and rerun from that file:
+python3 experiments/issue-3785/resume_default_suite.py tests/test-issue-2164-router-isolation.mjs
+All 193 remaining files pass, completing all 757 selected default files.
+The interrupted prefix log has 14,899 lines, reviewed in ten bounded chunks:
+f8d909dc24dfaa7e82ad7e567e83bbf5f5453a043e68e8d32cdfabc66e7a5b42
+The completed remainder has 7870 lines, reviewed in 6 bounded chunks:
+3d4cce3431dea7fb2a82c10299923ee81fb1ef6d1fe40727d12aebe515398b31
+
+This is environment/file admission against the selected task lease. Direct
+native entry points for the other four tools, all native in-memory authority,
+credential writers, refresh, request mediation, complete durable Router audit,
+failure/restart semantics, default canonical storage and migration remain OPEN.
+The original acceptance inventory remains authoritative; keep the PR draft.

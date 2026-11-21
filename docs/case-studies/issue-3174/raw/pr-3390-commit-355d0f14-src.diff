@@ -1,0 +1,306 @@
+commit 355d0f141fefca33fe4658589dadfc9091015276
+Author: konard <drakonard@gmail.com>
+Date:   Thu Oct 15 17:31:57 2026 +0000
+
+    fix: no closing references for closed, later-created, other-PR or 'Part of' umbrella issues (#3174, #3282)
+    
+    The post-session link repair always required the primary issue and every
+    unmentioned same-repository sub-issue, so an umbrella PR that said
+    'Part of #N' got 'Fixes' lines for the umbrella and its whole subtree.
+    The repair now defers sub-issues that are already closed, were created
+    after the PR was opened, or are closed by another open pull request
+    (including PRs stacked on a feature branch), and the primary issue when
+    the description explicitly says the work is partial. Repository-mode
+    listed issues and issues the description closes stay required. The
+    pre-merge guard now also refuses merges whose GitHub links would close
+    issues the pull request keeps open.
+
+diff --git a/src/github-linking.lib.mjs b/src/github-linking.lib.mjs
+index e6920a5a..2aa7c35a 100644
+--- a/src/github-linking.lib.mjs
++++ b/src/github-linking.lib.mjs
+@@ -149,6 +149,28 @@ export function extractOpenIssueMentions(text, owner, repo) {
+   return numbers;
+ }
+ 
++/**
++ * Issue numbers of owner/repo that the text explicitly marks as only partly
++ * done by this pull request: "Part of #7", "Towards #7", "Progress on #7" or
++ * "#7 stays open". Unlike a bare mention, this can keep even the primary issue
++ * open, for example a tracking umbrella solved one sub-issue at a time (#3282).
++ * A positive closing keyword for the same issue still wins.
++ */
++export function extractPartialIssueMentions(text, owner, repo) {
++  const visible = getClosingReferenceText(text);
++  const slug = `${owner}/${repo}`.toLowerCase();
++  const reference = String.raw`(?:https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/|\b([\w.-]+)\/([\w.-]+)#|(?<![\w/#&])#)([1-9]\d*)\b`;
++  const patterns = [new RegExp(String.raw`\b(?:part of|towards?|progress (?:on|towards?))\s+(?:issue\s+)?${reference}`, 'gi'), new RegExp(String.raw`${reference}[^.\n;!?]{0,80}?\b(?:stays?|remains?|(?:is|are) kept|kept)\s+open\b`, 'gi')];
++  const numbers = new Set();
++  for (const pattern of patterns) {
++    for (const match of visible.matchAll(pattern)) {
++      const mentioned = match[1] || match[3] ? `${match[1] || match[3]}/${match[2] || match[4]}`.toLowerCase() : slug;
++      if (mentioned === slug && !prClosesIssue(text, match[5], owner, repo)) numbers.add(Number(match[5]));
++    }
++  }
++  return numbers;
++}
++
+ /**
+  * The issue a pull request solves.
+  *
+diff --git a/src/issue-link-verification.lib.mjs b/src/issue-link-verification.lib.mjs
+index 8ef10ac4..7bd91ae7 100644
+--- a/src/issue-link-verification.lib.mjs
++++ b/src/issue-link-verification.lib.mjs
+@@ -5,7 +5,7 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+ import { githubLimits } from './config.lib.mjs';
+ import { parseRequiredClosingReferences, isRepositoryModeIssueBody } from './solve.repository-mode.lib.mjs';
+ import { normalizeSubIssueEntry } from './solve.ensure-sub-issues.detect.lib.mjs';
+-import { extractBranchIssueNumber, extractClosingIssueReferences, extractOpenIssueMentions, prClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
++import { extractBranchIssueNumber, extractClosingIssueReferences, extractOpenIssueMentions, extractPartialIssueMentions, prClosesIssue, pullRequestClosesIssue, resolvePullRequestIssueNumber } from './github-linking.lib.mjs';
+ 
+ const execFileAsync = promisify(execFile);
+ export const runLinkGh = args => ghWithRateLimitRetry(() => execFileAsync('gh', args, { maxBuffer: 20 * 1024 * 1024, timeout: githubLimits.execTimeoutMs }), { label: `issue links: gh ${args[0]}` });
+@@ -55,24 +55,114 @@ export function splitRepairBlock(body) {
+ 
+ /**
+  * Split a required scope into the issues the description must close and the
+- * sub-issues it deliberately keeps open ("Part of #7", "#7 stays open"). The
+- * first entry, the primary issue, is always required (issue #3174).
++ * issues it deliberately keeps open ("Part of #7", "#7 stays open"). The first
++ * entry, the primary issue, stays required unless the description explicitly
++ * marks the pull request as partial for it ("Part of #1"), as a tracking
++ * umbrella solved one sub-issue at a time asks for (#3282). `keepOpen` maps
++ * further issue keys to the reason they are not this pull request's work
++ * ({@link splitPullRequestScope}). A positive closing keyword always wins.
++ * Returns `reasons`: issue key → why it was deferred.
+  */
+-export function splitDescriptionScope(issues, body, repository) {
++export function splitDescriptionScope(issues, body, repository, { keepOpen = new Map() } = {}) {
+   const open = extractOpenIssueMentions(body, repository.owner, repository.repo);
++  const partial = extractPartialIssueMentions(body, repository.owner, repository.repo);
+   const closes = issue => prClosesIssue(body, issue.number, issue.owner, issue.repo, { allowShortReference: isSameRepository(issue, repository) });
+-  const deferred = new Set(issues.filter((issue, index) => index > 0 && isSameRepository(issue, repository) && open.has(Number(issue.number))).map(issueKey));
++  const reasons = new Map();
++  issues.forEach((issue, index) => {
++    if (!isSameRepository(issue, repository) || closes(issue)) return;
++    if (index === 0 && partial.has(Number(issue.number))) reasons.set(issueKey(issue), 'partial');
++    else if (index > 0 && open.has(Number(issue.number))) reasons.set(issueKey(issue), 'description');
++    else if (index > 0 && keepOpen.has(issueKey(issue))) reasons.set(issueKey(issue), keepOpen.get(issueKey(issue)));
++  });
+   // A sub-issue is required only through a required parent, so keeping an
+   // umbrella's child open also keeps that child's own sub-issues open.
+   for (let changed = true; changed;) {
+     changed = false;
+     for (const issue of issues.slice(1)) {
+-      if (deferred.has(issueKey(issue)) || !issue.parents?.length || !issue.parents.every(parent => deferred.has(parent)) || closes(issue)) continue;
+-      deferred.add(issueKey(issue));
++      if (reasons.has(issueKey(issue)) || !issue.parents?.length || !issue.parents.every(parent => reasons.has(parent)) || closes(issue)) continue;
++      reasons.set(issueKey(issue), 'parent');
+       changed = true;
+     }
+   }
+-  return { required: issues.filter(issue => !deferred.has(issueKey(issue))), deferred: issues.filter(issue => deferred.has(issueKey(issue))) };
++  return { required: issues.filter(issue => !reasons.has(issueKey(issue))), deferred: issues.filter(issue => reasons.has(issueKey(issue))), reasons };
++}
++
++/** Issues per GraphQL request in {@link fetchOtherPullRequestClaims}. */
++const CLAIMS_BATCH_SIZE = 50;
++
++/**
++ * Open pull requests other than `prNumber` that would close each issue: the
++ * ones GitHub links (closedByPullRequestsReferences, default-branch PRs and
++ * sidebar links) and cross-referencing ones whose description closes the issue
++ * (needed for PRs stacked on another branch, such as #2407 for #2406).
++ * Returns issue key → ["owner/repo#N", …]. Read failures throw.
++ */
++export async function fetchOtherPullRequestClaims({ owner, repo, prNumber, issues, run = runLinkGh }) {
++  const own = `${owner}/${repo}#${prNumber}`.toLowerCase();
++  const claims = new Map();
++  for (let index = 0; index < issues.length; index += CLAIMS_BATCH_SIZE) {
++    const batch = issues.slice(index, index + CLAIMS_BATCH_SIZE);
++    const fields = batch.map(issue => `i${Number(issue.number)}: issue(number:${Number(issue.number)}) { closedByPullRequestsReferences(first:50) { nodes { number state repository { nameWithOwner } } } timelineItems(first:100, itemTypes:[CROSS_REFERENCED_EVENT]) { nodes { ... on CrossReferencedEvent { source { ... on PullRequest { number state body url repository { nameWithOwner } } } } } } }`);
++    const response = await ghJson(run, ['api', 'graphql', '-f', `query=query($owner:String!,$repo:String!) { repository(owner:$owner,name:$repo) { ${fields.join(' ')} } }`, '-f', `owner=${owner}`, '-f', `repo=${repo}`]);
++    for (const issue of batch) {
++      const node = response?.data?.repository?.[`i${Number(issue.number)}`];
++      const linked = node?.closedByPullRequestsReferences?.nodes;
++      const referencing = node?.timelineItems?.nodes;
++      if (!Array.isArray(linked) || !Array.isArray(referencing)) throw new Error(`Cannot read the pull requests that close ${issueKey(issue)}`);
++      const keys = new Set();
++      for (const pr of linked) if (pr?.state === 'OPEN') keys.add(`${pr.repository.nameWithOwner}#${pr.number}`.toLowerCase());
++      for (const { source: pr } of referencing) if (pr?.number && pr.state === 'OPEN' && pullRequestClosesIssue(pr, issue.number, issue.owner, issue.repo)) keys.add(`${pr.repository.nameWithOwner}#${pr.number}`.toLowerCase());
++      keys.delete(own);
++      if (keys.size) claims.set(issueKey(issue), [...keys]);
++    }
++  }
++  return claims;
++}
++
++/**
++ * {@link splitDescriptionScope} for a pull request (issue #3174). Besides the
++ * description, a native sub-issue is not this pull request's work when it is
++ * already closed, when it was created after the pull request was opened (the
++ * output of a plan, not its input), or when another open pull request closes
++ * it. Issues a repository-mode block lists stay required (#2212).
++ * Returns the split plus `claims` (issue key → other pull requests).
++ */
++export async function splitPullRequestScope({ issues, body, repository, pr, run = runLinkGh }) {
++  const keepOpen = new Map();
++  const openedAt = Date.parse(pr?.created_at || '');
++  const candidates = [];
++  for (const issue of issues.slice(1)) {
++    if (issue.listed || !issue.parents?.length || !isSameRepository(issue, repository)) continue;
++    if (issue.issue?.state === 'closed') keepOpen.set(issueKey(issue), 'closed');
++    else if (Date.parse(issue.issue?.created_at || '') > openedAt) keepOpen.set(issueKey(issue), 'created_after_pr');
++    else candidates.push(issue);
++  }
++  // Only ask GitHub about the issues this pull request would otherwise close.
++  const { required } = splitDescriptionScope(issues, body, repository, { keepOpen });
++  const asked = candidates.filter(issue => required.includes(issue) && !prClosesIssue(body, issue.number, issue.owner, issue.repo));
++  const claims = asked.length && pr?.number ? await fetchOtherPullRequestClaims({ ...repository, prNumber: pr.number, issues: asked, run }) : new Map();
++  for (const key of claims.keys()) keepOpen.set(key, 'other_pr');
++  return { ...splitDescriptionScope(issues, body, repository, { keepOpen }), claims };
++}
++
++/** Log text for each deferral reason of {@link splitDescriptionScope}. */
++const DEFERRAL_REASONS = {
++  partial: 'only partly done here, as the description says',
++  description: 'kept open by the description',
++  parent: 'sub-issues of issues kept open',
++  closed: 'already closed',
++  created_after_pr: 'created after this pull request was opened',
++  other_pr: 'closed by another open pull request',
++};
++
++/** One entry per reason: "closed by another open pull request: #2 (o/r#9), #3 (o/r#9)". */
++export function describeDeferrals({ deferred, reasons, claims = new Map() }) {
++  const groups = new Map();
++  for (const issue of deferred) {
++    const reason = reasons.get(issueKey(issue));
++    groups.set(reason, [...(groups.get(reason) || []), issue]);
++  }
++  return [...groups].map(([reason, group]) => `${DEFERRAL_REASONS[reason] || reason}: ${group.map(issue => `#${issue.number}${claims.has(issueKey(issue)) ? ` (${claims.get(issueKey(issue)).join(', ')})` : ''}`).join(', ')}`);
+ }
+ 
+ /**
+@@ -94,6 +184,7 @@ export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run =
+     const subIssues = await ghPaginated(run, `${endpoint}/sub_issues`);
+     const requiredNumbers = parseRequiredClosingReferences(issue.body);
+     if (isRepositoryModeIssueBody(issue.body) && requiredNumbers.length === 0) throw new Error('Repository-mode issue has no readable required closing-reference block');
++    const listed = new Set(requiredNumbers.map(Number));
+     for (const raw of [...subIssues, ...requiredNumbers.map(number => ({ number }))]) {
+       const entry = normalizeSubIssueEntry(raw, { owner: parent.owner, repo: parent.repo });
+       if (!entry) throw new Error('Invalid required sub-issue');
+@@ -101,9 +192,14 @@ export async function fetchRequiredIssueScope({ owner, repo, issueNumber, run =
+         if (!foreign.some(existing => issueKey(existing) === issueKey(entry))) foreign.push(entry);
+         continue;
+       }
++      // A repository-mode block lists issues the combined pull request must close (#2212).
++      const isListed = isSameRepository(entry, parent) && listed.has(entry.number);
+       const existing = required.find(issue => issueKey(issue) === issueKey(entry));
+-      if (!existing) required.push({ ...entry, parents: [issueKey(parent)] });
+-      else if (existing.parents && !existing.parents.includes(issueKey(parent))) existing.parents.push(issueKey(parent));
++      if (!existing) required.push({ ...entry, parents: [issueKey(parent)], listed: isListed });
++      else if (existing.parents) {
++        if (!existing.parents.includes(issueKey(parent))) existing.parents.push(issueKey(parent));
++        existing.listed ||= isListed;
++      }
+     }
+   }
+   return required;
+@@ -158,7 +254,7 @@ function buildForeignClosingBlocker(details) {
+ }
+ 
+ function buildUnintendedClosingBlocker(details) {
+-  return { reason: 'unintended_closing_references', message: 'GitHub would close issues that the pull request description keeps open.', details, resolution: 'Remove the closing keyword for these issues: GitHub closes "does not close #7" too. Write "#7 stays open" without a keyword, or remove the sidebar link, then re-run the command.' };
++  return { reason: 'unintended_closing_references', message: "GitHub would close issues that the pull request description keeps open, or that are not this pull request's work.", details, resolution: 'Remove the closing keyword for these issues: GitHub closes "does not close #7" too. Write "#7 stays open" without a keyword, or remove the sidebar link, then re-run the command.' };
+ }
+ 
+ const CLOSING_QUERY = 'query($owner:String!,$repo:String!,$number:Int!,$endCursor:String) { repository(owner:$owner,name:$repo) { pullRequest(number:$number) { closingIssuesReferences(first:100,after:$endCursor) { nodes { number repository { nameWithOwner } } pageInfo { hasNextPage endCursor } } } } }';
+@@ -174,12 +270,12 @@ export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueN
+     // Issue #3276: never close an issue in another repository by merging here.
+     const foreign = snapshot.issues.filter(issue => !isSameRepository(issue, { owner, repo }));
+     if (foreign.length) return { blocker: buildForeignClosingBlocker(foreign.map(issueKey)), snapshot };
+-    // Issue #3174: sub-issues the description keeps open are not required, and are not closed after a non-default-branch merge.
+-    // Only the agent's text decides that: "Fixes" lines an older repair appended do not override it.
++    // Issue #3174: sub-issues the description keeps open, or that are not this pull request's work, are not required,
++    // and are not closed after a non-default-branch merge. "Fixes" lines an older repair appended do not override that.
++    if (!snapshot.issues.length) return { blocker: null, snapshot };
+     const { head } = splitRepairBlock(pr.body || '');
+-    const { required: issues } = splitDescriptionScope(snapshot.issues, head, { owner, repo });
++    const { required: issues, deferred } = await splitPullRequestScope({ issues: snapshot.issues, body: head, repository: { owner, repo }, pr: { ...pr, number: Number(prNumber) }, run });
+     snapshot.issues = issues;
+-    if (!issues.length) return { blocker: null, snapshot };
+     const missing = missingIssueLinks(pr.body, issues, { owner, repo });
+     if (missing.length) return { blocker: { ...buildIssueLinkBlocker(missing.map(issueKey), 'missing_closing_references'), message: 'The pull request description is missing required issue-closing references.' }, snapshot };
+     const repository = await ghJson(run, ['api', `repos/${owner}/${repo}`]);
+@@ -200,7 +296,7 @@ export async function checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueN
+       const foreignLinked = linked.filter(key => !key.startsWith(`${slug}#`));
+       if (foreignLinked.length) return { blocker: buildForeignClosingBlocker(foreignLinked), snapshot };
+       const open = extractOpenIssueMentions(head, owner, repo);
+-      const unintended = linked.filter(key => open.has(Number(key.slice(slug.length + 1))) && !issues.some(issue => issueKey(issue) === key));
++      const unintended = linked.filter(key => (open.has(Number(key.slice(slug.length + 1))) || deferred.some(issue => issueKey(issue) === key)) && !issues.some(issue => issueKey(issue) === key));
+       if (unintended.length) return { blocker: buildUnintendedClosingBlocker(unintended), snapshot };
+     }
+     if (verbose) await logger(`Issue links verified for ${issues.length} issue(s) on PR #${prNumber}`, { verbose: true });
+diff --git a/src/pr-issue-link-repair.lib.mjs b/src/pr-issue-link-repair.lib.mjs
+index ae324d36..28dda3c1 100644
+--- a/src/pr-issue-link-repair.lib.mjs
++++ b/src/pr-issue-link-repair.lib.mjs
+@@ -2,7 +2,7 @@
+ import { mkdtemp, rm } from 'node:fs/promises';
+ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+-import { ghJson, fetchRequiredIssueScope, isSameRepository, issueKey, missingIssueLinks, runLinkGh, splitDescriptionScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
++import { describeDeferrals, ghJson, fetchRequiredIssueScope, isSameRepository, issueKey, missingIssueLinks, runLinkGh, splitPullRequestScope, splitRepairBlock } from './issue-link-verification.lib.mjs';
+ import { extractClosingIssueReferences } from './github-linking.lib.mjs';
+ import { buildIssueReference } from './pr-issue-linking.lib.mjs';
+ import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+@@ -23,36 +23,39 @@ export async function repairRequiredIssueLinks({ owner, repo, issueNumber, prNum
+     if (!owner || !repo || !issueNumber || !prNumber) throw new Error('missing required pull request or issue data');
+     const foreign = [];
+     const scope = await fetchRequiredIssueScope({ owner, repo, issueNumber, run, foreign });
+-    const readBody = async () => {
++    const readPull = async () => {
+       const pr = await ghJson(run, ['api', `repos/${owner}/${repo}/pulls/${prNumber}`]);
+       if (typeof pr.body !== 'string' && pr.body !== null) throw new Error('Invalid pull request body');
+-      return pr.body || '';
++      return { ...pr, number: Number(prNumber), body: pr.body || '' };
+     };
+-    body = await readBody();
++    const pr = await readPull();
++    body = pr.body;
+     // Issue #3174: the agent's own text decides which sub-issues stay open, and a
+     // line an earlier repair appended for such an issue (or for an issue in
+     // another repository, #3276) is removed again instead of overriding the agent.
++    // Closed sub-issues, sub-issues created after the pull request was opened and
++    // sub-issues another open pull request closes are not this pull request's work.
+     const { head, lines } = splitRepairBlock(body);
+-    const { required, deferred } = splitDescriptionScope(scope, head, { owner, repo });
+-    const primary = scope[0];
++    const split = await splitPullRequestScope({ issues: scope, body: head, repository: { owner, repo }, pr, run });
++    const { required, deferred } = split;
+     const dropped = [];
+     const kept = lines.filter(line => {
+       const [reference] = extractClosingIssueReferences(line);
+       const target = reference && { owner: reference.owner || owner, repo: reference.repo || repo, number: Number(reference.number) };
+-      const drop = target && issueKey(target) !== issueKey(primary) && (!isSameRepository(target, { owner, repo }) || deferred.some(issue => issueKey(issue) === issueKey(target)));
++      const drop = target && (!isSameRepository(target, { owner, repo }) || deferred.some(issue => issueKey(issue) === issueKey(target)));
+       if (drop) dropped.push(issueKey(target));
+       return !drop;
+     });
+     const withBlock = blockLines => (blockLines.length ? `${head}${head.length > 0 ? '\n\n---\n\n' : ''}${blockLines.join('\n')}` : head);
+     const missing = missingIssueLinks(withBlock(kept), required, { owner, repo });
+     if (foreign.length) await logger(`ℹ️  Not adding closing references for sub-issues in other repositories, which this pull request cannot fix: ${foreign.map(issueKey).join(', ')}`);
+-    if (deferred.length) await logger(`ℹ️  The description keeps these sub-issues open, so no closing reference is added: ${deferred.map(issue => `#${issue.number}`).join(', ')}`);
++    if (deferred.length) await logger(`ℹ️  No closing reference is added for issues this pull request keeps open: ${describeDeferrals(split).join('; ')}`);
+     if (!missing.length && !dropped.length) return { checked: true, updated: false, body, issueRef };
+     const added = missing.map(issue => `Fixes ${isSameRepository(issue, { owner, repo }) && !argv.fork ? `#${issue.number}` : `${issue.owner}/${issue.repo}#${issue.number}`}`);
+     const updatedBody = withBlock([...kept, ...added]);
+     const result = await publishBody({ run, owner, repo, prNumber, body: updatedBody });
+     if ((result.code ?? 0) !== 0) throw new Error(result.stderr?.toString().trim() || 'Could not update pull request body');
+-    body = await readBody();
++    body = (await readPull()).body;
+     if (missingIssueLinks(body, required, { owner, repo }).length) throw new Error('Pull request links changed or were not saved after repair');
+     if (dropped.length) await logger(`🔗 Removed ${dropped.length} closing reference(s) an earlier repair added for issues this pull request keeps open or cannot fix: ${dropped.join(', ')}`);
+     if (missing.length) await logger(`🔗 Repaired ${missing.length} required issue-closing reference(s) in PR #${prNumber}.`);

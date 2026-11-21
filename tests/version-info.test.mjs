@@ -13,8 +13,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
+import { getVersionInfo as gatherVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
 import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+
+// These assertions validate report structure, independent of installed tools.
+// Real subprocess lifecycle tests live in issue-2613-regressions.test.mjs.
+const getVersionInfo = verbose => gatherVersionInfo(verbose, null, { runCommand: async () => null });
 
 // ============================================================================
 // formatVersionMessage Tests - Browser versions (Issue #1506)

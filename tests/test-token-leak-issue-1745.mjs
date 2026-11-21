@@ -27,6 +27,7 @@ import { containsKnownToken, getAllKnownLocalTokens, getEnvironmentTokens, KNOWN
 import { maskToken } from '../src/lib.mjs';
 import { reportInteractiveLeak, registerLeakNotifier, clearLeakNotifierForTests } from '../src/telegram-leak-notifier.lib.mjs';
 import { formatTokenList } from '../src/telegram-tokens-command.lib.mjs';
+import { escapeMarkdown } from '../src/telegram-markdown.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -260,7 +261,8 @@ runTest('formatTokenList produces masked output only', () => {
   const formatted = formatTokenList(tokens);
   assertNotContains(formatted, SYNTHETIC_BOT_TOKEN, 'raw token must not appear in /tokens output');
   assertContains(formatted, maskToken(SYNTHETIC_BOT_TOKEN), 'masked token must appear');
-  assertContains(formatted, 'TELEGRAM_BOT_TOKEN', 'env-var name must appear');
+  // Escaped since #3505: unescaped, the two `_` turned "BOT" italic in Telegram.
+  assertContains(formatted, escapeMarkdown('TELEGRAM_BOT_TOKEN'), 'env-var name must appear');
 });
 
 runTest('formatTokenList handles empty list', () => {

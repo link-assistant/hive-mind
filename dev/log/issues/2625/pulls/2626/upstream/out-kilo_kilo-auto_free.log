@@ -1,0 +1,241 @@
+{
+  "type": "config",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.751Z",
+  "service": "default",
+  "source": "lino-arguments (CLI args > env vars > .lenv > defaults)",
+  "config": {
+    "verbose": false,
+    "dryRun": false,
+    "generateTitle": false,
+    "outputResponseModel": true,
+    "summarizeSession": false,
+    "retryOnRateLimits": true,
+    "compactJson": false,
+    "disableAutoupdate": false,
+    "disablePrune": false,
+    "enableExperimentalModels": false,
+    "disableAutocompact": false,
+    "experimental": false,
+    "experimentalWatcher": false,
+    "retryTimeout": 604800,
+    "maxRetryDelay": 1200,
+    "minRetryInterval": 30,
+    "streamChunkTimeoutMs": 120000,
+    "streamStepTimeoutMs": 600000,
+    "mcpDefaultToolCallTimeout": 120000,
+    "mcpMaxToolCallTimeout": 600000,
+    "verifyImagesAtReadTool": true,
+    "readOnly": false,
+    "permissionMode": "auto"
+  },
+  "message": "Agent configuration resolved"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.753Z",
+  "service": "default",
+  "version": "0.26.11",
+  "command": "/home/box/.bun/bin/bun /home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js --model kilo/kilo-auto/free -p Reply with exactly: hello --no-summarize-session --no-generate-title",
+  "workingDirectory": "/tmp/agent-smoke",
+  "scriptPath": "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+  "message": "Agent started"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.754Z",
+  "service": "default",
+  "directory": "/tmp/agent-smoke",
+  "message": "creating instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.754Z",
+  "service": "project",
+  "directory": "/tmp/agent-smoke",
+  "message": "fromDirectory"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.792Z",
+  "service": "default",
+  "processArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/kilo-auto/free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "bunArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/kilo-auto/free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "cliModelArg": "kilo/kilo-auto/free",
+  "yargsModel": "kilo/kilo-auto/free",
+  "message": "model resolution: argv sources"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.792Z",
+  "service": "default",
+  "rawModel": "kilo/kilo-auto/free",
+  "providerID": "kilo",
+  "modelID": "kilo-auto/free",
+  "message": "using explicit provider/model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.795Z",
+  "service": "provider",
+  "status": "started",
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.797Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/config.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.799Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.799Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.jsonc",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.826Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "age": 19283,
+  "message": "cache is fresh, triggering background refresh"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.826Z",
+  "service": "models.dev",
+  "file": {},
+  "message": "refreshing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.924Z",
+  "service": "provider",
+  "message": "init"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.949Z",
+  "service": "claude-oauth",
+  "subscriptionType": "max",
+  "scopes": [
+    "user:file_upload",
+    "user:inference",
+    "user:mcp_servers",
+    "user:plugins",
+    "user:profile",
+    "user:sessions:claude_code"
+  ],
+  "message": "loaded oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.949Z",
+  "service": "provider",
+  "source": "credentials file (max)",
+  "message": "using claude oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.950Z",
+  "service": "provider-registry",
+  "available": [
+    "formal-ai",
+    "formalai",
+    "@link-assistant",
+    "opencode",
+    "kilo",
+    "claude-oauth",
+    "link-assistant"
+  ],
+  "message": "providers available"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:45.950Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 155,
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "error",
+  "timestamp": "2026-10-07T13:57:45.950Z",
+  "service": "default",
+  "providerID": "kilo",
+  "modelID": "kilo-auto/free",
+  "availableModels": [
+    "glm-5-free",
+    "glm-4.5-air-free",
+    "minimax-m2.5-free",
+    "giga-potato-free",
+    "trinity-large-preview",
+    "deepseek-r1-free"
+  ],
+  "message": "model not found in provider — refusing to proceed with explicit provider/model"
+}
+
+{
+  "type": "error",
+  "errorType": "Error",
+  "message": "Model \"kilo-auto/free\" not found in provider \"kilo\". Available models include: glm-5-free, glm-4.5-air-free, minimax-m2.5-free, giga-potato-free, trinity-large-preview, deepseek-r1-free. Use --model kilo/<model-id> with a valid model, or omit the provider prefix for auto-resolution."
+}

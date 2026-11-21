@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "2.33.13",
+  "version": "2.45.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -14,15 +14,17 @@
     "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",
     "hive-screens": "./src/hive-screens.mjs",
+    "hive-manager": "./src/hive-manager/cli.sh",
     "hive-models": "./src/hive-models.mjs",
-    "hive-telegram-bot": "./src/telegram-bot.mjs"
+    "hive-telegram-bot": "./src/telegram-bot.mjs",
+    "close-linked-issues": "./src/close-linked-issues.mjs"
   },
   "scripts": {
     "test": "node scripts/run-tests.mjs --suite default",
     "test:queue": "node tests/solve-queue.test.mjs",
     "test:limits-display": "node tests/limits-display.test.mjs",
     "test:usage-limit": "node tests/test-usage-limit.mjs",
-    "lint": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'",
+    "lint": "eslint --max-warnings=0 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' && node scripts/check-github-retry-shell.mjs",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' --fix",
     "check:duplication": "jscpd .",
     "check:secrets": "secretlint --secretlintignore .secretlintignore \"**/*\"",
@@ -30,8 +32,8 @@
     "format:check": "prettier --check \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/hive-models.mjs && chmod +x src/telegram-bot.mjs",
+    "changeset:publish": "npm run build:pre && node scripts/native-codex-packages.mjs publish && node scripts/verify-native-codex-publish.mjs && changeset publish",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/hive-manager/cli.sh && chmod +x src/hive-models.mjs && chmod +x src/telegram-bot.mjs && chmod +x src/close-linked-issues.mjs",
     "prepare": "husky"
   },
   "repository": {
@@ -62,34 +64,40 @@
   },
   "files": [
     "src",
+    "!src/native-codex/runtime",
+    "locales",
     "*.md"
   ],
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.12.0",
+    "command-stream": "3.0.0",
+    "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-n": "^18.5.0",
+    "eslint-plugin-prettier": "^5.5.7",
+    "eslint-plugin-promise": "^7.3.0",
     "husky": "^9.1.7",
-    "jscpd": "^5.4.0",
-    "lint-staged": "^17.6.0",
-    "prettier": "^3.9.9",
+    "jscpd": "^5.4.3",
+    "lint-staged": "^17.6.1",
+    "prettier": "^3.10.1",
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {
-    "@secretlint/core": "^13.0.7",
-    "@secretlint/profiler": "^13.0.7",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
-    "@sentry/node": "^11.4.0",
-    "@sentry/profiling-node": "^11.4.0",
-    "agent-commander": "^0.10.1",
+    "@link-foundation/sensitive-data-sanitizer": "^1.0.0",
+    "@secretlint/core": "^14.0.1",
+    "@secretlint/profiler": "^14.0.1",
+    "@sentry/node": "^11.16.0",
+    "@sentry/profiling-node": "^11.16.0",
+    "agent-commander": "^0.12.0",
     "dayjs": "^1.11.23",
     "decimal.js-light": "^2.5.1",
-    "lino-arguments": "^0.3.0",
-    "lino-i18n": "^0.2.0",
-    "lino-objects-codec": "^0.8.0",
-    "secretlint": "^13.0.7",
-    "semver": "^7.8.5",
+    "lino-arguments": "^0.4.1",
+    "lino-i18n": "^0.6.1",
+    "secretlint": "^14.0.1",
+    "semver": "^7.8.6",
+    "smol-toml": "^1.9.1",
+    "teleproto": "1.233.0",
     "tinyld": "^1.3.4"
   },
   "lint-staged": {
@@ -99,6 +107,9 @@
   },
   "allowScripts": {
     "@sentry/node-cpu-profiler@2.4.4": true,
-    "node-pty@1.2.0-beta.15": false
+    "node-pty@1.1.0": false
+  },
+  "overrides": {
+    "minimatch": "^11.0.5"
   }
 }

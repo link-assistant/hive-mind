@@ -33,7 +33,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 
 // Import shared library functions
@@ -41,7 +41,7 @@ const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage } = lib;
 
 // Import shared restart utilities
-const restartShared = await import('./solve.restart-shared.lib.mjs');
+import * as restartShared from './solve.restart-shared.lib.mjs';
 const { executeToolIteration, isApiError, isUsageLimitReached } = restartShared;
 
 const sentryLib = await import('./sentry.lib.mjs');

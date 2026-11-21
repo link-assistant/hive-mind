@@ -1,0 +1,16 @@
+claude-history-before.log
+REPRODUCED: native peer cannot resume after private history is disposed; model_requests=1.
+
+claude-history-strict-before.log
+Traceback (most recent call last):
+  File "experiments/issue-3785/probe-claude-native-refresh.py", line 184, in <module>
+    run_history(binary, root, env, settings, args, model_requests, errors)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "experiments/issue-3785/native_claude_history.py", line 110, in run
+    assert code == 0 and resumed and resumed.get('is_error') is False, 'A fresh native peer must resume persisted history.'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: A fresh native peer must resume persisted history.
+
+claude-history-after.log
+PASS: actual native Claude completes, persists a transcript, disposes both private roots, and resumes with prior messages in a fresh peer; model_requests=2.
+

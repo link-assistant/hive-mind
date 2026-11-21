@@ -325,7 +325,7 @@ try {
     process.exit(1);
   }
 
-  if (!issueUrl || !issueUrl.includes('github.com')) {
+  if (!issueUrl || !/^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+$/.test(issueUrl)) {
     console.log('❌ Failed to extract issue URL');
     process.exit(1);
   }

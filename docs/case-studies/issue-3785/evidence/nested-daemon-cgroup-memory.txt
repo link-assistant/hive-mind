@@ -1,0 +1,79 @@
+Nested box-dind daemon: peer --memory refused by a threaded cgroup v2 parent
+=============================================================================
+
+CI run at 24d6198f3 (run 41387363844, job docker-pr-check 125122749567)
+------------------------------------------------------------------------
+Host-daemon variant: every mounted gate and the full capability lifecycle
+gate pass. Nested (--privileged box-dind) variant: task-backing and tool-data
+projection pass for every tool, then the first peer launch with a memory cap
+fails before any process starts:
+
+  nested: agent: installed directory projection preserves atomic replacements, ...
+  Error: Command failed: docker exec ... /verify-mounted-codex-auth.mjs "$(command -v hive)"
+  Error: Command failed: docker run --detach --pull never --network none --read-only
+    --cap-drop ALL --security-opt no-new-privileges --pids-limit 32
+    --ulimit data=536870912:536870912 ... --memory 134217728 ...
+  docker: Error response from daemon: failed to create task for container:
+    ... runc create failed: unable to start container process: unable to apply
+    cgroup configuration: cannot enter cgroupv2 "/sys/fs/cgroup/docker" with
+    domain controllers -- it is in threaded mode
+
+(Container IDs removed; no credential or account data is involved: the gate
+was still in synthetic launch setup.)
+
+Root cause
+----------
+The box-dind entrypoint (link-foundation/box ubuntu/24.04/dind) starts dockerd
+without moby's cgroup v2 nesting step (moving root-cgroup processes into a leaf
+cgroup and enabling subtree_control). runc therefore finds the nested daemon's
+/sys/fs/cgroup/docker parent in threaded mode and refuses domain controllers
+such as memory. The same limit was already recorded for --cpus in
+docs/case-studies/issue-2801/README.md. The development workspace daemon used
+for local runs shows the identical refusal.
+
+Production impact
+-----------------
+None at launch: production never passes --memory to docker run. Configured
+container limits are applied afterwards with `docker update`
+(src/container-resource-limits.lib.mjs buildDockerUpdateArgs), and Router
+memory arguments come only from the operator's HIVE_MIND_ROUTER_EXTRA_ARGS.
+The --memory flag was a gate-only safety bound for synthetic peers.
+
+Gate change
+-----------
+scripts/mounted-native-runtime.lib.mjs peerMemoryArgs() starts one disposable,
+network-less, read-only, capability-free probe container with --memory on the
+selected daemon. If the daemon accepts it, peers keep --memory. If and only if
+runc reports the delegated-cgroup refusal above, the gate prints an explicit
+INFO line and peers rely on their finite --ulimit data (already set for every
+peer) plus --pids-limit. Any other probe failure stays fatal. The codex-auth,
+claude-auth, claude-history and claude-refresh gates use the helper; the
+self-contained Gemini storage fixture carries the same inline probe.
+
+Local reproduction (development workspace daemon)
+-------------------------------------------------
+  $ node experiments/issue-3785/probe-peer-memory-args.mjs
+  INFO: this daemon has no delegated cgroup v2 memory domain (nested box-dind); peers keep their finite data ulimit instead of --memory.
+  []
+
+Local end-to-end gates on the same threaded daemon (normal mode, not the
+experimental --cgroup-parent path), pinned native Claude 2.1.310, synthetic
+proxy refusing every external origin:
+
+  verify-mounted-claude-history.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: actual Claude root and two disposable Docker peers resume selected history with the original message; three model requests, private settings and unchanged credential identity.
+  verify-mounted-claude-refresh.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: default Claude authority (migrated, no new flags) with pinned native root and two Docker peers; shared-parent: 1 exchange, 3 model requests; file-only control: 3 exchanges, 2 rejected duplicates; newer login: preserved, 3 model requests on it; logout/re-login: not resurrected, re-login visible to root and both peers; revoked: 1 exchange attempt(s), 0 model requests, stored refresh cleared, re-authentication required by native status and /limits.
+  verify-mounted-claude-auth.mjs
+    INFO: this daemon has no delegated cgroup v2 memory domain ...
+    PASS: pinned native Claude root and two Docker peers retain parent-backed replacement, task/root logout, synthetic reauthentication and private-config disposal; the file-bind control continues to read retired credentials.
+
+The Codex auth gate needs the verified native Codex build, which exists only in
+the CI images. CI run 41425746071 at 078d2338e (job 125265324264,
+https://github.com/link-assistant/hive-mind/actions/runs/41425746071) ran the full nested variant. It printed the
+INFO fallback line for each peer-launching gate and passed the Codex auth,
+Claude auth, Claude history, Claude refresh and Gemini gates and the capability
+lifecycle gate P0–P7, with no phase skipped. Its final line was "All system,
+development, and nested Docker verification checks passed!"

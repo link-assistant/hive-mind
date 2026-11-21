@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
+import { PACKAGE_NAME, buildReleaseBody, buildReleaseDescription, hasGeneratedFooter } from './format-release-notes.lib.mjs';
 
 /**
  * Script to format GitHub release notes with proper formatting:
- * - Fix special characters like \n
+ * - Keep the changelog's Markdown structure (indented paragraphs and nested
+ *   lists stay inside their list item, every change section is kept), see
+ *   scripts/format-release-notes.lib.mjs and issue #3445
  * - Add links to ALL PRs that contain the release commits (if found)
  * - Add shields.io NPM version badge
  * - Format nicely with proper markdown
@@ -25,13 +28,13 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-r
  * Note: Uses --release-version instead of --version to avoid conflict with yargs' built-in --version flag.
  */
 
-const PACKAGE_NAME = '@link-assistant/hive-mind';
-
 // Load use-m dynamically
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
+// Issue #3552: every gh call below is retried on transient GitHub faults.
+const { $: rawDollar$ } = await use('command-stream');
+const $ = wrapDollarWithGhRetry(rawDollar$);
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -58,6 +61,11 @@ const config = makeConfig({
         type: 'string',
         default: getenv('COMMIT_SHA', ''),
         describe: 'Commit SHA for PR detection',
+      })
+      .option('verbose', {
+        type: 'boolean',
+        default: getenv('VERBOSE', '') === 'true',
+        describe: 'Print the formatted description (issue #3445)',
       }),
 });
 
@@ -65,6 +73,7 @@ const releaseId = config.releaseId;
 const version = config.releaseVersion;
 const repository = config.repository;
 const passedCommitSha = config.commitSha;
+const verbose = Boolean(config.verbose);
 
 if (!releaseId || !version || !repository) {
   console.error('Usage: format-release-notes.mjs --release-id <releaseId> --release-version <version> --repository <repository> [--commit-sha <sha>]');
@@ -73,59 +82,34 @@ if (!releaseId || !version || !repository) {
 
 try {
   // Get current release body
-  const result = await $`gh api repos/${repository}/releases/${releaseId}`.run({
-    capture: true,
-  });
+  const result = await $({ capture: true })`gh api repos/${repository}/releases/${releaseId}`;
   const releaseData = JSON.parse(result.stdout);
 
   const currentBody = releaseData.body || '';
 
-  // Skip if already formatted (has shields.io badge image)
-  if (currentBody.includes('img.shields.io')) {
+  // Skip if already formatted (has the generated npm badge footer). A
+  // shields.io image inside a changeset's own text does not count.
+  if (hasGeneratedFooter(currentBody)) {
     console.log('Release notes already formatted');
     process.exit(0);
   }
 
-  // Extract the patch changes section
-  // This regex captures the ENTIRE content after "### Patch Changes"
-  // We'll then extract ALL commit hashes from it (Issue #1271 fix)
-  const patchChangesMatch = currentBody.match(/### Patch Changes\s*\n([\s\S]+?)(?=###|$)/);
-  const minorChangesMatch = currentBody.match(/### Minor Changes\s*\n([\s\S]+?)(?=###|$)/);
-
-  // Get raw description from either Patch Changes or Minor Changes
-  let rawDescription = null;
-  if (patchChangesMatch) {
-    rawDescription = patchChangesMatch[1];
-  } else if (minorChangesMatch) {
-    rawDescription = minorChangesMatch[1];
-  } else {
-    console.log('Could not parse patch/minor changes from release notes');
+  // Issue #3445: keep the Markdown structure exactly as changesets wrote it.
+  // Continuation paragraphs and nested lists of a changeset are indented under
+  // their list item; trimming every line (as before) moved them out of the
+  // list. Every `### Major/Minor/Patch Changes` section is kept, and the notes
+  // are no longer cut at the first `---` or `###` inside a changeset's text.
+  const { description: cleanDescription, sections, commitHashes } = buildReleaseDescription(currentBody);
+  if (!cleanDescription) {
+    console.log('Release notes are empty, nothing to format');
     process.exit(0);
   }
-
-  // Extract ALL commit hashes from the changelog entry (Issue #1271 fix)
-  // Format: "- abc1234: Description" or "- abc1234f: Description"
-  const commitHashRegex = /-\s+([a-f0-9]{7,40}):/g;
-  const commitHashes = [...rawDescription.matchAll(commitHashRegex)].map(m => m[1]);
+  console.log(`Found ${sections.length} change section(s): ${sections.map(section => section.type).join(', ') || 'none'}`);
   console.log(`Found ${commitHashes.length} commit hash(es) in changelog: ${commitHashes.join(', ') || 'none'}`);
-
-  // Clean up the description:
-  // 1. Convert literal \n sequences (escaped newlines from GitHub API) to actual newlines
-  // 2. Remove leading/trailing quotes (including escaped quotes from command-stream shell escaping)
-  // 3. Remove any trailing npm package links or markdown that might be there
-  // 4. Normalize whitespace while preserving line breaks
-  const cleanDescription = rawDescription
-    .replace(/\\n/g, '\n') // Convert escaped \n to actual newlines
-    .replace(/^(\\['"])+/g, '') // Remove leading escaped quotes (e.g., \', \", \'', \'')
-    .replace(/(['"])+$/g, '') // Remove trailing unescaped quotes (e.g., ', ", '', '')
-    .replace(/^(['"])+/g, '') // Remove leading unescaped quotes
-    .replace(/📦.*$/s, '') // Remove any existing npm package info
-    .replace(/---.*$/s, '') // Remove any existing separators and everything after
-    .trim()
-    .split('\n') // Split by lines
-    .map(line => line.trim()) // Trim whitespace from each line
-    .join('\n') // Rejoin with newlines
-    .replace(/\n{3,}/g, '\n\n'); // Normalize excessive blank lines (3+ becomes 2)
+  if (verbose) {
+    console.log('Formatted description:');
+    console.log(cleanDescription);
+  }
 
   // Find ALL PRs that contain the release commits (Issue #1271 fix, Issue #1452 enhancement)
   // Uses commit hashes from changelog, passed commit SHA, AND merge commits between version tags
@@ -145,7 +129,7 @@ try {
     const currentTag = `v${versionWithoutV}`;
 
     // Find the previous version tag by listing tags sorted by version
-    const tagsResult = await $`gh api "repos/${repository}/tags?per_page=100" --paginate --jq '.[].name'`.run({ capture: true });
+    const tagsResult = await $({ capture: true })`gh api "repos/${repository}/tags?per_page=100" --paginate --jq '.[].name'`;
     const tags = tagsResult.stdout
       .trim()
       .split('\n')
@@ -156,7 +140,7 @@ try {
 
     if (previousTag) {
       console.log(`Finding merge commits between ${previousTag} and ${currentTag}...`);
-      const mergeCommitsResult = await $`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --paginate --jq '.commits[] | select(.parents | length > 1) | .sha'`.run({ capture: true });
+      const mergeCommitsResult = await $({ capture: true })`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --paginate --jq '.commits[] | select(.parents | length > 1) | .sha'`;
       const mergeCommits = mergeCommitsResult.stdout.trim().split('\n').filter(Boolean);
 
       console.log(`Found ${mergeCommits.length} merge commit(s) between tags`);
@@ -183,7 +167,7 @@ try {
       console.log(`  Checking commit ${sha} (from ${source})...`);
 
       try {
-        const prResult = await $`gh api "repos/${repository}/commits/${sha}/pulls" --paginate`.run({ capture: true });
+        const prResult = await $({ capture: true })`gh api "repos/${repository}/commits/${sha}/pulls" --paginate`;
         const prsData = JSON.parse(prResult.stdout);
 
         // Find PRs that are not version bump PRs (not "chore: version packages")
@@ -217,19 +201,7 @@ try {
 
   // Build formatted release notes
   const versionWithoutV = version.replace(/^v/, '');
-  const encodedPackageName = encodeURIComponent(PACKAGE_NAME);
-  const npmBadge = `[![npm version](https://img.shields.io/badge/npm-${versionWithoutV}-blue.svg)](https://www.npmjs.com/package/${encodedPackageName}/v/${versionWithoutV})`;
-
-  let formattedBody = `${cleanDescription}`;
-
-  // Add PR links if available (Issue #1271 fix: support multiple PRs)
-  if (prNumbers.length > 0) {
-    const prLabel = prNumbers.length === 1 ? 'Related Pull Request' : 'Related Pull Requests';
-    const prLinks = prNumbers.map(n => `#${n}`).join(', ');
-    formattedBody += `\n\n**${prLabel}:** ${prLinks}`;
-  }
-
-  formattedBody += `\n\n---\n\n${npmBadge}`;
+  const formattedBody = buildReleaseBody({ description: cleanDescription, version: versionWithoutV, prNumbers, packageName: PACKAGE_NAME });
 
   // Update the release using JSON input to properly handle special characters
   const updatePayload = JSON.stringify({ body: await sanitizeForPublication(formattedBody) });

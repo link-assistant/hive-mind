@@ -1,0 +1,54 @@
+✔ status and list preserve the watcher counters; missing and malformed counters remain unknown (3.447338ms)
+✔ links-notation counters come from the cgroupMemory block, not recoveryHistory (4.376371ms)
+✖ the monitor uses counters without OOMKilled, while footer and liveness still win (4.174244ms)
+✔ watcher counters reach diagnostics even without a final solve resource snapshot (1.978821ms)
+✔ a prior container OOM does not explain SIGTERM or a runtime self-abort (0.723639ms)
+✖ the monitor cgroup and unrelated kernel victims cannot attribute a task kill (0.606241ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1042.417344
+
+✖ failing tests:
+
+test at tests/issue-2498-start-status.test.mjs:34:1
+✖ the monitor uses counters without OOMKilled, while footer and liveness still win (4.174244ms)
+  AssertionError [ERR_ASSERTION]: exit 143
+  + actual - expected
+  
+  + 'terminated'
+  - 'killed'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:43:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'terminated',
+    expected: 'killed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-start-status.test.mjs:86:1
+✖ the monitor cgroup and unrelated kernel victims cannot attribute a task kill (0.606241ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'out-of-memory'
+  - 'forced-kill'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:91:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'out-of-memory',
+    expected: 'forced-kill',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
+import { readFile } from 'node:fs/promises';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
@@ -23,6 +25,9 @@ const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { reportSessionWithoutChanges } from './session-changes.lib.mjs';
+import { reportWorkflowPushRejection } from './workflow-push-rejection.lib.mjs';
+import { getSolveNoChangesExitCode } from './solve.exit-codes.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
@@ -36,7 +41,7 @@ const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.li
 const { reportPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
 
 // Import continuation functions (session resumption, PR detection)
-const autoContinue = await import('./solve.auto-continue.lib.mjs');
+import * as autoContinue from './solve.auto-continue.lib.mjs';
 const { autoContinueWhenLimitResets } = autoContinue;
 // Import Claude-specific command builders
 // These are used to generate copy-pasteable Claude CLI resume commands for users
@@ -45,11 +50,20 @@ const { autoContinueWhenLimitResets } = autoContinue;
 // 1. Interactive resume: Short command that opens interactive mode
 // 2. Autonomous resume: Full command with all flags to run autonomously
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+/**
+ * Issue #3922: --auto-restart-until-mergeable never merges, but this line said "Auto-merge mode
+ * enabled - will attempt to merge" a second before the monitor announced "(will NOT auto-merge)".
+ * @param {{autoMerge?: boolean, autoRestartUntilMergeable?: boolean}} argv
+ * @returns {string}
+ */
+export const describePostSessionMergeWait = argv => (argv?.autoMerge ? '\n🔄 Auto-merge mode enabled - will merge the pull request once CI passes and it is mergeable' : '\n🔄 Auto-restart-until-mergeable mode enabled - will keep the pull request mergeable and will NOT merge it (--auto-merge merges)');
+
 export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
 // imported from tool libraries (claude/codex/gemini) without circular imports.
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+import { isCommentByCurrentIdentity, isIntegrationForbidden } from './github-identity.lib.mjs';
 export { buildSolveResumeCommand };
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -61,8 +75,8 @@ const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference } = prIssueLinking;
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
-const { formatChangesSection, getPullRequestChangeStats, refreshPullRequestChangesSection } = await import('./pull-request-changes.lib.mjs');
-const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+const { formatChangesSection, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, replaceEchoedToolOutputSummary } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -97,11 +111,11 @@ export const hasPRBodyPlaceholder = body => {
 export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
   const lines = [];
   if (titleNotUpdated && descriptionNotUpdated) {
-    lines.push('Pull request title and description were not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text1'));
   } else if (titleNotUpdated) {
-    lines.push('Pull request title was not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text2'));
   } else if (descriptionNotUpdated) {
-    lines.push('Pull request description was not updated.');
+    lines.push(promptText('prompt.templates.solve-results.buildPRNotUpdatedHint.text3'));
   }
   return lines;
 };
@@ -273,7 +287,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   }
 };
 const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
-  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  const changedCommitsResult = await $({ cwd: tempDir, mirror: false })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
   if (changedCommitsResult.code === 0) {
     return Boolean(changedCommitsResult.stdout?.trim());
   }
@@ -656,12 +670,20 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     // Get the current user's GitHub username
     const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
 
+    let currentUser = null;
     if (userResult.code !== 0) {
-      throw new Error(`Failed to get current user: ${userResult.stderr?.toString() ? userResult.stderr.toString() : 'Unknown error'}`);
-    }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      throw new Error('Unable to determine current GitHub user');
+      const userError = userResult.stderr?.toString() || '';
+      // Issue #2625: installation tokens (GITHUB_TOKEN) cannot read GET /user;
+      // the PR search does not need a login and comments are matched by app.
+      if (!isIntegrationForbidden(userError)) {
+        throw new Error(`Failed to get current user: ${userError || 'Unknown error'}`);
+      }
+      await log('  ℹ️  Integration token cannot read the authenticated user; matching comments written by the app', { verbose: true });
+    } else {
+      currentUser = userResult.stdout.toString().trim();
+      if (!currentUser) {
+        throw new Error('Unable to determine current GitHub user');
+      }
     }
 
     // Search for pull requests created from our branch
@@ -696,6 +718,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         // Declare placeholder detection variables outside block scopes for use in return value
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
+        let noChanges = false; // Issue #3211: this run committed, changed and posted nothing
+        let effectUnverified = false; // Issue #3330: what this run changed could not be measured
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
@@ -749,7 +773,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             // Issue #2492: an empty diff implements nothing, so do not say it does.
             const summaryLine = changeStats.hasChanges ? `This pull request implements a solution for ${issueRef}: ${issueTitle}` : `This pull request is for ${issueRef}: ${issueTitle}. It has no changes yet.`;
-            const newDescription = `## Summary
+            // Issue #2406: the merge guard reads the requirements report from the description, so keep it.
+            const { preserveRequirementsReport } = await import('./issue-requirements.lib.mjs');
+            const newDescription = preserveRequirementsReport(
+              prBody,
+              `## Summary
 
 ${summaryLine}
 
@@ -759,7 +787,8 @@ ${formatChangesSection(changeStats)}
 Fixes ${issueRef}
 
 ---
-*This PR was created automatically by the AI issue solver*`;
+*This PR was created automatically by the AI issue solver*`
+            );
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
             try {
@@ -776,10 +805,10 @@ Fixes ${issueRef}
               await fs.unlink(tempBodyFile).catch(() => {});
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
-          } else if (!hasPlaceholder) {
-            // Issue #2318: the Changes section follows the diff after every session, for every model.
-            await refreshPullRequestChangesSection({ owner, repo, prNumber: pr.number, $, log });
           }
+          // Issue #2549: a description the agent wrote is left as it is.
+          // Only the placeholder above is replaced; issue links are repaired
+          // separately. No generated "Changes" section is appended to it.
           // Check if PR is ready for review (convert from draft if necessary).
           // Issue #2182: this used to be an inline `gh pr ready` that bypassed
           // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
@@ -789,10 +818,21 @@ Fixes ${issueRef}
           // mean something. All three reproduction runs converted a pull request
           // with an empty diff — the Rust one had zero commits on the branch —
           // and the reason string was published as if the diff had been read.
-          const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
-          const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
-          if (readyResult.reason === 'no_changes') {
-            await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+          //
+          // Issue #3211: the diff against the base branch includes earlier sessions'
+          // commits, so what this run changed is measured too (session-changes.lib.mjs).
+          // Issue #3332: a push GitHub refused for want of the workflows permission is a credential problem, reported on the PR.
+          const logText = getLogFile() ? await readFile(getLogFile(), 'utf8').catch(() => '') : '';
+          await reportWorkflowPushRejection({ owner, repo, prNumber: pr.number, logText, $, log });
+          const sessionOutcome = await reportSessionWithoutChanges({ owner, repo, prNumber: pr.number, issueNumber, $, log });
+          noChanges = sessionOutcome.noChanges;
+          effectUnverified = sessionOutcome.unmeasured === true;
+          if (!sessionOutcome.keepsDraft) {
+            const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+            const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
+            if (readyResult.reason === 'no_changes' && !noChanges) {
+              await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+            }
           }
         }
 
@@ -830,14 +870,15 @@ Fixes ${issueRef}
             budgetStatsData,
           });
         }
-        await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        if (effectUnverified) await log("\n⚠️  A pull request is open, but this run's effect could not be verified, so it was not marked ready");
+        else if (!noChanges) await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
           await log('📎 Solution draft log has been attached to the Pull Request');
         } else if (shouldAttachLogs && !logUploadSuccess) {
           await log('⚠️  Solution draft log upload was requested but failed');
         }
-        await log('\n✨ Please review the pull request for the proposed solution draft.');
+        if (!noChanges) await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
         // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
         // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
@@ -846,10 +887,9 @@ Fixes ${issueRef}
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
         const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
-        if (shouldWaitForAutoMerge) {
-          await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
-        }
+        if (shouldWaitForAutoMerge) await log(describePostSessionMergeWait(argv));
         if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
+          if (noChanges) await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
@@ -876,11 +916,11 @@ Fixes ${issueRef}
 
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+    const newCommentsByUser = allComments.filter(comment => isCommentByCurrentIdentity(comment, currentUser) && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
-      await log(`  ✅ Found new comment by ${currentUser}`);
+      await log(`  ✅ Found new comment by ${currentUser || lastComment.user?.login}`);
       // Upload log file to issue if requested
       // Issue #2492: report and return the real upload result instead of assuming success.
       let issueLogUploaded = false;
@@ -957,7 +997,7 @@ Fixes ${issueRef}
       issueNumber,
       operation: 'search_for_pr',
     });
-    await log('\n⚠️  Could not verify results:', searchError.message);
+    await log(`\n⚠️  Could not verify results: ${searchError.message}`);
     await log('\n💡 Check the log file for details:');
     // Always use absolute path for log file display
     const checkLogPath = path.resolve(getLogFile());
@@ -1105,6 +1145,8 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
+    // Issue #3211: a final message that only repeats the last tool output is not a summary.
+    resultSummary = replaceEchoedToolOutputSummary(resultSummary);
     // Issue #2492: the summary is always shown in full (no `<details>` fold).
     // It is cut only past GitHub's comment size limit, pointing to the log.
     const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });

@@ -1,16 +1,17 @@
 #!/usr/bin/env node
+import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 
 import { supportsEffortLevel, supportsThinkingBudget } from './config.lib.mjs';
 import { defaultModels, mapModelForTool } from './models/index.mjs';
 
 export const THINK_PROMPT_MESSAGES = Object.freeze({
-  minimal: 'Think.',
-  low: 'Think.',
-  medium: 'Think hard.',
-  high: 'Think harder.',
-  xhigh: 'Ultrathink.',
-  ultra: 'Ultrathink.',
-  max: 'Ultrathink.',
+  minimal: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text1', {}, { locale: 'en' }),
+  low: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text2', {}, { locale: 'en' }),
+  medium: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text3', {}, { locale: 'en' }),
+  high: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text4', {}, { locale: 'en' }),
+  xhigh: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text5', {}, { locale: 'en' }),
+  ultra: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text6', {}, { locale: 'en' }),
+  max: promptText('prompt.templates.thinking-prompt.THINK_PROMPT_MESSAGES.text7', {}, { locale: 'en' }),
 });
 
 export const isClaudeLikeModel = model => {
@@ -59,5 +60,5 @@ export const getThinkingPromptInstruction = options => {
   if (!shouldAddThinkingPromptInstruction(options)) {
     return undefined;
   }
-  return THINK_PROMPT_MESSAGES[options?.argv?.think];
+  return localizePromptConstant(THINK_PROMPT_MESSAGES[options?.argv?.think]);
 };

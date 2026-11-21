@@ -1,0 +1,7 @@
+{
+  "closedAt": "2026-10-10T18:51:16Z",
+  "number": 198,
+  "state": "CLOSED",
+  "title": "docker-snapshot resume copies the whole writable layer with no disk preflight, no serialization and no cleanup; offer a copy-free command resume",
+  "url": "https://github.com/link-foundation/start/issues/198"
+}

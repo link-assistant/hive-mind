@@ -1,0 +1,113 @@
+PASS: issue #2264 dependency freshness gate and idle operational CLI refresh
+✔ tests/dependency-freshness-2264.test.mjs (1321.823883ms)
+✔ Codex cancellation stops the real shell after the repeated-call breaker fires (3403.78593ms)
+✔ the feedback integration supplies a local git identity on a clean CI runner (715.131098ms)
+✔ stale cleanup also removes the task head after its pull request was closed (65.467078ms)
+✔ a human issue is attempted in every credential layer (0.786467ms)
+✔ every matrix row targets its isolated base branch (0.939883ms)
+✔ the task sidecar carries the workspace install grant (0.439871ms)
+✔ matrix dry-run logs forward credential names without exposing their values (730.149741ms)
+✔ the task overlay installs packages as the runtime user (1.243098ms)
+✔ unmapped Docker version arguments fail closed instead of disappearing (3.758189ms)
+✔ container freshness compares stable tags of each flavor independently (19.755918ms)
+✔ a single-component repository in a custom registry has no Docker Hub library prefix (0.861958ms)
+✔ manual checks default safely and e2e PRs do not run the host CI (1.736159ms)
+✔ credentials prefer the app, then one token, then the default (0.627751ms)
+✔ default and unknown capabilities cannot authorize repository operations (2.010681ms)
+✔ an orphan fixture contains only the README and persists partial resources (1.052493ms)
+✔ cleanup tries every resource even after one API error (0.929454ms)
+✔ real Actions conclusions and logs are verified without act (1.004002ms)
+✔ default-token approval refusal is recorded before act fallback (0.623693ms)
+✔ an approved run is awaited and its real result is retained (0.456061ms)
+✔ no generated run records the platform limitation and uses act only for default credentials (0.811253ms)
+✔ lowered pins fail, open issues waive them, closed issues and registry failures fail closed (0.889649ms)
+✔ scoped app tokens cannot operate on repositories, administration requires an explicit successful grant (0.485155ms)
+✔ freshness uses the selected GH_TOKEN for GitHub registry requests (0.987822ms)
+✔ standalone automation jobs install GitHub helper dependencies before running scripts (1.028798ms)
+✔ every release job checks out the local credential action before using it (1.520396ms)
+✔ UI, user prompts, and system prompts merge from the requested locale tree (9.598343ms)
+✔ all backend prompts prefer bulk drafting before verification (103.32025ms)
+✔ nested catalogs merge with aliases and reject conflicting definitions (25.178683ms)
+✔ catalog files separate UI, user messages, and system instructions (65.807472ms)
+✔ work locale changes rendered prompts independently of the UI, with English fallback (9.169472ms)
+✔ catalog extraction preserves the complete English backend corpus (503.500572ms)
+✔ every literal prompt reference resolves from the merged English catalog (231.394069ms)
+✔ live feedback, finalization and intervention templates are catalogued without changing English output (1124.761859ms)
+✔ the version-only CLI exit remains independent of prompt catalogs (186.398595ms)
+✔ agent: resource-aware defaults survive workspace and optional prompt sections (112.023713ms)
+✔ claude: resource-aware defaults survive workspace and optional prompt sections (7.970637ms)
+✔ codex: resource-aware defaults survive workspace and optional prompt sections (6.699266ms)
+✔ gemini: resource-aware defaults survive workspace and optional prompt sections (5.057023ms)
+✔ opencode: resource-aware defaults survive workspace and optional prompt sections (5.322127ms)
+✔ qwen: resource-aware defaults survive workspace and optional prompt sections (3.569288ms)
+✔ en: translated prompt catalogue follows the same validation policy (8.347069ms)
+✔ ru: translated prompt catalogue follows the same validation policy (5.288625ms)
+✔ zh: translated prompt catalogue follows the same validation policy (2.287856ms)
+✔ hi: translated prompt catalogue follows the same validation policy (3.012418ms)
+Issue #2187 current dependency pin checks passed
+✔ tests/test-issue-2187-current-dependency-pins.mjs (73.98263ms)
+  ✅ PASS: package.json declares an engines.node floor (>=24.0.0)
+  ✅ PASS: Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile: Node.js pin is current (26.12.1)
+  ✅ PASS: Dockerfile: Bun pin is current (1.4.4)
+  ✅ PASS: Dockerfile: pins an exact Node.js version (26.12.1)
+  ✅ PASS: Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile.dind: Node.js pin is current (26.12.1)
+  ✅ PASS: Dockerfile.dind: Bun pin is current (1.4.4)
+  ✅ PASS: Dockerfile.dind: pins an exact Node.js version (26.12.1)
+  ✅ PASS: Dockerfile.dind: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile.dind: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile.dind: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile.dind: installs the pinned Bun version
+  ✅ PASS: coolify/Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: coolify/Dockerfile: Node.js pin is current (26.12.1)
+  ✅ PASS: coolify/Dockerfile: Bun pin is current (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pins an exact Node.js version (26.12.1)
+  ✅ PASS: coolify/Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ✅ PASS: coolify/Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: coolify/Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins the same Node.js version as Dockerfile
+  ✅ PASS: Dockerfile.dind: pins the same Bun version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Node.js version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Bun version as Dockerfile
+  ✅ PASS: Dockerfile: has a superseded-node prune loop
+  ✅ PASS: Dockerfile: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile.dind: has a superseded-node prune loop
+  ✅ PASS: Dockerfile.dind: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: Dockerfile.dind: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: coolify/Dockerfile: has a superseded-node prune loop
+  ✅ PASS: coolify/Dockerfile: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: coolify/Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile: has a global-npm-package scan
+  ✅ PASS: Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: Dockerfile.dind: has a global-npm-package scan
+  ✅ PASS: Dockerfile.dind: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile.dind: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile.dind: collects nothing when the base has no global packages
+  ✅ PASS: coolify/Dockerfile: has a global-npm-package scan
+  ✅ PASS: coolify/Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: coolify/Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: coolify/Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: scripts/verify-docker-image.sh MIN_NODE_MAJOR (24) matches engines.node floor (24)
+  ✅ PASS: scripts/verify-docker-image.sh counts installed Node.js versions
+
+============================================================
+Results: 52 passed, 0 failed, 52 total
+============================================================
+✔ tests/test-issue-2187-runtime-versions.mjs (1313.471463ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11818.727842

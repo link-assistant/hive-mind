@@ -7,11 +7,12 @@
  */
 
 import assert from 'assert/strict';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATE_OWNER, CI_CD_TEMPLATE_REPO_SUFFIX, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, diffCiCdTemplates, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from '../src/fix.ci-cd-issue.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
-import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
+import { buildCreateIssueArgs, createTaskIssue, findRecentlyCreatedIssue, resolveSupportedIssueType } from '../src/task.issue-creation.lib.mjs';
 import { isBugIssueType } from '../src/development-log.lib.mjs';
+import { readFile } from 'node:fs/promises';
 
 let passed = 0;
 let failed = 0;
@@ -33,6 +34,147 @@ await test('CI_CD_TEMPLATES includes the PHP template (issue #1733)', () => {
   assert.ok(php, 'PHP template must be present');
   assert.equal(php.repo, 'link-foundation/php-ai-driven-development-pipeline-template');
   assert.equal(templateUrl(php.repo), 'https://github.com/link-foundation/php-ai-driven-development-pipeline-template');
+});
+
+await test('CI_CD_TEMPLATES includes the C/C++ template (issue #2573)', () => {
+  const cpp = CI_CD_TEMPLATES.find(t => t.key === 'cpp');
+  assert.ok(cpp, 'C/C++ template must be present');
+  assert.equal(cpp.repo, 'link-foundation/cpp-ai-driven-development-pipeline-template');
+  assert.deepEqual(cpp.languages, ['C++', 'C', 'CMake']);
+});
+
+await test('mapLanguagesToTemplates recommends the C/C++ template for linksplatform/Interfaces (issue #2573)', () => {
+  // Linguist languages of linksplatform/Interfaces when #150 was created.
+  const languages = { 'C++': 80749, 'C#': 15034, JavaScript: 6203, C: 1553, CMake: 1391, Shell: 914, Python: 516 };
+  const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates(languages);
+  assert.deepEqual(
+    sortedTemplates.map(e => e.template.key),
+    ['cpp', 'csharp', 'javascript', 'python']
+  );
+  assert.equal(sortedTemplates[0].bytes, 80749 + 1553 + 1391);
+  assert.deepEqual(sortedTemplates[0].languages, ['C++', 'C', 'CMake']);
+  assert.deepEqual(unmatchedLanguages, ['Shell']);
+  assert.match(buildTemplatesSection(languages), /1\. \*\*C \/ C\+\+\*\* — \[link-foundation\/cpp-ai-driven-development-pipeline-template\]/);
+});
+
+await test('mapLanguagesToTemplates maps a C-only repository to the C/C++ template (issue #2573)', () => {
+  const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates({ C: 5000, Makefile: 300 });
+  assert.deepEqual(
+    sortedTemplates.map(e => e.template.key),
+    ['cpp']
+  );
+  assert.deepEqual(unmatchedLanguages, ['Makefile']);
+});
+
+const swiftTemplate = 'link-foundation/swift-ai-driven-development-pipeline-template';
+const jsTemplate = 'link-foundation/js-ai-driven-development-pipeline-template';
+const kotlinTemplate = 'link-foundation/kotlin-ai-driven-development-pipeline-template';
+
+await test('Swift and JavaScript/TypeScript produce both recommendations in byte order (issue #4097)', () => {
+  const fixtures = [
+    {
+      languages: { JavaScript: 200, Swift: 900 },
+      expected: [
+        [swiftTemplate, 900],
+        [jsTemplate, 200],
+      ],
+    },
+    {
+      languages: { Swift: 900, JavaScript: 600, TypeScript: 400 },
+      expected: [
+        [jsTemplate, 1000],
+        [swiftTemplate, 900],
+      ],
+    },
+  ];
+  for (const { languages, expected } of fixtures) {
+    const { sortedTemplates, unmatchedLanguages } = mapLanguagesToTemplates(languages);
+    assert.deepEqual(
+      sortedTemplates.map(({ template, bytes }) => [template.repo, bytes]),
+      expected
+    );
+    assert.deepEqual(unmatchedLanguages, []);
+
+    const recommendations = buildTemplatesSection(languages)
+      .split('\n')
+      .filter(line => /^\d+\. /.test(line));
+    assert.equal(recommendations.length, expected.length);
+    expected.forEach(([repo], index) => {
+      assert.ok(recommendations[index].includes(`](${templateUrl(repo)})`), `Recommendation ${index + 1} must link to ${repo}`);
+    });
+  }
+});
+
+await test('prepareCiCdIssue recommends Kotlin first for a Kotlin-first repository (issue #4098)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const responses = {
+    'repos/owner/repo/languages': JSON.stringify({ Kotlin: 9000, Java: 1000, Shell: 500 }),
+    'repos/owner/repo': 'main',
+    'repos/owner/repo/commits/main': JSON.stringify({ sha: 'abcdef1' }),
+    'repos/owner/repo/actions/workflows?per_page=100': JSON.stringify([{ workflows: [] }]),
+  };
+  const run = async (command, [, endpoint]) => {
+    assert.equal(command, 'gh');
+    assert.ok(Object.hasOwn(responses, endpoint), `Unexpected GitHub endpoint: ${endpoint}`);
+    return { code: 0, stdout: responses[endpoint], stderr: '' };
+  };
+
+  const { body } = await prepareCiCdIssue({ repository, run, warn: message => assert.fail(message) });
+  const javaTemplate = 'link-foundation/java-ai-driven-development-pipeline-template';
+  assert.ok(body.includes(`1. **Kotlin** — [${kotlinTemplate}](${templateUrl(kotlinTemplate)}) _(detected: Kotlin)_`), 'Kotlin must receive the first recommendation');
+  assert.ok(body.includes(`2. **Java** — [${javaTemplate}](${templateUrl(javaTemplate)}) _(detected: Java)_`), 'Java must retain its dedicated template');
+  assert.match(body, /Other detected languages without a dedicated template: Shell\./);
+});
+
+await test('diffCiCdTemplates reports unlisted and stale template repositories (issue #2573)', () => {
+  const listed = CI_CD_TEMPLATES.map(t => t.repo.split('/')[1]);
+  assert.deepEqual(diffCiCdTemplates([...listed, 'hive-mind', '.github']), { unlisted: [], stale: [] });
+
+  // The state that hid the C/C++ template: a new template repository appears.
+  const withNew = diffCiCdTemplates([...listed, { name: `new${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
+  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/new${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
+
+  // A listed template that was renamed, deleted or archived no longer resolves.
+  const withoutPhp = diffCiCdTemplates(listed.filter(name => !name.startsWith('php-')));
+  assert.deepEqual(withoutPhp, { unlisted: [], stale: ['link-foundation/php-ai-driven-development-pipeline-template'] });
+});
+
+await test('every CI-CD-BEST-PRACTICES translation lists all templates and the Swift and Kotlin tooling (issues #2573, #4097, and #4098)', async () => {
+  for (const suffix of ['', '.ru', '.zh', '.hi']) {
+    const file = `docs/CI-CD-BEST-PRACTICES${suffix}.md`;
+    const doc = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const { repo } of CI_CD_TEMPLATES) {
+      const name = repo.split('/')[1];
+      const url = repo === kotlinTemplate ? `${templateUrl(repo)}/tree/main` : templateUrl(repo);
+      assert.ok(doc.includes(`| [${name}](${url})`), `${file}: "Recommended CI/CD Templates" must link ${url}`);
+      assert.ok(doc.includes(`| \`${repo}\``), `${file}: "Language → Template Mapping" must list ${repo}`);
+    }
+
+    const swiftRows = doc.split('\n').filter(line => /^\| Swift\s+\|/.test(line));
+    for (const entry of [templateUrl(swiftTemplate), `| \`${swiftTemplate}\``, '`swift format`', '`-warnings-as-errors`']) {
+      assert.ok(
+        swiftRows.some(row => row.includes(entry)),
+        `${file}: missing Swift table entry ${entry}`
+      );
+    }
+    assert.ok(
+      swiftRows.some(row => ['changeset', 'SwiftPM', 'Git'].every(term => row.includes(term))),
+      `${file}: document Swift changesets and SwiftPM Git tags`
+    );
+    assert.ok(doc.includes(`${templateUrl(swiftTemplate)}/blob/main/docs/monorepo.md`), `${file}: link the Swift monorepo setup guide`);
+
+    const kotlinRows = doc.split('\n').filter(line => /^\| Kotlin\s+\|/.test(line));
+    for (const entry of [`${templateUrl(kotlinTemplate)}/tree/main`, `| \`${kotlinTemplate}\``, 'ktlint', 'Detekt']) {
+      assert.ok(
+        kotlinRows.some(row => row.includes(entry)),
+        `${file}: missing Kotlin table entry ${entry}`
+      );
+    }
+    assert.ok(
+      kotlinRows.some(row => /gradle/i.test(row) && /changeset/i.test(row)),
+      `${file}: document Gradle changesets for Kotlin`
+    );
+  }
 });
 
 await test('parseFixRepository accepts repo URLs and shorthand, rejects issues', () => {
@@ -669,6 +811,9 @@ await test('createTaskIssue retries without type/labels when the repo rejects th
     labels: ['bug'],
     log: message => logged.push(message),
     run: async (command, args) => {
+      // Preflight and duplicate lookups are not answerable here, so the type
+      // is kept and gh rejects it before creating anything (label not found).
+      if (args[0] !== 'issue') return { code: 1, stdout: '', stderr: 'unavailable' };
       calls.push(args);
       if (args.includes('--type')) {
         return { code: 1, stdout: '', stderr: "could not add label: 'bug' not found" };
@@ -696,6 +841,132 @@ await test('createTaskIssue surfaces the error when no optional metadata was use
     }),
     /boom/
   );
+});
+
+/**
+ * Fake GitHub backend that reproduces `gh issue create --type` from gh v2.102:
+ * the issue (with labels) is created first and the type is resolved afterwards,
+ * so an unknown type makes gh exit non-zero *after* the issue exists and without
+ * printing its URL (issue #3326).
+ */
+function createFakeGitHub({ issueTypes = null, graphqlAvailable = true, existingIssues = [] } = {}) {
+  const issues = [...existingIssues];
+  const createCalls = [];
+  const run = async (command, args) => {
+    if (args[0] === 'api' && args[1] === 'graphql') {
+      if (!graphqlAvailable) return { code: 1, stdout: '', stderr: 'HTTP 502' };
+      const nodes = issueTypes === null ? null : { nodes: issueTypes.map(name => ({ name })) };
+      return { code: 0, stdout: JSON.stringify({ data: { repository: { issueTypes: nodes } } }), stderr: '' };
+    }
+    if (args[0] === 'api' && String(args[1]).startsWith('repos/owner/repo/issues?')) {
+      return { code: 0, stdout: JSON.stringify([...issues].reverse()), stderr: '' };
+    }
+    if (args[0] === 'issue' && args[1] === 'create') {
+      createCalls.push(args);
+      const title = args[args.indexOf('--title') + 1];
+      const body = await readFile(args[args.indexOf('--body-file') + 1], 'utf8');
+      const labels = args.flatMap((arg, index) => (arg === '--label' ? [{ name: args[index + 1] }] : []));
+      const number = issues.length + 1;
+      const htmlUrl = `https://github.com/owner/repo/issues/${number}`;
+      issues.push({ number, title, body, labels, html_url: htmlUrl, created_at: new Date().toISOString() });
+      const typeIndex = args.indexOf('--type');
+      if (typeIndex !== -1) {
+        const requested = args[typeIndex + 1];
+        const known = (issueTypes || []).find(name => name.toLowerCase() === requested.toLowerCase());
+        if (!known) {
+          return { code: 1, stdout: '', stderr: `type "${requested}" not found; available types: ${(issueTypes || []).join(', ')}\n` };
+        }
+        issues[issues.length - 1].type = known;
+      }
+      return { code: 0, stdout: `${htmlUrl}\n`, stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+  return { run, issues, createCalls };
+}
+
+await test('issue #3326: /fix --ci-cd on a user-owned repo creates exactly one issue (type dropped, label kept)', async () => {
+  const github = createFakeGitHub({ issueTypes: null });
+  const logged = [];
+  const issue = await createTaskIssue({
+    repository: { fullName: 'owner/repo' },
+    title: CI_CD_ISSUE_TITLE,
+    body: 'CI/CD body',
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+    run: github.run,
+    log: message => logged.push(message),
+  });
+  assert.equal(github.issues.length, 1, 'exactly one issue must exist');
+  assert.equal(github.createCalls.length, 1);
+  assert.ok(!github.createCalls[0].includes('--type'), 'unsupported type must not be passed to gh');
+  assert.ok(github.createCalls[0].includes('--label') && github.createCalls[0].includes('bug'), 'the bug label must be kept');
+  assert.deepEqual(github.issues[0].labels, [{ name: 'bug' }]);
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/1');
+  assert.ok(logged.some(message => /without type/.test(message) && /organization-owned/.test(message)));
+});
+
+await test('issue #3326: when type support cannot be checked, a post-create type failure returns the created issue instead of a duplicate', async () => {
+  const github = createFakeGitHub({ issueTypes: null, graphqlAvailable: false });
+  const logged = [];
+  const issue = await createTaskIssue({
+    repository: { fullName: 'owner/repo' },
+    title: CI_CD_ISSUE_TITLE,
+    body: 'CI/CD body',
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+    run: github.run,
+    log: message => logged.push(message),
+  });
+  assert.equal(github.createCalls.length, 1, 'must not retry gh issue create');
+  assert.equal(github.issues.length, 1, 'must not create a duplicate issue');
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/1');
+  assert.equal(issue.number, 1);
+  assert.ok(logged.some(message => /not retrying to avoid a duplicate/.test(message)));
+});
+
+await test('issue #3326: organization repos keep the type, matched case-insensitively', async () => {
+  const github = createFakeGitHub({ issueTypes: ['Task', 'Bug', 'Feature'] });
+  const issue = await createTaskIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', issueType: 'bug', labels: ['bug'], run: github.run });
+  assert.equal(github.createCalls.length, 1);
+  assert.equal(github.createCalls[0][github.createCalls[0].indexOf('--type') + 1], 'Bug');
+  assert.equal(github.issues[0].type, 'Bug');
+  assert.equal(issue.number, 1);
+});
+
+await test('issue #3326: an organization without the requested type gets an untyped issue, not two issues', async () => {
+  const github = createFakeGitHub({ issueTypes: ['Feature'] });
+  await createTaskIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', issueType: 'Task', labels: ['dependencies'], run: github.run });
+  assert.equal(github.issues.length, 1);
+  assert.ok(!github.createCalls[0].includes('--type'));
+});
+
+await test('issue #3326: resolveSupportedIssueType distinguishes unsupported from unknown', async () => {
+  const repository = { fullName: 'owner/repo' };
+  assert.deepEqual(await resolveSupportedIssueType({ repository, issueType: null, run: createFakeGitHub().run }), { issueType: null, reason: null });
+  const userOwned = await resolveSupportedIssueType({ repository, issueType: 'Bug', run: createFakeGitHub({ issueTypes: null }).run });
+  assert.equal(userOwned.issueType, null);
+  assert.match(userOwned.reason, /not available in owner\/repo/);
+  const unknown = await resolveSupportedIssueType({ repository, issueType: 'Bug', run: createFakeGitHub({ graphqlAvailable: false }).run });
+  assert.deepEqual(unknown, { issueType: 'Bug', reason: null });
+});
+
+await test('issue #3326: findRecentlyCreatedIssue ignores pull requests, older issues and other titles/bodies', async () => {
+  const now = Date.now();
+  const at = offsetMs => new Date(now + offsetMs).toISOString();
+  const github = createFakeGitHub({
+    existingIssues: [
+      { number: 1, title: 'T', body: 'B', html_url: 'https://github.com/owner/repo/issues/1', created_at: at(-60 * 60 * 1000) },
+      { number: 2, title: 'T', body: 'B', html_url: 'https://github.com/owner/repo/pull/2', pull_request: {}, created_at: at(0) },
+      { number: 3, title: 'Other', body: 'B', html_url: 'https://github.com/owner/repo/issues/3', created_at: at(0) },
+      { number: 4, title: 'T', body: 'Different', html_url: 'https://github.com/owner/repo/issues/4', created_at: at(0) },
+    ],
+  });
+  const createdAfter = new Date(now);
+  assert.equal(await findRecentlyCreatedIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', createdAfter, run: github.run }), null);
+  github.issues.push({ number: 5, title: 'T', body: 'B\r\n', html_url: 'https://github.com/owner/repo/issues/5', created_at: at(1000) });
+  const found = await findRecentlyCreatedIssue({ repository: { fullName: 'owner/repo' }, title: 'T', body: 'B', createdAfter, run: github.run });
+  assert.equal(found?.number, 5);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

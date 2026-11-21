@@ -11,7 +11,7 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2135: keep large read-only probe payloads out of the attached log
 /**

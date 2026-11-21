@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 import { aliasForPackage, computeBackoffMs, isRetryableNpmError, installWithRetry } from '../scripts/preinstall-use-m-packages.mjs';
 
 let passed = 0;
@@ -48,9 +49,10 @@ const test = (name, fn) => {
 };
 
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
-  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-1.6.2');
-  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.33.0');
-  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.23.0');
+  // The versions come from the pin map, so a dependency refresh does not have to edit this test.
+  assert.equal(aliasForPackage('command-stream'), `command-stream-v-${USE_M_PACKAGE_VERSIONS['command-stream']}`);
+  assert.equal(aliasForPackage('@dotenvx/dotenvx'), `dotenvx-dotenvx-v-${USE_M_PACKAGE_VERSIONS['@dotenvx/dotenvx']}`);
+  assert.equal(aliasForPackage('links-notation'), `links-notation-v-${USE_M_PACKAGE_VERSIONS['links-notation']}`);
 });
 
 await test('isRetryableNpmError detects ENOTEMPTY and friends', () => {
@@ -72,7 +74,8 @@ await test('installWithRetry disables package bin links so versioned aliases can
   let command = '';
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-1.6.2',
+    version: '2.4.0',
+    alias: 'command-stream-v-2.4.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async value => {
       calls++;
@@ -82,14 +85,14 @@ await test('installWithRetry disables package bin links so versioned aliases can
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 1, calls: 1 });
-  assert.match(command, /npm install -g --no-bin-links command-stream-v-1\.6\.2@npm:command-stream@1\.6\.2/);
+  assert.match(command, /npm install -g --no-bin-links command-stream-v-2\.4\.0@npm:command-stream@2\.4\.0/);
 });
 
 await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-1.6.2',
+    alias: 'command-stream-v-2.4.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -127,7 +130,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-1.6.2',
+    alias: 'command-stream-v-2.4.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -146,7 +149,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
 await test('installWithRetry treats package-present-on-disk as recovered success', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'preinstall-1724-'));
   try {
-    const alias = 'command-stream-v-1.6.2';
+    const alias = 'command-stream-v-2.4.0';
     mkdirSync(join(tmp, alias));
     writeFileSync(join(tmp, alias, 'package.json'), JSON.stringify({ name: 'command-stream', version: '1.0.0' }));
     let calls = 0;

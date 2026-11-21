@@ -1,0 +1,1 @@
+{ "createdAt": "2026-10-06T06:17:11Z", "headRefName": "issue-30-b7252c954deb", "mergedAt": "2026-10-06T07:48:14Z", "mergedBy": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" }, "number": 31, "state": "MERGED", "title": "Use upstream browser catalogue for imports, channels, and defaults" }

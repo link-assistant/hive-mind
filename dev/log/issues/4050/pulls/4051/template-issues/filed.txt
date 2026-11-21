@@ -1,0 +1,4 @@
+js: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/298
+python: https://github.com/link-foundation/python-ai-driven-development-pipeline-template/issues/146
+cpp: https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template/issues/23
+rust: not filed; scripts/check-crate-size.rs already gates crates.io size

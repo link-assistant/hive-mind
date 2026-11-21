@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Guard PR base branch changes made during an agent session.
  *
@@ -170,16 +171,16 @@ export function extractToolCommandTextsFromStreamEvent(event) {
 export function buildPullRequestBaseBranchInterventionMessage({ prNumber, expectedBaseBranch, attemptedBaseBranch, command } = {}) {
   const expected = normalizeBranchName(expectedBaseBranch);
   const attempted = normalizeBranchName(attemptedBaseBranch);
-  const pullRequestLabel = prNumber ? `PR #${prNumber}` : 'the pull request';
-  const attemptedText = attempted ? ` to ${attempted}` : '';
-  const commandText = command ? `\nForbidden command observed: ${command}` : '';
+  const pullRequestLabel = prNumber ? `PR #${prNumber}` : promptText('prompt.templates.solve-pr-base-guard.buildPullRequestBaseBranchInterventionMessage.text1');
+  const attemptedText = attempted ? promptText('prompt.templates.solve-pr-base-guard.buildPullRequestBaseBranchInterventionMessage.text2', { attempted: String(attempted) }) : '';
+  const commandText = command ? promptText('prompt.templates.solve-pr-base-guard.buildPullRequestBaseBranchInterventionMessage.text3', { command: String(command) }) : '';
 
-  return `The user requested --base-branch ${expected}. ${pullRequestLabel} must keep that base branch. Do not change ${pullRequestLabel}'s base${attemptedText}. Restore or keep the base as ${expected}, then continue finishing the pull request and make it ready for review.${commandText}`;
+  return promptText('prompt.templates.solve-pr-base-guard.buildPullRequestBaseBranchInterventionMessage.text4', { expected: String(expected), pullRequestLabel: String(pullRequestLabel), value3: String(pullRequestLabel), attemptedText: String(attemptedText), value5: String(expected), commandText: String(commandText) });
 }
 
 export function buildPullRequestBaseBranchMismatchMessage({ prNumber, currentBaseBranch, expectedBaseBranch, operation = 'verify' } = {}) {
   const action = operation === 'auto-merge' ? 'auto-merge' : 'continue';
-  return `Cannot ${action} PR #${prNumber} because its base branch changed to ${currentBaseBranch}. The user requested --base-branch ${expectedBaseBranch}; restore the PR base to ${expectedBaseBranch} before ${action}.`;
+  return promptText('prompt.templates.solve-pr-base-guard.buildPullRequestBaseBranchMismatchMessage.text5', { action: String(action), prNumber: String(prNumber), currentBaseBranch: String(currentBaseBranch), expectedBaseBranch: String(expectedBaseBranch), value5: String(expectedBaseBranch), value6: String(action) });
 }
 
 export async function getPullRequestBaseBranch({ owner, repo, prNumber, $, log }) {

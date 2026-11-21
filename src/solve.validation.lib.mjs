@@ -27,7 +27,7 @@ const {
 } = lib;
 
 // Import GitHub-related functions
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 const {
   checkGitHubPermissions,
   parseGitHubUrl,
@@ -74,7 +74,8 @@ export const validateGitHubUrl = issueUrl => {
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
     if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
-    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    if (parsedUrl.inputHint) console.error(`\n${parsedUrl.inputHint}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean ${parsedUrl.suggestion}?`);
     console.error('\n  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
@@ -103,6 +104,8 @@ export const validateGitHubUrl = issueUrl => {
   if (!isIssueUrl && !isPrUrl) {
     console.error('Error: Invalid GitHub URL for solve command');
     console.error(`  URL type '${parsedUrl.type}' is not supported`);
+    if (parsedUrl.inputHint) console.error(`\n${parsedUrl.inputHint}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean ${parsedUrl.suggestion}?`);
     console.error('  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
@@ -275,7 +278,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
         await log('   🔧 How to fix manually:');
         await log('');
         await log('   Option 1: Install gh-setup-git-identity and use --auto-gh-configuration-repair');
-        await log('     npm install -g @link-foundation/gh-setup-git-identity');
+        await log('     npm install -g gh-setup-git-identity');
         await log('');
         await log('   Option 2: Set identity manually');
         await log('     git config --global user.name "Your Name"');
@@ -319,26 +322,9 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     let isToolConnected;
     const { isFormalAiModel } = await import('./models/index.mjs');
     if (isFormalAiModel(model)) {
-      const { validateFormalAiToolConnection } = await import('./formal-ai.lib.mjs');
-      const formalAiValidation = await validateFormalAiToolConnection(argv.tool || 'claude');
-      isToolConnected = formalAiValidation.valid;
-      // Record the wrapper version on both paths: the wrapper builds the tool's
-      // argv, so its version is the first thing needed to explain a failure
-      // (issue #2130's logs recorded neither, which left the round-2 claude
-      // failure unattributable).
-      const formalAiVersionLine = `📦 Formal AI wrapper version: ${formalAiValidation.formalAiVersion || 'unknown'}`;
-      if (isToolConnected) {
-        await log(`✅ Formal AI wrapper and ${argv.tool || 'claude'} CLI are available`);
-        await log(formalAiVersionLine);
-        if (formalAiValidation.version) {
-          await log(`📦 ${argv.tool || 'claude'} CLI version: ${formalAiValidation.version}`);
-        }
-      } else {
-        await log(`❌ Formal AI dispatch validation failed: ${formalAiValidation.error}`, { level: 'error' });
-        await log(`   ${formalAiVersionLine}`, { level: 'error' });
-        await log('   Install or update the wrapper with: cargo install formal-ai', { level: 'error' });
-        return false;
-      }
+      const { validateFormalAiDispatch } = await import('./tool-connection-validation.lib.mjs');
+      isToolConnected = await validateFormalAiDispatch({ tool: argv.tool || 'claude', log });
+      if (!isToolConnected) return false;
     } else if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
@@ -353,7 +339,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'opencode') {
       // Validate OpenCode connection
       const opencodeLib = await import('./opencode.lib.mjs');
-      isToolConnected = await opencodeLib.validateOpenCodeConnection(model);
+      isToolConnected = await opencodeLib.validateOpenCodeConnection(model, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
         return false;
@@ -361,7 +347,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'gemini') {
       // Validate Gemini connection
       const geminiLib = await import('./gemini.lib.mjs');
-      isToolConnected = await geminiLib.validateGeminiConnection(model);
+      isToolConnected = await geminiLib.validateGeminiConnection(model, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Gemini CLI connection', { level: 'error' });
         return false;
@@ -369,7 +355,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
-      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose);
+      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;
@@ -378,6 +364,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
       // Validate Agent connection
       const agentLib = await import('./agent.lib.mjs');
       isToolConnected = await agentLib.validateAgentConnection(model, {
+        useRouter: argv.useRouter === true,
         requireLiveInput: !!(argv.autoInputUntilMergeable || argv.acceptIncommingCommentsAsInput),
       });
       if (!isToolConnected) {
@@ -387,7 +374,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'qwen') {
       // Validate Qwen Code connection
       const qwenLib = await import('./qwen.lib.mjs');
-      isToolConnected = await qwenLib.validateQwenConnection(model);
+      isToolConnected = await qwenLib.validateQwenConnection(model, undefined, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
         return false;

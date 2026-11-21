@@ -1,0 +1,43 @@
+Gemini CLI 0.65.0; source tag commit 6006c14a4decfe4b891c6263ad6ad5992e404b5b
+Native manager bundle SHA-256: 4d9cf6435503e5280ecb0f55078793531c8041fe435f60fa8dfce92317c8a28e
+Read-stage manager SHA-256: e7df0d9801b8ec39c3ed283a614c9ffc6399c00410418d2ed0e6ff86d79b57cd
+Only synthetic credentials. Actual native factory and retained request-header methods.
+Verification/user-info transport is stubbed; a refusing refresh stub counts attempts.
+No model request, refresh exchange or operator credential is used.
+
+Before repair, native-gemini-reads-before.log:
+REPRODUCED stale native authorization: replacement, native factory and retained request headers.
+REPRODUCED stale native authorization: logout, native factory and retained request headers.
+REPRODUCED stale native authorization: malformed, native factory and retained request headers.
+REPRODUCED stale native authorization: permissions, native factory and retained request headers.
+REPRODUCED stale native authorization: symlink, native factory and retained request headers.
+REPRODUCED stale native authorization: hardlink, native factory and retained request headers.
+REPRODUCED stale native authorization: directory, native factory and retained request headers.
+REPRODUCED stale native authorization: oversized, native factory and retained request headers.
+REPRODUCED stale native authorization: parent-replacement, native factory and retained request headers.
+
+Strict regression against the npm-locked package before repair:
+AssertionError [ERR_ASSERTION]: replacement: native factory
+actual: selected G0, attemptedRefresh 0
+expected: selected G1, attemptedRefresh 0
+
+After repair with independent configuration/authentication roots:
+PASS: replacement, native factory and retained request headers.
+PASS: logout, native factory and retained request headers.
+PASS: malformed, native factory and retained request headers.
+PASS: permissions, native factory and retained request headers.
+PASS: symlink, native factory and retained request headers.
+PASS: hardlink, native factory and retained request headers.
+PASS: directory, native factory and retained request headers.
+PASS: oversized, native factory and retained request headers.
+PASS: parent-replacement, native factory and retained request headers.
+PASS: private-conflict, native factory and retained request headers.
+PASS: private-disposal, native factory and retained request headers.
+PASS: expired, native factory and retained request headers.
+PASS: cache-writer, native factory and retained request headers.
+PASS: logout-writer, native factory and retained request headers.
+Every result requires attemptedRefresh 0. Writer refusals preserve G0 bytes.
+
+This isolated read stage refuses refresh, login publication, logout and revocation.
+Coordinated writers, alternative factories/backends, retained legacy handles,
+complete history and production integration remain unfinished.

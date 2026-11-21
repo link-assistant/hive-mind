@@ -1,0 +1,8 @@
+PASS: Amazon Bedrock, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, preserves native constructor behavior without canonical selection.

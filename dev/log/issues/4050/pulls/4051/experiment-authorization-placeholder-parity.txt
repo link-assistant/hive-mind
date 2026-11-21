@@ -1,0 +1,17 @@
+ok      library(plain)=kept adapter(span)=kept <value>
+ok      library(plain)=kept adapter(span)=kept <token>
+ok      library(plain)=kept adapter(span)=kept <your token>
+ok      library(plain)=kept adapter(span)=kept <s3cr3tAbc123XYZqwe789>
+ok      library(plain)=kept adapter(span)=kept <Zx81kQ02mPa9LwT7>
+ok      library(plain)=kept adapter(span)=kept <a_b>
+ok      library(plain)=kept adapter(span)=kept $TOKEN
+ok      library(plain)=kept adapter(span)=kept ${TOKEN}
+ok      library(plain)=kept adapter(span)=kept $x9Kq2LmZ8pW1
+ok      library(plain)=kept adapter(span)=kept <kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk>
+
+masked "$<synthetic ghp_ token>"
+masked "<<synthetic ghp_ token>>"
+kept   "<sk-live abc>"
+masked "$<synthetic AKIA key>"
+masked "<<synthetic AKIA key>>"
+kept   "<Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8Zx8>"

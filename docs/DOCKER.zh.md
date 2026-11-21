@@ -2,29 +2,22 @@
 
 本文档介绍如何在 Docker 容器中运行 Hive Mind。
 
+对于 Claude 的隔离任务，`CLAUDE_CONFIG_DIR` 决定宿主机 `projects/` 和 `sessions/` 的来源，默认使用 `~/.claude`。任务仅将这两个目录挂载到私有的 `/home/box/.claude`，不会挂载操作员的配置。所选历史目录缺失时，即使默认目录存在也会阻止挂载；准备过程会拒绝链接和不安全路径。Router 模式不会获得供应商历史。独立凭据目录的选择保持独立。完整历史和默认认证迁移仍未完成。详见[英文说明](DOCKER.md#what-a---isolation-docker-task-receives-issue-2190)。
+
 ## 快速开始
 
 ### 选项 1：使用 Docker Hub 上的预构建镜像（推荐）
 
+参阅 [Hive Mind Manager](./deployment/hive-manager.md) 了解部署与软件包或独立安装方式。请在自己的浏览器中完成服务提供商的提示。直接使用 CLI 的方法请参阅[手动 Docker 和登录命令](./deployment/hive-manager-manual.md)。
+
 ```bash
-# 拉取最新镜像
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# 运行交互式会话
-docker run -it konard/hive-mind:latest
-
-# 重要：身份验证在 Docker 镜像安装完成后进行
-# 安装脚本不会运行 gh auth login 以避免构建超时
-# 这允许 Docker 构建成功完成，无需交互式提示
-
-# 在容器内，使用 GitHub 进行身份验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# 使用 Claude 进行身份验证
-claude
-
-# 现在您可以使用 hive 和 solve 命令
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### 选项 2：本地构建
@@ -125,6 +118,9 @@ docker run --rm --network link-assistant-formal-ai \
 - 任务容器在启动 Formal AI 容器的同一临界区内通过 `docker network connect` 接入，并以容器地址（而非 DNS 别名）作为 `HIVE_MIND_FORMAL_AI_BASE_URL`。
 - 如果容器无法启动或接入失败，任务会被停止，而不是改用其他模型继续（[issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)）。
 - 内存保存在 `hive-mind-formal-ai-memory` 卷中，该卷永远不会被删除——容器停止时不会，镜像更换时也不会。
+- 每次启动前，一个以 `box`（1001:1001）运行的一次性容器会检查能否写入内存卷。只有在不能写入时，才会（以 root）把该卷 `chown -R` 回 `box`，并在 bot 日志中记录 `[formal-ai] memory volume was owned by <uid:gid>; fixed`。健康的卷不会被 chown（[issue #3583](https://github.com/link-assistant/hive-mind/issues/3583)）。
+- `/health` 响应后会读取 sidecar stdout 的前几行。`logging_failure` 记录会在 bot 日志以及该 sidecar 服务的每个任务的 solve 日志中变成警告。
+- 删除 sidecar 容器之前，`docker logs --timestamps` 会保存到 bot 日志目录（`HIVE_MIND_LOG_DIR`，默认 `~/.hive-mind/logs`）中的 `formal-ai-sidecar-<启动时间>.log`。保留最新的 `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP` 个文件（默认 50；`0` 表示关闭）。
 
 在没有租约期间，镜像会通过 pull `HIVE_MIND_FORMAL_AI_UPDATE_TAG` 并比较摘要来刷新。新摘要只会经由 Formal AI 的持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）被采纳：先执行 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像，其 `/health` 必须报告内存兼容。迁移之后的任何失败都会恢复回执中记录的备份并保留原镜像。已安装的 agentic CLI 和运维工具（`claude-profiles`、`gh-setup-git-identity`、`gh-pull-all`、`gh-load-issue`、`gh-load-pull-request`、`gh-upload-log`）在相同的空闲条件下刷新。两者的环境变量见 [Configuration](CONFIGURATION.zh.md)。
 
@@ -218,6 +214,14 @@ hive-telegram-bot --isolation docker \
 cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 会在任务命令运行前移除
 或停止容器，并始终保持启动闸门关闭，同时报告启动失败，而不会让任务在没有限制的情况下静默运行。
 
+**CPU 惩罚（issue #2801）。** 长时间占满全部 CPU 的 Docker 任务会被限流，负载下降后再解除。`--isolation docker` 下默认开启。「全部 CPU」指 Docker 宿主机的 CPU（`docker info` NCPU，每 5 分钟重新读取）；如果 `--container-cpu` 更低，则以它为准。
+
+1. 任务在 15 分钟内平均占用不低于这些 CPU 的 95% 时，会话监控对其容器执行 `docker update --cpus 2`。
+2. 任务在 15 分钟内平均低于限额的 65%（2 个 CPU 的限额即 1.3 核，即总量的 32.5% + 32.5%）时，解除限流，恢复为 `--container-cpu` 或宿主机 CPU 数。
+3. 随后重新开始观察：再占满全部 CPU 15 分钟会再次被限流。
+
+选项：`--container-cpu-penalty-cpus`（2）、`--container-cpu-penalty-trigger`（95%）、`--container-cpu-penalty-trigger-window`（15m）、`--container-cpu-penalty-release`（65%）、`--container-cpu-penalty-release-window`（15m），对应环境变量 `TELEGRAM_CONTAINER_CPU_PENALTY_*`。关闭：`--no-container-cpu-penalty`。惩罚状态在 bot 重启后保留；被限流过的任务，其完成消息中会有 `🐢 CPU penalty` 一节。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash
@@ -249,38 +253,15 @@ docker run --rm -it \
 
 ## 身份验证
 
-生产 Docker 镜像（`Dockerfile`）使用 Ubuntu 24.04 和官方安装脚本。**重要**：身份验证在 Docker 镜像完全安装并运行后，**在容器内部**执行。
-
-**为什么身份验证在安装后进行：**
-
-- ✅ 避免因交互式提示导致 Docker 构建超时
-- ✅ 防止 CI/CD 流水线中的构建失败
-- ✅ 允许安装脚本成功完成
-- ✅ 支持自动化 Docker 镜像构建
-
-### GitHub 身份验证
+先启动实例，再进行登录。每条命令使用该实例的持久化状态。在浏览器中打开显示的链接。将 Claude 授权码粘贴回命令，在浏览器中输入其他服务显示的设备代码。
 
 ```bash
-# 在容器内，容器运行后执行
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**注意**：安装脚本故意不在构建过程中调用 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。
-
-### Claude 身份验证
-
-```bash
-# 在容器内，容器运行后执行
-claude
-```
-
-此方法允许：
-
-- ✅ 多个 Docker 实例使用不同的 GitHub 账户
-- ✅ 多个 Docker 实例使用不同的 Claude 订阅
-- ✅ 容器之间不泄露凭据
-- ✅ 每个容器拥有独立的身份验证
-- ✅ 无需交互式身份验证即可成功构建 Docker 镜像
+有关 SSH、配置文件或手动登录，请参阅[登录指南](deployment/hive-manager.md#headless-sign-in)和[手动命令](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)。
 
 ## Docker 中的 Playwright MCP 状态
 
@@ -352,7 +333,17 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
+
+凭据共享仍有限制：主机原子替换文件后，文件绑定挂载仍指向旧 inode；Codex 预检还会把身份验证复制到任务作用域。这些路径尚未形成统一的轮换权威存储。[案例研究](./case-studies/issue-3785/README.md) 记录了这个未解决的问题及真实 CLI 实验。
+
+根 Telegram bot 以及每次 `solve`/`hive` 启动都会在工具连接检查前审计已知的全局 Claude/Codex 配置入口，默认启用修复。`--no-agent-config-auto-repair` 或 `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` 仅关闭修复；仍有发现项或修复失败时，执行会被阻止。Dry-run 和命令准备检查不会修复状态。已安装的 Codex 内置文件会与原始 CLI 0.164.0 的内容清单比较。两个镜像均固定 Codex 0.164.0 和 Claude 2.1.319；升级 CLI 需审核新清单。被修改、不完整或含链接的内置内容会在修复前阻止启动。完整的替代/托管路径、镜像生命周期和部署验证仍未完成。
+
+镜像设置 `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex`，在空闲和命令触发的更新中保留这两个固定版本。其他代理和运维 CLI 继续更新。覆盖更新设置时请保留此排除项；升级镜像时，CLI 版本和经过审核的内置文件清单必须一起更新。
+
+TOML 修复保留无关设置值，但会规范格式并移除注释。干净的配置保持不变。
+
+审计还会拒绝已知的全局指令文件、规则、旧提示和钩子清单。指令文件和钩子清单需要明确删除或隔离；内联全局钩子/指令以及未经批准的 Codex 配置档/代理注册可以自动修复。干净的配置档及其他模型、权限和并发设置会保留。
 
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 
@@ -403,21 +394,14 @@ docker-compose run --rm hive-mind
 
 ## 故障排除
 
-### GitHub 身份验证问题
+### 登录问题
+
+检查所选实例的登录状态，并在需要时重新运行相应的登录命令。
 
 ```bash
-# 在容器内，检查身份验证状态
-gh auth status
-
-# 如需重新验证
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude 身份验证问题
-
-```bash
-# 在容器内，重新运行 Claude 进行身份验证
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker 问题

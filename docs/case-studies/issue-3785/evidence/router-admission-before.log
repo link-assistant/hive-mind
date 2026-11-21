@@ -1,0 +1,54 @@
+✖ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (4.368008ms)
+✖ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.894278ms)
+✖ invalid selected Router endpoint rejects without exposing its value (18.783196ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 269.759241
+
+✖ failing tests:
+
+test at tests/issue-3785-router-admission.test.mjs:7:3
+✖ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (4.368008ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:9:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Router.*token/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-router-admission.test.mjs:7:3
+✖ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.894278ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:9:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Router.*token/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-router-admission.test.mjs:17:1
+✖ invalid selected Router endpoint rejects without exposing its value (18.783196ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:18:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

@@ -1,0 +1,70 @@
+Actual native Gemini 0.65.0 child conversation recording
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local runtime: Node 26.12.1. Production installation remains unfinished.
+
+Reproduction before repair:
+  --history --history-subagent --private-history
+  PASS: native root invoke_agent delegates to the real generalist executor;
+    its child sends write_file, edits the actual witness, sends complete_task
+    and returns its result to the root's final real inference (4 requests).
+  PASS: original private root and child recording, no canonical history writes.
+
+  --history --history-subagent
+  FAIL: Healthy actual native child execution must retain canonical recording
+        without refusing delegation.
+  Native child ChatRecordingService initialization fails while claiming its
+    conversation. The native recursive mkdir creates chats/<parent-session>
+    with mode 0755 under the ordinary 022 umask; checked history rejects it.
+
+Repair:
+  apply_subagent_history.py routes that exact native directory creation through
+    the existing descriptor-anchored allocator, which creates owned 0700
+    directories, synchronizes parents and checks identities. Registering the
+    child anchor lets the existing writer resolve its real conversation path.
+  Existing unsafe directories are refused rather than chmodded or followed.
+  The exact preceding native manager/helper hashes and source context are
+    required. --check does not change the disposable package. Unselected
+    private directory allocation retains its original native behavior.
+
+After repair and fresh source reconstruction:
+  PASS: actual native delegation/edit/complete_task/root inference (4 requests).
+  PASS: both full native root/child conversations reside canonically, including
+    the actual child prompt, edit and result; no private conversation copies.
+  PASS: dispose the complete private home. Fresh native discovery generates
+    its existing single bounded session summary, appending metadata without
+    overwriting prior root audit bytes or changing the child transcript.
+  PASS: a fresh actual root resumes with its original model history and real
+    child result (one additional streaming request), retaining both audits.
+  PASS: unsafe permissions, symlink and replaced parent each refuse before
+    child inference, edits or further root inference. Protected directory
+    identities, sentinel bytes and preceding root audit remain unchanged;
+    native recording may append the returned delegation to that root audit.
+  PASS: unselected actual child editing retains its original private transcripts.
+  Twenty-two checked stages reconstruct seventeen identical native files,
+    without mutation during applicability checks.
+
+Surrounding regressions on the fresh reconstructed package:
+  PASS: 28 shell, 54 metadata and 82 authentication assertions (41/30/11).
+  PASS: terminal 4, ACP 3 and both headless engines 4 assertions each, including
+    actual restore and third-process reopen after whole private-home disposal.
+  PASS: live-owner refusal/recovery 5, terminal live/startup refusal 1/2.
+  PASS: Python parsing, ESLint/Prettier, actionlint with ShellCheck, secret
+    scanning, file limits and whitespace checks.
+
+Final native manager:
+  13f2fce9a55408b50001683d440f791a1d21cdcc3c22799f8832edad4a1ef769
+Final history helper:
+  216f492a7687f3126f8cd060976656c232fcbaa057a90e3bc042c9054c8933ed
+The other fifteen files match the preceding twenty-one-stage package.
+
+The actual CLI, native agent registry/executor, schedulers, tools, recorder,
+session discovery/summary and model transport run without native export/SDK
+instrumentation. Provider responses and credentials are synthetic; TLS remains
+verified through a loopback-only provider. All input, request, diagnostic,
+heap/data, stack and phase bounds are finite; process groups are reaped.
+
+Fresh Node 24 CI, child checkpoint/restore behavior, concurrent child writers,
+all agent definitions, task/plan memory, migrations, interrupted/power-loss
+publication and production package/image/launcher integration remain unfinished.

@@ -1,0 +1,9 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://github.com/link-foundation/lino-objects-codec/issues/69\n\n<img width=\"706\" height=\"718\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/64f706c0-1d93-490b-b625-dd37398a8f39\" />\n\nInstead of creating issue for single sub issue on:\n\n```\n/codex https://github.com/link-foundation/lino-objects-codec —think xhigh —auto-merge\n```\n\nWe should have converted that to \n\n```\n/codex https://github.com/link-foundation/lino-objects-codec/issues/68 —think xhigh —auto-merge\n```\n\nAs there only one issue there is no need to create parent issues.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "comments": [],
+  "createdAt": "2026-10-11T14:04:43Z",
+  "number": 3108,
+  "state": "OPEN",
+  "title": "Properly handle a case where we asked to solved all issues in repository where only single issue exists"
+}

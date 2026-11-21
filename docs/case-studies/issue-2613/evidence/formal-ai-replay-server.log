@@ -1,0 +1,14 @@
+formal-ai shared memory: /home/box/.formal-ai/memory.lino
+formal-ai server listening on http://127.0.0.1:36957
+[trace] GET /v1/models (0 byte body)
+
+[dialog-log] appended exchange to /home/box/.formal-ai/dialog-logs/dialog_d07d22d44d771a88.jsonl
+[trace] POST /v1/chat/completions (335 byte body)
+{"model":"formal-ai","temperature":0,"max_tokens":256,"messages":[{"role":"user","content":"Read README.md (e.g., the project documentation)."}],"tools":[{"type":"function","function":{"name":"read","description":"Read a local file","parameters":{"type":"object","properties":{"filePath":{"type":"string"}},"required":["filePath"]}}}]}
+[dialog-log] appended exchange to /home/box/.formal-ai/dialog-logs/dialog_4f1123e61f87aae6.jsonl
+[trace] POST /v1/chat/completions (865 byte body)
+{"model":"formal-ai","temperature":0,"max_tokens":256,"messages":[{"role":"user","content":"Read README.md (e.g., the project documentation)."},{"role":"assistant","content":"Let me open README.md and read what it says.","tool_calls":[{"id":"call_055ec482c1470832","type":"function","function":{"name":"read","arguments":"{\"filePath\":\"README.md\"}"}},{"id":"call_f99a0419e8fe2812","type":"function","function":{"name":"read","arguments":"{\"filePath\":\"e.g\"}"}}]},{"role":"tool","tool_call_id":"call_055ec482c1470832","content":"# Project documentation\nThis is a fixture."},{"role":"tool","tool_call_id":"call_f99a0419e8fe2812","content":"Error: File not found: e.g"}],"tools":[{"type":"function","function":{"name":"read","description":"Read a local file","parameters":{"type":"object","properties":{"filePath":{"type":"string"}},"required":["filePath"]}}}]}
+[dialog-log] appended exchange to /home/box/.formal-ai/dialog-logs/dialog_4f1123e61f87aae6.jsonl
+[trace] POST /v1/chat/completions (340 byte body)
+{"model":"formal-ai","temperature":0,"max_tokens":256,"messages":[{"role":"user","content":"Read README.md, for example the project documentation."}],"tools":[{"type":"function","function":{"name":"read","description":"Read a local file","parameters":{"type":"object","properties":{"filePath":{"type":"string"}},"required":["filePath"]}}}]}
+[dialog-log] appended exchange to /home/box/.formal-ai/dialog-logs/dialog_de2496e40cef3448.jsonl

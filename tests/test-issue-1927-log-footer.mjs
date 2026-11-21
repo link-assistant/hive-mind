@@ -68,30 +68,30 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hm-1927-footer-'));
 try {
   const logPath = path.join(tmpDir, 'session.log');
   fs.writeFileSync(logPath, killedFooter);
-  const fromLog = readSessionExitFromLog(logPath);
+  const fromLog = await readSessionExitFromLog(logPath);
   assert(fromLog.finished && fromLog.exitCode === 137, 'readSessionExitFromLog reads exit 137 from a real file');
 
   // A large log: the footer must still be found via the tail read.
   const bigLogPath = path.join(tmpDir, 'big.log');
   fs.writeFileSync(bigLogPath, 'x'.repeat(200000) + '\n' + successFooter);
-  const fromBig = readSessionExitFromLog(bigLogPath);
+  const fromBig = await readSessionExitFromLog(bigLogPath);
   assert(fromBig.finished && fromBig.exitCode === 0, 'readSessionExitFromLog finds the footer in the tail of a 200KB log');
 
   // tailBytes too small to include the footer → not finished (proves it is a tail read).
-  const tiny = readSessionExitFromLog(bigLogPath, { tailBytes: 8 });
+  const tiny = await readSessionExitFromLog(bigLogPath, { tailBytes: 8 });
   assert(tiny.finished === false, 'readSessionExitFromLog with a tiny tailBytes does not see a far-away footer');
 
   // Missing file → never throws, reports not finished.
-  const missing = readSessionExitFromLog(path.join(tmpDir, 'does-not-exist.log'));
+  const missing = await readSessionExitFromLog(path.join(tmpDir, 'does-not-exist.log'));
   assert(missing.finished === false && missing.exitCode === null, 'readSessionExitFromLog on a missing file returns {finished:false}');
 
   // Empty file → not finished.
   const emptyPath = path.join(tmpDir, 'empty.log');
   fs.writeFileSync(emptyPath, '');
-  assert(readSessionExitFromLog(emptyPath).finished === false, 'readSessionExitFromLog on an empty file returns {finished:false}');
+  assert((await readSessionExitFromLog(emptyPath)).finished === false, 'readSessionExitFromLog on an empty file returns {finished:false}');
 
   // Null path → not finished.
-  assert(readSessionExitFromLog(null).finished === false, 'readSessionExitFromLog(null) returns {finished:false}');
+  assert((await readSessionExitFromLog(null)).finished === false, 'readSessionExitFromLog(null) returns {finished:false}');
 } finally {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }

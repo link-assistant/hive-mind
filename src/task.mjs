@@ -1,14 +1,18 @@
 #!/usr/bin/env node
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 import crypto from 'crypto';
 import path from 'path';
-import { spawn } from 'child_process';
-import { describeChildExit } from './child-exit.lib.mjs';
+// Issue #3552: the shared runner retries every gh call through the one GitHub retry loop.
+import { commandOutput, runCommand } from './fix.github.lib.mjs';
+import { createTaskIssue } from './task.issue-creation.lib.mjs';
 import { promises as fs } from 'fs';
 import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
 import { parseTaskArguments } from './task.config.lib.mjs';
 import { resolveRuntimeDefaultModel, validateRuntimeModelName } from './models/index.mjs';
-import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
+import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseParentSplitSection, parseTaskIssueUrl } from './task.split.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
@@ -45,6 +49,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar');
   console.log('  --no-tool-update   Skip the agentic CLI version check before starting');
   console.log('  --dry-run          Print split output without creating GitHub issues');
+  console.log(`  --share-geolocation ${SHARE_GEOLOCATION_OPTION.description}`);
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');
   process.exit(earlyArgs.length === 0 ? 1 : 0);
@@ -97,40 +102,6 @@ function formatAligned(icon, label, value, indent = 0) {
   return `${spaces}${icon} ${label.padEnd(labelWidth)} ${value || ''}`;
 }
 
-function runCommand(command, args, options = {}) {
-  return new Promise(resolve => {
-    const child = spawn(command, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
-      ...options,
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', data => {
-      stdout += data.toString();
-    });
-    child.stderr.on('data', data => {
-      stderr += data.toString();
-    });
-    child.on('error', error => {
-      resolve({ code: 1, stdout, stderr: stderr || error.message });
-    });
-    child.on('close', (code, signal) => {
-      resolve({ code, stdout, stderr, signal });
-    });
-  });
-}
-
-async function commandOutput(command, args, options = {}) {
-  const result = await runCommand(command, args, options);
-  if (result.code !== 0) {
-    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
-    // Issue #2135: `describeChildExit` names a signal instead of "code null".
-    throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
-  }
-  return result.stdout.trim();
-}
-
 function buildScreenName(issue) {
   const base = issue ? `task-split-${issue.owner}-${issue.repo}-${issue.number}` : 'task-agent';
   return `${base}-${crypto.randomUUID().slice(0, 8)}`.replace(/[^A-Za-z0-9_.-]/g, '-');
@@ -151,9 +122,20 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
     isolation: argv.isolation,
     screenName: argv.isolation === 'screen' ? argv.screenName || buildScreenName(issue) : null,
     verbose: argv.verbose,
+    shareGeolocation: argv.shareGeolocation,
   });
 
   await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });
+  // PR #4083 feedback: log the exact prompts start-agent receives (after the geolocation policy is appended).
+  const argValue = flag => (args.indexOf(flag) >= 0 ? args[args.indexOf(flag) + 1] : '');
+  await logFinalPrompts({
+    log,
+    tool: `${argv.tool} (start-agent)`,
+    prompts: [
+      { kind: 'user', text: argValue('--prompt'), delivery: 'the start-agent --prompt argument', keepEmpty: true },
+      { kind: 'system', text: argValue('--system-prompt'), delivery: 'the start-agent --system-prompt argument' },
+    ],
+  });
   const result = await runCommand(startAgent, args);
   const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() ? `\n${result.stderr}` : ''}`.trim();
   if (result.code !== 0) {
@@ -163,7 +145,7 @@ async function runAgentPrompt(prompt, systemPrompt, issue = null) {
 }
 
 async function fetchIssue(issue) {
-  const issueJson = await commandOutput('gh', ['issue', 'view', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--json', 'title,body,number,url,labels']);
+  const issueJson = await commandOutput(runCommand, 'gh', ['issue', 'view', String(issue.number), '--repo', `${issue.owner}/${issue.repo}`, '--json', 'title,body,number,url,labels']);
   const data = JSON.parse(issueJson);
   return {
     owner: issue.owner,
@@ -177,7 +159,7 @@ async function fetchIssue(issue) {
 }
 
 async function fetchIssueRestId(issue) {
-  const id = Number(await commandOutput('gh', buildIssueRestIdApiArgs(issue)));
+  const id = Number(await commandOutput(runCommand, 'gh', buildIssueRestIdApiArgs(issue)));
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`Could not resolve REST id for issue #${issue.number}`);
   }
@@ -185,36 +167,36 @@ async function fetchIssueRestId(issue) {
 }
 
 async function createChildIssue(parentIssue, task, index, splitCount) {
-  const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(task.title), sanitizeForPublication(formatChildIssueBody({ parentIssue, task, index, splitCount }))]);
-  const args = ['issue', 'create', '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--title', safeTitle, '--body', safeBody];
-  if (parentIssue.labels.length > 0) {
-    args.push('--label', parentIssue.labels.join(','));
-  }
-
-  const url = await commandOutput('gh', args);
-  const parsed = parseCreatedIssueUrl(url);
-  const restId = await fetchIssueRestId(parsed);
+  // createTaskIssue sanitizes title and body, retries transient failures and
+  // never retries into a duplicate (issues #3326, #3552).
+  const created = await createTaskIssue({
+    repository: { owner: parentIssue.owner, repo: parentIssue.repo, fullName: `${parentIssue.owner}/${parentIssue.repo}` },
+    title: task.title,
+    body: formatChildIssueBody({ parentIssue, task, index, splitCount }),
+    labels: parentIssue.labels,
+  });
+  const restId = await fetchIssueRestId(created);
   return {
-    owner: parsed.owner,
-    repo: parsed.repo,
-    number: parsed.number,
+    owner: created.owner,
+    repo: created.repo,
+    number: created.number,
     restId,
-    url,
+    url: created.url,
     title: task.title,
   };
 }
 
 async function linkChildIssue(parentIssue, childIssue) {
-  await commandOutput('gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: childIssue.restId }));
+  await commandOutput(runCommand, 'gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: childIssue.restId }));
 }
 
 async function updateParentIssue(parentIssue, childIssues) {
   const body = appendOrReplaceParentSplitSection(parentIssue.body, childIssues);
   const safeBody = await sanitizeForPublication(body);
-  await commandOutput('gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeBody]);
+  await commandOutput(runCommand, 'gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeBody]);
   const childList = childIssues.map(issue => `- #${issue.number} ${issue.title}`).join('\n');
   const safeComment = await sanitizeForPublication(`Split into ${childIssues.length} tasks:\n\n${childList}`);
-  await commandOutput('gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeComment]);
+  await commandOutput(runCommand, 'gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeComment]);
 }
 
 async function runSplitMode() {
@@ -224,6 +206,14 @@ async function runSplitMode() {
   }
 
   const parentIssue = await fetchIssue(parsedIssue);
+  // Issue #3684: a parent with the split section was split by an earlier run;
+  // splitting it again would file and link a second set of child issues.
+  const existingSplit = parseParentSplitSection(parentIssue.body);
+  if (existingSplit) {
+    await log(`♻️  #${parentIssue.number} was already split into ${existingSplit.length} task(s) by an earlier run; nothing to do (remove its "Split Tasks" section to split it again)`);
+    const existingIssues = existingSplit.map(issue => ({ ...issue, url: `https://github.com/${parentIssue.owner}/${parentIssue.repo}/issues/${issue.number}` }));
+    return { parentIssue, tasks: [], createdIssues: [], existingIssues, alreadySplit: true, dryRun: Boolean(argv.dryRun) };
+  }
   const prompt = buildTaskSplitPrompt({ issue: parentIssue, splitCount: argv.splitCount });
   const output = await runAgentPrompt(prompt, buildTaskSplitSystemPrompt(), parentIssue);
   const tasks = normalizeSplitTasks(extractTaskSplitJson(output), argv.splitCount);
@@ -263,21 +253,13 @@ async function runClarifyOrDecomposeMode() {
   };
 
   if (argv.clarify) {
-    const prompt = `Task: "${taskInput}"
-
-Please help clarify this task by:
-1. Identifying ambiguous aspects of the task
-2. Asking 3-5 specific clarifying questions
-3. Suggesting assumptions that could be made if these questions are not answered
-4. Identifying missing context or requirements`;
-    results.clarification = await runAgentPrompt(prompt, 'Return a concise clarification analysis. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text1', { taskInput: String(taskInput) });
+    results.clarification = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text2'));
   }
 
   if (argv.decompose) {
-    const prompt = `Task: "${taskInput}"
-
-${results.clarification ? `Clarification analysis:\n${results.clarification}\n\n` : ''}Please decompose this task into actionable subtasks with dependencies, complexity, risks, and success criteria.`;
-    results.decomposition = await runAgentPrompt(prompt, 'Return a concise decomposition. Do not modify files or run commands.');
+    const prompt = promptText('prompt.templates.task.runClarifyOrDecomposeMode.text4', { taskInput: String(taskInput), value2: String(results.clarification ? promptText('prompt.templates.task.runClarifyOrDecomposeMode.text3', { value1: String(results.clarification) }) : '') });
+    results.decomposition = await runAgentPrompt(prompt, promptText('prompt.system.templates.task.runClarifyOrDecomposeMode.text5'));
   }
 
   return results;
@@ -310,7 +292,10 @@ try {
   if (argv.outputFormat === 'json') {
     console.log(JSON.stringify(result, null, 2));
   } else if (argv.split) {
-    if (result.dryRun) {
+    if (result.alreadySplit) {
+      console.log('\nAlready split into:');
+      result.existingIssues.forEach(issue => console.log(`- #${issue.number} ${issue.url}`));
+    } else if (result.dryRun) {
       console.log('\nPlanned split issues:');
       result.tasks.forEach((task, index) => console.log(`${index + 1}. ${task.title}`));
     } else {

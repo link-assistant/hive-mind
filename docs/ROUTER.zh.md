@@ -61,7 +61,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_SIDECAR=0`              | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                                      |
 | `HIVE_MIND_ROUTER_IMAGE`                  | 覆盖路由器镜像                                                                              |
 | `HIVE_MIND_ROUTER_ROUTES`                 | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical`      |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | sidecar 的额外 `docker run` 参数                                                            |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | 仅支持 sidecar 资源限制；允许的参数与持久卷检查参见[英文配置说明](ROUTER.md#configuration)  |
 | `CODEX_CLIENT_VERSION`                    | 路由器向 ChatGPT 后端声明的 Codex 客户端版本；未设置时使用它自带的较新默认值                |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`           | 自行提供令牌签名密钥，而不是生成一个                                                        |
 | `HIVE_MIND_ROUTER_GH_HOST`                | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）                   |
@@ -71,8 +71,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_GIT_HOOKS_DIR`                 | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）                     |
 | `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | 仍然允许启用路由器的任务强制推送或删除远端 ref                                              |
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | 已完成绑定的 sidecar 之后为访问上游而接入的网络（默认 `bridge`；`--internal` 网络会被拒绝） |
-| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | 当容器内出现路由器令牌以外的凭据时不终止任务（仅用于调试守卫本身）                          |
-| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | 守卫重新读取凭据文件的间隔，单位毫秒（默认 `1000`，最小 `100`）                             |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | 守卫重新读取凭据文件的间隔，单位毫秒（默认 `1000`，范围 `100`–`1000`）                      |
 
 ### 签名密钥
 
@@ -131,7 +130,23 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 启用路由器的任务只有一份凭据：路由器为它签发的 `la_sk_…` 令牌。两套机制保证这一点不变。
 
 - **退出即吊销。** Hive Mind 在后台对任务容器执行 `docker wait`，容器一停止就立刻吊销令牌，无论原因是正常结束、崩溃、`docker kill` 还是宿主机杀掉了进程。令牌上 24 小时 / 5000 次请求的上限，只是为 `solve` 进程自身在来得及吊销之前就死掉的情形兜底。
-- **凭据守卫。** CLI 运行期间，Hive Mind 每秒重新读取容器内的凭据面：`~/.claude/.credentials.json`、`~/.claude.json`、`~/.claude/settings.json` 与 `settings.local.json`、`~/.codex/auth.json` 与 `config.toml`、仓库自己的 `.codex/config.toml`、`gh` 的 `hosts.yml`、`~/.git-credentials` 和 `.netrc`。第一次检查在 CLI 做任何事情之前完成。只要其中任何一个变成了不是路由器令牌的凭据——OAuth 登录、API 密钥、指向路由器以外任何地方的 `model_provider` 或 `base_url`——任务就会立即以退出码 **77** 终止，并打印指明文件的 `Security violation (issue #2190)` 信息。这被视为安全违规而非可恢复的错误：换掉凭据的任务，是在用路由器从未见过也从未记录的东西同厂商对话。`HIVE_MIND_ROUTER_AUTH_GUARD=0` 可关闭守卫，仅用于调试守卫本身。
+- **凭据守卫。** CLI 运行期间，Hive Mind 每秒重新读取容器内的凭据面：`~/.claude/.credentials.json`、`~/.claude.json`、`~/.claude/settings.json` 与 `settings.local.json`、`~/.codex/auth.json` 与 `config.toml`、仓库自己的 `.codex/config.toml`、`gh` 的 `hosts.yml`、`~/.git-credentials` 和 `.netrc`。Claude 和 Codex 在创建原生命令前检查这些文件，包括恢复会话和连接验证。只要其中任何一个变成了不是路由器令牌的凭据——OAuth 登录、API 密钥、指向路由器以外任何地方的 `model_provider` 或 `base_url`——任务就会立即以退出码 **77** 终止，并打印指明文件的 `Security violation (issue #2190)` 信息。这被视为安全违规而非可恢复的错误：换掉凭据的任务，是在用路由器从未见过也从未记录的东西同厂商对话。选择路由器后必须提供任务令牌，且守卫始终启用，不受 `HIVE_MIND_ROUTER_AUTH_GUARD` 影响。无法读取的凭据路径、格式错误的设置以及无效的提供商 TOML 均会被拒绝。文件必须是非符号链接的普通文件，且不超过 1 MiB；Codex 检查支持带引号的 TOML 键和点分键。
+
+使用路由器的 Codex 命令不会加载 shell 登录配置，防止其替换已检查的环境。文件守卫在启动时检查列出的文件，并轮询持久变更。它尚未建立六种工具的完整凭据权威，也不覆盖仅保存在内存中的凭据。
+
+准入检查还会根据已声明的 Router 任务令牌、源地址和路由方言确定原生 API 凭据及端点。缺失或更改的值会被拒绝，且不会输出其内容。任务环境会将所选方言传递给嵌套启动。这些检查无法控制原生 CLI 内存中已经持有的凭据。
+
+Agent、OpenCode、Gemini 和 Qwen 也会在新建命令、恢复会话和连接探测之前检查最终启动环境。读取输出时，它们监控上述共享凭据文件；即使流或输出处理出错，也会保留安全拒绝结果，不进行普通重试。通过路由器启动的 Qwen 不加载 shell 登录配置。共享连接分发和 Hive 启动会将显式 Router 选择传递到准入检查，包括 Formal AI 可用性检查；启动拒绝保留退出码 77。其他工具专用凭据存储、原生 CLI 内存中的凭据控制，以及持久化 Router 审计仍未完成。
+
+Agent、OpenCode、Gemini 和 Qwen 在创建命令后立即启用上述文件监控，早于输入连接或日志记录。即使文件在错误处理前消失，已发现的违规仍会导致安全拒绝。放弃的命令会在监控关闭前被取消，包括在读取输出前日志记录失败的情况。这些检查涵盖有界的进程组清理，但尚未实现完整的原生请求管控。
+
+Claude 和 Codex 同样在连接输入或记录命令日志前启用可保留违规决定的监控。显式 Router 选择会传入实际原生进程环境。失败的执行会在普通重试前取消命令；Claude 还会停止实时输入轮询和本次执行的计时器。有界的 Claude 进程组及轮询测试覆盖日志失败，但原生请求权限和完整 Router 生命周期仍未完成。
+
+文件检查还会拒绝常规或选定 XDG 数据目录中的 Agent/OpenCode `auth.json`，以及常规或选定原生配置或认证目录中的 Gemini/Qwen `oauth_creds.json`。相对路径以原生命令工作目录为基准解析，并展开 Qwen 的 `~`。OpenCode 的内联 `OPENCODE_AUTH_CONTENT` 凭据注册表也会被拒绝。现有有界文件读取和持续轮询覆盖这些存储；提供商配置、其他环境变量选择器及原生内存凭据仍需要完整请求管控。
+
+Router 监控诊断采用尽力记录方式：日志函数抛错或 Promise 拒绝不会关闭监控或产生未处理的拒绝。停止处理器的同步或异步失败会保留原始违规决定，且不会再次调用停止操作。安全拒绝会被保留；实际取消是否成功仍取决于原生停止操作。
+
+六种工具也会监控正在运行的版本检查和连接验证命令。每个探测进程都会收到已检查的原生环境，包括显式 Router 选择以及 Agent/Codex 的环境覆盖项。检测到违规后会停止探测；即使文件随后消失，也会保留安全拒绝，阻止普通版本回退、Claude 管道回退或重试。未启用 Router 的验证保留原生凭据存储。
 
 ## 尚未覆盖的范围
 

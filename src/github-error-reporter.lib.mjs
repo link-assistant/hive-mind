@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -300,17 +301,7 @@ export const createIssueForError = async options => {
     }
 
     if (autoReport) {
-      issueBody += '### Instructions\n\n';
-      issueBody += 'We need to download all logs and data related about the issue to this repository, ';
-      issueBody += 'make sure we compile that data to `./docs/case-studies/issue-{id}` folder, ';
-      issueBody += 'and use it to do deep case study analysis (also make sure to search online for additional facts and data), ';
-      issueBody += 'in which we will reconstruct timeline/sequence of events, find root causes of the problem, ';
-      issueBody += 'and propose possible solutions (including known existing components/libraries, ';
-      issueBody += 'that solve similar problem or can help in solutions).\n\n';
-      issueBody += 'If there is not enough data to find actual root cause, add debug output and verbose mode if not present, ';
-      issueBody += 'that will allow us to find root cause on next iteration.\n\n';
-      issueBody += 'If issue related to any other repository/project, where we can report issues on GitHub, please do so. ';
-      issueBody += 'Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\n';
+      issueBody += promptText('prompt.templates.github-error-reporter.createIssueForError.instructions');
     }
 
     issueBody += '---\n';

@@ -1,0 +1,61 @@
+Optimized Codex packaging size regression, 2026-10-31 UTC
+
+Exact source: a3ca1a1a8eacc5d4e0b2d7752574608d5c1f8693
+https://github.com/link-assistant/hive-mind/actions/runs/41189998708
+Created 09:45:42 UTC; both compiler outputs and complete logs preserved before
+another push. The former Cargo hardlink handoff now passes on both runners.
+
+Compiler success / subsequent packaging failure:
+  linux-x64: 99m 04s; native-release-build.log lines 3501-3511.
+  linux-arm64: 104m 55s; native-release-build.log lines 3493-3503.
+Both finish release compilation, then fail with:
+  ValueError: Compiler output size is outside the admitted bound.
+The old maxBinaryBytes is 201326592 (192 MiB).
+
+Diagnostic compiler outputs (not admitted distribution artifacts):
+  linux-x64: 350950272 bytes, artifact 13040919080.
+  SHA256 2863c44f0b693d9f5114e798319104a5903d20357c84df46dab999d4fca5b757
+  linux-arm64: 304659392 bytes, artifact 13040263878.
+  SHA256 9e233a64522ed8afd3ab4a78e9bae1708da642694010f4f669c1ed11939a26bd
+These are older a3 native sources; they do not verify subsequently added native
+usage-generation or authentication-directory-identity guards.
+
+The complete checks/release log has 71440 lines; error annotations at 42625
+and 43047 are the two package jobs, 71406-71407 their pipeline failure. Other
+available short jobs pass, including default tests and integration tests.
+Artifact assembly, installed native commands and Docker images are skipped.
+The two complete native runner logs have 429/421 lines. Their logs, both sets
+of five text artifacts and all 24 local native controls were indexed in 89
+bounded chunks (79993 lines, 38 files). Compiler stderr contains no other
+compile failure. The diagnostic index is reproducible with
+experiments/issue-3785/review-native-codex-build-logs.py.
+
+Before repair, the actual preserved x64 output reproduces the size refusal in
+probe-native-codex-output-size.py --expect-size-refusal. A new minimal sparse
+350950272-byte ELF fixture fails the actual Python build-to-artifact handoff;
+the equivalent Node test fails actual installed-generation publication.
+Synthetic ELF fixtures never execute. They hash and copy in bounded chunks.
+
+The recipe and installer now admit at most 402653184 bytes (384 MiB), leaving
+51702912 bytes above the larger measured output. Oversize/platform/alias,
+concurrent-change and recipe-ceiling rejection remain required. All twenty
+Python packaging tests and all nineteen related Node controls pass. The new
+installer-ceiling control refuses an artifact that raises its own maximum.
+The actual preserved x64 output now copies, hashes, matches ELF identity and
+reports codex-cli 0.164.0 in a private home with finite data/stack/core limits.
+The actual ARM output passes copy/hash/ELF admission; it is not executed on x64.
+These checks do not manufacture source provenance or complete release admission.
+
+New recipe SHA256:
+  f31c734434144d4a0cb489a6dd7a2292a950bdc419c2c0f2a5d60d3fa1016c15
+Two fresh source preparations yield the identical pinned 36-file inventory,
+including repeat/source/extra-file/recipe-change refusals. Complete optimized
+builds and downstream installed-command/image gates still require new CI.
+
+The preserved optimized x64 executable also runs all existing 24 post-admission
+controls. Initially 23 pass; selected TUI history completes both behavior checks
+but confinement detects a CONNECT attempt to ab.chatgpt.com:443. The release
+metrics exporter is disabled in debug builds, explaining why development tests
+did not reveal it. Explicit analytics.enabled=false in this offline TUI fixture
+makes selected and unselected controls pass with unchanged network refusal.
+No external tunnel is forwarded and the production telemetry policy is unchanged.

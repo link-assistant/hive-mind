@@ -1,0 +1,356 @@
+{
+  "data": {
+    "repository": {
+      "issues": {
+        "nodes": [
+          {
+            "number": 227,
+            "title": "We need to double check that we beat exactly all competitors for math expressions in natural language",
+            "state": "OPEN",
+            "parent": null,
+            "subIssues": {
+              "totalCount": 18,
+              "nodes": [
+                { "number": 229, "state": "OPEN" },
+                { "number": 230, "state": "OPEN" },
+                { "number": 231, "state": "OPEN" },
+                { "number": 232, "state": "OPEN" },
+                { "number": 233, "state": "OPEN" },
+                { "number": 234, "state": "OPEN" },
+                { "number": 235, "state": "OPEN" },
+                { "number": 236, "state": "OPEN" },
+                { "number": 237, "state": "OPEN" },
+                { "number": 238, "state": "OPEN" },
+                { "number": 239, "state": "OPEN" },
+                { "number": 240, "state": "OPEN" },
+                { "number": 241, "state": "OPEN" },
+                { "number": 242, "state": "OPEN" },
+                { "number": 243, "state": "OPEN" },
+                { "number": 244, "state": "OPEN" },
+                { "number": 245, "state": "OPEN" },
+                { "number": 246, "state": "OPEN" }
+              ]
+            },
+            "subIssuesSummary": { "total": 18, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 0, "nodes": [] },
+            "blocking": { "totalCount": 0, "nodes": [] },
+            "issueDependenciesSummary": { "blockedBy": 0, "totalBlockedBy": 0, "blocking": 0, "totalBlocking": 0 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": { "name": "Task" }
+          },
+          {
+            "number": 229,
+            "title": "Run the competitor coverage checker in CI and fail on regressions",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 0, "nodes": [] },
+            "blocking": {
+              "totalCount": 8,
+              "nodes": [
+                { "number": 243, "state": "OPEN" },
+                { "number": 242, "state": "OPEN" },
+                { "number": 240, "state": "OPEN" },
+                { "number": 239, "state": "OPEN" },
+                { "number": 237, "state": "OPEN" },
+                { "number": 235, "state": "OPEN" },
+                { "number": 234, "state": "OPEN" },
+                { "number": 233, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 0, "totalBlockedBy": 0, "blocking": 8, "totalBlocking": 8 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          { "number": 230, "title": "Keep the imported open-source calculator test suites current and add the missing engines", "state": "OPEN", "parent": { "number": 227, "state": "OPEN" }, "subIssues": { "totalCount": 0, "nodes": [] }, "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 }, "blockedBy": { "totalCount": 0, "nodes": [] }, "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] }, "issueDependenciesSummary": { "blockedBy": 0, "totalBlockedBy": 0, "blocking": 1, "totalBlocking": 1 }, "trackedIssues": { "totalCount": 0, "nodes": [] }, "trackedInIssues": { "totalCount": 0, "nodes": [] }, "issueType": null },
+          { "number": 231, "title": "Complete the closed-source calculator documentation corpus", "state": "OPEN", "parent": { "number": 227, "state": "OPEN" }, "subIssues": { "totalCount": 0, "nodes": [] }, "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 }, "blockedBy": { "totalCount": 0, "nodes": [] }, "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] }, "issueDependenciesSummary": { "blockedBy": 0, "totalBlockedBy": 0, "blocking": 1, "totalBlocking": 1 }, "trackedIssues": { "totalCount": 0, "nodes": [] }, "trackedInIssues": { "totalCount": 0, "nodes": [] }, "issueType": null },
+          { "number": 232, "title": "Grow the multilingual scientific-quote corpus beyond the 13 seeded languages", "state": "OPEN", "parent": { "number": 227, "state": "OPEN" }, "subIssues": { "totalCount": 0, "nodes": [] }, "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 }, "blockedBy": { "totalCount": 0, "nodes": [] }, "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] }, "issueDependenciesSummary": { "blockedBy": 0, "totalBlockedBy": 0, "blocking": 1, "totalBlocking": 1 }, "trackedIssues": { "totalCount": 0, "nodes": [] }, "trackedInIssues": { "totalCount": 0, "nodes": [] }, "issueType": null },
+          {
+            "number": 233,
+            "title": "Thousands separators and locale decimal commas give silently wrong answers",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] },
+            "blocking": {
+              "totalCount": 4,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 238, "state": "OPEN" },
+                { "number": 236, "state": "OPEN" },
+                { "number": 235, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 4, "totalBlocking": 4 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 234,
+            "title": "Percent arithmetic differs from every competitor",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] },
+            "blocking": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 244, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 2, "totalBlocking": 2 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 235,
+            "title": "General dimensional unit algebra: length, temperature, electrical and compound units",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 233, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": {
+              "totalCount": 3,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 244, "state": "OPEN" },
+                { "number": 236, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 2, "totalBlockedBy": 2, "blocking": 3, "totalBlocking": 3 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 236,
+            "title": "Scientific notation as written in papers: superscripts, SI prefixes, ± uncertainty, scale words after digits",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 235, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 233, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": {
+              "totalCount": 3,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 245, "state": "OPEN" },
+                { "number": 238, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 2, "totalBlockedBy": 2, "blocking": 3, "totalBlocking": 3 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 237,
+            "title": "English noun-phrase operators: squared, cubed, sum of, half of, dozen, rounded, log base",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] },
+            "blocking": {
+              "totalCount": 3,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 244, "state": "OPEN" },
+                { "number": 238, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 3, "totalBlocking": 3 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 238,
+            "title": "Multilingual phrase operators, spelled numbers and CJK tokenization",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 3,
+              "nodes": [
+                { "number": 236, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 233, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 237, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] },
+            "issueDependenciesSummary": { "blockedBy": 3, "totalBlockedBy": 3, "blocking": 1, "totalBlocking": 1 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 239,
+            "title": "Number bases, bitwise operators, repeating decimals and display formats (fraction, roman, words, eng, hex)",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] },
+            "blocking": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 240, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 2, "totalBlocking": 2 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 240,
+            "title": "Complex numbers, vectors and matrices, infinity/NaN and the missing special functions",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 239, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 241, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 2, "totalBlockedBy": 2, "blocking": 2, "totalBlocking": 2 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          { "number": 241, "title": "Symbolic algebra: variables in expressions, non-polynomial equations, calculus and simplification", "state": "OPEN", "parent": { "number": 227, "state": "OPEN" }, "subIssues": { "totalCount": 0, "nodes": [] }, "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 }, "blockedBy": { "totalCount": 1, "nodes": [{ "number": 240, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] }, "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] }, "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 1, "totalBlocking": 1 }, "trackedIssues": { "totalCount": 0, "nodes": [] }, "trackedInIssues": { "totalCount": 0, "nodes": [] }, "issueType": null },
+          {
+            "number": 242,
+            "title": "Notepad state: variables, line references, totals, booleans, strings, comments and conditionals",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] },
+            "blocking": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 246, "state": "OPEN" },
+                { "number": 245, "state": "OPEN" }
+              ]
+            },
+            "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 2, "totalBlocking": 2 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          { "number": 243, "title": "Date and time parity: sign of clock differences, natural display, IANA/city zones, relative dates, workdays, timecode", "state": "OPEN", "parent": { "number": 227, "state": "OPEN" }, "subIssues": { "totalCount": 0, "nodes": [] }, "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 }, "blockedBy": { "totalCount": 1, "nodes": [{ "number": 229, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }] }, "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] }, "issueDependenciesSummary": { "blockedBy": 1, "totalBlockedBy": 1, "blocking": 1, "totalBlocking": 1 }, "trackedIssues": { "totalCount": 0, "nodes": [] }, "trackedInIssues": { "totalCount": 0, "nodes": [] }, "issueType": null },
+          {
+            "number": 244,
+            "title": "Finance, statistics and rate phrases: VAT, interest, mortgages, mean/median, per-unit rates",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 3,
+              "nodes": [
+                { "number": 237, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 235, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 234, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] },
+            "issueDependenciesSummary": { "blockedBy": 3, "totalBlockedBy": 3, "blocking": 1, "totalBlocking": 1 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 245,
+            "title": "Accept LaTeX, MathML and Unicode math notation copied from papers",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 2,
+              "nodes": [
+                { "number": 242, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 236, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": { "totalCount": 1, "nodes": [{ "number": 246, "state": "OPEN" }] },
+            "issueDependenciesSummary": { "blockedBy": 2, "totalBlockedBy": 2, "blocking": 1, "totalBlocking": 1 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          },
+          {
+            "number": 246,
+            "title": "Milestone: every competitor and scientific-quote corpus row is supported or has a documented difference",
+            "state": "OPEN",
+            "parent": { "number": 227, "state": "OPEN" },
+            "subIssues": { "totalCount": 0, "nodes": [] },
+            "subIssuesSummary": { "total": 0, "completed": 0, "percentCompleted": 0 },
+            "blockedBy": {
+              "totalCount": 16,
+              "nodes": [
+                { "number": 245, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 244, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 243, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 242, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 241, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 240, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 239, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 238, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 237, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 236, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 235, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 234, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 233, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 232, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 231, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } },
+                { "number": 230, "state": "OPEN", "repository": { "nameWithOwner": "link-assistant/calculator" } }
+              ]
+            },
+            "blocking": { "totalCount": 0, "nodes": [] },
+            "issueDependenciesSummary": { "blockedBy": 16, "totalBlockedBy": 16, "blocking": 0, "totalBlocking": 0 },
+            "trackedIssues": { "totalCount": 0, "nodes": [] },
+            "trackedInIssues": { "totalCount": 0, "nodes": [] },
+            "issueType": null
+          }
+        ]
+      }
+    }
+  }
+}

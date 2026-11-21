@@ -1,0 +1,21 @@
+✔ a clean Hello World answer passes every assertion (4.752903ms)
+✔ the 2026-09-27 Kotlin run fails the matrix on the draft, the stray jar, the quoted title and the stop comment (1.080909ms)
+✔ a run that opened no pull request fails (0.365783ms)
+✔ diff shape: exactly one workflow, a program, at most one test script, no placeholders or artefacts (0.496256ms)
+✔ the program output must be exactly the line, not a mention of it (0.704796ms)
+✔ checks: green only when every check completed successfully (0.539155ms)
+✔ body: an agent-written description needs no generated file list (0.287647ms)
+✔ issue URL parsing and pull request selection (1.271695ms)
+✔ every row runs the same solve command; only --tool and --model differ (2123.007809ms)
+✔ the matrix covers formal-ai on claude, agent and codex, plus one LLM model (0.411208ms)
+✔ the workflow runs the tested script for exactly the E2E_MATRIX rows, manually, without leaking secrets (1.421695ms)
+✔ the report is a table with one row per assertion (0.784565ms)
+✔ report cells escape backslashes before pipes and stay on one line (0.216495ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2163.990683

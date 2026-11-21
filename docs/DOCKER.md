@@ -6,47 +6,16 @@ This document explains how to run Hive Mind in Docker containers.
 
 ### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
+Use [Hive Mind Manager](./deployment/hive-manager.md) for deployment and package-based or standalone installation. Complete the provider prompts in your own browser. See the [manual Docker and login commands](./deployment/hive-manager-manual.md) for direct CLI alternatives.
+
 ```bash
-# Pull the latest image
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# Create persistent host directories used by the current Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
-touch -a /root/.hive-mind/claude.json
-
-# Run the container in detached mode with the same mounts we use locally
-docker run -dit --user box --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
-
-# Open a shell in the running container
-docker exec -it hive-mind bash
-
-# Inside the container, authenticate with GitHub
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Authenticate with Claude
-claude
-
-# Install or update Codex CLI
-bun install -g @openai/codex@latest
-
-# Log in to Codex using the current device auth flow
-codex login --device-auth
-
-# Verify Codex after login succeeds with "Successfully logged in"
-codex exec --model gpt-5.4-mini "hi"
-
-# Verify Playwright MCP registration in both CLIs
-claude mcp list | grep playwright
-codex mcp list | grep playwright
-
-# Exit the shell when setup is complete
-exit
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
 
 ### Option 2: Building Locally
@@ -180,6 +149,22 @@ task container ──docker network connect──▶ hive-mind-formal-ai (intern
   ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)).
 - Memory lives in the `hive-mind-formal-ai-memory` volume, which is never
   removed — not when the container stops, not when the image changes.
+- Before every start, a one-off container running as `box` (1001:1001) checks
+  that it can write the memory volume. Only if it cannot is the volume
+  `chown -R`-ed (as root) back to `box`, and the bot log records
+  `[formal-ai] memory volume was owned by <uid:gid>; fixed`. A healthy volume
+  is never chowned
+  ([issue #3583](https://github.com/link-assistant/hive-mind/issues/3583)).
+- Once `/health` answers, the first lines of the sidecar's stdout are read. A
+  `logging_failure` record becomes a warning in the bot log and in the solve
+  log of every task served by that sidecar: `Formal AI cannot write its logs or
+memory (…): dialogs of this session will not be kept`.
+- Before the sidecar container is removed (idle stop, replacing a stopped
+  container, `/unload`), `docker logs --timestamps` is saved to
+  `formal-ai-sidecar-<start time>.log` in the bot log directory
+  (`HIVE_MIND_LOG_DIR`, default `~/.hive-mind/logs`). The newest
+  `HIVE_MIND_FORMAL_AI_SIDECAR_LOG_KEEP` files are kept (default 50; `0` turns
+  archiving off).
 
 While no lease is held, the sidecar image is refreshed by pulling
 `HIVE_MIND_FORMAL_AI_UPDATE_TAG` and comparing digests. A new digest is adopted
@@ -307,6 +292,49 @@ apply a requested kernel limit, Hive Mind keeps the start gate closed, removes
 or stops the container where possible, and reports the launch failure instead
 of silently running the task unlimited.
 
+**CPU penalty (issue #2801).** A Docker task that keeps all of its CPUs busy
+for a long time is capped, then released once it calms down. This is on by
+default for `--isolation docker`. The "CPUs it may use" are the Docker host's
+CPUs (`docker info` NCPU, re-read every 5 minutes so a resized VM is picked up),
+or its `--container-cpu` limit when that is lower.
+
+1. If the task averages at least 95% of those CPUs for 15 minutes, the session
+   monitor runs `docker update --cpus 2` on its container.
+2. Once the task has averaged below 65% of the cap for 15 minutes (1.3 cores
+   for a 2-CPU cap: each CPU at 65%, the issue's 32.5% + 32.5% of the total), the cap is lifted. It is
+   restored to the `--container-cpu` limit, or to the host CPU count when
+   there is no limit.
+3. Observation then starts again from scratch. Another 15 minutes on all CPUs
+   caps the task again.
+
+```bash
+hive-telegram-bot --isolation docker \
+  --container-cpu-penalty-cpus 2 \
+  --container-cpu-penalty-trigger 95% \
+  --container-cpu-penalty-trigger-window 15m \
+  --container-cpu-penalty-release 65% \
+  --container-cpu-penalty-release-window 15m
+```
+
+`--no-container-cpu-penalty` (`TELEGRAM_CONTAINER_CPU_PENALTY=false`) turns it
+off. The other options map to `TELEGRAM_CONTAINER_CPU_PENALTY_CPUS`, `_TRIGGER`,
+`_TRIGGER_WINDOW`, `_RELEASE` and `_RELEASE_WINDOW`. Windows accept `ms`, `s`,
+`m` or `h`; a bare number means minutes. Usage is sampled with one
+`docker stats --no-stream` call per monitor tick. A window only counts once its
+samples cover all of it, so a bot restart cannot penalize a task on a few fresh
+samples. The penalty state survives bot restarts. A container resumed with a
+penalty cap still in place is watched as penalized, so the cap is lifted later.
+A task that was capped shows a `🐢 CPU penalty` section in its completion
+message.
+
+start-command 0.37.8 (the version in the Hive Mind images) has its own opt-in
+`$ --cpu-penalty*` with the same options and defaults. Hive Mind does not pass
+it: the bot's own monitor works with every start-command version and reports a
+penalty in the completion message. Do not enable both penalties for the same
+container, because they would fight over its CPU cap. See the
+[issue #2801 case study](case-studies/issue-2801/README.md) for both checked
+against a real Docker daemon.
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 
@@ -341,65 +369,15 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) extends the pinned full `ghcr.io/link-foundation/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
-
-**Why Authentication Happens After Installation:**
-
-- ✅ Avoids Docker build timeouts caused by interactive prompts
-- ✅ Prevents build failures in CI/CD pipelines
-- ✅ Allows the installation script to complete successfully
-- ✅ Supports automated Docker image builds
-
-### GitHub Authentication
+Start the instance before signing in. Each command uses that instance’s persistent state. Open the displayed URL in your browser. Paste Claude’s authorization code back into the command and enter the other providers’ displayed codes in your browser.
 
 ```bash
-# Inside the container, AFTER it's running
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
-
-### Claude Authentication
-
-```bash
-# Inside the container, AFTER it's running
-claude
-```
-
-### Codex Authentication
-
-Install or update Codex CLI inside the running container:
-
-```bash
-bun install -g @openai/codex@latest
-```
-
-Log in with the device auth flow we currently use:
-
-```bash
-codex login --device-auth
-```
-
-The command should finish with:
-
-```text
-Successfully logged in
-```
-
-Then run the current smoke test:
-
-```bash
-codex exec --model gpt-5.4-mini "hi"
-```
-
-This approach allows:
-
-- ✅ Multiple Docker instances with different GitHub accounts
-- ✅ Multiple Docker instances with different Claude subscriptions
-- ✅ Persistent Codex authentication and session data when `/home/box/.codex` is mounted
-- ✅ No credential leakage between containers
-- ✅ Each container has its own isolated authentication
-- ✅ Successful Docker builds without interactive authentication
+For SSH, profiles, or login without the manager, see the [sign-in guide](deployment/hive-manager.md#headless-sign-in) and the [manual commands](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container).
 
 ## Router isolation (experimental)
 
@@ -504,7 +482,7 @@ The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills fo
 
 ### What a `--isolation docker` task receives (issue #2190)
 
-Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. Only the credential file and the session directories are shared:
+Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a task container no longer inherits the whole `~/.claude`, `~/.claude.json`, `~/.codex` or `~/.agents` tree of the host. The current mount builder exposes credential files and selected session directories:
 
 | Tool   | Shared with every task (bind-mounted)                                       | Per container (from the image)                                                   |
 | ------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -514,14 +492,22 @@ Since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) a t
 
 Why:
 
-- **One credential file for all tasks.** A token refreshed by one task (or by the host) is immediately visible to every other task, because they all mount the very same file.
+- **Credential mount limitation.** A file bind mount retains an inode across host atomic replacement, and Codex preflight additionally copies authentication into its scope. These paths do not establish one rotating authority; [the case study](./case-studies/issue-3785/README.md) documents the unresolved defect and real CLI probes.
 - **No global reconfiguration from inside a task.** Plugins, marketplaces, skills, MCP registrations and settings a task installs stay in that container and disappear with it; the next task starts from the image defaults again.
 - **No inherited bloat.** A plugin synced into the host's global state (the `superpowers` plugin from the Codex remote catalog or the official Claude marketplace was the trigger for issue #2190) is never mounted into a task, so it cannot make the agent refuse to work or inflate its token usage.
 - **Audit stays global.** `projects/` and `sessions/` are still mounted from the host, so transcripts of every task can be discovered and audited in one place.
 
 Hive Mind creates the session directories on the host before launching a task. The credential file is never created for you: an empty `auth.json` makes Codex fail with `EOF while parsing`, so log in once on the host (or seed it with `{}` and log in from a task). With `--use-router` none of the vendor paths is mounted at all: the task authenticates only with its own router token ([docs/ROUTER.md](./ROUTER.md)).
 
-On top of the mount split, every `solve`/`hive` start audits the global Claude/Codex configuration and, by default, removes anything that is not part of the minimal profile (plugins, marketplaces, global skills, MCP servers other than Playwright, and the Codex remote plugin sync). Disable the repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; the warnings are still printed.
+For Claude, `CLAUDE_CONFIG_DIR` selects the host source of `projects/` and `sessions/`; otherwise their source is `~/.claude`. The task receives these two directories under its private `/home/box/.claude`, without mounting the operator's configuration root or changing its settings. A missing selected history directory blocks mount selection even when conventional history exists. Preparation refuses linked or unsafe selected storage. Dedicated credential-parent selection remains independent, and this projection does not establish complete Claude history or default authentication migration.
+
+The root Telegram bot and every `solve`/`hive` start audit the known global Claude/Codex configuration surfaces before tool connection checks. Repair is enabled by default. Disable repair with `--no-agent-config-auto-repair` or `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0`; remaining findings or repair failures still block execution. Dry-run/command-preparation inspection does not repair state. Installed Codex stock runtime files are checked against a pristine 0.164.0 content manifest. Both images pin Codex 0.164.0 and Claude 2.1.319; CLI upgrades require a reviewed stock manifest. Changed, incomplete or linked stock content blocks admission before repair. Complete alternate/managed discovery and packaged-image lifecycle/deployment validation remain open.
+
+TOML repairs preserve unrelated setting values, normalize formatting and remove comments. Clean configuration is left unchanged.
+
+Images set `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` to preserve those pinned versions during idle and command-triggered updates. Other agentic and operational CLIs continue to update. Keep this exclusion when overriding updater settings; change the CLI pins and reviewed stock manifest together when upgrading an image.
+
+The audit also rejects known global instruction files, rules, legacy prompts and hook manifests. Instruction files and hook manifests require explicit removal or quarantine; inline global hooks/instructions and unapproved Codex profile/agent registrations can be repaired automatically. Clean profiles and unrelated model, permission and concurrency settings are preserved.
 
 ### Required Codex capability preflight
 
@@ -589,21 +575,14 @@ docker-compose run --rm hive-mind
 
 ## Troubleshooting
 
-### GitHub Authentication Issues
+### Provider sign-in issues
+
+Check the selected instance’s sign-in status and repeat the corresponding sign-in command if needed.
 
 ```bash
-# Inside the container, check authentication status
-gh auth status
-
-# Re-authenticate if needed
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude Authentication Issues
-
-```bash
-# Inside the container, re-run Claude to authenticate
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker Issues

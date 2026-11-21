@@ -1,0 +1,9 @@
+Auto-merging .github/workflows/release.yml
+Auto-merging scripts/formal-ai-draft.lib.mjs
+Auto-merging scripts/formal-ai-draft.mjs
+CONFLICT (content): Merge conflict in scripts/formal-ai-draft.mjs
+Auto-merging src/log-upload.lib.mjs
+CONFLICT (content): Merge conflict in src/log-upload.lib.mjs
+Auto-merging src/solve.mjs
+CONFLICT (content): Merge conflict in src/solve.mjs
+Automatic merge failed; fix conflicts and then commit the result.

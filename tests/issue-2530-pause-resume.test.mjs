@@ -1,469 +1,308 @@
-/**
- * @hive-mind-test-suite default
- * Regression coverage for issue #2530: a pause releases execution resources
- * while retaining the task and its filesystem for an explicit resume.
- */
+/** @hive-mind-test-suite default */
 import assert from 'node:assert/strict';
-import { test, afterEach } from 'node:test';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { mkdtemp, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import * as monitor from '../src/session-monitor.lib.mjs';
-import { createSessionStore, getPausedTaskContainerNames, serializeSessionInfo } from '../src/session-store.lib.mjs';
-import { buildPausedTaskCommand, extractPauseWorkingDirectory } from '../src/session-pause.lib.mjs';
+import { createSessionStore, getProtectedTaskContainerNames } from '../src/session-store.lib.mjs';
+import { parseSessionStatusOutput } from '../src/isolation-runner.parsers.lib.mjs';
 import { planDockerIsolationCleanup } from '../src/cleanup.lib.mjs';
-import { runSystemCleanup } from '../src/cleanup.os.lib.mjs';
+import { mergeToolWork } from '../src/queue-work.lib.mjs';
+import { collectExecutingItems, formatQueueToolSection } from '../src/telegram-solve-queue.helpers.lib.mjs';
 import { registerPauseResumeCommands } from '../src/telegram-pause-resume-command.lib.mjs';
+import { reportDockerPause } from '../src/telegram-task-pause-display.lib.mjs';
+import { loadTranslations, t } from '../src/i18n.lib.mjs';
 
-const SESSION = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const EXECUTION = '11111111-2222-3333-4444-555555555555';
-const URL = 'https://github.com/example/project/issues/1';
-const info = overrides => ({ chatId: -100, requesterUserId: 42, startTime: new Date(0), command: 'solve', tool: 'codex', url: URL, args: [URL, '--tool', 'codex'], sessionId: SESSION, executionUuid: EXECUTION, isolationBackend: 'docker', ...overrides });
-afterEach(() => monitor.resetSessionMonitorForTests());
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-pause-test-'));
+const SESSION = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+const EXECUTION = '11111111-2222-4333-8444-555555555555';
+const NEXT = `${SESSION}-resume-1`;
+const TASK_URL = 'https://github.com/example/project/issues/1';
+const WHEN = '2026-10-06T00:00:00.000Z';
+const info = overrides => ({ chatId: -100, requesterUserId: 42, startTime: new Date(0), command: 'solve', tool: 'codex', url: TASK_URL, args: [TASK_URL, '--tool', 'codex'], sessionId: SESSION, executionUuid: EXECUTION, isolationBackend: 'docker', ...overrides });
+
 afterEach(() => {
-  for (const name of fs.readdirSync(work)) fs.rmSync(path.join(work, name), { recursive: true, force: true });
+  monitor.resetSessionMonitorForTests();
+  monitor.__setIsolationRunnerForTests(null);
 });
-process.on('exit', () => fs.rmSync(work, { recursive: true, force: true }));
 
-function runnerFixture(overrides = {}) {
-  let running = true;
-  const calls = [];
-  const logPath = path.join(work, 'task.log');
-  fs.writeFileSync(logPath, 'Creating temporary directory: /tmp/original-clone\n📌 Session ID: first-session-123\n📌 Session ID: last-session-456\n');
-  return {
-    calls,
-    querySessionStatus: async () => ({ exists: true, uuid: EXECUTION, sessionName: SESSION, status: running ? 'executing' : 'executed', logPath }),
-    checkDockerContainerRunning: async () => running,
-    checkDockerContainerExists: async () => true,
-    markDockerTaskPaused: async () => ({ success: true }),
-    stopIsolatedSession: async id => {
-      calls.push(['stop', id]);
-      running = false;
-      return { success: true };
-    },
-    getDockerContainerWritableLayerSize: async () => 100,
-    getStartCommandVersion: async () => '0.35.0',
-    resumeIsolatedSession: async (id, options) => {
-      calls.push(['resume', id, options]);
-      return { success: true, sessionName: `${SESSION}-resume-1`, uuid: EXECUTION, mode: 'docker-snapshot' };
-    },
-    ...overrides,
-  };
+await loadTranslations('en');
+
+async function temporary(t) {
+  const dir = await mkdtemp(join(tmpdir(), 'hive-pause-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  return dir;
 }
 
-test('paused tasks survive monitoring without completion, recovery or cleanup', async () => {
-  const session = info({ pauseState: 'paused', pausedAt: '2026-10-06T00:00:00.000Z', stopRequestedByUser: true });
-  monitor.trackSession(SESSION, session);
-  await monitor.monitorSessions({}, false, {
-    statusProvider: () => {
-      throw new Error('Paused tasks must not be probed');
+function setup(overrides, initial = {}) {
+  const state = { docker: 'running', count: 0, pauses: 0, name: SESSION, calls: [], ...initial };
+  const runner = {
+    querySessionStatus: async () => ({ exists: true, uuid: EXECUTION, sessionName: state.name, status: 'executing', resumeCount: state.count }),
+    inspectDockerContainerState: async name => (name === state.name ? state.docker : 'removed'),
+    checkBackendSessionAlive: async () => state.docker === 'running',
+    isExecutingSessionStatus: status => status === 'executing',
+    isTerminalSessionStatus: () => false,
+    checkDockerContainerExists: async () => state.docker !== 'removed',
+    inspectDockerTaskLaunch: async () => ({ commandHandoff: true }),
+    pauseDockerSession: async (id, options) => {
+      state.calls.push(['pause', id]);
+      if (state.docker === 'paused') return { success: true, status: 'already-paused', pausedAt: WHEN, pauseCount: state.pauses };
+      state.docker = 'paused';
+      return { success: true, status: 'paused', pausedAt: WHEN, pauseCount: ++state.pauses, pausedBy: options.requestedBy };
     },
-  });
-  assert.equal(monitor.getTrackedSessionInfo(SESSION), session);
-  assert.equal(monitor.getActiveSessionCount(), 0);
-  assert.equal(monitor.getSessionStats().executing, 0);
-});
-
-test('pause state and saved workspace survive durable serialization', () => {
-  const saved = serializeSessionInfo(info({ pauseState: 'paused', pausedAt: '2026-10-06T00:00:00.000Z', pauseWorkingDirectory: '/tmp/task', pauseRequestedBy: '@requester' }));
-  assert.equal(saved.pauseState, 'paused');
-  assert.equal(saved.pauseWorkingDirectory, '/tmp/task');
-  assert.equal(saved.pausedAt, '2026-10-06T00:00:00.000Z');
-});
-
-test('paused task blocks duplicate work while freeing its running queue slot', async () => {
-  monitor.trackSession(SESSION, info({ pauseState: 'paused' }));
-  const statusProvider = () => {
-    throw new Error('Paused task must not be queried');
-  };
-  assert.deepEqual(await monitor.hasActiveSessionForUrlAsync(URL, false, { statusProvider }), { isActive: true, sessionName: SESSION, status: 'paused' });
-  assert.equal((await monitor.getRunningTrackedIsolationSessions(false, { statusProvider })).count, 0);
-  assert.deepEqual(await monitor.getRunningSessionItems(false, { statusProvider }), []);
-});
-
-test('a task still being stopped or resumed retains its running queue slot', async () => {
-  for (const pauseState of ['pausing', 'resuming']) {
-    monitor.resetSessionMonitorForTests();
-    monitor.trackSession(SESSION, info({ pauseState }));
-    const statusProvider = () => {
-      throw new Error('Control transitions must not be probed by queue queries');
-    };
-    assert.equal(monitor.getActiveSessionCount(), 1);
-    assert.equal((await monitor.getRunningTrackedIsolationSessions(false, { statusProvider })).count, 1);
-    assert.equal((await monitor.getRunningSessionItems(false, { statusProvider }))[0].status, pauseState);
-  }
-});
-
-test('task lifecycle exposes explicit pause and resume operations', () => {
-  assert.equal(typeof monitor.pauseTrackedSession, 'function');
-  assert.equal(typeof monitor.resumePausedSession, 'function');
-});
-
-test('pause stops the whole container and explicit resume keeps disk and latest context', { timeout: 10000 }, async () => {
-  const runner = runnerFixture();
-  const store = createSessionStore({ dir: path.join(work, 'state') });
-  monitor.setSessionStore(store);
-  monitor.trackSession(SESSION, info({ containerResourceLimits: { diskBytes: 1000, requested: { disk: '1000' } } }));
-  assert.equal((await monitor.pauseTrackedSession(EXECUTION, { runner, requestedBy: '@requester' })).success, true);
-  assert.deepEqual(runner.calls[0], ['stop', EXECUTION]);
-  assert.equal(store.load()[0].sessionInfo.pauseWorkingDirectory, '/tmp/original-clone');
-  assert.ok(getPausedTaskContainerNames(store).has(SESSION));
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).alreadyPaused, true);
-  assert.equal(runner.calls.length, 1);
-  const result = await monitor.resumePausedSession(SESSION, { runner });
-  assert.equal(result.success, true);
-  assert.equal(result.sessionId, `${SESSION}-resume-1`);
-  const resumed = monitor.getTrackedSessionInfo(result.sessionId);
-  assert.equal(resumed.containerFilesystemInheritedBytes, 100);
-  assert.equal(resumed.pauseState, undefined);
-  assert.equal(resumed.stopRequestedByUser, undefined);
-  assert.equal(resumed.lastToolSessionId, undefined);
-  assert.equal(monitor.findControllableSession(SESSION).sessionName, result.sessionId);
-  assert.equal(monitor.getActiveSessionCount(), 1);
-  assert.equal(store.load().length, 1);
-  assert.equal(getPausedTaskContainerNames(store).size, 0);
-  assert.match(runner.calls[1][2].command, /'--working-directory' '\/tmp\/original-clone'/);
-  assert.match(runner.calls[1][2].command, /'--resume' 'last-session-456'/);
-  assert.equal((await monitor.resumePausedSession(EXECUTION, { runner })).success, false);
-});
-
-test('failed stop restores task state and leaves it monitored', async () => {
-  const runner = runnerFixture({ stopIsolatedSession: async () => ({ success: false, error: 'Docker refused' }) });
-  const session = info();
-  monitor.trackSession(SESSION, session);
-  const result = await monitor.pauseTrackedSession(SESSION, { runner });
-  assert.equal(result.success, false);
-  assert.equal(session.pauseState, undefined);
-  assert.equal(session.stopRequestedByUser, undefined);
-  assert.equal(monitor.getActiveSessionCount(), 1);
-});
-
-test('an unconfirmed stop stays protected until a retry confirms termination', async () => {
-  const runner = runnerFixture({ stopIsolatedSession: async () => ({ success: true }) });
-  monitor.trackSession(SESSION, info());
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, false);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'pausing');
-  runner.checkDockerContainerRunning = async () => false;
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, true);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'paused');
-});
-
-test('failed resume and missing container retain paused disk state without a fresh launch', async () => {
-  const runner = runnerFixture({ resumeIsolatedSession: async () => ({ success: false, error: 'refused' }) });
-  monitor.trackSession(SESSION, info());
-  await monitor.pauseTrackedSession(SESSION, { runner });
-  assert.equal((await monitor.resumePausedSession(SESSION, { runner })).success, false);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'paused');
-  runner.checkDockerContainerExists = async () => false;
-  assert.match((await monitor.resumePausedSession(SESSION, { runner })).error, /missing/);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'paused');
-});
-
-test('persistence failure prevents a stop or resume', async () => {
-  const runner = runnerFixture();
-  monitor.setSessionStore({
-    persist: () => {
-      throw new Error('disk full');
+    unpauseDockerSession: async id => {
+      state.calls.push(['unpause', id]);
+      if (state.docker === 'running') return { success: true, status: 'not-paused' };
+      state.docker = 'running';
+      return { success: true, status: 'unpaused' };
     },
-  });
-  // trackSession uses best-effort persistence; explicit control fails closed.
-  monitor.trackSession(SESSION, info());
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, false);
-  assert.deepEqual(runner.calls, []);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, undefined);
-});
-
-test('strict durable writes expose failures rather than silently stopping work', () => {
-  const store = createSessionStore({
-    dir: work,
-    fsImpl: {
-      ...fs,
-      writeFileSync: () => {
-        throw new Error('disk full');
-      },
-    },
-  });
-  assert.throws(() => store.persist(SESSION, info(), { strict: true }), /persist/);
-});
-
-test('workspace retention failure prevents stopping the task', async () => {
-  const runner = runnerFixture({ markDockerTaskPaused: async () => ({ success: false, error: 'read-only filesystem' }) });
-  monitor.trackSession(SESSION, info());
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, false);
-  assert.deepEqual(runner.calls, []);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, undefined);
-});
-
-test('resume persistence failure prevents launching a replacement', async () => {
-  const runner = runnerFixture();
-  monitor.trackSession(SESSION, info());
-  await monitor.pauseTrackedSession(SESSION, { runner });
-  monitor.setSessionStore({
-    persist: () => {
-      throw new Error('disk full');
-    },
-  });
-  assert.equal((await monitor.resumePausedSession(SESSION, { runner })).success, false);
-  assert.equal(runner.calls.filter(([action]) => action === 'resume').length, 0);
-  assert.ok(monitor.getTrackedSessionInfo(SESSION).pauseState);
-});
-
-test('missing original solve workspace refuses resume without discarding its container', async () => {
-  const runner = runnerFixture();
-  monitor.trackSession(SESSION, info());
-  await monitor.pauseTrackedSession(SESSION, { runner });
-  monitor.getTrackedSessionInfo(SESSION).pauseWorkingDirectory = null;
-  assert.match((await monitor.resumePausedSession(SESSION, { runner })).error, /working directory/);
-  assert.equal(runner.calls.filter(([action]) => action === 'resume').length, 0);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'paused');
-});
-
-test('limited resumes retain CPU/RAM controls and reject unsupported CLI versions', async () => {
-  const reapplied = [];
-  const requested = { cpu: '0.5', memory: '64m' };
-  const runner = runnerFixture({
-    applyDockerContainerResourceLimits: async (...args) => {
-      reapplied.push(args);
+    markDockerTaskForStop: async name => state.calls.push(['retain', name]),
+    stopIsolatedSession: async id => {
+      state.calls.push(['stop', id]);
+      state.docker = 'exited';
       return { success: true };
     },
-  });
-  monitor.trackSession(SESSION, info({ containerResourceLimits: { cpuCores: 0.5, memoryBytes: 67108864, requested } }));
-  await monitor.pauseTrackedSession(SESSION, { runner });
-  runner.getStartCommandVersion = async () => '0.34.0';
-  assert.equal((await monitor.resumePausedSession(SESSION, { runner })).success, false);
-  assert.equal(runner.calls.filter(([action]) => action === 'resume').length, 0);
-  runner.getStartCommandVersion = async () => '0.35.0';
-  assert.equal((await monitor.resumePausedSession(SESSION, { runner })).success, true);
-  assert.deepEqual(reapplied, [[`${SESSION}-resume-1`, requested]]);
-  assert.equal(monitor.getTrackedSessionInfo(`${SESSION}-resume-1`).containerResourceLimits.memoryBytes, 67108864);
-});
-
-test('unsupported backends and router tasks are refused before changing execution', async () => {
-  for (const overrides of [{ isolationBackend: 'screen' }, { args: [URL, '--use-router'] }]) {
-    monitor.resetSessionMonitorForTests();
-    const runner = runnerFixture();
-    monitor.trackSession(SESSION, info(overrides));
-    assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, false);
-    assert.deepEqual(runner.calls, []);
-    assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, undefined);
-  }
-});
-
-test('concurrent resume requests launch one replacement', { timeout: 10000 }, async () => {
-  let release;
-  const held = new Promise(resolve => {
-    release = resolve;
-  });
-  const runner = runnerFixture();
-  monitor.trackSession(SESSION, info());
-  await monitor.pauseTrackedSession(SESSION, { runner });
-  const resume = runner.resumeIsolatedSession;
-  runner.resumeIsolatedSession = async (...args) => {
-    await held;
-    return resume(...args);
-  };
-  const first = monitor.resumePausedSession(SESSION, { runner });
-  const second = await monitor.resumePausedSession(EXECUTION, { runner });
-  release();
-  assert.equal(second.success, false);
-  assert.equal((await first).success, true);
-  assert.equal(runner.calls.filter(([action]) => action === 'resume').length, 1);
-});
-
-test('concurrent pause requests stop a session once', { timeout: 10000 }, async () => {
-  let release;
-  const held = new Promise(resolve => {
-    release = resolve;
-  });
-  const runner = runnerFixture();
-  const status = runner.querySessionStatus;
-  runner.querySessionStatus = async () => {
-    await held;
-    return status();
-  };
-  monitor.trackSession(SESSION, info());
-  const first = monitor.pauseTrackedSession(SESSION, { runner });
-  const second = await monitor.pauseTrackedSession(EXECUTION, { runner });
-  assert.equal(second.success, false);
-  release();
-  assert.equal((await first).success, true);
-  assert.equal(runner.calls.length, 1);
-});
-
-test('monitor and pause share a lock', { timeout: 10000 }, async () => {
-  let release;
-  const held = new Promise(resolve => {
-    release = resolve;
-  });
-  monitor.trackSession(SESSION, info());
-  const tick = monitor.monitorSessions({}, false, {
-    statusProvider: async () => {
-      await held;
-      return { exists: true, status: 'executing' };
+    resumeIsolatedSession: async (id, options) => {
+      state.calls.push(['resume', id, options]);
+      state.docker = 'running';
+      state.count++;
+      state.name = NEXT;
+      return { success: true, mode: 'docker-snapshot', sessionName: NEXT, uuid: EXECUTION };
     },
-    backendAlive: async () => true,
-  });
-  assert.match((await monitor.pauseTrackedSession(SESSION, { runner: runnerFixture() })).error, /monitored/);
-  release();
-  await tick;
+    getDockerContainerWritableLayerSize: async () => 100,
+    getStartCommandVersion: async () => '0.44.0',
+    ...overrides,
+  };
+  monitor.__setIsolationRunnerForTests(runner);
+  return { state, runner };
+}
+
+test('freeze and unfreeze are idempotent and retain separate pause metadata per freeze', async () => {
+  const { state } = setup();
+  const session = info();
+  monitor.trackSession(SESSION, session);
+  assert.equal((await monitor.pauseTrackedSession(EXECUTION, { requestedBy: '@operator', reason: 'CPU incident' })).success, true);
+  assert.equal(session.pausedAt, WHEN);
+  assert.equal(session.pausedBy, '@operator');
+  assert.equal(session.pauseReason, 'CPU incident');
+  assert.equal(session.pauseCount, 1);
+  assert.equal((await monitor.pauseTrackedSession(SESSION)).alreadyPaused, true);
+  assert.equal(session.pauseCount, 1);
+  assert.match((await monitor.resumeStoppedSession(SESSION)).error, /\/unpause/);
+  assert.equal((await monitor.unpauseTrackedSession(EXECUTION)).success, true);
+  assert.equal(session.pausedAt, undefined);
+  assert.equal(session.pauseReason, undefined);
+  assert.equal((await monitor.unpauseTrackedSession(SESSION)).notPaused, true);
+  assert.equal((await monitor.pauseTrackedSession(SESSION)).success, true);
+  assert.equal(session.pauseCount, 2);
+  assert.equal(
+    state.calls.some(([verb]) => ['stop', 'resume'].includes(verb)),
+    false
+  );
 });
 
-test('bot restart retains paused tasks and does not probe or restart them', async () => {
-  const store = createSessionStore({ dir: path.join(work, 'state') });
-  store.persist(SESSION, info({ pauseState: 'paused', pauseWorkingDirectory: '/tmp/clone' }));
-  const resumed = await monitor.resumeTrackedSessions({ store, isolationRunner: {} });
-  assert.equal(resumed.resumed.length, 1);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'paused');
+test('manual freeze frees capacity, keeps URL claimed, and shows a separate queue row', async () => {
+  const { state } = setup({}, { docker: 'paused', name: NEXT });
+  monitor.trackSession(SESSION, info());
+  const { isActive, status } = await monitor.hasActiveSessionForUrlAsync(TASK_URL);
+  assert.equal(isActive, true);
+  assert.equal(status, 'paused');
+  assert.equal((await monitor.getRunningTrackedIsolationSessions()).count, 0);
+  const sessionItems = await monitor.getRunningSessionItems();
+  const work = mergeToolWork({ sessionItems, processingItems: [{ tool: 'codex', url: TASK_URL }] });
+  assert.equal(work.total, 0);
+  assert.equal(work.paused.length, 1);
+  const paused = collectExecutingItems({ sessionItems: work.paused, tool: 'codex', byExecution: true });
+  const labels = { processing: 'Processing', paused: 'Paused', pending: 'Pending', completed: 'Completed', failed: 'Failed' };
+  const queue = formatQueueToolSection({ tool: 'codex', labels, executing: [], paused, pendingItems: [], completed: [], failed: [], max: 3, locale: 'en' });
+  assert.match(queue, /Paused.*1/);
+  assert.match(queue, /⏸/);
+  assert.doesNotMatch(queue, /Processing.*1/);
+  await monitor.monitorSessions({});
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).dockerContainerName, NEXT);
   assert.equal(monitor.getActiveSessionCount(), 0);
+  state.docker = 'running';
+  await monitor.monitorSessions({});
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).paused, undefined);
+  assert.equal(monitor.getActiveSessionCount(), 1);
+  assert.equal((await monitor.getRunningTrackedIsolationSessions()).count, 1);
+  assert.deepEqual(state.calls, []);
 });
 
-test('startup reconciles an interrupted pause without restarting the work', async () => {
-  const store = createSessionStore({ dir: path.join(work, 'state') });
-  store.persist(SESSION, info({ pauseState: 'pausing' }));
+test('removed after a manual pause clears durable state without recovery or a duplicate launch', async t => {
+  const { state } = setup({}, { docker: 'paused' });
+  const dir = await temporary(t);
+  const store = createSessionStore({ dir });
   monitor.setSessionStore(store);
-  await monitor.resumeTrackedSessions({ store, isolationRunner: runnerFixture() });
-  assert.equal(store.load()[0].sessionInfo.pauseState, 'paused');
-});
-
-test('a failed stop that actually stopped Docker retains pause protection', async () => {
-  const runner = runnerFixture();
-  const stop = runner.stopIsolatedSession;
-  runner.stopIsolatedSession = async id => {
-    await stop(id);
-    return { success: false, error: 'CLI interrupted after stop' };
-  };
   monitor.trackSession(SESSION, info());
-  assert.equal((await monitor.pauseTrackedSession(SESSION, { runner })).success, false);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).pauseState, 'pausing');
+  await monitor.monitorSessions({});
+  assert.ok((await getProtectedTaskContainerNames(store)).has(SESSION));
+  state.docker = 'removed';
+  assert.match((await monitor.resumeStoppedSession(SESSION)).error, /removed/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).paused, undefined);
+  await monitor.monitorSessions({ telegram: { sendMessage: async () => ({}) } }, false, { lookupLinkedPullRequest: async () => null });
+  assert.deepEqual(state.calls, []);
+  assert.equal((await store.load()).length, 0);
 });
 
-test('startup adopts an interrupted resume even when its replacement already finished', async () => {
-  const store = createSessionStore({ dir: path.join(work, 'state') });
-  store.persist(SESSION, info({ pauseState: 'resuming', containerFilesystemInheritedBytes: 20, containerFilesystemLastBytes: 100 }));
+test('restart keeps a frozen task and /stop records intent before signalling it', async t => {
+  const { state } = setup({}, { docker: 'paused' });
+  const dir = await temporary(t);
+  const store = createSessionStore({ dir });
+  await store.persist(SESSION, info({ paused: true, pausedAt: WHEN, pauseCount: 1 }), { confirm: true });
   monitor.setSessionStore(store);
-  const next = `${SESSION}-resume-1`;
-  const runner = runnerFixture({ querySessionStatus: async () => ({ uuid: EXECUTION, sessionName: next, status: 'executed' }), checkDockerContainerRunning: async () => false });
-  await monitor.resumeTrackedSessions({ store, isolationRunner: runner });
-  assert.equal(monitor.getTrackedSessionInfo(SESSION), null);
-  assert.equal(monitor.getTrackedSessionInfo(next).pauseState, undefined);
-  assert.equal(monitor.getTrackedSessionInfo(next).containerFilesystemInheritedBytes, 120);
-  assert.equal(store.load().length, 1);
-  assert.equal(store.load()[0].sessionName, next);
-  assert.deepEqual(runner.calls, []);
+  const restored = await monitor.resumeTrackedSessions({ store });
+  assert.equal(restored.resumed.length, 1);
+  await monitor.monitorSessions({});
+  assert.deepEqual(state.calls, []);
+  assert.equal(monitor.getActiveSessionCount(), 0);
+  assert.equal((await monitor.stopTrackedDockerSession(EXECUTION, { requestedBy: '@operator' })).success, true);
+  assert.deepEqual(state.calls, [
+    ['retain', SESSION],
+    ['stop', EXECUTION],
+  ]);
+  const saved = (await store.load())[0].sessionInfo;
+  assert.equal(saved.stopRequestedBy, '@operator');
+  assert.equal(saved.paused, undefined);
 });
 
-test('pause marker preserves a solve workspace even with automatic cleanup enabled', async () => {
+test('resume after stopping retains the clone, latest AI session and cumulative disk usage', async t => {
+  const { state } = setup({}, { docker: 'exited' });
+  const dir = await temporary(t);
+  const store = createSessionStore({ dir: join(dir, 'bot') });
+  const logPath = join(dir, 'task.log');
+  await writeFile(logPath, 'Creating temporary directory: /tmp/original-clone\n📌 Session ID: first-session-123\n📌 Session ID: last-session-456\n');
+  monitor.setSessionStore(store);
+  monitor.trackSession(SESSION, info({ logPath, retainedForResume: true, completionNotifiedAt: WHEN, containerFilesystemInheritedBytes: 20, containerResourceLimits: { diskBytes: 1000 } }));
+  assert.equal((await monitor.resumeStoppedSession(EXECUTION)).success, true);
+  const [[verb, id, options]] = state.calls;
+  assert.deepEqual([verb, id, options.requireRetained], ['resume', EXECUTION, true]);
+  assert.match(options.command, /--working-directory.*\/tmp\/original-clone/);
+  assert.match(options.command, /--resume.*last-session-456/);
+  const [saved] = await store.load();
+  assert.equal(saved.sessionName, NEXT);
+  assert.equal(saved.sessionInfo.containerFilesystemInheritedBytes, 120);
+  assert.equal(saved.sessionInfo.completionNotifiedAt, undefined);
+  assert.equal((await store.load()).length, 1);
+  assert.match((await monitor.resumeStoppedSession(SESSION)).error, /already running/);
+});
+
+test('interrupted resume adopts a replacement that has already exited', async t => {
+  const { state } = setup({}, { docker: 'exited', count: 2, name: NEXT });
+  const store = createSessionStore({ dir: await temporary(t) });
+  await store.persist(SESSION, info({ explicitResumePending: { resumeCount: 1 }, retainedForResume: true, containerFilesystemLastBytes: 100 }), { confirm: true });
+  monitor.setSessionStore(store);
+  await monitor.resumeTrackedSessions({ store });
+  await monitor.monitorSessions({});
+  assert.deepEqual(state.calls, []);
+  const [saved] = await store.load();
+  assert.equal(saved.sessionName, NEXT);
+  assert.equal(saved.sessionInfo.explicitResumePending, undefined);
+  assert.equal(saved.sessionInfo.containerFilesystemInheritedBytes, 100);
+});
+
+test('stopping a solve preserves the workspace during signal cleanup with auto-cleanup enabled', async t => {
   const { cleanupTempDirectory } = await import('../src/solve.cleanup.lib.mjs');
-  const directory = path.join(work, 'private-clone');
-  const marker = path.join(work, 'pause-marker');
-  fs.mkdirSync(directory);
-  fs.writeFileSync(path.join(directory, 'uncommitted.txt'), 'unfinished work');
-  fs.writeFileSync(marker, '');
-  await cleanupTempDirectory(directory, { autoCleanup: true }, false, { pauseMarkerPath: marker });
-  assert.equal(fs.readFileSync(path.join(directory, 'uncommitted.txt'), 'utf8'), 'unfinished work');
+  const dir = await temporary(t);
+  const clone = join(dir, 'clone');
+  const marker = join(dir, 'retain');
+  await mkdir(clone);
+  await writeFile(join(clone, 'uncommitted.txt'), 'work in progress');
+  await writeFile(marker, '');
+  await cleanupTempDirectory(clone, { autoCleanup: true }, false, { pauseMarkerPath: marker });
+  assert.equal(await readFile(join(clone, 'uncommitted.txt'), 'utf8'), 'work in progress');
 });
 
-test('workspace parsing and shell quoting preserve literal user arguments', () => {
-  assert.equal(extractPauseWorkingDirectory('Creating temporary directory: /tmp/first\n  Repository dir: /tmp/second\n'), '/tmp/second');
-  assert.equal(extractPauseWorkingDirectory('the Working directory: /tmp/wrong'), null);
-  const command = buildPausedTaskCommand(info({ args: [URL, '--resume=old-session', '--working-directory', '/tmp/old', '--requirements', 'literal $(touch /tmp/unwanted) `id`'], pauseWorkingDirectory: "/tmp/task's clone" }), 'latest-session');
-  assert.deepEqual(command.args, [URL, '--requirements', 'literal $(touch /tmp/unwanted) `id`', '--working-directory', "/tmp/task's clone", '--resume', 'latest-session']);
-  assert.match(command.display, /'literal \$\(touch \/tmp\/unwanted\) `id`'/);
-  assert.match(command.display, /'\/tmp\/task'\\''s clone'/);
+test('pause metadata is parsed from start-command status', () => {
+  const result = parseSessionStatusOutput(JSON.stringify({ uuid: EXECUTION, status: 'paused', dockerState: 'paused', paused: true, pausedAt: WHEN, options: { sessionName: NEXT, isolated: 'docker', pauseCount: 2, pausedBy: '@requester', pauseReason: 'load', resumeCount: 1 } }));
+  assert.deepEqual([result.sessionName, result.dockerState, result.paused, result.pausedAt, result.pauseCount, result.pausedBy, result.pauseReason, result.resumeCount], [NEXT, 'paused', true, WHEN, 2, '@requester', 'load', 1]);
 });
 
-test('cleanup retains paused containers even in all mode and skips host prune', async () => {
-  const plan = planDockerIsolationCleanup({ mode: 'all', containers: [{ name: SESSION, state: 'exited', exitCode: 0, pausedByUser: true }] });
+test('Docker cleanup protects both a manually frozen task and a stopped retained task', () => {
+  const containers = [
+    { name: SESSION, status: 'Up 2 hours (Paused)', state: 'paused' },
+    { name: NEXT, status: 'Exited (0) 1 hour ago', state: 'exited', retainForResume: true },
+  ];
+  const plan = planDockerIsolationCleanup({ mode: 'all', containers });
   assert.equal(plan.remove.length, 0);
-  assert.equal(plan.keep[0].reason, 'paused-task');
-  assert.equal(monitor.buildDockerTaskContainerCompletionAction({ sessionName: SESSION, sessionInfo: info({ pauseState: 'paused' }), env: { HIVE_MIND_KEEP_TASK_CONTAINER: 'never' } }).shouldRemove, false);
-  const calls = [];
-  const logs = [];
-  await runSystemCleanup({
-    docker: true,
-    pausedContainerNames: new Set([SESSION]),
-    execFn: (...args) => {
-      calls.push(args);
-      return '';
-    },
-    logFn: line => logs.push(line),
-  });
-  assert.deepEqual(calls, []);
-  assert.ok(logs.some(line => line.includes('paused task')));
 });
 
-function telegramFixture({ userId = 42, chatId = -100, chatType = 'supergroup', owner = false, authorized = true, old = false, forwarded = false } = {}) {
-  const handlers = {};
-  const replies = [];
+test('one alert after the pause threshold and a live card after unpause', async () => {
   const calls = [];
-  const record = { sessionName: SESSION, sessionInfo: info({ pauseState: 'paused' }) };
-  registerPauseResumeCommands(
+  const bot = { telegram: { editMessageText: async (...args) => calls.push(['edit', args[3]]), sendMessage: async (...args) => calls.push(['send', args[1]]) } };
+  const sessionInfo = info({ paused: true, pausedAt: WHEN, messageId: 7, locale: 'en' });
+  const report = now => reportDockerPause({ bot, sessionName: SESSION, sessionInfo, running: true, now: () => now, persist: () => {} });
+  await report(Date.parse(WHEN));
+  await report(Date.parse(WHEN) + 3600000);
+  await report(Date.parse(WHEN) + 7200000);
+  assert.deepEqual(
+    calls.map(([kind]) => kind),
+    ['edit', 'send']
+  );
+  assert.match(calls[0][1], /Paused/);
+  assert.match(calls[1][1], /\/unpause/);
+  sessionInfo.paused = false;
+  await report(Date.parse(WHEN) + 7200000);
+  assert.doesNotMatch(calls[2][1], /Paused/);
+});
+
+test('Telegram resolves the configured names, URLs and replies and protects the requester', async () => {
+  const received = [];
+  const replies = [];
+  const entry = { sessionName: NEXT, sessionInfo: info({ dockerContainerName: NEXT }) };
+  const handlers = registerPauseResumeCommands(
+    { command: () => {} },
     {
-      command: (name, handler) => {
-        handlers[name] = handler;
-      },
-    },
-    {
-      isOldMessage: () => old,
-      isForwarded: () => forwarded,
-      isGroupChat: () => chatType === 'supergroup',
-      isChatAuthorized: () => authorized,
-      safeReply: async (_ctx, text) => {
-        replies.push(text);
-      },
+      isGroupChat: () => true,
+      isChatAuthorized: id => id === -100,
+      safeReply: async (_ctx, message) => replies.push(message),
       monitor: {
-        findControllableSession: () => record,
-        findStoppableSessionByUrl: () => record,
-        getPausedSessions: () => [record],
-        pauseTrackedSession: async (...args) => {
-          calls.push(['pause', ...args]);
-          return { success: true };
-        },
-        resumePausedSession: async (...args) => {
-          calls.push(['resume', ...args]);
-          return { success: true, sessionId: SESSION };
+        getActiveSessions: () => [entry],
+        findTrackedSessionByIdentifier: id => ([SESSION, NEXT, EXECUTION].includes(id) ? entry : null),
+        findStoppableSessionByUrl: url => (url === TASK_URL ? entry : null),
+        getDockerTaskControlState: async () => ({ success: true, state: 'paused' }),
+        pauseTrackedSession: async (id, options) => {
+          received.push([id, options.reason]);
+          return { success: true, sessionId: id };
         },
       },
     }
   );
-  const ctx = { message: { message_id: 5 }, from: { id: userId }, chat: { id: chatId, type: chatType }, telegram: { getChatMember: async () => ({ status: owner ? 'creator' : 'member' }) } };
-  return { handlers, ctx, replies, calls };
-}
-
-test('Telegram accepts UUID, URL, bot mention and replies from task requester', async () => {
-  for (const text of [`/pause ${SESSION}`, `/pause ${URL}`, `/pause@HiveBot ${SESSION}`, '/pause']) {
-    const fixture = telegramFixture();
-    fixture.ctx.message.text = text;
-    fixture.ctx.message.reply_to_message = { text: `Session: ${SESSION}` };
-    await fixture.handlers.pause(fixture.ctx);
-    assert.equal(fixture.calls[0][0], 'pause');
-    assert.equal(fixture.calls[0][1], SESSION);
-  }
-  const fixture = telegramFixture({ chatType: 'private' });
-  fixture.ctx.message.text = `/resume ${SESSION}`;
-  await fixture.handlers.resume(fixture.ctx);
-  assert.equal(fixture.calls[0][0], 'resume');
+  const run = (handler, text, id = 42, chat = -100, owner = false, repliedTo) =>
+    handler({
+      chat: { id: chat, type: chat > 0 ? 'private' : 'supergroup' },
+      from: { id },
+      telegram: { getChatMember: async () => ({ status: owner ? 'creator' : 'member' }) },
+      message: { text, reply_to_message: repliedTo },
+    });
+  await run(handlers.pause, `/pause@Hive ${NEXT} --reason CPU incident`);
+  await run(handlers.pause, '/pause', 42, -100, false, { text: `Session ID: ${EXECUTION}` });
+  await run(handlers.pause, `/pause ${TASK_URL}`, 99, 99, true);
+  for (const chat of [-101, -100, 99]) await run(handlers.pause, `/pause ${TASK_URL}`, 99, chat);
+  assert.deepEqual(received, [
+    [NEXT, 'CPU incident'],
+    [NEXT, undefined],
+    [NEXT, undefined],
+  ]);
+  await run(handlers.unpause, '/unpause');
+  assert.match(replies.at(-1), /Paused.*resume-1/);
 });
 
-test('Telegram rejects strangers, foreign chats, unauthorized, stale and forwarded controls', async () => {
-  for (const options of [{ userId: 99 }, { userId: 99, chatType: 'private' }, { chatId: -200, owner: true }, { authorized: false }, { old: true }, { forwarded: true }]) {
-    const fixture = telegramFixture(options);
-    fixture.ctx.message.text = `/resume ${SESSION}`;
-    await fixture.handlers.resume(fixture.ctx);
-    assert.deepEqual(fixture.calls, []);
-  }
-  const fixture = telegramFixture({ userId: 99, owner: true });
-  fixture.ctx.message.text = `/resume ${URL}`;
-  await fixture.handlers.resume(fixture.ctx);
-  assert.equal(fixture.calls.length, 1);
+test('guard refuses a fresh launch but forwards a snapshot-derived launch', async () => {
+  const run = promisify(execFile);
+  const shim = fileURLToPath(new URL('../src/docker-retained-resume/docker', import.meta.url));
+  const env = { ...process.env, HIVE_MIND_RESUME_ORIGINAL_PATH: process.env.PATH, HIVE_MIND_RESUME_DOCKER_BIN: '/bin/echo' };
+  await assert.rejects(run(shim, ['run', 'alpine:3.23'], { env }), /retained Docker container is missing/);
+  assert.match((await run(shim, ['run', '--label', 'start-command.snapshot-image=start-command-resume/test:1', 'start-command-resume/test:1'], { env })).stdout, /^run --label/);
 });
 
-test('bare /resume lists the requester’s paused tasks', async () => {
-  const fixture = telegramFixture();
-  fixture.ctx.message.text = '/resume';
-  await fixture.handlers.resume(fixture.ctx);
-  assert.match(fixture.replies[0], /Your paused tasks/);
-  assert.match(fixture.replies[0], /aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/);
-  assert.deepEqual(fixture.calls, []);
+test('every UI locale has task controls and a pause confirmation that mentions RAM', async () => {
+  for (const locale of ['en', 'ru', 'hi', 'zh']) {
+    await loadTranslations(locale);
+    assert.match(t('telegram.task_control_paused', { session: SESSION }, { locale }), /RAM|память/i);
+    assert.match(t('telegram.help_pause_resume', {}, { locale }), /\/unpause/);
+  }
 });

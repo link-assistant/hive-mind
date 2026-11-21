@@ -1,0 +1,439 @@
+Release Preflight	UNKNOWN STEP	﻿2026-10-07T01:40:05.9857138Z Current runner version: '2.337.0'
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9878071Z ##[group]Runner Image Provisioner
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9878775Z Hosted Compute Agent
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9879295Z Version: 20261002.596
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9879903Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9880525Z Build Date: 2026-10-02T22:28:27Z
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9881104Z Worker ID: {49f7cc03-c908-407e-a420-69362b860790}
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9881692Z Region: westus3
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9882148Z Cloud: Azure
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9882670Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9883785Z ##[group]Operating System
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9884330Z Ubuntu
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9884844Z 24.04.5
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9885441Z LTS
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9885912Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9886374Z ##[group]Runner Image
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9886932Z Image: ubuntu-24.04
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9887420Z Version: 20261004.327.1
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9888513Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9889807Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9890616Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9891573Z ##[group]GITHUB_TOKEN Permissions
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9893369Z Contents: read
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9893888Z Metadata: read
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9894378Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9896262Z Secret source: Actions
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9897043Z Cache mode: write
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:05.9897725Z Prepare workflow directory
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.0233192Z Prepare all required actions
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.0272013Z Getting action download info
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.3402047Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.5226488Z Complete job name: Release Preflight
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6926745Z ##[group]Run actions/checkout@v6
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6927409Z with:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6927774Z   persist-credentials: false
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6928376Z   repository: link-foundation/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6931483Z   token: ***
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6931838Z   ssh-strict: true
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6932198Z   ssh-user: git
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6932539Z   clean: true
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6932908Z   sparse-checkout-cone-mode: true
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6933325Z   fetch-depth: 1
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6933677Z   fetch-tags: false
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6934119Z   show-progress: true
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6934480Z   lfs: false
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6934817Z   submodules: false
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6935322Z   set-safe-directory: true
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6935742Z   allow-unsafe-pr-checkout: false
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6936323Z env:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6936657Z   GIT_CONFIG_COUNT: 1
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6937041Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6937508Z   GIT_CONFIG_VALUE_0: main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.6937891Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7709987Z Syncing repository: link-foundation/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7712578Z ##[group]Getting Git version info
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7714057Z Working directory is '/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template'
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7716115Z [command]/usr/bin/git version
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7741434Z git version 2.55.0
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7764430Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7769682Z Temporarily overriding HOME='/home/runner/work/_temp/2326ea90-71f1-4cef-9a6e-c661153b8cce' before making global git config changes
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7771494Z Adding repository directory to the temporary git global config as a safe directory
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7774823Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7823582Z Deleting the contents of '/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template'
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7826067Z ##[group]Determining repository object format
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7826798Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7827388Z ##[group]Initializing the repository
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7828281Z [command]/usr/bin/git init /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7897520Z Initialized empty Git repository in /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7905867Z [command]/usr/bin/git remote add origin https://github.com/link-foundation/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7943382Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7944018Z ##[group]Disabling automatic garbage collection
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7947104Z [command]/usr/bin/git config --local gc.auto 0
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7972482Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7973296Z ##[group]Setting up auth
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7973887Z Removing SSH command configuration
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.7978947Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8005873Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8282826Z Removing HTTP extra header
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8289816Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8321440Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8518556Z Removing includeIf entries pointing to credentials config files
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8525949Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8557333Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8749076Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8830625Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8861037Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8894007Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8930315Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8956429Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8957352Z ##[group]Fetching the repository
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:06.8963700Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1e43fdb4fb26d69376b8663674c170212eb01765:refs/remotes/origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8831701Z From https://github.com/link-foundation/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8833751Z  * [new ref]         1e43fdb4fb26d69376b8663674c170212eb01765 -> origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8839424Z [command]/usr/bin/git branch --list --remote origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8869652Z   origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8876837Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8899691Z 1e43fdb4fb26d69376b8663674c170212eb01765
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8903170Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8904264Z ##[group]Determining the checkout info
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8905625Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8907315Z [command]/usr/bin/git sparse-checkout disable
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8950383Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8977497Z ##[group]Checking out the ref
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.8979720Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9380473Z Reset branch 'main'
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9383870Z branch 'main' set up to track 'origin/main'.
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9391855Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9429410Z [command]/usr/bin/git log -1 --format=%H
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9453486Z 1e43fdb4fb26d69376b8663674c170212eb01765
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9467223Z ##[group]Removing auth
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9468578Z Removing SSH command configuration
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9469935Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9497084Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9690540Z Removing HTTP extra header
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9692643Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9721502Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9910644Z Removing includeIf entries pointing to credentials config files
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9913000Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9936130Z includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9940524Z includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9943491Z includeif.gitdir:/github/workspace/.git.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9944875Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9949119Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9974702Z /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:07.9987378Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0020447Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0046206Z /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0055324Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0083764Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0114243Z /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0121030Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0144499Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0165558Z /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0171689Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0202129Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0387058Z Removing credentials config '/home/runner/work/_temp/git-credentials-ffb50350-e341-441c-87c7-1af73adc144f.config'
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0394411Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0611070Z ##[group]Run bash scripts/preflight-credentials.sh
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0612356Z ^[[36;1mbash scripts/preflight-credentials.sh^[[0m
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0827577Z shell: /usr/bin/bash -e {0}
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0828451Z env:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0829172Z   GIT_CONFIG_COUNT: 1
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0829984Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0830939Z   GIT_CONFIG_VALUE_0: main
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0831766Z   PREFLIGHT_MODE: release
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0832581Z   NPM_TOKEN: 
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0833283Z   DOCKERHUB_IMAGE: 
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0834030Z   DOCKERHUB_USERNAME: 
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0835346Z   DOCKERHUB_TOKEN: ***
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0836124Z ##[endgroup]
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:08.0948606Z npm:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0288026Z   FAIL: npm OIDC package exchange rejected (404); configure a trusted publisher or bootstrap token
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0289306Z   SKIP: NPM_TOKEN is not set; OIDC trusted publishing is the publish path (NPM_TOKEN is the documented bootstrap fallback, issue #77)
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0290057Z Docker Hub:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0290663Z   SKIP: DOCKERHUB_IMAGE is not set -- Docker publishing is disabled (scripts/check-docker-publish.mjs)
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0291279Z 
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0291447Z Release preflight: 0 verified, 1 failed, 0 unknown
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0311882Z ##[error]release-preflight: npm OIDC package exchange rejected (404); configure a trusted publisher or bootstrap token
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0318227Z ##[error]release-preflight: refusing to release with 1 refused credential(s)
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0322031Z ##[error]Process completed with exit code 1.
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.0502706Z Post job cleanup.
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1174985Z [command]/usr/bin/git version
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1212121Z git version 2.55.0
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1247036Z Temporarily overriding HOME='/home/runner/work/_temp/abb0a2c8-8a76-421f-baa9-848c3bb121be' before making global git config changes
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1248239Z Adding repository directory to the temporary git global config as a safe directory
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1251646Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1279487Z Removing SSH command configuration
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1285461Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1315975Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1517843Z Removing HTTP extra header
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1523033Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1555306Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1816892Z Removing includeIf entries pointing to credentials config files
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1828616Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.1869556Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Release Preflight	UNKNOWN STEP	2026-10-07T01:40:09.2237610Z Cleaning up orphan processes
+Pipeline Status	UNKNOWN STEP	﻿2026-10-07T01:41:47.3179048Z Current runner version: '2.337.0'
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3203522Z ##[group]Runner Image Provisioner
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3204353Z Hosted Compute Agent
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3204850Z Version: 20260901.588
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3205369Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3206198Z Build Date: 2026-09-01T19:56:44Z
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3206763Z Worker ID: {6f6b11a0-702a-430e-86d7-25fb23326419}
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3207384Z Azure Region: westus3
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3207931Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3209193Z ##[group]Operating System
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3209809Z Ubuntu
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3210223Z 24.04.5
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3210663Z LTS
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3211155Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3211609Z ##[group]Runner Image
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3212166Z Image: ubuntu-24.04
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3212648Z Version: 20260927.320.1
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3213866Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3215187Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3216298Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3217330Z ##[group]GITHUB_TOKEN Permissions
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3219225Z Contents: read
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3219717Z Metadata: read
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3220163Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3222133Z Secret source: Actions
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3222956Z Cache mode: write
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3223647Z Prepare workflow directory
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3471890Z Prepare all required actions
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.3503634Z Getting action download info
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.6487608Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:47.8992617Z Download action repository 'actions/setup-node@v6' (SHA:249970729cb0ef3589644e2896645e5dc5ba9c38)
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.2503449Z Complete job name: Pipeline Status
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3291445Z ##[group]Run actions/checkout@v6
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3291926Z with:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3292176Z   persist-credentials: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3292562Z   repository: link-foundation/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3294668Z   token: ***
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3294905Z   ssh-strict: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3295159Z   ssh-user: git
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3295396Z   clean: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3295643Z   sparse-checkout-cone-mode: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3295928Z   fetch-depth: 1
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3296291Z   fetch-tags: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3296536Z   show-progress: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3296781Z   lfs: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3297023Z   submodules: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3297285Z   set-safe-directory: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3297573Z   allow-unsafe-pr-checkout: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3298065Z env:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3298290Z   GIT_CONFIG_COUNT: 1
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3298551Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3298887Z   GIT_CONFIG_VALUE_0: main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.3299149Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4024229Z Syncing repository: link-foundation/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4025522Z ##[group]Getting Git version info
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4026266Z Working directory is '/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template'
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4032908Z [command]/usr/bin/git version
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4132337Z git version 2.55.0
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4149365Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4161621Z Temporarily overriding HOME='/home/runner/work/_temp/3cde1c0c-6a9d-4f0d-ae5f-3cdeb0a81ec1' before making global git config changes
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4162380Z Adding repository directory to the temporary git global config as a safe directory
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4166859Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4620266Z Deleting the contents of '/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template'
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4622207Z ##[group]Determining repository object format
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4623499Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4624180Z ##[group]Initializing the repository
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4627952Z [command]/usr/bin/git init /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4722712Z Initialized empty Git repository in /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4730890Z [command]/usr/bin/git remote add origin https://github.com/link-foundation/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4811487Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4811923Z ##[group]Disabling automatic garbage collection
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4815133Z [command]/usr/bin/git config --local gc.auto 0
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4911943Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4912575Z ##[group]Setting up auth
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4913083Z Removing SSH command configuration
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4918318Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.4949905Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5223097Z Removing HTTP extra header
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5228141Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5256852Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5447503Z Removing includeIf entries pointing to credentials config files
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5448391Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5473501Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.5655787Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.6010318Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.6609529Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.7815669Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.7938621Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.8004408Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.8005028Z ##[group]Fetching the repository
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:48.8011686Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1e43fdb4fb26d69376b8663674c170212eb01765:refs/remotes/origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1739380Z From https://github.com/link-foundation/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1740856Z  * [new ref]         1e43fdb4fb26d69376b8663674c170212eb01765 -> origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1747504Z [command]/usr/bin/git branch --list --remote origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1777173Z   origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1783666Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1805810Z 1e43fdb4fb26d69376b8663674c170212eb01765
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1809106Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1809630Z ##[group]Determining the checkout info
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1810291Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.1813118Z [command]/usr/bin/git sparse-checkout disable
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.2294712Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.2683074Z ##[group]Checking out the ref
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.2687102Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3286961Z Reset branch 'main'
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3478572Z branch 'main' set up to track 'origin/main'.
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3485203Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3526075Z [command]/usr/bin/git log -1 --format=%H
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3550758Z 1e43fdb4fb26d69376b8663674c170212eb01765
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3558072Z ##[group]Removing auth
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3558330Z Removing SSH command configuration
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3561278Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3594007Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3774166Z Removing HTTP extra header
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3777725Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3807015Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3987850Z Removing includeIf entries pointing to credentials config files
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.3990568Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4016233Z includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4017271Z includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4017845Z includeif.gitdir:/github/workspace/.git.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4018219Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4024321Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4045588Z /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4053447Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git.path /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4583441Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4609939Z /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.4617272Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5189793Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5216989Z /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5225080Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5777358Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5803039Z /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5808030Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.5978625Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6153294Z Removing credentials config '/home/runner/work/_temp/git-credentials-3e8f413b-0506-4c76-ace5-1b72793d2dd5.config'
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6161070Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6393527Z ##[group]Run actions/setup-node@v6
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6393784Z with:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6393954Z   node-version: 24.x
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6394155Z   check-latest: false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6396338Z   token: ***
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6396530Z   package-manager-cache: true
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6396735Z env:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6396895Z   GIT_CONFIG_COUNT: 1
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6397089Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6397317Z   GIT_CONFIG_VALUE_0: main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.6397475Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.7485850Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:50.7489012Z ##[group]Environment details
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0795842Z node: v24.21.0
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0796239Z npm: 11.19.0
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0803122Z yarn: 1.22.22
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0803772Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0804430Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.0811586Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.3525671Z /home/runner/.npm
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:53.5954690Z Cache hit for: node-cache-Linux-x64-npm-0a70f130a2c33115cae51c965a3c8b2e94dc2ab3dad6b731edad3c5e57ecc4c6
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0524916Z Received 5062 of 5062 (100.0%), 0.0 MBs/sec
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0525165Z Cache Size: ~0 MB (5062 B)
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0540113Z [command]/usr/bin/tar -xf /home/runner/work/_temp/41c4c258-71da-459e-96dc-430ee530c7b0/cache.tzst -P -C /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template --use-compress-program unzstd
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0772892Z Cache restored successfully
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0776586Z Cache restored from key: node-cache-Linux-x64-npm-0a70f130a2c33115cae51c965a3c8b2e94dc2ab3dad6b731edad3c5e57ecc4c6
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0900506Z ##[group]Run bash scripts/check-pipeline-status.sh
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.0900773Z ^[[36;1mbash scripts/check-pipeline-status.sh^[[0m
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1233873Z shell: /usr/bin/bash -e {0}
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1234053Z env:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1234193Z   GIT_CONFIG_COUNT: 1
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1234331Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1234482Z   GIT_CONFIG_VALUE_0: main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1236255Z   NEEDS_JSON: {
+Pipeline Status	UNKNOWN STEP	  "detect-changes": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {
+Pipeline Status	UNKNOWN STEP	      "js-changed": "true",
+Pipeline Status	UNKNOWN STEP	      "docs-changed": "true",
+Pipeline Status	UNKNOWN STEP	      "any-code-changed": "true"
+Pipeline Status	UNKNOWN STEP	    }
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "test-compilation": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "check-file-line-limits": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "version-check": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "changeset-check": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "lint": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "test": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "docker-build": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "docker-publish-config": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "docker-publish-build": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "validate-docs": {
+Pipeline Status	UNKNOWN STEP	    "result": "success",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "release-preflight": {
+Pipeline Status	UNKNOWN STEP	    "result": "failure",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "release": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "instant-release": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "docker-publish": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  },
+Pipeline Status	UNKNOWN STEP	  "changeset-pr": {
+Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+Pipeline Status	UNKNOWN STEP	    "outputs": {}
+Pipeline Status	UNKNOWN STEP	  }
+Pipeline Status	UNKNOWN STEP	}
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1238185Z   RUN_SHA: 1e43fdb4fb26d69376b8663674c170212eb01765
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1238343Z   BRANCH_NAME: main
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1238459Z ##[endgroup]
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1749350Z Failed jobs:    release-preflight
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1749610Z Cancelled jobs: <none>
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1762033Z ##[error]Failing jobs: release-preflight
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1770489Z ##[error]Process completed with exit code 1.
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.1851690Z Post job cleanup.
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2372367Z [command]/usr/bin/git version
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2404564Z git version 2.55.0
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2429217Z Temporarily overriding HOME='/home/runner/work/_temp/1d2933cd-51ea-4f54-ac72-c49115a0e0ad' before making global git config changes
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2430073Z Adding repository directory to the temporary git global config as a safe directory
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2433448Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/js-ai-driven-development-pipeline-template/js-ai-driven-development-pipeline-template
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2466222Z Removing SSH command configuration
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2472503Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2494306Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2685846Z Removing HTTP extra header
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2690818Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2720073Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2916275Z Removing includeIf entries pointing to credentials config files
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2916896Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.2950962Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Pipeline Status	UNKNOWN STEP	2026-10-07T01:41:54.3256846Z Cleaning up orphan processes

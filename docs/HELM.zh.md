@@ -136,8 +136,9 @@ command:
     echo "$GITHUB_TOKEN" | gh auth login --with-token
 
     # Start the telegram bot
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
+    umask 077
+    configuration_file=$(mktemp)
+    cat > "$configuration_file" <<'LENV'
       TELEGRAM_ALLOWED_CHATS:
         -1002975819706
       TELEGRAM_HIVE_OVERRIDES:
@@ -146,10 +147,15 @@ command:
         --attach-logs
         --verbose
       TELEGRAM_BOT_VERBOSE: true
-    "
+    LENV
+    hive-telegram-bot --configuration-file "$configuration_file"
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  - name: TELEGRAM_BOT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hive-telegram-bot
+        key: token
 ```
 
 ### 自动扩缩容
@@ -271,7 +277,7 @@ command:
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:
@@ -403,13 +409,16 @@ kubectl describe pvc hive-mind
 **解决方案：**
 
 1. 验证密钥是否存在：`kubectl get secrets`
-2. 检查密钥内容：`kubectl describe secret hive-github-token`
-3. 在 Pod 内手动认证：
+2. 使用此命令检查所需的密钥项 `kubectl describe secret hive-github-token`.
+3. 在 Pod 内运行管理器。在本地浏览器中打开服务商提供的链接，然后按照提示操作。
+
    ```bash
-   kubectl exec -it deployment/hive-mind -- /bin/bash
-   gh auth login
-   claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth github
+   kubectl exec -i deployment/hive-mind -- hive-manager auth claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth codex
    ```
+
+   [手动登录命令](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 #### 内存不足
 

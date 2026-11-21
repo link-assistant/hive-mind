@@ -1,0 +1,47 @@
+### 132112854911 Formal AI draft (failure, 4 annotations)
+[failure] .github:24  :: Process completed with exit code 1.
+[failure] .github:23 Formal AI draft failed :: [DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error response from daemon: manifest for konard/hive-mind:2.40.1 not found: manifest unknown: manifest unknown
+[notice] .github:17 Formal AI draft decision :: run
+[notice] .github:13 Formal AI draft decision :: run
+### 131948313896 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948313133 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948312634 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948311809 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948311239 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948294647 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948292746 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948292494 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948290684 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131948289775 Dependabot (success, 1 annotations)
+[notice] .github:1  :: "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"
+### 131862263379 cleanup (success, 1 annotations)
+[warning] .github:17 Fixture branches retained :: 1380 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 1375 more). Removing them requires a ruleset exclusion, or a bypass for the cleanup token, that covers these disposable branches; this cleanup deletes them once the rule allows it.
+### 131835251072 Formal AI draft (failure, 4 annotations)
+[failure] .github:24  :: Process completed with exit code 1.
+[failure] .github:23 Formal AI draft failed :: [DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error response from daemon: manifest for konard/hive-mind:2.40.1 not found: manifest unknown: manifest unknown
+[notice] .github:17 Formal AI draft decision :: run
+[notice] .github:13 Formal AI draft decision :: run
+### 131757334245 Formal AI draft (failure, 4 annotations)
+[failure] .github:24  :: Process completed with exit code 1.
+[failure] .github:23 Formal AI draft failed :: [DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error response from daemon: manifest for konard/hive-mind:2.40.1 not found: manifest unknown: manifest unknown
+[notice] .github:17 Formal AI draft decision :: run
+[notice] .github:13 Formal AI draft decision :: run
+### 131636336502 Pipeline Status (failure, 2 annotations)
+[failure] .github:134  :: Process completed with exit code 1.
+[failure] .github:133  :: Pipeline failed. Failing jobs: native-codex-build
+### 131589125538 Verified native Codex package / Build and exercise linux-arm64 (failure, 1 annotations)
+[failure] .github:19  :: Process completed with exit code 1.
+### 131588804219 detect-changes (success, 4 annotations)
+[warning] .github:32 Stale dependency :: Dockerfile.formal-ai:10: library/rust 1.99 -> 1.100.0 (minor)
+[warning] .github:31 Stale dependency :: Dockerfile.dind:34: library/rust 1.99 -> 1.100.0 (minor)
+[warning] .github:30 Stale dependency :: Dockerfile:24: library/rust 1.99 -> 1.100.0 (minor)
+[warning] .github:29 Stale dependency :: coolify/Dockerfile:24: library/rust 1.99 -> 1.100.0 (minor)

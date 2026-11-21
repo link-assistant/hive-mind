@@ -49,6 +49,9 @@ import semver from 'semver';
 import { isFormalAiTask } from './formal-ai-sidecar.lib.mjs';
 import { hasUseRouterFlag } from './router-isolation.lib.mjs';
 import { RESUME_MODES } from './isolation-runner.resume.lib.mjs';
+import { buildShellCommand } from './shell-command.lib.mjs';
+import { runGuardedSnapshotResume } from './kill-recovery-snapshot-guard.lib.mjs';
+import { canPruneStoppedContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
 
 /** Why a killed session cannot be re-entered in place. Reported, never thrown. */
 export const IN_PLACE_SKIP_REASONS = Object.freeze({
@@ -62,6 +65,8 @@ export const IN_PLACE_SKIP_REASONS = Object.freeze({
   CONTAINER_GONE: 'container-gone',
   UNSUPPORTED: 'resume-unsupported',
   REFUSED: 'resume-refused',
+  STARTUP_FAILED: 'resume-startup-failed',
+  INSUFFICIENT_DISK: 'insufficient-disk',
   ERROR: 'resume-error',
 });
 
@@ -162,12 +167,14 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {Object} options
  * @param {string} options.sessionName - The killed session's name
  * @param {Object} options.sessionInfo - Persisted session info
- * @param {Object} options.plan - Result of planKillRecovery() (needs `command.display`)
+ * @param {Object} options.plan - Result of planKillRecovery() (needs `command.binary` and `command.args`)
  * @param {Object} options.runner - Isolation runner module
+ * @param {Function} [options.notify] - Recovery lifecycle reporter (`{phase, attempt, reason}`)
+ * @param {Object} [options.snapshotGuard] - Test seams for the #2889 guard (`queue`, `sleep`, `now`, `waitMs`, `pollMs`)
  * @param {boolean} [options.verbose]
- * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
+ * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerName?: string|null, originalRemoved?: boolean, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
  */
-export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, verbose = false } = {}) {
+export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify = async () => {}, snapshotGuard = {}, requireRetained = false, verbose = false } = {}) {
   const limited = hasSessionContainerResourceLimits(sessionInfo);
   let startCommandVersion = null;
   if (limited && typeof runner?.getStartCommandVersion === 'function') {
@@ -194,11 +201,32 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   const exists = await runner.checkDockerContainerExists(decision.containerName, verbose);
   if (!exists) return miss(IN_PLACE_SKIP_REASONS.CONTAINER_GONE);
 
-  const result = await runner.resumeIsolatedSession(decision.identifier, { command: plan?.command?.display || null, verbose });
+  // Match the launch path's exec form and quote each argv element. A display
+  // string may contain Telegram syntax or shell substitutions (#2630).
+  const command = plan?.command ? `exec ${buildShellCommand(plan.command.binary || sessionInfo?.command || 'solve', plan.command.args)}` : null;
+  const resume = () => runner.resumeIsolatedSession(decision.identifier, { command, verbose, ...(requireRetained ? { requireRetained: true } : {}) });
+  // Issue #2889: a replacement command makes `$ --resume` commit the whole
+  // writable layer. Several commits after one host-wide kill filled the disk,
+  // so snapshots run one at a time and only with enough free disk. Containers
+  // launched by start-command >= 0.37.0 carry a command handoff instead, and
+  // `$` restarts them with `docker start`: nothing is copied, nothing waits.
+  const launch = command && typeof runner?.inspectDockerTaskLaunch === 'function' ? await Promise.resolve(runner.inspectDockerTaskLaunch(decision.containerName, { verbose })).catch(() => null) : null;
+  let guarded;
+  if (!command || launch?.commandHandoff) {
+    if (command) await Promise.resolve(notify({ phase: 'launching', attempt: plan?.attempt ?? null, reason: `Resuming in the same container ${decision.containerName} with docker start: no snapshot needed.` })).catch(() => {});
+    guarded = { skipped: false, result: await resume() };
+  } else {
+    // Legacy containers behind a fail-closed start gate shed their build
+    // caches first, so the commit copies less.
+    const prune = !requireRetained && canPruneStoppedContainer(launch) && typeof runner?.pruneStoppedContainerCaches === 'function' ? () => runner.pruneStoppedContainerCaches(decision.containerName, { launch, verbose }) : null;
+    guarded = await runGuardedSnapshotResume({ sessionName, sessionInfo, containerName: decision.containerName, runner, notify, attempt: plan?.attempt ?? null, prune, verbose, ...snapshotGuard }, resume);
+  }
+  if (guarded.skipped) return { ...miss(IN_PLACE_SKIP_REASONS.INSUFFICIENT_DISK), error: guarded.detail };
+  const result = guarded.result;
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);
-    return miss(reason);
+    return requireRetained ? { ...miss(reason), error: result?.error } : miss(reason);
   }
 
   // `docker-snapshot` names the new container `<session>-resume-<attempt>`; the
@@ -225,6 +253,33 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
     if (resourceLimitReapplyError) console.warn(`[session-kill-resume] Could not re-assert CPU/RAM limits on resumed container ${resumedContainer}: ${resourceLimitReapplyError}`);
     else if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName}: CPU/RAM limits re-asserted on ${resumedContainer}`);
   }
+  // A successful `$ --resume` means launch accepted; the shell can still die
+  // immediately. Inspect the replacement, never the killed original's state.
+  if (resumedContainer && typeof runner?.checkResumedDockerStartup === 'function') {
+    const startup = await runner.checkResumedDockerStartup(resumedContainer, { verbose });
+    if (startup?.failed) {
+      let cleanup = { success: false, error: `Retained resume container ${resumedContainer} and snapshot image ${result.snapshotImage || '(none reported)'}.` };
+      if (result.mode === RESUME_MODES.DOCKER_SNAPSHOT && typeof runner?.cleanupFailedResumeSnapshot === 'function') {
+        try {
+          cleanup = await runner.cleanupFailedResumeSnapshot(result, { verbose });
+        } catch (error) {
+          cleanup.error += ` Cleanup failed: ${error?.message || error}`;
+        }
+      }
+      const error = `${startup.error || `Automatic recovery could not start: exit ${startup.exitCode}.`}${cleanup?.success ? '' : ` ${cleanup?.error || 'Resume artifact cleanup failed.'}`}`;
+      console.warn(`[session-kill-resume] ${error}`);
+      return { ...miss(IN_PLACE_SKIP_REASONS.STARTUP_FAILED), error, exitCode: startup.exitCode, snapshotImage: result.snapshotImage || null };
+    }
+  }
+  // Issue #2889: the replacement runs on the snapshot image, which holds every
+  // file of the stopped original; keeping the original doubles the disk used.
+  let originalRemoved = false;
+  if (result.mode === RESUME_MODES.DOCKER_SNAPSHOT && typeof runner?.removeReplacedResumeOriginal === 'function') {
+    const removal = await Promise.resolve(runner.removeReplacedResumeOriginal(result, { originalName: decision.containerName, verbose })).catch(error => ({ removed: false, error: error?.message || String(error) }));
+    originalRemoved = removal?.removed === true;
+    if (originalRemoved) console.log(`[session-kill-resume] Removed ${decision.containerName}: its files continue in ${resumedContainer} (image ${result.snapshotImage || 'unknown'})`);
+    else console.warn(`[session-kill-resume] ${removal?.error || `Kept ${decision.containerName}.`}`);
+  }
   // Disk: a snapshot keeps what was written as image layers under a new, empty
   // writable layer, so that usage is carried; `docker-start` keeps the same
   // writable layer (only earlier carries remain); a relaunch starts over.
@@ -240,6 +295,8 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
     executionUuid: result.uuid || decision.identifier,
     mode: result.mode || null,
     snapshotImage: result.snapshotImage || null,
+    containerName: resumedContainer || null,
+    originalRemoved,
     containerFilesystemInheritedBytes,
     resourceLimitReapplyError,
   };

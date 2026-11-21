@@ -121,7 +121,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 **The Solution**: Hive Mind supports multiple AI backends:
 
 - **Claude** (Sonnet, Opus, Haiku) - Default and recommended
-- **OpenCode** (Grok) - Free Grok Code Fast model included
+- **OpenCode** (OpenCode Zen) - Free Big Pickle model included
 - **Codex** (OpenAI) - For OpenAI API users
 - **Agent** - Custom AI agent framework
 
@@ -136,7 +136,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 - Filter by labels or process all issues
 - Auto-fork for repos without write access
 - Continuous monitoring with configurable intervals
-- Repository mode: pass a repository URL to `solve` to combine every open issue into one issue with GitHub native sub-issues and close them all with a single pull request (`--auto-merge` waits until the description closes every listed issue); an empty repository is reported as a successful no-op without starting Telegram work
+- Repository mode: pass a repository URL to `solve` to combine every open issue into one issue with GitHub native sub-issues and close them all with a single pull request (`--auto-merge` waits until the description closes every listed issue); a repository with exactly one open issue solves that issue directly without a combined issue; an empty repository is reported as a successful no-op without starting Telegram work
 
 ### 9. Human Oversight Where It Matters
 

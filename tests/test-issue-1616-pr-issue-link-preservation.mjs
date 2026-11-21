@@ -49,7 +49,7 @@ const appended = ensureIssueLinkInPullRequestBody(codexEditedBodyWithoutIssueLin
 
 assert(appended.updated === true, 'Missing issue link is detected as an update');
 assert(appended.body.includes('Fixes auto-resume parsing'), 'Existing PR body content is preserved');
-assert(appended.body.endsWith('\n\nFixes #1614'), 'Short issue-closing keyword is appended for same-repo PRs');
+assert(appended.body.endsWith('\n\n---\n\nFixes #1614'), 'Short issue-closing keyword is appended for same-repo PRs');
 assertEquals(appended.issueRef, '#1614', 'Same-repo issue reference uses short form');
 
 const alreadyLinked = `## Summary
@@ -83,7 +83,7 @@ const forkResult = ensureIssueLinkInPullRequestBody('## Summary\n\nImplementatio
 });
 
 assertEquals(forkResult.issueRef, 'link-assistant/hive-mind#1614', 'Fork issue reference uses owner/repo form');
-assert(forkResult.body.endsWith('\n\nFixes link-assistant/hive-mind#1614'), 'Fork issue-closing keyword is appended with owner/repo');
+assert(forkResult.body.endsWith('\n\n---\n\nFixes link-assistant/hive-mind#1614'), 'Fork issue-closing keyword is appended with owner/repo');
 
 const emptyBodyResult = ensureIssueLinkInPullRequestBody('', {
   issueNumber: 1614,

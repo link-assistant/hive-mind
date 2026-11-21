@@ -96,9 +96,9 @@ export function markCompletionHandled(sessionInfo, { exitCode = null, status = n
  * @param {string|null} [options.logPath] - Working-session log to scan
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readLastSessionId] - Override for tests
- * @returns {{id: string|null, cached: boolean, scanned: boolean}}
+ * @returns {Promise<{id: string|null, cached: boolean, scanned: boolean}>}
  */
-export function resolveCachedLastToolSessionId({ sessionInfo = null, logPath = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
+export async function resolveCachedLastToolSessionId({ sessionInfo = null, logPath = null, verbose = false, readLastSessionId = readLastSessionIdFromLog } = {}) {
   const cached = sessionInfo?.lastToolSessionId;
   if (typeof cached === 'string') {
     if (verbose && cached) {
@@ -108,7 +108,7 @@ export function resolveCachedLastToolSessionId({ sessionInfo = null, logPath = n
   }
   let id;
   try {
-    id = readLastSessionId(logPath, { verbose }) || null;
+    id = (await readLastSessionId(logPath, { verbose })) || null;
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] session-completion-state: could not read last tool session id from ${logPath}: ${error?.message || error}`);

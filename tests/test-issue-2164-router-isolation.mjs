@@ -14,6 +14,7 @@
 
 import { buildRouterCodexConfig, buildRouterGitConfigEntries, buildRouterTaskEnv, buildRouterTaskWiringScript, describeRouterCoverageGaps, getInternalRouterBaseUrl, getRouterSuppressedCredentialPaths, isRouterEnabled, normalizeRouterBaseUrl, resolveRouterBaseUrl, resolveRouterGhHost, resolveRouterGitHubRouting, ROUTER_CA_BUNDLE_CONTAINER_PATH, ROUTER_CA_CONTAINER_PATH, ROUTER_GITHUB_API_HOST, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 import { buildDockerIsolationStartArgs, getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
+import assert from 'node:assert/strict';
 
 let passed = 0;
 let failed = 0;
@@ -49,7 +50,7 @@ const TASK_TOKEN = 'la_sk_x';
 
 const HOME = '/home/box';
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
+const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.codex/archived_sessions`, `${HOME}/.codex/thread-writer-locks`, `${HOME}/.codex/rollout-migrations`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
 const existsAll = candidate => hostPaths.has(candidate);
 const mountPairs = mounts => mounts.map(mount => `${mount.source}:${mount.target}`);
 // Matched as a whole hostname rather than with `includes`: a substring test on a
@@ -100,7 +101,7 @@ const ROUTER = getInternalRouterBaseUrl();
 const claudeTaskEnv = buildRouterTaskEnv({ tool: 'claude', baseUrl: ROUTER, token: TASK_TOKEN });
 assertEqual(claudeTaskEnv.ANTHROPIC_BASE_URL, ROUTER, 'claude is redirected via ANTHROPIC_BASE_URL');
 assertEqual(matches([claudeTaskEnv.ANTHROPIC_AUTH_TOKEN, claudeTaskEnv.ANTHROPIC_API_KEY], [TASK_TOKEN, TASK_TOKEN]), true, "and the task's token is offered in both forms the router accepts");
-assertEqual(matches(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'CURL_CA_BUNDLE', 'GH_TOKEN', 'GITHUB_TOKEN', 'GIT_TERMINAL_PROMPT', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER', 'NODE_EXTRA_CA_CERTS', 'REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE']), true, 'and nothing else is injected');
+assertEqual(matches(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'CURL_CA_BUNDLE', 'GH_TOKEN', 'GITHUB_TOKEN', 'GIT_TERMINAL_PROMPT', 'HIVE_MIND_ROUTER_ROUTES', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER', 'NODE_EXTRA_CA_CERTS', 'REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE']), true, 'and nothing else is injected');
 assertEqual(claudeTaskEnv.GH_HOST, undefined, 'gh keeps its own host: the interception happens in DNS, so every gh command form is covered');
 assertEqual(claudeTaskEnv.GH_TOKEN === TASK_TOKEN, true, 'gh authenticates to the router with the same scoped token, and holds no GitHub credential');
 
@@ -149,17 +150,17 @@ assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude' }), ['.claud
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'codex' }), ['.codex', '.agents'], 'a routed codex task loses both Codex credential paths');
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude', ghRouted: true }), ['.claude', '.claude.json', '.config/gh'], 'the gh credential is withheld once GitHub is routed');
 
-const defaultClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
+const defaultClaudeMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
 assertDeepEqual(defaultClaudeMounts, [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
 
-const routedClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
+const routedClaudeMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(
   routedClaudeMounts.some(pair => pair.includes('.claude')),
   false,
   'nothing named .claude survives into a routed container'
 );
 
-const routedCodexMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
+const routedCodexMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(
   routedCodexMounts.some(pair => pair.includes('.codex') || pair.includes('.agents')),
   false,
@@ -167,7 +168,7 @@ assertEqual(
 );
 assertEqual(routedCodexMounts.includes(`${HOME}/.gitconfig:${HOME}/.gitconfig`), true, 'the git identity is still mounted: it is not a subscription credential (issue #1939)');
 
-const ghRoutedMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true, ghRouted: true }));
+const ghRoutedMounts = mountPairs(await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true, ghRouted: true }));
 assertEqual(
   ghRoutedMounts.some(pair => pair.includes('.config/gh')),
   false,
@@ -188,8 +189,8 @@ const installedGuard = () => ({ installed: true, dir: GUARD_DIR, hookPath: `${GU
 const failedGuard = () => ({ installed: false, dir: GUARD_DIR, hookPath: `${GUARD_DIR}/pre-push`, error: 'EACCES' });
 
 const launchOptions = { sessionId: 'sess-2164', tool: 'claude', env: {}, homeDir: HOME, existsSync: existsAll, installGuard: installedGuard };
-const defaultArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], launchOptions);
-const routedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task' });
+const defaultArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], launchOptions);
+const routedArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task' });
 
 assertDeepEqual(envValues(defaultArgs, 'ANTHROPIC_BASE_URL'), [], 'a default launch injects no router endpoint');
 assertDeepEqual(envValues(routedArgs, 'ANTHROPIC_BASE_URL'), [ROUTER], 'a routed launch points Claude Code at the sidecar');
@@ -210,12 +211,13 @@ assertEqual(
   true,
   'and the github.com rewrite among them'
 );
-assertDeepEqual(buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), defaultArgs, 'without an issued token the launch falls back to the default mounts rather than stranding the agent with no model access');
+await assert.rejects(buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), /Router.*token/i);
+pass('without an issued token an explicitly selected Router launch is rejected');
 
 // A guard that cannot be written to the host is not fatal — the remaining R13
 // layers still apply — but it must drop cleanly out of the git config rather
 // than leaving a hooksPath pointing at a mount that was never made.
-const unguardedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task', installGuard: failedGuard });
+const unguardedArgs = await buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task', installGuard: failedGuard });
 assertDeepEqual(envValues(unguardedArgs, 'GIT_CONFIG_COUNT'), ['4'], 'a guard that could not be installed leaves only the router git settings');
 assertEqual(
   unguardedArgs.some(value => value.startsWith('GIT_CONFIG_VALUE_') && value.includes(GUARD_DIR)),
@@ -260,6 +262,14 @@ assertEqual(
   describeRouterCoverageGaps({ model: 'formal-ai' }).some(gap => gap.includes('formal-ai') || gap.includes('Formal AI')),
   true,
   '--model formal-ai explains how it reaches the router (R11)'
+);
+assertEqual(
+  describeRouterCoverageGaps({ model: 'formalai/formal-ai' })
+    .map(gap => (gap.includes('Formal AI sidecar') ? 'formal-ai' : gap.includes('exact model ids') ? 'alias' : null))
+    .filter(Boolean)
+    .join(','),
+  'formal-ai',
+  '#3215: the provider-qualified spelling is Formal AI too, not an unknown alias'
 );
 assertEqual(
   describeRouterCoverageGaps({ model: 'sonnet' }).some(gap => gap.includes('exact model ids')),

@@ -9,7 +9,8 @@
  *   - Scala (`--tool agent`): each session wrote `Main.scala`, hit
  *     `/bin/sh: 1: scala: not found`, reported "Created and verified" and
  *     committed nothing, so every session ended with the same final message and
- *     the same one-line `git status --porcelain`;
+ *     the same one-line `git status --porcelain` (since #2839 only the working
+ *     tree and `HEAD` are compared, see no-progress-paraphrased-messages-2839);
  *   - Rust (`--tool codex`): each session echoed the same raw issue JSON and
  *     changed nothing at all.
  *
@@ -97,9 +98,11 @@ const scalaSession = (n, overrides = {}) => ({ finalMessage: SCALA_MESSAGE, gitS
   // Cosmetic reflow of the same answer must not read as a different session.
   assert.equal(buildSessionFingerprint({ finalMessage: 'Created   and\nverified', gitStatus: '', head: '' }), buildSessionFingerprint({ finalMessage: 'Created and verified', gitStatus: '', head: '' }));
   assert.equal(normalizeSessionMessage('  a \n\n b  '), 'a b');
-  assert.notEqual(buildSessionFingerprint({ finalMessage: 'a', gitStatus: '', head: '' }), buildSessionFingerprint({ finalMessage: 'b', gitStatus: '', head: '' }));
-  // The three parts must not be able to bleed into each other.
-  assert.notEqual(buildSessionFingerprint({ finalMessage: 'a', gitStatus: 'b', head: '' }), buildSessionFingerprint({ finalMessage: 'a b', gitStatus: '', head: '' }));
+  // Issue #2839: neither does a reworded one - the message is not compared at all.
+  assert.equal(buildSessionFingerprint({ finalMessage: 'a', gitStatus: '', head: '' }), buildSessionFingerprint({ finalMessage: 'b', gitStatus: '', head: '' }));
+  // The two parts must not be able to bleed into each other.
+  assert.notEqual(buildSessionFingerprint({ gitStatus: 'a', head: 'b' }), buildSessionFingerprint({ gitStatus: 'a b', head: '' }));
+  assert.notEqual(buildSessionFingerprint({ gitStatus: '', head: 'a' }), buildSessionFingerprint({ gitStatus: 'a', head: '' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +228,6 @@ for (const [file, mode] of [
 
 const finalize = await read('src/solve.finalize.lib.mjs');
 assert.ok(finalize.includes('hasNoProgressFailure()'), 'the run exits non-zero: the task is unfinished');
-assert.ok(/safeExit\(1, 'No progress between sessions'\)/.test(finalize));
+assert.ok(/safeExit\(1, [^)]*'No progress between sessions'\)/.test(finalize)); // #2293 shares the exit with the repeated-CI stop
 
 console.log('PASS: issue #2247 (H3) no-progress-between-sessions detection');

@@ -17,26 +17,26 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, extractToolErrorCore, getLogFile } = lib;
 
 // Import feedback detection functions
-const feedbackLib = await import('./solve.feedback.lib.mjs');
+import * as feedbackLib from './solve.feedback.lib.mjs';
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
 // Import GitHub functions for log attachment
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 const { detectAndCountFeedback } = feedbackLib;
 
 // Import shared utilities from the restart-shared module
-const restartShared = await import('./solve.restart-shared.lib.mjs');
+import * as restartShared from './solve.restart-shared.lib.mjs';
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
 // Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
@@ -59,17 +59,17 @@ const { reportAutomationStop } = stopReportingLib;
 const { recordLoopToolFailure } = await import('./automation-failure.lib.mjs');
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
-const { resumeAfterToolKill } = await import('./solve.tool-kill-resume.lib.mjs'); // Issue #2408
+const { interruptibleSleep, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
+import { resumeAfterToolKill } from './solve.tool-kill-resume.lib.mjs'; // Issue #2408
 // Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
 // a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
 // every label renders in the same `N/M` form.
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, hasExhaustedAutoRestartBudget } = autoRestartBudget;
-const { buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+import { buildUncommittedChangesRestartComment, failOnAutoRestartBudgetExhausted } from './auto-restart-exhaustion.lib.mjs';
 // Issue #2247 (H3): the Scala reproduction run restarted five times, each
 // session byte-identical to the last, and committed nothing in any of them.
-const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
+import { stopWhenSessionRepeated } from './session-progress.lib.mjs';
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
@@ -85,7 +85,7 @@ const { trackAuthenticatedUserCommentsSince } = autoMergeHelpers;
 // Issue #1763: Per-iteration PR ↔ issue link verification (in case the AI
 // agent overwrites the PR body without a closing keyword and the iteration
 // ends up being the last one).
-const resultsLib = await import('./solve.results.lib.mjs');
+import * as resultsLib from './solve.results.lib.mjs';
 const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
 // Issue #1056: Auto-resume on uncommitted changes — decide whether to call the
@@ -154,6 +154,8 @@ export const watchForFeedback = async params => {
   let noProgressStop = null;
 
   while (true) {
+    // Issue #4048: stand down while the interrupt handler commits and uploads the log.
+    await parkIfShuttingDown(log, reason => formatAligned('🛑', 'Monitoring stopped:', `${reason} received — waiting for the interrupt handler to finish`, 2));
     iteration++;
     const currentTime = new Date();
 
@@ -285,11 +287,16 @@ export const watchForFeedback = async params => {
 
     try {
       // Get PR merge state status
-      const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+      const prStateResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
       const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
 
       // Detect feedback using existing function
-      let { feedbackLines } = await detectAndCountFeedback({
+      let {
+        feedbackLines,
+        newPrComments = 0,
+        newPrReviewComments = 0,
+        newIssueComments = 0,
+      } = await detectAndCountFeedback({
         prNumber,
         branchName: prBranch || branchName,
         owner,
@@ -332,7 +339,9 @@ export const watchForFeedback = async params => {
           // before it, so re-running it would leave these same changes
           // uncommitted a sixth time. Stop, preserve the work, and leave the
           // remaining budget unspent.
-          noProgressStop = await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'watch', verbose: argv.verbose });
+          // Issue #2839: the message is no longer compared, so a new human comment must exempt the check here too.
+          const hasNewHumanComments = newPrComments + newPrReviewComments + newIssueComments > 0;
+          noProgressStop = hasNewHumanComments ? null : await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'watch', verbose: argv.verbose });
           if (noProgressStop) break;
 
           // Issue #2119: claim one iteration from the run-wide budget shared with
@@ -455,7 +464,10 @@ export const watchForFeedback = async params => {
         const runIteration = ({ argv: iterationArgv, feedbackLines }) => executeToolIteration({ issueUrl, owner, repo, issueNumber, prNumber, branchName: prBranch || branchName, tempDir, mergeStateStatus, feedbackLines, argv: iterationArgv });
         let toolResult = await runIteration({ argv: restartArgv, feedbackLines: restartFeedbackLines });
         // Issue #2408: a tool killed by SIGKILL (exit 137, OOM) resumes its own session in-process.
-        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log }));
+        // Issue #2498: once the pull request is merged nothing is recovered; the next pass sees the merge and finishes.
+        let toolKillWorkDone = false;
+        if (!toolResult.success) ({ toolResult, attemptsUsed: toolKillResumeCount, workDone: toolKillWorkDone } = await resumeAfterToolKill({ toolResult, attemptsUsed: toolKillResumeCount, argv, runIteration, $, owner, repo, prNumber, log, isWorkDone: () => checkPRMerged(owner, repo, prNumber) }));
+        if (toolKillWorkDone) continue;
 
         if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
           global.previousSessionId = toolResult.sessionId;
@@ -465,7 +477,7 @@ export const watchForFeedback = async params => {
         // during this session window so they are filtered (by ID) on the next
         // feedback check instead of re-triggering a restart.
         try {
-          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, quietProbe($), { verbose: argv.verbose });
           if (argv.verbose && tracked.length > 0) {
             await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as feedback)`, 2));
           }

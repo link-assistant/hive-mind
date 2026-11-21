@@ -1,0 +1,88 @@
+Router Claude/Codex admission, 2026-10-31 UTC
+
+Bounded requirement: refuse known credential-file divergence before native
+command creation, including connection probes and resumed execution, and
+preserve the security failure rather than enter ordinary recovery.
+
+Strict before controls:
+- Launch/file-admission controls: 34 tests, 14 pass and 20 fail. Commands are
+  created before refusal; disabling the guard, dropping the task token,
+  unreadable paths and quoted/dotted provider declarations bypass checks.
+- Connection controls: 11 tests, two pass and nine fail. Initial and post-version
+  credential divergence can reach a paid connection command or fallback.
+- Startup/execution handler controls: three failures show security errors
+  entering ordinary recovery instead of retaining exit 77.
+- The interval control accepts 60000 ms; the untrusted-provider control echoes
+  a synthetic private sentinel in its rejection diagnostic.
+
+Production repair:
+- Check before model discovery, connection validation and actual Claude/Codex
+  command-stream construction. Recheck every connection fallback and every
+  execution attempt; include argv-selected Router mode even if its environment
+  marker was disabled. Preserve existing new/resume argument construction.
+- Retain security exit 77 through startup/execution errors and bypass ordinary
+  retry/reporting/recovery, including pre-exit repository operations.
+- Missing task tokens cannot disable admission. The legacy guard-disable flag
+  cannot waive Router selection, and configured polling is capped at one second.
+- Parse provider pins and project overrides as TOML, requiring the Router
+  provider, exact expected endpoint and OPENAI_API_KEY environment pin.
+- Inspect bounded regular files through nonblocking no-follow descriptors;
+  reject permission errors, FIFOs, oversized files, malformed JSON/TOML and
+  invalid UTF-8 without logging their contents. ENOENT alone means absent.
+- Use the native launch environment's HOME when describing the guarded paths.
+
+A separate isolated Alpine shell control uses only synthetic environment data,
+no network and no native CLI. Its login profile replaces the admitted key,
+endpoint and configuration root under sh -lc; sh -c preserves all three.
+Four production Codex launch tests fail before repair: new/resumed execution
+with environment/argv Router selection. Routed commands now use sh -c, and
+all four pass. Existing ordinary Formal AI commands retain sh -lc.
+Reproducer: experiments/issue-3785/probe-router-login-shell.mjs.
+Each isolated shell/container has finite lifetime, data/stack/core/process
+limits, read-only mounts and no network, and is removed/reaped before cleanup.
+Initial Docker setup failures were environmental and are not behavior evidence.
+
+Final focused invocation (sequential test files):
+node --test tests/issue-3785-router-native-admission.test.mjs
+  tests/issue-3785-router-connection-admission.test.mjs
+  tests/issue-3785-router-admission.test.mjs
+  tests/claude-prompt-argv-3282.test.mjs
+  tests/codex-formal-ai-restart-3212.test.mjs
+  tests/codex-process-exit-2745.test.mjs
+All 91 controls pass, including existing command, provider, process and Router
+tests. An intermediate shell interpolation changed the tagged-template argument
+shape and broke the 13 existing process controls. Literal shell branches retain
+that argument shape; all 13 controls now pass with the Router launch controls.
+The FIFO regression also bounds its subprocess deadline and output.
+
+Local suite investigation:
+- The first broad invocation applied NODE_OPTIONS=--max-old-space-size=160.
+  It passed 577 files before the existing sanitizer expected its 48 MiB worker
+  to terminate but the larger effective heap allowed it to complete.
+- The allocation-free probe-worker-heap-override.mjs demonstrates the runtime
+  difference: native worker heap_size_limit=150994944 bytes versus 268435456
+  with the parent override, although both report the declared 48 MiB resource
+  limit. This is a test-invocation effect, not a Router change.
+- Running that unchanged sanitizer test without NODE_OPTIONS passes all 40
+  controls. Subsequent complete-suite runs omit the override.
+
+The final complete suite passes all 756 selected files without NODE_OPTIONS.
+Log SHA256:
+52076b45fcc697c4a1ceacb5c0e37f045133b9b640e6b76816fcae55a4b86b05
+All 22755 lines were reviewed in 16 chunks of at most 1500 lines. Expected
+synthetic upload-failure diagnostics belong to the passing resilience tests.
+
+The exact synchronous-call baseline is updated from one to four: these bounded
+admission reads run in solve, outside the bot's event-loop command paths.
+The baseline regression and strict file-line checks pass.
+
+Boundaries: these are launch/file-admission controls plus persistent-change
+polling, not complete native request authority. Directory replacement races,
+in-memory credentials, every native request/refresh writer, all six tools,
+durable audit, default storage migration and restart/failure lifecycle remain
+unfinished. The original acceptance inventory stays authoritative, and the
+pull request remains draft and unmerged.
+
+Repository checks at this change: full lint, Secretlint and file-line limits
+pass. Duplication is 10.04%, below the repository threshold of 12%. Changed
+source, tests, experiments and documentation pass Prettier.

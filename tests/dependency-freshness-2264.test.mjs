@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
-import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveDockerHubLatest, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, parseUseMLiteralPins, resolveDockerHubLatest, resolveGitHubLatest, resolveNodeLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -25,6 +25,23 @@ assert.equal(assessVersionPin({ current: '^1.2.0', latest: '1.3.0', policy: 'exa
 assert.equal(assessVersionPin({ current: 'v7', latest: 'v7.2.1', policy: 'major' }).current, true);
 assert.equal(assessVersionPin({ current: 'v6', latest: 'v7.2.1', policy: 'major' }).current, false);
 assert.equal(assessVersionPin({ current: '1.98', latest: '1.98.1', policy: 'minor' }).current, true);
+
+{
+  const release = (version, node) => ({ version, engines: { node } });
+  const latest = release('2.0.0', '>=26.13.1');
+  const versions = {
+    '1.0.0': release('1.0.0', '>=22.13.0'),
+    '2.0.0': latest,
+    '2.1.0-beta.1': release('2.1.0-beta.1', '>=24.0.0'),
+    '1.1.0': release('1.1.0', '>=24.0.0'),
+  };
+  const options = { fetchImpl: async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? latest : { versions }) }) };
+  const sanitizer = '@link-foundation/sensitive-data-sanitizer';
+  assert.equal(await resolveNpmLatest(sanitizer, { minimumNode: '24.0.0' }, options), '1.1.0', 'the newest compatible stable release is still required');
+  assert.equal(await resolveNpmLatest(sanitizer, { minimumNode: '26.13.1' }, options), '2.0.0', 'supporting a newer Node runtime restores the latest release automatically');
+  assert.equal(await resolveNpmLatest(sanitizer, {}, options), '2.0.0', 'records with no Node compatibility policy still track the latest release');
+  await assert.rejects(resolveNpmLatest(sanitizer, { minimumNode: '20.0.0' }, options), /no stable release/);
+}
 
 assert.equal(
   await resolveGitHubLatest(
@@ -63,6 +80,61 @@ assert.equal(
 
 await assert.rejects(resolveDockerHubLatest('library/empty', {}, { fetchImpl: async () => ({ ok: true, json: async () => ({ results: [{ name: 'latest' }] }) }) }), /no semantic tags/, 'a registry answer without versions is an error, never a pass');
 
+// Node 26.13.0 was advertised in GitHub and the distribution index while its
+// checksum manifest still returned 404. NVM refuses that release, so require
+// published checksums for both Linux architectures used by our images.
+{
+  const index = [{ version: 'v27.0.0-rc.1' }, { version: 'v26.13.0' }, { version: 'v26.12.1' }];
+  const checksums = version => ['x64', 'arm64'].map(arch => `${'a'.repeat(64)}  node-${version}-linux-${arch}.tar.xz`).join('\n');
+  for (const unpublished of ['missing-manifest', 'missing-arm64', 'invalid-checksum']) {
+    const requested = [];
+    const latest = await resolveNodeLatest(
+      'nodejs/node',
+      {},
+      {
+        fetchImpl: async url => {
+          requested.push(url);
+          if (url.endsWith('/index.json')) return { ok: true, json: async () => index };
+          if (url.includes('/v26.13.0/')) {
+            return unpublished === 'missing-manifest' ? { ok: false, status: 404 } : { ok: true, text: async () => (unpublished === 'invalid-checksum' ? checksums('v26.13.0').replace(/^a{64}/gm, 'z'.repeat(64)) : checksums('v26.13.0').split('\n')[0]) };
+          }
+          return { ok: true, text: async () => checksums('v26.12.1') };
+        },
+      }
+    );
+    assert.equal(latest, 'v26.12.1', `${unpublished} cannot force an uninstallable Node pin`);
+    assert.equal(
+      requested.some(url => url.includes('27.0.0')),
+      false,
+      'prereleases are ignored'
+    );
+    assert.equal(
+      requested.every(url => url.startsWith('https://nodejs.org/dist/')),
+      true,
+      'the installer distribution is authoritative'
+    );
+  }
+  assert.equal(await resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: true, text: async () => checksums('v26.13.0') }) }), 'v26.13.0', 'the newly published release wins once its checksums exist');
+  await assert.rejects(resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: false, status: 503 }) }), /503/, 'service errors fail closed rather than silently choosing an old version');
+  await assert.rejects(resolveNodeLatest('nodejs/node', {}, { fetchImpl: async url => (url.endsWith('/index.json') ? { ok: true, json: async () => index } : { ok: false, status: 404 }) }), /no installable stable release/i, 'missing distributions never pass without a verified release');
+  let manifestRequests = 0;
+  await assert.rejects(
+    resolveNodeLatest(
+      'nodejs/node',
+      {},
+      {
+        fetchImpl: async url => {
+          if (url.endsWith('/index.json')) return { ok: true, json: async () => Array.from({ length: 11 }, (_, patch) => ({ version: `v26.0.${patch}` })) };
+          manifestRequests++;
+          return { ok: false, status: 404 };
+        },
+      }
+    ),
+    /no installable stable release/i
+  );
+  assert.equal(manifestRequests, 10, 'unavailable manifests cannot trigger an unbounded release-history scan');
+}
+
 assert.deepEqual(
   parseGitHubActionPins('steps:\n  - uses: actions/checkout@v7\n  - uses: zizmorcore/zizmor-action@v0.6.2\n  - uses: ./local-action\n', 'fixture.yml').map(record => [record.name, record.current, record.policy]),
   [
@@ -79,6 +151,16 @@ assert.deepEqual(
   ]
 );
 
+// A version literal handed to use-m outside USE_M_PACKAGE_VERSIONS is still a
+// pin: claude-runtime.mjs loaded yargs@17.7.2 while src/ was on 18.x.
+assert.deepEqual(
+  parseUseMLiteralPins("const y = await use('yargs@17.7.2');\nconst { hideBin } = await use(\"yargs@17.7.2/helpers\");\nconst z = await use('zx');\n", 'claude-runtime.mjs').map(record => [record.name, record.current, record.location]),
+  [
+    ['yargs', '17.7.2', 'claude-runtime.mjs:1'],
+    ['yargs', '17.7.2', 'claude-runtime.mjs:2'],
+  ]
+);
+
 {
   const result = await checkDependencyRecords(
     [
@@ -86,11 +168,13 @@ assert.deepEqual(
       { kind: 'npm', name: 'stale-package', current: '1.0.0', policy: 'exact', location: 'Dockerfile' },
       { kind: 'github', name: 'owner/action', current: 'v3', policy: 'major', location: 'workflow.yml' },
       { kind: 'docker', name: 'library/rust', current: '1.98', policy: 'minor', location: 'Dockerfile' },
+      { kind: 'node', name: 'nodejs/node', current: '26.12.1', policy: 'exact', location: 'Dockerfile:10' },
     ],
     {
       resolveNpmLatest: async name => ({ 'current-package': '2.1.0', 'stale-package': '1.2.0' })[name],
       resolveGitHubLatest: async () => 'v3.4.5',
       resolveDockerHubLatest: async () => '1.98.1',
+      resolveNodeLatest: async () => 'v26.12.1',
     }
   );
 
@@ -98,11 +182,13 @@ assert.deepEqual(
     result.stale.map(record => record.name),
     ['stale-package']
   );
-  assert.equal(result.current.length, 3);
+  assert.equal(result.current.length, 4);
   assert.deepEqual(result.errors, []);
 }
 
 const repositoryRecords = await collectDependencyRecords({ root: repositoryRoot });
+const manifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+assert.equal(repositoryRecords.find(record => record.name === '@link-foundation/sensitive-data-sanitizer' && record.location === 'package.json#dependencies')?.minimumNode, manifest.engines.node.replace(/^>=\s*/, ''));
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === '@sentry/node'),
   true,
@@ -112,6 +198,11 @@ assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'command-stream'),
   true,
   'runtime use-m pins are checked'
+);
+assert.equal(
+  repositoryRecords.some(record => record.location.startsWith('experiments/') || record.location.startsWith('tests/')),
+  false,
+  'experiments and tests pin historical versions on purpose and are not scanned'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'actions/checkout'),
@@ -139,9 +230,14 @@ assert.equal(
   'GitHub toolchain tags never gate the builder image'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'link-assistant/formal-ai'),
+  repositoryRecords.some(record => record.kind === 'crate' && record.name === 'formal-ai' && /^\d+\.\d+\.\d+$/.test(record.current)),
   true,
-  'embedded Formal AI builds are checked'
+  'embedded Formal AI builds are checked against crates.io, the registry cargo installs from'
+);
+assert.equal(
+  repositoryRecords.some(record => record.name === 'link-assistant/formal-ai'),
+  false,
+  'Formal AI GitHub tags never gate the cargo install pin'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'github' && record.name === 'oven-sh/bun'),
@@ -149,9 +245,9 @@ assert.equal(
   'embedded Bun builds are checked'
 );
 assert.equal(
-  repositoryRecords.some(record => record.kind === 'github' && record.name === 'nodejs/node'),
+  repositoryRecords.some(record => record.kind === 'node' && record.name === 'nodejs/node'),
   true,
-  'the latest stable Node release is checked'
+  'the latest installable stable Node distribution is checked'
 );
 assert.equal(
   repositoryRecords.some(record => record.kind === 'npm' && record.name === 'use-m'),
@@ -162,12 +258,25 @@ assert.equal(
 // Dependabot opens one coordinated PR across every dependency surface it
 // supports. The custom gate covers the declarations Dependabot cannot update.
 const dependabot = fs.readFileSync(path.join(repositoryRoot, '.github', 'dependabot.yml'), 'utf8');
-for (const ecosystem of ['npm', 'github-actions', 'docker', 'docker-compose', 'helm']) {
+for (const ecosystem of ['npm', 'github-actions', 'docker', 'helm']) {
   assert.match(dependabot, new RegExp(`package-ecosystem: ["']?${ecosystem}["']?`), `${ecosystem} updates must be configured`);
 }
+// Issue #4055: every compose service builds a local Dockerfile (whose base
+// images the docker ecosystem updates), so a docker-compose entry matched no
+// dependency and each daily job warned "there are groups where no dependencies
+// match". Configure it exactly when a service pulls a registry image.
+const composeRegistryImages = ['docker-compose.yml', 'coolify/docker-compose.yml'].flatMap(file =>
+  fs
+    .readFileSync(path.join(repositoryRoot, file), 'utf8')
+    .split(/^ {2}(?=[\w.-]+:\s*$)/m)
+    .slice(1)
+    .filter(service => /^ {4}image:/m.test(service) && !/^ {4}build:/m.test(service))
+    .map(service => `${file}: ${service.split(':')[0]}`)
+);
+assert.equal(/package-ecosystem: ["']?docker-compose/.test(dependabot), composeRegistryImages.length > 0, `docker-compose updates are configured exactly when a compose service pulls a registry image (${composeRegistryImages.join(', ') || 'none'})`);
 assert.match(dependabot, /multi-ecosystem-groups:/);
 assert.match(dependabot, /interval: daily/);
-assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).length, 5, "each ecosystem opts out of GitHub's default three-day delay so its update PR agrees with the immediate freshness gate");
+assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).length, (dependabot.match(/package-ecosystem:/g) ?? []).length, "each ecosystem opts out of GitHub's default three-day delay so its update PR agrees with the immediate freshness gate");
 
 const releaseWorkflow = fs.readFileSync(path.join(repositoryRoot, '.github', 'workflows', 'release.yml'), 'utf8');
 assert.match(releaseWorkflow, /node scripts\/check-dependency-freshness\.mjs/);

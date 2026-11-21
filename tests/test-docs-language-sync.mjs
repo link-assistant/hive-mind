@@ -4,7 +4,7 @@
 // This guards against changing only one language copy of a translated document.
 
 import { execFileSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 
 const LANGUAGES = ['en', 'zh', 'hi', 'ru'];
@@ -48,9 +48,33 @@ function fetchRemoteRef(ref) {
   return refExists(`origin/${ref}`);
 }
 
+// The commit a refspec compares against: the merge base for `a...b`, `a` for `a..b`.
+let comparisonBase = null;
+
 function diffNameOnly(refspec) {
+  const [left, right] = refspec.split(/\.{2,3}/);
+  comparisonBase = refspec.includes('...') ? git(['merge-base', left, right]) : left;
   const output = git(['diff', '--name-only', refspec]);
   return output ? output.split('\n').filter(Boolean) : [];
+}
+
+// A formatter upgrade (for example prettier 3.10 measuring Devanagari width differently) can
+// re-pad table cells and separator rows in one translation only. That changes no content, so it
+// must not demand edits to the other languages. Whitespace is dropped and every dash run in a
+// table separator row collapses to one dash; any other difference still counts as a change.
+export function normalizeMarkdownLayout(text) {
+  return String(text)
+    .split('\n')
+    .map(line => (/^\s*\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/.test(line) ? line.replace(/-+/g, '-') : line))
+    .join('\n')
+    .replace(/\s+/g, '');
+}
+
+function isLayoutOnlyChange(filePath) {
+  if (!comparisonBase || !existsSync(filePath)) return false;
+  const before = git(['show', `${comparisonBase}:${filePath}`]);
+  if (before === null) return false;
+  return normalizeMarkdownLayout(before) === normalizeMarkdownLayout(readFileSync(filePath, 'utf8'));
 }
 
 function addWorkingTreeChanges(files) {
@@ -158,7 +182,9 @@ function checkChangedLanguageGroups(groups) {
     return;
   }
 
-  const changedSet = new Set(changedFiles);
+  const layoutOnly = changedFiles.filter(filePath => parseLanguageDocPath(filePath) && isLayoutOnlyChange(filePath));
+  if (layoutOnly.length > 0) console.log(`\n  Layout-only (formatter) changes need no sibling update: ${layoutOnly.join(', ')}`);
+  const changedSet = new Set(changedFiles.filter(filePath => !layoutOnly.includes(filePath)));
   const partialGroups = [];
   for (const group of groups) {
     const expected = buildExpectedPaths(group);
@@ -179,6 +205,15 @@ const groups = discoverLanguageGroups();
 
 runTest('root README and top-level docs have all language siblings', () => {
   checkAllLanguageSiblingsExist(groups);
+});
+
+runTest('table re-padding is layout-only, but a changed cell or row is not', () => {
+  const before = '| स्थान | कहाँ |\n| --- | --- |\n| **रन लॉग** | `--log-dir` |\n';
+  const repadded = '| स्थान  | कहाँ        |\n| ------ | ----------- |\n| **रन लॉग** | `--log-dir`  |\n';
+  if (normalizeMarkdownLayout(before) !== normalizeMarkdownLayout(repadded)) throw new Error('re-padding was treated as a content change');
+  for (const changed of [before.replace('--log-dir', '--log-file'), `${before}| new | row |\n`, before.replace('| --- | --- |', '| --- | :-: |'), before.replace('**रन लॉग**', '- रन लॉग')]) {
+    if (normalizeMarkdownLayout(before) === normalizeMarkdownLayout(changed)) throw new Error(`content change was treated as layout: ${JSON.stringify(changed)}`);
+  }
 });
 
 runTest('changed language docs update every sibling in the same PR', () => {

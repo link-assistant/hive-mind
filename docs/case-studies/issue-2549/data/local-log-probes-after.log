@@ -1,0 +1,39 @@
+✔ getPullRequestChangeStats reads the diff without mirroring it to stdout (5.537238ms)
+✔ a large diff is reported as the symptom it is (48.938132ms)
+✔ an ordinary diff produces no size warning (3.112866ms)
+✔ src/pull-request-changes.lib.mjs keeps its "gh pr diff" answer out of the log (2.664841ms)
+✔ src/review.mjs keeps its "gh pr diff" answer out of the log (0.902402ms)
+✔ src/solve.keep-working.lib.mjs keeps its "/files --paginate" answer out of the log (0.632811ms)
+✔ src/solve.preparation.lib.mjs keeps its "/comments --paginate" answer out of the log (0.779754ms)
+✔ src/solve.results.lib.mjs keeps its "gh pr list" answer out of the log (1.73215ms)
+✔ src/solve.repository.lib.mjs keeps its "forks --paginate" answer out of the log (9.219005ms)
+✔ src/github-entity-validation.lib.mjs keeps its "branches --paginate" answer out of the log (25.957678ms)
+✔ src/solve.auto-continue.lib.mjs keeps its "branches" answer out of the log (0.865936ms)
+✔ src/bidirectional-interactive.lib.mjs keeps its "--paginate --slurp" answer out of the log (1.925261ms)
+✔ src/solve.minimal-restart-prompt.lib.mjs keeps its "git diff" answer out of the log (0.461231ms)
+✔ src/contributing-guidelines.lib.mjs keeps its "gh api repos" answer out of the log (0.333511ms)
+✔ src/github.lib.mjs keeps its "gh pr view" answer out of the log (1.809926ms)
+✔ contributing guidelines are read from the result, not from a chained .raw() (1.009603ms)
+✔ describeChildExit explains the abort that ended the captured session (0.289971ms)
+✔ describeChildExit keeps ordinary exits ordinary (0.361795ms)
+✔ isLikelyOutOfMemoryExit recognises both ways a run dies of memory (0.231281ms)
+✔ a child killed by a signal fails the worker instead of completing it (0.495374ms)
+✔ an ordinary exit passes its code through untouched and says nothing extra (0.290822ms)
+✔ a spawn failure keeps the message it always had (0.320307ms)
+✔ every spawner reports the signal rather than interpolating a null code (3.067061ms)
+✔ the growth tracker warns once per threshold, naming the size reached (0.404043ms)
+✔ one huge write produces one warning, not one per threshold it passed (0.167893ms)
+✔ the tracker ignores non-writes (0.164967ms)
+✔ setLogFile starts the accounting over for the new log (0.624677ms)
+✔ a publication that cannot be staged discards its own copies (1411.512653ms)
+✔ a publication that cannot be committed discards its own copies (88.92171ms)
+✔ a publication that succeeds keeps its artifacts (47.578054ms)
+✔ discarding is a no-op when there is nothing to discard (0.742114ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1678.750045

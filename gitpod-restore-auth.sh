@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Restore backup of auth data after stopped workspace is restarted (to not login again all the time)
 
 # --- GitHub restore ---
@@ -19,6 +20,7 @@ ls -R -a ~/.config/gh 2>/dev/null || echo "(none)"
 
 # --- Verify GitHub login status ---
 echo "🔄 Verify GitHub login status"
+# github-retry-ok: interactive status report for the person at the terminal, who sees any failure
 gh auth status
 
 # --- Claude restore ---

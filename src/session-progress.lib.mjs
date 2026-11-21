@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 
 /**
  * Issue #2247 (H3): stop restarting a session that produces the same outcome.
@@ -16,12 +17,12 @@
  * Ten AI sessions were paid for, and the tenth had exactly the same information
  * the first one had. A restart is only worth its cost when something changed
  * between the two sessions, so this module fingerprints what a session ended
- * with - its final message plus the state of the working tree - and reports a
- * repeat so the caller can stop with the remaining budget unspent.
+ * with - the state of the working tree - and reports a repeat so the caller
+ * can stop with the remaining budget unspent.
  *
  * `HEAD` is part of the fingerprint as well: a session that commits has made
- * progress even when its final message and its (now clean) `git status` look
- * the same as the previous one's.
+ * progress even when its (now clean) `git status` looks the same as the
+ * previous one's.
  *
  * Scratch directories are filtered out for the reason spelled out in
  * `src/ai-tool-scratch.lib.mjs`: `.formal-ai/` is rewritten by every session,
@@ -43,8 +44,21 @@
  * tells the next session that the previous two ended identically - instead of
  * stopping; only a repeat after a changed input stops the run.
  *
+ * Issue #2839: the final message is NOT part of the fingerprint. In the
+ * 2026-10-09 stylist-svelte run (`--tool codex`) restarts 2/5-5/5 all started
+ * and ended on `edee6d7` with a clean tree, yet the breaker never fired: the
+ * model paraphrased the same blocker every time ("CI remains blocked:
+ * `modules/business` is inaccessible..." / "...still returns 404..."), and a
+ * word-for-word hash of free text treats every paraphrase as progress. What a
+ * session can actually change is the branch (`HEAD`) and the working tree, so
+ * only those are compared. The failing checks the next session would be asked
+ * to fix are a function of `HEAD` (CI runs on that commit) and are part of the
+ * session's input fingerprint through its feedback lines. The message is still
+ * recorded, for the stop comment and the escalation prompt.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2247
  * @see https://github.com/link-assistant/hive-mind/issues/2313
+ * @see https://github.com/link-assistant/hive-mind/issues/2839
  */
 
 import { createHash } from 'node:crypto';
@@ -57,6 +71,9 @@ import { getRemainingAutoRestartIterations } from './auto-restart-budget.lib.mjs
 
 /** Stop reason published through the #2144 automation-stop registry. */
 export const NO_PROGRESS_STOP_REASON = 'no_progress_between_sessions';
+
+/** Issue #2293: the same checks failed with the same output restart after restart. */
+export const REPEATED_CI_FAILURE_STOP_REASON = 'repeated_ci_failure';
 
 /** NUL cannot occur in a commit hash, a status line, or a chat message. */
 const FINGERPRINT_SEPARATOR = String.fromCharCode(0);
@@ -71,17 +88,19 @@ export const normalizeSessionMessage = text =>
     .trim();
 
 /**
- * Hash what a session ended with.
+ * Hash what a session ended with: the working tree and the commit.
+ *
+ * Issue #2839: `finalMessage` is accepted (callers pass the whole outcome) but
+ * deliberately ignored - a paraphrase of the same blocker is not progress.
  *
  * @param {Object} [params]
- * @param {string} [params.finalMessage] - the session's final assistant message
  * @param {string} [params.gitStatus] - `git status --porcelain`, scratch already filtered
  * @param {string} [params.head] - the commit the branch points at afterwards
  * @returns {string} short hex digest
  */
-export const buildSessionFingerprint = ({ finalMessage = '', gitStatus = '', head = '' } = {}) =>
+export const buildSessionFingerprint = ({ gitStatus = '', head = '' } = {}) =>
   createHash('sha256')
-    .update([normalizeSessionMessage(finalMessage), normalizeSessionMessage(gitStatus), String(head ?? '').trim()].join(FINGERPRINT_SEPARATOR))
+    .update([normalizeSessionMessage(gitStatus), String(head ?? '').trim()].join(FINGERPRINT_SEPARATOR))
     .digest('hex')
     .slice(0, 16);
 
@@ -123,19 +142,23 @@ export const noteSessionInput = feedbackLines => {
  * @param {string|null} [params.logFile] - this session's log, named in the stop comment
  * @param {string|null} [params.label] - e.g. `Auto-restart 2/5`
  * @param {string} [params.input] - input fingerprint, defaults to the last `noteSessionInput`
+ * @param {boolean} [params.stallEvidence] - false for a session whose task is not
+ *   reflected in git (a completion restart that only edits the pull request
+ *   description, issue #3469): it is recorded, so the next session is compared
+ *   with it, but it is never itself reported as a repeat
  * @returns {{fingerprint: string, repeated: boolean, inputChanged: boolean, previous: Object|null, current: Object, occurrences: number}}
  */
-export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput } = {}) => {
-  const fingerprint = buildSessionFingerprint({ finalMessage, gitStatus, head });
+export const recordSessionOutcome = ({ finalMessage = '', gitStatus = '', head = '', sessionId = null, logFile = null, label = null, input = pendingInput, stallEvidence = true } = {}) => {
+  const fingerprint = buildSessionFingerprint({ gitStatus, head });
   const previous = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-  const current = { fingerprint, input, sessionId, logFile, label, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
+  const current = { fingerprint, input, sessionId, logFile, label, stallEvidence, finalMessage: normalizeSessionMessage(finalMessage), gitStatus: String(gitStatus ?? '').trim(), head: String(head ?? '').trim() };
   pendingInput = '';
   sessions.push(current);
   const occurrences = sessions.filter(entry => entry.fingerprint === fingerprint).length;
   // Only a session identical to the one immediately before it is a stall. A
   // fingerprint that comes back after real work happened in between is a
   // revert, not a loop, and the next session may well do something else.
-  lastVerdict = { fingerprint, repeated: previous !== null && previous.fingerprint === fingerprint, inputChanged: previous !== null && previous.input !== input, previous, current, occurrences };
+  lastVerdict = { fingerprint, repeated: stallEvidence && previous !== null && previous.fingerprint === fingerprint, inputChanged: previous !== null && previous.input !== input, previous, current, occurrences };
   return lastVerdict;
 };
 
@@ -160,11 +183,11 @@ export const resetSessionProgress = () => {
  * @returns {string[]}
  */
 export const buildRepeatedSessionFeedback = verdict => {
-  const lines = ['', '🔁 THE LAST TWO WORKING SESSIONS ENDED IDENTICALLY:', 'They received the same instructions, ended with the same final message, the same working tree and the same commit. Repeating the same steps will not change the result.'];
-  if (verdict?.current?.finalMessage) lines.push(`Their final message was: ${verdict.current.finalMessage.slice(0, 500)}`);
+  const lines = ['', promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text1'), promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text2')];
+  if (verdict?.current?.finalMessage) lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text3', { value1: String(verdict.current.finalMessage.slice(0, 500)) }));
   const status = String(verdict?.current?.gitStatus || '').trim();
-  if (status) lines.push('Both left this `git status --porcelain` output:', '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
-  lines.push('Find out why the previous approach did not work and resolve the blocker with a different approach before you finish.');
+  if (status) lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text4'), '```', ...status.split('\n').slice(0, STATUS_PREVIEW_LINES), '```');
+  lines.push(promptText('prompt.templates.session-progress.buildRepeatedSessionFeedback.text5'));
   return lines;
 };
 
@@ -191,17 +214,20 @@ export const takeRepeatedSessionFeedback = () => {
  * @param {Function} [params.log]
  * @param {string|null} [params.logFile]
  * @param {string|null} [params.label]
+ * @param {boolean} [params.stallEvidence] - see `recordSessionOutcome`
  * @returns {Promise<Object|null>} the verdict from `recordSessionOutcome`
  */
-export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: command, log = noopLog, logFile = null, label = null } = {}) => {
+export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: command, log = noopLog, logFile = null, label = null, stallEvidence = true } = {}) => {
   if (!tempDir || typeof command !== 'function') return null;
   const finalMessage = toolResult?.resultSummary || toolResult?.errorInfo?.message || toolResult?.lastMessage || '';
   let gitStatus = '';
   let head = '';
   try {
-    const statusResult = await command({ cwd: tempDir })`git status --porcelain 2>&1`;
+    // Issue #3922: internal probes; mirrored, a bare `<sha>` line reached the log and masking it
+    // hid the same SHA in every commit link of the log.
+    const statusResult = await command({ cwd: tempDir, mirror: false })`git status --porcelain 2>&1`;
     if (statusResult?.code === 0) gitStatus = filterAiToolScratchFromStatus(statusResult.stdout.toString().trim());
-    const headResult = await command({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
+    const headResult = await command({ cwd: tempDir, mirror: false })`git rev-parse HEAD 2>&1`;
     if (headResult?.code === 0) head = headResult.stdout.toString().trim();
   } catch (error) {
     // An unreadable working tree means an unusable fingerprint. Recording one
@@ -209,7 +235,25 @@ export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: com
     await log(`⚠️  Session progress check skipped: ${error.message}`, { verbose: true });
     return null;
   }
-  return recordSessionOutcome({ finalMessage, gitStatus, head, sessionId: toolResult?.sessionId || null, logFile, label });
+  return recordSessionOutcome({ finalMessage, gitStatus, head, sessionId: toolResult?.sessionId || null, logFile, label, stallEvidence });
+};
+
+/** One line for verbose logs: what the restart loop decides from (issue #3469). */
+export const describeVerdict = verdict => {
+  if (!verdict) return 'no session recorded yet';
+  const short = value => (value ? String(value).slice(0, 7) : 'unknown');
+  return `repeated=${verdict.repeated} inputChanged=${verdict.inputChanged} occurrences=${verdict.occurrences} head=${short(verdict.current?.head)} previousHead=${short(verdict.previous?.head)} stallEvidence=${verdict.current?.stallEvidence !== false} last=${verdict.current?.label || verdict.current?.sessionId || 'unlabelled session'}`;
+};
+
+/** The workspace HEAD, or null when it cannot be read (the check then falls back to the verdict alone). */
+const readHead = async ({ tempDir, command }) => {
+  if (!tempDir || typeof command !== 'function') return null;
+  try {
+    const result = await command({ cwd: tempDir, mirror: false })`git rev-parse HEAD 2>&1`;
+    return result?.code === 0 ? result.stdout.toString().trim() || null : null;
+  } catch {
+    return null;
+  }
 };
 
 const describeSession = (entry, fallback) => {
@@ -272,7 +316,7 @@ export const reportNoProgressStop = async ({ $: command, owner, repo, targetNumb
     targetNumber,
     reason: NO_PROGRESS_STOP_REASON,
     mode,
-    message: 'Two consecutive AI sessions ended with the same final message, the same working tree and the same commit although the second one was given different instructions, so another restart cannot produce a different result.',
+    message: 'Two consecutive AI sessions ended with the same working tree and the same commit although the second one was given different instructions, so another restart cannot produce a different result.',
     // Issue #2315: say where the uncommitted work went (never the PR branch).
     details: [...buildNoProgressDetails({ previous: verdict?.previous, current: verdict?.current, remainingIterations }), ...(preserved ? [describePreservedWork(preserved)] : [])],
     verbose,
@@ -321,11 +365,76 @@ export const resetNoProgressFailure = () => {
  * @param {boolean} [params.verbose]
  * @returns {Promise<{reason: string, committed: boolean, pushed: boolean, occurrences: number}>}
  */
-export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, verdict = null, mode = null, remainingIterations = null, verbose = false }) => {
+export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, verdict = null, mode = null, remainingIterations = null, verbose = false }) =>
+  stopWithoutProgress({
+    owner,
+    repo,
+    prNumber,
+    tempDir,
+    branchName,
+    $: command,
+    log,
+    formatAligned,
+    reason: NO_PROGRESS_STOP_REASON,
+    headline: ['NO PROGRESS BETWEEN SESSIONS', 'Stopping instead of repeating an identical session'],
+    logLines: [
+      ['Previous session:', describeSession(verdict?.previous, 'not recorded')],
+      ['Identical session:', describeSession(verdict?.current, 'not recorded')],
+    ],
+    draftReason: 'no progress between sessions',
+    preserveReason: 'stopped after two identical AI sessions',
+    report: preserved => reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, preserved, verbose, log }),
+    remainingIterations,
+    occurrences: verdict?.occurrences || 2,
+  });
+
+/**
+ * Issue #2293: stop the run because the same checks failed with the same
+ * output for `occurrences` restarts in a row, although each session in
+ * between was free to change the code. Reported, preserved and recorded like
+ * {@link failOnNoProgressBetweenSessions}, so the process exits non-zero.
+ *
+ * @param {Object} params - as {@link failOnNoProgressBetweenSessions}, with
+ * @param {string[]} params.evidence - the failing checks, from `collectRestartEvidence`
+ * @param {number} params.occurrences - identical restarts in a row
+ * @returns {Promise<{reason: string, committed: boolean, pushed: boolean, occurrences: number}>}
+ */
+export const failOnRepeatedCiFailure = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, evidence = [], occurrences, mode = null, remainingIterations = null, verbose = false }) =>
+  stopWithoutProgress({
+    owner,
+    repo,
+    prNumber,
+    tempDir,
+    branchName,
+    $: command,
+    log,
+    formatAligned,
+    reason: REPEATED_CI_FAILURE_STOP_REASON,
+    headline: ['SAME CI FAILURE REPEATED', `The same checks failed with the same output ${occurrences} restarts in a row`],
+    logLines: evidence.map(line => ['Evidence:', line]),
+    draftReason: 'the same CI failure repeated',
+    preserveReason: `stopped after the same CI failure ${occurrences} restarts in a row`,
+    report: preserved =>
+      reportAutomationStop({
+        $: command,
+        owner,
+        repo,
+        targetNumber: prNumber,
+        reason: REPEATED_CI_FAILURE_STOP_REASON,
+        mode,
+        message: `The same checks failed with the same output after ${occurrences} AI sessions in a row, so another restart is unlikely to fix them.`,
+        details: [...evidence, ...(typeof remainingIterations === 'number' && remainingIterations > 0 ? [`${remainingIterations} restart iteration${remainingIterations === 1 ? '' : 's'} of the configured budget left unused.`] : []), ...(preserved ? [describePreservedWork(preserved)] : [])],
+        verbose,
+        log,
+      }),
+    remainingIterations,
+    occurrences,
+  });
+
+const stopWithoutProgress = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, reason, headline, logLines, draftReason, preserveReason, report, remainingIterations, occurrences }) => {
   await log('');
-  await log(formatAligned('❌', 'NO PROGRESS BETWEEN SESSIONS', 'Stopping instead of repeating an identical session'), { level: 'error' });
-  await log(formatAligned('', 'Previous session:', describeSession(verdict?.previous, 'not recorded'), 2), { level: 'error' });
-  await log(formatAligned('', 'Identical session:', describeSession(verdict?.current, 'not recorded'), 2), { level: 'error' });
+  await log(formatAligned('❌', ...headline), { level: 'error' });
+  for (const [label, value] of logLines) await log(formatAligned('', label, value, 2), { level: 'error' });
   if (typeof remainingIterations === 'number' && remainingIterations > 0) {
     await log(formatAligned('', 'Budget left unused:', `${remainingIterations} restart iteration${remainingIterations === 1 ? '' : 's'}`, 2), { level: 'error' });
   }
@@ -334,16 +443,14 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
   // Issue #2263: terminal failure must dominate any earlier readiness decision,
   // including the restart iteration's own finally block.
   if (prNumber) {
-    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: 'no progress between sessions' });
+    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: draftReason });
   }
 
-  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: true });
+  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: preserveReason, push: true });
 
-  if (prNumber) {
-    await reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, preserved, verbose, log });
-  }
+  if (prNumber) await report(preserved);
 
-  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, occurrences: verdict?.occurrences || 2 };
+  noProgressFailure = { reason, committed: preserved.committed, pushed: preserved.pushed, recoveryBranch: preserved.recoveryBranch || null, occurrences };
   return noProgressFailure;
 };
 
@@ -363,7 +470,17 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
  */
 export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, mode = null, verbose = false }) => {
   const verdict = getLastSessionProgress();
+  if (verbose) await log(`   [session-progress] ${mode || 'restart loop'}: ${describeVerdict(verdict)}`, { verbose: true });
   if (!verdict?.repeated) return null;
+  // Issue #3469: the verdict describes the branch as the last session left it.
+  // When the branch moved since (solve's own .gitkeep revert, a default-branch
+  // merge, a push), the next session starts from a different commit with
+  // different CI results, so two old identical sessions predict nothing.
+  const head = await readHead({ tempDir, command });
+  if (head && verdict.current?.head && head !== verdict.current.head) {
+    await log(formatAligned('ℹ️', 'Progress check:', `the branch moved from ${verdict.current.head.slice(0, 7)} to ${head.slice(0, 7)} after the last session; restarting instead of stopping`, 2));
+    return null;
+  }
   // Issue #2313: the same input produced the same outcome - that says nothing
   // about the model. Change the input before concluding there is no progress.
   if (!verdict.inputChanged) {
@@ -374,4 +491,4 @@ export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, 
   return await failOnNoProgressBetweenSessions({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, verdict, mode, remainingIterations: getRemainingAutoRestartIterations(), verbose });
 };
 
-export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };
+export default { NO_PROGRESS_STOP_REASON, REPEATED_CI_FAILURE_STOP_REASON, buildNoProgressDetails, buildRepeatedSessionFeedback, buildSessionFingerprint, buildSessionInputFingerprint, captureSessionOutcome, describeVerdict, failOnNoProgressBetweenSessions, failOnRepeatedCiFailure, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, noteSessionInput, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated, takeRepeatedSessionFeedback };

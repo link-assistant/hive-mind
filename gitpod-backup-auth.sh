@@ -1,7 +1,9 @@
+#!/usr/bin/env bash
 # Create backup to restore auth data after workspace is stopped (to not login again all the time)
 
 # --- GitHub backup ---
 # Verify login status
+# github-retry-ok: interactive status report for the person at the terminal, who sees any failure
 gh auth status
 
 # Save GitHub auth into persisted workspace folder

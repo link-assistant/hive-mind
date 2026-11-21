@@ -1,0 +1,623 @@
+commit 288190c4b7771f72b02d296b6daf6a85c5a45f93
+Author: konard <drakonard@gmail.com>
+Date:   Thu Oct 15 18:57:55 2026 +0000
+
+    fix(session-monitor): report an unobserved docker exit as a kill with its cause (#2303)
+    
+    A docker session whose exit docker never observed (endTimeSource
+    observed-at, or exitReason watcher-lost-container) is reclassified as
+    killed instead of being trusted as success or a plain -1 failure, so the
+    kill diagnosis, the pull request notice and --on-session-kill=resume run.
+    A -1 log footer no longer skips the container liveness check. The monitor
+    samples the host disk while a session runs, and ENOSPC log lines count as
+    disk-full evidence, so the headline names the cause.
+
+diff --git a/.changeset/unobserved-docker-exit-2303.md b/.changeset/unobserved-docker-exit-2303.md
+new file mode 100644
+index 00000000..60413664
+--- /dev/null
++++ b/.changeset/unobserved-docker-exit-2303.md
+@@ -0,0 +1,5 @@
++---
++'@link-assistant/hive-mind': patch
++---
++
++A docker work session whose exit docker never observed is now reported as a kill instead of a success (issue #2303). When start-command's watcher lost a still-running container (for example `docker logs -f` failing on a full disk), the record said `executed` with exit 0 (or `-1` with `exitReason: watcher-lost-container` on newer start-command), and Hive Mind announced "Work session finished successfully". Such an exit (`endTimeSource: observed-at` or `watcher-lost-container`) is now reclassified as killed, so the kill diagnosis, the pull request notice and the default `--on-session-kill=resume` recovery run. A `-1` log footer no longer skips the container liveness check. The monitor also samples the host disk while a session runs, and an `ENOSPC` line in the log counts as evidence, so the diagnosis and the Telegram headline can name the real cause ("killed (disk full)"). A container that start-command already removed is no longer reported as "Docker container kept".
+diff --git a/src/isolation-runner.parsers.lib.mjs b/src/isolation-runner.parsers.lib.mjs
+index 8b1a7673..c7c0e711 100644
+--- a/src/isolation-runner.parsers.lib.mjs
++++ b/src/isolation-runner.parsers.lib.mjs
+@@ -116,12 +116,12 @@ export function parseStartCommandExecutionUuid(output) {
+  * log-marker classification as defense in depth (issue #2189).
+  *
+  * @param {string} output - Raw stdout from `$ --status`
+- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
++ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, endTimeSource: string|null, observedAt: string|null, raw: string}}
+  */
+ export function parseSessionStatusOutput(output) {
+   const raw = (output || '').trim();
+   if (!raw) {
+-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, raw: '' };
++    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, endTimeSource: null, observedAt: null, raw: '' };
+   }
+   const normalizeBooleanField = value => {
+     if (typeof value === 'boolean') return value;
+@@ -158,6 +158,9 @@ export function parseSessionStatusOutput(output) {
+       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
+       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
+       cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
++      // Issue #2303: `observed-at` means docker never reported a finish time — the exit was noticed, not observed.
++      endTimeSource: typeof data?.endTimeSource === 'string' && data.endTimeSource.trim() ? data.endTimeSource.trim() : null,
++      observedAt: data?.observedAt || null,
+       raw,
+     };
+   } catch {
+@@ -211,6 +214,8 @@ export function parseSessionStatusOutput(output) {
+     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
+     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
+     cgroupMemory: readCgroupMemoryBlock(raw),
++    endTimeSource: readField('endTimeSource') || readField('End Time Source'),
++    observedAt: readField('observedAt') || readField('Observed At'),
+     raw,
+   };
+ }
+diff --git a/src/locales/en.lino b/src/locales/en.lino
+index 930df548..0bd59c90 100644
+--- a/src/locales/en.lino
++++ b/src/locales/en.lino
+@@ -702,6 +702,7 @@ en
+         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
+         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
+         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
++        recovering_from_kill "Work session still in progress: recovering from a kill{{causeSuffix}}"
+         recovered "Work session finished successfully after automatic recovery"
+         recoveries "automatic recoveries: {{count}}"
+         status_unknown "Work session ended, but its exit status is unknown"
+diff --git a/src/locales/hi.lino b/src/locales/hi.lino
+index 29de8f0a..e60959fe 100644
+--- a/src/locales/hi.lino
++++ b/src/locales/hi.lino
+@@ -702,6 +702,7 @@ hi
+         stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
+         not_launched "कार्य सत्र शुरू ही नहीं हुआ, इसलिए उसका कोई log नहीं है और वह `--list` में नहीं दिखता।"
+         recovering "कार्य सत्र अभी जारी है: exit code {{exitCode}} के बाद पुनर्प्राप्ति हो रही है"
++        recovering_from_kill "कार्य सत्र अभी जारी है: जबरन रोके जाने के बाद पुनर्प्राप्ति हो रही है{{causeSuffix}}"
+         recovered "स्वचालित पुनर्प्राप्ति के बाद कार्य सत्र सफलतापूर्वक पूरा हुआ"
+         recoveries "स्वचालित पुनर्प्राप्तियाँ: {{count}}"
+         status_unknown "कार्य सत्र समाप्त हुआ, लेकिन उसकी निकास स्थिति अज्ञात है"
+diff --git a/src/locales/ru.lino b/src/locales/ru.lino
+index 74b6516a..960f75f1 100644
+--- a/src/locales/ru.lino
++++ b/src/locales/ru.lino
+@@ -702,6 +702,7 @@ ru
+         stopped "Рабочий сеанс остановлен пользователем{{requestedBy}}{{exitSuffix}}"
+         not_launched "Рабочий сеанс не был запущен, поэтому у него нет журнала и он не отображается в `--list`."
+         recovering "Рабочий сеанс ещё выполняется: восстановление после кода выхода {{exitCode}}"
++        recovering_from_kill "Рабочий сеанс ещё выполняется: восстановление после принудительной остановки{{causeSuffix}}"
+         recovered "Рабочий сеанс успешно завершён после автоматического восстановления"
+         recoveries "автоматических восстановлений: {{count}}"
+         status_unknown "Рабочий сеанс завершён, но его код выхода неизвестен"
+diff --git a/src/locales/zh.lino b/src/locales/zh.lino
+index 3e565b4e..4d96968a 100644
+--- a/src/locales/zh.lino
++++ b/src/locales/zh.lino
+@@ -702,6 +702,7 @@ zh
+         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
+         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
++        recovering_from_kill "工作会话仍在进行：正在从强制终止中恢复{{causeSuffix}}"
+         recovered "工作会话在自动恢复后成功完成"
+         recoveries "自动恢复次数：{{count}}"
+         status_unknown "工作会话已结束，但其退出状态未知"
+diff --git a/src/session-kill-diagnostics.lib.mjs b/src/session-kill-diagnostics.lib.mjs
+index e2c14dfc..d14779c6 100644
+--- a/src/session-kill-diagnostics.lib.mjs
++++ b/src/session-kill-diagnostics.lib.mjs
+@@ -307,6 +307,33 @@ function describeDisk(disk, timestamp) {
+   return `disk ${disk?.path || '/'}: ${parts.join(' ')}${at}`;
+ }
+ 
++const DISK_FULL_LINE_PATTERN = /\bENOSPC\b|no space left on device/i;
++const DISK_FULL_LINE_MAX_LENGTH = 300;
++
++/**
++ * Issue #2303: the last line of a log that reports the disk as full
++ * (`ENOSPC` / "No space left on device"). Scans from the end, because the line
++ * that matters is the one written as the session died.
++ *
++ * @param {string|null} logText
++ * @returns {{line: string}|null}
++ */
++export function findDiskFullMarker(logText) {
++  if (typeof logText !== 'string' || !logText) return null;
++  const lines = logText.split('\n');
++  for (let index = lines.length - 1; index >= 0; index--) {
++    const line = lines[index].trim();
++    if (line && DISK_FULL_LINE_PATTERN.test(line)) return { line: line.length > DISK_FULL_LINE_MAX_LENGTH ? `${line.slice(0, DISK_FULL_LINE_MAX_LENGTH)}…` : line };
++  }
++  return null;
++}
++
++function isDiskFull(disk) {
++  const usedPercent = finite(disk?.usedPercent);
++  const available = finite(disk?.availableBytes);
++  return (usedPercent !== null && usedPercent >= DISK_FULL_USED_PERCENT) || (available !== null && available <= DISK_FULL_AVAILABLE_BYTES);
++}
++
+ /**
+  * Decide WHY a session was killed, from the evidence available.
+  *
+@@ -326,9 +353,11 @@ function describeDisk(disk, timestamp) {
+  * @param {string|null} [params.reportedMemoryExhaustedReason] - `$ --status` `memoryExhaustedReason` (the evidence line)
+  * @param {string|null} [params.reportedExitReason] - `$ --status` `exitReason` hint, e.g. `memory-exhaustion (v8-heap-limit)`
+  * @param {Object|null} [params.reportedCgroupMemory] - Task cgroup counters saved by start-command >= 0.35.2
++ * @param {Object|null} [params.observedDisk] - Lowest host disk reading the monitor took while the session ran (issue #2303)
++ * @param {string|null} [params.unobservedExit] - Why the reported success was not trusted (issue #2303)
+  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
+  */
+-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
++export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null } = {}) {
+   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
+   const memoryMarker = selectLastMemoryResourceMarker(parsed);
+   const heapMarker = selectLastHeapResourceMarker(parsed);
+@@ -354,6 +383,11 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
+   if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
+   const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
+   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
++  // Issue #2303: the in-band markers are written at phase boundaries and can be
++  // an hour stale when the disk fills; the monitor's own lowest reading is not.
++  const observedDiskLine = describeDisk(observedDisk, observedDisk?.observedAt || null);
++  if (observedDiskLine) evidence.push(`lowest host ${observedDiskLine} observed by the monitor while the session ran`);
++  if (unobservedExit) evidence.push(`the reported success was not trusted — ${unobservedExit}`);
+   // Issue #2498: how close the container came to its own limit, and how many
+   // processes the OOM killer took there — one OOM event can take several.
+   const cgroupMarker = selectLastCgroupResourceMarker(parsed);
+@@ -379,6 +413,8 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
+   // so a log that merely mentions the phrase cannot manufacture a diagnosis.
+   const abnormalExit = exitCode === null || exitCode !== 0;
+   const fatalMemoryMarker = abnormalExit ? findFatalMemoryMarker(logText) : null;
++  const diskFullMarker = abnormalExit ? findDiskFullMarker(logText) : null;
++  if (diskFullMarker) evidence.push(`the log reports a full disk: \`${diskFullMarker.line}\``);
+   if (fatalMemoryMarker) {
+     evidence.push(`the ${fatalMemoryMarker.runtime} runtime aborted on its own heap limit: \`${fatalMemoryMarker.line}\` (a self-abort is invisible to \`docker inspect\` and to cgroup OOM counters)`);
+   }
+@@ -419,9 +455,9 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
+   // A heap already at the limit is only evidence of a kill when the session
+   // actually ended abnormally — a healthy run may legitimately end near its cap.
+   const heapExhausted = abnormalExit && heapUsedPercent !== null && heapUsedPercent >= HEAP_EXHAUSTED_PERCENT;
+-  const diskUsedPercent = finite(disk?.usedPercent);
+-  const diskAvailable = finite(disk?.availableBytes);
+-  const diskFull = (diskUsedPercent !== null && diskUsedPercent >= DISK_FULL_USED_PERCENT) || (diskAvailable !== null && diskAvailable <= DISK_FULL_AVAILABLE_BYTES);
++  const markerDiskFull = isDiskFull(disk);
++  const observedDiskFull = isDiskFull(observedDisk);
++  const diskFull = markerDiskFull || observedDiskFull || Boolean(diskFullMarker);
+   const containerOomObserved = oomKilled || taskCgroupOomObserved;
+   // The sticky observation is still reported for an ordinary exit as an
+   // earlier event. It cannot explain another signal: the OOM killer sends
+@@ -461,15 +497,18 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
+     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
+     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
+   } else if (cause === KILL_CAUSE_DISK_FULL) {
+-    summary = `disk full${diskLine ? ` — ${diskLine}` : ''}`;
++    const fullDiskLine = markerDiskFull ? diskLine : observedDiskFull ? `host ${observedDiskLine}` : diskFullMarker ? `\`${diskFullMarker.line}\`` : diskLine;
++    summary = `disk full${fullDiskLine ? ` — ${fullDiskLine}` : ''}`;
+   } else if (cause === KILL_CAUSE_FORCED_KILL) {
+     const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine ? diskLine : null].filter(Boolean).join(', ');
+     summary = stopRequestedByUser ? 'forced kill — an operator requested the stop' : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
++  } else if (unobservedExit) {
++    summary = 'unknown — the container was removed while still running, and no memory or disk exhaustion was observed';
+   } else {
+     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
+   }
+ 
+-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
++  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, observedDisk, diskFullMarker, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+ }
+ 
+ /**
+@@ -547,7 +586,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
+  * @param {Object} [options]
+  * @returns {Promise<{section: string, diagnosis: Object|null}>}
+  */
+-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null } = {}) {
++export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null } = {}) {
+   try {
+     let logText = '';
+     if (logPath) {
+@@ -559,7 +598,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
+       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
+     }
+     const system = await collectSystem({ verbose });
+-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory });
++    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit });
+     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
+     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
+   } catch (error) {
+diff --git a/src/session-monitor.host-disk.lib.mjs b/src/session-monitor.host-disk.lib.mjs
+new file mode 100644
+index 00000000..623b99d9
+--- /dev/null
++++ b/src/session-monitor.host-disk.lib.mjs
+@@ -0,0 +1,97 @@
++/**
++ * Issue #2303: remember how full the host disk got while a session ran.
++ *
++ * The kill diagnosis used to see the disk only through the `📈 [RESOURCES]`
++ * markers `solve` writes into its own log. Those are written at phase
++ * boundaries, so the last one before a disk-full kill can be an hour old (78.9%
++ * used in the incident) — and once start-command's watcher removed the
++ * container, the 122.7 GB writable layer was freed, so a reading taken at
++ * completion time shows a healthy disk too. The only moment the disk is
++ * visibly full is *while* the session is running.
++ *
++ * The monitor therefore samples the filesystem that holds the session log on
++ * every tick (one `statfs` syscall) and keeps the lowest free-space reading it
++ * saw. That is the filesystem the watcher failed to write when it hit ENOSPC.
++ *
++ * @see https://github.com/link-assistant/hive-mind/issues/2303
++ */
++
++import fsPromises from 'fs/promises';
++import path from 'path';
++
++export const HOST_DISK_MIN_AVAILABLE_FIELD = 'hostDiskMinAvailableBytes';
++export const HOST_DISK_TOTAL_FIELD = 'hostDiskTotalBytes';
++export const HOST_DISK_MIN_AVAILABLE_AT_FIELD = 'hostDiskMinAvailableAt';
++export const HOST_DISK_PATH_FIELD = 'hostDiskPath';
++
++/** A new minimum is worth persisting once it dropped this share of the disk. */
++const SIGNIFICANT_DROP_RATIO = 0.01;
++
++/**
++ * Directory whose filesystem is sampled: the one that holds the session log,
++ * falling back to the root filesystem.
++ *
++ * @param {Object|null} sessionInfo
++ * @param {Object|null} [statusResult]
++ * @returns {string}
++ */
++export function resolveHostDiskPath(sessionInfo, statusResult = null) {
++  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
++  return logPath ? path.dirname(logPath) : '/';
++}
++
++/**
++ * Sample the host disk and keep the lowest free-space reading on sessionInfo.
++ * Never throws.
++ *
++ * @param {Object} sessionInfo - Mutated with the host disk fields
++ * @param {Object} [options]
++ * @param {Object|null} [options.statusResult]
++ * @param {Function} [options.statfs] - `fs.promises.statfs`-compatible (injectable for tests)
++ * @param {Date} [options.now]
++ * @param {boolean} [options.verbose]
++ * @returns {Promise<{availableBytes: number, totalBytes: number, changed: boolean, significant: boolean}|null>}
++ */
++export async function observeHostDiskForSession(sessionInfo, { statusResult = null, statfs = fsPromises.statfs, now = new Date(), verbose = false } = {}) {
++  if (!sessionInfo || typeof statfs !== 'function') return null;
++  const target = resolveHostDiskPath(sessionInfo, statusResult);
++  try {
++    const stats = await statfs(target);
++    const blockSize = Number(stats?.bsize);
++    const availableBytes = Math.round(Number(stats?.bavail) * blockSize);
++    const totalBytes = Math.round(Number(stats?.blocks) * blockSize);
++    if (!Number.isFinite(availableBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) return null;
++    const previous = sessionInfo[HOST_DISK_MIN_AVAILABLE_FIELD];
++    const changed = !Number.isFinite(previous) || availableBytes < previous;
++    // Persist the first reading and real drops, not every few-kilobyte wobble.
++    const significant = changed && (!Number.isFinite(previous) || previous - availableBytes >= totalBytes * SIGNIFICANT_DROP_RATIO);
++    if (changed) {
++      sessionInfo[HOST_DISK_MIN_AVAILABLE_FIELD] = availableBytes;
++      sessionInfo[HOST_DISK_TOTAL_FIELD] = totalBytes;
++      sessionInfo[HOST_DISK_MIN_AVAILABLE_AT_FIELD] = now.toISOString();
++      sessionInfo[HOST_DISK_PATH_FIELD] = target;
++    }
++    if (verbose) {
++      console.log(`[VERBOSE] host disk ${target}: ${availableBytes} of ${totalBytes} bytes free (session minimum ${sessionInfo[HOST_DISK_MIN_AVAILABLE_FIELD]} at ${sessionInfo[HOST_DISK_MIN_AVAILABLE_AT_FIELD]})`);
++    }
++    return { availableBytes, totalBytes, changed, significant };
++  } catch (error) {
++    if (verbose) console.log(`[VERBOSE] host disk ${target}: statfs failed: ${error?.message || error}`);
++    return null;
++  }
++}
++
++/**
++ * The lowest host disk reading of a session, in the shape the kill diagnosis
++ * uses for disk markers.
++ *
++ * @param {Object|null} sessionInfo
++ * @returns {{availableBytes: number, totalBytes: number, usedPercent: number, observedAt: string|null, path: string}|null}
++ */
++export function describeObservedHostDisk(sessionInfo) {
++  const availableBytes = sessionInfo?.[HOST_DISK_MIN_AVAILABLE_FIELD];
++  const totalBytes = sessionInfo?.[HOST_DISK_TOTAL_FIELD];
++  if (!Number.isFinite(availableBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) return null;
++  const usedPercent = Math.min(100, Math.max(0, ((totalBytes - availableBytes) / totalBytes) * 100));
++  return { availableBytes, totalBytes, usedPercent, observedAt: sessionInfo?.[HOST_DISK_MIN_AVAILABLE_AT_FIELD] || null, path: sessionInfo?.[HOST_DISK_PATH_FIELD] || '/' };
++}
+diff --git a/src/session-monitor.isolation-state.lib.mjs b/src/session-monitor.isolation-state.lib.mjs
+index f5b089de..8ffae183 100644
+--- a/src/session-monitor.isolation-state.lib.mjs
++++ b/src/session-monitor.isolation-state.lib.mjs
+@@ -45,7 +45,12 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
+         // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
+         const readFooter = exitFromLog || runner.readSessionExitFromLog;
+         const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
+-        if (footer?.finished) {
++        // Issue #2303: start-command writes an `Exit Code: -1` footer when its watcher lost the container (`watcher-lost-container`). That sentinel is no real exit, so it must not skip the liveness check below.
++        const unknownDockerFooter = footer?.finished && isDockerIsolation(sessionInfo, statusResult) && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(footer.exitCode);
++        if (unknownDockerFooter && verbose) {
++          console.log(`[VERBOSE] Session ${sessionName}: the log footer only carries the unknown docker exit ${footer.exitCode}; checking whether the container is still alive (issue #2303)`);
++        }
++        if (footer?.finished && !unknownDockerFooter) {
+           const footerExitCode = footer.exitCode;
+           const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
+           if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
+diff --git a/src/session-monitor.kill-sections.lib.mjs b/src/session-monitor.kill-sections.lib.mjs
+index efd3dea7..a82f54d3 100644
+--- a/src/session-monitor.kill-sections.lib.mjs
++++ b/src/session-monitor.kill-sections.lib.mjs
+@@ -21,6 +21,7 @@ import { classifySessionOutcome } from './work-session-formatting.lib.mjs';
+ import { buildKillDiagnosticsSection, formatKillDiagnosticsSection, formatKillRecoverySection, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
+ import { getOomEventObservedAt } from './session-monitor.oom.lib.mjs';
+ import { resolveOnSessionKillPolicy } from './session-kill-policy.lib.mjs';
++import { describeObservedHostDisk } from './session-monitor.host-disk.lib.mjs';
+ import { detectDeliberateSolveStop } from './session-kill-attribution.lib.mjs';
+ import { buildKillRecoveryNotice, postKillRecoveryNotice, attachIntermediateSessionLog, spawnCapture } from './session-kill-recovery.lib.mjs';
+ 
+@@ -143,6 +144,10 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
+       reportedMemoryExhaustedReason: statusResult?.memoryExhaustedReason ?? null,
+       reportedExitReason: statusResult?.exitReason ?? null,
+       reportedCgroupMemory: statusResult?.cgroupMemory ?? null,
++      // Issue #2303: the lowest host disk reading taken while the session ran,
++      // and why its reported exit 0 was not trusted.
++      observedDisk: describeObservedHostDisk(sessionInfo),
++      unobservedExit: statusResult?.unobservedExit ?? null,
+     });
+ 
+     const argv = argvFromSessionArgs(sessionInfo?.args);
+diff --git a/src/session-monitor.lib.mjs b/src/session-monitor.lib.mjs
+index 7e792b51..6f0ef781 100644
+--- a/src/session-monitor.lib.mjs
++++ b/src/session-monitor.lib.mjs
+@@ -21,6 +21,9 @@
+ import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
+ import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
+ import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
++// Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
++import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
++import { observeHostDiskForSession } from './session-monitor.host-disk.lib.mjs';
+ import { exec as execCallback } from 'child_process';
+ import fs from 'fs/promises';
+ import { promisify } from 'util';
+@@ -574,7 +577,7 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null, command =
+ function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
+   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
+ }
+-export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
++export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false, containerRemoved = false } = {}) {
+   if (sessionInfo?.isolationBackend !== 'docker') {
+     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+   }
+@@ -583,6 +586,11 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
+     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+   }
+   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
++  if (containerRemoved) {
++    // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing.
++    if (verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; neither keeping nor removing it`);
++    return { applies: false, containerName, keepPolicy, shouldRemove: false, extraSection: '' };
++  }
+   const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
+   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+   return {
+@@ -637,7 +645,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false)
+ }
+ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+   const persistSnapshot = () => persistSessionSnapshot(sessionName, sessionInfo);
+-  const state = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
++  const rawState = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
++  const state = reclassifyUnobservedDockerExit(sessionName, sessionInfo, rawState, { verbose: options.verbose === true });
+   return reconcileLaunchObservation(sessionName, sessionInfo, state, { verbose: options.verbose, persistSnapshot });
+ }
+ /**
+@@ -781,6 +790,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose
+   }
+   if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+   if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
++  if (stillRunning && sessionInfo.isolationBackend) {
++    // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
++    const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
++    if (hostDisk?.significant) persistSessionSnapshot(sessionName, sessionInfo);
++  }
+   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
+     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+       verbose,
+@@ -810,6 +824,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose
+         status: resolvedStatus,
+         env: options.env || process.env,
+         verbose,
++        containerRemoved: Boolean(statusResult?.unobservedExit),
+       });
+       // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
+       // linked-issue API lags, from the completed solve log.
+@@ -1035,6 +1050,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose
+         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
+         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
+         launchUnobserved,
++        killCause: killReport.diagnosis?.cause || null,
+       });
+       if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
+         const notice = await announceKillOnPullRequest({
+diff --git a/src/session-monitor.unobserved-exit.lib.mjs b/src/session-monitor.unobserved-exit.lib.mjs
+new file mode 100644
+index 00000000..868981bf
+--- /dev/null
++++ b/src/session-monitor.unobserved-exit.lib.mjs
+@@ -0,0 +1,109 @@
++/**
++ * Issue #2303: a docker "exit 0" that docker itself never observed.
++ *
++ * start-command's detached docker watcher (0.34.0) runs
++ *
++ *   docker logs -f C >> LOG; state=$(docker inspect C); if exit==0 → docker rm -f C
++ *
++ * When the host disk fills up, `docker logs -f >> LOG` fails with ENOSPC and
++ * returns while the container is STILL RUNNING. `docker inspect` on a running
++ * container reports `ExitCode 0`, `OOMKilled false` and the zero `FinishedAt`
++ * (`0001-01-01T00:00:00Z`), so the watcher mistakes the live session for a
++ * clean exit: it removes the container — which is what actually kills the
++ * work — writes an `Exit Code: 0` footer from the same bogus value, and
++ * finalizes the record as `executed` / `0`. Hive Mind then reported
++ * "✅ Work session finished successfully" for a session that was killed.
++ *
++ * The one fact start-command gets right is that docker never produced a finish
++ * time: the record says `endTimeSource: 'observed-at'` instead of
++ * `'docker-finished-at'`, which every container that really exited has. A
++ * docker "success" without a docker finish time is therefore not a success we
++ * observed, and it is reported as a kill so the diagnosis and the automatic
++ * `--on-session-kill=resume` recovery run.
++ *
++ * The footer does not help here: it is written by the same watcher from the same
++ * inspect result, so it is not independent evidence.
++ *
++ * start-command 0.34.1 reworked the watcher (link-foundation/start issue 174): it now
++ * waits for the real exit and never removes a running container. A container
++ * whose exit docker still never observed (e.g. removed from under the watcher)
++ * is recorded as `exitCode -1` with `exitReason: 'watcher-lost-container'`.
++ * That is still a kill, not an ordinary failure, so it is reclassified the same
++ * way — both shapes are handled so older hosts keep working.
++ *
++ * @see https://github.com/link-assistant/hive-mind/issues/2303
++ */
++
++import { normalizeExitCode } from './session-status.lib.mjs';
++import { isDockerIsolation } from './session-monitor.stale-executing.lib.mjs';
++
++/** start-command's `endTimeSource` for "we noticed it ended", not "it ended". */
++export const END_TIME_SOURCE_OBSERVED_AT = 'observed-at';
++
++/** start-command >= 0.34.1 `exitReason` for a container exit docker never observed. */
++export const EXIT_REASON_WATCHER_LOST_CONTAINER = 'watcher-lost-container';
++
++/** Status the reclassified session is reported with. */
++export const UNOBSERVED_EXIT_STATUS = 'killed';
++
++const SUCCESS_STATUSES = new Set(['executed', 'completed']);
++
++/**
++ * Decide whether a terminal docker session's success was never observed by
++ * docker.
++ *
++ * @param {Object} params
++ * @param {Object|null} params.sessionInfo
++ * @param {Object|null} params.statusResult - `$ --status` payload
++ * @param {number|string|null} params.exitCode - Resolved exit code
++ * @param {string|null} params.status - Resolved status
++ * @param {boolean} [params.running] - The session is still running
++ * @returns {string|null} Human-readable reason, or null when the exit is trustworthy
++ */
++export function detectUnobservedDockerExit({ sessionInfo = null, statusResult = null, exitCode = null, status = null, running = false } = {}) {
++  if (running) return null;
++  if (!isDockerIsolation(sessionInfo, statusResult)) return null;
++  const code = normalizeExitCode(exitCode);
++  const observedAt = statusResult?.observedAt || statusResult?.endTime || null;
++  if (statusResult?.exitReason === EXIT_REASON_WATCHER_LOST_CONTAINER) {
++    return `start-command lost the container: docker never reported a finish time for it (exitReason=${EXIT_REASON_WATCHER_LOST_CONTAINER}, exit ${code ?? 'unknown'}${observedAt ? `, noticed at ${observedAt}` : ''}) — it was removed or stopped from under the session`;
++  }
++  if (statusResult?.endTimeSource !== END_TIME_SOURCE_OBSERVED_AT) return null;
++  const normalizedStatus = String(status || '')
++    .trim()
++    .toLowerCase();
++  const reportedSuccess = code === 0 || (code === null && SUCCESS_STATUSES.has(normalizedStatus));
++  if (!reportedSuccess) return null;
++  return `start-command reported exit ${code ?? 0}, but docker never reported a finish time for the container (endTimeSource=observed-at${observedAt ? ` at ${observedAt}` : ''}): its completion watcher stopped following a container that was still running — e.g. \`docker logs -f\` failed writing the log on a full disk — and removed it`;
++}
++
++/**
++ * Rewrite a terminal isolation state whose docker success was never observed
++ * into a kill. Returns the input object untouched when nothing is wrong, so the
++ * caller can wrap every return path unconditionally.
++ *
++ * @param {string} sessionName
++ * @param {Object} sessionInfo
++ * @param {{running: boolean, exitCode: number|null, status: string|null, statusResult: Object|null}} state
++ * @param {Object} [options]
++ * @param {boolean} [options.verbose]
++ * @returns {Object} The (possibly corrected) state
++ */
++export function reclassifyUnobservedDockerExit(sessionName, sessionInfo, state, { verbose = false } = {}) {
++  if (!state || state.running) return state;
++  const statusResult = state.statusResult || null;
++  const reason = detectUnobservedDockerExit({ sessionInfo, statusResult, exitCode: state.exitCode, status: state.status });
++  if (!reason) return state;
++  if (verbose) {
++    console.log(`[VERBOSE] Session ${sessionName}: not trusting the reported success — ${reason}; reporting it as ${UNOBSERVED_EXIT_STATUS} (issue #2303)`);
++  }
++  const reportedExitCode = normalizeExitCode(state.exitCode ?? statusResult?.exitCode);
++  return {
++    ...state,
++    running: false,
++    exitCode: null,
++    status: UNOBSERVED_EXIT_STATUS,
++    unobservedExit: reason,
++    statusResult: { ...statusResult, status: UNOBSERVED_EXIT_STATUS, exitCode: null, reportedExitCode, reportedStatus: statusResult?.status ?? state.status ?? null, unobservedExit: reason },
++  };
++}
+diff --git a/src/session-store.lib.mjs b/src/session-store.lib.mjs
+index 32a95446..0ff89fca 100644
+--- a/src/session-store.lib.mjs
++++ b/src/session-store.lib.mjs
+@@ -56,6 +56,8 @@ import path from 'node:path';
+ // session's execution was ever observed, so a restart during a slow launch does
+ // not mistake "not started yet" for "finished".
+ const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'containerFilesystemInheritedBytes', 'containerResourceLimits', 'containerResourceLimitExceeded', 'cpuPenalty', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'oomEventObservedAt', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'rootSessionName', 'rootStartTime', 'previousExecutionUuids', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'killRecoveryStartedAt', 'killRecoveryLogStartBytes', 'recoveryLifecycle', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl', 'launchPending', 'launchedAt', 'containerSeenAt'];
++// Issue #2303: the lowest host disk reading taken while the session ran, so a disk-full kill is still diagnosable after a restart.
++PERSISTABLE_FIELDS.push('hostDiskMinAvailableBytes', 'hostDiskTotalBytes', 'hostDiskMinAvailableAt', 'hostDiskPath');
+ 
+ /**
+  * Resolve the directory durable bot state is written to. Honors
+diff --git a/src/work-session-formatting.lib.mjs b/src/work-session-formatting.lib.mjs
+index 53fe40e5..99393fde 100644
+--- a/src/work-session-formatting.lib.mjs
++++ b/src/work-session-formatting.lib.mjs
+@@ -181,7 +181,10 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
+   return [...before, prLine, ...after].join('\n');
+ }
+ 
+-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false } = {}) {
++// Issue #2303: the diagnosed kill cause, named in the headline.
++const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
++
++export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {
+   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
+   const { failed, killed, signal } = outcome;
+@@ -207,7 +210,14 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
+     // the recovery session edits this message again when it actually ends.
+     // Issue #2408: that is a warning, not a failure and not a neutral state.
+     statusEmojiOverride = '⚠️';
+-    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
++    if (killed && !signal) {
++      // Issue #2303: a kill without a signal exit has no real exit code (the 1 is a sentinel), so name the kill and its cause.
++      const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
++      const causeSuffix = causeLabel ? ` (${causeLabel})` : '';
++      statusText = text(messageLocale, 'telegram.work_session_recovering_from_kill', `Work session still in progress: recovering from a kill${causeSuffix}`, { causeSuffix });
++    } else {
++      statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
++    }
+   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
+     statusEmojiOverride = '⚠️';
+     statusText = 'Work session ended; final outcome could not be confirmed';
+@@ -248,7 +258,9 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
+     // sentinel, so suppress the misleading "(exit code: 1)" in that case.
+     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
+     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
+-    const reason = signal ? signal.reason : 'killed';
++    // Issue #2303: a kill without a signal exit (container removed from under the session) names its diagnosed cause.
++    const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
++    const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
+     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+   } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
+     statusEmojiOverride = '⚠️';

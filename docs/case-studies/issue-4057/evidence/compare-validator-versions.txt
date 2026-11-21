@@ -1,0 +1,5 @@
+127c703f1 allowed= none | violations= 3
+    Model-visible skill 'a-one' is not allowlisted for this run or resolves outside trusted repository-scoped paths: <tmp>/checkout/.agents/skills/a-one/SKILL.md.
+    Model-visible skill 'a-two' is not allowlisted for this run or resolves outside trusted repository-scoped paths: <tmp>/checkout/.agents/skills/a-two/SKILL.md.
+    Model-visible skill 'c-one' is not allowlisted for this run or resolves outside trusted repository-scoped paths: <tmp>/checkout/.codex/skills/c-one/SKILL.md.
+current   allowed= a-one,a-two,c-one | violations= 0

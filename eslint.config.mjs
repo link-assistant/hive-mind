@@ -9,6 +9,14 @@ import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
 import noUnretriedGitNetwork from './eslint-rules/no-unretried-git-network.mjs';
 import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 import noUnsafeTelegramSend from './eslint-rules/no-unsafe-telegram-send.mjs';
+import noUnescapedTelegramMarkdown from './eslint-rules/no-unescaped-telegram-markdown.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, URL } from 'node:url';
+import promisePlugin from 'eslint-plugin-promise';
+import noSyncInBotProcess from './eslint-rules/no-sync-in-bot-process.mjs';
+import requireExecTimeout from './eslint-rules/require-exec-timeout.mjs';
+import noSlowAwaitInTelegramHandler from './eslint-rules/no-slow-await-in-telegram-handler.mjs';
+import { computeImportClosure } from './eslint-rules/bot-import-closure.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -43,6 +51,8 @@ const streamsPlugin = {
 const telegramSafetyPlugin = {
   rules: {
     'no-unsafe-telegram-send': noUnsafeTelegramSend,
+    // Issue #3505: dynamic text in a legacy-Markdown message must be escaped.
+    'no-unescaped-telegram-markdown': noUnescapedTelegramMarkdown,
   },
 };
 
@@ -60,6 +70,29 @@ const outputSanitizationPlugin = {
     'require-sanitized-output': requireSanitizedOutput,
   },
 };
+
+// Issue #3206: rules that keep the long-lived Telegram bot process responsive.
+// One slow handler or one synchronous call stalls every chat, so:
+// - hive/no-sync-in-bot-process: no `*Sync` calls in any module the bot loads;
+// - hive/no-slow-await-in-telegram-handler: handlers hand slow work to
+//   detachHandler/runInBackground instead of awaiting it;
+// - hive/require-exec-timeout: docker/git/gh child processes get a timeout.
+const hivePlugin = {
+  rules: {
+    'no-sync-in-bot-process': noSyncInBotProcess,
+    'require-exec-timeout': requireExecTimeout,
+    'no-slow-await-in-telegram-handler': noSlowAwaitInTelegramHandler,
+  },
+};
+
+const readBaseline = name => JSON.parse(readFileSync(new URL(`./eslint-rules/baselines/${name}.json`, import.meta.url), 'utf8'));
+
+// Every module reachable from the bot entry point through relative imports.
+// Computed on each lint run, so a module the bot starts importing is covered
+// without editing a list.
+const botProcessFiles = computeImportClosure(fileURLToPath(new URL('./src/telegram-bot.mjs', import.meta.url)), {
+  rootDir: fileURLToPath(new URL('.', import.meta.url)),
+});
 
 export default [
   js.configs.recommended,
@@ -147,9 +180,13 @@ export default [
       // Require capturing createReadStream/createWriteStream return values so streams can be closed.
       // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
       'streams/no-leaked-streams': 'error',
-      // Disallow raw exec/execAsync/$ calls to `gh` without a rate-limit-safe wrapper.
-      // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
-      // See: https://github.com/link-assistant/hive-mind/issues/1726
+      // Disallow `gh` API calls (exec/execFile/spawn/runner/$, shell-string or argv
+      // style) that do not run under the shared retry loop (issue #1726). Since
+      // issue #3552 this is decided per call site, not per file: the executor must
+      // be built by a wrap factory (wrapDollarWithGhRetry, wrapRunnerWith*Retry),
+      // handed in by the caller, or the call must sit inside a retry helper
+      // (retryGitHubOperation, ghWithRateLimitRetry, execGhWithRetry, ...).
+      // A deliberate single shot needs `// github-retry-ok: <reason>`.
       'gh-rate-limit/no-direct-gh-exec': 'error',
       'output-sanitization/require-sanitized-output': 'error',
       // Enforce max 1500 lines per file to match CI workflow check.
@@ -178,22 +215,70 @@ export default [
     },
     rules: {
       'telegram-safety/no-unsafe-telegram-send': 'error',
+      // Issue #3505: a raw `in_progress`, branch, URL or error message in a
+      // Markdown message opens an entity that never closes, and Telegram rejects
+      // the whole message. Escape it (`escapeMarkdown`), put it in a code span,
+      // or mark a known-safe line `// telegram-markdown-ok: <reason>`.
+      'telegram-safety/no-unescaped-telegram-markdown': 'error',
     },
   },
   {
     // Issue #2168: network-facing git commands (`git push`/`fetch`/`pull`/
-    // `ls-remote`) must go through a `$` carrying the retry wrapper, otherwise a
-    // single transient remote failure aborts the whole session. Helpers that
-    // receive `$` from their caller are exempt - the caller owns the wrapper.
-    // Scoped to src/ because tests drive local fixture repositories and the
-    // scripts/ helpers run against the already-checked-out working copy in CI,
-    // where a retry would only hide a genuine failure.
-    files: ['src/**/*.{js,mjs,cjs}'],
+    // `ls-remote`) must run under the shared retry loop, otherwise a single
+    // transient remote failure aborts the whole session. Helpers that receive
+    // `$` from their caller are exempt - the caller owns the wrapper.
+    // Issue #3552: scripts/ is covered too - the release script's single-shot
+    // `git push` is exactly what GitHub's `fatal error in commit_refs` killed.
+    // Tests drive local fixture repositories and stay out of scope.
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}'],
     plugins: {
       'gh-rate-limit': ghRateLimitPlugin,
     },
     rules: {
       'gh-rate-limit/no-unretried-git-network': 'error',
+    },
+  },
+  {
+    // Issue #3206: modules loaded by the bot process share its one event loop.
+    // The per-file baseline lists sync calls that existed before the rule; a
+    // file may not add more, and converting one means lowering its count.
+    // Each entry gives the reason the file may keep them (issue #3278).
+    // One-time startup and exit-handler code is marked `// hive-sync-ok: <reason>`.
+    // An un-returned, un-caught promise chain in the bot is an unhandled
+    // rejection waiting to happen, so promise/catch-or-return applies too.
+    files: botProcessFiles,
+    plugins: {
+      hive: hivePlugin,
+      promise: promisePlugin,
+    },
+    rules: {
+      'hive/no-sync-in-bot-process': ['error', { baseline: readBaseline('no-sync-in-bot-process') }],
+      'promise/catch-or-return': ['error', { allowFinally: true }],
+    },
+  },
+  {
+    // Issue #3206: a hung docker/git/gh process never ends by itself, wherever
+    // it is started from. The baseline lists calls that predate the rule,
+    // each file with its reason; command-stream `$` calls count too (#3278).
+    files: ['src/**/*.{js,mjs,cjs}'],
+    plugins: {
+      hive: hivePlugin,
+    },
+    rules: {
+      'hive/require-exec-timeout': ['error', { baseline: readBaseline('require-exec-timeout') }],
+      'hive/no-slow-await-in-telegram-handler': 'error',
+    },
+  },
+  {
+    // Issue #3206: sequential awaits in a loop are often a hidden N x latency.
+    // Most hits elsewhere are deliberate (ordered git operations, retries), so
+    // the warning is limited to the bot's own telegram-*/bot-* modules, where
+    // that latency is felt by users waiting for a reply. A loop that must stay
+    // sequential (polling, retries, ordered sends) says why in its
+    // `eslint-disable` comment; `npm run lint` fails on any warning.
+    files: ['src/telegram-*.{js,mjs,cjs}', 'src/bot-*.{js,mjs,cjs}'],
+    rules: {
+      'no-await-in-loop': 'warn',
     },
   },
 ];

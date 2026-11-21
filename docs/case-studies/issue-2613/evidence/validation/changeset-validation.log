@@ -1,0 +1,11 @@
+Validating changesets added by this PR...
+Comparing against base branch: main
+From https://github.com/link-assistant/hive-mind
+ * branch              main       -> FETCH_HEAD
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - fix-session-diagnostics-2613.md
+Validating changeset: .changeset/fix-session-diagnostics-2613.md
+Changeset validation passed
+   Type: patch
+   Description: Bound version probes and clean up their descendants; preserve failed-session logs on pull request branches when Gist permissions are unavailable, honor startup log directories, and repair formal draft labeling and checks-only dispatch.

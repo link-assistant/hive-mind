@@ -5,13 +5,14 @@
 
 // Issue #1625: centralized markers + tracked posting for the "empty repo"
 // issue comment so it's excluded from --auto-attach-solution-summary's check.
-import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, findCommentWithMarker, postTrackedComment } from './tool-comments.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 // Issue #2192: a credential helper is never consulted for a *public* clone
 // (github.com answers 200, so git never asks), which is why an authenticated
 // container still got throttled as anonymous. The token has to be sent
 // preemptively, before the first git network call.
 import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
+import { handleUncommittedChangesAfterClone } from './clone-status.lib.mjs'; // issue #4063
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
@@ -106,7 +107,15 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl }) {
+/**
+ * @param {object} options
+ * @param {(result: {mode: string, promptLines: string[], neutralized: string[], changes: string[], remaining: string[], statusOutput: string}) => void} [options.onCloneStatus]
+ *   Issue #4063: called when the clone was not clean and the run continues;
+ *   `promptLines` go into the AI's user prompt, `statusOutput` is what
+ *   `git status --porcelain` reports afterwards.
+ * @returns {Promise<string>} the default branch
+ */
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl, onCloneStatus }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -280,9 +289,14 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   // Note: Empty output means clean working directory
   const statusOutput = statusResult.stdout.toString().trim();
   if (statusOutput) {
-    await log('Error: Repository has uncommitted changes after clone');
-    await log(`Status output: ${statusOutput}`);
-    throw new Error('Repository has uncommitted changes after clone');
+    // Issue #4063: a fresh clone can already be "dirty" - e.g. a CRLF blob
+    // marked `text eol=crlf` is reported as modified by every clone although
+    // its bytes equal the commit. By default the run continues and the AI is
+    // told in its prompt; --uncommitted-changes-after-clone fail restores the
+    // old hard stop (clone-status.lib.mjs).
+    const result = await handleUncommittedChangesAfterClone({ cwd: tempDir, argv, log, statusOutput: statusResult.stdout.toString().replace(/\s+$/, '') });
+    const after = await $({ cwd: tempDir, signal: AbortSignal.timeout(60000) })`git status --porcelain`;
+    onCloneStatus?.({ ...result, statusOutput: after.code === 0 ? after.stdout.toString().trim() : '' });
   }
 
   return defaultBranch;
@@ -301,6 +315,12 @@ async function tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, for
     if (!issueMatch) return;
 
     const issueNumber = issueMatch[1];
+    // Issue #3684: a repeated run does not ask a second time.
+    const existingId = await findCommentWithMarker({ $, owner, repo, targetNumber: issueNumber, marker: REPOSITORY_INITIALIZATION_REQUIRED_MARKER });
+    if (existingId) {
+      await log(`${formatAligned('ℹ️', 'Comment exists:', `Issue #${issueNumber} already asks to initialize the repository (id=${existingId}); not posting again`)}`);
+      return;
+    }
     await log(`${formatAligned('💬', 'Creating comment:', 'Informing about empty repository...')}`);
 
     const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}

@@ -223,7 +223,7 @@ test('diagnostic report redacts tokens from command lines', () => {
     ],
     orphans: [],
   });
-  assert.ok(report.includes(issueUrl));
+  assert.match(report, new RegExp(RegExp.escape(issueUrl)));
   assert.ok(!report.includes(telegramLikeToken));
   assert.ok(!report.includes(githubLikeToken));
 });

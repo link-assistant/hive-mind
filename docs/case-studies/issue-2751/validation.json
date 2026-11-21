@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-08",
+  "focusedTests": {
+    "reportDependenciesIssues": {
+      "passed": 13,
+      "failed": 0
+    },
+    "fixUpdateDependencies": {
+      "passed": 52,
+      "failed": 0
+    },
+    "telegramTask": {
+      "passed": 28,
+      "failed": 0
+    }
+  },
+  "cliDryRun": {
+    "defaultIncludesReporting": true,
+    "explicitOptOutOmitsReporting": true,
+    "createdIssues": 0,
+    "startedSolvers": 0,
+    "solveAndHiveHelpExposeOption": true
+  },
+  "checks": {
+    "eslint": "passed",
+    "duplication": "passed (11.12%, threshold 12%)",
+    "secretlint": "passed",
+    "lineLimits": "passed",
+    "docsValidation": "passed",
+    "docsLanguageSync": "passed",
+    "prettier": "passed",
+    "syntax": "passed",
+    "changeset": "passed (exactly one minor Changeset added relative to origin/main)",
+    "manualVersionChanges": "passed (none)",
+    "dependencyFreshness": "passed (168/168 current)",
+    "packageManagerDeclaration": "passed"
+  },
+  "defaultTests": {
+    "command": "node scripts/run-tests.mjs --suite default --continue-on-failure",
+    "passedFiles": 579,
+    "failedFiles": 0,
+    "exitCode": 0,
+    "log": "evidence/default-tests.log.gz",
+    "phase": "after the Box 2.10.3 refresh"
+  },
+  "boxRefresh": {
+    "release": "2.10.3",
+    "failedRun": 37759757893,
+    "failedHead": "5ba4ccc9d66b0e8c27569f26c9a77e46a4a39ff9",
+    "logErrorLines": [2723, 2727],
+    "before": {
+      "current": 165,
+      "total": 168,
+      "stale": 3,
+      "unresolved": 0,
+      "pinRegressionExitCode": 1
+    },
+    "after": {
+      "current": 168,
+      "total": 168,
+      "stale": 0,
+      "unresolved": 0,
+      "affectedTestFilesPassed": 5,
+      "runtimeTestsPassed": 52,
+      "languageTestsPassed": 22
+    },
+    "freshnessLog": "evidence/dependency-freshness-after-box-update.log.gz",
+    "verifiedAt": "2026-10-08T10:21:32.957183+00:00"
+  }
+}

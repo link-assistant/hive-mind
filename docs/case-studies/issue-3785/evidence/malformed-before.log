@@ -1,0 +1,29 @@
+✖ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (39.445415ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 763.852189
+
+✖ failing tests:
+
+test at tests/issue-3785-limits.test.mjs:151:1
+✖ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (39.445415ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /private-/. Input:
+
+  `[{"success":false,"error":"Failed to get Claude subscription info: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get Codex usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"}]`
+
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:159:12
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-limits.test.mjs:156:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `[{"success":false,"error":"Failed to get Claude subscription info: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"},{"success":false,"error":"Failed to get Codex usage limits: Unexpected token 'p', \\"private-bo\\"... is not valid JSON"}]`,
+    expected: /private-/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

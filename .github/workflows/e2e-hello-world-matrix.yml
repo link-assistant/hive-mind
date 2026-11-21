@@ -1,7 +1,7 @@
 # Every row uses an isolated orphan branch, even with the default GitHub token.
 name: E2E Hello World Matrix
 
-on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
+on:
   workflow_dispatch:
     inputs:
       isolation:
@@ -17,7 +17,7 @@ on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completion
         description: Optional existing task (owned resources are never cleaned up)
         type: string
         default: ''
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] Only successful trusted main completions are admitted by prepare.
     workflows: ['Checks and release']
     types: [completed]
     branches: [main]
@@ -27,8 +27,14 @@ on: # zizmor: ignore[dangerous-triggers] Only successful trusted main completion
 permissions:
   contents: read
 
+# Quiets the `git init` "Using 'master'" hint from checkout (issue #4029).
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 jobs:
   prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.ENABLE_REAL_GITHUB_E2E == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -46,7 +52,9 @@ jobs:
           node-version: 24.x
       - name: Install automation dependencies
         run: npm ci --omit=dev --ignore-scripts
-      - name: Compare the latest Formal AI tag with the last successful matrix
+      # Issue #3332: the shipped Formal AI pin is tested; the GitHub release and
+      # crates.io are compared and a disagreement is annotated (formal-ai#1203).
+      - name: Compare the shipped Formal AI version with the last successful matrix
         id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
@@ -80,7 +88,7 @@ jobs:
           - tool: codex
             model: formal-ai
           - tool: agent
-            model: nemotron-3-super-free
+            model: kilo/nemotron-3.5-lightning-free
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -107,15 +115,16 @@ jobs:
         if: steps.gh.outputs.layer == 'default'
         env:
           GH_TOKEN: ${{ steps.gh.outputs.token }}
-          ACT_VERSION: v0.2.89
+          ACT_VERSION: v0.2.98
           ACT_DIR: ${{ runner.temp }}/act
         run: |
           mkdir -p "$ACT_DIR"
-          gh release download "$ACT_VERSION" --repo nektos/act --pattern act_Linux_x86_64.tar.gz --pattern checksums.txt --dir "$ACT_DIR"
+          # Shared transient-fault retry loop (issue #3552); --clobber lets a retry overwrite a partial download.
+          node scripts/github-retry.mjs gh release download "$ACT_VERSION" --repo nektos/act --pattern act_Linux_x86_64.tar.gz --pattern checksums.txt --dir "$ACT_DIR" --clobber
           (cd "$ACT_DIR" && sha256sum --check --ignore-missing checksums.txt)
           tar -xzf "$ACT_DIR/act_Linux_x86_64.tar.gz" -C "$ACT_DIR" act
           echo "$ACT_DIR" >> "$GITHUB_PATH"
-      - name: Build the task overlay for the scheduled Formal AI release
+      - name: Build the task overlay for the shipped Formal AI version
         env:
           FORMAL_AI_VERSION: ${{ needs.prepare.outputs.formal_ai_tag }}
           E2E_IMAGE_OVERRIDE: ${{ vars.E2E_IMAGE }}
@@ -142,7 +151,7 @@ jobs:
           FORMAL_AI_INSTALL_GRANT: workspace
           ANTHROPIC_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ matrix.model != 'formal-ai' && matrix.tool == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
-          OPENAI_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.model != 'nemotron-3-super-free' && matrix.tool != 'claude' && secrets.OPENAI_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.model != 'formal-ai' && matrix.model != 'kilo/nemotron-3.5-lightning-free' && matrix.tool != 'claude' && secrets.OPENAI_API_KEY || '' }}
         run: |
           set -- --tool "$E2E_TOOL" --model "$E2E_MODEL" --isolation "$E2E_ISOLATION"
           if [ -n "$E2E_ISSUE_URL" ]; then set -- "$@" --issue "$E2E_ISSUE_URL"; fi

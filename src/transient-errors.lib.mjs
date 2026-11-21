@@ -25,6 +25,7 @@
  * both files can depend on it without a cycle.
  *
  * @see docs/case-studies/issue-2168/README.md
+ * @see docs/case-studies/issue-3552/README.md
  */
 
 /**
@@ -64,6 +65,11 @@ export const GITHUB_SERVER_TRANSIENT_PATTERNS = Object.freeze([
   'temporarily unavailable due to heavy server load',
   'heavy server load',
   'not_available',
+  // git receive-pack failing to commit the ref update on GitHub's side,
+  // reported as `remote: fatal error in commit_refs` followed by
+  // `! [remote rejected] <ref> -> <ref> (failure)`. Not a divergence: the
+  // same push succeeds once GitHub recovers (issue #3552).
+  'fatal error in commit_refs',
 ]);
 
 /**

@@ -25,6 +25,39 @@ function normalizeProcessIds(value) {
   return out;
 }
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// The watcher samples the task cgroup, unlike the bot's own system probes.
+// Unknown counters must stay null: converting null/empty strings to 0 would
+// turn missing evidence into a claim that no OOM occurred (issue #2498).
+function normalizeCgroupMemory(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const fields = ['limitBytes', 'peakBytes', 'oomEvents', 'oomKills'];
+  const result = Object.fromEntries(
+    fields.map(field => {
+      const raw = value[field];
+      const number = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : raw;
+      return [field, Number.isSafeInteger(number) && number >= 0 ? number : null];
+    })
+  );
+  return Object.values(result).some(value => value !== null) ? result : null;
+}
+
+function readCgroupMemoryBlock(raw) {
+  // Restrict reads to this block. recoveryHistory also carries oomKills, but
+  // describes older containers and must never replace the current counters.
+  const lines = raw.split('\n');
+  const index = lines.findIndex(line => /^\s*cgroupMemory\s*$/.test(line));
+  if (index < 0) return null;
+  const indent = lines[index].match(/^\s*/)[0].length;
+  const fields = {};
+  for (const line of lines.slice(index + 1)) {
+    if (!line.trim()) continue;
+    if (line.match(/^\s*/)[0].length <= indent) break;
+    const match = /^\s*(limitBytes|peakBytes|oomEvents|oomKills)\s+(\S+)\s*$/.exec(line);
+    if (match) fields[match[1]] = match[2];
+  }
+  return normalizeCgroupMemory(fields);
+}
 /**
  * Extract start-command's own execution UUID from a launch banner.
  *
@@ -83,12 +116,12 @@ export function parseStartCommandExecutionUuid(output) {
  * log-marker classification as defense in depth (issue #2189).
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, endTimeSource: string|null, observedAt: string|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, cgroupMemory: null, endTimeSource: null, observedAt: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -120,10 +153,21 @@ export function parseSessionStatusOutput(output) {
       workingDirectory: data?.workingDirectory || null,
       sessionName: data?.sessionName || data?.options?.sessionName || null,
       processIds,
+      ...(Number.isInteger(data?.options?.resumeCount) ? { resumeCount: data.options.resumeCount } : {}),
+      ...(data?.dockerState ? { dockerState: data.dockerState } : {}),
+      ...(typeof data?.paused === 'boolean' ? { paused: data.paused } : {}),
+      ...(data?.pausedAt ? { pausedAt: data.pausedAt } : {}),
+      ...(Number.isInteger(data?.options?.pauseCount) ? { pauseCount: data.options.pauseCount } : {}),
+      ...(data?.options?.pausedBy ? { pausedBy: data.options.pausedBy } : {}),
+      ...(data?.options?.pauseReason ? { pauseReason: data.options.pauseReason } : {}),
       oomKilled: normalizeBooleanField(data?.oomKilled ?? data?.OOMKilled ?? data?.options?.oomKilled ?? data?.state?.oomKilled ?? data?.State?.OOMKilled),
       exitReason: typeof data?.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
       memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
       memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
+      cgroupMemory: normalizeCgroupMemory(data?.cgroupMemory),
+      // Issue #2303: `observed-at` means docker never reported a finish time — the exit was noticed, not observed.
+      endTimeSource: typeof data?.endTimeSource === 'string' && data.endTimeSource.trim() ? data.endTimeSource.trim() : null,
+      observedAt: data?.observedAt || null,
       raw,
     };
   } catch {
@@ -169,6 +213,8 @@ export function parseSessionStatusOutput(output) {
     workingDirectory: readField('workingDirectory'),
     sessionName: readField('sessionName'),
     processIds,
+    ...(readField('dockerState') || readField('Docker State') ? { dockerState: readField('dockerState') || readField('Docker State') } : {}),
+    ...(readBooleanField('paused') !== null ? { paused: readBooleanField('paused'), pausedAt: readField('pausedAt') || readField('Paused At') } : {}),
     oomKilled: readBooleanField('oomKilled'),
     // `--output-format text` labels the same three fields `Exit Reason:`,
     // `Memory Exhausted:` and `Memory Evidence:`; links notation uses the camelCase
@@ -176,6 +222,9 @@ export function parseSessionStatusOutput(output) {
     exitReason: readField('exitReason') || readField('Exit Reason'),
     memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
     memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
+    cgroupMemory: readCgroupMemoryBlock(raw),
+    endTimeSource: readField('endTimeSource') || readField('End Time Source'),
+    observedAt: readField('observedAt') || readField('Observed At'),
     raw,
   };
 }
@@ -198,6 +247,24 @@ export function isUnknownDockerExitCode(exitCode) {
 }
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
+}
+/** What start-command prints when it simply has no record of the execution. */
+const STATUS_RECORD_MISSING_PATTERN = /No execution found/i;
+/**
+ * Issue #2303: tell a failed `$ --status` query (non-zero exit for any other
+ * reason: a locked or corrupt store, a crash) apart from a missing record, so
+ * the monitor can keep the session tracked instead of declaring it finished.
+ *
+ * @param {Object} statusResult - Parsed status record
+ * @param {{code?: number, stderr?: string}} [commandResult]
+ * @returns {Object} The record, with `queryError` when the query itself failed
+ */
+export function withStatusQueryError(statusResult, { code = 0, stderr = '' } = {}) {
+  const exitCode = Number(code);
+  if (statusResult?.exists || !Number.isFinite(exitCode) || exitCode === 0) return statusResult;
+  const message = String(stderr || '').trim();
+  if (STATUS_RECORD_MISSING_PATTERN.test(message)) return statusResult;
+  return { ...statusResult, queryError: message.split('\n')[0].slice(0, 300) || `$ --status exited with code ${exitCode}` };
 }
 /**
  * Parse the footer start-command appends to every execution log when the wrapped
@@ -244,22 +311,25 @@ export function parseSessionExitFooter(text) {
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
  * @param {number} [options.tailBytes=16384] - How many trailing bytes to scan
  * @param {boolean} [options.verbose]
- * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ * @returns {Promise<{finished: boolean, exitCode: number|null, endTime: string|null}>}
  */
-export function readSessionExitFromLog(logPath, options = {}) {
-  const { fsImpl = fs, tailBytes = 16384, verbose = false } = options;
+export async function readSessionExitFromLog(logPath, options = {}) {
+  const { fsImpl = fs, tailBytes = 16384, minByteOffset = 0, verbose = false } = options;
   if (!logPath) return { finished: false, exitCode: null, endTime: null };
   try {
-    const { size } = fsImpl.statSync(logPath);
-    if (!size) return { finished: false, exitCode: null, endTime: null };
-    const start = Math.max(0, size - tailBytes);
-    const length = size - start;
-    const buffer = Buffer.alloc(length);
-    const fd = fsImpl.openSync(logPath, 'r');
+    const handle = await fsImpl.promises.open(logPath, 'r');
+    let buffer;
     try {
-      fsImpl.readSync(fd, buffer, 0, length, start);
+      const { size } = await handle.stat();
+      if (!size) return { finished: false, exitCode: null, endTime: null };
+      // A resumed execution appends to the same log. Earlier footers describe
+      // earlier attempts, even while the replacement container is alive (#2498).
+      const start = Math.min(size, Math.max(0, size - tailBytes, Number.isSafeInteger(minByteOffset) ? minByteOffset : 0));
+      const length = size - start;
+      buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, start);
     } finally {
-      fsImpl.closeSync(fd);
+      await handle.close();
     }
     const result = parseSessionExitFooter(buffer.toString('utf8'));
     if (verbose && result.finished) {
@@ -308,10 +378,14 @@ export function parseSessionListOutput(output) {
         isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
         workingDirectory: data.workingDirectory || null,
         sessionName: data.sessionName || data.options?.sessionName || null,
+        ...(data.dockerState ? { dockerState: data.dockerState } : {}),
+        ...(typeof data.paused === 'boolean' ? { paused: data.paused } : {}),
+        ...(data.pausedAt ? { pausedAt: data.pausedAt } : {}),
         // Additive 0.33.0 hints (link-foundation/start#164, #165); null on older `$`.
         exitReason: typeof data.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
         memoryExhausted: typeof data.memoryExhausted === 'boolean' ? data.memoryExhausted : null,
         memoryExhaustedReason: typeof data.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
+        cgroupMemory: normalizeCgroupMemory(data.cgroupMemory),
       };
     })
     .filter(Boolean);

@@ -57,8 +57,6 @@ test('Claude print mode resumes incomplete background work without treating shut
       branchName: 'issue-2301',
       prompt: 'Finish the issue.',
       systemPrompt: 'Solve it.',
-      escapedPrompt: 'Finish the issue.',
-      escapedSystemPrompt: 'Solve it.',
       argv,
       log: async message => logs.push(String(message)),
       setLogFile: next => {

@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-3125-d4623787af97",
+  "mergedAt": null,
+  "number": 3127,
+  "state": "OPEN",
+  "title": "fix: keep tasks alive when a build fills the container's memory (#3125)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/3127"
+}

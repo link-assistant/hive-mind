@@ -1,0 +1,51 @@
+129659018591	health	skipped	0
+129659017385	Formal AI draft		0
+129370302085	${{ matrix.tool }} / ${{ matrix.model }}	skipped	0
+129370221462	prepare	skipped	0
+129369883787	Helm Release (Instant)	skipped	0
+129369882864	Docker Publish Instant (Merge)	skipped	0
+129369882575	Helm Release	skipped	0
+129369881926	Docker Publish (Merge)	skipped	0
+129369881674	Pipeline Status	failure	2
+129369881510	Docker Publish DinD Instant (Merge)	skipped	0
+129369881333	Docker Publish Instant (${{ matrix.platform }})	skipped	0
+129369881198	Docker Publish DinD Instant (${{ matrix.platform }})	skipped	0
+129369881175	Docker Publish DinD (Merge)	skipped	0
+129369880438	Release	skipped	0
+129369880242	Docker Publish DinD (${{ matrix.platform }})	skipped	0
+129369880198	Docker Publish (${{ matrix.platform }})	skipped	0
+129369879659	Instant Release	skipped	0
+129364761723	report-checks	skipped	0
+129364761098	Formal AI draft	skipped	0
+129364758585	health	success	0
+129355462929	docker-pr-check	failure	1
+129354120810	Verified native Codex package / Exercise installed npm runtime on linux-x64	success	0
+129354120574	Verified native Codex package / Exercise installed npm runtime on linux-arm64	success	0
+129353217227	Verified native Codex package / Verify both native platforms in the actual npm artifact	success	0
+129301246581	Security Status	success	0
+129300259193	test-execution	success	0
+129300259120	test-suites	success	0
+129300258935	memory-check-linux	success	0
+129299144890	helm-pr-check	skipped	0
+129299143717	Check for Changesets	skipped	0
+129299143136	Check for Manual Version Changes	skipped	0
+129299142692	Verified native Codex package / Build and exercise linux-x64	success	0
+129299142558	Verified native Codex package / Build and exercise linux-arm64	success	0
+129299142361	check-file-line-limits	success	0
+129299141947	validate-docs	success	0
+129299141769	test-compilation	success	0
+129299140516	lint	success	0
+129299118169	Links Status	success	0
+129299050008	Workflows Status	success	0
+129298692470	update-pip-graph	success	1
+129298659630	Create Changeset PR	skipped	0
+129298657395	Release Preflight / Probe publishing credentials	success	0
+129298656789	detect-changes	success	0
+129298654220	Dependency Review	skipped	0
+129298653548	ShellCheck	success	0
+129298653493	zizmor	success	0
+129298653083	actionlint	success	0
+129298652791	CodeQL (javascript-typescript)	success	0
+129298652790	CodeQL (actions)	success	0
+129298652687	Check Links	success	0
+129298652249	Audit npm lock	success	0

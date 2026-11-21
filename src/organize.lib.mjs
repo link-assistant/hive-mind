@@ -48,7 +48,7 @@ const baseCounts = scanned => ({ scanned, changed: 0, unchanged: scanned, stale:
  * Collect, classify, validate, apply and verify one repository organization
  * run. The classifier receives prompts only; GitHub access stays in this layer.
  */
-export async function organizeRepository({ repositoryUrl, dryRun = false, operatorInstructions = '', tool = 'claude', model = null, think = null, requestedBy = null, client = null, classifier = runOrganizationClassifier, auditWriter = writeOrganizationAudit, progress = async () => {}, maxIssuesPerChunk = 75, maxPromptCharacters = 120_000, mutationBatchSize = 10 } = {}) {
+export async function organizeRepository({ repositoryUrl, dryRun = false, operatorInstructions = '', tool = 'claude', model = null, think = null, requestedBy = null, client = null, classifier = runOrganizationClassifier, auditWriter = writeOrganizationAudit, progress = async () => {}, log = null, maxIssuesPerChunk = 75, maxPromptCharacters = 120_000, mutationBatchSize = 10 } = {}) {
   const github = client || createOrganizationGitHubClient({ repositoryUrl });
   const startedAt = new Date().toISOString();
   let repository = { url: repositoryUrl, fullName: repositoryUrl };
@@ -84,7 +84,7 @@ export async function organizeRepository({ repositoryUrl, dryRun = false, operat
       await progress({ stage: 'classifying', current: index + 1, total: chunks.length, message: `Classifying issue batch ${index + 1}/${chunks.length}` });
       const chunk = chunks[index];
       const prompts = buildOrganizationPrompts({ ...chunk, operatorInstructions, chunk: index + 1, chunkCount: chunks.length });
-      const rawPlan = await classifier({ prompts, tool, model, think, chunk: index + 1, chunkCount: chunks.length });
+      const rawPlan = await classifier({ prompts, tool, model, think, log, chunk: index + 1, chunkCount: chunks.length });
       if (!rawPlan || !Array.isArray(rawPlan.issues)) throw new Error(`Classifier batch ${index + 1} did not return an issues array`);
       rawItems.push(...rawPlan.issues);
     }

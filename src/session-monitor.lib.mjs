@@ -18,27 +18,41 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
+import { reportRecoveryLifecycle, recoveryLifecycleCallback } from './session-recovery-lifecycle.lib.mjs';
+import { reportFixProgress } from './fix-progress.lib.mjs'; // Issue #3326: show /fix's "waiting for CI/CD" phase.
+import { reportSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091: show /solve's watch phase.
+import { getSessionIssueContext, reportLivePullRequestLink } from './session-live-pr-link.lib.mjs'; // Issue #3469: PR link while running.
+import { getIsolationSessionState as getIsolationSessionStateImpl } from './session-monitor.isolation-state.lib.mjs';
+// Issue #2303: a docker exit docker never observed is a kill, and the host disk is sampled while the session runs.
+import { reclassifyUnobservedDockerExit } from './session-monitor.unobserved-exit.lib.mjs';
+import { observeHostDiskForSession } from './session-monitor.host-disk.lib.mjs';
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
-import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log-bounded-read.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
-// Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
-import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
-import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
+import { sessionStartMs } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
-import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { buildKillCompletionSections, announceKillOnPullRequest, hasContainerOomEvidence, startedPullRequestUrl } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+import { isDiskRefusedRecovery } from './session-kill-resume.disk-retry.lib.mjs';
+import { detectFailedInPlaceStart } from './session-kill-resume.start-failure.lib.mjs';
+import { createSessionPullRequestUrlScanner, lookupSessionPullRequestUrl } from './session-own-pr.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
-import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 import { createSessionPauseControls, isSessionPaused } from './session-pause.lib.mjs';
+import { reportDockerPause } from './telegram-task-pause-display.lib.mjs';
+import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+// Issue #3209: a session is not finished before its execution was observed once.
+import { hasUnknownExitLatch, reconcileLaunchObservation, releaseCompletionLatch } from './session-monitor.launch-state.lib.mjs';
+import { getNonIsolationSessionProgress, readScreenExitMarker, removeScreenExitMarker, NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS } from './start-screen-exit-marker.lib.mjs';
 import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
+import { runDockerCpuPenaltyPass, formatDockerCpuPenaltySection } from './docker-cpu-penalty.lib.mjs';
+import { removeSnapshotImages, snapshotImagesForContainer } from './kill-recovery-snapshot-cleanup.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -55,6 +69,8 @@ async function getIsolationRunner() {
 const activeSessions = new Map();
 // Issue #2408: sessions whose monitor pass is running right now (see monitorSessions).
 const sessionsInFlight = new Set();
+// Issue #2801: the CPU penalty pass of the previous tick, while it still runs.
+let cpuPenaltyPassInFlight = null;
 // Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
 let sessionStore = null;
 let sessionLogger = null;
@@ -82,6 +98,7 @@ function logEvent(type, data) {
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
   sessionsInFlight.clear();
+  cpuPenaltyPassInFlight = null;
   sessionStore = null;
   sessionLogger = null;
 }
@@ -101,18 +118,9 @@ export function __setIsolationRunnerForTests(runner) {
 export function getIsolationSessionStateForTests(sessionName, sessionInfo, options = {}) {
   return getIsolationSessionState(sessionName, sessionInfo, options);
 }
-/**
- * Issue #1586: Timeout for non-isolation sessions.
- * Non-isolation (plain start-screen) sessions cannot reliably detect completion
- * because the screen stays alive via `exec bash`. To prevent false positives
- * that permanently block users, non-isolation sessions are auto-expired after
- * this timeout. This still prevents accidental duplicate commands within the
- * timeout window (5-10 minutes).
- *
- * Once --isolation is fully tested and becomes the default, this timeout
- * mechanism will no longer be needed.
- */
-export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+// Issue #1586: plain start-screen sessions expire after a timeout because `exec bash` keeps the screen alive.
+// Issue #3215: the timeouts live next to the exit status file they depend on.
+export { NON_ISOLATION_SESSION_TIMEOUT_MS, NON_ISOLATION_MARKED_SESSION_TIMEOUT_MS };
 export const DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY = 'on-failure';
 export const DOCKER_TASK_CONTAINER_KEEP_POLICIES = ['always', 'on-failure', 'never'];
 export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbose = false } = {}) {
@@ -209,7 +217,7 @@ function persistSessionSnapshot(sessionName, sessionInfo) {
  */
 export function getTrackedSessionInfo(sessionName) {
   if (!sessionName) return null;
-  return activeSessions.get(sessionName) || null;
+  return findTrackedSessionByIdentifier(sessionName)?.sessionInfo || null;
 }
 /**
  * Issue #2052: record that an operator explicitly requested a session stop
@@ -282,25 +290,96 @@ export function untrackSession(sessionName, verbose = false, details = {}) {
   });
 }
 /**
+ * Get the number of active sessions being tracked
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {number} Number of active sessions
+ */
+export function getActiveSessionCount(verbose = false) {
+  const count = [...activeSessions.values()].filter(info => !isSessionPaused(info) && !info.retainedForResume).length;
+  if (verbose) console.log(`[VERBOSE] Active sessions: ${count}`);
+  return count;
+}
+/**
+ * Get all active sessions
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Array<{sessionName: string, sessionInfo: Object}>} Array of active sessions
+ */
+function getActiveSessions(verbose = false) {
+  const sessions = [];
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    sessions.push({ sessionName, sessionInfo });
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] Retrieved ${sessions.length} active session(s)`);
+  }
+  return sessions;
+}
+/**
  * Remove a session from tracking
  * @param {string} sessionName - Name of the session to remove
  * @param {boolean} verbose - Whether to log verbose output
  */
+// Issue #3209: an unknown exit code is recorded as unknown, never as 0.
+function completionExitForAudit(exitCode) {
+  return exitCode ?? null;
+}
+// Issue #2823: callbacks told when a tracked session ends, so the solve queue
+// can tell a finished task from one that is merely launched.
+const sessionCompletionListeners = new Set();
+/**
+ * Register a callback invoked whenever a tracked session completes.
+ *
+ * The listener receives `{ sessionName, exitCode, status, url, tool, command,
+ * rootSessionName, killRecoveryOfSession, supersededBy }`. `supersededBy` is the
+ * kill-recovery session that continues the work, when one was started; that
+ * session reports the real outcome later. Listener errors are logged and never
+ * break monitoring.
+ *
+ * @param {(event: object) => void} listener
+ * @returns {() => void} Unsubscribe function.
+ */
+export function addSessionCompletionListener(listener) {
+  if (typeof listener !== 'function') return () => {};
+  sessionCompletionListeners.add(listener);
+  return () => sessionCompletionListeners.delete(listener);
+}
+function notifySessionCompletionListeners(event) {
+  for (const listener of sessionCompletionListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      console.error(`[session-monitor] Session completion listener failed for ${event.sessionName}: ${error.message}`);
+    }
+  }
+}
 function completeSession(sessionName, exitCode = 0, verbose = false, status = null) {
   const sessionInfo = activeSessions.get(sessionName) || null;
-  activeSessions.delete(sessionName);
-  if (verbose) {
+  if (!sessionInfo?.retainedForResume) activeSessions.delete(sessionName);
+  if (verbose && !sessionInfo?.retainedForResume) {
     console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode}${status ? `, status: ${status}` : ''})`);
   }
   // Issue #1927: drop from the durable snapshot (and append a `complete` audit event recording how it ended) so a later restart does not try to resume it.
   if (sessionStore && isPersistableSession(sessionInfo)) {
     try {
-      sessionStore.remove(sessionName, { status, exitCode });
+      if (sessionInfo.retainedForResume) persistSessionSnapshot(sessionName, sessionInfo);
+      else sessionStore.remove(sessionName, { status, exitCode });
     } catch (error) {
       console.error(`[session-monitor] Could not remove persisted session ${sessionName}: ${error.message}`);
     }
   }
+  void removeScreenExitMarker(sessionInfo?.exitMarkerPath);
   logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
+  notifySessionCompletionListeners({
+    sessionName,
+    exitCode: exitCode ?? null,
+    status: status || null,
+    url: sessionInfo?.url || null,
+    tool: sessionInfo?.tool || null,
+    command: sessionInfo?.command || null,
+    rootSessionName: sessionInfo?.rootSessionName || null,
+    killRecoveryOfSession: sessionInfo?.killRecoveryOfSession || null,
+    supersededBy: sessionInfo?.killRecoverySessionId || null,
+  });
 }
 function isMessageAlreadyUpdatedError(error) {
   const message = String(error?.message || '').toLowerCase();
@@ -328,15 +407,17 @@ export function extractPullRequestUrlFromText(text, { owner = null, repo = null 
   }
   return null;
 }
-async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
+async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile, rejectedUrls = null } = {}) {
   if (!logPath) return null;
   try {
     // Issue #2189: this used to be `readFile(logPath, 'utf8')`, run once per
     // monitor tick for a session the bot never marked handled — a 134 MB
     // transcript pulled into the bot's own heap over and over. The chunked scan
-    // still covers the whole log, one chunk at a time, and stops at the first
-    // matching URL (which is printed early, when the PR is created).
-    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
+    // still covers the whole log, one chunk at a time, and stops at the
+    // `PR URL:` line solve prints when it creates or reuses the PR. Issue #2891:
+    // that line wins over the first PR the agent merely mentioned.
+    const scanner = createSessionPullRequestUrlScanner(ctx, { rejectedUrls });
+    const pullRequestUrl = (await scanLogTextChunks(logPath, scanner.onText, { readFile, verbose })) || scanner.result();
     if (pullRequestUrl && verbose) {
       console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
     }
@@ -493,8 +574,9 @@ async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessi
 function getLastKnownDockerContainerFilesystemSize(sessionInfo) {
   return Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
 }
-function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
-  const outcome = classifySessionOutcome({ exitCode, status });
+function isSuccessfulTaskCompletion({ exitCode = null, status = null, command = null } = {}) {
+  const outcome = classifySessionOutcome({ exitCode, status, command });
+  if (outcome.noChanges) return true;
   if (outcome.failed) return false;
   if (exitCode === 0) return true;
   const normalizedStatus = String(status || '')
@@ -505,36 +587,48 @@ function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
 function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
-export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false, containerRemoved = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker' || isSessionPaused(sessionInfo)) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-  const containerName = sessionInfo.sessionId || sessionName || null;
+  const containerName = sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName || null;
   if (!containerName) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
-  const successful = isSuccessfulTaskCompletion({ exitCode, status });
-  const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  const successful = isSuccessfulTaskCompletion({ exitCode, status, command: sessionInfo.command });
+  const shouldKeep = sessionInfo.stopRequestedByUser || keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  // Issue #2889: the snapshot images of the container's resume chain go with it.
+  const snapshotImages = [...new Set([...snapshotImagesForContainer(containerName), ...(Array.isArray(sessionInfo.killRecoverySnapshotImages) ? sessionInfo.killRecoverySnapshotImages : [])])];
+  // Issue #2303: start-command already removed it, so "Docker container kept" would point at nothing; its images still go (#2889).
+  if (containerRemoved && verbose) console.log(`[VERBOSE] Docker task container '${containerName}' was already removed by start-command; only its snapshot images are left to remove`);
   return {
     applies: true,
     containerName,
     keepPolicy,
     successful,
     shouldRemove: !shouldKeep,
-    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+    containerRemoved,
+    snapshotImages,
+    extraSection: shouldKeep && !containerRemoved ? [formatDockerTaskContainerKeptSection({ containerName, keepPolicy: sessionInfo.stopRequestedByUser ? 'stopped by request' : keepPolicy }), ...(sessionInfo.stopRequestedByUser || !successful ? [`Resume: \`/resume ${sessionName}\``] : [])].join('\n') : '',
   };
 }
-async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+export async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null, removeImages = removeSnapshotImages, sessionInfo = null } = {}) {
   if (!action?.applies || !action.shouldRemove || !action.containerName) return;
+  // Issue #2889: a `docker start` recovery now runs in this container.
+  if (sessionInfo?.killRecoveryContainerName === action.containerName) {
+    if (verbose) console.log(`[VERBOSE] Keeping docker task container '${action.containerName}': its recovery runs in it`);
+    return;
+  }
   try {
     const removeFn =
       removeDockerContainer ||
       (async (containerName, removeVerbose) => {
         const runner = await getIsolationRunner();
-        return runner.removeDockerContainer(containerName, removeVerbose);
+        return runner.removeDockerContainer(containerName, removeVerbose, { force: false });
       });
-    const result = await removeFn(action.containerName, verbose);
+    const result = action.containerRemoved ? { success: true } : await removeFn(action.containerName, verbose);
+    if (result?.success && action.snapshotImages?.length) await removeImages(action.snapshotImages, { verbose });
     if (verbose) {
       if (result?.success) {
         console.log(`[VERBOSE] Removed docker task container '${action.containerName}' after terminal session completion`);
@@ -549,150 +643,28 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
   }
 }
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
-  const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-  const elapsed = Date.now() - startTime.getTime();
-  if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+  const progress = getNonIsolationSessionProgress(sessionInfo);
+  // Issue #3215: the recorded exit status means the work is done; the monitor
+  // still reports it, so the session stays tracked until then.
+  if (progress.finished) return false;
+  if (progress.expired) {
     if (verbose) {
-      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
+      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(progress.elapsedMs / 1000)}s (timeout: ${progress.timeoutMs / 1000}s), removing from tracking`);
     }
     activeSessions.delete(sessionName);
     return false;
   }
   if (verbose) {
-    const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+    const remainingSec = Math.round((progress.timeoutMs - progress.elapsedMs) / 1000);
     console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
   }
   return true;
 }
-function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
-  clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
-}
-function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime, verbose }) {
-  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, endTime, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
-}
-function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
-  return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
-}
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
-  const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
-  const sessionId = sessionInfo.sessionId || sessionName;
-  try {
-    const runner = await getIsolationRunner();
-    const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
-    if (statusResult?.exists && statusResult.status) {
-      if (statusResult.oomKilled === true) {
-        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
-        return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
-          verbose,
-          runner,
-          exitFromLog,
-          backendAlive,
-          persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
-        });
-      }
-      if (runner.isExecutingSessionStatus(statusResult.status)) {
-        // Issue #1927: an `executing` status is not trusted blindly — verify the process is really alive. start-command can keep reporting `executing` after a kill, which is exactly how an OOM-killed /solve went unreported.
-        const stale = await resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive });
-        if (stale) {
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} reported '${statusResult.status}' but is actually terminated (${stale.reason}); treating as ${stale.status} (exit ${stale.exitCode})`);
-          }
-          // Rewrite the status payload so downstream completion formatting sees the real terminal status/exit code instead of the stale `executing`.
-          const correctedStatus = stale.status || 'killed';
-          const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
-          return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
-        }
-        // Back to a plain `executing` report: any earlier unverified terminal failure was provisional and is now moot (issue #2117).
-        clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-        return { running: true, exitCode: null, status: statusResult.status, statusResult };
-      }
-      if (runner.isTerminalSessionStatus(statusResult.status)) {
-        const exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
-        const logPath = statusResult.logPath || sessionInfo?.logPath || null;
-        // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
-        const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
-        if (footer?.finished) {
-          const footerExitCode = footer.exitCode;
-          const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
-          if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
-            console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}; the log footer says exit ${footerExitCode} (${correctedStatus}) and wins (issues #1927/#2117)`);
-          }
-          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-          return { running: false, exitCode: footerExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: footerExitCode } };
-        }
-        // Issue #1939: a native docker session can report a terminal status ("executed") with the unknown exit-code sentinel (-1) while the container is still running. When the log footer above did not recover a real terminal exit, such a status is provisional — fall through to isSessionRunning() below, which cross-checks the live container via `docker inspect` before we notify the user the work finished.
-        const dockerSession = isDockerIsolation(sessionInfo, statusResult);
-        const ambiguousDockerTerminal = dockerSession && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
-        // Issue #2117: a docker terminal FAILURE with no corroborating footer is provisional too — start-command can fabricate that exit code from the command's own output. Give the real footer a moment to appear instead of announcing a failure the run never had. Only a *freshly* reported end time can still be in that race, so an older terminal record is still reported without delay.
-        const normalizedExitCode = normalizeExitCode(exitCode);
-        const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
-        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
-          return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
-        }
-        // Issue #2134: even after the grace window, a container that is verifiably still alive cannot have produced a terminal failure — the same liveness ladder used for `oomKilled` applies here, so no kill is announced while the working session keeps running (that is exactly what #2134 reported).
-        if (unverifiedDockerFailure) {
-          const probe = backendAlive || runner.checkBackendSessionAlive;
-          let alive = null;
-          if (probe && sessionInfo?.isolationBackend) {
-            try {
-              alive = await probe(sessionId, sessionInfo.isolationBackend, verbose);
-            } catch {
-              alive = null;
-            }
-          }
-          if (alive === true) {
-            if (verbose) {
-              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}, but its docker backend is still alive; keeping the session tracked (issue #2134)`);
-            }
-            return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
-          }
-        }
-        if (!ambiguousDockerTerminal) {
-          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
-          return { running: false, exitCode, status: statusResult.status, statusResult };
-        }
-      }
-    }
-    // The status record is unavailable (no `exists`/`status`). Fall back to a direct backend liveness check. `sessionRunning` is injectable purely so
-    // this path is testable without the real `$`/`screen` binaries; production
-    // always uses the runner's real check.
-    const checkRunning = sessionRunning || runner.isSessionRunning;
-    const running = await checkRunning(sessionId, {
-      backend: sessionInfo.isolationBackend,
-      verbose,
-    });
-    if (!running) {
-      // Issue #1927: the `$ --status` record is unavailable (e.g. garbage-
-      // collected while the bot was down) and the backend reports not-running.
-      // Before declaring a bare null exit — which classifies as success — try
-      // the log footer so a session that was killed while we were offline is
-      // reported as the kill it was, not a silent success.
-      const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-      if (logPath) {
-        const readFooter = exitFromLog || runner.readSessionExitFromLog;
-        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
-        if (footer?.finished) {
-          const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} has no live status record; recovered exit ${footer.exitCode} (${correctedStatus}) from log footer`);
-          }
-          return { running: false, exitCode: footer.exitCode, status: correctedStatus, statusResult: { ...(statusResult || {}), status: correctedStatus, exitCode: footer.exitCode, endTime: statusResult?.endTime || footer.endTime || null } };
-        }
-      }
-    }
-    return {
-      running,
-      exitCode: running ? null : (statusResult?.exitCode ?? null),
-      status: statusResult?.status || null,
-      statusResult,
-    };
-  } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
-    }
-    return { running: false, exitCode: null, status: null, statusResult: null };
-  }
+  const persistSnapshot = () => persistSessionSnapshot(sessionName, sessionInfo);
+  const rawState = await getIsolationSessionStateImpl(sessionName, sessionInfo, { ...options, runnerProvider: getIsolationRunner, persistSnapshot });
+  const state = reclassifyUnobservedDockerExit(sessionName, sessionInfo, rawState, { verbose: options.verbose === true });
+  return reconcileLaunchObservation(sessionName, sessionInfo, state, { verbose: options.verbose, persistSnapshot });
 }
 /**
  * Monitor active sessions and send notifications when they complete
@@ -707,8 +679,17 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
   if (verbose) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
+  // Issue #2801: sample CPU usage alongside the completion checks, which can
+  // take minutes; a pass that is still running is not started again.
+  const cpuPenaltyPass =
+    options.cpuPenalty?.enabled && !cpuPenaltyPassInFlight
+      ? runCpuPenaltyPass(
+          sessions.filter(({ sessionInfo }) => !isSessionPaused(sessionInfo) && !sessionInfo.retainedForResume),
+          verbose,
+          options
+        )
+      : null;
   for (const entry of sessions) {
-    if (isSessionPaused(entry.sessionInfo)) continue;
     // Issue #2408: the monitor ticks every 30 s whether or not the previous
     // tick has finished, and a completion (pull request lookup, log upload,
     // recovery launch, Telegram edit) takes minutes. Overlapping ticks used to
@@ -726,6 +707,19 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       sessionsInFlight.delete(entry.sessionName);
     }
   }
+  await cpuPenaltyPass;
+}
+function runCpuPenaltyPass(sessions, verbose, options) {
+  // A session completed while the pass ran must not be written back to the durable snapshot.
+  const persist = (sessionName, sessionInfo) => {
+    if (activeSessions.get(sessionName) === sessionInfo && !sessionInfo.completionNotifiedAt) persistSessionSnapshot(sessionName, sessionInfo);
+  };
+  cpuPenaltyPassInFlight = runDockerCpuPenaltyPass(sessions, { ...options.cpuPenaltyDeps, config: options.cpuPenalty, verbose, persist, logEvent })
+    .catch(error => console.error(`[docker-cpu-penalty] CPU penalty pass failed: ${error?.message || error}`))
+    .finally(() => {
+      cpuPenaltyPassInFlight = null;
+    });
+  return cpuPenaltyPassInFlight;
 }
 /** One session of {@link monitorSessions}; never runs twice at once for a session. */
 async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose = false, options = {}) {
@@ -736,11 +730,27 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   // a notification the user already had — because a late failure in that
   // pipeline (or a bot restart) left the session tracked. Finalize it here,
   // before any status probe, and do none of that work again.
+  if (sessionInfo.explicitResumePending) {
+    const runner = options.isolationRunner || (await getIsolationRunner());
+    await reconcileInterruptedResume({ sessionName, sessionInfo }, runner, verbose);
+    return;
+  }
+  if (sessionInfo.retainedForResume) {
+    const runner = options.isolationRunner || (await getIsolationRunner());
+    if ((await runner.inspectDockerContainerState?.(sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName, verbose)) === 'removed') untrackSession(sessionName, verbose, { reason: 'retained-container-removed' });
+    return;
+  }
+  const probeOptions = { verbose, reconcilePause: true, statusProvider: options.statusProvider, exitFromLog: options.exitFromLog, backendAlive: options.backendAlive, sessionRunning: options.sessionRunning, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) };
   if (isCompletionHandled(sessionInfo)) {
+    // Issue #3209: a latch without an exit code may predate the execution itself; a session found running is un-latched so its real end gets reported.
+    if (hasUnknownExitLatch(sessionInfo) && (await getIsolationSessionState(sessionName, sessionInfo, probeOptions)).running) {
+      releaseCompletionLatch(sessionName, sessionInfo, { verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+      return;
+    }
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
     }
-    completeSession(sessionName, sessionInfo.completionExitCode ?? 0, verbose, sessionInfo.completionStatus ?? null);
+    completeSession(sessionName, completionExitForAudit(sessionInfo.completionExitCode), verbose, sessionInfo.completionStatus ?? null);
     return;
   }
   let stillRunning;
@@ -748,18 +758,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
   let statusResult = null;
   let resolvedStatus = null;
   let observedContainerFilesystemBytes = null;
+  let launchUnobserved = false;
   if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
     // Isolation mode: use $ --status, with screen -ls only as a fallback
     // when the status record is unavailable. Terminal $ statuses are
     // authoritative so completed screen sessions do not stay blocked.
-    const state = await getIsolationSessionState(sessionName, sessionInfo, {
-      verbose,
-      statusProvider: options.statusProvider,
-      exitFromLog: options.exitFromLog,
-      backendAlive: options.backendAlive,
-      sessionRunning: options.sessionRunning,
-    });
+    const state = await getIsolationSessionState(sessionName, sessionInfo, probeOptions);
     stillRunning = state.running;
+    launchUnobserved = state.launchUnobserved === true;
     exitCode = state.exitCode;
     statusResult = state.statusResult;
     resolvedStatus = state.status || statusResult?.status || null;
@@ -790,20 +796,44 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
     // Issue #1586: Non-isolation screen sessions cannot reliably detect
     // completion because start-screen keeps the screen alive via `exec bash`.
     // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
-    const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-    const elapsed = Date.now() - startTime.getTime();
-    if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+    // Issue #3215: start-screen records the exit status in a marker file, so a
+    // session that has one is finished with a real exit code, and a session
+    // whose start-screen writes one is tracked until it appears.
+    const recordedExitCode = await readScreenExitMarker(sessionInfo.exitMarkerPath, { readFile: options.readScreenExitMarkerFile });
+    if (recordedExitCode !== null) sessionInfo.recordedExitCode = recordedExitCode;
+    const progress = getNonIsolationSessionProgress(sessionInfo);
+    const { elapsedMs: elapsed, timeoutMs } = progress;
+    if (progress.finished) {
       stillRunning = false;
+      exitCode = progress.exitCode;
+      if (verbose) console.log(`[VERBOSE] Non-isolation session ${sessionName} finished with exit code ${exitCode} (exit status file ${sessionInfo.exitMarkerPath})`);
+    } else if (progress.expired) {
+      stillRunning = false;
+      // The session is no longer tracked, but nothing says the work ended.
+      sessionInfo.trackingExpiredAfterMs = timeoutMs;
       if (verbose) {
-        console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
+        console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${timeoutMs / 1000}s)`);
       }
     } else {
       stillRunning = await checkScreenSessionExists(sessionName);
       if (verbose) {
-        const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+        const remainingSec = Math.round((timeoutMs - elapsed) / 1000);
         console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
       }
     }
+  }
+  if (sessionInfo.isolationBackend === 'docker' && (isSessionPaused(sessionInfo) || sessionInfo.pauseCardState === 'paused')) {
+    await reportDockerPause({ bot, sessionName, sessionInfo, running: stillRunning, verbose, now: options.now, alertAfterMs: options.pauseAlertAfterMs, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+    if (isSessionPaused(sessionInfo)) return;
+  }
+  if (stillRunning) await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, options, verbose, lookupPullRequest: () => resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest, statusResult, readFile: options.readFile }), persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+  if (stillRunning && sessionInfo?.command === 'fix' && !sessionInfo.recoveryLifecycle) await (options.reportFixProgress || reportFixProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning && sessionInfo?.command === 'solve' && !sessionInfo.recoveryLifecycle) await (options.reportSolveProgress || reportSolveProgress)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning) await (options.reportLivePullRequestLink || reportLivePullRequestLink)({ bot, sessionName, sessionInfo, statusResult, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo) });
+  if (stillRunning && sessionInfo.isolationBackend) {
+    // Issue #2303: log markers can be an hour stale when the disk fills, and the removed container frees it again — only a live sample shows it.
+    const hostDisk = await observeHostDiskForSession(sessionInfo, { statusResult, statfs: options.hostDiskProvider, verbose });
+    if (hostDisk?.significant) persistSessionSnapshot(sessionName, sessionInfo);
   }
   if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
     observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
@@ -834,6 +864,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         status: resolvedStatus,
         env: options.env || process.env,
         verbose,
+        containerRemoved: Boolean(statusResult?.unobservedExit || statusResult?.containerRemoved),
       });
       // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
       // linked-issue API lags, from the completed solve log.
@@ -857,9 +888,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       let pullRequestState = null;
       const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
       try {
+        // Issue #2498: a session started on a pull request has no linked one, but its merge state still decides whether a kill is reported.
         pullRequestState = await resolveFailedSessionPullRequestState({
-          pullRequestUrl,
+          pullRequestUrl: pullRequestUrl || startedPullRequestUrl(sessionInfo),
           outcome: completionOutcome,
+          killEvidence: hasContainerOomEvidence({ sessionInfo, statusResult }),
           lookupPullRequestState: options.lookupPullRequestState,
           verbose,
           sessionName,
@@ -903,8 +936,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // record's cache, so the working-session log is scanned once per session
       // instead of once per poll per consumer (the resume section below and the
       // automatic recovery further down both need it, and both used to scan).
-      const resolveLastToolSessionId = logPath => {
-        const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
+      const resolveLastToolSessionId = async logPath => {
+        const resolution = await resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
         if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
         return resolution.id;
       };
@@ -918,7 +951,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       try {
         const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
         const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-        if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
+        if (outcome.killed && isResumableCommand && !sessionInfo?.stopRequestedByUser && !sessionInfo?.containerResourceLimitExceeded && pullRequestState?.merged !== true) {
           const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
           // The id must be the AI TOOL's session id, not the isolation session
           //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
@@ -926,7 +959,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           //   `Session ID:` marker. Do not guess from neighboring UUID-named
           //   logs: start-command stores unrelated tasks in the same backend
           //   directory, which caused issue #2109's invalid resume id.
-          const lastSessionId = resolveLastToolSessionId(logPath);
+          const lastSessionId = await resolveLastToolSessionId(logPath);
           const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
           const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
           killResumeCommand = resumeCommand?.display || null;
@@ -962,7 +995,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         }
       }
       const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
-      const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
+      const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo), formatDockerCpuPenaltySection(sessionInfo)].filter(Boolean);
       // Issue #2161: a blocked subscription/account explains every other
       // symptom of the run, so it goes first in the completion message.
       const subscriptionBlockedExtraSections = [];
@@ -989,10 +1022,14 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         statusResult,
         exitCode: finalExitCode,
         status: resolvedStatus,
+        pullRequestState,
         verbose,
         readFile: options.readFile,
         env: options.env || process.env,
       });
+      // Issue #2498: a merged pull request means the work is fully done — no
+      // recovery is started and no recovery or kill notice is published.
+      if (killReport.skippedReason) logEvent('session_kill_report_skipped', { sessionName, reason: killReport.skippedReason, exitCode: finalExitCode ?? null, status: resolvedStatus || null, mergedAt: pullRequestState?.mergedAt || null });
       // Issue #2134: `--on-session-kill=resume` must actually start a new
       // working session, and both surfaces must say so. Done before the
       // message is built so the Telegram report and the pull-request notice
@@ -1005,8 +1042,11 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         const decision = { exitCode: finalExitCode, status: resolvedStatus, killed: killReport.killed, oomEventOnly: killReport.oomEventOnly, deliberateStop: killReport.deliberateStop?.reason || null };
         logEvent('session_kill_recovery_decision', { sessionName, ...decision, diskLimitExceeded: Boolean(sessionInfo?.containerResourceLimitExceeded), attemptRecovery: shouldAttemptKillRecovery });
       }
-      if (shouldAttemptKillRecovery) {
+      // Issue #2888: a recovery session solve refused for disk space is relaunched;
+      // issue #2887: so is an in-place recovery whose command never started (126/127).
+      if (shouldAttemptKillRecovery || (!killReport.skippedReason && (isDiskRefusedRecovery({ sessionInfo, exitCode: finalExitCode }) || detectFailedInPlaceStart({ sessionInfo, exitCode: finalExitCode })))) {
         const recovered = await runKillRecoveryForCompletion({
+          exitCode: finalExitCode,
           sessionName,
           sessionInfo,
           logPath: statusResult?.logPath || sessionInfo?.logPath || null,
@@ -1015,9 +1055,12 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           runner: options.isolationRunner || null,
           trackSession: options.trackSession || trackSession,
           persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+          onLifecycle: recoveryLifecycleCallback({ bot, sessionName, sessionInfo, pullRequestUrl, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent }),
           // Issue #2189: reuse the id already read above instead of scanning
           // the same (possibly multi-gigabyte) log a second time.
           readLastSessionId: logPath => resolveLastToolSessionId(logPath),
+          // Issue #2498: the random pre-launch delay, replaceable in tests.
+          sleep: options.sleepBeforeRecovery,
           locale: sessionInfo?.locale || null,
           verbose,
         });
@@ -1029,9 +1072,13 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           // a second recovery for the same kill.
           sessionInfo.killRecoverySessionId = killRecovery.sessionId;
           persistSessionSnapshot(sessionName, sessionInfo);
-          logEvent('session_kill_recovered', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+          logEvent('session_kill_recovery_launched', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
         }
         if (recovered.section) killReport.sections.push(recovered.section);
+      }
+      {
+        const lifecycle = await reportRecoveryLifecycle({ bot, sessionName, sessionInfo, statusResult, running: false, exitCode: finalExitCode, nextSession: killRecovery.sessionId, reason: killRecovery.reason, pullRequestUrl, options, verbose, persist: () => persistSessionSnapshot(sessionName, sessionInfo), logEvent });
+        if (lifecycle) killReport.sections.push(lifecycle);
       }
       const message = formatSessionCompletionMessage({
         sessionName,
@@ -1045,6 +1092,8 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
         extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         resumedAs: killRecovery.resumed ? killRecovery.sessionId : null,
         recoveryCount: killRecovery.resumed ? killRecovery.attempt : null,
+        launchUnobserved,
+        killCause: killReport.diagnosis?.cause || null,
       });
       if (killReport.killed || killReport.recovered || killReport.oomEventOnly) {
         const notice = await announceKillOnPullRequest({
@@ -1057,6 +1106,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
           policy: killReport.policy,
           recovered: killReport.recovered,
           oomEventOnly: killReport.oomEventOnly,
+          deliberateStop: killReport.deliberateStop,
           resumed: killRecovery.resumed,
           recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
           attempt: killRecovery.resumed ? killRecovery.attempt : null,
@@ -1089,6 +1139,7 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       // completion pipeline — and this notification — round again on the next
       // poll. The snapshot write means even a bot restart in this window
       // finalizes the session silently instead of re-notifying.
+      retainStoppedDockerTask(sessionInfo, statusResult, dockerTaskContainerAction);
       if (markCompletionHandled(sessionInfo, { exitCode: finalExitCode, status: resolvedStatus })) {
         persistSessionSnapshot(sessionName, sessionInfo);
         logEvent('session_completion_notified', { sessionName, exitCode: finalExitCode ?? null, status: resolvedStatus || null, notifiedAt: sessionInfo.completionNotifiedAt });
@@ -1119,16 +1170,19 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
       await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
         verbose,
         removeDockerContainer: options.removeDockerContainer,
+        sessionInfo,
       });
-      completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
+      completeSession(sessionName, completionExitForAudit(finalExitCode), verbose, resolvedStatus);
     } catch (error) {
       console.error(`Failed to send completion notification for ${sessionName}:`, error);
       if (isMessageAlreadyUpdatedError(error)) {
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
+          sessionInfo,
         });
-        completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
+        retainStoppedDockerTask(sessionInfo, statusResult, dockerTaskContainerAction);
+        completeSession(sessionName, completionExitForAudit(exitCode), verbose, resolvedStatus);
       } else {
         sessionInfo.lastNotificationError = error.message;
         sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
@@ -1160,10 +1214,9 @@ async function monitorTrackedSession(bot, { sessionName, sessionInfo }, verbose 
  * @see https://github.com/link-assistant/hive-mind/issues/1905
  */
 async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
-  const ctx = sessionInfo?.urlContext;
-  if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
-    return null;
-  }
+  // Issue #3469: `/fix` starts on a repository URL; its issue is the one it created.
+  const ctx = getSessionIssueContext(sessionInfo);
+  if (!ctx) return null;
   // Issue #2189: a completion that has to be retried must not re-run the linked-PR
   // lookup (an API round trip, then a scan of the session log). The answer cannot
   // change for a session that has already finished, so remember it.
@@ -1171,20 +1224,16 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     if (verbose) console.log(`[VERBOSE] Reusing resolved pull request ${sessionInfo.resolvedPullRequestUrl} for this session (not looked up again)`);
     return sessionInfo.resolvedPullRequestUrl;
   }
+  // Issue #2891: the session's own PR (branch `issue-<n>-*`), never the first
+  // linked one, which can be a parent plan PR on another issue's branch.
+  const rejectedUrls = new Set();
   if (typeof lookupLinkedPullRequest === 'function') {
     const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
     if (linkedPullRequestUrl) return linkedPullRequestUrl;
   } else {
     try {
-      const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
-      const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
-      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
-      if (linkedPRs.length > 0 && linkedPRs[0].url) {
-        if (verbose) {
-          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
-        }
-        return linkedPRs[0].url;
-      }
+      const linkedPullRequestUrl = await lookupSessionPullRequestUrl(ctx, { rejectedUrls, verbose });
+      if (linkedPullRequestUrl) return linkedPullRequestUrl;
     } catch (error) {
       if (verbose) {
         console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
@@ -1192,7 +1241,7 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
     }
   }
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile, rejectedUrls });
   if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
   if (verbose && logPath) {
     console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
@@ -1268,7 +1317,7 @@ export async function resumeTrackedSessions(options = {}) {
   }
   let persisted;
   try {
-    persisted = store.load();
+    persisted = await store.load();
   } catch (error) {
     console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
     return { resumed, skipped };
@@ -1286,14 +1335,15 @@ export async function resumeTrackedSessions(options = {}) {
       if (verbose) console.log(`[VERBOSE] Skipping resume of ${sessionName}: started after bot start`);
       continue;
     }
-    activeSessions.set(sessionName, sessionInfo);
-    if (isSessionPaused(sessionInfo)) {
-      try {
-        await reconcilePausedSession(sessionName, { runner: options.isolationRunner, verbose });
-      } catch (error) {
-        console.error(`[session-monitor] Could not reconcile paused task ${sessionName}: ${error.message}`);
-      }
+    if (sessionInfo.pauseState) {
+      if (sessionInfo.pauseState === 'resuming') sessionInfo.explicitResumePending = { resumeCount: 0 };
+      sessionInfo.stopRequestedByUser = true;
+      delete sessionInfo.pauseState;
+      delete sessionInfo.pauseRequestedBy;
+      delete sessionInfo.pausedAt;
+      persistSessionSnapshot(sessionName, sessionInfo);
     }
+    activeSessions.set(sessionName, sessionInfo);
     resumed.push({ sessionName, sessionInfo });
     logEvent('session_resumed', {
       sessionName,
@@ -1318,24 +1368,29 @@ export async function resumeTrackedSessions(options = {}) {
 }
 // Issue #2175: the read-only registry queries live in their own module so this
 // file stays under the 1350-line early-warning threshold (see issue #1593).
-const { getActiveSessionCount, getActiveSessions, hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats } = createSessionRegistryQueries({
+const { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier } = createSessionRegistryQueries({
   activeSessions,
   normalizeSessionUrl,
   isNonIsolationSessionActive,
   getIsolationSessionState,
   checkScreenSessionExists,
-  NON_ISOLATION_SESSION_TIMEOUT_MS,
 });
-export { getActiveSessionCount, hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
-const { findControllableSession, getPausedSessions, pauseTrackedSession, resumePausedSession, reconcilePausedSession } = createSessionPauseControls({
+export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier };
+
+const { pauseTrackedSession, unpauseTrackedSession, resumeStoppedSession, getDockerTaskControlState, stopTrackedDockerSession, reconcileInterruptedResume } = createSessionPauseControls({
   activeSessions,
   sessionsInFlight,
+  findSession: findTrackedSessionByIdentifier,
   getRunner: getIsolationRunner,
   logEvent,
-  // Pause persistence is mandatory when a durable store is attached: failure
-  // must stop the operation before stopping/starting a container.
-  persist: (name, info, previousName = null) => {
-    if (sessionStore) sessionStore.persist(name, info, { strict: true, replaceSessionName: previousName });
+  persist: async (name, info, previousName) => {
+    if (sessionStore && (await sessionStore.persist(name, info, { confirm: true, replaceSessionName: previousName })) === false) throw new Error('Could not persist task state.');
   },
 });
-export { findControllableSession, getPausedSessions, pauseTrackedSession, resumePausedSession };
+export { getActiveSessions, pauseTrackedSession, unpauseTrackedSession, resumeStoppedSession, getDockerTaskControlState, stopTrackedDockerSession };
+
+function retainStoppedDockerTask(info, status, action) {
+  if (!action?.applies || action.shouldRemove || action.containerRemoved || info.killRecoverySessionId || (!info.stopRequestedByUser && action.successful)) return;
+  info.retainedForResume = true;
+  if (status?.sessionName) info.dockerContainerName = status.sessionName;
+}

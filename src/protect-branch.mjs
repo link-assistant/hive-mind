@@ -20,7 +20,7 @@ const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Parse command line arguments
 const args = process.argv.slice(2);

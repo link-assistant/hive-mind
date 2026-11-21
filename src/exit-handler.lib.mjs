@@ -14,6 +14,9 @@ import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, r
 // auto-continue hand-off). No-op unless solve registered a finalizer, so hive
 // and other consumers of this module are unaffected.
 import { finalizeActiveDevelopmentLog } from './development-log.finalize.lib.mjs';
+// Issue #4048: tell monitoring loops a shutdown is running so they stand down
+// instead of starting new GitHub checks while the interrupt handler uploads logs.
+import { markShutdownInProgress } from './interruptible-sleep.lib.mjs';
 
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
@@ -109,7 +112,7 @@ export const delegateSignalHandling = (enabled = true) => {
 /**
  * Display the exit message with log path
  */
-const showExitMessage = async (reason = 'Process exiting', code = 0) => {
+const showExitMessage = async (reason = 'Process exiting', code = 0, warning = false) => {
   if (exitMessageShown || !getLogPathFunction || !logFunction) {
     return;
   }
@@ -123,6 +126,8 @@ const showExitMessage = async (reason = 'Process exiting', code = 0) => {
   await logFunction('');
   if (code === 0) {
     await logFunction(`✅ ${reason}`);
+  } else if (warning) {
+    await logFunction(`⚠️  ${reason}`, { level: 'warning' });
   } else {
     await logFunction(`❌ ${reason}`, { level: 'error' });
   }
@@ -267,14 +272,16 @@ export const logActiveHandles = async (log = null) => {
  *   (e.g. on graceful shutdown, which is NOT a failure and must not post a "solver failed" comment).
  * @param {string|null} [options.failureActionSection=null] - Optional prebuilt user-facing recovery
  *   guidance for the pre-exit notifier.
+ * @param {boolean} [options.warning=false] - Issue #3211: a non-zero code that is an outcome, not
+ *   a failure (solve's "finished without changes"), is shown with ⚠️ instead of ❌.
  */
-export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
+export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null, warning = false } = {}) => {
   // Issue #2117: every best-effort step below is diagnostic housekeeping. It may
   // fail, but it must never change the exit code the caller asked for — neither
   // by masking a failure nor by turning a success into an uncaught exception.
   await runRunEndHookOnce({ code, reason });
   try {
-    await showExitMessage(reason, code);
+    await showExitMessage(reason, code, warning);
   } catch (error) {
     console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
   }
@@ -393,6 +400,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
         // ignore — child may already be gone
       }
     }
+    markShutdownInProgress('SIGINT'); // Issue #4048
     // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
@@ -449,6 +457,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
     }
     // Issue #1823: Auto-commit uncommitted changes on SIGTERM too (previously only SIGINT did).
     // This ensures graceful shutdown preserves work in ALL signal paths.
+    markShutdownInProgress('SIGTERM'); // Issue #4048
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
       try {

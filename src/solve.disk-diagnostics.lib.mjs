@@ -17,7 +17,7 @@
  *
  *   - Uses `du -sb <path>` on Linux for byte-accurate sizing, falls back to
  *     `du -sk <path>` (kilobytes ×1024) on systems without GNU coreutils
- *     (macOS BSD `du` doesn't support `-b`). A final fs.statSync fallback
+ *     (macOS BSD `du` doesn't support `-b`). A final fs.stat fallback
  *     keeps the helper non-throwing for plain files / inaccessible dirs.
  *   - The marker format is deliberately ASCII and key=value so it survives
  *     log truncation and stays parseable with a one-line regex. We DO NOT
@@ -27,8 +27,11 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1945
  */
 
-import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
+import { execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 /** 5 GB threshold (binary). Matches the issue body verbatim. */
 export const WARNING_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
@@ -37,43 +40,40 @@ export const DISK_MARKER_PREFIX = '📊 [DISK]';
 export const DISK_PHASE_AFTER_CLONE = 'after_clone';
 export const DISK_PHASE_AFTER_AGENT = 'after_agent';
 
+/** Run `du <flag> <path>` and return the leading number, or null. */
+async function runDu(flag, targetPath) {
+  try {
+    const { stdout } = await execFileAsync('du', [flag, targetPath], {
+      encoding: 'utf8',
+      timeout: 60_000,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    const value = parseInt(stdout.trim().split(/\s+/)[0], 10);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Measure the size of a path in bytes. Robust to missing tools / paths.
+ * Asynchronous: walking a large workspace can take a while, and the caller's
+ * event loop keeps running meanwhile.
  *
  * @param {string} targetPath
- * @returns {number|null} Bytes, or null if the path is missing/unreadable.
+ * @returns {Promise<number|null>} Bytes, or null if the path is missing/unreadable.
  */
-export function measureDirectorySize(targetPath) {
+export async function measureDirectorySize(targetPath) {
   if (!targetPath) return null;
   // Prefer `du -sb` (GNU coreutils) for byte-accurate sizing.
-  try {
-    const out = execFileSync('du', ['-sb', targetPath], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 60_000,
-      maxBuffer: 4 * 1024 * 1024,
-    }).trim();
-    const bytes = parseInt(out.split(/\s+/)[0], 10);
-    if (Number.isFinite(bytes) && bytes >= 0) return bytes;
-  } catch {
-    // Fall through to -sk fallback for BSD du / macOS.
-  }
+  const bytes = await runDu('-sb', targetPath);
+  if (bytes !== null) return bytes;
   // BSD `du` (macOS) doesn't support -b but does support -sk (kilobytes).
+  const kb = await runDu('-sk', targetPath);
+  if (kb !== null) return kb * 1024;
+  // Last resort for single-file paths.
   try {
-    const out = execFileSync('du', ['-sk', targetPath], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 60_000,
-      maxBuffer: 4 * 1024 * 1024,
-    }).trim();
-    const kb = parseInt(out.split(/\s+/)[0], 10);
-    if (Number.isFinite(kb) && kb >= 0) return kb * 1024;
-  } catch {
-    // Fall through to fs.statSync — last resort for single-file paths.
-  }
-  try {
-    const stat = fs.statSync(targetPath);
-    return stat.size;
+    return (await fs.stat(targetPath)).size;
   } catch {
     return null;
   }
@@ -305,7 +305,7 @@ export function formatDiskDiagnosticsBlock(parsed, options = {}) {
  * @returns {Promise<number|null>}
  */
 export async function recordAfterCloneSize({ tempDir, log }) {
-  const bytes = measureDirectorySize(tempDir);
+  const bytes = await measureDirectorySize(tempDir);
   const marker = buildDiskMarker({
     phase: DISK_PHASE_AFTER_CLONE,
     bytes,
@@ -330,7 +330,7 @@ export async function recordAfterCloneSize({ tempDir, log }) {
  * @returns {Promise<number|null>}
  */
 export async function recordAfterAgentSize({ tempDir, beforeBytes, log }) {
-  const bytes = measureDirectorySize(tempDir);
+  const bytes = await measureDirectorySize(tempDir);
   const deltaBytes = Number.isFinite(bytes) && Number.isFinite(beforeBytes) ? bytes - beforeBytes : null;
   const marker = buildDiskMarker({
     phase: DISK_PHASE_AFTER_AGENT,

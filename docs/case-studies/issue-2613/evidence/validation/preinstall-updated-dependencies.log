@@ -1,0 +1,26 @@
+✅ aliasForPackage strips @ and replaces / for scoped names
+✅ isRetryableNpmError detects ENOTEMPTY and friends
+✅ computeBackoffMs grows exponentially
+[preinstall-use-m] ✅ installed command-stream@2.0.0 as command-stream-v-2.0.0 (attempt 1)
+❌ installWithRetry disables package bin links so versioned aliases can coexist
+   AssertionError [ERR_ASSERTION]: The input did not match the regular expression /npm install -g --no-bin-links command-stream-v-1\.6\.2@npm:command-stream@1\.6\.2/. Input:
+
+'npm install -g --no-bin-links command-stream-v-2.0.0@npm:command-stream@2.0.0'
+
+    at file:///tmp/gh-issue-solver-1791384270780/tests/test-preinstall-use-m-packages-1724.mjs:85:10
+    at async file:///tmp/gh-issue-solver-1791384270780/tests/test-preinstall-use-m-packages-1724.mjs:70:1
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ⚠️  attempt 2/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ✅ installed command-stream@2.0.0 as command-stream-v-2.0.0 (attempt 3)
+✅ installWithRetry retries on ENOTEMPTY then succeeds
+[preinstall-use-m] ⚠️  attempt 1/3 failed for zx: Command failed: npm install
+[preinstall-use-m] ✅ installed zx@8.8.5 as zx-v-8.8.5 without replacing an unrelated package binary
+✅ installWithRetry safely repairs a use-m alias bin-link collision
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ❌ giving up on command-stream@2.0.0 after 1 attempt(s)
+✅ installWithRetry aborts immediately on non-retryable error
+[preinstall-use-m] ⚠️  attempt 1/3 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ℹ️  command-stream-v-2.0.0 already present in /tmp/preinstall-1724-rzIsoT; treating as success despite npm error
+✅ installWithRetry treats package-present-on-disk as recovered success
+
+Passed: 7 / 8

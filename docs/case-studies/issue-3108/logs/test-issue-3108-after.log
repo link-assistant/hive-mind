@@ -1,0 +1,22 @@
+✔ reproduction: a single open issue is solved directly, without creating a combined issue (5.35484ms)
+✔ pull requests do not count: one issue plus open pull requests is still a single issue (0.785054ms)
+✔ the single-issue shortcut also applies to a dry run, since it creates nothing either way (0.631308ms)
+✔ two open issues still create a combined issue with both as sub-issues (751.545497ms)
+✔ no open issues is still the #2266 no-work result, not a single issue (0.862328ms)
+✔ selectSingleIssueTarget returns the issue only when there is exactly one (0.46693ms)
+✔ prepareRepositoryModeIssue exposes the single issue for every caller (0.560355ms)
+✔ the issue — not the capped native-attachment list — decides: 101 open issues is not a single issue (1.081848ms)
+✔ Telegram preflight reports the single issue and does not reply (0.926618ms)
+✔ Telegram preflight keeps the #2266 no-work reply and the boolean wrapper (0.833986ms)
+✔ Telegram preflight failures report no single issue, so the CLI decides (0.384157ms)
+✔ the command from the issue is rewritten to the issue URL, keeping every option (0.727409ms)
+✔ the redirect is skipped when it cannot be applied safely (1.547176ms)
+✔ Telegram applies the redirect after the no-work check and before queueing or launching (5.400616ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2088.496167

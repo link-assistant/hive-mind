@@ -1,0 +1,874 @@
+{
+  "type": "config",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.318Z",
+  "service": "default",
+  "source": "lino-arguments (CLI args > env vars > .lenv > defaults)",
+  "config": {
+    "verbose": false,
+    "dryRun": false,
+    "generateTitle": false,
+    "outputResponseModel": true,
+    "summarizeSession": false,
+    "retryOnRateLimits": true,
+    "compactJson": false,
+    "disableAutoupdate": false,
+    "disablePrune": false,
+    "enableExperimentalModels": false,
+    "disableAutocompact": false,
+    "experimental": false,
+    "experimentalWatcher": false,
+    "retryTimeout": 604800,
+    "maxRetryDelay": 1200,
+    "minRetryInterval": 30,
+    "streamChunkTimeoutMs": 120000,
+    "streamStepTimeoutMs": 600000,
+    "mcpDefaultToolCallTimeout": 120000,
+    "mcpMaxToolCallTimeout": 600000,
+    "verifyImagesAtReadTool": true,
+    "readOnly": false,
+    "permissionMode": "auto"
+  },
+  "message": "Agent configuration resolved"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.320Z",
+  "service": "default",
+  "version": "0.26.11",
+  "command": "/home/box/.bun/bin/bun /home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js --model kilo/deepseek-r1-free -p Reply with exactly: hello --no-summarize-session --no-generate-title",
+  "workingDirectory": "/tmp/agent-smoke",
+  "scriptPath": "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+  "message": "Agent started"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.321Z",
+  "service": "default",
+  "directory": "/tmp/agent-smoke",
+  "message": "creating instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.321Z",
+  "service": "project",
+  "directory": "/tmp/agent-smoke",
+  "message": "fromDirectory"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.333Z",
+  "service": "default",
+  "processArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/deepseek-r1-free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "bunArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/deepseek-r1-free",
+    "-p",
+    "Reply with exactly: hello",
+    "--no-summarize-session",
+    "--no-generate-title"
+  ],
+  "cliModelArg": "kilo/deepseek-r1-free",
+  "yargsModel": "kilo/deepseek-r1-free",
+  "message": "model resolution: argv sources"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.333Z",
+  "service": "default",
+  "rawModel": "kilo/deepseek-r1-free",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "message": "using explicit provider/model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.336Z",
+  "service": "provider",
+  "status": "started",
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.338Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/config.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.339Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.339Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.jsonc",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.361Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "age": 3917,
+  "message": "cache is fresh, triggering background refresh"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.361Z",
+  "service": "models.dev",
+  "file": {},
+  "message": "refreshing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.426Z",
+  "service": "provider",
+  "message": "init"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.465Z",
+  "service": "claude-oauth",
+  "subscriptionType": "max",
+  "scopes": [
+    "user:file_upload",
+    "user:inference",
+    "user:mcp_servers",
+    "user:plugins",
+    "user:profile",
+    "user:sessions:claude_code"
+  ],
+  "message": "loaded oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.465Z",
+  "service": "provider",
+  "source": "credentials file (max)",
+  "message": "using claude oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.466Z",
+  "service": "provider-registry",
+  "available": [
+    "formal-ai",
+    "formalai",
+    "@link-assistant",
+    "opencode",
+    "kilo",
+    "claude-oauth",
+    "link-assistant"
+  ],
+  "message": "providers available"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.467Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 131,
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.470Z",
+  "service": "default",
+  "hint": "Secondary calls (compaction, session summary) inherit --model unless a compaction model is named explicitly",
+  "baseProviderID": "kilo",
+  "baseModelID": "deepseek-r1-free",
+  "dropped": [
+    "big-pickle",
+    "nemotron-3-super-free",
+    "hy3-preview-free",
+    "ling-2.6-flash-free",
+    "gpt-5-nano"
+  ],
+  "kept": [
+    "kilo/minimax-m2.5-free",
+    "same"
+  ],
+  "message": "default compaction models narrowed to the configured provider"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.470Z",
+  "service": "default",
+  "models": [
+    "kilo/minimax-m2.5-free",
+    "same"
+  ],
+  "source": "default",
+  "message": "compaction models cascade configured"
+}
+
+{
+  "type": "model_resolved",
+  "timestamp": "2026-10-07T13:57:26.470Z",
+  "requested": "kilo/deepseek-r1-free",
+  "selector": "kilo/deepseek-r1-free",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "source": "cli",
+  "matchesRequest": true
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.489Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.489Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.494Z",
+  "service": "session",
+  "id": "ses_ee95860a2ffe7CAi3qaGR0aUnd",
+  "version": "0.26.11",
+  "projectID": "global",
+  "directory": "/tmp/agent-smoke",
+  "title": "New session - 2026-10-07T13:57:26.494Z",
+  "time": {
+    "created": 1791381446494,
+    "updated": 1791381446494
+  },
+  "message": "created"
+}
+
+{
+  "type": "session.created",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.495Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.495Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.495Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 6,
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.498Z",
+  "service": "bus",
+  "message": "subscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.501Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session/ses_ee95860a2ffe7CAi3qaGR0aUnd/message",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.502Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session/ses_ee95860a2ffe7CAi3qaGR0aUnd/message",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.523Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 21,
+  "method": "POST",
+  "path": "/session/ses_ee95860a2ffe7CAi3qaGR0aUnd/message",
+  "message": "request"
+}
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.549Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.552Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.554Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.558Z",
+  "service": "session.prompt",
+  "step": 0,
+  "sessionID": "ses_ee95860a2ffe7CAi3qaGR0aUnd",
+  "message": "loop"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.567Z",
+  "service": "session.prompt",
+  "hint": "Enable with --generate-title flag or AGENT_GENERATE_TITLE=true",
+  "message": "title generation disabled"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.567Z",
+  "service": "session.prompt",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "sessionID": "ses_ee95860a2ffe7CAi3qaGR0aUnd",
+  "step": 1,
+  "message": "resolving model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.568Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "message": "getModel"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.570Z",
+  "service": "provider",
+  "status": "started",
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.570Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "pkg": "@openrouter/ai-sdk-provider",
+  "globalVerboseFetchInstalled": true,
+  "verboseAtCreation": false,
+  "message": "provider SDK fetch chain configured"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.570Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "pkg": "@openrouter/ai-sdk-provider",
+  "message": "using bundled provider (no installation needed)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.570Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 0,
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.570Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.571Z",
+  "service": "session.prompt",
+  "providerID": "kilo",
+  "modelID": "deepseek-r1-free",
+  "resolvedModelID": "deepseek/deepseek-r1-0528:free",
+  "message": "model resolved successfully"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.571Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "message": "getModel"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.571Z",
+  "service": "provider",
+  "status": "started",
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.571Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 0,
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:26.571Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.320Z",
+  "service": "token",
+  "message": "loaded gpt-tokenizer (o200k_base)"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.326Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.327Z",
+  "service": "system-prompt",
+  "prompt": "anthropic",
+  "model": "deepseek/deepseek-r1-0528:free",
+  "message": "system prompt: anthropic (default for unknown model deepseek/deepseek-r1-0528:free)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.366Z",
+  "service": "session.processor",
+  "message": "process"
+}
+
+{
+  "type": "session.status",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.393Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.413Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.413Z",
+  "service": "session.summary",
+  "hint": "Enable with --summarize-session flag (enabled by default) or AGENT_SUMMARIZE_SESSION=true",
+  "message": "session summarization disabled"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.414Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.diff",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.414Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "error",
+  "timestamp": "2026-10-07T13:57:27.554Z",
+  "service": "session.prompt",
+  "error": {
+    "error": {
+      "name": "AI_APICallError",
+      "url": "https://api.kilo.ai/api/openrouter/chat/completions",
+      "requestBodyValues": {
+        "model": "deepseek/deepseek-r1-0528:free",
+        "max_tokens": 32000,
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "system",
+            "content": [
+              {
+                "type": "text",
+                "text": "You are Agent, the best coding agent on the planet.\n\nYou are an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\n\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\n\nIf the user asks for help or wants to give feedback inform them of the following:\n- ctrl+p to list available actions\n- To give feedback, users should report the issue at\n  https://github.com/link-assistant/agent\n\nWhen the user directly asks about Agent (eg. \"can Agent do...\", \"does Agent have...\"), or asks in second person (eg. \"are you able...\", \"can you do...\"), or asks how to use a specific Agent feature (eg. implement a hook, write a slash command, or install an MCP server), use the WebFetch tool to gather information to answer the question from Agent docs. The list of available docs is available at https://github.com/link-assistant/agent#readme\n\n# Tone and style\n- Only use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.\n- Your output will be displayed on a command line interface. Your responses should be short and concise. You can use Github-flavored markdown for formatting, and will be rendered in a monospace font using the CommonMark specification.\n- Output text to communicate with the user; all text you output outside of tool use is displayed to the user. Only use tools to complete tasks. Never use tools like Bash or code comments as means to communicate with the user during the session.\n- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one. This includes markdown files.\n\n# Professional objectivity\nPrioritize technical accuracy and truthfulness over validating the user's beliefs. Focus on facts and problem-solving, providing direct, objective technical info without any unnecessary superlatives, praise, or emotional validation. It is best for the user if Agent honestly applies the same rigorous standards to all ideas and disagrees when necessary, even if it may not be what the user wants to hear. Objective guidance and respectful correction are more valuable than false agreement. Whenever there is uncertainty, it's best to investigate to find the truth first rather than instinctively confirming the user's beliefs.\n\n# Task Management\nYou have access to the TodoWrite tools to help you manage and plan tasks. Use these tools VERY frequently to ensure that you are tracking your tasks and giving the user visibility into your progress.\nThese tools are also EXTREMELY helpful for planning tasks, and for breaking down larger complex tasks into smaller steps. If you do not use this tool when planning, you may forget to do important tasks - and that is unacceptable.\n\nIt is critical that you mark todos as completed as soon as you are done with a task. Do not batch up multiple tasks before marking them as completed.\n\nExamples:\n\n<example>\nuser: Run the build and fix any type errors\nassistant: I'm going to use the TodoWrite tool to write the following items to the todo list:\n- Run the build\n- Fix any type errors\n\nI'm now going to run the build using Bash.\n\nLooks like I found 10 type errors. I'm going to use the TodoWrite tool to write 10 items to the todo list.\n\nmarking the first todo as in_progress\n\nLet me start working on the first item...\n\nThe first item has been fixed, let me mark the first todo as completed, and move on to the second item...\n..\n..\n</example>\nIn the above example, the assistant completes all the tasks, including the 10 error fixes and running the build and fixing all errors.\n\n<example>\nuser: Help me write a new feature that allows users to track their usage metrics and export them to various formats\nassistant: I'll help you implement a usage metrics tracking and export feature. Let me first use the TodoWrite tool to plan this task.\nAdding the following todos to the todo list:\n1. Research existing metrics tracking in the codebase\n2. Design the metrics collection system\n3. Implement core metrics tracking functionality\n4. Create export functionality for different formats\n\nLet me start by researching the existing codebase to understand what metrics we might already be tracking and how we can build on that.\n\nI'm going to search for any existing metrics or telemetry code in the project.\n\nI've found some existing telemetry code. Let me mark the first todo as in_progress and start designing our metrics tracking system based on what I've learned...\n\n[Assistant continues implementing the feature step by step, marking todos as in_progress and completed as they go]\n</example>\n\n\n# Doing tasks\nThe user will primarily request you perform software engineering tasks. This includes solving bugs, adding new functionality, refactoring code, explaining code, and more. For these tasks the following steps are recommended:\n- \n- Use the TodoWrite tool to plan the task if required\n\n- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are automatically added by the system, and bear no direct relation to the specific tool results or user messages in which they appear.\n\n\n# Tool usage policy\n- When doing file search, prefer to use the Task tool in order to reduce context usage.\n- You should proactively use the Task tool with specialized agents when the task at hand matches the agent's description.\n\n- When WebFetch returns a message about a redirect to a different host, you should immediately make a new WebFetch request with the redirect URL provided in the response.\n- You can call multiple tools in a single response. If you intend to call multiple tools and there are no dependencies between them, make all independent tool calls in parallel. Maximize use of parallel tool calls where possible to increase efficiency. However, if some tool calls depend on previous calls to inform dependent values, do NOT call these tools in parallel and instead call them sequentially. For instance, if one operation must complete before another starts, run these operations sequentially instead. Never use placeholders or guess missing parameters in tool calls.\n- If the user specifies that they want you to run tools \"in parallel\", you MUST send a single message with multiple tool use content blocks. For example, if you need to launch multiple agents in parallel, send a single message with multiple Task tool calls.\n- Use specialized tools instead of bash commands when possible, as this provides a better user experience. For file operations, use dedicated tools: Read for reading files instead of cat/head/tail, Edit for editing instead of sed/awk, and Write for creating files instead of cat with heredoc or echo redirection. Reserve bash tools exclusively for actual system commands and terminal operations that require shell execution. NEVER use bash echo or other command-line tools to communicate thoughts, explanations, or instructions to the user. Output all communication directly in your response text instead.\n- VERY IMPORTANT: When exploring the codebase to gather context or to answer a question that is not a needle query for a specific file/class/function, it is CRITICAL that you use the Task tool instead of running search commands directly.\n<example>\nuser: Where are errors from the client handled?\nassistant: [Uses the Task tool to find the files that handle client errors instead of using Glob or Grep directly]\n</example>\n<example>\nuser: What is the codebase structure?\nassistant: [Uses the Task tool]\n</example>\n\nIMPORTANT: Always use the TodoWrite tool to plan and track tasks throughout the conversation.\n\n# Code References\n\nWhen referencing specific functions or pieces of code include the pattern `file_path:line_number` to allow the user to easily navigate to the source code location.\n\n<example>\nuser: Where are errors from the client handled?\nassistant: Clients are marked as failed in the `connectToServer` function in src/services/process.ts:712.\n</example>\n"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": [
+              {
+                "type": "text",
+                "text": "Here is some useful information about the environment you are running in:\n<env>\n  Working directory: /tmp/agent-smoke\n  Is directory a git repo: no\n  Platform: linux\n  Today's date: Wed Oct 07 2026\n</env>\n\n<files>\n  \n</files>"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": "Reply with exactly: hello"
+          }
+        ],
+        "stream": true
+      },
+      "statusCode": 404,
+      "responseHeaders": {
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-encoding": "br",
+        "content-security-policy-report-only": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://utt.impactcdn.com https://login.kilo.ai https://login-test.kilo.ai https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://widget.usepylon.com https://assets.churnkey.co; connect-src 'self' https://auth.kilo.ai https://us.i.posthog.com https://us-assets.i.posthog.com https://api.stripe.com https://r.stripe.com https://m.stripe.com https://checkout.stripe.com https://utt.impactcdn.com https://cdn.jsdelivr.net https://unpkg.com https://widget.usepylon.com https://assets.churnkey.co https://api.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com wss://cloud-agent-next.kilosessions.ai wss://ingest.kilosessions.ai https://gastown.kiloapps.io wss://gastown.kiloapps.io; img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://secure.gravatar.com https://gravatar.com https://media.licdn.com https://cdn.discordapp.com https://gitlab.com https://*.stripe.com https://www.googletagmanager.com https://utt.impactcdn.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://www.gravatar.com https://openrouter.ai https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://www.youtube.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io; worker-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'",
+        "content-type": "application/json",
+        "cross-origin-embedder-policy-report-only": "require-corp",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "date": "Wed, 07 Oct 2026 13:57:27 GMT",
+        "permissions-policy": "geolocation=(self), camera=(), microphone=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "server": "Vercel",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "SAMEORIGIN",
+        "x-matched-path": "/api/openrouter/[...path]",
+        "x-vercel-cache": "MISS",
+        "x-vercel-id": "fra1:fra1:fra1::fra1::hq5hr-1791381447425-cd886bdfe597",
+        "x-xss-protection": "0"
+      },
+      "responseBody": "{\"error\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\",\"error_type\":\"model_not_found\",\"message\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\"}",
+      "isRetryable": false
+    }
+  },
+  "message": "stream error"
+}
+
+{
+  "type": "log",
+  "level": "error",
+  "timestamp": "2026-10-07T13:57:27.561Z",
+  "service": "session.processor",
+  "error": {
+    "name": "AI_APICallError",
+    "url": "https://api.kilo.ai/api/openrouter/chat/completions",
+    "requestBodyValues": {
+      "model": "deepseek/deepseek-r1-0528:free",
+      "max_tokens": 32000,
+      "temperature": 0,
+      "messages": [
+        {
+          "role": "system",
+          "content": [
+            {
+              "type": "text",
+              "text": "You are Agent, the best coding agent on the planet.\n\nYou are an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\n\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\n\nIf the user asks for help or wants to give feedback inform them of the following:\n- ctrl+p to list available actions\n- To give feedback, users should report the issue at\n  https://github.com/link-assistant/agent\n\nWhen the user directly asks about Agent (eg. \"can Agent do...\", \"does Agent have...\"), or asks in second person (eg. \"are you able...\", \"can you do...\"), or asks how to use a specific Agent feature (eg. implement a hook, write a slash command, or install an MCP server), use the WebFetch tool to gather information to answer the question from Agent docs. The list of available docs is available at https://github.com/link-assistant/agent#readme\n\n# Tone and style\n- Only use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.\n- Your output will be displayed on a command line interface. Your responses should be short and concise. You can use Github-flavored markdown for formatting, and will be rendered in a monospace font using the CommonMark specification.\n- Output text to communicate with the user; all text you output outside of tool use is displayed to the user. Only use tools to complete tasks. Never use tools like Bash or code comments as means to communicate with the user during the session.\n- NEVER create files unless they're absolutely necessary for achieving your goal. ALWAYS prefer editing an existing file to creating a new one. This includes markdown files.\n\n# Professional objectivity\nPrioritize technical accuracy and truthfulness over validating the user's beliefs. Focus on facts and problem-solving, providing direct, objective technical info without any unnecessary superlatives, praise, or emotional validation. It is best for the user if Agent honestly applies the same rigorous standards to all ideas and disagrees when necessary, even if it may not be what the user wants to hear. Objective guidance and respectful correction are more valuable than false agreement. Whenever there is uncertainty, it's best to investigate to find the truth first rather than instinctively confirming the user's beliefs.\n\n# Task Management\nYou have access to the TodoWrite tools to help you manage and plan tasks. Use these tools VERY frequently to ensure that you are tracking your tasks and giving the user visibility into your progress.\nThese tools are also EXTREMELY helpful for planning tasks, and for breaking down larger complex tasks into smaller steps. If you do not use this tool when planning, you may forget to do important tasks - and that is unacceptable.\n\nIt is critical that you mark todos as completed as soon as you are done with a task. Do not batch up multiple tasks before marking them as completed.\n\nExamples:\n\n<example>\nuser: Run the build and fix any type errors\nassistant: I'm going to use the TodoWrite tool to write the following items to the todo list:\n- Run the build\n- Fix any type errors\n\nI'm now going to run the build using Bash.\n\nLooks like I found 10 type errors. I'm going to use the TodoWrite tool to write 10 items to the todo list.\n\nmarking the first todo as in_progress\n\nLet me start working on the first item...\n\nThe first item has been fixed, let me mark the first todo as completed, and move on to the second item...\n..\n..\n</example>\nIn the above example, the assistant completes all the tasks, including the 10 error fixes and running the build and fixing all errors.\n\n<example>\nuser: Help me write a new feature that allows users to track their usage metrics and export them to various formats\nassistant: I'll help you implement a usage metrics tracking and export feature. Let me first use the TodoWrite tool to plan this task.\nAdding the following todos to the todo list:\n1. Research existing metrics tracking in the codebase\n2. Design the metrics collection system\n3. Implement core metrics tracking functionality\n4. Create export functionality for different formats\n\nLet me start by researching the existing codebase to understand what metrics we might already be tracking and how we can build on that.\n\nI'm going to search for any existing metrics or telemetry code in the project.\n\nI've found some existing telemetry code. Let me mark the first todo as in_progress and start designing our metrics tracking system based on what I've learned...\n\n[Assistant continues implementing the feature step by step, marking todos as in_progress and completed as they go]\n</example>\n\n\n# Doing tasks\nThe user will primarily request you perform software engineering tasks. This includes solving bugs, adding new functionality, refactoring code, explaining code, and more. For these tasks the following steps are recommended:\n- \n- Use the TodoWrite tool to plan the task if required\n\n- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are automatically added by the system, and bear no direct relation to the specific tool results or user messages in which they appear.\n\n\n# Tool usage policy\n- When doing file search, prefer to use the Task tool in order to reduce context usage.\n- You should proactively use the Task tool with specialized agents when the task at hand matches the agent's description.\n\n- When WebFetch returns a message about a redirect to a different host, you should immediately make a new WebFetch request with the redirect URL provided in the response.\n- You can call multiple tools in a single response. If you intend to call multiple tools and there are no dependencies between them, make all independent tool calls in parallel. Maximize use of parallel tool calls where possible to increase efficiency. However, if some tool calls depend on previous calls to inform dependent values, do NOT call these tools in parallel and instead call them sequentially. For instance, if one operation must complete before another starts, run these operations sequentially instead. Never use placeholders or guess missing parameters in tool calls.\n- If the user specifies that they want you to run tools \"in parallel\", you MUST send a single message with multiple tool use content blocks. For example, if you need to launch multiple agents in parallel, send a single message with multiple Task tool calls.\n- Use specialized tools instead of bash commands when possible, as this provides a better user experience. For file operations, use dedicated tools: Read for reading files instead of cat/head/tail, Edit for editing instead of sed/awk, and Write for creating files instead of cat with heredoc or echo redirection. Reserve bash tools exclusively for actual system commands and terminal operations that require shell execution. NEVER use bash echo or other command-line tools to communicate thoughts, explanations, or instructions to the user. Output all communication directly in your response text instead.\n- VERY IMPORTANT: When exploring the codebase to gather context or to answer a question that is not a needle query for a specific file/class/function, it is CRITICAL that you use the Task tool instead of running search commands directly.\n<example>\nuser: Where are errors from the client handled?\nassistant: [Uses the Task tool to find the files that handle client errors instead of using Glob or Grep directly]\n</example>\n<example>\nuser: What is the codebase structure?\nassistant: [Uses the Task tool]\n</example>\n\nIMPORTANT: Always use the TodoWrite tool to plan and track tasks throughout the conversation.\n\n# Code References\n\nWhen referencing specific functions or pieces of code include the pattern `file_path:line_number` to allow the user to easily navigate to the source code location.\n\n<example>\nuser: Where are errors from the client handled?\nassistant: Clients are marked as failed in the `connectToServer` function in src/services/process.ts:712.\n</example>\n"
+            }
+          ]
+        },
+        {
+          "role": "system",
+          "content": [
+            {
+              "type": "text",
+              "text": "Here is some useful information about the environment you are running in:\n<env>\n  Working directory: /tmp/agent-smoke\n  Is directory a git repo: no\n  Platform: linux\n  Today's date: Wed Oct 07 2026\n</env>\n\n<files>\n  \n</files>"
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": "Reply with exactly: hello"
+        }
+      ],
+      "stream": true
+    },
+    "statusCode": 404,
+    "responseHeaders": {
+      "cache-control": "public, max-age=0, must-revalidate",
+      "content-encoding": "br",
+      "content-security-policy-report-only": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://utt.impactcdn.com https://login.kilo.ai https://login-test.kilo.ai https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://widget.usepylon.com https://assets.churnkey.co; connect-src 'self' https://auth.kilo.ai https://us.i.posthog.com https://us-assets.i.posthog.com https://api.stripe.com https://r.stripe.com https://m.stripe.com https://checkout.stripe.com https://utt.impactcdn.com https://cdn.jsdelivr.net https://unpkg.com https://widget.usepylon.com https://assets.churnkey.co https://api.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com wss://cloud-agent-next.kilosessions.ai wss://ingest.kilosessions.ai https://gastown.kiloapps.io wss://gastown.kiloapps.io; img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://secure.gravatar.com https://gravatar.com https://media.licdn.com https://cdn.discordapp.com https://gitlab.com https://*.stripe.com https://www.googletagmanager.com https://utt.impactcdn.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://www.gravatar.com https://openrouter.ai https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://www.youtube.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io; worker-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'",
+      "content-type": "application/json",
+      "cross-origin-embedder-policy-report-only": "require-corp",
+      "cross-origin-opener-policy": "same-origin",
+      "cross-origin-resource-policy": "same-origin",
+      "date": "Wed, 07 Oct 2026 13:57:27 GMT",
+      "permissions-policy": "geolocation=(self), camera=(), microphone=()",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "server": "Vercel",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "transfer-encoding": "chunked",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-matched-path": "/api/openrouter/[...path]",
+      "x-vercel-cache": "MISS",
+      "x-vercel-id": "fra1:fra1:fra1::fra1::hq5hr-1791381447425-cd886bdfe597",
+      "x-xss-protection": "0"
+    },
+    "responseBody": "{\"error\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\",\"error_type\":\"model_not_found\",\"message\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\"}",
+    "isRetryable": false
+  },
+  "message": "process"
+}
+
+{
+  "type": "session.error",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.563Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "error",
+  "timestamp": 1791381447563,
+  "sessionID": "ses_ee95860a2ffe7CAi3qaGR0aUnd",
+  "message": "APIError: Not Found",
+  "error": {
+    "name": "APIError",
+    "data": {
+      "message": "Not Found",
+      "statusCode": 404,
+      "isRetryable": false,
+      "responseHeaders": {
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-encoding": "br",
+        "content-security-policy-report-only": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://utt.impactcdn.com https://login.kilo.ai https://login-test.kilo.ai https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://widget.usepylon.com https://assets.churnkey.co; connect-src 'self' https://auth.kilo.ai https://us.i.posthog.com https://us-assets.i.posthog.com https://api.stripe.com https://r.stripe.com https://m.stripe.com https://checkout.stripe.com https://utt.impactcdn.com https://cdn.jsdelivr.net https://unpkg.com https://widget.usepylon.com https://assets.churnkey.co https://api.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com wss://cloud-agent-next.kilosessions.ai wss://ingest.kilosessions.ai https://gastown.kiloapps.io wss://gastown.kiloapps.io; img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://secure.gravatar.com https://gravatar.com https://media.licdn.com https://cdn.discordapp.com https://gitlab.com https://*.stripe.com https://www.googletagmanager.com https://utt.impactcdn.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://www.gravatar.com https://openrouter.ai https://e115e769bcdd4c3d66af59d3332cb394.r2.cloudflarestorage.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://challenges.cloudflare.com https://www.youtube.com https://widget.usepylon.com https://assets.churnkey.co https://*.churnkey.co https://*.d.kiloapps.io; worker-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'",
+        "content-type": "application/json",
+        "cross-origin-embedder-policy-report-only": "require-corp",
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "date": "Wed, 07 Oct 2026 13:57:27 GMT",
+        "permissions-policy": "geolocation=(self), camera=(), microphone=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "server": "Vercel",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "SAMEORIGIN",
+        "x-matched-path": "/api/openrouter/[...path]",
+        "x-vercel-cache": "MISS",
+        "x-vercel-id": "fra1:fra1:fra1::fra1::hq5hr-1791381447425-cd886bdfe597",
+        "x-xss-protection": "0"
+      },
+      "responseBody": "{\"error\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\",\"error_type\":\"model_not_found\",\"message\":\"The requested model 'deepseek/deepseek-r1-0528:free' does not exist. Please use an exact model id as listed on /api/gateway/models. If this is a newly released model, please try again in a few minutes.\"}"
+    }
+  }
+}
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.570Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.570Z",
+  "service": "session.compaction",
+  "message": "pruning"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.587Z",
+  "service": "session.prompt",
+  "sessionID": "ses_ee95860a2ffe7CAi3qaGR0aUnd",
+  "message": "cancel"
+}
+
+{
+  "type": "session.status",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.587Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.idle",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.587Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session_idle",
+  "timestamp": 1791381447588,
+  "sessionID": "ses_ee95860a2ffe7CAi3qaGR0aUnd"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.592Z",
+  "service": "bus",
+  "message": "unsubscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.592Z",
+  "service": "default",
+  "directory": "/tmp/agent-smoke",
+  "message": "disposing instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.593Z",
+  "service": "state",
+  "key": "/tmp/agent-smoke",
+  "message": "waiting for state disposal to complete"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.593Z",
+  "service": "state",
+  "key": "/tmp/agent-smoke",
+  "message": "state disposal completed"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T13:57:27.595Z",
+  "service": "default",
+  "hasError": true,
+  "uptimeSeconds": 2,
+  "message": "Agent exiting"
+}
+

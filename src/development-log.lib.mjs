@@ -1,6 +1,8 @@
+import { promptText } from './prompt-text.lib.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
@@ -53,7 +55,7 @@ export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueTy
   // instruction asks to download all logs as well; for feature/task issues, or
   // when no issue type is selected, the universal data-collection wording is used.
   const resolvedIssueType = issueType ?? argv?.issueType ?? null;
-  const collectionInstruction = isBugIssueType(resolvedIssueType) ? `Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.` : `Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.`;
+  const collectionInstruction = isBugIssueType(resolvedIssueType) ? promptText('prompt.templates.development-log.buildDevelopmentLogPrompt.text1', { developmentLogDirectory: String(developmentLogDirectory) }) : promptText('prompt.templates.development-log.buildDevelopmentLogPrompt.text2', { developmentLogDirectory: String(developmentLogDirectory) });
 
   return `\n${collectionInstruction}\n`;
 };
@@ -65,7 +67,6 @@ export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueTy
 export const fetchIssueType = async ({ owner, repo, issueNumber, $, log }) => {
   if (!owner || !repo || !issueNumber || typeof $ !== 'function') return null;
   try {
-    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- $ is the injected, rate-limit-safe runner (wrapDollarWithGhRetry) passed in by the caller.
     const result = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json issueType`;
     if (result?.code && result.code !== 0) return null;
     const stdout = result?.stdout?.toString?.() ?? String(result?.stdout ?? '');
@@ -286,7 +287,7 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
   };
 };
 
-const verifyDevelopmentLogDirectory = async directoryPath => {
+export const verifyDevelopmentLogDirectory = async (directoryPath, { repair = true } = {}) => {
   const entries = await fs.readdir(directoryPath, { recursive: true, withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile()) continue;
@@ -295,9 +296,27 @@ const verifyDevelopmentLogDirectory = async directoryPath => {
     // Issue #2189: rescan block by block. Reading each artifact back whole made
     // the verification cost as much heap as the artifact — on top of the copy
     // that had just been written.
-    const residual = await findResidualCredentialBlock(filePath);
+    let residual = await findResidualCredentialBlock(filePath);
+    if (residual && repair) {
+      // #2841: evidence written by the AI belongs to the staged directory too.
+      // Sanitize in bounded memory to a private sibling, verify it, then replace
+      // atomically. A failure preserves the original evidence for diagnosis.
+      const temporaryPath = `${filePath}.${randomUUID()}.sanitized`;
+      try {
+        await sanitizeIntoPublicationFile({ sourcePath: filePath, destinationPath: temporaryPath });
+        const remaining = await findResidualCredentialBlock(temporaryPath);
+        if (!remaining) {
+          await fs.rename(temporaryPath, filePath);
+          residual = null;
+        } else residual = remaining;
+      } catch {
+        throw new Error(`Development-log credential repair failed for ${filePath}:${residual.line} (rule ${residual.ruleId}).`);
+      } finally {
+        await fs.rm(temporaryPath, { force: true });
+      }
+    }
     if (residual) {
-      throw new Error('Development-log publication rescan found residual credential material.');
+      throw new Error(`Development-log publication rescan found residual credential material in ${filePath}:${residual.line} (rule ${residual.ruleId}).`);
     }
     await fs.chmod(filePath, 0o600);
   }

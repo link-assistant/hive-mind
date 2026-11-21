@@ -1,0 +1,4 @@
+failure : Process completed with exit code 5.
+failure Formal AI draft failed: Finished without changes: Formal AI produced no change (terminal state: planned_not_executed)
+notice Formal AI draft decision: run
+notice Formal AI draft decision: run

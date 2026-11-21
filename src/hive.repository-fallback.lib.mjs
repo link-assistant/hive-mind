@@ -21,10 +21,11 @@
  * @param {Function} deps.execGhWithRetry
  * @param {Function} deps.fetchAllIssuesWithPagination
  * @param {Function} deps.reportError
+ * @param {(error: Error) => void} [deps.onFetchError] records incomplete discovery without discarding useful issues
  * @param {(ms: number) => Promise<void>} [deps.sleeper] delay between API calls
  * @returns {(owner: string, scope: string, monitorTag?: string, fetchAllIssues?: boolean) => Promise<Array>}
  */
-export function createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError, sleeper = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
+export function createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError, onFetchError = () => {}, sleeper = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   /**
    * Fallback function to fetch issues from organization/user repositories
    * when search API hits rate limits
@@ -109,6 +110,7 @@ export function createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchI
             await log(`   ✅ Found ${issuesWithRepo.length} issues in ${ownerName}/${repoName}`, { verbose: true });
           }
         } catch (repoError) {
+          onFetchError(repoError);
           reportError(repoError, { context: 'fetchIssuesFromRepositories', repo: repo.name, operation: 'fetch_repo_issues' });
           await log(`   ⚠️  Failed to fetch issues from ${repo.name}: ${cleanErrorMessage(repoError)}`, { verbose: true });
           // Continue with other repositories
@@ -117,6 +119,7 @@ export function createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchI
       await log(`   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`);
       return collectedIssues;
     } catch (error) {
+      onFetchError(error);
       reportError(error, { context: 'fetchIssuesFromRepositories', owner, scope, operation: 'repository_fallback' });
       await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(error)}`, { level: 'error' });
       return [];

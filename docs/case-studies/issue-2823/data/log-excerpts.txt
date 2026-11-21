@@ -1,0 +1,24 @@
+# Excerpts from hive-telegram-bot.log (issue #2823)
+# Source: https://raw.githubusercontent.com/konard/private-logs/main/home-box/a49df814a95cb835/hive-telegram-bot.log.txt (47 MB, 952,247 lines)
+
+## Failed session_completed events (never reflected in /queue)
+2007:2026-10-07T21:23:55.598Z INFO  EVENT session_completed {"sessionName":"33fb97ec-e994-42c7-97d2-ed2bec7504f5","exitCode":1,"status":"failed"}
+140757:2026-10-08T02:30:01.672Z INFO  EVENT session_completed {"sessionName":"6c330d49-84a9-448d-897b-eeeeecff1e8d","exitCode":1,"status":"failed"}
+323033:2026-10-08T10:38:11.800Z INFO  EVENT session_completed {"sessionName":"1e53e5b3-441d-4616-a156-4e8b1146424d","exitCode":1,"status":"failed"}
+412807:2026-10-08T13:22:14.586Z INFO  EVENT session_completed {"sessionName":"05b20a82-4262-46ec-b26e-26adf5accf65","exitCode":1,"status":"failed"}
+
+## Commands of the failed sessions
+1198:2026-10-07T21:21:45.594Z DEBUG Persisted session 33fb97ec-e994-42c7-97d2-ed2bec7504f5 {"command":"solve","url":"https://github.com/link-assistant/hive-mind/pull/2592"}
+2627:2026-10-07T21:27:16.716Z DEBUG Persisted session 6c330d49-84a9-448d-897b-eeeeecff1e8d {"command":"hive","url":"https://github.com/link-assistant/router"}
+272969:2026-10-08T09:26:40.689Z DEBUG Persisted session 1e53e5b3-441d-4616-a156-4e8b1146424d {"command":"solve","url":"https://github.com/Godmy/stylist-svelte/issues/3"}
+377735:2026-10-08T12:11:53.928Z DEBUG Persisted session 05b20a82-4262-46ec-b26e-26adf5accf65 {"command":"fix","url":"https://github.com/link-assistant/web-capture"}
+
+## Last /queue reply: title chunk summary and continuation chunk (lines 950,9xx)
+950992:[telegram-send] s10324 sendMessage → chat=<redacted> thread=32470 parse_mode=Markdown reply_to=119341 thread=32470 chars=4045 bytes=4195 text="📋 *Solve Queue Status*\n\n*claude*\n  *Pending* (2):\n    • [G-Ivan-A/hybrid-Intelligence-lab#657](https://github.com/G-Ivan-A/hybrid-Intelligence-lab/issues/657) (⏳ 9h 26s)\n    • [link-assistant/hive-mind#2699](https://github.com/lin
+...
+950997:[telegram-send] s10326 sendMessage → chat=<redacted> thread=32470 parse_mode=Markdown reply_to=119341 thread=32470 chars=701 bytes=717 text="    • [Surrogate-TM/save_visiogetbb#18](https://github.com/Surrogate-TM/save_visiogetbb/pull/18) (⏳ 12m 31s)\n    ⏳ Disk usage is 79% (threshold: 65%); Codex process is already running (4 processes)\n  *Completed* (65):\n    ✅ [link-assistant/router#727](https://github.com/link-assistant/router/issues/727)\n    ✅ [link-assistant/router#726](https://github.com/link-assistant/router/issues/726)\n    ✅ [link-assistant/router#725](https://github.com/link-assistant/router/issues/725)\n    ✅ [link-assistant/router#724](https://github.com/link-assistant/router/issues/724)\n    ✅ [link-assistant/router#723](https://github.com/link-assistant/router/issues/723)\n      ... and 60 more\n\nCompleted: 72, Failed: 0\n"
+
+## Disk threshold blocking
+802830:[VERBOSE] /queue: Cannot start: Disk usage is 72% (threshold: 65%)
+952187:[VERBOSE] /queue: Cannot start: Disk usage is 79% (threshold: 65%)
+total lines: 506

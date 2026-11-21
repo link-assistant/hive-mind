@@ -68,7 +68,7 @@ const USE_SINGLE_FLIGHT_WRAPPED = Symbol.for('hive-mind.use-m-single-flight.wrap
 
 // Mirrors use-m's own parser (`parseModuleSpecifier`) so the alias computed
 // here is byte-identical to the directory npm will create.
-const SPECIFIER_PATTERN = /^(?<packageName>(@[^@/]+\/)?[^@/]+)?(?:@(?<version>[^/]*))?(?<modulePath>(?:\/[^@]+)*)?$/;
+const SPECIFIER_PATTERN = /^(?<packageName>(@[^@/]+\/)?[^@/]+)?(?:@(?<version>[^/]*))?(?<modulePath>(?:\/[^@]+)?)$/;
 
 /**
  * @param {string} specifier
@@ -263,14 +263,17 @@ const runOnAliasChain = (state, alias, fn) => {
   const previous = state.chains.get(alias) ?? Promise.resolve();
   // `.then(fn, fn)` so a failed predecessor does not strand the queue.
   const result = previous.then(fn, fn);
-  const tail = result.then(
-    () => {},
-    () => {}
-  );
+  // The tail never rejects; once settled it removes itself unless a newer call
+  // has already queued behind it.
+  const tail = result
+    .then(
+      () => {},
+      () => {}
+    )
+    .then(() => {
+      if (state.chains.get(alias) === tail) state.chains.delete(alias);
+    });
   state.chains.set(alias, tail);
-  tail.then(() => {
-    if (state.chains.get(alias) === tail) state.chains.delete(alias);
-  });
   return result;
 };
 

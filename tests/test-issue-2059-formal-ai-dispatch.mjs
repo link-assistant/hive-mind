@@ -197,7 +197,6 @@ const preparedCommandParams = (tempDir, toolPathKey, toolPath) => ({
   branchName: 'issue-2059-test',
   prompt: 'Solve issue 2059',
   systemPrompt: '',
-  escapedSystemPrompt: '',
   argv: {
     model: 'formal-ai',
     onlyPrepareCommand: true,
@@ -329,8 +328,8 @@ test('Formal AI connection validation rejects an unreadable runtime version', as
   );
 });
 
-test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', () => {
-  const args = buildDockerIsolationStartArgs('solve', ['https://example.test/issues/2059'], {
+test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', async () => {
+  const args = await buildDockerIsolationStartArgs('solve', ['https://example.test/issues/2059'], {
     sessionId: 'issue-2059',
     tool: 'codex',
     env: {
@@ -338,7 +337,7 @@ test('Docker-isolated solve jobs receive the configured persistent Formal AI end
       HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind-dind:test',
     },
     homeDir: '/nonexistent',
-    existsSync: () => false,
+    existsSync: file => ['sessions', 'archived_sessions', 'thread-writer-locks', 'rollout-migrations'].some(directory => file === `/nonexistent/.codex/${directory}`),
   });
 
   const envIndex = args.indexOf('HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080');

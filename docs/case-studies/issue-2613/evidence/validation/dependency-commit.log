@@ -1,0 +1,32 @@
+⋯ Backing up original state…
+✔ Done backing up original state (e38192a4)!
+⋯ Running tasks for staged files…
+    *.{js,mjs,json,md} — 21 files
+      ⋯ prettier --write
+
+✔ prettier --write
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+⋯ Cleaning up temporary files…
+✔ Done cleaning up temporary files!
+[issue-2613-2efa14ce78a7 b2121922] fix: refresh dependency pins after the CI freshness failure
+ 31 files changed, 9606 insertions(+), 69 deletions(-)
+ create mode 100644 docs/case-studies/issue-2613/evidence/agent-commander-CHANGELOG.md
+ create mode 100644 docs/case-studies/issue-2613/evidence/agent-commander-js-release.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/checks-and-release-37604619061.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/checks-and-release-37644275258.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/checks-and-release-37644810409.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/detect-changes-112873581183.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/latest-runs.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/manifest.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/ci/release-latest.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/command-stream-CHANGELOG.md
+ create mode 100644 docs/case-studies/issue-2613/evidence/command-stream-js-release.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/node-release.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/sentry-release.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/agent-commander-updated-dependencies.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/case-study-final-format.log
+ create mode 100644 experiments/issue-2613/dependency-test-files.txt
+ create mode 100644 experiments/issue-2613/publish-ci.mjs

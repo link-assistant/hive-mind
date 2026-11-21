@@ -1,0 +1,1 @@
+PASS: issue #2263 failed recovery remains draft and obeys repository ignore policy

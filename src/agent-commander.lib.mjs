@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Experimental agent-commander execution adapter.
  *
@@ -12,13 +14,16 @@ import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
-import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
+import { parseSubSessionSize } from './sub-session-size.lib.mjs';
+import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { detectUsageLimit } from './usage-limit.lib.mjs';
-import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { isRecoverableAgentToolError } from './agent-error-events.lib.mjs';
+import { applyServedModelPricing } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
-import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
+import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -51,6 +56,17 @@ const appendExtraEnv = (options, env) => {
   };
 };
 
+// Issue #2771: the cheapest pricing tier (standard speed, short context) for this run.
+const resolveAgentCommanderPricingTier = (tool, argv = {}) =>
+  resolvePricingTier({
+    tool,
+    model: argv.model,
+    modelId: argv.model ? (tool === 'claude' ? mapClaudeModelToId(argv.model) : mapModelForTool(tool, argv.model)) : undefined,
+    disable1mContext: argv.disable1mContext,
+    subSessionSize: argv.subSessionSize,
+    speed: argv.speed,
+  });
+
 const buildClaudeToolOptions = (argv = {}) => {
   const options = {};
   options.verbose = !!argv.verbose;
@@ -63,7 +79,7 @@ const buildClaudeToolOptions = (argv = {}) => {
     if (thinkingEnv.MAX_THINKING_TOKENS !== undefined) extraEnv.MAX_THINKING_TOKENS = thinkingEnv.MAX_THINKING_TOKENS;
     if (thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL) extraEnv.CLAUDE_CODE_EFFORT_LEVEL = thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL;
   }
-  if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
+  applyClaudePricingTierToEnv(extraEnv, resolveAgentCommanderPricingTier('claude', argv)); // Issue #2771
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
   if (argv.subAgentModel) extraEnv.CLAUDE_CODE_SUBAGENT_MODEL = mapClaudeSubAgentModelToEnvValue(argv.subAgentModel);
@@ -88,17 +104,23 @@ const buildCodexToolOptions = (argv = {}) => {
   if (rolloutTokenBudget) {
     reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   }
-  appendExtraArgs(options, reasoningArgs);
+  appendExtraArgs(options, [...reasoningArgs, ...buildCodexGeolocationConfigArgs(argv)]);
 
-  appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
-  appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
-  appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
+  // Issue #2771: standard service tier and the 272K short-context window by default.
+  const tier = resolveAgentCommanderPricingTier('codex', argv);
+  let parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
   try {
-    appendExtraArgs(options, buildCodexSubSessionSizeConfigArgs(parseSubSessionSize(argv.subSessionSize)));
+    parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
   } catch {
     // The embedded Codex path logs parse warnings later. Keep agent-commander
     // command construction permissive so validation can still run.
   }
+  const { serviceTierArgs, contextWindowArgs, subSessionSizeArgs } = buildCodexPricingTierConfigArgs({ tier, parsedSubSessionSize });
+  appendExtraArgs(options, [...serviceTierArgs, ...contextWindowArgs]);
+  appendExtraArgs(options, buildCodexEssentialFeatureConfigArgs()); // Issue #2406: native goals stay on
+  appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
+  appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
+  appendExtraArgs(options, subSessionSizeArgs);
 
   return options;
 };
@@ -133,15 +155,21 @@ export const isAgentCommanderAvailable = async () => {
 
 export const getAgentCommanderToolName = (argv = {}) => argv.tool || 'claude';
 
-const resolveAgentCommanderModel = (tool, model) => {
+const resolveAgentCommanderModel = (tool, model, argv = { model }) => {
   if (!model) return model;
-  if (tool === 'claude') return mapClaudeModelToId(model, { preserveRollingAlias: true });
+  if (tool === 'claude') {
+    // Issue #2771: plain model names by default; `[1m]` only for long-context runs.
+    const { longContext } = resolveAgentCommanderPricingTier('claude', { ...argv, model });
+    const contextModel = resolveClaudeModelForContext(model, { longContext, mapModelToId: mapClaudeModelToId }).model;
+    return mapClaudeModelToId(contextModel, { preserveRollingAlias: true });
+  }
   return mapModelForTool(tool, model);
 };
 
 export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
   const options = tool === 'claude' ? buildClaudeToolOptions(argv) : tool === 'codex' ? buildCodexToolOptions(argv) : {};
 
+  appendExtraEnv(options, buildGeolocationEnv(argv));
   const executable = getConfiguredExecutable(argv, tool);
   if (executable) {
     options.executable = executable;
@@ -156,8 +184,8 @@ export const buildAgentCommanderControllerOptions = ({ tool, tempDir, prompt, sy
   tool,
   workingDirectory: tempDir,
   prompt,
-  systemPrompt,
-  model: resolveAgentCommanderModel(tool, argv.model),
+  systemPrompt: withGeolocationPolicy(systemPrompt, argv),
+  model: resolveAgentCommanderModel(tool, argv.model, argv),
   json: tool !== 'agent',
   resume: argv.resume,
   toolOptions: buildAgentCommanderToolOptions(argv, tool),
@@ -177,7 +205,7 @@ export const validateAgentCommanderConnection = async ({ tool, model, log = defa
     const controller = agent({
       tool: toolName,
       workingDirectory: process.cwd(),
-      prompt: 'connection check',
+      prompt: promptText('prompt.templates.agent-commander.validateAgentCommanderConnection.text1'),
       model: resolveAgentCommanderModel(toolName, model),
       json: toolName !== 'agent',
       toolOptions: buildAgentCommanderToolOptions({ model }, toolName),
@@ -253,7 +281,8 @@ const extractResultSummary = (messages, plainOutput) => {
   return plainOutput?.trim() ? plainOutput.trim().slice(-4000) : null;
 };
 
-const hasErrorMessage = messages => messages.some(message => message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error);
+// A failed tool call is a tool result the model recovers from, not a run error.
+const hasErrorMessage = messages => messages.some(message => !isRecoverableAgentToolError(message) && (message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error));
 
 const normalizeAgentCommanderTokenUsage = usage => {
   if (!usage || typeof usage !== 'object') return null;
@@ -296,7 +325,8 @@ export const summarizeAgentCommanderResult = ({ result, tool, model = null }) =>
     });
     // Issue #2119: a Formal AI session belongs to Link.Assistant at $0.00, no
     // matter which agentic CLI agent-commander drove it.
-    const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+    const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyServedModelPricing({
+      tool,
       model,
       pricingInfo: enrichedPricingInfo,
       publicPricingEstimate: metadata.publicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,
@@ -333,7 +363,8 @@ export const summarizeAgentCommanderResult = ({ result, tool, model = null }) =>
     tool,
     publicPricingEstimate: rawPublicPricingEstimate,
   });
-  const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+  const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyServedModelPricing({
+    tool,
     model,
     pricingInfo: enrichedPricingInfo,
     publicPricingEstimate: rawPublicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,
@@ -381,6 +412,15 @@ export const executeWithAgentCommander = async params => {
     await log(`   User prompt characters: ${prompt.length}`, { verbose: true });
     await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
   }
+  // PR #4083 feedback: the exact prompts agent-commander hands to the tool, always in full.
+  await logFinalPrompts({
+    log,
+    tool: `${tool} (agent-commander)`,
+    prompts: [
+      { kind: 'user', text: controllerOptions.prompt, delivery: 'agent-commander', keepEmpty: true },
+      { kind: 'system', text: controllerOptions.systemPrompt, delivery: 'agent-commander' },
+    ],
+  });
 
   const controller = module.agent(controllerOptions);
   const dryRun = !!(argv.dryRun || argv.onlyPrepareCommand);

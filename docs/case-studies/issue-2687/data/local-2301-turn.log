@@ -1,0 +1,23 @@
+✔ a post-result cancellation cannot veto a successful Claude result (2.413475ms)
+✔ unfinished background agents cause a bounded same-session continuation (0.695208ms)
+✔ an OOM event in a child followed by exit 1 is a failed work session, not a recovered kill (69.866539ms)
+✔ a PR notice never claims a new session when the OOM event was only survived (1344.122136ms)
+✔ a recovery session surviving a later OOM does not claim another replacement (32.02218ms)
+✔ Docker task memory is capped by default and remains configurable (5.086464ms)
+✔ one-shot Claude execution keeps background tasks and raises the print-mode wait ceiling (1.481456ms)
+Session 933a1ab3-1630-48a3-b35a-3087d7b2603c has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=198 bytes=200 text="⏳ Recovery scheduled (attempt 1)\nUpdated: 2026-10-08T02:17:31.752Z\nAttempt started: 2026-10-08T02:17:31.752Z\nRecovery session: 933a1ab3-1630-48a3-b35a-3087d7b2603c\nWaiting 0 seconds before launch.\n\n"
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=192 bytes=196 text="🔄 Recovery attempt launching — outcome pending (attempt 1)\nUpdated: 2026-10-08T02:17:31.792Z\nAttempt started: 2026-10-08T02:17:31.752Z\nRecovery session: 933a1ab3-1630-48a3-b35a-3087d7b2603c\n\n"
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1676 bytes=1716 text="⚠️ *Work session still in progress: recovering from exit code 1 (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `933a1ab3-1630-48a3-b35a-3087d7b2603c`\n🔁 Recovery session: `c33ee381-7113-4c12-ad33-82b3409209f0`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026"… (+1376 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✔ the monitor resumes an exit-1 session after a child OOM event and reports the actual new session (447.303827ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1914.325259

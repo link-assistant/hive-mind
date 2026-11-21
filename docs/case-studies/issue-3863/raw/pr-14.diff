@@ -1,0 +1,13 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 82b8373..e6d095f 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -28,7 +28,7 @@ classifiers = [
+ [project.optional-dependencies]
+ dev = [
+     "ruff>=0.8.0,<0.9",
+-    "mypy>=1.13.0,<2.0",
++    "mypy>=1.13.0,<3.0",
+     "pytest>=8.3.0",
+     "pytest-asyncio>=0.24.0",
+     "pytest-cov>=6.0.0",

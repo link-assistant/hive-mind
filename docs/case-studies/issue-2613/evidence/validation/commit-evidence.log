@@ -1,0 +1,106 @@
+⋯ Backing up original state…
+✔ Done backing up original state (daa248ec)!
+⋯ Running tasks for staged files…
+    *.{js,mjs,json,md} — 37 files
+      ⋯ prettier --write
+
+✔ prettier --write
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+⋯ Cleaning up temporary files…
+✔ Done cleaning up temporary files!
+[issue-2613-2efa14ce78a7 a2e03715] docs: preserve issue 2613 evidence and root-cause analysis
+ 92 files changed, 245274 insertions(+)
+ create mode 100644 docs/case-studies/issue-2613/README.md
+ create mode 100644 docs/case-studies/issue-2613/evidence/claude-failure.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-ai-replay-server.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-ai-replay.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-artifacts-2591.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-artifacts-2613.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-draft-2591.error
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-draft-2591.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-draft-2613.error
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-draft-2613.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-job-2591.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/formal-job-2613.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/initial-checks-run.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/initial-ci-runs.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/initial-ci/checks-and-release-37604619061.error
+ create mode 100644 docs/case-studies/issue-2613/evidence/initial-ci/security-37604618647.error
+ create mode 100644 docs/case-studies/issue-2613/evidence/initial-security-run.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/issue-2613-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/issue-2613.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/killed-session.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/log-findings.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/log-manifest.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-2592-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-2614-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-2614-latest-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-2614-latest-review-comments.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-2614-latest-reviews.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/pr-before-finalization.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/publication-sanitization.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/recent-merged-prs.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/recovery-commit.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/related-pr-2499.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/related-pr-2566.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/related-pr-2626.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-file-read.rs
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-formal-ai-1189.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-repository-upload.js
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-upload-common.js
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-upload-installation-search.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-upload-log-repository.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/upstream-upload-log-search.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/changed-format-check.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/changed-format.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/changeset-validation.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/commit-session.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/commit-version.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/default-tests.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/duplication.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/fetch-main.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/formal-draft-tests.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-check.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-docs.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-latest.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-parsers.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-process-cleanup.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/format-write.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/github-inventory.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/line-limits.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/lint-final.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/lint.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/log-dir-before.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/manifest.json
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/npm-ci.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/package-manager.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/regressions-after.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/regressions-before.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/sanitize-evidence.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/secrets.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/syntax.log
+ create mode 100644 docs/case-studies/issue-2613/evidence/validation/version-info-tests.log
+ create mode 100644 docs/case-studies/issue-2613/plan.md
+ create mode 100644 experiments/issue-2613/analyze-evidence.py
+ create mode 100644 experiments/issue-2613/claude-findings.txt
+ create mode 100644 experiments/issue-2613/default-errors.txt
+ create mode 100644 experiments/issue-2613/formal-ai-report-comment.md
+ create mode 100644 experiments/issue-2613/formal-findings.txt
+ create mode 100644 experiments/issue-2613/formal-replay.error
+ create mode 100644 experiments/issue-2613/formal-serve-help.txt
+ create mode 100644 experiments/issue-2613/gh-upload-log-report.md
+ create mode 100644 experiments/issue-2613/log-analysis-summary.json
+ create mode 100644 experiments/issue-2613/pr-2626.diff
+ create mode 100644 experiments/issue-2613/publication-format-output.txt
+ create mode 100644 experiments/issue-2613/publication-validation-output.txt
+ create mode 100644 experiments/issue-2613/publish-validation.mjs
+ create mode 100644 experiments/issue-2613/replay-formal-ai.mjs
+ create mode 100644 experiments/issue-2613/reports-format-output.txt
+ create mode 100644 experiments/issue-2613/sanitize-evidence.mjs
+ create mode 100644 experiments/issue-2613/upload-log-help.txt
+ create mode 100644 experiments/issue-2613/upload-log-source-files.txt
+ create mode 100644 experiments/issue-2613/upstream-search.txt
+ create mode 100644 experiments/issue-2613/version-refactor.diff

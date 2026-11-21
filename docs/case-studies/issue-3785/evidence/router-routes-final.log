@@ -1,0 +1,94 @@
+
+--- The image tag decides the dialect ---
+  PASS: a 0.x tag parses as major 0
+  PASS: a 1.x tag parses as major 1
+  PASS: a v-prefixed prerelease tag parses
+  PASS: a registry port is not mistaken for the tag
+  PASS: a moving tag carries no version
+  PASS: a digest pin carries no version
+  PASS: an empty reference carries no version
+  PASS: the pinned 0.119.0 image speaks the legacy dialect
+  PASS: 1.2.0 speaks the canonical dialect
+  PASS: an unversioned reference assumes the current dialect
+  PASS: and says it guessed
+
+--- HIVE_MIND_ROUTER_ROUTES overrides the tag, and refuses nonsense ---
+  PASS: an operator can declare the dialect of a fork or a digest pin
+  PASS: the value is case-insensitive
+  PASS: an unknown value falls back rather than throwing
+  PASS: and explains itself
+
+--- Each dialect produces exactly the paths measured against a running container ---
+  PASS: legacy health is /health
+  PASS: legacy Anthropic is the origin, so Claude Code reaches /v1/messages
+  PASS: legacy Codex is /v1
+  PASS: legacy never served Gemini
+  PASS: legacy git is /git/
+  PASS: legacy gh REST is /api/v3
+  PASS: canonical health is /api/health
+  PASS: canonical Anthropic is /api/services/anthropic
+  PASS: canonical Codex is /api/services/codex/v1
+  PASS: canonical Gemini is /api/services/gemini
+  PASS: canonical git is /api/services/github/git/
+  PASS: canonical gh REST is /api/services/github/api/v3
+  PASS: no path is shared between the dialects, exactly as measured
+
+--- Every tool maps to a service, and each catalogue endpoint is declared with its shape ---
+  PASS: every routed tool has a service
+  PASS: claude resolves to the Anthropic service
+  PASS: opencode resolves to plain OpenAI, not Codex
+  PASS: an unknown tool resolves to nothing rather than to a wrong service
+  PASS: the five canonical catalogue routes are the five that answered 401 on 1.2.0
+  PASS: the legacy dialect has one merged catalogue instead
+  PASS: each endpoint declares its response shape, so a consumer never has to sniff
+
+--- The task environment follows the dialect (this is what regressed on 1.x) ---
+  PASS: claude keeps the origin on the legacy dialect (issue #2164 behaviour is preserved)
+  PASS: claude moves to the Anthropic service on the canonical dialect
+  PASS: codex keeps /v1 on the legacy dialect
+  PASS: codex moves to its own service on the canonical dialect
+  PASS: and the generated config.toml agrees, because codex ignores OPENAI_BASE_URL
+  PASS: qwen gets its own service rather than sharing codex
+  PASS: gemini is wired through the variable its CLI actually reads
+  PASS: and authenticates with the task token
+  PASS: a dialect that does not serve Gemini wires nothing rather than a 404
+  PASS: a gemini run on the legacy pin is told its model traffic is not routed
+  PASS: and is not warned when the dialect does serve it
+  PASS: the legacy anthropic service is the origin itself, which is served, not missing
+  PASS: codex is served on both dialects
+
+--- Git rewriting follows the dialect too ---
+  PASS: the legacy git prefix is unchanged
+  PASS: only the insteadOf prefix moves: sslCAInfo and extraHeader stay scoped to the origin so they cover every path under it
+
+--- The wiring script writes the same URLs the environment declares ---
+  PASS: the container's config.toml is written with the canonical Codex base URL
+  PASS: and with the legacy one when that is the pin
+
+--- The gh trade-off is reported, not discovered at runtime ---
+  PASS: gh reaches the REST proxy on the legacy dialect, which is why the default pin stays there
+  PASS: and cannot on the canonical one, because gh has no path-prefix setting
+  PASS: a canonical-dialect run says so up front
+  PASS: and names the prefix gh would have to reach
+  PASS: a legacy-dialect run does not warn about a limitation it does not have
+
+--- The health probe follows the dialect, or the acquire loop stalls ---
+  PASS: the legacy dialect probes /health
+  PASS: and the canonical one probes /api/health
+  PASS: with no dialect passed the probe is derived from the image the sidecar would run
+  PASS: so an overridden image moves the probe with it
+  PASS: the wait loop reports healthy when the probe succeeds
+  PASS: and every attempt it makes uses the dialect it was given, not the default
+
+--- The shipped default is the one that keeps every issue #2164 capability ---
+  PASS: the default pin is the highest 0.x release, so it keeps the legacy dialect and with it the gh mediation #2164 shipped
+  PASS: and it is at or above 0.120.0, where the router started sending the Codex client `version` header new models are gated behind
+  PASS: and a default run therefore speaks the legacy dialect
+  PASS: pointing HIVE_MIND_ROUTER_IMAGE at 1.x switches every URL in one step
+  PASS: the image override itself still works
+
+--- The Codex client version reaches the sidecar when an operator sets one ---
+  PASS: by default the router's own bundled version stands, so an older local codex cannot re-gate the new models
+  PASS: and an explicit CODEX_CLIENT_VERSION is passed straight through
+
+Result: 70 passed, 0 failed

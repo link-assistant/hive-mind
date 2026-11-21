@@ -36,7 +36,7 @@ test('cleanup reports policy-retained branches after closing the issue and PR', 
     assert.match(warnings[0], /::warning::.*issue-1-solver.*retained.*repository rule/i);
     const summary = await readFile(summaryFile, 'utf8');
     for (const branch of fixture.branches) assert.ok(summary.includes(branch));
-    assert.match(summary, /scheduled cleanup.*retry/i);
+    assert.match(summary, /ruleset exclusion, or a bypass for the cleanup token/i);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

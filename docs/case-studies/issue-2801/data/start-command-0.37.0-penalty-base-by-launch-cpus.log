@@ -1,0 +1,21 @@
+08:50:45 start-command version: 0.37.0; NCPU=6 MODE=launch BASE=4 TRIGGER=20%
+Error: Failed to run in docker: docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: unable to apply cgroup configuration: cannot enter cgroupv2 "/sys/fs/cgroup/docker" with domain controllers -- it is in threaded mode
+
+Run 'docker run --help' for more information
+│
+│ log       /tmp/start-command/logs/isolation/docker/e02ad90f-adae-40d0-a043-2372044983ef.log
+│ session   e02ad90f-adae-40d0-a043-2372044983ef
+08:50:50 start NanoCpus=
+08:50:54 busy NanoCpus= cpuPenalty=null
+... (container never started; 29 more identical "busy NanoCpus= cpuPenalty=null" lines)
+08:52:39 idle NanoCpus= cpuPenalty=null
+08:52:39 --- log lines from start-command:
+(none in /tmp/start-command/logs/isolation/docker/e02ad90f-adae-40d0-a043-2372044983ef.log)
+Error response from daemon: No such container: issue-2801-start-launch-24057
+08:52:43 final NanoCpus= cpuPenalty=null
+
+$ docker run --rm --cpus 1 alpine:3 true   # same host, plain Docker
+docker: Error response from daemon: ... unable to apply cgroup configuration: cannot enter cgroupv2 "/sys/fs/cgroup/docker" with domain controllers -- it is in threaded mode
+exit=125
+$ docker info --format "{{.CgroupVersion}} {{.CgroupDriver}} {{.ServerVersion}}"
+2 cgroupfs 29.8.2

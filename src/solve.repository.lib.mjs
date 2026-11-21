@@ -12,7 +12,7 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 const os = (await use('os')).default;
@@ -36,10 +36,10 @@ import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescr
 import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
 
 // Import GitHub utilities for permission checks
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 const { checkRepositoryWritePermission } = githubLib;
 // Issue #1625: centralized markers + tracked posting.
-const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
+const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, findCommentWithMarker, postTrackedComment } = await import('./tool-comments.lib.mjs');
 // Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
   try {
@@ -735,7 +735,11 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
                 try {
                   // Extract issue number from URL (e.g., https://github.com/owner/repo/issues/123)
                   const issueMatch = issueUrl.match(/\/issues\/(\d+)/);
-                  if (issueMatch) {
+                  const existingId = issueMatch ? await findCommentWithMarker({ $, owner, repo, targetNumber: issueMatch[1], marker: REPOSITORY_INITIALIZATION_REQUIRED_MARKER }) : null;
+                  // Issue #3684: a repeated run does not ask a second time.
+                  if (existingId) {
+                    await log(`${formatAligned('ℹ️', 'Comment exists:', `Issue #${issueMatch[1]} already asks to initialize the repository (id=${existingId}); not posting again`)}`);
+                  } else if (issueMatch) {
                     const issueNumber = issueMatch[1];
                     await log(`${formatAligned('💬', 'Creating comment:', 'Requesting maintainer to initialize repository...')}`);
                     const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}

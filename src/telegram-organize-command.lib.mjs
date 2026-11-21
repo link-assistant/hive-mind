@@ -4,6 +4,7 @@ import { formatOrganizationSummary, organizeRepository as defaultOrganizeReposit
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { safeEditMessageText as defaultSafeEditMessageText, safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
 export const ORGANIZE_COMMAND_NAMES = Object.freeze(['organize']);
 const GITHUB_URL_PATTERN = /https?:\/\/(?:www\.)?github\.com\/[^\s<>()]+/gi;
@@ -57,7 +58,7 @@ export function parseOrganizeRequest({ commandText = '', replyText = '' } = {}) 
 }
 
 export function registerOrganizeCommand(bot, options) {
-  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository } = options;
+  const { VERBOSE = false, organizeEnabled = true, addBreadcrumb = async () => {}, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, safeEditMessageText = async (ctx, message, text) => defaultSafeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }), organizeRepository = defaultOrganizeRepository, detachHandler = handler => handler } = options;
 
   async function handleOrganizeCommand(ctx) {
     await addBreadcrumb({
@@ -87,20 +88,20 @@ export function registerOrganizeCommand(bot, options) {
 
     const parsed = parseOrganizeRequest({ commandText: ctx.message.text, replyText: ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption || '' });
     if (parsed.error) {
-      await safeReply(ctx, `❌ ${parsed.error}`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ ${escapeMarkdown(parsed.error)}`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
     const repositoryKey = parsed.repository.fullName.toLowerCase();
     if (activeOrganizationRuns.has(repositoryKey)) {
-      await safeReply(ctx, `⏳ An organization run is already active for ${parsed.repository.fullName}.`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `⏳ An organization run is already active for ${escapeMarkdown(parsed.repository.fullName)}.`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
     activeOrganizationRuns.add(repositoryKey);
     let status;
     try {
-      status = await safeReply(ctx, `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${parsed.repository.fullName}…`, { reply_to_message_id: ctx.message.message_id });
+      status = await safeReply(ctx, `${parsed.dryRun ? '🔎 Planning organization' : '🗂 Organizing'} ${escapeMarkdown(parsed.repository.fullName)}…`, { reply_to_message_id: ctx.message.message_id });
       const result = await organizeRepository({
         repositoryUrl: parsed.repository.url,
         dryRun: parsed.dryRun,
@@ -112,6 +113,8 @@ export function registerOrganizeCommand(bot, options) {
         progress: async update => {
           VERBOSE && console.log(`[VERBOSE] /organize: ${update.message}`);
         },
+        // PR #4083 feedback: print the full classifier prompts in the bot log (local only, never in the audit or chat).
+        log: async message => console.log(await sanitizeForPublication(message)),
       });
       const summary = await formatOrganizationSummary(result);
       await safeEditMessageText(ctx, status, summary);
@@ -124,6 +127,6 @@ export function registerOrganizeCommand(bot, options) {
     }
   }
 
-  bot.command(/^organize$/i, handleOrganizeCommand);
+  bot.command(/^organize$/i, detachHandler(handleOrganizeCommand));
   return { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES };
 }

@@ -27,6 +27,66 @@
 
 import { describeChildExit } from './child-exit.lib.mjs';
 import { findStartCommandBinary, getCommandStreamDollar, START_COMMAND_MISSING_ERROR } from './start-command-cli.lib.mjs';
+import { execFile } from 'node:child_process';
+import { delimiter, join } from 'node:path';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+
+const execFileAsync = promisify(execFile);
+export const RESUME_STARTUP_WINDOW_MS = 10000;
+
+/**
+ * Observe a resumed container for shell startup failures. Other exits belong
+ * to normal completion monitoring. An unavailable probe never authorizes a
+ * second launch: the accepted replacement may still be running.
+ */
+export async function checkResumedDockerStartup(containerName, { verbose = false, waitMs = RESUME_STARTUP_WINDOW_MS, pollMs = 250, run = execFileAsync, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now } = {}) {
+  const deadline = now() + waitMs;
+  try {
+    while (true) {
+      const { stdout } = await run('docker', ['inspect', '--format', '{{json .State}}', containerName]);
+      const state = JSON.parse(stdout);
+      if (!state.Running && ['exited', 'dead'].includes(state.Status)) {
+        const exitCode = state.ExitCode;
+        const durationMs = Date.parse(state.FinishedAt) - Date.parse(state.StartedAt);
+        // Only current-container evidence establishes a failed start. A late
+        // exit 126/127 may be an error inside the task rather than its launch.
+        const failed = [126, 127].includes(exitCode) && Number.isFinite(durationMs) && durationMs >= 0 && durationMs <= RESUME_STARTUP_WINDOW_MS;
+        const error = failed ? `Automatic recovery could not start: container ${containerName} exited with code ${exitCode} after ${Math.round(durationMs / 1000)} seconds.` : null;
+        if (verbose) console.log(`[VERBOSE] Resume startup for ${containerName}: ${state.Status}, exit ${exitCode}, ${durationMs}ms`);
+        return { failed, exitCode, error };
+      }
+      if (now() >= deadline) return { failed: false, exitCode: null, error: null };
+      await sleep(Math.min(pollMs, deadline - now()));
+    }
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] Could not inspect resume startup for ${containerName}: ${error?.message || error}`);
+    return { failed: false, exitCode: null, error: null };
+  }
+}
+
+/** Remove the derived artifacts of a confirmed failed snapshot resume. */
+export async function cleanupFailedResumeSnapshot(result, { verbose = false, run = execFileAsync } = {}) {
+  const { sessionName, previousSessionName, snapshotImage, mode } = result || {};
+  // Do not force removal: a racing restart or an image still referenced by
+  // another container must survive. Never remove the original or base image.
+  if (mode !== 'docker-snapshot' || !sessionName || sessionName === previousSessionName || !/-resume-\d+$/.test(sessionName) || !/^start-command-resume\/[^\s:]+:\d+$/.test(snapshotImage || '')) {
+    return { success: false, error: `Retained resume artifacts: container ${sessionName || '(unknown)'}, image ${snapshotImage || '(unknown)'}; no confirmed snapshot-derived pair.` };
+  }
+  const errors = [];
+  for (const [label, args] of [
+    [`container ${sessionName}`, ['rm', sessionName]],
+    [`image ${snapshotImage}`, ['image', 'rm', snapshotImage]],
+  ]) {
+    try {
+      await run('docker', args);
+      if (verbose) console.log(`[VERBOSE] Removed failed resume ${label}`);
+    } catch (error) {
+      errors.push(`Could not remove ${label}: ${error?.message || error}`);
+    }
+  }
+  return { success: errors.length === 0, error: errors.join('; ') || null };
+}
 
 /** Strategies `$ --resume` can pick, mirroring upstream `ResumeMode`. */
 export const RESUME_MODES = Object.freeze({
@@ -187,9 +247,10 @@ function interpretStartCommandResult(result, error = null) {
  * @param {Object} [options]
  * @param {string|null} [options.command] - Command to run against the resumed session
  * @param {boolean} [options.verbose]
+ * @param {boolean} [options.requireRetained] - Refuse a fresh Docker launch
  * @returns {Promise<{success: boolean, unsupported: boolean, uuid: string|null, mode: string|null, backend: string|null, sessionName: string|null, previousSessionName: string|null, snapshotImage: string|null, message: string|null, output: string, error: string|null}>}
  */
-export async function resumeIsolatedSession(identifier, { command = null, verbose = false } = {}) {
+export async function resumeIsolatedSession(identifier, { command = null, verbose = false, requireRetained = false } = {}) {
   const base = { success: false, unsupported: false, uuid: null, mode: null, backend: null, sessionName: null, previousSessionName: null, snapshotImage: null, message: null, output: '', error: null };
   if (!identifier) return { ...base, error: 'No execution identifier was given to resume.' };
 
@@ -200,14 +261,29 @@ export async function resumeIsolatedSession(identifier, { command = null, verbos
   }
 
   try {
-    const $ = await getCommandStreamDollar();
-    const raw = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
+    let raw;
+    if (requireRetained) {
+      const dockerGuard = fileURLToPath(new URL('./docker-retained-resume/', import.meta.url));
+      const env = { ...process.env };
+      env.HIVE_MIND_RESUME_ORIGINAL_PATH = env.PATH;
+      env.HIVE_MIND_RESUME_DOCKER_BIN = env.START_DOCKER_BIN || 'docker';
+      env.PATH = dockerGuard + delimiter + env.PATH;
+      env.START_DOCKER_BIN = join(dockerGuard, 'docker');
+      const args = ['--resume', identifier, '--output-format', 'json', ...(command ? ['--', command] : [])];
+      raw = await execFileAsync(binPath, args, { env });
+    } else {
+      const $ = await getCommandStreamDollar();
+      raw = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
+    }
     const { ok, stdout, message, unsupported } = interpretStartCommandResult(raw);
     if (!ok) {
       if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} refused${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
       return { ...base, unsupported, output: stdout, error: message };
     }
     const parsed = parseExecutionResumeOutput(stdout);
+    if (requireRetained && ![RESUME_MODES.DOCKER_START, RESUME_MODES.DOCKER_SNAPSHOT].includes(parsed.mode)) {
+      return { ...base, output: stdout, error: 'start-command did not confirm a retained-container resume.' };
+    }
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} → mode=${parsed.mode || '(unknown)'} session=${parsed.sessionName || '(unknown)'} uuid=${parsed.uuid || '(unknown)'}`);
     }

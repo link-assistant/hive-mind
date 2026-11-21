@@ -1,0 +1,86 @@
+[
+  {
+    "file": "claude-failure.log",
+    "originalSha256": "a30a6fe09e13657bc638cfe1fb195c9414d46b468c649633410683a6bec375f0",
+    "stats": {
+      "sourceSize": 5430314,
+      "bytesRead": 5430314,
+      "blocks": 6,
+      "forcedReleases": 0,
+      "charsWritten": 5423897,
+      "worker": false
+    }
+  },
+  {
+    "file": "formal-ai-replay-server.log",
+    "originalSha256": "0ac8a2797d318869646e46ff5fe88ed457f365e4a1e19529aea88a8bdec63938",
+    "stats": {
+      "sourceSize": 2230,
+      "bytesRead": 2230,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 2230,
+      "worker": false
+    }
+  },
+  {
+    "file": "formal-draft-2591.log",
+    "originalSha256": "0c72f57dee64488782c915d7b9abd570b013c3eed1888f8937ce02d25020a08c",
+    "stats": {
+      "sourceSize": 286241,
+      "bytesRead": 286241,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 282088,
+      "worker": false
+    }
+  },
+  {
+    "file": "formal-draft-2613.log",
+    "originalSha256": "3001051d355f08154a15bceba03a0586a5b99490c19551765f30e7dff6f78962",
+    "stats": {
+      "sourceSize": 286170,
+      "bytesRead": 286170,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 282017,
+      "worker": false
+    }
+  },
+  {
+    "file": "formal-job-2591.log",
+    "originalSha256": "5a32b470b1716d8e4e8e75037dfcd3d3424a636bdd73476e4902a99440fd2907",
+    "stats": {
+      "sourceSize": 493533,
+      "bytesRead": 493533,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 489174,
+      "worker": false
+    }
+  },
+  {
+    "file": "formal-job-2613.log",
+    "originalSha256": "7a7a43f43447a9e101603883abfac964733468246ae6870d4b344fb0a9cc65db",
+    "stats": {
+      "sourceSize": 494851,
+      "bytesRead": 494851,
+      "blocks": 1,
+      "forcedReleases": 0,
+      "charsWritten": 490492,
+      "worker": false
+    }
+  },
+  {
+    "file": "killed-session.log",
+    "originalSha256": "88e3e83bdb532c1055dfe66f911ef90c01ece0bc204974a5608172db7d721e5d",
+    "stats": {
+      "sourceSize": 3990061,
+      "bytesRead": 3990061,
+      "blocks": 4,
+      "forcedReleases": 0,
+      "charsWritten": 3983593,
+      "worker": false
+    }
+  }
+]

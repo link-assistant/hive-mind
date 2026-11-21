@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Issue #2301: track whether a Claude Code print-mode (`-p`) turn really finished.
  *
@@ -28,10 +29,10 @@ const MAX_LISTED_TASKS = 20;
  * cancelled its tasks, which tasks those were, and where their partial output is.
  */
 export const buildIncompleteTurnContinuationPrompt = ({ cause, ceilingSeconds = null, stoppedTasks = [] } = {}) => {
-  const listed = stoppedTasks.slice(0, MAX_LISTED_TASKS).map(task => `- ${task.summary || task.id}${task.outputFile ? ` (partial output: ${task.outputFile})` : ''}`);
-  if (stoppedTasks.length > listed.length) listed.push(`- …and ${stoppedTasks.length - listed.length} more`);
-  const reason = Number.isFinite(ceilingSeconds) ? `Claude Code cancelled them after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : cause;
-  return [`Continue the unfinished work. The previous turn ended while background tasks were still running, and ${reason}. This was an automatic timeout, not a user decision. Any "[Request interrupted by user]" or "The user doesn't want to proceed with this tool use" messages from those tasks came from the timeout.`, listed.length ? `Cancelled tasks:\n${listed.join('\n')}` : null, 'Check what they already changed (git status, git log, their partial output), then redo only what is missing and finish every remaining issue and pull-request requirement. Background tools and agents are still allowed and wake you with their results, but only within the wait ceiling after your turn ends. Run work that may take longer than that in the foreground (run_in_background: false).'].filter(Boolean).join('\n\n');
+  const listed = stoppedTasks.slice(0, MAX_LISTED_TASKS).map(task => `- ${task.summary || task.id}${task.outputFile ? promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text2', { value1: String(task.outputFile) }) : ''}`);
+  if (stoppedTasks.length > listed.length) listed.push(promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text3', { value1: String(stoppedTasks.length - listed.length) }));
+  const reason = Number.isFinite(ceilingSeconds) ? promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text4', { ceilingSeconds: String(ceilingSeconds) }) : cause;
+  return [promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text5', { reason: String(reason) }), listed.length ? promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text6', { value1: String(listed.join('\n')) }) : null, promptText('prompt.templates.claude-print-turn.buildIncompleteTurnContinuationPrompt.text7')].filter(Boolean).join('\n\n');
 };
 
 const isMainThread = data => !(typeof data?.parent_tool_use_id === 'string' && data.parent_tool_use_id.length > 0);
@@ -89,12 +90,16 @@ export const createClaudePrintTurnTracker = () => {
   };
 };
 
-/** Decide whether print mode ended while background work was still pending. */
-export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCount = 0, ceilingSeconds = null, recoveryAttempts = 0, maxRecoveryAttempts = 5, sessionId = null } = {}) => {
+/**
+ * Decide whether print mode ended while background work was still pending.
+ * `solverStopped` is set when the solver's own post-result close timeout stopped the CLI while
+ * background tasks still ran (Issue #3015), so the cause does not blame Claude Code.
+ */
+export const assessClaudeTurnCompletion = ({ resultEvent = null, stoppedTaskCount = 0, ceilingSeconds = null, recoveryAttempts = 0, maxRecoveryAttempts = 5, sessionId = null, solverStopped = false } = {}) => {
   const systemKilled = Number(resultEvent?.subagent_stats?.killed?.system) || 0;
   const ceilingHit = Number.isFinite(ceilingSeconds);
   const cancelledTasks = Math.max(systemKilled, stoppedTaskCount, ceilingHit ? 1 : 0);
-  const incomplete = resultEvent?.subtype === 'success' && cancelledTasks > 0;
-  const cause = ceilingHit ? `Claude Code stopped background tasks after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : 'Claude Code stopped background tasks when print mode exited';
+  const incomplete = resultEvent?.subtype === 'success' && resultEvent.is_error !== true && cancelledTasks > 0;
+  const cause = ceilingHit ? `Claude Code stopped background tasks after its ${ceilingSeconds}s print-mode wait ceiling (CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS)` : solverStopped ? 'the solver stopped Claude Code after its result because it did not exit while background tasks were still running (HIVE_MIND_RESULT_STREAM_CLOSE_MS)' : 'Claude Code stopped background tasks when print mode exited';
   return { incomplete, cancelledTasks, ceilingHit, cause, shouldResume: incomplete && recoveryAttempts < maxRecoveryAttempts && Boolean(sessionId), sessionId };
 };

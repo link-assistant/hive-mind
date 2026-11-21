@@ -1,0 +1,133 @@
+✔ productive recovery resets the outage clock and retry backstop (3.22148ms)
+✔ codex: capacity after 13 hours of resumed work gets a fresh retry with context (141.229666ms)
+✔ codex: server overload resumes with fresh backoff and keeps the selected model (71.54296ms)
+✔ codex: init and repeated failures do not reset exponential backoff or the count limit (63.911794ms)
+✔ codex: successful text quoting an outage is never retried (18.94335ms)
+✔ claude: capacity after 13 hours of resumed work gets a fresh retry with context (75.489173ms)
+✔ claude: server overload resumes with fresh backoff and keeps the selected model (25.272487ms)
+✔ claude: init and repeated failures do not reset exponential backoff or the count limit (30.323913ms)
+✔ claude: successful text quoting an outage is never retried (8.927244ms)
+✔ agent: capacity after 13 hours of resumed work gets a fresh retry with context (22.996181ms)
+✔ agent: server overload resumes with fresh backoff and keeps the selected model (13.476081ms)
+✔ agent: init and repeated failures do not reset exponential backoff or the count limit (10.799297ms)
+✔ agent: successful text quoting an outage is never retried (3.258579ms)
+✔ opencode: capacity after 13 hours of resumed work gets a fresh retry with context (16.112228ms)
+✔ opencode: server overload resumes with fresh backoff and keeps the selected model (7.801003ms)
+✔ opencode: init and repeated failures do not reset exponential backoff or the count limit (18.052549ms)
+✔ opencode: successful text quoting an outage is never retried (6.429053ms)
+✔ qwen: capacity after 13 hours of resumed work gets a fresh retry with context (19.841776ms)
+✔ qwen: server overload resumes with fresh backoff and keeps the selected model (16.961583ms)
+✔ qwen: init and repeated failures do not reset exponential backoff or the count limit (14.171048ms)
+✔ qwen: successful text quoting an outage is never retried (4.520424ms)
+✔ gemini: capacity after 13 hours of resumed work gets a fresh retry with context (17.525215ms)
+✔ gemini: server overload resumes with fresh backoff and keeps the selected model (6.249759ms)
+✔ gemini: init and repeated failures do not reset exponential backoff or the count limit (8.579436ms)
+✔ gemini: successful text quoting an outage is never retried (6.497512ms)
+✔ codex: stderr protocol echoes cannot reset an exhausted outage budget (35.175203ms)
+✔ qwen: stderr protocol echoes cannot reset an exhausted outage budget (16.409744ms)
+✔ codex: transport exception resumes the observed session (15.21148ms)
+✔ claude: transport exception resumes the observed session (7.113772ms)
+✖ agent: transport exception resumes the observed session (5.449386ms)
+✖ opencode: transport exception resumes the observed session (5.329533ms)
+✖ qwen: transport exception resumes the observed session (6.583843ms)
+✖ gemini: transport exception resumes the observed session (3.175364ms)
+✔ provider transient signature is retryable: server_is_overloaded (0.592636ms)
+✔ provider transient signature is retryable: HTTP 529 (0.118039ms)
+✔ provider transient signature is retryable: API Error: 529 (0.104856ms)
+✔ provider transient signature is retryable: timeout_error (0.142726ms)
+✔ provider transient signature is retryable: rate_limit_error (0.154127ms)
+✔ provider transient signature is retryable: InternalServerError (0.146534ms)
+✔ provider transient signature is retryable: ResponseStreamDisconnected (0.098775ms)
+✔ provider transient signature is retryable: ResponseTooManyFailedAttempts (0.068557ms)
+✔ provider transient signature is retryable: Opus is experiencing high load. Switch to Sonnet. (0.073287ms)
+✔ provider transient signature is retryable: API Error: No response from API (0.080049ms)
+✔ provider transient signature is retryable: APITimeoutError (0.106269ms)
+✔ codex: synthetic errors, initialization and tool results cannot replenish the budget (0.316852ms)
+✔ claude: synthetic errors, initialization and tool results cannot replenish the budget (0.09641ms)
+✔ agent: synthetic errors, initialization and tool results cannot replenish the budget (0.114394ms)
+✔ opencode: synthetic errors, initialization and tool results cannot replenish the budget (0.103052ms)
+✔ qwen: synthetic errors, initialization and tool results cannot replenish the budget (0.164688ms)
+✔ gemini: synthetic errors, initialization and tool results cannot replenish the budget (0.149449ms)
+✔ permanent errors and prose stay terminal: Invalid API key (0.45017ms)
+✔ permanent errors and prose stay terminal: model not found (0.10718ms)
+✔ permanent errors and prose stay terminal: Quota exceeded. Check your plan and billing details. (0.151683ms)
+✔ permanent errors and prose stay terminal: This content was flagged for possible cybersecurity risk. (0.092993ms)
+✔ permanent errors and prose stay terminal: See issue #529 and PR #503. (0.106118ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 51
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1174.520951
+
+✖ failing tests:
+
+test at tests/provider-transient-recovery-3831.test.mjs:175:3
+✖ agent: transport exception resumes the observed session (5.449386ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:177:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:175:3
+✖ opencode: transport exception resumes the observed session (5.329533ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:177:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:175:3
+✖ qwen: transport exception resumes the observed session (6.583843ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:177:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/provider-transient-recovery-3831.test.mjs:175:3
+✖ gemini: transport exception resumes the observed session (3.175364ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1793178269748/tests/provider-transient-recovery-3831.test.mjs:177:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

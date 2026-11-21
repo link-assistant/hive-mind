@@ -1,0 +1,7 @@
+{
+  "id": 6012117153,
+  "url": "https://github.com/link-assistant/hive-mind/pull/2499#issuecomment-6012117153",
+  "created_at": "2026-10-06T08:08:44Z",
+  "user": "konard",
+  "body": "We also have a case where recovery was done after auto-merge - https://github.com/link-foundation/package-registry-manager/pull/31#issuecomment-6011824151.\r\n\r\nInstead after auto-merge we should immediately finish, and don't report any recovery, as everything is fully done.\r\n\r\nAnd we should double check that on all stages we correctly display the status of OOM recovery and don't confuse users.\r\n\r\nWe also need to update to latest dependencies including start command, and double check all our dependencies have all required features if not - we do workarounds first and yet report issues to our dependencies.\r\n"
+}

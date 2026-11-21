@@ -58,30 +58,30 @@ console.log('\n--- Git identity is mounted for every tool (issue #1939, problem 
 
 // Host exposes gh auth, both tool creds, AND a git identity file + XDG git dir.
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const allPaths = new Set(['/home/box/.config/gh', '/home/box/.gitconfig', '/home/box/.config/git', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
+const allPaths = new Set(['/home/box/.config/gh', '/home/box/.gitconfig', '/home/box/.config/git', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const existsAll = path => allPaths.has(path);
 
-const claudeMounts = getDockerIsolationAuthMounts({ tool: 'claude', homeDir: '/home/box', env: {}, existsSync: existsAll });
+const claudeMounts = await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: '/home/box', env: {}, existsSync: existsAll });
 assertDeepEqual(mountPairs(claudeMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.gitconfig:/home/box/.gitconfig', '/home/box/.config/git:/home/box/.config/git', '/home/box/.claude/.credentials.json:/home/box/.claude/.credentials.json', '/home/box/.claude/projects:/home/box/.claude/projects', '/home/box/.claude/sessions:/home/box/.claude/sessions'], 'claude tasks receive gh, git identity, and Claude credentials');
 
-const codexMounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/home/box', env: {}, existsSync: existsAll });
-assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.gitconfig:/home/box/.gitconfig', '/home/box/.config/git:/home/box/.config/git', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions'], 'codex tasks receive gh, git identity, and Codex credentials');
+const codexMounts = await getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/home/box', env: {}, existsSync: existsAll });
+assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.gitconfig:/home/box/.gitconfig', '/home/box/.config/git:/home/box/.config/git', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations:/home/box/.codex/rollout-migrations'], 'codex tasks receive gh, git identity, and Codex credentials');
 
 console.log('\n--- Git identity mounts honor git/XDG env overrides ---');
 
-const overrideMounts = getDockerIsolationAuthMounts({
+const overrideMounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/home/box',
   env: { GIT_CONFIG_GLOBAL: '/run/git/config', XDG_CONFIG_HOME: '/run/xdg' },
-  existsSync: path => path === '/home/box/.config/gh' || path === '/run/git/config' || path === '/run/xdg/git' || path === '/home/box/.codex/auth.json',
+  existsSync: path => path === '/home/box/.config/gh' || path === '/run/git/config' || path === '/run/xdg/git' || path.startsWith('/home/box/.codex/'),
 });
-assertDeepEqual(mountPairs(overrideMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/run/git/config:/home/box/.gitconfig', '/run/xdg/git:/home/box/.config/git', '/home/box/.codex/auth.json:/home/box/.codex/auth.json'], 'GIT_CONFIG_GLOBAL and XDG_CONFIG_HOME are used when the host exposes git config outside the default paths');
+assertDeepEqual(mountPairs(overrideMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/run/git/config:/home/box/.gitconfig', '/run/xdg/git:/home/box/.config/git', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations:/home/box/.codex/rollout-migrations'], 'GIT_CONFIG_GLOBAL and XDG_CONFIG_HOME are used when the host exposes git config outside the default paths');
 
 console.log('\n--- Missing host git identity is skipped, not invented ---');
 
 // Reproduces the failure environment: gh is present but no host git identity.
-const noGitPaths = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json']);
-const noGitMounts = getDockerIsolationAuthMounts({ tool: 'claude', homeDir: '/home/box', env: {}, existsSync: path => noGitPaths.has(path) });
+const noGitPaths = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
+const noGitMounts = await getDockerIsolationAuthMounts({ tool: 'claude', homeDir: '/home/box', env: {}, existsSync: path => noGitPaths.has(path) });
 assertEqual(
   mountPairs(noGitMounts).some(pair => pair.includes('.gitconfig') || pair.includes('.config/git')),
   false,
@@ -141,8 +141,8 @@ console.log('\n--- Host git-identity preflight is self-healing (issue #1939, pro
   assertEqual(out.warnings[0].includes('Git identity not configured'), true, 'the warning names the exact downstream failure');
 }
 
-assertEqual(hostHasMountableGitIdentity({ env: {}, homeDir: '/home/box', existsSync: p => p === '/home/box/.config/git' }), true, 'hostHasMountableGitIdentity sees the XDG ~/.config/git directory');
-assertEqual(hostHasMountableGitIdentity({ env: {}, homeDir: '/home/box', existsSync: () => false }), false, 'hostHasMountableGitIdentity is false when no git identity exists');
+assertEqual(await hostHasMountableGitIdentity({ env: {}, homeDir: '/home/box', existsSync: p => p === '/home/box/.config/git' }), true, 'hostHasMountableGitIdentity sees the XDG ~/.config/git directory');
+assertEqual(await hostHasMountableGitIdentity({ env: {}, homeDir: '/home/box', existsSync: () => false }), false, 'hostHasMountableGitIdentity is false when no git identity exists');
 
 console.log('\n--- Unknown docker exit code detection (issue #1939, problem 1) ---');
 

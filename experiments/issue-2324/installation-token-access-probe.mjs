@@ -55,7 +55,7 @@ for (const fixture of cases) {
   const githubSource = readFileSync(new URL('../../src/github.lib.mjs', import.meta.url), 'utf8');
   const start = githubSource.indexOf('export const checkRepositoryWritePermission =');
   const end = githubSource.indexOf('\n/**', start);
-  const writeModule = new vm.SourceTextModule(`import { log, ghCmdRetry } from './lib.mjs';\nimport { repositoryWriteAccess } from './github-write-access.lib.mjs';\nconst { $ } = await use('command-stream');\nconst QUIET_PROBE = {};\nconst reportError = () => {};\nconst cleanErrorMessage = String;\n${githubSource.slice(start, end)}`, { context });
+  const writeModule = new vm.SourceTextModule(`import { log, ghCmdRetry } from './lib.mjs';\nimport { repositoryWriteAccess } from './github-write-access.lib.mjs';\nconst { $: rawDollar$ } = await use('command-stream');\nconst $ = rawDollar$;\nconst QUIET_PROBE = {};\nconst reportError = () => {};\nconst cleanErrorMessage = String;\n${githubSource.slice(start, end)}`, { context });
   await writeModule.link(link);
   await writeModule.evaluate();
   const canProceed = await writeModule.namespace.checkRepositoryWritePermission('fixture', 'task');

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+import { pinnedVariantSpecs, waitUntilInstallable } from './npm-installable.lib.mjs';
+import { runCommand, sleep } from './publish-to-npm.mjs';
 
 /**
  * Wait for NPM package availability
@@ -9,11 +11,12 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  * This script waits for a specific version of @link-assistant/hive-mind
  * to become available on the npm registry. This is necessary because there
  * can be a delay between publishing and availability. Both the version metadata
- * and the tarball download must succeed (issue #2404).
+ * and the tarball download must succeed (issue #2404), and so must every native
+ * variant version the package pins as an optional dependency (issue #4055).
+ * HIVE_MIND_PUBLISH_VERBOSE=true shows the raw `npm view` output.
  *
  * Uses link-foundation libraries:
  * - use-m: Dynamic package loading without package.json dependencies
- * - command-stream: Modern shell command execution with streaming support
  * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
  */
 
@@ -23,7 +26,6 @@ const PACKAGE_NAME = '@link-assistant/hive-mind';
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -56,43 +58,33 @@ if (!version) {
   process.exit(1);
 }
 
-/**
- * Sleep for specified seconds
- * @param {number} seconds
- */
-function sleep(seconds) {
-  return new Promise(resolve => globalThis.setTimeout(resolve, seconds * 1000));
-}
-
 console.log(`Waiting for NPM package ${PACKAGE_NAME}@${version} to become available...`);
 
-for (let i = 1; i <= maxAttempts; i++) {
-  console.log(`Attempt ${i}/${maxAttempts}: Checking NPM registry...`);
+const quiet = process.env.HIVE_MIND_PUBLISH_VERBOSE !== 'true';
+const options = { runner: runCommand, sleeper: sleep, attempts: maxAttempts, delayMs: sleepTime * 1000, maxDelayMs: sleepTime * 1000, quiet };
+if ((await waitUntilInstallable([`${PACKAGE_NAME}@${version}`], options)).length) {
+  console.error(`Package ${PACKAGE_NAME}@${version} did not become available after ${maxAttempts * sleepTime} seconds`);
+  process.exit(1);
+}
+console.log(`Package ${PACKAGE_NAME}@${version} is now available on NPM!`);
 
-  try {
-    const result = await $`npm view "${PACKAGE_NAME}@${version}" dist.tarball`.run({ capture: true });
-    const tarball = String(result.stdout || '').trim();
-
-    if (result.code === 0 && tarball) {
-      // Issue #2404: the version metadata can be visible while the tarball still returns 404
-      // (Docker Publish (linux/arm64) failed with `GET .../hive-mind-2.33.4.tgz - 404` three
-      // minutes after this script reported the version as available). Wait for the tarball too.
-      const response = await globalThis.fetch(tarball, { method: 'HEAD' });
-      if (response.ok) {
-        console.log(`Package ${PACKAGE_NAME}@${version} is now available on NPM (tarball ${tarball} → HTTP ${response.status})!`);
-        process.exit(0);
-      }
-      console.log(`Version metadata is published, but the tarball ${tarball} returned HTTP ${response.status}`);
-    }
-  } catch (_error) {
-    // Package not found yet, continue waiting
-  }
-
-  if (i < maxAttempts) {
-    console.log(`Package not yet available, waiting ${sleepTime} seconds...`);
-    await sleep(sleepTime);
+// Issue #4055 (F9): npm and Bun silently skip an optional dependency they cannot
+// resolve yet, so the image would install without its native Codex variant and
+// fail in install-native-codex.mjs. Wait for every variant this version pins.
+const pinned = await runCommand('npm', ['view', `${PACKAGE_NAME}@${version}`, 'optionalDependencies', '--json'], { quiet });
+let optionalDependencies = {};
+try {
+  optionalDependencies = pinned.code === 0 && pinned.stdout.trim() ? JSON.parse(pinned.stdout) : {};
+} catch {
+  console.error(`Could not read the optional dependencies of ${PACKAGE_NAME}@${version}: ${pinned.stdout}`);
+  process.exit(1);
+}
+const variants = pinnedVariantSpecs(PACKAGE_NAME, optionalDependencies);
+if (variants.length) {
+  console.log(`Waiting for the ${variants.length} native variant versions ${PACKAGE_NAME}@${version} pins: ${variants.join(', ')}`);
+  const missing = await waitUntilInstallable(variants, options);
+  if (missing.length) {
+    console.error(`::error title=native variant not installable::${missing.join(', ')} did not become installable after ${maxAttempts * sleepTime} seconds; an image built now would lack it.`);
+    process.exit(1);
   }
 }
-
-console.error(`Package ${PACKAGE_NAME}@${version} did not become available after ${maxAttempts * sleepTime} seconds`);
-process.exit(1);

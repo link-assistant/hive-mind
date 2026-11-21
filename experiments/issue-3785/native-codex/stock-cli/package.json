@@ -1,0 +1,8 @@
+{
+  "name": "hive-issue-3785-stock-native-codex",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@openai/codex-linux-x64": "npm:@openai/codex@0.164.0-linux-x64"
+  }
+}

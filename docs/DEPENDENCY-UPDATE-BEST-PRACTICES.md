@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` matters: it audits the lockfile **as committed**, so the result is what a consumer would get and cannot be turned green by a resolution that only happens on this runner. Put the equivalent job on a schedule, because a scheduled run is the only thing that can notice an advisory published after the code stopped changing. See [CI/CD Best Practices](./CI-CD-BEST-PRACTICES.md) for the workflow job itself.
 
+When an advisory has no patched release at all, do not weaken `--audit-level` or drop the job. Record the advisory, package, exact vulnerable range and the reason it does not apply in an exceptions file, and let the gate fail again as soon as the advisory's range changes (a fix shipped) or it is no longer reported (the exception is stale). This repository does it in `scripts/check-npm-audit.mjs` with `scripts/npm-audit-exceptions.json`.
+
 ### 10. Report Blockers Upstream
 
 When an update is blocked by a bug in a dependency, open an issue on that project's GitHub with a reproducible example, the workaround used here, and a suggested fix in code — then link that report from the work instead of silently pinning back. A pin with a link is a tracked decision; a pin without one is permanent.
@@ -195,11 +197,12 @@ fix https://github.com/owner/repo --update-all-dependencies
 
 This command:
 
-1. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by bytes per language.
-2. **Lists the default branch's file tree** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) and finds every committed manifest and lockfile, skipping vendored directories such as `node_modules/`, `vendor/`, `.venv/` and `target/`.
-3. **Maps both signals onto package ecosystems.** Either signal alone is wrong: Linguist misses ecosystems with no source code of their own (GitHub Actions, Docker, Terraform), and manifests miss a language whose manifest is unusual or absent.
-4. **Creates a maintenance issue** listing every detected ecosystem with the manifests found, the lockfiles to regenerate, the command that crosses majors there, a ready `.github/dependabot.yml` for exactly those ecosystems, and the standard prompt built from the principles above. The issue is created as a **Task** with a `dependencies` label.
-5. **Hands the issue off to `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**, which iterates until the update is merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
+1. **Merges every open Dependabot pull request without waiting for CI/CD** ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)), oldest first, before anything else is inspected — so the issue describes the repository after Dependabot's updates have landed and the solver does not redo them by hand.
+2. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by bytes per language.
+3. **Lists the default branch's file tree** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) and finds every committed manifest and lockfile, skipping vendored directories such as `node_modules/`, `vendor/`, `.venv/` and `target/`.
+4. **Maps both signals onto package ecosystems.** Either signal alone is wrong: Linguist misses ecosystems with no source code of their own (GitHub Actions, Docker, Terraform), and manifests miss a language whose manifest is unusual or absent.
+5. **Creates a maintenance issue** listing every detected ecosystem with the manifests found, the lockfiles to regenerate, the command that crosses majors there, a ready `.github/dependabot.yml` for exactly those ecosystems, and the standard prompt built from the principles above. The issue is created as a **Task** with a `dependencies` label.
+6. **Hands the issue off to `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**, which iterates until the update is merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
 
 Use `--dry-run` to preview the issue without creating it, and `--no-solve` to create the issue without starting `/solve`:
 
@@ -208,11 +211,30 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
+The issue starts with an **Open Dependabot pull requests handled before this issue was created** section: every merged pull request with the checks that were not passing at merge time, and a bold instruction to fix every build, test, lint, security and deprecation error those merges introduced until the default branch CI/CD is green again — without reverting the updates. Merging uses the first merge method the repository allows (merge commit, squash, rebase), pins `--match-head-commit` to the head that was inspected, and retries once with `--admin` when only branch rules (required checks, required reviews, an out-of-date branch) block it. Mergeability that GitHub has not computed yet (`UNKNOWN`) is re-read first. Every pull request is first compared with its base branch: when the base branch already pins every dependency it bumps at the same or a newer version — the .NET SDK in `global.json` and the Rust toolchain included — it is closed as superseded with a comment that names those versions, even when GitHub reports it as mergeable ([issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)). A pull request that conflicts with its base branch (GitHub's "the merge commit cannot be cleanly created") is never retried with `--admin`; Dependabot is asked to rebuild it (`@dependabot recreate`) instead. When a ruleset that requires the branch to be up to date rejects the merge even with `--admin` ("Repository rule violations found"), the ruleset and its required checks are named, Dependabot is asked to rebase the pull request (`@dependabot rebase`), and it is merged once its required checks pass. Dependabot has three minutes to push the rebuilt or rebased head, and the whole wait is bounded by `--dependabot-wait-timeout <minutes>` (default 30; `0` does not wait). Dependabot does not close such pull requests by itself when its configuration no longer covers their file ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)). Pull requests that still cannot be merged — drafts, failing required checks, recreations or rebases that did not finish within the wait — stay open and are listed in the issue so their updates are applied in the solver's pull request. `--dry-run` only lists what would be merged, closed or recreated (`--verbose` also prints each supersession verdict and the branch rules that blocked a merge), and `--no-merge-dependabot-prs` turns the step off. `/task --update-all-dependencies` follows the same rules:
+
+```bash
+fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+```
+
+The issue is created as soon as the repository has been inspected, but `/solve` starts only after no GitHub Actions run is pending on the default branch, so the AI work never starts from a moving default branch or reasons about runs that are about to change. The wait polls every 30 seconds, gives up after `--ci-wait-timeout <minutes>` (default 60) and is skipped with `--no-wait-for-ci`. While it lasts, the Telegram reply shows a separate "⏳ Waiting for CI/CD" status with the runs still in progress, and when runs finished during the wait their latest results are commented on the issue ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --update-all-dependencies
+fix owner/repo --update-all-dependencies --ci-wait-timeout 30
+fix owner/repo --update-all-dependencies --no-wait-for-ci
+```
+
 ### Why the Issue Is a Task, and What It Leaves Out
 
 `/solve --deep-analysis` emits its root-cause and debug-output guidance **only for bug-typed issues**, and a dependency bump has no root cause to find. Creating the issue as a `Task` selects the non-bug variant of that prompt — research, requirement coverage, solution planning — which is the useful one here. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.
 
-`--deep-analysis` also supplies the upstream-reporting guidance of [principle 10](#10-report-blockers-upstream), so `fix` omits that paragraph from the issue body instead of delivering it twice. Every other paragraph is unconditional.
+`--update-all-dependencies` enables `--report-dependencies-issues` independently of `--deep-analysis`. Generated dependency issues include the upstream-reporting paragraph even when deep analysis is forwarded. Report general logic, duplicated code, missing features and bugs requiring local workarounds to the relevant dependency upstreams. Search existing reports first, include a minimal reproducer, affected versions, the workaround and a proposed fix or feature, and link reports from the pull request. Keep workarounds when needed so upstream fixes do not block the pull request. Use `--no-report-dependencies-issues` (or `--report-dependencies-issues=false`) to omit this instruction from both the generated issue and solver prompt. Reporting can also be enabled alone with `--report-dependencies-issues`.
+
+```bash
+fix owner/repo --update-all-dependencies --no-report-dependencies-issues
+solve https://github.com/owner/repo/issues/123 --report-dependencies-issues
+```
 
 ## The `--update-all-dependencies` Option
 

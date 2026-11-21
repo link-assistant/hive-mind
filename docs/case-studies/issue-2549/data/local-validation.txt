@@ -1,0 +1,32 @@
+Local validation for issue #2549
+
+Runtime: Node.js 26.10.0, npm 11.19.1 (repository requires Node >=24).
+Production implementation commit: 957e1ea1.
+
+Default suite: npm test -- --continue-on-failure
+All 548 selected files executed; 546 passed in the initial run.
+Two failed files passed after updating three translated documents and removing an assertion for a deleted description probe:
+  node tests/test-docs-language-sync.mjs: exit 0, 2 assertions passed
+  node tests/test-issue-2135-log-explosion.mjs: exit 0, 31 assertions passed
+No production code changed after the full run.
+
+Passing checks (exit 0):
+  node tests/pr-description-preservation-2549.test.mjs (6 tests)
+  node tests/e2e-hello-world-matrix-2319.test.mjs (13 tests)
+  node tests/test-empty-pull-request-2119.mjs
+  npm run lint
+  npm run format:check
+  npm run check:duplication (11.33%, limit 12%)
+  npm run check:secrets
+  bash scripts/check-mjs-syntax.sh
+  bash scripts/check-file-line-limits.sh
+  node scripts/check-package-manager.mjs
+  node scripts/check-version.mjs
+  node scripts/validate-changeset.mjs
+  npm audit --package-lock-only --audit-level=high (0 vulnerabilities)
+  npx eslint tests/test-issue-2135-log-explosion.mjs
+  git diff --check
+
+Pre-fix reproductions fail as expected:
+  node experiments/issue-2549/reproduce-baseline.mjs: exit 1, 6 assertion failures
+  E2E agent-body acceptance test: exit 1 before changing the validator

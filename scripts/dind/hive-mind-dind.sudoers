@@ -1,0 +1,4 @@
+# Lets the box user clear the nested dockerd's stale pid files at container
+# start (scripts/dind/hive-mind-dind-entrypoint.sh, issue #3214). The empty
+# argument list ("") forbids passing any arguments.
+box ALL=(root) NOPASSWD: /usr/local/sbin/hive-mind-dind-clear-stale-pids ""

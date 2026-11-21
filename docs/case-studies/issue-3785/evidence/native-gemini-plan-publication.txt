@@ -1,0 +1,88 @@
+Disposable native Gemini CLI 0.65.0: interrupted plan journal/file publication.
+Production launchers and images remain unchanged; A9 and broad acceptance OPEN.
+
+Strict reproductions precede the repair. On stage 25, killing the actual native
+StandardFileSystemService writer after the full journal generation is durable,
+then deleting its whole private home, leaves first/replacement plans unreadable
+by a fresh process. Both owners reach the selected boundary; fresh peers refuse
+with Gemini canonical conversation history is unavailable or unsafe.
+  gemini-plan-publication-before-control.log
+  gemini-plan-publication-replacement-before-control.log
+The final CI driver independently repeats both strict failures before applying
+the repair. Its separate reserved .plan- metadata-name assertion also fails
+strictly on the prerequisite package.
+
+Stage 26 durably records a checked intent before appending/publishing a plan.
+The intent retains the full next generation, expected preceding revision/file
+version and staged document identity. Namespace/journal locks serialize recovery.
+Startup and actual native read/write admission validate the intent, full journal
+and exact staged/target identities before completing a missing append or rename.
+Recovery retains every complete generation and removes only completed intent.
+Corrupt or inconsistent evidence refuses without fallback reconstruction.
+The publication allowlist admits only the exact session-root intent; native plan
+names reserve .plan- components. Existing native Plan Mode policy stays restricted.
+
+Final exact CI driver run locally:
+  /tmp/issue-3785-recovery/gemini-plan-transaction-ci-driver.log
+  first/replacement x after-intent/after-journal/after-publish: 12 PASS.
+  live same-byte staging-inode substitution: 1 PASS.
+  23 unsafe-intent/stage/target/journal cases: 46 PASS.
+  full native storage: 30 PASS across 24 scenarios.
+Unsafe controls preserve every canonical/protected regular-file identity,
+permissions, links, size and content fingerprint, then require sticky read/write
+refusal. Cases include intent symlink/hardlink/mode, malformed JSON/schema,
+UTF-8/size/traversal/scope/digest/revision/staging-name type, staging and target
+links/mode/content/missing, and conflicting full journal generation.
+Every process has finite 25-second execution, a 256 MiB Node heap, bounded data,
+stack and diagnostic output; all process groups are killed/reaped on completion.
+
+Draft regressions were independently reproduced before correcting them:
+  gemini-plan-staging-before-control.log: identical bytes in a substituted staging
+    inode were accepted. Retain fstat evidence from the writer's opened descriptor
+    and compare its final named version before intent/journal publication.
+  gemini-plan-intent-schema-before-control.log: a JSON array staging name was
+    coerced by regex validation. Require exact string/object field types.
+Both final controls pass; unsafe evidence and protected data remain unchanged.
+
+Final fresh reconstruction checks applicability without mutation for all
+26 stages and compares all 17 manager/CLI/helper files byte for byte:
+  gemini-plan-transaction-final-source.log
+  manager 80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+  history d522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da
+  publication a237a583835cb529ff101387a6ddb9b52116089e52eb4568ca7c91d353865dc3
+
+Final reconstructed-package CLI controls pass: healthy plan 3 assertions/5 model
+requests, private 2/2, four damaged-plan cases 2/3 each, concurrent children in
+both engines 3/8 each, child restore 5/7, ACP and third-terminal restore 3/5 each.
+All 11 network diagnostics have errors []. Full history 69, restore metadata 54
+and shell history 28 pass. Logs use gemini-plan-transaction-final-* prefixes.
+Python AST (88 files), Prettier, actionlint/ShellCheck, secret scanning, file-line
+limits and whitespace checks pass locally.
+Fresh exact-head CI remains required for these new plan stages.
+
+Complete actual native CLI recovery now independently passes the same six
+first/replacement x after-intent/after-journal/after-publish boundaries.
+Strict stage-25 first/replacement after-journal controls reach SIGKILL and delete
+their entire private homes; fresh actual CLI resume refuses with the canonical
+unsafe-history diagnostic and the exact expected recovery assertion.
+  gemini-plan-cli-death-first-before-control.log
+  gemini-plan-cli-death-replacement-before-control.log
+Final stage-26 controls use a finite Linux-only fsync interposer, without
+instrumenting native tools, provider or SDK. Each fresh CLI resumes the killed
+session and delivers all UTF-8 plan lines through its real read_file response.
+Every preceding audit prefix and full journal generation remains retained;
+completed transaction metadata disappears and no private plan copy is created.
+  gemini-plan-cli-death-v2-{first,replacement}-{after-intent,after-journal,after-publish}-control.log
+  12 PASS total; first cases 3 model requests each, replacements 6 each.
+  healthy control 3 PASS / 5 requests; private control 2 PASS / 2 requests.
+  All eight network diagnostics have errors [].
+The first after-intent fixture correctly permits an absent initial journal;
+recovery creates the first full generation instead of requiring fabricated data.
+CI repeats strict before controls and all six whole-CLI recoveries, then repeats
+replacement recovery on the independently reconstructed package.
+
+Remaining limits: partial/malformed intent
+creation, pre-intent orphan staging, physical power loss, fresh-process persisted
+rollback authority, alternate/sandboxed writers, nested/Unicode policy, remaining
+agent/task/memory paths and full production lifecycle. API kill-point recovery
+does not establish these criteria. The PR stays draft and unmerged.

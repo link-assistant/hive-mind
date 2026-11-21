@@ -1,0 +1,1011 @@
+{
+  "page": {
+    "id": "01JMDK9XYNY6RXSED6SDWW50WY",
+    "name": "OpenAI",
+    "url": "https://status.openai.com/",
+    "updated_at": "2026-11-13T05:55:44Z"
+  },
+  "incidents": [
+    {
+      "id": "01M79GYA0GA772Y6D089AH5478",
+      "name": "Sites: Publishing failing",
+      "status": "resolved",
+      "created_at": "2026-11-13T03:59:08Z",
+      "updated_at": "2026-11-13T05:55:44Z",
+      "resolved_at": "2026-11-13T05:55:44Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M79QKTHYGWJCPGQ16F6DKNGK",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-13T05:55:44Z",
+          "display_at": "2026-11-13T05:55:44Z",
+          "incident_id": "01M79GYA0GA772Y6D089AH5478",
+          "status": "resolved",
+          "updated_at": "2026-11-13T05:55:44Z"
+        },
+        {
+          "id": "01M79GYA0G3YV2EWHGQGFBK53S",
+          "body": "We have identified that users are experiencing elevated errors for the impacted services.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-13T03:59:08Z",
+          "display_at": "2026-11-13T03:59:08Z",
+          "incident_id": "01M79GYA0GA772Y6D089AH5478",
+          "status": "identified",
+          "updated_at": "2026-11-13T03:59:08Z"
+        }
+      ]
+    },
+    {
+      "id": "01M78GAT3AK9P9W8Z230KHFVE8",
+      "name": "Elevated errors affecting the Microsoft 365 connector",
+      "status": "investigating",
+      "created_at": "2026-11-12T18:29:14Z",
+      "updated_at": "2026-11-12T18:29:14Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M78GAT3A3RJB684K8JWKWBPQ",
+          "body": "We’re investigating an issue with Microsoft connectors where new connections may be broken and tools are not working as expected. We’ll share an update when we know more.",
+          "created_at": "2026-11-12T18:29:15Z",
+          "display_at": "2026-11-12T18:29:14Z",
+          "incident_id": "01M78GAT3AK9P9W8Z230KHFVE8",
+          "status": "investigating",
+          "updated_at": "2026-11-12T18:29:15Z"
+        }
+      ]
+    },
+    {
+      "id": "01M77FAXVFV338GY7G9VRENRS5",
+      "name": "GPT-image-2.5 and 2.6 Sunburst & Flare High error rate",
+      "status": "resolved",
+      "created_at": "2026-11-12T08:52:35Z",
+      "updated_at": "2026-11-12T09:25:12Z",
+      "resolved_at": "2026-11-12T09:25:12Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M77H6MHJEGWX53EDSM0CKT0M",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-12T09:25:12Z",
+          "display_at": "2026-11-12T09:25:12Z",
+          "incident_id": "01M77FAXVFV338GY7G9VRENRS5",
+          "status": "resolved",
+          "updated_at": "2026-11-12T09:25:12Z"
+        },
+        {
+          "id": "01M77GTTZ7PAGVQ3HNYHZK0YD7",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-12T09:18:45Z",
+          "display_at": "2026-11-12T09:18:45Z",
+          "incident_id": "01M77FAXVFV338GY7G9VRENRS5",
+          "status": "monitoring",
+          "updated_at": "2026-11-12T09:18:45Z"
+        },
+        {
+          "id": "01M77FNQG4KRE77TKJ814Q0QWB",
+          "body": "We have identified that users are experiencing elevated errors for GPT-image-2.5 Sunburst / Flare, and 2.6 Sunburst / Flare. We are working on implementing a mitigation.",
+          "created_at": "2026-11-12T08:58:29Z",
+          "display_at": "2026-11-12T08:58:29Z",
+          "incident_id": "01M77FAXVFV338GY7G9VRENRS5",
+          "status": "identified",
+          "updated_at": "2026-11-12T08:58:29Z"
+        },
+        {
+          "id": "01M77FAXVFJ94YDAPQFZZG95GK",
+          "body": "We have identified that users are experiencing elevated errors for GPT-image-2.5 Sunburst and Flare. We are working on implementing a mitigation.",
+          "created_at": "2026-11-12T08:52:35Z",
+          "display_at": "2026-11-12T08:52:35Z",
+          "incident_id": "01M77FAXVFV338GY7G9VRENRS5",
+          "status": "identified",
+          "updated_at": "2026-11-12T08:52:35Z"
+        }
+      ]
+    },
+    {
+      "id": "01M76CW2D7FM7K7F8NJ4W0G08N",
+      "name": "Unable to start new Workspace Agent runs",
+      "status": "resolved",
+      "created_at": "2026-11-11T22:50:17Z",
+      "updated_at": "2026-11-12T08:32:37Z",
+      "resolved_at": "2026-11-12T08:32:37Z",
+      "impact": "critical",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M77E6BWFEHDPC9KRGCRWFKPH",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-12T08:32:37Z",
+          "display_at": "2026-11-12T08:32:37Z",
+          "incident_id": "01M76CW2D7FM7K7F8NJ4W0G08N",
+          "status": "resolved",
+          "updated_at": "2026-11-12T08:32:37Z"
+        },
+        {
+          "id": "01M76CW2D72TKM2PQCS209QPFR",
+          "body": "We are investigating an issue preventing users from starting new Workspace Agent runs. We will share another update as more information becomes available.",
+          "created_at": "2026-11-11T22:50:17Z",
+          "display_at": "2026-11-11T22:50:17Z",
+          "incident_id": "01M76CW2D7FM7K7F8NJ4W0G08N",
+          "status": "investigating",
+          "updated_at": "2026-11-11T22:50:17Z"
+        }
+      ]
+    },
+    {
+      "id": "01M765MJQK7F85SC82RMTYN0V3",
+      "name": "Elevated errors affecting logins, sign-ups, and ChatGPT features",
+      "status": "resolved",
+      "created_at": "2026-11-11T20:43:51Z",
+      "updated_at": "2026-11-11T20:52:40Z",
+      "resolved_at": "2026-11-11T20:52:40Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M7664Q69DZE5GY6656BN2NQF",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-11T20:52:40Z",
+          "display_at": "2026-11-11T20:52:40Z",
+          "incident_id": "01M765MJQK7F85SC82RMTYN0V3",
+          "status": "resolved",
+          "updated_at": "2026-11-11T20:52:40Z"
+        },
+        {
+          "id": "01M76612MPMDW620DEG2H4WE0W",
+          "body": "We’re investigating an outage for logins, signups, work mode, dots, sites, and spaces. We are also investigating elevated error rates when creating conversations through the OpenAI API. We are checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-11T20:50:41Z",
+          "display_at": "2026-11-11T20:50:41Z",
+          "incident_id": "01M765MJQK7F85SC82RMTYN0V3",
+          "status": "investigating",
+          "updated_at": "2026-11-11T20:50:41Z"
+        },
+        {
+          "id": "01M765SEK8SSW5WT44JTQWGQX2",
+          "body": "We’re investigating an outage for logins, signups, work mode, dots, sites, and spaces. We are checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-11T20:46:31Z",
+          "display_at": "2026-11-11T20:46:31Z",
+          "incident_id": "01M765MJQK7F85SC82RMTYN0V3",
+          "status": "investigating",
+          "updated_at": "2026-11-11T20:46:31Z"
+        },
+        {
+          "id": "01M765MJQKCK0CH6JA1W4H8M65",
+          "body": "We’re investigating an outage for logins, signups, work mode, dots, sites, and spaces. We are checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-11T20:43:52Z",
+          "display_at": "2026-11-11T20:43:51Z",
+          "incident_id": "01M765MJQK7F85SC82RMTYN0V3",
+          "status": "investigating",
+          "updated_at": "2026-11-11T20:43:52Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6S2FV5TZWQ753NHRB7BF5K7",
+      "name": "Elevated error rates with some U.S. business Mastercards",
+      "status": "resolved",
+      "created_at": "2026-11-06T18:38:43Z",
+      "updated_at": "2026-11-10T16:06:18Z",
+      "resolved_at": "2026-11-10T16:06:18Z",
+      "impact": "none",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M733BM4M1Z531JDRAS68ABD9",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-10T16:06:18Z",
+          "display_at": "2026-11-10T16:06:18Z",
+          "incident_id": "01M6S2FV5TZWQ753NHRB7BF5K7",
+          "status": "resolved",
+          "updated_at": "2026-11-10T16:06:18Z"
+        },
+        {
+          "id": "01M6ST01JYSBFE12W7MMANHAZ2",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-07T01:29:31Z",
+          "display_at": "2026-11-07T01:29:31Z",
+          "incident_id": "01M6S2FV5TZWQ753NHRB7BF5K7",
+          "status": "monitoring",
+          "updated_at": "2026-11-07T01:29:31Z"
+        },
+        {
+          "id": "01M6S35Y3Q1ZQ2QCVR8TW7T1NW",
+          "body": "Investigating — We’re seeing payment declines on some U.S. business Mastercards. Affected cards have numbers beginning with 544015, 546400, 543502, 543799, or 512998. Some cards beginning with 513989 are also affected.\n\nFor API customers, this can prevent automatic recharges and one-time credit purchases. If your prepaid balance runs out, your API requests may fail.\n\nIf you use one of these cards, we recommend adding a card from a different issuer before your next payment, even if you haven’t seen a decline. If an API credit purchase has already failed, use the new card to retry the purchase.\n\nWe’re working with our payment partners and will share updates here.",
+          "created_at": "2026-11-06T18:50:47Z",
+          "display_at": "2026-11-06T18:50:47Z",
+          "incident_id": "01M6S2FV5TZWQ753NHRB7BF5K7",
+          "status": "identified",
+          "updated_at": "2026-11-06T23:00:29Z"
+        },
+        {
+          "id": "01M6S2FV5TG2ENMC33C6PTHXBS",
+          "body": "**Investigating — We’re seeing payment declines on some U.S. business Mastercards. Affected cards have numbers beginning with 544015, 546400, 543502, 543799, or 512998. Some cards beginning with 513989 are also affected.**\n\n**For API customers, this can prevent automatic recharges and one-time credit purchases. If your prepaid balance runs out, your API requests may fail.**\n\n**If you use one of these cards, we recommend adding a card from a different issuer before your next payment, even if you haven’t seen a decline. If an API credit purchase has already failed, use the new card to retry the purchase.**\n\n**We’re working with our payment partners and will share updates here.**",
+          "created_at": "2026-11-06T18:38:43Z",
+          "display_at": "2026-11-06T18:38:43Z",
+          "incident_id": "01M6S2FV5TZWQ753NHRB7BF5K7",
+          "status": "identified",
+          "updated_at": "2026-11-06T23:00:46Z"
+        }
+      ]
+    },
+    {
+      "id": "01M71W79MAGEXEX93QTVTBYJ4K",
+      "name": "Incorrect cost data in Costs API exports",
+      "status": "resolved",
+      "created_at": "2026-11-10T04:42:21Z",
+      "updated_at": "2026-11-10T07:02:33Z",
+      "resolved_at": "2026-11-10T07:02:33Z",
+      "impact": "none",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M7247ZYS3CK2BTRV6K1DZM3E",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-10T07:02:33Z",
+          "display_at": "2026-11-10T07:02:33Z",
+          "incident_id": "01M71W79MAGEXEX93QTVTBYJ4K",
+          "status": "resolved",
+          "updated_at": "2026-11-10T07:02:33Z"
+        },
+        {
+          "id": "01M71W79MA3H82KWRRKY9RDJV3",
+          "body": "We have identified an issue causing incorrect cost data in Costs API exports published between November 6 and 9. We are working to correct the affected records and will provide an update once recovery is confirmed.",
+          "created_at": "2026-11-10T04:42:21Z",
+          "display_at": "2026-11-10T04:42:21Z",
+          "incident_id": "01M71W79MAGEXEX93QTVTBYJ4K",
+          "status": "monitoring",
+          "updated_at": "2026-11-10T04:42:21Z"
+        }
+      ]
+    },
+    {
+      "id": "01M7193DWYRFWQM5W6E3VZ7TM7",
+      "name": "Elevated Errors On API",
+      "status": "resolved",
+      "created_at": "2026-11-09T23:08:12Z",
+      "updated_at": "2026-11-09T23:50:46Z",
+      "resolved_at": "2026-11-09T23:50:46Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M71BHC45R5KMQWJ3EXP2NGF7",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-09T23:50:46Z",
+          "display_at": "2026-11-09T23:50:46Z",
+          "incident_id": "01M7193DWYRFWQM5W6E3VZ7TM7",
+          "status": "resolved",
+          "updated_at": "2026-11-09T23:50:46Z"
+        },
+        {
+          "id": "01M7193DWYRR9X3HY4QJQQ5AG1",
+          "body": "We have identified that users are experiencing elevated errors for the impacted services.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-09T23:08:12Z",
+          "display_at": "2026-11-09T23:08:12Z",
+          "incident_id": "01M7193DWYRFWQM5W6E3VZ7TM7",
+          "status": "identified",
+          "updated_at": "2026-11-09T23:08:12Z"
+        }
+      ]
+    },
+    {
+      "id": "01M70RDA2GWD2WXE58ANY0WV5R",
+      "name": "Elevated ChatGPT Conversation Errors",
+      "status": "resolved",
+      "created_at": "2026-11-09T18:16:30Z",
+      "updated_at": "2026-11-09T19:08:31Z",
+      "resolved_at": "2026-11-09T19:08:31Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M70VCJA8RSB07ZBQKSMZZ5SP",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-09T19:08:31Z",
+          "display_at": "2026-11-09T19:08:31Z",
+          "incident_id": "01M70RDA2GWD2WXE58ANY0WV5R",
+          "status": "resolved",
+          "updated_at": "2026-11-09T19:08:31Z"
+        },
+        {
+          "id": "01M70RDA2G0EBRJH4SBFKTHHHN",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-09T18:16:30Z",
+          "display_at": "2026-11-09T18:16:30Z",
+          "incident_id": "01M70RDA2GWD2WXE58ANY0WV5R",
+          "status": "monitoring",
+          "updated_at": "2026-11-09T18:16:30Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6XVDCKRT3PSB0YP8J30GTD5",
+      "name": "Elevated errors with image generation",
+      "status": "resolved",
+      "created_at": "2026-11-08T15:11:15Z",
+      "updated_at": "2026-11-08T17:00:42Z",
+      "resolved_at": "2026-11-08T17:00:42Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M6Y1NT5YY8WRTR4CZV1BSP22",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-08T17:00:42Z",
+          "display_at": "2026-11-08T17:00:42Z",
+          "incident_id": "01M6XVDCKRT3PSB0YP8J30GTD5",
+          "status": "resolved",
+          "updated_at": "2026-11-08T17:00:42Z"
+        },
+        {
+          "id": "01M6XX92G5T216NQHFXZRSPMRJ",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-08T15:43:50Z",
+          "display_at": "2026-11-08T15:43:50Z",
+          "incident_id": "01M6XVDCKRT3PSB0YP8J30GTD5",
+          "status": "monitoring",
+          "updated_at": "2026-11-08T15:43:50Z"
+        },
+        {
+          "id": "01M6XVDCKRDTGGRYK0T0PPX8BN",
+          "body": "We have identified that users are experiencing elevated errors for the impacted services.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-08T15:11:15Z",
+          "display_at": "2026-11-08T15:11:15Z",
+          "incident_id": "01M6XVDCKRT3PSB0YP8J30GTD5",
+          "status": "identified",
+          "updated_at": "2026-11-08T15:11:15Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6P50GPP1V98EF8MJ9SH393R",
+      "name": "ChatGPT Work and Dots Errors",
+      "status": "resolved",
+      "created_at": "2026-11-05T15:25:03Z",
+      "updated_at": "2026-11-06T04:31:37Z",
+      "resolved_at": "2026-11-06T04:31:37Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M6QJ0R5X76J29AH1810CX7SJ",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-06T04:31:37Z",
+          "display_at": "2026-11-06T04:31:37Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "resolved",
+          "updated_at": "2026-11-06T04:31:37Z"
+        },
+        {
+          "id": "01M6PAS7JV5G2XMJDCXPV01EZN",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-05T17:05:56Z",
+          "display_at": "2026-11-05T17:05:56Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "monitoring",
+          "updated_at": "2026-11-05T17:05:56Z"
+        },
+        {
+          "id": "01M6PAA4A19F0EHXFSEXG4AQ83",
+          "body": "We have identified that users are experiencing elevated errors for the impacted services.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-05T16:57:41Z",
+          "display_at": "2026-11-05T16:57:41Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "identified",
+          "updated_at": "2026-11-05T16:57:41Z"
+        },
+        {
+          "id": "01M6P8H200ADXGKS008B491ENH",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-05T16:26:31Z",
+          "display_at": "2026-11-05T16:26:31Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "investigating",
+          "updated_at": "2026-11-05T16:26:31Z"
+        },
+        {
+          "id": "01M6P59JYX5QR3ZZDW0150PD63",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-05T15:30:00Z",
+          "display_at": "2026-11-05T15:30:00Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "investigating",
+          "updated_at": "2026-11-05T15:30:00Z"
+        },
+        {
+          "id": "01M6P50GPPTY4J5SZAV55PJ04G",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-05T15:25:03Z",
+          "display_at": "2026-11-05T15:25:03Z",
+          "incident_id": "01M6P50GPP1V98EF8MJ9SH393R",
+          "status": "investigating",
+          "updated_at": "2026-11-05T15:25:03Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6MBCX427A7113A3T4FJ1N6Y",
+      "name": "Elevated error rates across paid ChatGPT plans",
+      "status": "resolved",
+      "created_at": "2026-11-04T22:38:12Z",
+      "updated_at": "2026-11-05T00:32:37Z",
+      "resolved_at": "2026-11-05T00:32:37Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M6MHYDKY7DD9GZXB2X59FMB4",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-05T00:32:37Z",
+          "display_at": "2026-11-05T00:32:37Z",
+          "incident_id": "01M6MBCX427A7113A3T4FJ1N6Y",
+          "status": "resolved",
+          "updated_at": "2026-11-05T00:32:37Z"
+        },
+        {
+          "id": "01M6MC1QAFGB4G966CMBSFB87N",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-04T22:49:34Z",
+          "display_at": "2026-11-04T22:49:34Z",
+          "incident_id": "01M6MBCX427A7113A3T4FJ1N6Y",
+          "status": "monitoring",
+          "updated_at": "2026-11-04T22:49:34Z"
+        },
+        {
+          "id": "01M6MBCX42M8K66J4K1QE7T7PS",
+          "body": "Some users on paid ChatGPT plans may see errors when sending messages.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-04T22:38:12Z",
+          "display_at": "2026-11-04T22:38:12Z",
+          "incident_id": "01M6MBCX427A7113A3T4FJ1N6Y",
+          "status": "identified",
+          "updated_at": "2026-11-04T22:38:12Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6FDZ89W4PKDS19K496J307G",
+      "name": "File upload errors in ChatGPT",
+      "status": "resolved",
+      "created_at": "2026-11-03T00:46:58Z",
+      "updated_at": "2026-11-03T05:39:36Z",
+      "resolved_at": "2026-11-03T05:39:36Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M6FYQ2N55ZZP5XP204EN4C3W",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-11-03T05:39:36Z",
+          "display_at": "2026-11-03T05:39:36Z",
+          "incident_id": "01M6FDZ89W4PKDS19K496J307G",
+          "status": "resolved",
+          "updated_at": "2026-11-03T05:39:36Z"
+        },
+        {
+          "id": "01M6FN38N4PM649XN1WV2Y5FGZ",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-11-03T02:51:29Z",
+          "display_at": "2026-11-03T02:51:29Z",
+          "incident_id": "01M6FDZ89W4PKDS19K496J307G",
+          "status": "monitoring",
+          "updated_at": "2026-11-03T02:51:29Z"
+        },
+        {
+          "id": "01M6FJG2MPCGTW3GRRSPT0H56D",
+          "body": "We have identified that users are experiencing elevated errors for the impacted services.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-03T02:06:03Z",
+          "display_at": "2026-11-03T02:06:03Z",
+          "incident_id": "01M6FDZ89W4PKDS19K496J307G",
+          "status": "identified",
+          "updated_at": "2026-11-03T02:06:03Z"
+        },
+        {
+          "id": "01M6FEM347THYMY2JGRQ95YMTZ",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-11-03T00:58:21Z",
+          "display_at": "2026-11-03T00:58:21Z",
+          "incident_id": "01M6FDZ89W4PKDS19K496J307G",
+          "status": "investigating",
+          "updated_at": "2026-11-03T00:58:21Z"
+        },
+        {
+          "id": "01M6FDZ89WRT1G76Q6XCPQR3WS",
+          "body": "Some users are having trouble uploading files to ChatGPT or getting ChatGPT to read uploaded files.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-11-03T00:46:58Z",
+          "display_at": "2026-11-03T00:46:58Z",
+          "incident_id": "01M6FDZ89W4PKDS19K496J307G",
+          "status": "identified",
+          "updated_at": "2026-11-03T00:46:58Z"
+        }
+      ]
+    },
+    {
+      "id": "01M6754SR14HCQ3E9FX426E2N7",
+      "name": "Elevated errors with search in Dots, ChatGPT Work, and certain ChatGPT thinking experiences",
+      "status": "resolved",
+      "created_at": "2026-10-30T19:38:47Z",
+      "updated_at": "2026-10-30T21:14:12Z",
+      "resolved_at": "2026-10-30T21:14:12Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M67AKGB22FSXS3W7AV57H513",
+          "body": "All affected services are operating normally again.\n\nWe’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-10-30T21:14:12Z",
+          "display_at": "2026-10-30T21:14:12Z",
+          "incident_id": "01M6754SR14HCQ3E9FX426E2N7",
+          "status": "resolved",
+          "updated_at": "2026-10-30T21:14:12Z"
+        },
+        {
+          "id": "01M6754SR1Y1XAWTPR26SJ2XXC",
+          "body": "We’re aware of issues affecting search in Dots, ChatGPT Work, and some ChatGPT thinking experiences.\n\nWe’re investigating and will share updates here.",
+          "created_at": "2026-10-30T19:38:47Z",
+          "display_at": "2026-10-30T19:38:47Z",
+          "incident_id": "01M6754SR14HCQ3E9FX426E2N7",
+          "status": "investigating",
+          "updated_at": "2026-10-30T19:38:47Z"
+        }
+      ]
+    },
+    {
+      "id": "01M66KSDH67V5BQ73PE8AD2W8S",
+      "name": "Elevated errors for GPT Image 2 API image edits",
+      "status": "resolved",
+      "created_at": "2026-10-30T14:35:28Z",
+      "updated_at": "2026-10-30T18:36:55Z",
+      "resolved_at": "2026-10-30T18:36:55Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M671KGQYVM2APF3H56V2D4SW",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-10-30T18:36:55Z",
+          "display_at": "2026-10-30T18:36:55Z",
+          "incident_id": "01M66KSDH67V5BQ73PE8AD2W8S",
+          "status": "resolved",
+          "updated_at": "2026-10-30T18:36:55Z"
+        },
+        {
+          "id": "01M66S0742D4B5EH57S0SR4JAZ",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-10-30T16:06:34Z",
+          "display_at": "2026-10-30T16:06:34Z",
+          "incident_id": "01M66KSDH67V5BQ73PE8AD2W8S",
+          "status": "monitoring",
+          "updated_at": "2026-10-30T16:06:34Z"
+        },
+        {
+          "id": "01M66KSDH6B9M0BE7798K1TC3B",
+          "body": "We are experiencing elevated errors for some GPT Image 2 API image edit requests. We have identified the issue and are working on a fix",
+          "created_at": "2026-10-30T14:35:28Z",
+          "display_at": "2026-10-30T14:35:28Z",
+          "incident_id": "01M66KSDH67V5BQ73PE8AD2W8S",
+          "status": "identified",
+          "updated_at": "2026-10-30T14:35:28Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5YY4A3TQETEQ53DVSK8SW10",
+      "name": "6.1 Sol Degraded Model Performance",
+      "status": "resolved",
+      "created_at": "2026-10-27T15:02:15Z",
+      "updated_at": "2026-10-27T16:20:06Z",
+      "resolved_at": "2026-10-27T16:20:06Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5Z2JV1YR51AB61FV65E5HF5",
+          "body": "All affected services are operating normally again. We’re sorry for the disruption, and we appreciate your patience.",
+          "created_at": "2026-10-27T16:20:06Z",
+          "display_at": "2026-10-27T16:20:06Z",
+          "incident_id": "01M5YY4A3TQETEQ53DVSK8SW10",
+          "status": "resolved",
+          "updated_at": "2026-10-27T16:20:06Z"
+        },
+        {
+          "id": "01M5Z09TT17P71BB85VFA5Y8HA",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-10-27T15:40:14Z",
+          "display_at": "2026-10-27T15:40:14Z",
+          "incident_id": "01M5YY4A3TQETEQ53DVSK8SW10",
+          "status": "monitoring",
+          "updated_at": "2026-10-27T15:40:14Z"
+        },
+        {
+          "id": "01M5YY4A3TJ1QFK7HV9JNF9CW4",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-10-27T15:02:15Z",
+          "display_at": "2026-10-27T15:02:15Z",
+          "incident_id": "01M5YY4A3TQETEQ53DVSK8SW10",
+          "status": "investigating",
+          "updated_at": "2026-10-27T15:02:15Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5Y60NQGGN514EB3943V94EN",
+      "name": "Elevated error rates for most hosted Code Reviews and Security Reviews on private GitHub repositories",
+      "status": "resolved",
+      "created_at": "2026-10-27T08:00:50Z",
+      "updated_at": "2026-10-27T13:54:35Z",
+      "resolved_at": "2026-10-27T08:30:00Z",
+      "impact": "none",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5YT8D02J2F2A4B69X84KZFZ",
+          "body": "The issue is now resolved.",
+          "created_at": "2026-10-27T13:54:35Z",
+          "display_at": "2026-10-27T08:30:00Z",
+          "incident_id": "01M5Y60NQGGN514EB3943V94EN",
+          "status": "resolved",
+          "updated_at": "2026-10-27T13:55:33Z"
+        },
+        {
+          "id": "01M5Y75WV5QVD0R1B43HN8BR17",
+          "body": "We’ve applied a mitigation and are monitoring the affected services to confirm recovery.",
+          "created_at": "2026-10-27T08:21:10Z",
+          "display_at": "2026-10-27T08:21:10Z",
+          "incident_id": "01M5Y60NQGGN514EB3943V94EN",
+          "status": "monitoring",
+          "updated_at": "2026-10-27T08:21:10Z"
+        },
+        {
+          "id": "01M5Y60NQGNP7BK0DECAGADQCM",
+          "body": "We’re investigating a potential issue for the listed services and checking how it affects users. We’ll share an update when we know more.",
+          "created_at": "2026-10-27T08:00:51Z",
+          "display_at": "2026-10-27T08:00:50Z",
+          "incident_id": "01M5Y60NQGGN514EB3943V94EN",
+          "status": "investigating",
+          "updated_at": "2026-10-27T08:00:51Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5WPZTT0385GMEV1353ZC4AM",
+      "name": "Elevated error rates for Ads POST requests",
+      "status": "resolved",
+      "created_at": "2026-10-26T18:19:00Z",
+      "updated_at": "2026-10-26T19:21:04Z",
+      "resolved_at": "2026-10-26T18:30:18Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5WQMHJ6NB4JFJ5HVDDJJX8E",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-26T18:30:19Z",
+          "display_at": "2026-10-26T18:30:18Z",
+          "incident_id": "01M5WPZTT0385GMEV1353ZC4AM",
+          "status": "resolved",
+          "updated_at": "2026-10-26T18:30:19Z"
+        },
+        {
+          "id": "01M5WQBSV8WJFAKKBXWESPG6CT",
+          "body": "We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-26T18:25:32Z",
+          "display_at": "2026-10-26T18:25:32Z",
+          "incident_id": "01M5WPZTT0385GMEV1353ZC4AM",
+          "status": "monitoring",
+          "updated_at": "2026-10-26T18:25:32Z"
+        },
+        {
+          "id": "01M5WPZTT0EC33DQNMPVY9NHYF",
+          "body": "We have identified that users are experiencing elevated errors for POST /ads/* endpoints.\n\nWe are working on implementing a mitigation.",
+          "created_at": "2026-10-26T18:19:00Z",
+          "display_at": "2026-10-26T18:19:00Z",
+          "incident_id": "01M5WPZTT0385GMEV1353ZC4AM",
+          "status": "identified",
+          "updated_at": "2026-10-26T18:19:00Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5NFF94XCJ6CGTD4S78A9BEB",
+      "name": "Degraded experience with ChatGPT app connections using CIMD",
+      "status": "resolved",
+      "created_at": "2026-10-23T22:52:56Z",
+      "updated_at": "2026-10-23T23:43:22Z",
+      "resolved_at": "2026-10-23T23:43:22Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5NJBM396FMN0XFXJV8QWWWS",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-23T23:43:22Z",
+          "display_at": "2026-10-23T23:43:22Z",
+          "incident_id": "01M5NFF94XCJ6CGTD4S78A9BEB",
+          "status": "resolved",
+          "updated_at": "2026-10-23T23:43:22Z"
+        },
+        {
+          "id": "01M5NGWE0M88FQNH8AEJ482NVK",
+          "body": "Some ChatGPT app connections experienced failures when connecting a new app or refreshing an existing connection. The affected authentication metadata endpoint is available again, and we are monitoring recovery.",
+          "created_at": "2026-10-23T23:17:36Z",
+          "display_at": "2026-10-23T23:17:36Z",
+          "incident_id": "01M5NFF94XCJ6CGTD4S78A9BEB",
+          "status": "monitoring",
+          "updated_at": "2026-10-23T23:17:36Z"
+        },
+        {
+          "id": "01M5NGFD866FQXZBPV3D84WFGG",
+          "body": "We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-23T23:10:29Z",
+          "display_at": "2026-10-23T23:10:29Z",
+          "incident_id": "01M5NFF94XCJ6CGTD4S78A9BEB",
+          "status": "monitoring",
+          "updated_at": "2026-10-23T23:10:29Z"
+        },
+        {
+          "id": "01M5NFF94XVWX56NQY2X2VTWPT",
+          "body": "We are investigating the issue for the listed services.",
+          "created_at": "2026-10-23T22:52:56Z",
+          "display_at": "2026-10-23T22:52:56Z",
+          "incident_id": "01M5NFF94XCJ6CGTD4S78A9BEB",
+          "status": "investigating",
+          "updated_at": "2026-10-23T22:52:56Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5NAR5GZC5M7D0S7AQ6CGEEN",
+      "name": "Help Center Chat Support Degraded",
+      "status": "resolved",
+      "created_at": "2026-10-23T21:30:25Z",
+      "updated_at": "2026-10-23T22:02:57Z",
+      "resolved_at": "2026-10-23T22:02:57Z",
+      "impact": "none",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5NCKQQD0MVSFRZV30YX508E",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-23T22:02:57Z",
+          "display_at": "2026-10-23T22:02:57Z",
+          "incident_id": "01M5NAR5GZC5M7D0S7AQ6CGEEN",
+          "status": "resolved",
+          "updated_at": "2026-10-23T22:02:57Z"
+        },
+        {
+          "id": "01M5NBZX1MXGGKT91SRXBKTB3E",
+          "body": "We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-23T21:52:07Z",
+          "display_at": "2026-10-23T21:52:07Z",
+          "incident_id": "01M5NAR5GZC5M7D0S7AQ6CGEEN",
+          "status": "monitoring",
+          "updated_at": "2026-10-23T21:52:07Z"
+        },
+        {
+          "id": "01M5NAR5GZ69DY4MCX4TSNSZ1C",
+          "body": "We’re currently experiencing degraded performance with the Help Center chat support experience. While we work to resolve the issue, we recommend contacting our Support team via email at [support@openai.com](mailto:support@openai.com \"support@openai.com\") for assistance.\n\nWe apologize for the inconvenience and will provide updates as they become available.",
+          "created_at": "2026-10-23T21:30:25Z",
+          "display_at": "2026-10-23T21:30:25Z",
+          "incident_id": "01M5NAR5GZC5M7D0S7AQ6CGEEN",
+          "status": "investigating",
+          "updated_at": "2026-10-23T21:30:25Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5KDJ4079XQTZDSRX40NMN6H",
+      "name": "Delays in customer support responses",
+      "status": "resolved",
+      "created_at": "2026-10-23T03:41:03Z",
+      "updated_at": "2026-10-23T05:58:06Z",
+      "resolved_at": "2026-10-23T05:58:06Z",
+      "impact": "none",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5KND1NX43K0GTTEYC7VS4TG",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-23T05:58:06Z",
+          "display_at": "2026-10-23T05:58:06Z",
+          "incident_id": "01M5KDJ4079XQTZDSRX40NMN6H",
+          "status": "resolved",
+          "updated_at": "2026-10-23T05:58:06Z"
+        },
+        {
+          "id": "01M5KMSMCJT4DHYBYKXXE7296G",
+          "body": "We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-23T05:47:30Z",
+          "display_at": "2026-10-23T05:47:30Z",
+          "incident_id": "01M5KDJ4079XQTZDSRX40NMN6H",
+          "status": "monitoring",
+          "updated_at": "2026-10-23T05:47:30Z"
+        },
+        {
+          "id": "01M5KH3XNV9PY1G5H2JV783ER9",
+          "body": "A fix is being implemented for the issue affecting our support systems. Customers may continue to experience delays in receiving support responses. We will provide further updates as recovery progresses.",
+          "created_at": "2026-10-23T04:43:12Z",
+          "display_at": "2026-10-23T04:43:12Z",
+          "incident_id": "01M5KDJ4079XQTZDSRX40NMN6H",
+          "status": "identified",
+          "updated_at": "2026-10-23T04:43:12Z"
+        },
+        {
+          "id": "01M5KEFJHDGY9BMXS27PX0K70X",
+          "body": "As a temporary solution, customers looking to reach out to OpenAI Support can email [support@openai.com](mailto:support@openai.com \"support@openai.com\").",
+          "created_at": "2026-10-23T03:57:09Z",
+          "display_at": "2026-10-23T03:57:09Z",
+          "incident_id": "01M5KDJ4079XQTZDSRX40NMN6H",
+          "status": "investigating",
+          "updated_at": "2026-10-23T03:57:09Z"
+        },
+        {
+          "id": "01M5KDJ407R189M8F0X9HN4W5F",
+          "body": "We are investigating technical issues affecting our customer support systems. Customers may experience longer than usual response times. We are working to restore normal operations.",
+          "created_at": "2026-10-23T03:41:03Z",
+          "display_at": "2026-10-23T03:41:03Z",
+          "incident_id": "01M5KDJ4079XQTZDSRX40NMN6H",
+          "status": "investigating",
+          "updated_at": "2026-10-23T03:41:03Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5JHVJVC8WAXB4WRYFMKG6HP",
+      "name": "New Ad Accounts failing to provision admins",
+      "status": "resolved",
+      "created_at": "2026-10-22T19:36:53Z",
+      "updated_at": "2026-10-23T00:07:55Z",
+      "resolved_at": "2026-10-23T00:07:55Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5K1BV53Z1S2V37VGA8C4E25",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-23T00:07:55Z",
+          "display_at": "2026-10-23T00:07:55Z",
+          "incident_id": "01M5JHVJVC8WAXB4WRYFMKG6HP",
+          "status": "resolved",
+          "updated_at": "2026-10-23T00:07:55Z"
+        },
+        {
+          "id": "01M5K030K1AHCDZWQ0YP23TE12",
+          "body": "We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-22T23:45:37Z",
+          "display_at": "2026-10-22T23:45:37Z",
+          "incident_id": "01M5JHVJVC8WAXB4WRYFMKG6HP",
+          "status": "monitoring",
+          "updated_at": "2026-10-22T23:45:37Z"
+        },
+        {
+          "id": "01M5JRCCBJD2524R1XNB38YS3B",
+          "body": "We have identified the issue and are working to implement the mitigation.",
+          "created_at": "2026-10-22T21:30:55Z",
+          "display_at": "2026-10-22T21:30:55Z",
+          "incident_id": "01M5JHVJVC8WAXB4WRYFMKG6HP",
+          "status": "identified",
+          "updated_at": "2026-10-22T21:30:55Z"
+        },
+        {
+          "id": "01M5JHVJVC0JQ64EBBNK74VJM3",
+          "body": "We have identified that new ad accounts are failing to assign their creator admin. We are investigating the issue.",
+          "created_at": "2026-10-22T19:36:53Z",
+          "display_at": "2026-10-22T19:36:53Z",
+          "incident_id": "01M5JHVJVC8WAXB4WRYFMKG6HP",
+          "status": "identified",
+          "updated_at": "2026-10-22T19:36:53Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5JF8DR3EGQJNTXPZ24AKX2G",
+      "name": "Degraded Performance of Dots on Enterprise",
+      "status": "resolved",
+      "created_at": "2026-10-22T18:51:28Z",
+      "updated_at": "2026-10-22T20:55:48Z",
+      "resolved_at": "2026-10-22T20:55:48Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5JPC21Z75KGQXDX8026J7A3",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-22T20:55:48Z",
+          "display_at": "2026-10-22T20:55:48Z",
+          "incident_id": "01M5JF8DR3EGQJNTXPZ24AKX2G",
+          "status": "resolved",
+          "updated_at": "2026-10-22T20:55:48Z"
+        },
+        {
+          "id": "01M5JFPR66Q0E0HW6M4YHEKY6B",
+          "body": "Our teams have identified the issue and are actively implementing a mitigation. At this time the majority of impact is affecting enterprise customers.",
+          "created_at": "2026-10-22T18:59:18Z",
+          "display_at": "2026-10-22T18:59:18Z",
+          "incident_id": "01M5JF8DR3EGQJNTXPZ24AKX2G",
+          "status": "identified",
+          "updated_at": "2026-10-22T19:03:09Z"
+        },
+        {
+          "id": "01M5JF8DR3403QWDQW9YYFJDWX",
+          "body": "Users are experiencing failures sending messages to dots.",
+          "created_at": "2026-10-22T18:51:28Z",
+          "display_at": "2026-10-22T18:51:28Z",
+          "incident_id": "01M5JF8DR3EGQJNTXPZ24AKX2G",
+          "status": "investigating",
+          "updated_at": "2026-10-22T18:51:28Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5GPE9C4E19HE461P8JAMYXD",
+      "name": "Elevated ChatGPT conversation and Responses API errors",
+      "status": "resolved",
+      "created_at": "2026-10-22T02:18:32Z",
+      "updated_at": "2026-10-22T08:50:43Z",
+      "resolved_at": "2026-10-22T08:50:43Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5HCWCW9XX2VDNZE2TG5WDBX",
+          "body": "All impacted services have now fully recovered.",
+          "created_at": "2026-10-22T08:50:43Z",
+          "display_at": "2026-10-22T08:50:43Z",
+          "incident_id": "01M5GPE9C4E19HE461P8JAMYXD",
+          "status": "resolved",
+          "updated_at": "2026-10-22T08:50:43Z"
+        },
+        {
+          "id": "01M5GQSZKNN3M28SHB5RMJ75HP",
+          "body": "This is impacting users in India, Japan, and Korea. We have applied the mitigation and are monitoring the recovery.",
+          "created_at": "2026-10-22T02:42:24Z",
+          "display_at": "2026-10-22T02:42:24Z",
+          "incident_id": "01M5GPE9C4E19HE461P8JAMYXD",
+          "status": "monitoring",
+          "updated_at": "2026-10-22T08:47:09Z"
+        },
+        {
+          "id": "01M5GPE9C4S2VSEPGANMJN77CN",
+          "body": "This is impacting users in India, Japan, and Korea. We are investigating the issue for the listed services.",
+          "created_at": "2026-10-22T02:18:32Z",
+          "display_at": "2026-10-22T02:18:32Z",
+          "incident_id": "01M5GPE9C4E19HE461P8JAMYXD",
+          "status": "investigating",
+          "updated_at": "2026-10-22T08:47:02Z"
+        }
+      ]
+    },
+    {
+      "id": "01M5G9QQ9V4CYDWFRYF9BWZ5GG",
+      "name": "Authentication errors for some users",
+      "status": "resolved",
+      "created_at": "2026-10-21T22:36:29Z",
+      "updated_at": "2026-10-21T23:03:45Z",
+      "resolved_at": "2026-10-20T17:35:00Z",
+      "impact": "major",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M5G9QQ9VQDB5AB2J10FE4W9V",
+          "body": "On October 20, from 9:35 to 10:35 a.m. PDT, some users near Illinois experienced authentication errors with the API, ChatGPT, and Codex. We rolled back a configuration change, and service was restored.",
+          "created_at": "2026-10-21T22:36:29Z",
+          "display_at": "2026-10-20T17:35:00Z",
+          "incident_id": "01M5G9QQ9V4CYDWFRYF9BWZ5GG",
+          "status": "resolved",
+          "updated_at": "2026-10-21T23:04:00Z"
+        },
+        {
+          "id": "01M5G9QQ9VWMCR8DYR26R14M22",
+          "body": "Some users near Illinois experienced authentication errors with the API, ChatGPT, and Codex.",
+          "created_at": "2026-10-21T22:36:29Z",
+          "display_at": "2026-10-20T16:35:00Z",
+          "incident_id": "01M5G9QQ9V4CYDWFRYF9BWZ5GG",
+          "status": "investigating",
+          "updated_at": "2026-10-21T23:04:08Z"
+        }
+      ]
+    }
+  ]
+}

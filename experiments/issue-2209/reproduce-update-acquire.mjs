@@ -21,10 +21,10 @@ const docker = createDockerSimulator({
 });
 const options = { env, run: docker.run, healthAttempts: 1, healthDelayMs: 0, sleepImpl: async () => {} };
 try {
-  writeFormalAiSidecarState({ image: bootstrap, imageDigest: 'sha256:old', leases: [] }, { env });
+  await writeFormalAiSidecarState({ image: bootstrap, imageDigest: 'sha256:old', leases: [] }, { env });
   const update = await updateFormalAiSidecarWhenIdle(options);
   assert.equal(update.status, 'updated');
-  assert.equal(readFormalAiSidecarState({ env }).imageDigest, 'sha256:new');
+  assert.equal((await readFormalAiSidecarState({ env })).imageDigest, 'sha256:new');
   const task = await acquireFormalAiSidecar({ sessionId: 'release-verification-task', ...options });
   console.log(JSON.stringify({ updateStatus: update.status, updatedVersion: update.health.version, updatedDigest: update.digest, taskImage: task.image, taskVersion: task.health.version, taskDigest: task.imageDigest }, null, 2));
   assert.equal(task.imageDigest, update.digest, 'the next task must consume the successfully verified update');

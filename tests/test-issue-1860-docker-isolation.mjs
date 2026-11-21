@@ -63,7 +63,7 @@ function mountPairs(mounts) {
 }
 
 // Issue #2190: the split layout — credential file + session directories, never the whole application directory.
-const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
+const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const existsSync = path => existingPaths.has(path);
 
 console.log('\n--- Docker isolation image selection ---');
@@ -80,15 +80,15 @@ assertEqual(parseDockerContainerWritableLayerSizeOutput(''), null, 'empty SizeRw
 
 console.log('\n--- Tool-scoped credential mounts ---');
 
-const codexMounts = getDockerIsolationAuthMounts({
+const codexMounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/home/box',
   env: {},
   existsSync,
 });
-assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions'], 'codex tasks receive gh and Codex credentials only');
+assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions', '/home/box/.codex/archived_sessions:/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks:/home/box/.codex/thread-writer-locks', '/home/box/.codex/rollout-migrations:/home/box/.codex/rollout-migrations'], 'codex tasks receive gh and Codex credentials only');
 
-const claudeMounts = getDockerIsolationAuthMounts({
+const claudeMounts = await getDockerIsolationAuthMounts({
   tool: 'claude',
   homeDir: '/home/box',
   env: {},
@@ -96,17 +96,17 @@ const claudeMounts = getDockerIsolationAuthMounts({
 });
 assertDeepEqual(mountPairs(claudeMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.claude/.credentials.json:/home/box/.claude/.credentials.json', '/home/box/.claude/projects:/home/box/.claude/projects', '/home/box/.claude/sessions:/home/box/.claude/sessions'], 'claude tasks receive gh and Claude credentials only');
 
-const envGhMounts = getDockerIsolationAuthMounts({
+const envGhMounts = await getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/home/box',
   env: { GH_CONFIG_DIR: '/run/gh-auth' },
-  existsSync: path => path === '/run/gh-auth' || path === '/home/box/.codex/auth.json',
+  existsSync: path => path === '/run/gh-auth' || path.startsWith('/home/box/.codex/'),
 });
-assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json'], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
+assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', ...codexMounts.filter(mount => mount.target !== '/home/box/.config/gh' && !mount.target.endsWith('auth.json')).map(mount => `${mount.source}:${mount.target}`)], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
 
 console.log('\n--- start-command invocation shape ---');
 
-const dockerStartArgs = buildStartCommandArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855', '--tool', 'codex'], {
+const dockerStartArgs = await buildStartCommandArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855', '--tool', 'codex'], {
   backend: 'docker',
   sessionId: '28b8eba8-14a6-4dd0-8782-a87db8809c11',
   tool: 'codex',
@@ -134,8 +134,8 @@ assertEqual(dockerStartArgs[dockerStartArgs.length - 2], '--', 'start-command re
 assertIncludes(dockerStartArgs[dockerStartArgs.length - 1], "gate='/tmp/hive-mind-disk-baseline-28b8eba8-14a6-4dd0-8782-a87db8809c11'", 'Docker isolation gates the task until the writable-layer baseline is captured');
 assertIncludes(dockerStartArgs[dockerStartArgs.length - 1], "exec 'solve' 'https://github.com/link-assistant/hive-mind/issues/1855' '--tool' 'codex'", 'the separated command preserves the solve arguments after releasing the disk baseline gate');
 
-// buildStartCommandArgs(backend:'docker') must delegate verbatim to the exported buildDockerIsolationStartArgs.
-const dockerStartArgsDirect = buildDockerIsolationStartArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855', '--tool', 'codex'], {
+// await buildStartCommandArgs(backend:'docker') must delegate verbatim to the exported buildDockerIsolationStartArgs.
+const dockerStartArgsDirect = await buildDockerIsolationStartArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855', '--tool', 'codex'], {
   sessionId: '28b8eba8-14a6-4dd0-8782-a87db8809c11',
   tool: 'codex',
   env: { HIVE_MIND_IMAGE_VARIANT: 'dind' },
@@ -144,7 +144,7 @@ const dockerStartArgsDirect = buildDockerIsolationStartArgs('solve', ['https://g
 });
 assertDeepEqual(dockerStartArgsDirect, dockerStartArgs, 'buildStartCommandArgs delegates the docker backend to buildDockerIsolationStartArgs');
 
-const screenStartArgs = buildStartCommandArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855'], {
+const screenStartArgs = await buildStartCommandArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855'], {
   backend: 'screen',
   sessionId: 'a68dc7f8-900a-4f22-9940-b59f1e95b736',
 });

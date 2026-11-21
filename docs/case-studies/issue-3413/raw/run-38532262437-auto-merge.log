@@ -1,0 +1,72 @@
+auto-merge	UNKNOWN STEP	﻿2026-10-14T08:01:48.0456558Z Current runner version: '2.337.0'
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0478197Z ##[group]Runner Image Provisioner
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0478873Z Hosted Compute Agent
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0479249Z Version: 20261002.596
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0479641Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0480155Z Build Date: 2026-10-02T22:28:27Z
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0480590Z Worker ID: {02cd71df-0508-4753-aea2-581a6c8d3ad0}
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0481010Z Region: centralus
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0481401Z Cloud: Azure
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0481743Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0483068Z ##[group]Operating System
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0483486Z Ubuntu
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0483827Z 24.04.5
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0484202Z LTS
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0484520Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0484915Z ##[group]Runner Image
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0485291Z Image: ubuntu-24.04
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0485663Z Version: 20261004.327.1
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0486493Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0487455Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0488034Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0488820Z ##[group]GITHUB_TOKEN Permissions
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0490129Z Contents: write
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0490519Z Metadata: read
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0490942Z PullRequests: write
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0491296Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0492830Z Secret source: Dependabot
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0493641Z Cache mode: write
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0494114Z Prepare workflow directory
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0752789Z Prepare all required actions
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.0787266Z Getting action download info
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.3325039Z Download action repository 'dependabot/fetch-metadata@v3.1.0' (SHA:25dd0e34f4fe68f24cc83900b1fe3fe149efef98)
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:48.9556889Z Complete job name: auto-merge
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0895846Z ##[group]Run dependabot/fetch-metadata@v3.1.0
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0896927Z with:
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0900633Z   github-token: ***
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0901078Z   skip-commit-verification: false
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0901573Z   skip-verification: false
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.0902096Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5563044Z Parsing Dependabot metadata
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5638505Z ##[group]Outputting metadata for 1 updated dependency
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5652522Z outputs.dependency-names: Microsoft.Bcl.Memory
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5653125Z outputs.dependency-type: direct:production
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5653549Z outputs.update-type: version-update:semver-patch
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5653950Z outputs.directory: /benchmarks/csharp
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5654309Z outputs.package-ecosystem: nuget
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5654659Z outputs.target-branch: main
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5654982Z outputs.previous-version: 
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5655301Z outputs.new-version: 10.0.13
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5655762Z outputs.compatibility-score: 0
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5656106Z outputs.maintainer-changes: false
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5656440Z outputs.dependency-group: 
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5656854Z outputs.alert-state: 
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5657475Z outputs.ghsa-id: 
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5657822Z outputs.cvss: 0
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5658421Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5927761Z ##[group]Run set -euo pipefail
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5928322Z ^[[36;1mset -euo pipefail^[[0m
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5928654Z ^[[36;1mif [ "$HAS_PAT" != "true" ]; then^[[0m
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5929517Z ^[[36;1m  echo "::warning::DEPENDABOT_AUTO_MERGE_TOKEN is not configured. GITHUB_TOKEN is read-only for Dependabot pull_request events, so enabling auto-merge will most likely fail with HTTP 403."^[[0m
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5930339Z ^[[36;1mfi^[[0m
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.5930632Z ^[[36;1mgh pr merge --auto --merge "$PR_URL"^[[0m
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6252276Z shell: /usr/bin/bash -e {0}
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6252690Z env:
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6253242Z   PR_URL: https://github.com/link-foundation/links-notation/pull/343
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6255746Z   GH_TOKEN: ***
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6256021Z   HAS_PAT: false
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6256541Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:49.6447871Z ##[warning]DEPENDABOT_AUTO_MERGE_TOKEN is not configured. GITHUB_TOKEN is read-only for Dependabot pull_request events, so enabling auto-merge will most likely fail with HTTP 403.
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:51.2794511Z GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge)
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:51.2817318Z ##[error]Process completed with exit code 1.
+auto-merge	UNKNOWN STEP	2026-10-14T08:01:51.2883051Z Cleaning up orphan processes

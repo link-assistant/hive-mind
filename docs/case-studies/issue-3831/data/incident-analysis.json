@@ -1,0 +1,142 @@
+[
+  {
+    "file": "incident.part-00.log.txt.gz",
+    "originalBytes": 104848294,
+    "sha256": "8b2ed513f7274d0cf633df3e49760f1c36454ed4dd152e2be9c951119fc27ffe",
+    "lines": 356688,
+    "excerpts": [
+      {
+        "line": 229,
+        "text": "[2026-10-26T04:10:27.345Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 14862,
+        "text": "[2026-10-26T06:24:46.494Z] [STDOUT] {\"type\":\"error\",\"message\":\"Selected model is at capacity. Please try a different model.\"}"
+      },
+      {
+        "line": 14864,
+        "text": "[2026-10-26T06:24:47.136Z] [STDOUT] {\"type\":\"turn.failed\",\"error\":{\"message\":\"Selected model is at capacity. Please try a different model.\"}}"
+      },
+      {
+        "line": 14869,
+        "text": "[2026-10-26T06:24:47.563Z] [INFO] \ud83d\udcc8 Codex cgroup memory after execution: {\"version\":2,\"path\":\"/sys/fs/cgroup\",\"limitBytes\":3135369216,\"currentBytes\":2457264128,\"peakBytes\":3135397888,\"oomEvents\":0,\"oomKills\":0}"
+      },
+      {
+        "line": 14871,
+        "text": "[2026-10-26T06:24:47.577Z] [INFO] \ud83d\udcca Codex JSON events: thread.started=1, turn.started=1, item.completed=474, item.started=393, error=1, turn.failed=1"
+      },
+      {
+        "line": 14872,
+        "text": "[2026-10-26T06:24:47.584Z] [INFO] \ud83d\udce6 Codex item types: agent_message=39, command_execution=711, web_search=10, reasoning=43, file_change=64"
+      },
+      {
+        "line": 14884,
+        "text": "[2026-10-26T06:24:48.060Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 1 in 15s (session preserved) (budget 0s/12h used)..."
+      },
+      {
+        "line": 14888,
+        "text": "[2026-10-26T06:25:03.098Z] [INFO] \ud83d\udd04 Retry attempt:            1 (budget 15s/12h used)"
+      },
+      {
+        "line": 14975,
+        "text": "[2026-10-26T06:25:08.460Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 70367,
+        "text": "[2026-10-26T13:01:53.225Z] [STDOUT] {\"type\":\"error\",\"message\":\"Selected model is at capacity. Please try a different model.\"}"
+      },
+      {
+        "line": 70369,
+        "text": "[2026-10-26T13:01:54.737Z] [STDOUT] {\"type\":\"turn.failed\",\"error\":{\"message\":\"Selected model is at capacity. Please try a different model.\"}}"
+      },
+      {
+        "line": 70375,
+        "text": "[2026-10-26T13:01:55.317Z] [INFO] \ud83d\udcc8 Codex cgroup memory after execution: {\"version\":2,\"path\":\"/sys/fs/cgroup\",\"limitBytes\":3135369216,\"currentBytes\":2449149952,\"peakBytes\":3136466944,\"oomEvents\":0,\"oomKills\":0}"
+      },
+      {
+        "line": 70377,
+        "text": "[2026-10-26T13:01:55.327Z] [INFO] \ud83d\udcca Codex JSON events: thread.started=1, turn.started=1, item.started=1420, item.completed=1692, error=1, turn.failed=1"
+      },
+      {
+        "line": 70378,
+        "text": "[2026-10-26T13:01:55.329Z] [INFO] \ud83d\udce6 Codex item types: command_execution=2509, agent_message=149, reasoning=124, file_change=302, mcp_tool_call=12, web_search=16"
+      },
+      {
+        "line": 70391,
+        "text": "[2026-10-26T13:01:55.870Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 2 in 30s (session preserved) (budget 6h 37m/12h used)..."
+      },
+      {
+        "line": 70395,
+        "text": "[2026-10-26T13:02:25.881Z] [INFO] \ud83d\udd04 Retry attempt:            2 (budget 6h 38m/12h used)"
+      },
+      {
+        "line": 70545,
+        "text": "[2026-10-26T13:02:30.715Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      },
+      {
+        "line": 78393,
+        "text": "[2026-10-26T14:00:30.546Z] [STDOUT] {\"type\":\"error\",\"message\":\"Selected model is at capacity. Please try a different model.\"}"
+      },
+      {
+        "line": 78395,
+        "text": "[2026-10-26T14:00:31.611Z] [STDOUT] {\"type\":\"turn.failed\",\"error\":{\"message\":\"Selected model is at capacity. Please try a different model.\"}}"
+      },
+      {
+        "line": 78400,
+        "text": "[2026-10-26T14:00:31.828Z] [INFO] \ud83d\udcc8 Codex cgroup memory after execution: {\"version\":2,\"path\":\"/sys/fs/cgroup\",\"limitBytes\":3135369216,\"currentBytes\":2684907520,\"peakBytes\":3136466944,\"oomEvents\":0,\"oomKills\":0}"
+      },
+      {
+        "line": 78402,
+        "text": "[2026-10-26T14:00:31.920Z] [INFO] \ud83d\udcca Codex JSON events: thread.started=1, turn.started=1, item.completed=261, item.started=213, error=1, turn.failed=1"
+      },
+      {
+        "line": 78403,
+        "text": "[2026-10-26T14:00:31.959Z] [INFO] \ud83d\udce6 Codex item types: agent_message=26, command_execution=389, file_change=36, reasoning=23"
+      },
+      {
+        "line": 78414,
+        "text": "[2026-10-26T14:00:32.536Z] [WARNING] \u26a0\ufe0f Model capacity error detected. Retry 3 in 1 min (session preserved) (budget 7h 36m/12h used)..."
+      },
+      {
+        "line": 78418,
+        "text": "[2026-10-26T14:01:32.555Z] [INFO] \ud83d\udd04 Retry attempt:            3 (budget 7h 37m/12h used)"
+      },
+      {
+        "line": 78519,
+        "text": "[2026-10-26T14:01:36.536Z] [INFO] \ud83d\udccc Session ID: 01a17667-0be5-7ae2-8088-2f4b6276535f"
+      }
+    ]
+  },
+  {
+    "file": "incident.part-01.log.txt.gz",
+    "originalBytes": 14031447,
+    "sha256": "3fcb7fe847be8f0d197d2b09a4d24c556ba5242bb6b7429f047d2f5f23c2449a",
+    "lines": 45300,
+    "excerpts": [
+      {
+        "line": 45133,
+        "text": "[2026-10-28T00:48:22.400Z] [STDOUT] {\"type\":\"error\",\"message\":\"Selected model is at capacity. Please try a different model.\"}"
+      },
+      {
+        "line": 45136,
+        "text": "[2026-10-28T00:48:31.714Z] [STDOUT] {\"type\":\"turn.failed\",\"error\":{\"message\":\"Selected model is at capacity. Please try a different model.\"}}"
+      },
+      {
+        "line": 45146,
+        "text": "[2026-10-28T00:48:34.409Z] [INFO] \ud83d\udcc8 Codex cgroup memory after execution: {\"version\":2,\"path\":\"/sys/fs/cgroup\",\"limitBytes\":3135369216,\"currentBytes\":2735190016,\"peakBytes\":3136802816,\"oomEvents\":0,\"oomKills\":0}"
+      },
+      {
+        "line": 45148,
+        "text": "[2026-10-28T00:48:34.431Z] [INFO] \ud83d\udcca Codex JSON events: thread.started=1, turn.started=1, item.completed=10298, item.started=8596, error=1, turn.failed=1"
+      },
+      {
+        "line": 45149,
+        "text": "[2026-10-28T00:48:34.432Z] [INFO] \ud83d\udce6 Codex item types: agent_message=880, command_execution=15447, reasoning=823, web_search=68, file_change=1670, mcp_tool_call=6"
+      },
+      {
+        "line": 45162,
+        "text": "[2026-10-28T00:48:35.008Z] [ERROR] \u274c Model capacity error persisted: retry budget of 12h exhausted after 3 retries over 42h 24m"
+      }
+    ]
+  }
+]

@@ -111,11 +111,15 @@ await test('limits are applied while the Docker start gate is closed', async () 
   assert.equal(result.resolved.diskBytes, 5_000_000_000);
 });
 
-await test('a resource-limited start gate cannot time out into an unlimited task', () => {
-  const startArgs = buildStartCommandArgs('solve', ['https://github.com/o/r/issues/449'], {
+await test('a resource-limited start gate cannot time out into an unlimited task', async () => {
+  const startArgs = await buildStartCommandArgs('solve', ['https://github.com/o/r/issues/449'], {
     backend: 'docker',
     sessionId: 'session-449-fail-closed',
     containerResourceLimits: { cpu: '1' },
+    tool: 'claude',
+    homeDir: '/synthetic/host',
+    env: {},
+    existsSync: target => ['/synthetic/host/.claude/projects', '/synthetic/host/.claude/sessions'].includes(target),
   });
   const gatedCommand = startArgs.at(-1);
   assert.match(gatedCommand, /while \[ ! -e "\$gate" \]; do/, 'the limited task waits until the parent explicitly releases it');

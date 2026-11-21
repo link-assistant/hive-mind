@@ -17,14 +17,19 @@ import { exec as execCallback } from 'child_process';
 const execRaw = promisify(execCallback);
 
 import { parseGitHubUrl } from './github.lib.mjs';
+import { selectSessionPullRequest } from './session-own-pr.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+import { dropOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs';
 // Issue #2182: draft detection and merge-failure classification live in one
 // pure module shared by every merge call site.
 import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
-import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue-link-verification.lib.mjs';
+import { checkIssueCompletionBeforeMerge } from './issue-completion.lib.mjs';
+import { isRequirementsReportEnabled } from './issue-completion.prompts.lib.mjs';
+// Issues #3354/#3357: the one post-merge closing implementation for every merge path.
+import { closeIssuesAfterMerge, formatIssueClosingReport, issueClosingOptions, unclosedIssueKeys } from './post-merge-issue-closing.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -38,8 +43,9 @@ import { checkIssueLinksBeforeMerge, closeLinkedIssuesAfterMerge } from './issue
 // so genuine failures (404, auth, malformed JSON downstream) surface to the
 // caller — they MUST NOT be swallowed as in the original /merge bug where a
 // rate-limit error was silently treated as "no workflows".
+// hive-exec-timeout-ok: every call gets githubLimits.execTimeoutMs unless it passes its own timeout
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, timeout: githubLimits.execTimeoutMs, ...opts }), {
     label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 
@@ -47,12 +53,6 @@ const exec = (cmd, opts = {}) =>
 // to keep this file under the 1500 line limit
 import { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL } from './github-merge-ready-sync.lib.mjs';
 export { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL };
-
-// Issue #1895: After merging into a non-default branch, close the linked issue
-// explicitly (GitHub only auto-closes for default-branch merges). Extracted to a
-// separate module to keep this file under the 1500-line limit.
-import { closeLinkedIssueIfNotAutoClosed } from './github-merge-issue-close.lib.mjs';
-export { closeLinkedIssueIfNotAutoClosed };
 
 // Issue #2072: the long CI polling loops live in their own module (file size limit).
 // Re-exported here so existing importers keep working.
@@ -249,21 +249,16 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
 
         const linkedPRs = JSON.parse(searchJson.trim() || '[]');
 
-        if (linkedPRs.length > 0) {
-          // Take the first linked PR (oldest if multiple)
-          linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-          result.push({
-            issue,
-            pr: linkedPRs[0],
-            // Use minimum of issue and PR creation dates for sorting
-            sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(linkedPRs[0].createdAt))),
-          });
-
-          if (verbose) {
-            console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${linkedPRs[0].number}`);
-          }
+        // The issue's own PR, oldest first: a parent's plan PR that also closes
+        // this issue is on another issue's branch and is never picked (#2891).
+        linkedPRs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const pr = selectSessionPullRequest(linkedPRs, issue.number, { rejected: other => verbose && console.log(`[VERBOSE] /merge: Issue #${issue.number}: skipping PR #${other.number}, its branch ${other.headRefName} belongs to another issue`) });
+        if (pr) {
+          // Use minimum of issue and PR creation dates for sorting
+          result.push({ issue, pr, sortDate: new Date(Math.min(new Date(issue.createdAt), new Date(pr.createdAt))) });
+          if (verbose) console.log(`[VERBOSE] /merge: Issue #${issue.number} linked to PR #${pr.number}`);
         } else if (verbose) {
-          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR`);
+          console.log(`[VERBOSE] /merge: Issue #${issue.number} has no linked open PR of its own`);
         }
       } catch (err) {
         if (verbose) {
@@ -364,6 +359,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
         conclusion: check.conclusion,
         type: 'check_run',
         description: check.output?.title || check.output?.summary || null,
+        checkSuiteId: check.check_suite?.id ?? null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -392,9 +388,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       };
     }
 
-    const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
-    const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
+    // Issue #4048: a failed/running workflow_dispatch or schedule run is not part of the PR merge state.
+    const { checks: prChecks, outOfBand } = await dropOutOfBandChecks(allChecks, () => getWorkflowRunsForSha(owner, repo, sha, verbose));
+    const hasPending = prChecks.some(c => c.status !== 'completed' || c.conclusion === null);
+    const allPassed = !hasPending && prChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+    const hasFailed = prChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
 
     let status;
     if (hasPending) {
@@ -411,16 +409,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       console.log(`[VERBOSE] /merge: PR #${prNumber} CI status: ${status}`);
       console.log(`[VERBOSE] /merge:   Checks: ${allChecks.length}, Passed: ${allPassed}, Pending: ${hasPending}`);
       for (const check of allChecks) {
-        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}`);
+        console.log(`[VERBOSE] /merge:     - ${check.name}: ${check.status}/${check.conclusion}${outOfBand.some(o => o.checkSuiteId === check.checkSuiteId) ? ' (out-of-band, ignored)' : ''}`);
       }
     }
 
-    return {
-      status,
-      checks: allChecks,
-      allPassed,
-      hasPending,
-    };
+    return { status, checks: prChecks, allPassed, hasPending, outOfBandChecks: outOfBand };
   } catch (error) {
     if (isTerminalGitHubEntityError(error)) {
       const terminalError = getTerminalGitHubEntityErrorMessage(error);
@@ -563,8 +556,11 @@ export async function checkMergePermissions(owner, repo, verbose = false) {
  * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge'). Must specify one method non-interactively (Issue #1269).
  * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
+ * @param {boolean} [options.autoCloseLinkedIssues] - Close intended issues GitHub left open after the merge (default: on; HIVE_MIND_AUTO_CLOSE_LINKED_ISSUES=false only reports, #3354)
+ * @param {boolean} [options.allowCrossRepositoryClosing] - Allow author-written closing references to other repositories (default: on, #3358)
+ * @param {boolean} [options.closeCompletedParents] - Close parents whose work is complete (default: on, #3359)
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{success: boolean, error: string|null}>}
+ * @returns {Promise<{success: boolean, error: string|null, issueClosing?: Object, unclosedIssues?: string[]}>}
  */
 export async function mergePullRequest(owner, repo, prNumber, options = {}, verbose = false) {
   const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
@@ -572,9 +568,12 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
   try {
     // Issue #2335: every merge entry point, including the queue, re-reads the
     // description and refuses to merge a pull request that does not close its issues.
-    const links = await checkIssueLinksBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose });
+    // Issue #2406: with the experimental --requirements-report (#3469), nor one without a current, complete requirements report.
+    const links = await checkIssueCompletionBeforeMerge({ owner, repo, prNumber, issueNumber: options.issueNumber, logger: async message => console.log(message), verbose, allowCrossRepositoryClosing: issueClosingOptions(options).allowCrossRepositoryClosing, requirementsReport: isRequirementsReportEnabled(options) });
     if (links.blocker) return { success: false, error: links.blocker.message, category: links.blocker.reason, terminal: true, recoverable: false, resolution: links.blocker.resolution, blocker: links.blocker };
     let mergeArgs = `--repo ${owner}/${repo}`;
+    // Issue #2406: merge exactly the commit that was verified, not one pushed since.
+    if (links.headSha) mergeArgs += ` --match-head-commit ${links.headSha}`;
 
     // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
     // We must always specify a merge method to prevent the command from hanging or failing
@@ -592,14 +591,16 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
     }
 
     const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
-    const unclosedIssues = await closeLinkedIssuesAfterMerge(links.snapshot, { logger: async message => console.warn(message) });
+    // Issue #3355: verify every intended issue closed; close (or, when switched off, report) the rest.
+    const issueClosing = await closeIssuesAfterMerge(links.snapshot, options, { logger: async message => console.warn(message) });
+    for (const line of formatIssueClosingReport(issueClosing)) console.log(line);
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Successfully merged PR #${prNumber}`);
       if (stdout) console.log(`[VERBOSE] /merge: stdout: ${stdout.trim()}`);
     }
 
-    return { success: true, error: null, unclosedIssues };
+    return { success: true, error: null, issueClosing, unclosedIssues: unclosedIssueKeys(issueClosing) };
   } catch (error) {
     // Issue #2182: classify the failure so watch loops can stop (or self-heal)
     // instead of retrying an impossible merge every 120 seconds forever.
@@ -912,6 +913,26 @@ export async function rerunWorkflowRun(owner, repo, runId, verbose = false) {
 }
 
 /**
+ * Cancel a workflow run (issue #4048). A run stuck in `queued` with no jobs
+ * cannot be re-run until it completes, so it is cancelled first. With
+ * `force: true` it uses `POST .../force-cancel`, which GitHub documents for
+ * runs that do not respond to a normal cancel.
+ * @returns {Promise<{success: boolean, forced: boolean, error: string|null}>}
+ */
+export async function cancelWorkflowRun(owner, repo, runId, { force = false, verbose = false } = {}) {
+  const endpoint = force ? 'force-cancel' : 'cancel';
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/${endpoint} -X POST`);
+    if (verbose) console.log(`[VERBOSE] /merge: ${endpoint} accepted for workflow run ${runId}`);
+    return { success: true, forced: force, error: null };
+  } catch (error) {
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) console.log(`[VERBOSE] /merge: ${endpoint} failed for workflow run ${runId}: ${errorMessage}`);
+    return { success: false, forced: force, error: errorMessage };
+  }
+}
+
+/**
  * Re-run only failed jobs in a workflow run
  * Issue #1314: More targeted than full re-run, only retries failed jobs
  * @param {string} owner - Repository owner
@@ -982,6 +1003,8 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         id: check.id,
         description: check.output?.title || check.output?.summary || null,
         html_url: check.html_url || check.details_url || null,
+        // Issue #4048: joins the check to its workflow run (and that run's `event`).
+        checkSuiteId: check.check_suite?.id ?? null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -1145,7 +1168,9 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
     const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
     const runs = JSON.parse(stdout.trim() || '[]')
       .flatMap(page => page.workflow_runs || [])
-      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
+      // Issue #4048: event/checkSuiteId tell out-of-band (workflow_dispatch, schedule) runs apart;
+      // createdAt/runStartedAt let callers detect runs that have been queued for hours.
+      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path, event: run.event || null, checkSuiteId: run.check_suite_id ?? null, createdAt: run.created_at || null, runStartedAt: run.run_started_at || null, updatedAt: run.updated_at || null }));
 
     if (verbose) {
       // Issue #1712: Include the commit URL (not just SHA) and the workflow run html_url
@@ -1155,7 +1180,7 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} workflow run(s) for ${commitUrl}`);
       for (const run of runs) {
         const concPart = run.conclusion ? `/${run.conclusion}` : '';
-        console.log(`[VERBOSE] /merge:   - ${run.name} [${run.status}${concPart}]: ${run.html_url}`);
+        console.log(`[VERBOSE] /merge:   - ${run.name} [${run.status}${concPart}${run.event && run.event !== 'pull_request' ? `, event=${run.event}` : ''}${run.status === 'queued' && run.createdAt ? `, queued since ${run.createdAt}` : ''}]: ${run.html_url}`);
       }
     }
 
@@ -1293,7 +1318,6 @@ export default {
   getActiveBranchRuns, // Issue #1307: New exports for target branch CI waiting
   waitForBranchCI,
   getDefaultBranch,
-  closeLinkedIssueIfNotAutoClosed, // Issue #1895: close linked issue after merge into non-default branch
   // Issue #1314: Billing limit detection and enhanced CI status and re-run capabilities
   getCheckRunAnnotations,
   getRepoVisibility,
@@ -1301,6 +1325,7 @@ export default {
   BILLING_LIMIT_ERROR_PATTERN,
   getDetailedCIStatus,
   rerunWorkflowRun,
+  cancelWorkflowRun, // Issue #4048
   rerunFailedJobs,
   getWorkflowRunsForSha,
   getWorkflowRunJobsCount, // Issue #1690: detect invalid workflow files (no jobs created)

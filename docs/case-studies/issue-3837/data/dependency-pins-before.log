@@ -1,0 +1,268 @@
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Dockerfile should pin current Node.js 26.13.0
+    at file:///tmp/gh-issue-solver-1793206320861/tests/test-issue-2187-current-dependency-pins.mjs:43:10
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:105:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '# Hive Mind Docker image\n' +
+    '# Inherits from ghcr.io/link-foundation/box, which provides all general-purpose\n' +
+    '# development tools\n' +
+    '# This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)\n' +
+    '#\n' +
+    '# Architecture (see issue #1394, #1499, #1505 and box#79):\n' +
+    '#   ghcr.io/link-foundation/box (pinned full image)\n' +
+    '#     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.\n' +
+    '#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)\n' +
+    '#     └── /home/box directory owned by box user\n' +
+    '#   hive-mind (konard/hive-mind)\n' +
+    '#     └── Inherits Box, adds AI coding assistants and Playwright MCP\n' +
+    '#     └── Runs entirely as box user (no USER root needed)\n' +
+    '#\n' +
+    '# Box image version: pinned to a specific release for stable, reproducible builds.\n' +
+    '# To upgrade: update the version tag below and in coolify/Dockerfile.\n' +
+    '# Keep this in lockstep with the DinD base-image release.\n' +
+    '# Latest Box releases: https://github.com/link-foundation/box/releases\n' +
+    '#\n' +
+    '# Build: docker build -t konard/hive-mind .\n' +
+    '\n' +
+    'ARG FORMAL_AI_VERSION=0.355.14\n' +
+    "# Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.\n" +
+    'FROM rust:1.99-slim-bookworm AS formal-ai-builder\n' +
+    'ARG FORMAL_AI_VERSION\n' +
+    '# Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->\n' +
+    '# web-capture -> reqwest with default features -> native-tls -> openssl-sys), so\n' +
+    '# the builder needs pkg-config and the OpenSSL headers; rust:slim ships neither\n' +
+    '# and the openssl-sys build script aborts the install. Reported upstream as\n' +
+    '# link-assistant/formal-ai#988 and fixed in 0.339.0 (its Cargo.lock no longer\n' +
+    '# contains openssl-sys), but the root causes are still open upstream\n' +
+    '# (link-assistant/web-capture#151, link-foundation/browser-commander#77), so the\n' +
+    '# packages stay as defense in depth: if a future release drags openssl-sys back\n' +
+    '# in, OPENSSL_STATIC links libssl into the binary and the copy into the Ubuntu\n' +
+    "# 24.04 runtime below stays independent of the runtime's OpenSSL soname; when\n" +
+    '# openssl-sys is absent both are inert (see docs/case-studies/issue-2146).\n' +
+    'RUN apt-get update && \\\n' +
+    '    apt-get install -y --no-install-recommends pkg-config libssl-dev && \\\n' +
+    '    rm -rf /var/lib/apt/lists/*\n' +
+    'ENV OPENSSL_STATIC=1\n' +
+    'RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked\n' +
+    '\n' +
+    '# Box 2.10.5 retains the box#112 one-toolchain invariant and the base\n' +
+    '# runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120\n' +
+    '# repaired the Docker Hub multi-arch publishing failure reported in box#119;\n' +
+    "# both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry\n" +
+    '# of record, as the reproducible source for this pin. Box #129 also adds file\n' +
+    '# for validating downloaded attachments. Box 2.10.5 enables Docker live\n' +
+    '# restore in the nested DinD daemon (box#131).\n' +
+    'FROM ghcr.io/link-foundation/box:2.10.5\n' +
+    'ARG HIVE_MIND_VERSION=latest\n' +
+    '# Task-container prerequisite installs stay within the workspace (formal-ai#1159).\n' +
+    'ENV FORMAL_AI_INSTALL_GRANT=workspace\n' +
+    '# Release builds pass the exact published package version here. Bake it as the\n' +
+    '# default child isolation image tag so a parent started via :latest still runs\n' +
+    '# Docker-isolated tasks on the same immutable release image.\n' +
+    'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"\n' +
+    '\n' +
+    '# --- Environment variables ---\n' +
+    "# Set environment variables EARLY so they're available in subsequent RUN commands\n" +
+    '# All paths use /home/box (shared directory owned by box:box)\n' +
+    'ENV HOME=/home/box\n' +
+    'ENV NVM_DIR="/home/box/.nvm"\n' +
+    'ENV PYENV_ROOT="/home/box/.pyenv"\n' +
+    'ENV BUN_INSTALL="/home/box/.bun"\n' +
+    'ENV DENO_INSTALL="/home/box/.deno"\n' +
+    'ENV CARGO_HOME="/home/box/.cargo"\n' +
+    'ENV GOROOT="/home/box/.go"\n' +
+    'ENV GOPATH="/home/box/.go/path"\n' +
+    'ENV SDKMAN_DIR="/home/box/.sdkman"\n' +
+    'ENV PERLBREW_ROOT="/home/box/.perl5"\n' +
+    'ENV RBENV_ROOT="/home/box/.rbenv"\n' +
+    '\n' +
+    '# Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)\n' +
+    '# The two memory switches are policy, not cosmetics: a hive-mind task keeps no\n' +
+    '# memory a reviewer cannot see, so the repository stays the only memory (issue #2178)\n' +
+    '# The marketplace switch keeps the global config minimal: the official plugin\n' +
+    '# marketplace must never be auto-installed into a task (issue #2190)\n' +
+    '# The five CLASSIFIER/RECAP/NARRATION/SUGGESTION/TOOL_USE_SUMMARIES switches are\n' +
+    '# pinned to 0 rather than left unset because Claude Code falls through to a remote\n' +
+    '# rollout flag when they are undefined: they are auxiliary model calls nobody in an\n' +
+    '# autonomous run reads, and they bill against the same limit as the task (issue #2236)\n' +
+    '# Compaction is deliberately NOT disabled here — DISABLE_AUTO_COMPACT and\n' +
+    '# DISABLE_COMPACT must never appear in this image (issue #2236)\n' +
+    'ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \\\n' +
+    '    CLAUDE_CODE_CLASSIFIER_SUMMARY=0 \\\n' +
+    '    CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES=0 \\\n' +
+    '    CLAUDE_CODE_ENABLE_NARRATION=0 \\\n' +
+    '    CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=0 \\\n' +
+    '    CLAUDE_CODE_ENABLE_REMOTE_RECAP=0 \\\n' +
+    '    CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_CRON=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_FAST_MODE=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \\\n' +
+    '    CLAUDE_CODE_DISABLE_MOUSE=1 \\\n' +
+    '    CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 \\\n' +
+    '    CLAUDE_CODE_ENABLE_TASKS=1 \\\n' +
+    '    CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4 \\\n' +
+    '    CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1 \\\n' +
+    '    DISABLE_FEEDBACK_COMMAND=1\n' +
+    '\n' +
+    '# Opam environment variables for Rocq/Coq theorem prover\n' +
+    'ENV OPAM_SWITCH_PREFIX="/home/box/.opam/default"\n' +
+    'ENV CAML_LD_LIBRARY_PATH="/home/box/.opam/default/lib/stublibs:/home/box/.opam/default/lib/ocaml/stublibs:/home/box/.opam/default/lib/ocaml"\n' +
+    'ENV OCAML_TOPLEVEL_PATH="/home/box/.opam/default/lib/toplevel"\n' +
+    '\n' +
+    '# Comprehensive PATH including all tools\n' +
+    '# Note: Node.js path is added dynamically since NVM version may vary\n' +
+    '# Note: ~/.local/bin is included for user-installed binaries (Claude Code and opam)\n' +
+    'ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/box/.pyenv/bin:/home/box/.pyenv/shims:/home/box/.rbenv/bin:/home/box/.rbenv/shims:/home/box/.swift/usr/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/box/.local/bin:/home/box/.cargo/bin:/home/box/.deno/bin:/home/box/.bun/bin:/home/box/.go/bin:/home/box/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n' +
+    '\n' +
+    '# Run entirely as box user — no USER root needed (see issue #1505)\n' +
+    'USER box\n' +
+    'WORKDIR /home/box\n' +
+    '\n' +
+    '# Use bash for every subsequent RUN. nvm is sourced below and the build steps\n' +
+    '# further down already use bash-only syntax (`&>`), which /bin/sh (dash) parses\n' +
+    '# as "run in background, then redirect" — silently turning those guards into\n' +
+    '# no-ops. Declaring the shell here instead of at the end of the file makes the\n' +
+    '# steps run as they read (issue #2187).\n' +
+    'SHELL ["/bin/bash", "-c"]\n' +
+    '\n' +
+    '# The solver verifies downloaded attachments with file before opening them.\n' +
+    "# Box's runtime does not guarantee this utility (issue #2687).\n" +
+    'RUN command -v file >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install file\n' +
+    '\n' +
+    `# AI tools pipe JSON through jq, and the solver's printed "Raw command" ends in\n` +
+    "# `| jq -c .`. Box's runtime does not guarantee this utility either; without it\n" +
+    '# those commands exit 127 with `jq: command not found` (issue #2846).\n' +
+    'RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq\n' +
+    '\n' +
+    '# --- Current Node.js and Bun (issue #2187) ---\n' +
+    "# Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's\n" +
+    '# ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was\n' +
+    '# built, so every derived image inherited runtimes well behind the workloads.\n' +
+    '# Hive Mind itself declares `engines.node >= 24`, and tasks on repositories that\n' +
+    '# need something newer used to download their own node/bun into /tmp on every\n' +
+    '# run and leave the copy behind — a second accumulation of versions on top of\n' +
+    "# the image's own. Reported upstream as link-foundation/box#112 and fixed in\n" +
+    '# box 2.7.0. The current 2.10.5 base keeps one version per language. When a\n' +
+    '# pin below differs from the base, replace the runtime and repoint the default\n' +
+    '# before pruning superseded Node.js versions (the prune behavior is covered\n' +
+    '# by tests/test-issue-2187-runtime-versions.mjs).\n' +
+    '#\n' +
+    '# The layer is kept anyway, because it is the floor rather than the source of\n' +
+    "# the runtime. The base's versions are box's decision and can move under us in\n" +
+    '# either direction; `engines.node` is ours. Installing here means a base bump\n' +
+    '# can never silently drop the image below the floor, and the prune loop still\n' +
+    '# collapses whatever the base ships to a single version. The pin wins over the\n' +
+    '# base — a base shipping something NEWER would be pruned back to the pin — so\n' +
+    '# when box moves, bump these ARGs to match instead of deleting the block.\n' +
+    '#\n' +
+    '# Pin the runtimes here (bump these ARGs like any other pin):\n' +
+    '#   - HIVE_MIND_NODE_VERSION must stay >= the `engines.node` floor in package.json;\n' +
+    '#     tests/test-issue-2187-runtime-versions.mjs fails the build otherwise.\n' +
+    '#   - HIVE_MIND_BUN_VERSION is installed OVER the inherited binary, so ~/.bun keeps one\n' +
+    '#     bun rather than accumulating versions.\n' +
+    '#\n' +
+    "# The nvm root is left with exactly ONE node version: the base's global npm\n" +
+    '# packages are re-installed under the new version AT THEIR EXISTING VERSIONS\n' +
+    '# (pinning matters — ~/.cache/ms-playwright already holds the browser builds\n' +
+    '# matching the inherited playwright, so an unpinned upgrade would leave the CLI\n' +
+    '# pointing at browsers the image does not have), then every other version\n' +
+    '# directory is removed. `.node-bin`, `nvm use default` and a bare `node` then\n' +
+    '# all resolve to the same, newest runtime (issue #2187, item A).\n' +
+    'ARG HIVE_MIND_NODE_VERSION=26.12.1\n' +
+    'ARG HIVE_MIND_BUN_VERSION=1.4.4\n' +
+    'RUN set -e && \\\n' +
+    '    . "$NVM_DIR/nvm.sh" && \\\n' +
+    '    PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \\\n' +
+    '    GLOBAL_SPECS="" && \\\n' +
+    '    for package_json in "$PREVIOUS_GLOBAL_LIB"/*/package.jso'... 16445 more characters,
+  expected: /^ARG HIVE_MIND_NODE_VERSION=26\.13\.0$/m,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v26.12.1
+✖ tests/test-issue-2187-current-dependency-pins.mjs (104.585319ms)
+  ✅ PASS: package.json declares an engines.node floor (>=24.0.0)
+  ✅ PASS: Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile: Bun pin is current (1.4.4)
+  ❌ FAIL: Dockerfile: Node.js pin is current (26.12.1)
+  ✅ PASS: Dockerfile: pins an exact Node.js version (26.12.1)
+  ✅ PASS: Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ✅ PASS: Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: Dockerfile.dind: Bun pin is current (1.4.4)
+  ✅ PASS: Dockerfile.dind: pins an exact Node.js version (26.12.1)
+  ✅ PASS: Dockerfile.dind: pins an exact Bun version (1.4.4)
+  ✅ PASS: Dockerfile.dind: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ❌ FAIL: Dockerfile.dind: Node.js pin is current (26.12.1)
+  ❌ FAIL: coolify/Dockerfile: Node.js pin is current (26.12.1)
+  ✅ PASS: Dockerfile.dind: repoints the nvm default alias at the pinned version
+  ✅ PASS: Dockerfile.dind: installs the pinned Bun version
+  ✅ PASS: coolify/Dockerfile: pins current Box 2.10.5 (2.10.5)
+  ✅ PASS: coolify/Dockerfile: Bun pin is current (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pins an exact Node.js version (26.12.1)
+  ✅ PASS: coolify/Dockerfile: pins an exact Bun version (1.4.4)
+  ✅ PASS: coolify/Dockerfile: pinned Node.js 26.12.1 satisfies engines.node >= 24
+  ✅ PASS: coolify/Dockerfile: repoints the nvm default alias at the pinned version
+  ✅ PASS: coolify/Dockerfile: installs the pinned Bun version
+  ✅ PASS: Dockerfile.dind: pins the same Node.js version as Dockerfile
+  ✅ PASS: Dockerfile.dind: pins the same Bun version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Node.js version as Dockerfile
+  ✅ PASS: coolify/Dockerfile: pins the same Bun version as Dockerfile
+  ✅ PASS: Dockerfile: has a superseded-node prune loop
+  ✅ PASS: Dockerfile: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile.dind: has a superseded-node prune loop
+  ✅ PASS: Dockerfile.dind: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: Dockerfile.dind: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: coolify/Dockerfile: has a superseded-node prune loop
+  ✅ PASS: coolify/Dockerfile: prune loop keeps only v26.12.1 (kept: v26.12.1)
+  ✅ PASS: coolify/Dockerfile: prune loop is a no-op when only the pinned version is installed
+  ✅ PASS: Dockerfile: has a global-npm-package scan
+  ✅ PASS: Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: Dockerfile.dind: has a global-npm-package scan
+  ✅ PASS: Dockerfile.dind: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: Dockerfile.dind: does not re-install node's bundled npm/corepack
+  ✅ PASS: Dockerfile.dind: collects nothing when the base has no global packages
+  ✅ PASS: coolify/Dockerfile: has a global-npm-package scan
+  ✅ PASS: coolify/Dockerfile: re-installs inherited globals at their exact versions (got: @playwright/test@1.58.2 @puppeteer/browsers@2.10.10 playwright@1.58.2)
+  ✅ PASS: coolify/Dockerfile: does not re-install node's bundled npm/corepack
+  ✅ PASS: coolify/Dockerfile: collects nothing when the base has no global packages
+  ✅ PASS: scripts/verify-docker-image.sh MIN_NODE_MAJOR (24) matches engines.node floor (24)
+  ✅ PASS: scripts/verify-docker-image.sh counts installed Node.js versions
+
+============================================================
+Results: 49 passed, 3 failed, 52 total
+============================================================
+✖ tests/test-issue-2187-runtime-versions.mjs (1613.683694ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1740.153589
+
+✖ failing tests:
+
+test at tests/test-issue-2187-current-dependency-pins.mjs:1:1
+✖ tests/test-issue-2187-current-dependency-pins.mjs (104.585319ms)
+  'test failed'
+
+test at tests/test-issue-2187-runtime-versions.mjs:1:1
+✖ tests/test-issue-2187-runtime-versions.mjs (1613.683694ms)
+  'test failed'

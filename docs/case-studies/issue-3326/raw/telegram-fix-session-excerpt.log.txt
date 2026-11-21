@@ -1,0 +1,266 @@
+# Excerpt of telegram-bot.log.txt: the /fix command and every line mentioning session 6bf7c2c7 (issue #3326)
+[VERBOSE] Telegram Bot API getUpdates accepted; windows: {"other":1}
+[VERBOSE] /fix command received
+[VERBOSE] isForwardedOrReply: Checking message fields...
+[VERBOSE]   message.reply_to_message: {"message_id":857,"from":{"id":1339837872,"is_bot":false,"first_name":"Konstantin","last_name":"Dyachenko","username":"drakonard","language_code":"en","is_premium":true},"chat":{"id":-1002975819706,"title":"Pull Request from Hive Mind","is_forum":true,"type":"supergroup"},"date":1759480502,"message_thread_id":857,"forum_topic_created":{"name":"Запросы на генерацию Pull Requests","icon_color":16766590,"icon_custom_emoji_id":"5309832892262654231"},"is_topic_message":true}
+[VERBOSE]   message.reply_to_message?.message_id: 857
+[VERBOSE] isForwarded: Checking forwarding fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE] isForwarded: FALSE - no forwarding detected
+[VERBOSE] isForwardedOrReply: FALSE - reply is to forum topic creation, not user reply
+[VERBOSE]   Forum topic: {
+  name: 'Запросы на генерацию Pull Requests',
+  icon_color: 16766590,
+  icon_custom_emoji_id: '5309832892262654231'
+}
+[VERBOSE] isForwardedOrReply: FALSE - no forwarding or reply detected
+[VERBOSE] isolation-runner: docker inspect for 'aba635de-8f93-480b-9796-22547b78d351': running
+[telegram-send] s778 safeReply → chat=-1002975819706 parse_mode=Markdown reply_to=120279 chars=267 bytes=273 text="🔄 Starting...\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+[VERBOSE] Session aba635de-8f93-480b-9796-22547b78d351: reusing the writable-layer size observed at 2026-10-15T11:06:12.882Z (issue #2189: not re-walking the layer every poll)
+[telegram-send] s779 sendMessage → chat=-1002975819706 thread=857 parse_mode=Markdown reply_to=120279 thread=857 chars=267 bytes=273 text="🔄 Starting...\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+[VERBOSE] Telegram Bot API sendMessage accepted; windows: {"chat":1,"group":1,"broadcast":1}
+[telegram-send] s779 sendMessage ✓ delivered message_id=120280
+[telegram-send] s778 safeReply ✓ delivered message_id=120280
+[VERBOSE] Using isolation (docker), session: 6bf7c2c7-4bee-4c8f-b239-c46af766a907
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 tracked in memory (mode: isolation:docker)
+2026-10-15T11:09:41.738Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+2026-10-15T11:09:41.742Z INFO  EVENT session_tracked {"sessionName":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","mode":"isolation:docker","url":"https://github.com/konard/medical-neural-network-ml","command":"fix","sessionId":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","executionUuid":null,"startTime":"2026-10-15T11:09:41.734Z"}
+[telegram-send] s780 safeEditMessageText → chat=-1002975819706 message=120280 thread=857 parse_mode=Markdown chars=342 bytes=352 text="🔄 Starting...\n\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+...
+[telegram-send] s781 editMessageText → chat=-1002975819706 message=120280 parse_mode=Markdown chars=342 bytes=352 text="🔄 Starting...\n\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+[VERBOSE] isolation-runner: Backend: docker, Session ID: 6bf7c2c7-4bee-4c8f-b239-c46af766a907
+[VERBOSE] isolation-runner: '/home/box/.bun/bin/$' '--isolated' 'docker' '--image' 'konard/hive-mind-dind:2.35.8' '--privileged' '--shell' 'sh' '-e' 'HOME=/home/box' '-e' 'HIVE_MIND_PARENT_SESSION_ID=6bf7c2c7-4bee-4c8f-b239-c46af766a907' '-e' 'HIVE_MIND_IMAGE_VARIANT=dind' '-e' 'HIVE_MIND_TASK_IMAGE=konard/hive-mind-dind:2.35.8' '-e' 'HIVE_MIND_TASK_IMAGE_DIGEST=sha256:9706ce436565c715d6c2b95f615b51fa8c8ee96ddbbf56d98201e6861fdc60e9' '--volume' '/home/box/.config/gh:/home/box/.config/gh' '--volume' '/home/box/.gitconfig:/home/box/.gitconfig' '--volume' '/home/box/.claude/.credentials.json:/hom
+│ container 6bf7c2c7-4bee-4c8f-b239-c46af766a907
+$ gate='/tmp/hive-mind-disk-baseline-6bf7c2c7-4bee-4c8f-b239-c46af766a907'; while [ ! -e "$gate" ]; do sleep 0.1; done; rm -f "$gate"; exec 'fix' 'https://github.com/konard/medical-neural-network-ml' '--ci-cd' '--think' 'high' '--attach-logs' '--verbose' '--no-tool-check' '--disab
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 376832 bytes
+[VERBOSE] isolation-runner: released docker start gate for '6bf7c2c7-4bee-4c8f-b239-c46af766a907'
+[VERBOSE] isolation-runner: Docker post-launch container '6bf7c2c7-4bee-4c8f-b239-c46af766a907' running=true (issue #1939)
+[VERBOSE] isolation-runner: start-command execution UUID for session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: a61345fd-cee9-4c6f-a240-a65224014fec (this is what '$ --list' shows)
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 tracked in memory (mode: isolation:docker)
+2026-10-15T11:09:46.799Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+2026-10-15T11:09:46.800Z INFO  EVENT session_tracked {"sessionName":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","mode":"isolation:docker","url":"https://github.com/konard/medical-neural-network-ml","command":"fix","sessionId":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","executionUuid":"a61345fd-cee9-4c6f-a240-a65224014fec","startTime":"2026-10-15T11:09:41.734Z"}
+[telegram-send] s782 safeEditMessageText → chat=-1002975819706 message=120280 thread=857 parse_mode=Markdown chars=395 bytes=407 text="⏳ Executing...\n\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🆔 Execution: `a61345fd-cee9-4c6f-a240-a65224014fec`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+[telegram-send] s783 editMessageText → chat=-1002975819706 message=120280 parse_mode=Markdown chars=395 bytes=407 text="⏳ Executing...\n\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🆔 Execution: `a61345fd-cee9-4c6f-a240-a65224014fec`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker"
+2026-10-15T11:10:12.047Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 104869888 bytes
+2026-10-15T11:10:12.380Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:10:12.379Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 389763072 bytes
+2026-10-15T11:15:42.276Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:15:42.269Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 576782336 bytes
+2026-10-15T11:21:13.324Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:21:13.320Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 808689664 bytes
+2026-10-15T11:26:42.474Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:26:42.470Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 810803200 bytes
+2026-10-15T11:32:12.183Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:32:12.179Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 837832704 bytes
+2026-10-15T11:37:42.470Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:37:42.468Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 840921088 bytes
+2026-10-15T11:43:12.396Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:43:12.395Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 913575936 bytes
+2026-10-15T11:48:42.974Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:48:42.973Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': 913616896 bytes
+2026-10-15T11:54:12.969Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker inspect for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': running
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907: reusing the writable-layer size observed at 2026-10-15T11:54:12.967Z (issue #2189: not re-walking the layer every poll)
+[VERBOSE] isolation-runner: docker writable layer size for '6bf7c2c7-4bee-4c8f-b239-c46af766a907': unknown
+Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 has finished. Sending notification to chat -1002975819706
+[telegram-send] s795 safeEditMessageText → chat=-1002975819706 message=120280 thread=857 parse_mode=Markdown chars=617 bytes=635 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 48m 58s\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🆔 Execution: `a61345fd-cee9-4c6f-a240-a65224014fec`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation d
+[telegram-send] s796 editMessageText → chat=-1002975819706 message=120280 parse_mode=Markdown chars=617 bytes=635 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 48m 58s\n📊 Session: `6bf7c2c7-4bee-4c8f-b239-c46af766a907`\n🆔 Execution: `a61345fd-cee9-4c6f-a240-a65224014fec`\n🔒 Isolation: `docker`\n\nRequested by: [@drakonard](https://t.me/drakonard)\nRepository: https://github.com/konard/medical-neural-network-ml\n\n🛠 Options: --ci-cd --think high\n\n🔒 Solve overrides: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\n💾 D
+2026-10-15T11:58:42.596Z DEBUG Persisted session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 {"command":"fix","url":"https://github.com/konard/medical-neural-network-ml"}
+2026-10-15T11:58:42.597Z INFO  EVENT session_completion_notified {"sessionName":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","exitCode":0,"status":"executed","notifiedAt":"2026-10-15T11:58:42.594Z"}
+[VERBOSE] isolation-runner: docker rm -f '6bf7c2c7-4bee-4c8f-b239-c46af766a907' succeeded
+[VERBOSE] Removed docker task container '6bf7c2c7-4bee-4c8f-b239-c46af766a907' after terminal session completion
+[VERBOSE] Session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 removed from tracking (exit: 0, status: executed)
+2026-10-15T11:58:42.694Z DEBUG Removed session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 from snapshot {"status":"executed","exitCode":0}
+2026-10-15T11:58:42.695Z INFO  EVENT session_completed {"sessionName":"6bf7c2c7-4bee-4c8f-b239-c46af766a907","exitCode":0,"status":"executed"}
+[VERBOSE] /queue: Session completion for session 6bf7c2c7-4bee-4c8f-b239-c46af766a907 exit=0 status=executed matches no launched queue item

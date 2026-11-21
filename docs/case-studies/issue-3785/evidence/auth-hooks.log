@@ -1,0 +1,3 @@
+codex-cli 0.164.0
+OBSERVED: external ChatGPT-token login is marked internal and unstable in the installed CLI schema.
+No credentials, model requests or provider exchanges were used; this does not verify an execution adapter.

@@ -1,0 +1,31 @@
+[telegram-send] s1 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:29:58.752Z\nAttempt started: 2026-10-05T23:29:58.750Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+[telegram-send] s2 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=353 bytes=355 text="❌ Recovery attempt failed (attempt 1)\nUpdated: 2026-10-05T23:34:58.752Z\nAttempt started: 2026-10-05T23:29:58.750Z\nRecovery session: original\nPrevious session: original\nThis attempt exited with code 1.\nReason: authentication failed\nThis is the AI tool attempt result; the enclosing solve run is still "… (+53 chars)
+[telegram-send] s2 safeEditMessageText ✓ delivered
+[telegram-send] s3 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=394 bytes=398 text="🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:39:58.752Z\nAttempt started: 2026-10-05T23:29:58.750Z\nRecovery session: original\nPrevious session: original\nExecution log output observed at 2026-10-05T23:29:59.914Z. Output alone does not establish commits or t"… (+94 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✖ a tool outcome and its enclosing run outcome are both reported, even when their phase matches (1239.797295ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2163.337598
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:167:1
+✖ a tool outcome and its enclosing run outcome are both reported, even when their phase matches (1239.797295ms)
+  AssertionError [ERR_ASSERTION]: a known tool result survives tail eviction and persisted-state restoration
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:186:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '<!-- hive-mind:recovery-lifecycle -->\n🔄 Recovery attempt under monitoring — outcome pending (attempt 1)\nUpdated: 2026-10-05T23:39:58.752Z\nAttempt started: 2026-10-05T23:29:58.750Z\nRecovery session: original\nPrevious session: original\nExecution log output observed at 2026-10-05T23:29:59.914Z. Output alone does not establish commits or task progress.\nNo terminal outcome is confirmed. A quiet run may still be working or stalled.',
+    expected: /Recovery attempt failed/,
+    operator: 'match',
+    diff: 'simple'
+  }

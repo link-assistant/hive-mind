@@ -62,6 +62,12 @@ export const BILLING_LIMIT_MARKER = 'GitHub Actions Billing Limit';
 // solve.auto-merge.lib.mjs — cancelled/stale CI needs manual review
 export const CANCELLED_CI_REVIEW_MARKER = 'Cancelled CI/CD Requires Review';
 
+// solve.auto-merge-stuck-ci.lib.mjs — Issue #4048: CI signals have disagreed
+// for a long time (out-of-band failures, runs stuck in queued after a GitHub
+// incident). Posted once per HEAD commit so a human sees why the pull request
+// is not announced as ready to merge.
+export const CI_WAIT_STUCK_MARKER = 'CI wait is stuck';
+
 // automation-stop-reporting.lib.mjs — Issue #2144: every automation stop is
 // announced on GitHub with the exact reason. Before this, watch mode and
 // auto-restart-until-mergeable exited silently on terminal states and tool
@@ -95,6 +101,21 @@ export const WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER = 'This summary was automa
 // changed nothing.
 export const NO_CHANGES_PRODUCED_MARKER = 'No changes were produced by this session';
 
+// Issue #3211: posted when a run finished without changing anything (session-changes.lib.mjs).
+export const FINISHED_WITHOUT_CHANGES_MARKER = 'Finished without changes';
+
+// Issue #3330: posted when what a run changed could not be measured, so its pull request keeps its state (session-changes.lib.mjs).
+export const SESSION_EFFECT_UNVERIFIED_MARKER = "Could not verify the session's effect";
+// Issue #3332: GitHub rejected a push because the token cannot write workflows.
+export const WORKFLOW_PUSH_REJECTED_MARKER = 'Workflow push rejected';
+// Issue #3174: a closing reference the session removed is not re-added (pr-issue-link-repair.lib.mjs).
+export const CLOSING_REFERENCES_LEFT_OUT_MARKER = 'Closing references left out';
+
+// interactive-mode.lib.mjs — hidden first line of every tool-use comment it posts or edits, so a process
+// that did not post them still knows they are not feedback (issue #3469)
+export const INTERACTIVE_MODE_COMMENT_MARKER = '<!-- hive-mind:interactive-mode -->';
+export const withInteractiveModeMarker = body => (String(body).startsWith(INTERACTIVE_MODE_COMMENT_MARKER) ? body : `${INTERACTIVE_MODE_COMMENT_MARKER}\n${body}`);
+
 // github.lib.mjs — fork contributor "Allow edits by maintainers" request
 export const MAINTAINER_ACCESS_REQUEST_MARKER = 'Allow edits by maintainers';
 
@@ -106,6 +127,9 @@ export const LIVE_PROGRESS_SECTION_END_MARKER = '<!-- LIVE-PROGRESS-END -->';
 
 // claude.lib.mjs — "session force-killed due to stream timeout" notifications
 export const SESSION_FORCE_KILLED_MARKER = 'Session Force-Killed';
+
+// Recovery status is bookkeeping, including after a bot restart.
+export const RECOVERY_LIFECYCLE_MARKER = '<!-- hive-mind:recovery-lifecycle -->';
 
 // solve.repo-setup.lib.mjs / solve.repository.lib.mjs — issue comments posted
 // when the target repository is empty / uninitialized so solving can't start.
@@ -131,7 +155,9 @@ export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER, FINISHED_WITHOUT_CHANGES_MARKER];
+// The list above is at the print width; later markers are appended here.
+TOOL_GENERATED_COMMENT_MARKERS.push(CI_WAIT_STUCK_MARKER, SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER, INTERACTIVE_MODE_COMMENT_MARKER);
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -139,6 +165,44 @@ export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, A
  * duplicate-search window to the current session only (Issue #1584).
  */
 export const SESSION_ENDING_MARKERS = [NOW_WORKING_SESSION_IS_ENDED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER];
+
+/**
+ * Issue #4091: the log comment of an AI session that is followed by
+ * `--auto-restart-until-mergeable` monitoring must not say the working session
+ * is ended: the process keeps watching the pull request (for hours, possibly)
+ * and can still restart the AI. That footer says monitoring continues instead,
+ * and a `Monitoring Ended` comment reports the decision when it stops.
+ * The AI session did end, so the footer still opens a new dedup window.
+ */
+export const AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER = 'This AI session has ended; monitoring of this pull request continues';
+export const MONITORING_ENDED_MARKER = 'Monitoring Ended';
+SESSION_ENDING_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+TOOL_GENERATED_COMMENT_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+
+const sessionFooterState = { monitoringEnded: false, promisePublished: false };
+
+/** Whether monitoring of the pull request follows the AI session that is reporting now. */
+export const monitoringFollowsSession = argv => !sessionFooterState.monitoringEnded && Boolean(argv?.autoMerge || argv?.autoRestartUntilMergeable);
+
+/** The watch loop (or its preflight) finished: later log comments end the working session. */
+export const markMonitoringEnded = () => {
+  sessionFooterState.monitoringEnded = true;
+};
+
+/** A log comment told the reader monitoring continues; the end of monitoring owes them a decision. */
+export const noteMonitoringPromisePublished = () => {
+  sessionFooterState.promisePublished = true;
+};
+export const wasMonitoringPromisePublished = () => sessionFooterState.promisePublished;
+
+/** Tests only. */
+export const resetSessionFooterStateForTests = () => {
+  sessionFooterState.monitoringEnded = false;
+  sessionFooterState.promisePublished = false;
+};
+
+/** The italic closing line of a log comment. */
+export const buildSessionEndFooter = ({ monitoringContinues = false } = {}) => (monitoringContinues ? `*${AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER} until it is mergeable; a final "${MONITORING_ENDED_MARKER}" comment will report the decision. Feel free to review and add any feedback on the solution draft: new comments restart the AI.*` : `*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`);
 
 /**
  * Determine whether a GitHub comment body matches any known tool-generated
@@ -156,6 +220,28 @@ export const isAutomatedWorkingSessionSummaryComment = body => {
 export const isToolGeneratedComment = body => {
   if (!body || typeof body !== 'string') return false;
   return isAutomatedWorkingSessionSummaryComment(body) || TOOL_GENERATED_COMMENT_MARKERS.some(marker => body.includes(marker));
+};
+
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// `## ✅ Ready to merge`, `## 🔄 Auto-restart 1/5`, `## :warning: Session Force-Killed (…)`: the status
+// headings solve.mjs opens its own comments with - an icon, then a marker. Only such a heading counts, so a
+// person quoting "Ready to merge", or titling a request "## Ready to merge?", is still feedback (issue #2406).
+const headingMarkers = TOOL_GENERATED_COMMENT_MARKERS.filter(marker => !marker.startsWith('<!--'))
+  .map(escapeRegExp)
+  .join('|');
+const TOOL_STATUS_HEADING = new RegExp(`^#{1,6} (?:\\S+ (?:${headingMarkers})|${escapeRegExp(CANCELLED_CI_REVIEW_MARKER)})(?=$|[\\s:(])`);
+// `🤖 **AI Work Session Started**`, `⚠️ **Finished without changes**`, `⏳ **Usage Limit Reached - Waiting…**`:
+// the bold first line of the session and outcome notices (issue #3469).
+const TOOL_STATUS_BOLD_LEAD = new RegExp(`^(?:\\p{Extended_Pictographic}\\uFE0F?|:[a-z_]+:) \\*\\*(?:${headingMarkers})(?=\\*\\*|[\\s:(])`, 'u');
+
+/** True when a comment opens with one of solve.mjs's own status headings, bold notices or hidden automation markers. */
+export const isToolStatusComment = body => {
+  if (!body || typeof body !== 'string') return false;
+  const text = body.trimStart();
+  // `<!-- hive-mind:closing-references-left-out owner/repo#1 -->` and the other tagged notices.
+  if (text.startsWith('<!-- hive-mind:') || TOOL_GENERATED_COMMENT_MARKERS.some(marker => marker.startsWith('<!--') && text.startsWith(marker))) return true;
+  const firstLine = text.split('\n', 1)[0].trim();
+  return TOOL_STATUS_HEADING.test(firstLine) || TOOL_STATUS_BOLD_LEAD.test(firstLine);
 };
 
 // ----------------------------------------------------------------------------
@@ -284,6 +370,32 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
   return latest?.isFailureReport === true || latest?.automationStopped === true;
 };
 
+// Issue #3278: the bot's session monitor posts these comments too; a stalled
+// `gh api` fails the post (handled like any gh error) instead of hanging it.
+const GH_COMMENT_TIMEOUT_MS = 120_000;
+
+/** gh's message when GitHub's response body was cut off mid-JSON. */
+const isTruncatedGhResponse = text => /unexpected end of JSON input/i.test(String(text || ''));
+
+/**
+ * Find a comment with exactly `body` created since `since` (ms).
+ * @returns {Promise<string|null|undefined>} its id, null when absent, undefined when unknown
+ */
+const findPostedComment = async ({ $, apiPath, body, since }) => {
+  // One minute of slack for clock skew between this host and GitHub.
+  const sinceIso = new Date(since - 60_000).toISOString();
+  try {
+    const listed = await $({ mirror: false, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${`${apiPath}?since=${sinceIso}&per_page=100`}`;
+    if (listed.code !== 0) return undefined;
+    const comments = JSON.parse(listed.stdout?.toString() || '');
+    if (!Array.isArray(comments)) return undefined;
+    const match = comments.find(comment => String(comment?.body ?? '').trim() === body.trim());
+    return match ? String(match.id) : null;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Post a GitHub comment on a PR or issue via `gh api` and return the
  * numeric comment ID (as string). The ID is also automatically tracked in
@@ -307,7 +419,7 @@ export const isFailureAlreadyReportedOnTarget = ({ owner, repo, targetNumber }) 
  * @param {string} options.body
  * @returns {Promise<{ok: boolean, commentId: string|null, stderr?: string}>}
  */
-export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, sanitizationOptions: _sanitizationOptions }) => {
+export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, commentId: existingCommentId = null, sanitizationOptions: _sanitizationOptions }) => {
   if (!$) {
     throw new Error('postTrackedComment requires a command-stream $ helper');
   }
@@ -316,7 +428,9 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // bodies and to get JSON back so we can extract the comment ID.
   // We use the /issues/<n>/comments endpoint because it works identically
   // for both PRs and issues (a PR is an issue at this endpoint).
-  const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const updating = /^\d+$/.test(String(existingCommentId || ''));
+  const apiPath = updating ? `repos/${owner}/${repo}/issues/comments/${existingCommentId}` : `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
+  const method = updating ? 'PATCH' : 'POST';
   const { sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
   // This is the exact outbound mutation boundary. Dangerous local-output
   // bypasses and user-content carve-outs must not weaken GitHub publication.
@@ -328,16 +442,32 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // and caused `gh api --input -` to POST an empty body. GitHub's edge
   // replied with HTTP 400 "Whoa there!" *before* the API layer ran. See
   // issue #1631.
+  const startedAt = Date.now();
   let result;
   try {
-    result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
+    result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X ${method} --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }
 
   if (result.code !== 0) {
     const stderr = result.stderr?.toString() ? result.stderr.toString() : '';
-    return { ok: false, commentId: null, stderr };
+    if (!isTruncatedGhResponse(`${stderr}\n${result.stdout?.toString() || ''}`)) return { ok: false, commentId: null, stderr };
+    // Issue #2571: gh printed "unexpected end of JSON input" — GitHub's reply was
+    // cut off, so the comment may or may not exist. Look before posting again,
+    // so a lost reply neither drops the log link nor duplicates it.
+    const existing = await findPostedComment({ $, apiPath, body: sanitizedBody, since: startedAt });
+    if (existing === undefined) return { ok: false, commentId: null, stderr };
+    if (existing === null) {
+      try {
+        result = await $({ stdin: payload, signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api ${apiPath} -X POST --input -`;
+      } catch (err) {
+        return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
+      }
+      if (result.code !== 0) return { ok: false, commentId: null, stderr: result.stderr?.toString() || stderr };
+    } else {
+      result = { code: 0, stdout: JSON.stringify({ id: existing }) };
+    }
   }
 
   const stdout = result.stdout?.toString() ? result.stdout.toString() : '';
@@ -394,4 +524,19 @@ export const postTrackedCommentFromFile = async ({ $, owner, repo, targetNumber,
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }
   return postTrackedComment({ $, owner, repo, targetNumber, body });
+};
+
+/**
+ * Issue #3684: the id of the first comment on an issue or PR that contains
+ * `marker`, or null (also when the comments cannot be read), so a one-time
+ * notice is posted only if an earlier run did not post it already.
+ */
+export const findCommentWithMarker = async ({ $, owner, repo, targetNumber, marker }) => {
+  try {
+    const result = await $({ signal: AbortSignal.timeout(GH_COMMENT_TIMEOUT_MS) })`gh api repos/${owner}/${repo}/issues/${targetNumber}/comments --paginate --jq ${`.[] | select(.body | contains(${JSON.stringify(marker)})) | .id`}`;
+    if (result.code !== 0) return null;
+    return (result.stdout?.toString() || '').split(/\s+/).find(id => /^\d+$/.test(id)) || null;
+  } catch {
+    return null;
+  }
 };

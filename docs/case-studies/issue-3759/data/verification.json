@@ -1,0 +1,242 @@
+{
+  "verifiedAt": "2026-10-24T18:14:29.488895+00:00",
+  "codeCommit": "74a647dd774e92f3439db3e35057ee788be1b825",
+  "pullRequest": "https://github.com/link-assistant/hive-mind/pull/3762",
+  "local": {
+    "node": "v26.12.1",
+    "command": "npm test -- --continue-on-failure",
+    "defaultTestFiles": 693,
+    "result": "passed",
+    "accessRegressions": 18,
+    "configurationAliasRegressions": 8,
+    "focusedSuites": 10,
+    "fullLogSha256": "533604ba207909adeb8b88b558ec49aa64f2fbc0045e0433ee8f0ebc85231474"
+  },
+  "ci": {
+    "run": {
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934",
+      "headSha": "74a647dd774e92f3439db3e35057ee788be1b825",
+      "createdAt": "2026-10-24T17:48:29Z",
+      "updatedAt": "2026-10-24T18:12:39Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "workflows": [
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-24T17:48:29Z",
+        "databaseId": 40117802929,
+        "headSha": "74a647dd774e92f3439db3e35057ee788be1b825",
+        "name": "Workflows",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-24T17:48:29Z",
+        "databaseId": 40117803109,
+        "headSha": "74a647dd774e92f3439db3e35057ee788be1b825",
+        "name": "Security",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-24T17:48:29Z",
+        "databaseId": 40117802915,
+        "headSha": "74a647dd774e92f3439db3e35057ee788be1b825",
+        "name": "Broken Link Checker",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-24T17:48:29Z",
+        "databaseId": 40117802934,
+        "headSha": "74a647dd774e92f3439db3e35057ee788be1b825",
+        "name": "Checks and release",
+        "status": "completed"
+      }
+    ],
+    "checks": [
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059491",
+        "name": "Pipeline Status",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059063",
+        "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059262",
+        "name": "Docker Publish DinD (${{ matrix.platform }})",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059683",
+        "name": "Helm Release",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059674",
+        "name": "Docker Publish DinD Instant (Merge)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059494",
+        "name": "Docker Publish Instant (Merge)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059953",
+        "name": "Docker Publish DinD (Merge)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059738",
+        "name": "Helm Release (Instant)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059644",
+        "name": "Docker Publish (Merge)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059251",
+        "name": "Docker Publish Instant (${{ matrix.platform }})",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948058600",
+        "name": "Release",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059032",
+        "name": "Docker Publish (${{ matrix.platform }})",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120948059329",
+        "name": "Instant Release",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943693056",
+        "name": "test-suites",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943693029",
+        "name": "docker-pr-check",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943692982",
+        "name": "memory-check-linux",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943693060",
+        "name": "test-execution",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943346592",
+        "name": "helm-pr-check",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943346449",
+        "name": "validate-docs",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943346498",
+        "name": "check-file-line-limits",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943346906",
+        "name": "test-compilation",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943191892",
+        "name": "lint",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943191879",
+        "name": "Check for Changesets",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943191891",
+        "name": "Check for Manual Version Changes",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943026798",
+        "name": "Release Preflight / Probe publishing credentials",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943026653",
+        "name": "detect-changes",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802934/job/120943027392",
+        "name": "Create Changeset PR",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/runs/120942872000",
+        "name": "CodeQL",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117803109/job/120942664872",
+        "name": "Dependency Review",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802929/job/120942664264",
+        "name": "zizmor",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802915/job/120942664196",
+        "name": "Check Links",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117803109/job/120942664903",
+        "name": "CodeQL (actions)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117802929/job/120942664434",
+        "name": "actionlint",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117803109/job/120942664922",
+        "name": "CodeQL (javascript-typescript)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/link-assistant/hive-mind/actions/runs/40117803109/job/120942664699",
+        "name": "Audit npm lock",
+        "state": "SUCCESS"
+      }
+    ],
+    "defaultTestFiles": 693,
+    "githubIntegrationFiles": 2,
+    "docker": "Both images and system, development and nested Docker verification passed"
+  },
+  "sourceLogSha256": "3387414c4556c40a90c6e772a56570405c38dae7c0b2da8da70a41f727a17341",
+  "upstreamReport": "https://github.com/anthropics/claude-code/issues/103820#issuecomment-6387013641",
+  "scope": "The completion commit changes documentation only; final-head checks are available on the pull request."
+}

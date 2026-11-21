@@ -24,9 +24,25 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2144
  */
 
-import { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 
 export { AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER };
+
+/**
+ * Issue #4087: stop reasons that only repeat a failed AI session. When the
+ * "Solution Draft Failed" comment for that session is already on the pull
+ * request (it carries the error, the models and the log, and says the session
+ * ended), a "🛑 Automation stopped: the AI session failed" comment two seconds
+ * later says nothing new, so it is not posted.
+ */
+export const SESSION_FAILURE_STOP_REASONS = Object.freeze(['tool_failure', 'tool_failure_after_resume']);
+
+/**
+ * @param {string} reason internal stop reason
+ * @param {boolean|null} [failureReported] whether a "Solution Draft Failed" comment for this session reached the target
+ * @returns {boolean} true when the stop comment would only duplicate that failure comment
+ */
+export const isStopAlreadyReportedByFailureComment = (reason, failureReported) => failureReported === true && SESSION_FAILURE_STOP_REASONS.includes(String(reason));
 
 /**
  * Human-readable descriptions for every stop reason the solver can return.
@@ -92,8 +108,9 @@ export const STOP_REASONS = {
   },
   tool_failure: {
     title: 'the AI session failed',
-    detail: 'The AI tool exited with an error that is not a usage limit, so restarting it automatically would most likely fail the same way.',
-    nextSteps: [REVIEW_ATTACHED_LOG_STEP],
+    // Issue #3922: state what the loop did, not a guess about what a restart would do.
+    detail: 'The AI tool reported an error that is not a usage limit. The loop restarts the AI to address pull request feedback, CI results and merge state, not to repeat a failed session, so it stopped and reports the error here instead of retrying it blindly.',
+    nextSteps: [REVIEW_ATTACHED_LOG_STEP, 'If the work is actually complete (the error came from a status command such as `gh pr checks` on a pull request without CI), re-run the command to resume the loop.'],
   },
   tool_failure_after_resume: {
     title: 'the AI session failed after resuming from a usage limit',
@@ -120,10 +137,40 @@ export const STOP_REASONS = {
     detail: 'Merging would close only some of the issues this pull request was asked to close. A missing closing reference never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Add the missing `Fixes #N` lines to the pull request description (one keyword per issue) and re-run the command so auto-merge can complete.', 'Or merge this pull request manually if leaving those issues open is intended.'],
   },
+  incomplete_issue_requirements: {
+    title: 'the issue requirements are not verified as complete, so auto-merge was held back',
+    detail: 'The pull request description has no current requirements report with evidence for every issue requirement.',
+    nextSteps: ['Complete every listed requirement, refresh the requirements report for the current commit, and re-run the command.'],
+  },
   no_progress_between_sessions: {
     title: 'two consecutive AI sessions produced identical results',
-    detail: 'The AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    detail: 'The AI session ended with the same working tree and the same commit as the session before it (its final message is not compared: a reworded report of the same blocker is not progress). Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
     nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
+  },
+  repeated_ci_failure: {
+    title: 'the same CI failure repeated restart after restart',
+    detail: 'The same checks failed with the same output after several AI sessions in a row, although each session was free to change the code. A check that reports progress (for example more tests passing) or reports no output never stops the run this way.',
+    nextSteps: ['Open the failing check runs named below and read why they fail.', 'Fix what the AI cannot (a secret, a runner, a flaky or broken check), or give it new instructions in a comment, then re-run the command.', 'Set HIVE_MIND_CI_FAILURE_REPEAT_STOP to a higher number, or 0, to allow more identical restarts.'],
+  },
+  ci_not_started: {
+    title: 'workflow runs on the HEAD commit never started',
+    detail: 'Every check run passed, but workflow runs on the HEAD commit stayed `pending` in a `concurrency` queue with no jobs for longer than `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`. They were not cancelled or re-run, so they keep their place in the queue. Waiting longer would only hold this process without making progress.',
+    nextSteps: ['Check which runs hold the concurrency group of this workflow (the links below) and let them finish, or cancel them.', 'Once the runs have finished, merge this pull request or re-run the command to continue monitoring.'],
+  },
+  ci_approval_required: {
+    title: 'workflow runs on the HEAD commit wait for an approval',
+    detail: 'Every check run passed, but workflow runs on the HEAD commit stayed `waiting` / `action_required` for longer than `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES`. Approval needed: only a maintainer can approve them (pending deployment / environment review, or a first-time contributor run).',
+    nextSteps: ['Approve the runs linked below (or reject them), then re-run the command to continue monitoring.'],
+  },
+  watch_timeout: {
+    title: 'the watch timeout was reached',
+    detail: 'The monitoring loop ran for its whole wall-clock limit (`--auto-restart-until-mergeable-timeout-hours`) without the pull request becoming mergeable.',
+    nextSteps: ['Review what the last checks were waiting for (details below), resolve it, and re-run the command.'],
+  },
+  watch_stalled: {
+    title: 'GitHub stopped answering the monitoring checks',
+    detail: 'Several monitoring checks in a row did not get an answer from GitHub within their deadline. Each stalled check was logged with what it was waiting for; continuing would only hold this process without information.',
+    nextSteps: ['Check https://www.githubstatus.com and the network of the machine that runs the command.', 'Re-run the command to continue monitoring once GitHub answers again.'],
   },
   watch_stopped: {
     title: 'watch mode stopped',
@@ -229,14 +276,19 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
   // Issue #2395: an unverified issue link is fixed in the description too.
   // Issue #2335: so are links GitHub does not recognize or could not confirm.
   const descriptionReasons = ['missing_closing_references', 'issue_link_unverified', 'unverified_issue_links', 'issue_link_verification_failed'];
+  // Issue #2406: unfinished or unverified issue requirements are work, not a link to repair.
+  const completionReasons = ['incomplete_issue_requirements', 'issue_completion_verification_failed'];
   const nextSteps = [];
-  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason))) {
+  if (reasons.some(blocker => completionReasons.includes(blocker.reason))) {
+    nextSteps.push('Complete every issue requirement listed above in this pull request, refresh the requirements report in its description with evidence for the current commit, and re-run the command.');
+  }
+  if (reasons.some(blocker => !descriptionReasons.includes(blocker.reason) && !completionReasons.includes(blocker.reason))) {
     nextSteps.push(issueNumber ? `Reopen issue #${issueNumber} and re-run the command so auto-merge can complete.` : 'Reopen the linked issue and re-run the command so auto-merge can complete.');
   }
   if (reasons.some(blocker => descriptionReasons.includes(blocker.reason))) {
     nextSteps.push('Add the missing closing references listed above to the pull request description and re-run the command so auto-merge can complete.');
     nextSteps.push('Or merge this pull request manually — the issues listed above will then stay open.');
-  } else {
+  } else if (!reasons.some(blocker => completionReasons.includes(blocker.reason))) {
     nextSteps.push('Or merge this pull request manually — it is ready.');
   }
   sections.push('', '**What to do next:**');
@@ -265,9 +317,10 @@ export const buildAutoMergeBlockedComment = ({ blockers = [], issueNumber = null
  * @param {string} [options.body] pre-built body (skips buildAutomationStopComment)
  * @param {string} [options.signature] pre-built dedup signature
  * @param {boolean|null} [options.logAttached] whether the failure log was attached (null: not attempted)
+ * @param {boolean|null} [options.failureReported] whether a "Solution Draft Failed" comment for this session reached the target (issue #4087)
  * @returns {Promise<{posted: boolean, reason: string, skipped?: string, error?: string}>}
  */
-export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null, logAttached = null }) => {
+export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reason, mode = null, message = null, details = [], verbose = false, log = null, body = null, signature = null, logAttached = null, failureReported = null }) => {
   const description = describeStopReason(reason);
   const write = async text => {
     if (typeof log === 'function') await log(text);
@@ -280,6 +333,12 @@ export const reportAutomationStop = async ({ $, owner, repo, targetNumber, reaso
   if (!description.canComment) {
     await write(`   ℹ️  Not posting a stop comment: ${description.title}`);
     return { posted: false, reason: description.reason, skipped: 'target_unavailable' };
+  }
+
+  // Issue #4087: one failure, one comment.
+  if (isStopAlreadyReportedByFailureComment(description.reason, failureReported)) {
+    await write(`   ℹ️  Not posting a stop comment: the "${SOLUTION_DRAFT_FAILED_MARKER}" comment on #${targetNumber} already reports this failure`);
+    return { posted: false, reason: description.reason, skipped: 'failure_already_reported' };
   }
 
   const commentBody = body || buildAutomationStopComment({ reason, mode, message, details, logAttached });
@@ -313,4 +372,6 @@ export default {
   buildAutomationStopComment,
   buildAutoMergeBlockedComment,
   reportAutomationStop,
+  isStopAlreadyReportedByFailureComment,
+  SESSION_FAILURE_STOP_REASONS,
 };

@@ -1,0 +1,2 @@
+ℹ️ pr diff konard/test-hello-world#2: error is not retryable [transient=no]; propagating to caller.
+PASS: issue #2119 empty pull requests are neither described as changes nor reported as ready to merge

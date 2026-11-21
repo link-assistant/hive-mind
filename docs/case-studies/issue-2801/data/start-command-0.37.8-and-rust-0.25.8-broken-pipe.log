@@ -1,0 +1,16 @@
+# start#222 re-check on 2026-10-14T17:22:54Z
+$ /tmp/start-rust-0.25.8/bin/start --version | head -1
+start-command version: 0.25.8 (Rust)
+exit (PIPESTATUS[0]) = 0
+
+$ node /tmp/sc8/package/src/bin/cli.js --version | head -1
+start-command version: 0.37.8
+exit (PIPESTATUS[0]) = 0
+
+# 0.37.7 -> 0.37.8 npm tarball: files that differ
+Files 0.37.7/CHANGELOG.md and 0.37.8/CHANGELOG.md differ
+Files 0.37.7/package.json and 0.37.8/package.json differ
+Files 0.37.7/src/bin/cli.js and 0.37.8/src/bin/cli.js differ
+Only in 0.37.8/test: regression-222.js
+identical: src/lib/cpu-penalty.js
+identical: src/lib/cpu-penalty-monitor.js

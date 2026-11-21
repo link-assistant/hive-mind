@@ -1,0 +1,46 @@
+131368449734	Helm Release	completed	skipped	2026-11-12T17:37:15Z	2026-11-12T17:37:14Z
+131368449002	Docker Publish (Merge)	completed	skipped	2026-11-12T17:37:15Z	2026-11-12T17:37:14Z
+131368448755	Docker Publish DinD (Merge)	completed	skipped	2026-11-12T17:37:15Z	2026-11-12T17:37:14Z
+131368447946	Pipeline Status	completed	failure	2026-11-12T17:37:17Z	2026-11-12T17:37:49Z
+131368447766	Docker Publish DinD (${{ matrix.platform }})	completed	skipped	2026-11-12T17:37:14Z	2026-11-12T17:37:14Z
+131368447353	Docker Publish (${{ matrix.platform }})	completed	skipped	2026-11-12T17:37:14Z	2026-11-12T17:37:14Z
+131364982476	Helm Release (Instant)	completed	skipped	2026-11-12T17:31:39Z	2026-11-12T17:31:38Z
+131364981376	Docker Publish Instant (Merge)	completed	skipped	2026-11-12T17:31:39Z	2026-11-12T17:31:38Z
+131364980740	Docker Publish DinD Instant (Merge)	completed	skipped	2026-11-12T17:31:39Z	2026-11-12T17:31:38Z
+131364980239	Docker Publish DinD Instant (${{ matrix.platform }})	completed	skipped	2026-11-12T17:31:38Z	2026-11-12T17:31:38Z
+131364979734	Docker Publish Instant (${{ matrix.platform }})	completed	skipped	2026-11-12T17:31:38Z	2026-11-12T17:31:38Z
+131364979481	Instant Release	completed	skipped	2026-11-12T17:31:38Z	2026-11-12T17:31:38Z
+131364976128	Release	completed	failure	2026-11-12T17:31:40Z	2026-11-12T17:37:14Z
+131339925377	Formal AI draft	completed	skipped	2026-11-12T16:51:50Z	2026-11-12T16:51:50Z
+131339925021	report-checks	completed	skipped	2026-11-12T16:51:50Z	2026-11-12T16:51:50Z
+131339922219	health	completed	failure	2026-11-12T16:51:52Z	2026-11-12T16:53:02Z
+131338761469	docker-pr-check	completed	success	2026-11-12T16:50:01Z	2026-11-12T17:31:38Z
+131336799613	Verified native Codex package / Exercise installed npm runtime on linux-x64	completed	success	2026-11-12T16:46:54Z	2026-11-12T16:49:59Z
+131336799559	Verified native Codex package / Exercise installed npm runtime on linux-arm64	completed	success	2026-11-12T16:46:56Z	2026-11-12T16:49:36Z
+131336014288	Verified native Codex package / Verify both native platforms in the actual npm artifact	completed	success	2026-11-12T16:45:39Z	2026-11-12T16:46:51Z
+131270027776	Security Status	completed	success	2026-11-12T15:02:53Z	2026-11-12T15:03:21Z
+131268647395	test-execution	completed	success	2026-11-12T15:00:40Z	2026-11-12T15:01:49Z
+131268647357	test-suites	completed	success	2026-11-12T15:00:39Z	2026-11-12T15:11:08Z
+131268647337	memory-check-linux	completed	success	2026-11-12T15:00:40Z	2026-11-12T15:01:47Z
+131267429407	Links Status	completed	success	2026-11-12T14:58:38Z	2026-11-12T14:58:57Z
+131267330304	helm-pr-check	completed	skipped	2026-11-12T14:58:27Z	2026-11-12T14:58:27Z
+131267329672	Check for Changesets	completed	skipped	2026-11-12T14:58:27Z	2026-11-12T14:58:26Z
+131267329445	Check for Manual Version Changes	completed	skipped	2026-11-12T14:58:27Z	2026-11-12T14:58:26Z
+131267328811	Verified native Codex package / Build and exercise linux-x64	completed	success	2026-11-12T14:58:29Z	2026-11-12T16:25:34Z
+131267328444	Verified native Codex package / Build and exercise linux-arm64	completed	success	2026-11-12T14:58:31Z	2026-11-12T16:45:37Z
+131267327437	check-file-line-limits	completed	success	2026-11-12T14:58:29Z	2026-11-12T14:59:01Z
+131267327277	test-compilation	completed	success	2026-11-12T14:58:29Z	2026-11-12T14:59:30Z
+131267327259	validate-docs	completed	success	2026-11-12T14:58:29Z	2026-11-12T14:58:53Z
+131267326291	lint	completed	success	2026-11-12T14:58:29Z	2026-11-12T15:00:37Z
+131267247528	Workflows Status	completed	success	2026-11-12T14:58:21Z	2026-11-12T14:58:45Z
+131266881283	Check Links	completed	success	2026-11-12T14:57:46Z	2026-11-12T14:58:35Z
+131266845554	Create Changeset PR	completed	skipped	2026-11-12T14:57:39Z	2026-11-12T14:57:39Z
+131266844095	Dependency Review	completed	skipped	2026-11-12T14:57:39Z	2026-11-12T14:57:39Z
+131266843893	Release Preflight / Probe publishing credentials	completed	success	2026-11-12T14:57:42Z	2026-11-12T14:58:14Z
+131266843221	detect-changes	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:58:26Z
+131266842518	CodeQL (javascript-typescript)	completed	success	2026-11-12T14:57:41Z	2026-11-12T15:02:37Z
+131266842388	zizmor	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:58:18Z
+131266842355	Audit npm lock	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:58:53Z
+131266842283	ShellCheck	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:58:09Z
+131266842238	CodeQL (actions)	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:59:10Z
+131266842070	actionlint	completed	success	2026-11-12T14:57:41Z	2026-11-12T14:58:17Z

@@ -1,0 +1,58 @@
+[
+  {
+    "file": "claude-failure.log",
+    "bytes": 5430314,
+    "lines": 42151,
+    "chunksReviewed": 29,
+    "sha256": "a30a6fe09e13657bc638cfe1fb195c9414d46b468c649633410683a6bec375f0",
+    "matchingLines": 32
+  },
+  {
+    "file": "formal-ai-replay-server.log",
+    "bytes": 2230,
+    "lines": 14,
+    "chunksReviewed": 1,
+    "sha256": "0ac8a2797d318869646e46ff5fe88ed457f365e4a1e19529aea88a8bdec63938",
+    "matchingLines": 1
+  },
+  {
+    "file": "formal-draft-2591.log",
+    "bytes": 286050,
+    "lines": 2424,
+    "chunksReviewed": 2,
+    "sha256": "403e4a3cf0fafe2b623f5c304332980c717ae9a12f09d80624a211f78887625f",
+    "matchingLines": 1
+  },
+  {
+    "file": "formal-draft-2613.log",
+    "bytes": 285979,
+    "lines": 2419,
+    "chunksReviewed": 2,
+    "sha256": "7f1632297e163230064a4e89369c0d45e3a200b911216e536216f6d2c15f17ea",
+    "matchingLines": 5
+  },
+  {
+    "file": "formal-job-2591.log",
+    "bytes": 493293,
+    "lines": 4461,
+    "chunksReviewed": 3,
+    "sha256": "d97abdee42a8dbac237ae95b2f051068ceaa61e193eb6f7d80bb468b709ab73b",
+    "matchingLines": 32
+  },
+  {
+    "file": "formal-job-2613.log",
+    "bytes": 494611,
+    "lines": 4460,
+    "chunksReviewed": 3,
+    "sha256": "4bb88626219fcbb586146b5a6d8f72e98d59054d3f263139cf81114691be20f2",
+    "matchingLines": 44
+  },
+  {
+    "file": "killed-session.log",
+    "bytes": 3990061,
+    "lines": 42205,
+    "chunksReviewed": 29,
+    "sha256": "88e3e83bdb532c1055dfe66f911ef90c01ece0bc204974a5608172db7d721e5d",
+    "matchingLines": 37
+  }
+]

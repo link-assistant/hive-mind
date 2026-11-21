@@ -35,7 +35,7 @@ const githubLib = await import('./github.lib.mjs');
 const { checkFileInBranch } = githubLib;
 
 // Import validation functions for time parsing
-const validation = await import('./solve.validation.lib.mjs');
+import * as validation from './solve.validation.lib.mjs';
 
 // Import usage limit formatting functions
 // See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -46,19 +46,18 @@ const { formatResetTimeWithRelative } = usageLimitLib;
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-// Import GitHub linking detection library
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
-
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
 import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { interruptibleSleep, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 
 // Issue #1886: cumulative Anthropic cost carried across cross-process resumes
 const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
+
+// Issue #3190: carry every original option through the auto-resume/auto-restart relaunch
+const { getPreservedSolveCliArgs, SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS } = await import('./solve.forwarded-args.lib.mjs');
 
 const { calculateWaitTime } = validation;
 
@@ -138,6 +137,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // Wait until reset time
     await interruptibleSleep(waitMs);
     clearInterval(countdownTimer);
+    // Issue #4048: never resume a session while the interrupt handler is shutting down.
+    await parkIfShuttingDown(log, reason => `🛑 ${reason} received — not resuming the session`);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';
     await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);
@@ -205,13 +206,24 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const sessionType = isRestart ? 'auto-restart' : 'auto-resume';
     resumeArgs.push('--session-type', sessionType);
 
-    // Preserve other flags from original invocation
+    // Options whose live value may differ from the command line (the model can
+    // switch to a fallback mid-run, attach-logs is resolved at runtime).
     if (argv.tool && argv.tool !== 'claude') resumeArgs.push('--tool', argv.tool);
-    if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
-    if (argv.fallbackModel) resumeArgs.push('--fallback-model', argv.fallbackModel);
+    if (argv.model) resumeArgs.push('--model', argv.model);
+    // Issue #2037: an implicit fallback is recomputed by the child from --model;
+    // forwarding it would turn it into an explicit pin.
+    if (argv.fallbackModel && argv._fallbackModelExplicit) resumeArgs.push('--fallback-model', argv.fallbackModel);
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
+
+    // Issue #3190: replay EVERY other option from the original command line.
+    // The old allowlist above silently dropped --auto-merge, --think,
+    // --language, --disable-report-issue, --no-tool-check, ... so the resumed
+    // session ran with different settings than the user requested.
+    const preservedArgs = getPreservedSolveCliArgs({ exclude: SOLVE_AUTO_RELAUNCH_CONTROLLED_OPTIONS });
+    resumeArgs.push(...preservedArgs);
+    await log(`🧷 Preserved original options (issue #3190): ${preservedArgs.length > 0 ? preservedArgs.join(' ') : '(none)'}`, { verbose: true });
 
     // CRITICAL: Pass --working-directory to ensure Claude Code session resume works correctly
     // Claude Code stores sessions per working directory, so resume MUST use the same directory
@@ -486,7 +498,9 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       // Extract issue number from PR body using GitHub linking detection library
       // This ensures we only detect actual GitHub-recognized linking keywords
       const prBody = prData.body || '';
-      const extractedIssueNumber = prBranch?.match(/^issue-([1-9]\d*)-/)?.[1] || extractLinkedIssueNumber(prBody, owner, repo);
+      // Issue #2563: the branch name is a hint, the description's same-repository closing reference wins over a foreign or missing branch issue.
+      const { resolvePullRequestPrimaryIssue } = await import('./issue-link-verification.lib.mjs');
+      const extractedIssueNumber = await resolvePullRequestPrimaryIssue({ owner, repo, body: prBody, branch: prBranch, log });
 
       if (extractedIssueNumber) {
         issueNumber = extractedIssueNumber;

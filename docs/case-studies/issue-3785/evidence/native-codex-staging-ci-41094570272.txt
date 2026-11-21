@@ -1,0 +1,58 @@
+Exact commit: 823fb80335ea78dca4da256cac9051eb99e7e4c6
+Native CI: https://github.com/link-assistant/hive-mind/actions/runs/41094570272
+All three jobs succeeded. Full native CLI rebuilt on the CI runner.
+Only bounded synthetic credential/conversation/evidence fixtures were used.
+
+native-migration-after.log
+PASS: an actual killed plain native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
+
+native-migration-compressed-after.log
+PASS: an actual killed compressed native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume retains the prior conversation.
+
+native-migration-hardlink-after.log
+PASS: actual native migration refuses a hardlink pending journal (receipt) before changing unrelated evidence or publishing history.
+
+native-migration-stage-compressed-hardlink-after.log
+PASS: actual native migration refuses a hardlink staged rollout (compressed) before changing unrelated evidence or publishing history.
+
+native-migration-stage-compressed-symlink-after.log
+PASS: actual native migration refuses a symlink staged rollout (compressed) before changing unrelated evidence or publishing history.
+
+native-migration-stage-decompressed-hardlink-after.log
+PASS: actual native migration refuses a hardlink staged rollout (decompressed) before changing unrelated evidence or publishing history.
+
+native-migration-stage-decompressed-symlink-after.log
+PASS: actual native migration refuses a symlink staged rollout (decompressed) before changing unrelated evidence or publishing history.
+
+native-migration-stage-hardlink-after.log
+PASS: actual native migration refuses a hardlink staged rollout (paginated) before changing unrelated evidence or publishing history.
+
+native-migration-stage-head-hardlink-after.log
+PASS: actual native migration refuses a hardlink staged rollout (head) before changing unrelated evidence or publishing history.
+
+native-migration-stage-head-symlink-after.log
+PASS: actual native migration refuses a symlink staged rollout (head) before changing unrelated evidence or publishing history.
+
+native-migration-stage-symlink-after.log
+PASS: actual native migration refuses a symlink staged rollout (paginated) before changing unrelated evidence or publishing history.
+
+native-migration-subagent-after.log
+PASS: an actual killed subagent plain native migration retains one canonical journal across private-scope disposal; a peer completes publication and fresh native resume preserves the inherited-prefix boundary.
+
+native-migration-symlink-after.log
+PASS: actual native migration refuses a symlink pending journal (receipt) before changing unrelated evidence or publishing history.
+
+native-request-constructors-after.log
+PASS: Amazon Bedrock, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=false, preserves native constructor behavior without canonical selection.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, refuses alternate native constructor authority before model execution.
+PASS: Amazon Bedrock Runtime, requires_openai_auth=true, preserves native constructor behavior without canonical selection.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+This verifies the selected inspected native migration/constructor paths only.
+Complete child lifecycle, all writers, post-publication/power-loss crashes,
+the six-tool Docker matrix and production installation remain unfinished.

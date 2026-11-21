@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-await-in-loop -- each round waits for target-branch CI before re-checking it */
 /**
  * Target-branch CI gate for the Telegram merge queue.
  *

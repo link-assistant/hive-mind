@@ -1,0 +1,12 @@
+PASS: actual native Qwen two-refreshes; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen login; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen logout; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen invalid-grant; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen owner-death; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen network-refusal; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen direct-refresh; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen publication-race; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen unsafe-lock; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen legacy-lock; stable lock identity, private configuration roots and bounded synthetic OAuth.
+PASS: actual native Qwen conflicting-authority; stable lock identity, private configuration roots and bounded synthetic OAuth.
+LIMIT: actual native OAuth methods with a synthetic fetch stub; full CLI, history, release/deployment and remaining credential backends are not established.

@@ -77,10 +77,15 @@ export function findDeliberateSolveStop(tailText) {
  * @param {boolean} [options.verbose]
  * @returns {Promise<{reason: string, line: string}|null>}
  */
-export async function detectDeliberateSolveStop(logPath, { readFile = null, verbose = false } = {}) {
+export async function detectDeliberateSolveStop(logPath, { readFile = null, verbose = false, minByteOffset = 0 } = {}) {
   if (!logPath) return null;
   try {
-    const text = readFile ? String((await readFile(logPath, 'utf8')) || '').slice(-DELIBERATE_STOP_TAIL_BYTES) : await readLogTailText(logPath, { maxBytes: DELIBERATE_STOP_TAIL_BYTES });
+    const text = readFile
+      ? Buffer.from(String((await readFile(logPath, 'utf8')) || ''))
+          .subarray(minByteOffset)
+          .toString('utf8')
+          .slice(-DELIBERATE_STOP_TAIL_BYTES)
+      : await readLogTailText(logPath, { maxBytes: DELIBERATE_STOP_TAIL_BYTES, minByteOffset });
     const stop = findDeliberateSolveStop(text);
     if (verbose) {
       console.log(`[VERBOSE] Deliberate-stop scan of ${logPath}: ${stop ? `${stop.reason} ("${stop.line}")` : 'none found'} (issue #2408)`);

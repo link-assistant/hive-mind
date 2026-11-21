@@ -29,6 +29,9 @@ console.log('='.repeat(80));
 const { counts, assert } = makeAsserts();
 
 const ISSUE_URL = 'https://github.com/link-assistant/hive-mind/issues/1783';
+// Match the URL as a pattern, not a substring check on a host (CodeQL
+// js/incomplete-url-substring-sanitization, issue #4025).
+const ISSUE_URL_PATTERN = new RegExp(RegExp.escape(ISSUE_URL));
 const UUID = '4d934f71-4cdb-4b8c-b474-582116d12c12';
 const REQUESTER_ID = 123456;
 const OWNER_ID = 999999;
@@ -77,7 +80,7 @@ console.log('\n--- updateQueueCardForCancellation() ---');
   assert(editCalls.length === 1, 'calls editMessageText exactly once', { editCalls });
   assert(editCalls[0]?.cId === -1001 && editCalls[0]?.mId === 555, 'edits the message at item.messageInfo coordinates', { editCalls });
   assert(editCalls[0]?.text.includes('Cancelled'), 'card text says Cancelled', { text: editCalls[0]?.text });
-  assert(editCalls[0]?.text.includes(ISSUE_URL), 'card text includes the URL', { text: editCalls[0]?.text });
+  assert(ISSUE_URL_PATTERN.test(editCalls[0]?.text), 'card text includes the URL', { text: editCalls[0]?.text });
   assert(editCalls[0]?.text.includes('claude'), 'card text mentions the per-tool queue name', { text: editCalls[0]?.text });
   assert(editCalls[0]?.text.includes('@requester'), 'card text mentions who ran /stop', { text: editCalls[0]?.text });
   assert(editCalls[0]?.opts?.parse_mode === 'Markdown', 'uses Markdown parse mode', { opts: editCalls[0]?.opts });
@@ -185,9 +188,9 @@ function makeStubQueue({ items = [], processing = [] } = {}) {
   assert(queueCardEdits.length === 1, 'queue card is edited via item.ctx.telegram.editMessageText', { queueCardEdits });
   assert(queueCardEdits[0]?.cId === -1001 && queueCardEdits[0]?.mId === 42, 'queue card edit uses item.messageInfo coordinates', { queueCardEdits });
   assert(queueCardEdits[0]?.text.includes('Cancelled'), 'queue card text says Cancelled', { text: queueCardEdits[0]?.text });
-  assert(queueCardEdits[0]?.text.includes(ISSUE_URL), 'queue card text includes the URL');
+  assert(ISSUE_URL_PATTERN.test(queueCardEdits[0]?.text), 'queue card text includes the URL');
   assert(
-    ctx.replies.some(r => r.text.includes('Removed queued task') && r.text.includes(ISSUE_URL)),
+    ctx.replies.some(r => r.text.includes('Removed queued task') && ISSUE_URL_PATTERN.test(r.text)),
     'dispatcher still sends the ack reply',
     { replies: ctx.replies.map(r => r.text) }
   );

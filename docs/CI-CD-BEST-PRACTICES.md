@@ -15,17 +15,20 @@ This approach ensures consistent quality regardless of whether the team consists
 
 ## Recommended CI/CD Templates
 
-We provide ready-to-use templates for multiple languages with all best practices pre-configured:
+These language templates include CI/CD workflows.
 
-| Language              | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| Language              | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **Tip:** You don't have to pick a template by hand. Run `fix <repository-url> --ci-cd` (see [Automatic CI/CD Remediation](#automatic-cicd-remediation)) and Hive Mind detects the repository's languages and selects the matching templates for you.
 
@@ -93,6 +96,44 @@ docker-pr-check:
 - CI/CD workflow files (`.github/workflows/*.yml`)
 - `Dockerfile` and related infrastructure files
 
+#### Commit and ready-for-review checks
+
+- **Commit tier (`synchronize`)** runs lint, type checking, and fast unit tests for changed packages, including on draft PRs. Aim for a 5–10 minute critical path.
+- **Ready tier (`ready_for_review`)** runs the heavy unit, integration, and end-to-end suites. Open the PR as a draft and mark it ready when the full check should start.
+
+Omit `opened`, `reopened`, and `edited` from these workflows. To run the heavy tier again after a new commit, switch the PR to draft and mark it ready again, or dispatch the checks explicitly. Keep full release validation on `main` and keep a checks-only manual mode separate from publishing.
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+The ready run tests the revision that triggered it. If full verification is required to merge, require a full-tier check for the current revision. A green commit-tier run alone cannot satisfy that requirement. A manual run must target the intended PR revision or merge result.
+
+#### Select monorepo suites from the workspace graph
+
+Have a planner read workspace manifests (for example, each package's `package.json`) and map changed paths to their owning packages.
+
+- Schedule a package's unit suite when the package itself changes.
+- For integration tests, walk dependencies in reverse from each changed package. Test the changed packages and every transitive consumer, visiting each package once even if the graph has cycles.
+- Run every suite when a changed path is unclassified or the planner cannot establish the graph or diff. Explicitly classify shared inputs such as the lockfile, workspace config, and common test setup as affecting all packages.
+
+Emit JSON job matrices, with `[]` for an empty selection, and use the planner outputs to gate and shard jobs. For example, `test-db` can contain `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]`.
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. File Size Limits
 
 **Enforce a maximum of 1000-1500 lines per code file.**
@@ -127,6 +168,12 @@ done
 }
 ```
 
+#### Adopt the limit with a ratchet
+
+For an existing repository, record only tracked files above the limit in a committed JSON object that maps paths to line counts, such as `{ "src/legacy.mjs": 1830 }`. Each entry is a ceiling. Reject a new oversized file and any growth above an existing ceiling. Use `--update` to lower ceilings to the current counts and remove entries for deleted files or files that now meet the limit. Commit the updated baseline with the shrink. When reviewing baseline changes, compare against the target branch so raising a ceiling or adding a new entry cannot bypass the check.
+
+New files follow the regular limit from day one, and existing large files can be split in independent PRs. See the [runnable ratchet example](../examples/ci-cd-pull-request-tiers/README.md).
+
 ### 3. Automated Code Formatting
 
 Consistent formatting eliminates style debates and reduces diff noise:
@@ -139,7 +186,10 @@ Consistent formatting eliminates style debates and reduces diff noise:
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
 
@@ -147,15 +197,18 @@ All templates include pre-commit hooks that run formatters automatically before 
 
 Catch bugs and enforce patterns before code reaches review:
 
-| Language              | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| Language              | Tools                                               |
+| --------------------- | --------------------------------------------------- |
+| JavaScript/TypeScript | ESLint with strict rules                            |
+| Rust                  | Clippy (pedantic + nursery)                         |
+| Python                | Ruff + mypy                                         |
+| Go                    | go vet + staticcheck                                |
+| C#                    | .NET analyzers (warnings as errors)                 |
+| Java                  | SpotBugs (maximum effort)                           |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors)          |
+| PHP                   | PHPStan (max level)                                 |
+| Swift                 | Compiler warnings as errors (`-warnings-as-errors`) |
+| Kotlin                | Detekt                                              |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -183,6 +236,12 @@ test-suites:
     needs.check-file-line-limits.result == 'success'
 ```
 
+#### Size jobs and start the longest work first
+
+Aim for roughly 5–30 minutes per substantial runner job. Keep cheap gates fast and shard long suites (for example, `--shard i/n`) based on measured wall-clock times. Set `timeout-minutes` explicitly. Add a workflow test that enforces a ceiling of 30 minutes and a named, numerically capped list of documented exceptions. For a reusable workflow, check the jobs inside the called workflow.
+
+Within a job, schedule independent tasks in descending measured duration with a bounded worker pool. Start the longest tasks first and fill free slots with short tasks. Set the worker count to fit the runner's CPU, memory, and service limits. Keep dependent tasks in order and propagate task failures.
+
 ### 6. Changeset-Based Versioning
 
 All templates use a changeset system that:
@@ -192,13 +251,16 @@ All templates use a changeset system that:
 - **Generates changelogs** - Release notes are compiled automatically
 - **Supports semantic versioning** - patch/minor/major bumps are explicit
 
-| Language              | Tool                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | @changesets/cli              |
-| Rust                  | changelog.d + custom scripts |
-| Python                | Scriv                        |
-| PHP                   | changelog.d + custom scripts |
-| Go, C#, Java          | Custom changeset workflows   |
+| Language              | Tool                                 |
+| --------------------- | ------------------------------------ |
+| JavaScript/TypeScript | @changesets/cli                      |
+| Rust                  | changelog.d + custom scripts         |
+| Python                | Scriv                                |
+| PHP                   | changelog.d + custom scripts         |
+| C/C++                 | changelog.d + custom scripts         |
+| Swift                 | Per-PR changesets + SwiftPM Git tags |
+| Kotlin                | Gradle changesets                    |
+| Go, C#, Java          | Custom changeset workflows           |
 
 **Exempt docs-only PRs from changeset requirements:**
 
@@ -256,6 +318,8 @@ Automated release workflows ensure:
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
 - **Commit the version bump directly to the default branch** - The release job pushes its generated version commit (package metadata, lockfile, changelog, consumed changesets) straight to `main` as `github-actions[bot]`, and fails closed if that commit changes anything other than release metadata. Do not route it through an auto-merged release pull request: every release then adds one more pull request and one more branch (a no-deletion ruleset keeps it forever), and a failed run leaves an open release pull request behind for someone to close
 - **A rule-blocked push is fixed in the rule, not in the workflow** - When a repository rule rejects the version push, fail the release with the rule's output and fix the rule (remove it, or add `github-actions` as a bypass actor). The rebase-and-retry path for a lost race is a different recovery for a rejection that prints the same word (see principle 10)
+- **Wait for the registry as long as it really takes, and never republish to find out** - `npm publish` can succeed minutes before `npm view` sees the version. Hive Mind's lag went from 2–9 s to 99–377 s in September 2026, and 2.35.1 took 874 s (issue #2923). A 330 s window turned a good release into a red run with no GitHub release, Docker image or Helm chart. Size the window from measured data with a wide margin (`experiments/npm-publish-lag-2923.mjs` measures it from the Sigstore attestations), log how long each wait took, and treat `E409 Cannot publish over previously staged version` as "already landed", not as a failure
+- **Decide "is there anything to release?" from every artifact, not just the registry** - If the job dies after the publish, the next push sees the version on npm and skips the release for good. Check the GitHub release too and re-run the release without a bump when it is missing; a lookup that fails is "unknown", which never releases
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -277,8 +341,8 @@ jobs:
     # Include the job identity (and matrix values, when present) so unrelated
     # checks remain parallel while a newer run replaces only the stale check.
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -292,10 +356,10 @@ jobs:
     # ...
 ```
 
-- **Read-only jobs:** Cancel superseded checks on both pull requests and `main` to reduce runner load. Give each job a distinct suffix; include relevant matrix values so different matrix entries can still run in parallel.
+- **Read-only jobs:** Cancel superseded commit-tier checks to reduce runner load. Preserve full checks for ready PRs and each `main` revision. Give each job a distinct suffix; include relevant matrix values so different matrix entries can still run in parallel.
 - **Dependent writers:** Use `needs` and require successful prerequisites. A cancelled prerequisite must make its write job not start.
 - **Active writers:** Give every release, deploy, tag, generated-content push, and other write job the same repository-scoped group with `cancel-in-progress: false`. An already started writer finishes while the next writer waits in the queue, including writers from another workflow file.
-- **Workflow scope:** Do not put cancellable concurrency at workflow level when the workflow has write jobs. Cancelling the workflow would also interrupt a writer that has already started.
+- **Workflow scope:** Allow workflow-level cancellation only for events that cannot publish, deploy, or change repository state. An active writer would also be interrupted if its workflow were cancelled.
 
 By default, a concurrency group keeps at most one running and one pending job; a newer pending writer replaces the older pending writer. If every queued write must run, add `queue: max` to the writer's concurrency block (up to 100 jobs can wait). `queue: max` cannot be combined with `cancel-in-progress: true`, and execution order follows when jobs start waiting rather than workflow dispatch order, so write jobs should remain idempotent. See [GitHub's concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) for the current queue limits and semantics.
 
@@ -329,6 +393,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **Recompute after the rebase whatever was derived before it.** A version number, a changelog entry or a tag chosen against the stale tip may already be taken by the writer that won the queue. Re-read the state instead of replaying the plan.
 - **Report success only after the push landed.** A step that sets `version_committed=true` before the push is confirmed leaves the downstream publish job working from a commit that exists only on that runner.
 - **Bound the retries and name the reason in the log.** A handful of attempts with a short delay covers a queue; an unbounded loop against a branch that is genuinely protected turns a fast failure into a long one.
+
+#### Preserve a full check when a commit arrives
+
+Group commit checks by workflow and PR and cancel only superseded `synchronize` runs. Give ready and manual runs a per-run key so GitHub also preserves queued runs. Group pushes by SHA so each main revision keeps its checks.
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+Apply this grouping to each cancellable job if the workflow uses job-level groups, keeping the job and any matrix identity in its key. Keep the shared non-cancelling group for publishing and deployment jobs. Workflow-level cancellation is safe only when every event eligible for cancellation runs checks without publishing or deploying. See the [language template patches](../examples/ci-cd-pull-request-tiers/README.md).
 
 ### 11. Secrets Detection
 
@@ -451,6 +527,32 @@ release:
 - **Prefer trusted publishing.** A credential that expires is a release outage waiting for a calendar date. npm (`id-token: write` + `--provenance`) and Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, no `password:`) both support OIDC. Check `ACTIONS_ID_TOKEN_REQUEST_URL` before trying — the runner injects it only when `id-token: write` is granted, so a half-wired setup fails with a message about the permission rather than about the token request.
 - **Verify the published result anonymously, and separately.** Never gate the release on the push (a failed mirror must not delete a good release), but do check afterwards, with no credentials, that what you published can be pulled. A check that authenticates measures the publisher's view; a reader gets neither the login nor the benefit of the doubt.
 - **Report `unknown`, never a guess.** A registry that times out or answers HTTP 429 has not said the credential is broken, and a run in which nothing could be verified is not a pass. Say which of the two happened: "0 verified, 3 unknown" is actionable, "no failures" is not.
+- **Measure the tarball before you upload it.** npm refused `@link-assistant/hive-mind` 2.40.0 and 2.40.1 with `E413 Payload Too Large` after every build had passed (2.40.1's tarball was 249,862,346 bytes); the largest tarball it is known to have accepted here is 165,142,849 bytes. Gate the actual archive below that (`npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin`) and name its largest files. An E413 is deterministic, so fail on the first one instead of retrying. Ship platform-specific binaries as per-platform packages pinned by `optionalDependencies`, as `@openai/codex` does (#4050, `src/native-codex/PACKAGES.md`).
+
+### 17. Tell a Broken Pipeline from a Changed World
+
+**A job that fails for a reason no commit can fix is a false negative, and it trains everyone to ignore red.** Issue #2625 found four of them on `main` at once: a dependency gate that failed every push because a new upstream major had appeared, a cleanup that failed every day because a ruleset forbids deleting branches, a dispatch that GitHub refused before it started, and a log upload that retried a refusal three times. Each one hid the real failures next to it.
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # the dispatch API answers HTTP 422 without it
+```
+
+- **Gate external state on pull requests; on push, warn.** "A newer version was published" is a fact about the world, not about the commit. Failing the push skips lint, tests and the release for a change that broke nothing; the pull request is where someone can act on it.
+- **A policy refusal is a decision, not a transient error.** `Resource not accessible by integration` (a workflow `GITHUB_TOKEN` cannot create gists) and a ruleset's `Repository rule violations found` answer the same way on every attempt. Retry `HTTP 429` and `5xx`; report a refusal once, name what would allow it, and move on.
+- **Every input a workflow is dispatched with by API needs a default.** `gh workflow run` cannot fill a form: a `required: true` input without `default:` makes GitHub answer `HTTP 422: Required input '<name>' not provided`, and the run never exists. Test that each dispatched workflow accepts exactly the inputs its caller passes.
+- **Create what you depend on, or tolerate its absence.** `gh pr edit --add-label` fails with `'<label>' not found` in a repository that never had the label. Create it on first use (`gh label create`) instead of failing a run that already did its work.
+- **Write logs where the upload step looks.** An artifact step that finds nothing warns `No files were found with the provided path` and passes; the run that failed early, the one the artifact exists for, leaves no evidence. Make a missing log fail loudly in the test suite, not silently in production.
+- **Say why a job skipped.** A downstream workflow that skips because its upstream failed is correct, but a green run that silently did nothing reads as "tested". Print the reason as a `::notice::` annotation so it shows on the run summary (issue #2923).
+- **One outcome, one message.** A log that says "recovered and completed successfully" and then "❌ Agent reported error" for the same error sends readers down the wrong path. Compute the verdict first, then log only what is true.
+- **A green bot run can still be stuck.** Dependabot logs `Deferring creation of a new pull request` and exits green while an open group pull request exists, even after a newer major superseded it (dependabot/dependabot-core#16791). Pull request #2285 stayed open 52 days and collected 37 "Dependabot is rebasing this PR" banners while every daily run passed. Check the outcome, not the exit status: the Dependabot Health workflow fails when a bot pull request is older than 14 days or carries more than 2 rebase banners (issue #4055).
+- **Configure only what exists.** A Dependabot `docker-compose` entry for compose files that build every image locally matches no dependency and warns `groups where no dependencies match` on every run. Derive the ecosystem list from the repository and test it (issue #4055).
+- **Group repeated failures by meaning, not by text.** A health check that keys failures by their exact message counts `Could not pull …:2.40.0` and `…:2.40.1` as two faults, so twelve identical failures never reach a threshold of five. Strip versions, ids, hashes and paths before comparing (issue #4055).
+- **Wait for asynchronous release with a bound.** An async database pool closes its connections on a worker thread after `close()` returns. A step that needs "no open handles" right afterwards must poll with backoff and a deadline and name the holder it waited for, instead of failing on the first look (issue #4055).
 
 ## Quality Enforcement Strategy
 
@@ -477,9 +579,16 @@ Each layer catches different issues, ensuring no problematic code reaches produc
 1. **Choose a template** from the table above matching your language
 2. **Use it as a GitHub template** to create your new repository
 3. **Configure secrets** if needed for publishing (OIDC preferred)
-4. **Start developing** with all best practices pre-configured
+4. **Start developing** with the template workflows
 
 The AI solvers will automatically respect and iterate with all configured checks, producing higher quality output than repositories without CI/CD enforcement.
+
+### Add Swift CI to a multi-language repository
+
+1. Copy `swift/ci/` and `.github/workflows/swift-ci.yml` from the same Swift template revision into the corresponding paths in your repository.
+2. Add a caller such as `.github/workflows/swift-checks.yml`. Give it `contents: read` and call `./.github/workflows/swift-ci.yml` with `mode: embedded` and `pipeline-directory: swift/ci`. Adapt the caller's triggers to your default branch and merge queue. [Swift monorepo guide and example caller](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. Set `package-directory` to the directory containing `Package.swift` (`'.'` for a root manifest). Set `source-paths` to explicit repository-relative paths, one per line, for the manifest, `Package.resolved` if present, sources, tests and shared fixtures.
+4. Keep your existing workflows, Swift-specific checks and release policy. Embedded mode runs read-only CI. Verify that Swift changes run the Linux and macOS checks and that changes confined to other languages skip Swift compilation.
 
 ## Automatic CI/CD Remediation
 
@@ -507,7 +616,7 @@ The retired paragraph cannot be restored by an option combination; `--developmen
 
 ### Language → Template Mapping
 
-The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template):
+The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template, and so do C, C++ and CMake):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -517,7 +626,10 @@ The command maps detected languages to templates as follows (JavaScript and Type
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 Languages without a dedicated template (for example Shell or Dockerfile) are listed in the issue for awareness, and the closest matching template is recommended.
 
@@ -528,8 +640,22 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+The issue is created as soon as the repository has been inspected, but `/solve` starts only after no GitHub Actions run is pending on the default branch, so the AI work never starts from a moving default branch or reasons about runs that are about to change. The wait polls every 30 seconds, gives up after `--ci-wait-timeout <minutes>` (default 60) and is skipped with `--no-wait-for-ci`. While it lasts, the Telegram reply shows a separate "⏳ Waiting for CI/CD" status with the runs still in progress, and when runs finished during the wait their latest results are commented on the issue ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## References
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)
 - [Contributing Guidelines](./CONTRIBUTING.md)
 - [Best Practices](./BEST-PRACTICES.md)
+
+Real GitHub Hello World E2E runs create issues, pull requests and fixture branches. Keep `ENABLE_REAL_GITHUB_E2E` unset by default: schedule and `workflow_run` execution are opt-in through the optional repository variable `ENABLE_REAL_GITHUB_E2E=true`, while manual dispatch remains available. Default unit tests replay captured Agent, Claude and Codex output and verify run-bound evidence. Real runs still require physical fixture cleanup; protected branches keep the run red. Captured regression passes do not establish full #1483 or cross-client delivery acceptance.
+
+Pull requests run essential source, dependency and captured-regression checks by default. Real Docker image builds and container integration in `docker-pr-check` require the optional `ENABLE_DOCKER_PR_BUILDS=true` repository variable; their scripts and assertions remain available. Default-branch Docker publication still builds the actual release images after npm publication. An opt-in PR build is additional coverage, not a replacement for default-branch production qualification.
+
+Pull request events and explicit dispatches on actual feature branches use the `pull-request` source-test profile. It runs the same full default unit suite as the default branch, through the same shared runner, with `--continue-on-failure` so one run lists every failing file. Issue #4025 replaced a 13-file `pr-essential` subset: the other ~690 default tests then ran only after merge, and main went red twice in a week (runs 41801786544 and 42570340658) for regressions the pull requests never executed, while fail-fast showed only the first. The `pr-essential` marker remains as a quick local loop (`node scripts/run-tests.mjs --suite pr-essential`), not a merge gate. No PR-number input or checkout override is introduced. GitHub integration tests and their credential resolution run only in the default-branch `default` lane with `ENABLE_REAL_GITHUB_E2E=true`.

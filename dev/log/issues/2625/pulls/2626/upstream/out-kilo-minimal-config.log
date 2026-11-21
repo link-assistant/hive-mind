@@ -1,0 +1,1011 @@
+{
+  "type": "config",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.715Z",
+  "service": "default",
+  "source": "lino-arguments (CLI args > env vars > .lenv > defaults)",
+  "config": {
+    "verbose": false,
+    "dryRun": false,
+    "generateTitle": false,
+    "outputResponseModel": true,
+    "summarizeSession": true,
+    "retryOnRateLimits": true,
+    "compactJson": false,
+    "configContent": "{\"provider\":{\"kilo\":{\"models\":{\"nemotron-3-super-free\":{\"id\":\"nvidia/nemotron-3-super-120b-a12b:free\"}}}}}",
+    "disableAutoupdate": false,
+    "disablePrune": false,
+    "enableExperimentalModels": false,
+    "disableAutocompact": false,
+    "experimental": false,
+    "experimentalWatcher": false,
+    "retryTimeout": 604800,
+    "maxRetryDelay": 1200,
+    "minRetryInterval": 30,
+    "streamChunkTimeoutMs": 120000,
+    "streamStepTimeoutMs": 600000,
+    "mcpDefaultToolCallTimeout": 120000,
+    "mcpMaxToolCallTimeout": 600000,
+    "verifyImagesAtReadTool": true,
+    "readOnly": false,
+    "permissionMode": "auto"
+  },
+  "message": "Agent configuration resolved"
+}
+
+{
+  "type": "status",
+  "mode": "stdin-stream",
+  "message": "Agent CLI in continuous listening mode. Accepts JSON and plain text input.",
+  "hint": "Press CTRL+C to exit. Use --help for options.",
+  "acceptedFormats": [
+    "JSON object with \"message\" field",
+    "Plain text"
+  ],
+  "options": {
+    "inputFormat": "text",
+    "interactive": true,
+    "autoMergeQueuedMessages": true,
+    "alwaysAcceptStdin": true,
+    "compactJson": false
+  }
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.717Z",
+  "service": "default",
+  "version": "0.26.11",
+  "command": "/home/box/.bun/bin/bun /home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js --model kilo/nemotron-3-super-free",
+  "workingDirectory": "/tmp/agent-min-test",
+  "scriptPath": "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+  "message": "Agent started (continuous mode)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.718Z",
+  "service": "default",
+  "directory": "/tmp/agent-min-test",
+  "message": "creating instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.718Z",
+  "service": "project",
+  "directory": "/tmp/agent-min-test",
+  "message": "fromDirectory"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.727Z",
+  "service": "default",
+  "processArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/nemotron-3-super-free"
+  ],
+  "bunArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.npm/_npx/d6116de17677892d/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "kilo/nemotron-3-super-free"
+  ],
+  "cliModelArg": "kilo/nemotron-3-super-free",
+  "yargsModel": "kilo/nemotron-3-super-free",
+  "message": "model resolution: argv sources"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.727Z",
+  "service": "default",
+  "rawModel": "kilo/nemotron-3-super-free",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "message": "using explicit provider/model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.730Z",
+  "service": "provider",
+  "status": "started",
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.732Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/config.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.736Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.736Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.jsonc",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.801Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "age": 171980,
+  "message": "cache is fresh, triggering background refresh"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.806Z",
+  "service": "models.dev",
+  "file": {},
+  "message": "refreshing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.914Z",
+  "service": "provider",
+  "message": "init"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.937Z",
+  "service": "claude-oauth",
+  "subscriptionType": "max",
+  "scopes": [
+    "user:file_upload",
+    "user:inference",
+    "user:mcp_servers",
+    "user:plugins",
+    "user:profile",
+    "user:sessions:claude_code"
+  ],
+  "message": "loaded oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.937Z",
+  "service": "provider",
+  "source": "credentials file (max)",
+  "message": "using claude oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.938Z",
+  "service": "provider-registry",
+  "available": [
+    "formal-ai",
+    "formalai",
+    "@link-assistant",
+    "opencode",
+    "kilo",
+    "claude-oauth",
+    "link-assistant"
+  ],
+  "message": "providers available"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.939Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 209,
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.940Z",
+  "service": "default",
+  "hint": "Secondary calls (compaction, session summary) inherit --model unless a compaction model is named explicitly",
+  "baseProviderID": "kilo",
+  "baseModelID": "nemotron-3-super-free",
+  "dropped": [
+    "big-pickle",
+    "hy3-preview-free",
+    "ling-2.6-flash-free",
+    "gpt-5-nano"
+  ],
+  "kept": [
+    "kilo/minimax-m2.5-free",
+    "kilo/nemotron-3-super-free",
+    "same"
+  ],
+  "message": "default compaction models narrowed to the configured provider"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.940Z",
+  "service": "default",
+  "models": [
+    "kilo/minimax-m2.5-free",
+    "kilo/nemotron-3-super-free",
+    "same"
+  ],
+  "source": "default",
+  "message": "compaction models cascade configured"
+}
+
+{
+  "type": "model_resolved",
+  "timestamp": "2026-10-07T14:04:28.941Z",
+  "requested": "kilo/nemotron-3-super-free",
+  "selector": "kilo/nemotron-3-super-free",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "source": "cli",
+  "matchesRequest": true
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.991Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.991Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.995Z",
+  "service": "session",
+  "id": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "version": "0.26.11",
+  "projectID": "global",
+  "directory": "/tmp/agent-min-test",
+  "title": "New session - 2026-10-07T14:04:28.995Z",
+  "time": {
+    "created": 1791381868995,
+    "updated": 1791381868995
+  },
+  "message": "created"
+}
+
+{
+  "type": "session.created",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.996Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.996Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:28.997Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 6,
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.023Z",
+  "service": "bus",
+  "message": "subscribing"
+}
+
+{
+  "type": "input",
+  "timestamp": "2026-10-07T14:04:29.027Z",
+  "raw": "Reply with the single word hello",
+  "parsed": {
+    "message": "Reply with the single word hello"
+  },
+  "format": "text",
+  "kind": "message"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.027Z",
+  "service": "bus",
+  "message": "subscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.028Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session/ses_ee951ee3cffemy0ZOwQ2YdiI16/message",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.028Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session/ses_ee951ee3cffemy0ZOwQ2YdiI16/message",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.039Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 11,
+  "method": "POST",
+  "path": "/session/ses_ee951ee3cffemy0ZOwQ2YdiI16/message",
+  "message": "request"
+}
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.050Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.054Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.056Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.061Z",
+  "service": "session.prompt",
+  "step": 0,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "message": "loop"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.071Z",
+  "service": "session.prompt",
+  "hint": "Enable with --generate-title flag or AGENT_GENERATE_TITLE=true",
+  "message": "title generation disabled"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.071Z",
+  "service": "session.prompt",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "step": 1,
+  "message": "resolving model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.073Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "message": "getModel"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.075Z",
+  "service": "provider",
+  "status": "started",
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.075Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "pkg": "@openrouter/ai-sdk-provider",
+  "globalVerboseFetchInstalled": true,
+  "verboseAtCreation": false,
+  "message": "provider SDK fetch chain configured"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.076Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "pkg": "@openrouter/ai-sdk-provider",
+  "message": "using bundled provider (no installation needed)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.076Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 1,
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.076Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.076Z",
+  "service": "session.prompt",
+  "providerID": "kilo",
+  "modelID": "nemotron-3-super-free",
+  "resolvedModelID": "nvidia/nemotron-3-super-120b-a12b:free",
+  "message": "model resolved successfully"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.077Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "message": "getModel"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.077Z",
+  "service": "provider",
+  "status": "started",
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.077Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 0,
+  "providerID": "kilo",
+  "message": "getSDK"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:29.077Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.163Z",
+  "service": "token",
+  "message": "loaded gpt-tokenizer (o200k_base)"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.169Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.171Z",
+  "service": "system-prompt",
+  "prompt": "anthropic",
+  "model": "nemotron-3-super-free",
+  "message": "system prompt: anthropic (default for unknown model nemotron-3-super-free)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.233Z",
+  "service": "session.processor",
+  "message": "process"
+}
+
+{
+  "type": "session.status",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.251Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.270Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.270Z",
+  "service": "session.summary",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "hint": "Using compaction model to reduce rate-limit pressure on main model",
+  "mainModelID": "nemotron-3-super-free",
+  "message": "loading model for summarization"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.281Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.diff",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:30.281Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "warn",
+  "timestamp": "2026-10-07T14:04:30.576Z",
+  "service": "session.summary",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "error": "Not Found",
+  "stack": "AI_APICallError: Not Found\n    at <anonymous> (/home/box/.npm/_npx/d6116de17677892d/node_modules/@openrouter/ai-sdk-provider/dist/index.js:3084:18)\n    at async <anonymous> (/home/box/.npm/_npx/d6116de17677892d/node_modules/@openrouter/ai-sdk-provider/dist/index.js:2888:34)\n    at async <anonymous> (/home/box/.npm/_npx/d6116de17677892d/node_modules/@openrouter/ai-sdk-provider/dist/index.js:2850:13)\n    at async doGenerate (/home/box/.npm/_npx/d6116de17677892d/node_modules/@openrouter/ai-sdk-provider/dist/index.js:4359:61)\n    at async <anonymous> (/home/box/.npm/_npx/d6116de17677892d/node_modules/ai/dist/index.js:5609:47)\n    at processTicksAndRejections (native:7:39)",
+  "message": "title API call failed"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.499Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "step_start",
+  "timestamp": 1791381871499,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "part": {
+    "id": "prt_116ae1b88001XFTpGvNyn0PGHV",
+    "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+    "messageID": "msg_116ae1654001w7b1uejuSdwNtm",
+    "type": "step-start"
+  }
+}
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.502Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.502Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.546Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.565Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.566Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.748Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.748Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.749Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.771Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.782Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.785Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.799Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.803Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.806Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "text",
+  "timestamp": 1791381871806,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "part": {
+    "id": "prt_116ae1cb70015ErH0ur00XV70E",
+    "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+    "messageID": "msg_116ae1654001w7b1uejuSdwNtm",
+    "type": "text",
+    "text": "hello",
+    "time": {
+      "start": 1791381871804,
+      "end": 1791381871804
+    }
+  }
+}
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.819Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "step_finish",
+  "timestamp": 1791381871820,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "part": {
+    "id": "prt_116ae1cc5001zxCdwEIGepwv0A",
+    "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+    "messageID": "msg_116ae1654001w7b1uejuSdwNtm",
+    "type": "step-finish",
+    "reason": "stop",
+    "cost": 0,
+    "tokens": {
+      "input": 11269,
+      "output": 35,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "model": {
+      "providerID": "kilo",
+      "requestedModelID": "nemotron-3-super-free",
+      "respondedModelID": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  }
+}
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.826Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.830Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.844Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.844Z",
+  "service": "session.prompt",
+  "step": 1,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "message": "loop"
+}
+
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.859Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.860Z",
+  "service": "session.summary",
+  "providerID": "kilo",
+  "modelID": "minimax-m2.5-free",
+  "hint": "Using compaction model to reduce rate-limit pressure on main model",
+  "mainModelID": "nemotron-3-super-free",
+  "message": "loading model for summarization"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.867Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.diff",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.868Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.871Z",
+  "service": "session.prompt",
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "message": "exiting loop"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.872Z",
+  "service": "session.compaction",
+  "message": "pruning"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.878Z",
+  "service": "session.prompt",
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16",
+  "message": "cancel"
+}
+
+{
+  "type": "session.status",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.880Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.idle",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.880Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session_idle",
+  "timestamp": 1791381871880,
+  "sessionID": "ses_ee951ee3cffemy0ZOwQ2YdiI16"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.880Z",
+  "service": "bus",
+  "message": "unsubscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.883Z",
+  "service": "session.compaction",
+  "pruned": 0,
+  "total": 0,
+  "message": "found"
+}
+
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.938Z",
+  "service": "bus",
+  "message": "unsubscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.939Z",
+  "service": "default",
+  "directory": "/tmp/agent-min-test",
+  "message": "disposing instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.939Z",
+  "service": "state",
+  "key": "/tmp/agent-min-test",
+  "message": "waiting for state disposal to complete"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.940Z",
+  "service": "state",
+  "key": "/tmp/agent-min-test",
+  "message": "state disposal completed"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-10-07T14:04:31.941Z",
+  "service": "default",
+  "hasError": false,
+  "uptimeSeconds": 4,
+  "message": "Agent exiting"
+}
+

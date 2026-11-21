@@ -2,7 +2,7 @@
 // Issue #2400: does @secretlint/core lintSource retain memory per call?
 // Usage: node --expose-gc experiments/issue-2400-secretlint-heap.mjs [calls] [--no-profiler]
 import { lintSource } from '@secretlint/core';
-import { creator } from '@secretlint/secretlint-rule-preset-recommend';
+import { presetRecommend as creator } from '@secretlint/core/builtin';
 
 const calls = Number(process.argv[2] || 3000);
 if (process.argv.includes('--no-profiler')) {

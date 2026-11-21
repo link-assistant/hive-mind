@@ -86,6 +86,11 @@ export const isAgentIdleEvent = data => {
  * Fail closed when Agent resolves a Formal AI request to any other provider.
  * The critical parser record is handled before the provider can make a request;
  * the resolved-provider record is a second, independent guard.
+ *
+ * Only Formal AI fails closed (#3215 reviewed this): Agent legitimately serves
+ * a retired free model with its replacement (#1473), and model recognition
+ * reports the model that was actually used, so stopping those runs would break
+ * them without making them more correct.
  */
 export const detectFormalAiAgentRoutingMismatch = (record, expectedModel) => {
   if (expectedModel !== 'formalai/formal-ai' || !record || typeof record !== 'object' || record.type !== 'log') return null;
@@ -100,6 +105,29 @@ export const detectFormalAiAgentRoutingMismatch = (record, expectedModel) => {
   return actualModel === expectedModel ? null : `Agent requested ${expectedModel} but selected ${actualModel}; stopping before another provider can be used`;
 };
 
+/**
+ * Decide whether a streaming error was recovered from (issue #1276) and what to log.
+ *
+ * Exit code 0 with a completion event clears the streaming error, but a fatal
+ * error record found in the output still fails the run (issue #1201). Failed
+ * tool calls never get here: they are not fatal (see
+ * isRecoverableAgentToolError in agent-error-events.lib.mjs). The log used to
+ * say "recovered ... completed successfully" right before "❌ Agent reported
+ * error" for the same error (issue #2923, Formal AI run 37959364207), so the
+ * recovery message is only printed when the run really is treated as a success.
+ *
+ * @param {{exitCode: number|null, agentCompletedSuccessfully: boolean, streamingErrorDetected: boolean, outputErrorDetected: boolean}} state
+ * @returns {{clearStreamingError: boolean, message: string|null}}
+ */
+export const resolveStreamingErrorRecovery = ({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected }) => {
+  const clearStreamingError = exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected);
+  if (!clearStreamingError || !streamingErrorDetected || !agentCompletedSuccessfully) return { clearStreamingError, message: null };
+  return {
+    clearStreamingError,
+    message: outputErrorDetected ? 'ℹ️  Agent exited 0 after an error event; the error event in its output still fails the run' : 'ℹ️  Agent recovered from earlier error and completed successfully',
+  };
+};
+
 export default {
   AGENT_AUXILIARY_DISABLE_ARGS,
   buildAgentArgs,
@@ -107,4 +135,5 @@ export default {
   formatAgentArgsForDisplay,
   isAgentIdleEvent,
   isAgentStrongCompletionEvent,
+  resolveStreamingErrorRecovery,
 };

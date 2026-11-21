@@ -35,6 +35,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { startDetachedDockerPull } from './docker-pull-detached.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 
 /** How the launcher tells the task which image it is running inside. */
@@ -120,7 +122,9 @@ export const describeTaskImage = ({ image, digest } = {}) => {
  */
 const runDocker = async (args, { timeoutMs = TASK_IMAGE_PULL_TIMEOUT_MS } = {}) => {
   try {
-    const result = await execFileAsync('docker', args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 });
+    // Issue #3207: a pull cut short by the timeout keeps running detached, so
+    // the daemon does not cancel it and leave its layers held by a lease.
+    const result = args[0] === 'pull' ? await startDetachedDockerPull(args, { timeoutMs }) : await execFileAsync('docker', args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 });
     return { code: 0, stdout: result?.stdout ?? '', stderr: result?.stderr ?? '' };
   } catch (error) {
     return { code: typeof error?.code === 'number' ? error.code : 1, stdout: error?.stdout ?? '', stderr: error?.stderr ?? error?.message ?? String(error) };

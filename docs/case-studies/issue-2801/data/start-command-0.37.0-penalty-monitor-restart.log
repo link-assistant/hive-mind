@@ -1,0 +1,29 @@
+08:56:25 start-command version: 0.37.0; NCPU=6 TRIGGER=20%
+08:56:52 penalized: NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=233 monitor pids: 42450 42468 42469 
+08:56:55 watcher and monitor killed; monitor pids: ''
+08:56:55 container made idle; waiting 30 s without a monitor
+08:57:25 still capped? NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=32943
+08:57:25 watcher-side processes: 
+resume-all: reattached state=running Re-attached completion watcher to running container: issue-2801-start-restart-41946
+08:57:28 after --resume-all: status=executing null null
+08:57:28 after --resume-all: processes: 44976 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |44996 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |44998 docker logs -f issue-2801-start-restart-41946|
+08:57:31 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=38807
+08:57:35 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=42365
+08:57:38 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=46122
+08:57:42 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=49606
+08:57:45 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=53029
+08:57:49 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=56420
+08:57:52 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=59728
+08:57:55 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=63080
+08:57:59 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=66409
+08:58:03 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=70569
+08:58:06 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=74211
+08:58:10 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=77576
+08:58:13 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=81142
+08:58:17 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=84572
+08:58:20 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=88003
+08:58:24 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=91473
+08:58:27 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=95179
+08:58:31 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=98689
+08:58:35 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=102303
+08:58:38 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=105912

@@ -1,0 +1,40 @@
+✔ status and list preserve the watcher counters; missing and malformed counters remain unknown (3.209626ms)
+✔ links-notation counters come from the cgroupMemory block, not recoveryHistory (5.197866ms)
+✔ the monitor uses counters without OOMKilled, while footer and liveness still win (2.229569ms)
+✔ watcher counters reach diagnostics even without a final solve resource snapshot (2.023765ms)
+✖ a watcher sample missing the final increment does not erase a solve OOM observation (1.971468ms)
+✔ a prior container OOM does not explain SIGTERM or a runtime self-abort (0.917431ms)
+✔ the monitor cgroup and unrelated kernel victims cannot attribute a task kill (0.736032ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1129.12411
+
+✖ failing tests:
+
+test at tests/issue-2498-start-status.test.mjs:86:1
+✖ a watcher sample missing the final increment does not erase a solve OOM observation (1.971468ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'forced-kill'
+  - 'out-of-memory'
+  
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791199465026/tests/issue-2498-start-status.test.mjs:92:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'forced-kill',
+    expected: 'out-of-memory',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -2,10 +2,12 @@
 
 Этот документ содержит исчерпывающую информацию о бесплатных моделях, поддерживаемых hive-mind при использовании опции `--tool agent`.
 
-> **Последнее обновление:** 10 апреля 2026 г.
+> **Последнее обновление:** 10 октября 2026 г.
 > **Связанные материалы:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) — Список бесплатных моделей upstream (канонический источник)
+> - [Issue #2591](https://github.com/link-assistant/hive-mind/issues/2591) — Бесплатные модели сверены с живым каталогом OpenCode Zen (`https://opencode.ai/zen/v1/models`, 2026-10-10): добавлены новые бесплатные модели, `minimax-m2.5-free` и `grok-code` скрыты из списков (но по-прежнему принимаются)
+> - [Issue #2625](https://github.com/link-assistant/hive-mind/issues/2625) — OpenCode Zen убрал nemotron-3-super-free, а его бесплатный уровень теперь отвечает `FreeTierError` (HTTP 403) всем клиентам, кроме OpenCode; модель по умолчанию работает через Kilo Gateway как `nvidia/nemotron-3-super-120b-a12b:free`, а недостающую в Agent запись провайдера передаёт Hive Mind ([agent#327](https://github.com/link-assistant/agent/issues/327))
 > - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) — Upstream: замена устаревшей qwen3.6-plus-free на nemotron-3-super-free в качестве модели по умолчанию
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) — Upstream: qwen3.6-plus-free как модель по умолчанию, добавлена nemotron-3-super-free
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) — Upstream: обновления бесплатных моделей (minimax-m2.5-free как модель по умолчанию)
@@ -15,17 +17,17 @@
 
 Hive-mind поддерживает бесплатные модели от двух провайдеров:
 
-1. **OpenCode Zen** — 4 бесплатные модели с префиксом `opencode/`
+1. **OpenCode Zen** — 9 бесплатных моделей с префиксом `opencode/` (список меняется еженедельно; актуальный показывает `opencode models`)
 2. **Kilo Gateway** — 6 бесплатных моделей с префиксом `kilo/` (Issue #1282)
 
 ---
 
 ## Бесплатные модели OpenCode Zen
 
-### 1. opencode/nemotron-3-super-free **Модель по умолчанию**
+### 1. kilo/nemotron-3-super-free **Модель по умолчанию**
 
 - **Краткий псевдоним**: `nemotron-3-super-free`
-- **Провайдер**: OpenCode Zen
+- **Провайдер**: Kilo Gateway (`nvidia/nemotron-3-super-120b-a12b:free`, Issue #2625)
 - **Статус**: Полностью поддерживается (По умолчанию для `--tool agent` начиная с Issue #1563)
 - **Возможности**: Рассуждение, вызов инструментов, гибридная архитектура Mamba-Transformer
 - **Контекстное окно**: ~262 144 токенов
@@ -40,7 +42,7 @@ Hive-mind поддерживает бесплатные модели от дву
 
 - **Краткий псевдоним**: `minimax-m2.5-free`
 - **Провайдер**: OpenCode Zen
-- **Статус**: Полностью поддерживается (Бывшая модель по умолчанию, Issues #1391, #1543)
+- **Статус**: Устарела — models.dev помечает её как `deprecated`, а живой каталог OpenCode Zen её больше не содержит (Issue #2591). По-прежнему принимается, но не выводится в списках. Бывшая модель по умолчанию (Issues #1391, #1543)
 - **Возможности**: Рассуждение, вызов инструментов, управление температурой
 - **Контекстное окно**: 204 800 токенов
 - **Лимит вывода**: 131 072 токенов
@@ -70,6 +72,20 @@ Hive-mind поддерживает бесплатные модели от дву
 - **Лимит вывода**: 128 000 токенов
 - **Стоимость**: Бесплатно (без платы за ввод/вывод)
 - **Дата среза знаний**: Январь 2025
+- **Примечания**: Модель по умолчанию для `--tool opencode` начиная с Issue #2591 — это также модель по умолчанию самого OpenCode, когда ключ провайдера не настроен
+
+### 5. Другие бесплатные модели OpenCode Zen (Issue #2591)
+
+Бесплатно предоставляются живым каталогом OpenCode Zen на 2026-10-10. Каждый краткий псевдоним соответствует `opencode/<alias>` как для `--tool agent`, так и для `--tool opencode`:
+
+| Краткий псевдоним             | Идентификатор модели                   |
+| ----------------------------- | -------------------------------------- |
+| `nemotron-3-ultra-free`       | `opencode/nemotron-3-ultra-free`       |
+| `nemotron-3.5-lightning-free` | `opencode/nemotron-3.5-lightning-free` |
+| `ling-3.1-flash-free`         | `opencode/ling-3.1-flash-free`         |
+| `mimo-v2.6-flash-free`        | `opencode/mimo-v2.6-flash-free`        |
+| `step-5-preview-free`         | `opencode/step-5-preview-free`         |
+| `exo-free`                    | `opencode/exo-free`                    |
 
 ---
 
@@ -81,11 +97,12 @@ Hive-mind поддерживает бесплатные модели от дву
 | ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Бесплатная акция завершилась (апрель 2026) — теперь требуется подписка OpenCode Go. См. [agent#242](https://github.com/link-assistant/agent/issues/242) |
 | Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | Удалена из OpenCode Zen (март 2026) — см. [agent#208](https://github.com/link-assistant/agent/issues/208)                                               |
+| MiniMax M2.5 Free  | `opencode/minimax-m2.5-free` | Помечена как устаревшая на models.dev и отсутствует в живом каталоге OpenCode Zen (октябрь 2026, Issue #2591)                                           |
 | Grok Code Fast 1   | `opencode/grok-code`         | Снята с поддержки в январе 2026                                                                                                                         |
 | MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Заменена на `opencode/minimax-m2.5-free`                                                                                                                |
 | GLM 4.7 Free       | `opencode/glm-4.7-free`      | Больше не бесплатна в OpenCode Zen                                                                                                                      |
 
-> **Примечание:** Актуальный список бесплатных моделей см. в [документации OpenCode Zen](https://opencode.ai/docs/zen/) и [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md).
+> **Примечание:** Актуальный список бесплатных моделей см. в [документации OpenCode Zen](https://opencode.ai/docs/providers/#opencode-zen) и [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md).
 
 ---
 
@@ -190,7 +207,7 @@ solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-s
 hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # Модели OpenCode Zen (полные идентификаторы)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Модели Kilo Gateway (полные идентификаторы)
@@ -218,7 +235,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Модель по умолчанию (nemotron-3-super-free через OpenCode Zen):
+# Модель по умолчанию (nemotron-3-super-free через Kilo Gateway):
 /solve https://github.com/owner/repo/issues/123 --tool agent
 /agent https://github.com/owner/repo/issues/123
 ```
@@ -226,8 +243,12 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 ### Прямое использование Agent CLI
 
 ```bash
+# Модель по умолчанию на Kilo Gateway (Issue #2625): Hive Mind передаёт эту запись провайдера сам;
+# при прямом вызове Agent 0.26.11 она нужна
+LINK_ASSISTANT_AGENT_CONFIG_CONTENT='{"provider":{"kilo":{"models":{"nemotron-3-super-free":{"id":"nvidia/nemotron-3-super-120b-a12b:free"}}}}}' \
+  agent --model kilo/nemotron-3-super-free <<< "Your prompt here"
+
 # Модели OpenCode Zen
-echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
 
 # Модели Kilo Gateway
@@ -243,7 +264,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **Флагманские бесплатные модели**:
 
-- `opencode/nemotron-3-super-free` — гибридная NVIDIA Mamba-Transformer, сильное рассуждение (OpenCode, по умолчанию)
+- `kilo/nemotron-3-super-free` — гибридная NVIDIA Mamba-Transformer, сильное рассуждение (Kilo, по умолчанию)
 - `kilo/glm-5-free` — флагман Z.AI, соответствует Opus 4.5 во многих задачах (Kilo)
 
 **Общего назначения и рассуждение**:
@@ -256,7 +277,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 **Для задач с большим контекстом**:
 
 - `opencode/gpt-5-nano` — очень большой контекст (~400 000 токенов)
-- `opencode/nemotron-3-super-free` — большой контекст (~262 144 токенов)
+- `kilo/nemotron-3-super-free` — большой контекст (~262 144 токенов)
 - `kilo/giga-potato-free` — большой контекст (256 000 токенов)
 - `opencode/minimax-m2.5-free` — большой контекст (204 800 токенов)
 
@@ -318,7 +339,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) — Исправление распознавания моделей и синхронизация бесплатных моделей
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) — Обновление бесплатных моделей (qwen3.6-plus-free как по умолчанию, добавлена nemotron-3-super-free)
 - [Case Study: Issue #1563](./case-studies/issue-1563/README.md) — Обновление бесплатных моделей (qwen3.6-plus-free устарела, nemotron-3-super-free как по умолчанию)
-- [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) — Детали провайдера OpenCode Zen
+- [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) — Детали провайдера OpenCode Zen
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) — Детали провайдера Kilo Gateway
 
 ---

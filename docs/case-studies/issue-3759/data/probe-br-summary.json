@@ -1,0 +1,30 @@
+{
+  "mode": "br",
+  "code": 1,
+  "signal": null,
+  "boundReached": false,
+  "bytes": 6937,
+  "requests": [
+    {
+      "method": "POST",
+      "url": "/v1/messages?beta=true"
+    }
+  ],
+  "events": [
+    {
+      "type": "system",
+      "subtype": "init"
+    },
+    {
+      "type": "assistant",
+      "error": "authentication_failed"
+    },
+    {
+      "type": "result",
+      "subtype": "success",
+      "result": "Failed to authenticate. API Error: 403 Your subscription has ended because it was cancelled.",
+      "is_error": true
+    }
+  ],
+  "nonJsonLines": 68
+}

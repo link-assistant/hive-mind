@@ -6,26 +6,27 @@
  * Issue #1300: Updated free models - minimax-m2.5-free replaces m2.1, glm-4.7-free removed from OpenCode
  * Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free
  * Issue #1563: qwen3.6-plus-free deprecated (free promotion ended), nemotron-3-super-free is now default
+ * Issue #2625: nemotron-3-super-free withdrawn from OpenCode Zen; the default now runs it on the Kilo gateway
  */
 
 import { strict as assert } from 'assert';
 import { validateModelName, AGENT_MODELS, mapModelForTool, isModelCompatibleWithTool, getValidModelsForTool, agentModels } from '../src/models/index.mjs';
 
 // OpenCode Zen free models (current - Issue #1300, Issue #1543)
-const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free', 'opencode/nemotron-3-super-free'];
+const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free'];
 
-const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'minimax-m2.5-free', 'nemotron-3-super-free'];
+const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'minimax-m2.5-free'];
 
 // Kilo Gateway free models (Issue #1282, updated in #1300)
-const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
+const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview', 'kilo/nemotron-3-super-free'];
 
 // Kilo-exclusive models also support short aliases without kilo/ prefix (Issue #1300)
 const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
 
-const KILO_EXCLUSIVE_SHORT_ALIASES = ['glm-5-free', 'glm-4.5-air-free', 'deepseek-r1-free', 'giga-potato-free', 'trinity-large-preview'];
+const KILO_EXCLUSIVE_SHORT_ALIASES = ['glm-5-free', 'glm-4.5-air-free', 'deepseek-r1-free', 'giga-potato-free', 'trinity-large-preview', 'nemotron-3-super-free'];
 
 // Deprecated models (still work for backward compatibility but not recommended)
-const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free', 'opencode/qwen3.6-plus-free'];
+const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free', 'opencode/qwen3.6-plus-free', 'opencode/nemotron-3-super-free'];
 const DEPRECATED_KILO_MODELS = ['kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free'];
 
 // Combined lists
@@ -251,11 +252,11 @@ for (const shortName of freeShortNames) {
   console.log(`✅ ${shortName} -> ${mappedByAgentLib}: Consistent (no moonshot/ prefix)`);
 }
 
-// Test 16: Default model nemotron-3-super-free maps correctly through agent.lib.mjs (Issue #1563)
+// Test 16: Default model nemotron-3-super-free maps correctly through agent.lib.mjs (Issue #1563, Kilo since Issue #2625)
 console.log('\n1️⃣6️⃣ Testing default model (nemotron-3-super-free) through agent.lib.mjs...');
 const defaultModel = 'nemotron-3-super-free';
 const defaultMapped = mapModelToId(defaultModel);
-assert.strictEqual(defaultMapped, 'opencode/nemotron-3-super-free', `Default model ${defaultModel} should map to opencode/nemotron-3-super-free, got ${defaultMapped}`);
+assert.strictEqual(defaultMapped, 'kilo/nemotron-3-super-free', `Default model ${defaultModel} should map to kilo/nemotron-3-super-free, got ${defaultMapped}`);
 assert.ok(!defaultMapped.startsWith('moonshot/'), `Default model should NOT use moonshot/ prefix`);
 console.log(`✅ ${defaultModel} -> ${defaultMapped}: Default model maps correctly`);
 

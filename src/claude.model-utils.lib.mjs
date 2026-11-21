@@ -1,4 +1,4 @@
-import { CLAUDE_MODELS as availableModels } from './models/index.mjs';
+import { CLAUDE_FAMILIES, CLAUDE_MODELS as availableModels, expandClaudeVersionShorthand, getRuntimeModelAlias } from './models/index.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 
 export const formatNumber = num => {
@@ -12,17 +12,20 @@ export const formatNumber = num => {
 
 const ROLLING_CLAUDE_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
 
+// A live-catalogue alias recorded by validation, then the bundled map, then a
+// version shorthand such as `opus-6` for a release newer than this build (issue #2591).
+const mapBaseModelToId = model => getRuntimeModelAlias('claude', model) || availableModels[model] || expandClaudeVersionShorthand(model, CLAUDE_FAMILIES) || model;
+
 export const mapModelToId = (model, { preserveRollingAlias = false } = {}) => {
   if (!model || typeof model !== 'string') return model;
   const match = model.match(/^(.+?)\[1m\]$/i);
   if (match) {
     const baseModel = match[1];
     if (preserveRollingAlias && ROLLING_CLAUDE_ALIASES.has(baseModel.toLowerCase())) return `${baseModel.toLowerCase()}[1m]`;
-    const mappedBase = availableModels[baseModel] || baseModel;
-    return `${mappedBase}[1m]`;
+    return `${mapBaseModelToId(baseModel)}[1m]`;
   }
   if (preserveRollingAlias && ROLLING_CLAUDE_ALIASES.has(model.toLowerCase())) return model.toLowerCase();
-  return availableModels[model] || model;
+  return mapBaseModelToId(model);
 };
 
 const compareClaudeVersionParts = (left, right) => {

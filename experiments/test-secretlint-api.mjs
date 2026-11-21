@@ -4,7 +4,7 @@
  */
 
 import { lintSource } from '@secretlint/core';
-import { creator as presetRecommend, rules } from '@secretlint/secretlint-rule-preset-recommend';
+import { presetRecommend, recommendedRules as rules } from '@secretlint/core/builtin';
 
 async function testSecretlint() {
   console.log('='.repeat(60));

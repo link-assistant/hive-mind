@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2887-873599254c9b",
+  "mergedAt": null,
+  "number": 2895,
+  "state": "OPEN",
+  "title": "fix(kill-recovery): run the real executable, not the Telegram alias, on in-place resume; recover exit 127 (#2887)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2895"
+}

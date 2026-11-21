@@ -1,0 +1,26 @@
+[
+  {
+    "line": 6623,
+    "timestamp": "[2026-10-07T21:42:01.229Z]",
+    "item": {
+      "id": "item_17",
+      "type": "command_execution",
+      "command": "/bin/bash -lc \"cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.current 2>/dev/null\ncat /sys/fs/cgroup/memory.high 2>/dev/null\nrg -n 'codegen|debug|RUSTFLAGS' .github/workflows/release.yml .cargo/config.toml\nps -eo pid,ppid,comm,pcpu,rss --sort=-rss | head -6\n tail -3 ci-logs/719-denial-reproduction.log | cut -c 1-250\"",
+      "aggregated_output": "3135373312\nlow 0\nhigh 0\nmax 69208\noom 4\noom_kill 2\noom_group_kill 0\n1627889664\nmax\n.cargo/config.toml:3:# A debug build of this workspace links many test and binary targets, each\n.cargo/config.toml:4:# embedding full debug information. Nothing evicts previous artifacts, so\n.cargo/config.toml:17:# resolve; what is lost is stepping through variables in a debugger, which is\n.cargo/config.toml:19:debug = 1\n.github/workflows/release.yml:59:  RUSTFLAGS: -Dwarnings\n.github/workflows/release.yml:242:      # Manifest warnings are not rustc lints, so RUSTFLAGS=-Dwarnings never\n    PID    PPID COMMAND         %CPU   RSS\n  26181   25987 rustc           86.6 782680\n  25082   25075 codex            4.2 204212\n   7454    7446 codex            2.2 182564\n   2089       1 node-MainThread  1.5 120280\n   8240    8236 node-MainThread  0.1 117540\n    Blocking waiting for file lock on build directory\n   Compiling link-assistant-router v1.18.3 (/tmp/gh-issue-solver-1791408509780)\n",
+      "exit_code": 0,
+      "status": "completed"
+    }
+  },
+  {
+    "line": 24542,
+    "timestamp": "[2026-10-07T22:28:42.285Z]",
+    "item": {
+      "id": "item_276",
+      "type": "command_execution",
+      "command": "/bin/bash -lc 'tail -n 6 ci-logs/719-all-tests-final.log; cat /sys/fs/cgroup/memory.current; ps -eo pid,rss,comm --sort=-rss | head -n 6'",
+      "aggregated_output": "   Compiling link-assistant-router v1.18.3 (/tmp/gh-issue-solver-1791408509780)\n3130822656\n    PID   RSS COMMAND\n  46768 2219048 rustc\n  25082 206752 codex\n   7454 185708 codex\n  46148 150628 cargo\n   2089 129016 node-MainThread\n",
+      "exit_code": 0,
+      "status": "completed"
+    }
+  }
+]

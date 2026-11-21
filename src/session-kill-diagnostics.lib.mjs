@@ -29,6 +29,7 @@ import { t } from './i18n.lib.mjs';
 import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
+import { describeSolveProgressForDiagnostics, parseSolveProgressEvent } from './solve-progress.lib.mjs'; // Issue #4091
 
 const exec = promisify(execCallback);
 
@@ -64,6 +65,17 @@ export const HEAP_EXHAUSTED_PERCENT = 90;
  */
 export const UPSTREAM_MEMORY_EXHAUSTION_PREFIX = 'memory-exhaustion';
 
+/**
+ * Issue #2498: start-command (<= 0.35.1) also reports memory exhaustion for any
+ * non-zero exit when Docker's sticky `State.OOMKilled` flag is set — even exit 1
+ * of a main process that outlived an OOM-killed child. That report is the
+ * container flag restated, not separate evidence, so it is recognised by its
+ * mechanism and reason and folded into `oomKilled`. Reported upstream as
+ * link-foundation/start#180.
+ */
+export const UPSTREAM_CONTAINER_FLAG_MECHANISM = 'cgroup-oom-killer';
+export const UPSTREAM_CONTAINER_FLAG_REASON = 'Docker reported State.OOMKilled=true';
+
 /** Disk is considered full at or above this used percentage… */
 export const DISK_FULL_USED_PERCENT = 95;
 /** …or below this much free space, whichever triggers first. */
@@ -76,6 +88,24 @@ function text(locale, key, fallback, params = {}) {
 
 function finite(value) {
   return Number.isFinite(value) ? value : null;
+}
+
+function describeCgroupMemory(cgroup) {
+  if (!cgroup) return null;
+  const current = finite(cgroup.currentBytes);
+  const limit = finite(cgroup.limitBytes);
+  const peak = finite(cgroup.peakBytes);
+  const kills = finite(cgroup.oomKills);
+  const events = finite(cgroup.oomEvents);
+  const parts = [];
+  if (current !== null) parts.push(`${formatBytes(current)} used`);
+  if (limit !== null) parts.push(`${formatBytes(limit)} limit`);
+  if (peak !== null) parts.push(`peak ${formatBytes(peak)}`);
+  if (kills !== null) parts.push(`${kills} process(es) killed by the OOM killer`);
+  // oom counts allocation failures at the limit; oom_kill counts processes.
+  // They are different units: a single group OOM can kill several processes.
+  if (events !== null) parts.push(`memory.events oom=${events}`);
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 /**
@@ -105,6 +135,21 @@ export function selectLastHeapResourceMarker(parsed) {
   const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
   for (let i = markers.length - 1; i >= 0; i--) {
     if (finite(markers[i]?.memory?.processHeapUsedBytes) !== null) return markers[i];
+  }
+  return null;
+}
+
+/**
+ * The most recent marker that carries the session's own cgroup memory reading
+ * (issue #2498). Markers written before that field existed have none.
+ *
+ * @param {{markers: Array}|null} parsed
+ * @returns {Object|null}
+ */
+export function selectLastCgroupResourceMarker(parsed) {
+  const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
+  for (let i = markers.length - 1; i >= 0; i--) {
+    if (markers[i]?.cgroupMemory) return markers[i];
   }
   return null;
 }
@@ -263,6 +308,33 @@ function describeDisk(disk, timestamp) {
   return `disk ${disk?.path || '/'}: ${parts.join(' ')}${at}`;
 }
 
+const DISK_FULL_LINE_PATTERN = /\bENOSPC\b|no space left on device/i;
+const DISK_FULL_LINE_MAX_LENGTH = 300;
+
+/**
+ * Issue #2303: the last line of a log that reports the disk as full
+ * (`ENOSPC` / "No space left on device"). Scans from the end, because the line
+ * that matters is the one written as the session died.
+ *
+ * @param {string|null} logText
+ * @returns {{line: string}|null}
+ */
+export function findDiskFullMarker(logText) {
+  if (typeof logText !== 'string' || !logText) return null;
+  const lines = logText.split('\n');
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index].trim();
+    if (line && DISK_FULL_LINE_PATTERN.test(line)) return { line: line.length > DISK_FULL_LINE_MAX_LENGTH ? `${line.slice(0, DISK_FULL_LINE_MAX_LENGTH)}…` : line };
+  }
+  return null;
+}
+
+function isDiskFull(disk) {
+  const usedPercent = finite(disk?.usedPercent);
+  const available = finite(disk?.availableBytes);
+  return (usedPercent !== null && usedPercent >= DISK_FULL_USED_PERCENT) || (available !== null && available <= DISK_FULL_AVAILABLE_BYTES);
+}
+
 /**
  * Decide WHY a session was killed, from the evidence available.
  *
@@ -281,17 +353,26 @@ function describeDisk(disk, timestamp) {
  * @param {boolean|null} [params.reportedMemoryExhausted] - `$ --status` `memoryExhausted` (start-command >= 0.33.0)
  * @param {string|null} [params.reportedMemoryExhaustedReason] - `$ --status` `memoryExhaustedReason` (the evidence line)
  * @param {string|null} [params.reportedExitReason] - `$ --status` `exitReason` hint, e.g. `memory-exhaustion (v8-heap-limit)`
+ * @param {Object|null} [params.reportedCgroupMemory] - Task cgroup counters saved by start-command >= 0.35.2
+ * @param {Object|null} [params.observedDisk] - Lowest host disk reading the monitor took while the session ran (issue #2303)
+ * @param {string|null} [params.unobservedExit] - Why the reported success was not trusted (issue #2303)
+ * @param {string|null} [params.statusQueryFailure] - Why the session was judged without a status record (issue #2303)
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
   const diskMarker = selectLastDiskResourceMarker(parsed);
   const memory = memoryMarker?.memory || null;
   const disk = diskMarker?.disk || null;
-  const victims = Array.isArray(system?.victims) ? system.victims : [];
-  const cgroupOomKills = finite(system?.cgroup?.oomKill);
+  // These probes run in the bot, whose cgroup and dmesg may include other
+  // tasks or older incidents. Only an explicitly attributed source can decide
+  // this task's cause; otherwise retain the probes as labelled context.
+  const systemVictims = Array.isArray(system?.victims) ? system.victims : [];
+  const victims = system?.sessionScoped === true ? systemVictims : [];
+  const monitorOomKills = finite(system?.cgroup?.oomKill);
+  const cgroupOomKills = system?.sessionScoped === true ? monitorOomKills : null;
 
   const evidence = [];
   const memoryLine = describeMemory(memory, memoryMarker?.timestamp || null);
@@ -304,13 +385,29 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
   const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
+  // Issue #2303: the in-band markers are written at phase boundaries and can be
+  // an hour stale when the disk fills; the monitor's own lowest reading is not.
+  const observedDiskLine = describeDisk(observedDisk, observedDisk?.observedAt || null);
+  if (observedDiskLine) evidence.push(`lowest host ${observedDiskLine} observed by the monitor while the session ran`);
+  if (unobservedExit) evidence.push(`the reported success was not trusted — ${unobservedExit}`);
+  if (statusQueryFailure) evidence.push(statusQueryFailure);
+  // Issue #2498: how close the container came to its own limit, and how many
+  // processes the OOM killer took there — one OOM event can take several.
+  const cgroupMarker = selectLastCgroupResourceMarker(parsed);
+  const cgroupLine = describeCgroupMemory(cgroupMarker?.cgroupMemory);
+  if (cgroupLine) evidence.push(`last session container cgroup reading — ${cgroupLine}${cgroupMarker.timestamp ? ` at ${cgroupMarker.timestamp}` : ''} (phase \`${cgroupMarker.phase}\`)`);
+  const reportedCgroupLine = describeCgroupMemory(reportedCgroupMemory);
+  if (reportedCgroupLine) evidence.push(`start-command watcher container cgroup reading — ${reportedCgroupLine}`);
+  // Either source can miss the final increment when the cgroup disappears.
+  // A zero in one sample must not erase a positive task observation in another.
+  const taskCgroupOomObserved = reportedCgroupMemory?.oomKills > 0 || cgroupMarker?.cgroupMemory?.oomKills > 0;
   if (oomKilled) evidence.push('container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)');
-  if (cgroupOomKills !== null && cgroupOomKills > 0) evidence.push(`cgroup \`memory.events\` reports ${cgroupOomKills} OOM kill(s)`);
+  if (monitorOomKills !== null && monitorOomKills > 0) evidence.push(`${system?.sessionScoped === true ? 'session' : 'monitor'} cgroup \`memory.events\` reports ${monitorOomKills} OOM kill(s)${system?.sessionScoped === true ? '' : ' (not attributed to this task)'}`);
   const systemMemoryLine = describeMemory(system?.memory, null);
   if (systemMemoryLine) evidence.push(`host memory now — ${systemMemoryLine}`);
   if (system?.pressure) evidence.push(`\`/proc/pressure/memory\`: ${system.pressure}`);
-  for (const victim of victims.slice(-3)) {
-    evidence.push(`kernel OOM killer terminated \`${victim.comm || 'unknown'}\` (pid ${victim.pid ?? '?'})`);
+  for (const victim of systemVictims.slice(-3)) {
+    evidence.push(`kernel OOM killer terminated \`${victim.comm || 'unknown'}\` (pid ${victim.pid ?? '?'})${system?.sessionScoped === true ? '' : ' (not attributed to this task)'}`);
   }
 
   // Issue #2189: the ground truth for a runtime that exhausted its OWN heap is
@@ -318,7 +415,16 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // zero for a V8 self-abort. Only an abnormal ending is allowed to be upgraded,
   // so a log that merely mentions the phrase cannot manufacture a diagnosis.
   const abnormalExit = exitCode === null || exitCode !== 0;
+  // Issue #4091: what the session was doing (its last `[HIVE-MIND SOLVE]` marker),
+  // and whether its interrupt handler ran — `/stop` arrives as CTRL+C first.
+  const lastPhase = describeSolveProgressForDiagnostics(parseSolveProgressEvent(logText));
+  if (lastPhase) evidence.push(`last \`/solve\` phase marker: ${lastPhase}`);
+  const interruptLine = abnormalExit && [null, 130, 137, 143].includes(exitCode) && /Session interrupted by user \(CTRL\+C\)/.test(String(logText || '')) ? 'Session interrupted by user (CTRL+C)' : null;
+  if (interruptLine) evidence.push(`the log shows the interrupt handler ran (\`${interruptLine}\`): the stop was requested with CTRL+C (\`/stop\` sends it through \`$ --stop\`) before the process was killed`);
+  const stoppedByOperator = Boolean(stopRequestedByUser || interruptLine);
   const fatalMemoryMarker = abnormalExit ? findFatalMemoryMarker(logText) : null;
+  const diskFullMarker = abnormalExit ? findDiskFullMarker(logText) : null;
+  if (diskFullMarker) evidence.push(`the log reports a full disk: \`${diskFullMarker.line}\``);
   if (fatalMemoryMarker) {
     evidence.push(`the ${fatalMemoryMarker.runtime} runtime aborted on its own heap limit: \`${fatalMemoryMarker.line}\` (a self-abort is invisible to \`docker inspect\` and to cgroup OOM counters)`);
   }
@@ -330,7 +436,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // bounded window we read, but `$` saw it when the command exited. The local
   // scan stays as defense in depth — these fields are absent on an older `$`.
   const reportedExitReasonText = typeof reportedExitReason === 'string' && reportedExitReason.trim() ? reportedExitReason.trim() : null;
-  const reportedMemoryExhaustion = abnormalExit && (reportedMemoryExhausted === true || (reportedExitReasonText !== null && reportedExitReasonText.startsWith(UPSTREAM_MEMORY_EXHAUSTION_PREFIX)));
+  let reportedMemoryExhaustion = abnormalExit && (reportedMemoryExhausted === true || (reportedExitReasonText !== null && reportedExitReasonText.startsWith(UPSTREAM_MEMORY_EXHAUSTION_PREFIX)));
   // `memory-exhaustion (v8-heap-limit)` → `v8-heap-limit`: the prefix is already
   // said in words by the surrounding sentence, so only the mechanism is new.
   const reportedMechanism =
@@ -340,11 +446,20 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
           .trim()
           .replace(/^\((.*)\)$/, '$1') || null
       : null;
-  if (reportedMemoryExhaustion) {
+  // Issue #2498: a report derived only from the sticky container flag says no
+  // more than `oomKilled` — and for an ordinary exit nothing about the main process.
+  const reportedFromContainerFlag = reportedMemoryExhaustion && (reportedMemoryExhaustedReason === UPSTREAM_CONTAINER_FLAG_REASON || (reportedMechanism === UPSTREAM_CONTAINER_FLAG_MECHANISM && !reportedMemoryExhaustedReason));
+  if (reportedFromContainerFlag) {
+    if (!oomKilled) evidence.push('container reports `State.OOMKilled = true` via `$ --status` (an OOM event hit the container cgroup)');
+    oomKilled = true;
+    reportedMemoryExhaustion = false;
+  } else if (reportedMemoryExhaustion) {
     const detail = reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : '';
     evidence.push(`\`$ --status\` reports memory exhaustion${reportedMechanism ? ` (\`${reportedMechanism}\`)` : ''}${detail}`);
   } else if (reportedExitReasonText && abnormalExit) {
-    evidence.push(`\`$ --status\` reports \`exitReason = ${reportedExitReasonText}\``);
+    // Issue #4091: start-command cannot see who sent the signal; for a `/stop` it was the stop itself.
+    const sentByStop = (stopRequestedByUser || interruptLine) && /cause unknown/i.test(reportedExitReasonText) ? ' — the signal came from the requested stop (start-command sends SIGKILL when its stop grace period runs out), so "cause unknown" only means start-command did not record the sender' : '';
+    evidence.push(`\`$ --status\` reports \`exitReason = ${reportedExitReasonText}\`${sentByStop}`);
   }
 
   const ratio = memoryRatio(memory);
@@ -352,14 +467,20 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   // A heap already at the limit is only evidence of a kill when the session
   // actually ended abnormally — a healthy run may legitimately end near its cap.
   const heapExhausted = abnormalExit && heapUsedPercent !== null && heapUsedPercent >= HEAP_EXHAUSTED_PERCENT;
-  const diskUsedPercent = finite(disk?.usedPercent);
-  const diskAvailable = finite(disk?.availableBytes);
-  const diskFull = (diskUsedPercent !== null && diskUsedPercent >= DISK_FULL_USED_PERCENT) || (diskAvailable !== null && diskAvailable <= DISK_FULL_AVAILABLE_BYTES);
+  const markerDiskFull = isDiskFull(disk);
+  const observedDiskFull = isDiskFull(observedDisk);
+  const diskFull = markerDiskFull || observedDiskFull || Boolean(diskFullMarker);
+  const containerOomObserved = oomKilled || taskCgroupOomObserved;
+  // The sticky observation is still reported for an ordinary exit as an
+  // earlier event. It cannot explain another signal: the OOM killer sends
+  // SIGKILL, not SIGTERM/SIGABRT/SIGSEGV (start-command #180, issue #2498).
+  const containerOomExplainsExit = containerOomObserved && (exitCode === null || exitCode < 128 || exitCode === 137);
+  const containerOomAtExit = containerOomObserved && (exitCode === null || exitCode === 137);
 
   let cause = KILL_CAUSE_UNKNOWN;
-  if (stopRequestedByUser) {
+  if (stoppedByOperator) {
     cause = KILL_CAUSE_FORCED_KILL;
-  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
+  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || containerOomExplainsExit || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
   } else if (diskFull) {
     cause = KILL_CAUSE_DISK_FULL;
@@ -368,35 +489,40 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   }
 
   let summary;
-  if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0)) {
+  if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0)) {
     // Issue #2189: appending "10.3 GB of 11.7 GB RAM available" to "out of
     // memory" reads as a contradiction. For a runtime self-abort the host being
     // healthy is the whole point, so say which limit was actually hit.
     summary = `out of memory — the ${fatalMemoryMarker.runtime} runtime hit its own heap limit, not the machine's: \`${fatalMemoryMarker.line}\`${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
-  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && heapExhausted && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0) && !memoryExhausted) {
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && heapExhausted && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0) && !memoryExhausted) {
     // Same shape as the fatal-marker case, but reconstructed from telemetry when
     // the fatal line itself was lost (truncated tail, killed before flushing).
     summary = `out of memory — the runtime's own heap was exhausted: ${heapLine}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
-  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && reportedMemoryExhaustion && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0) && !memoryExhausted) {
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && reportedMemoryExhaustion && victims.length === 0 && !containerOomAtExit && !(cgroupOomKills > 0) && !memoryExhausted) {
     // Only `$` saw the evidence (our bounded window missed the fatal line).
     // Quote what it saw rather than falling back to the host-memory phrasing,
     // which would again read as a contradiction on a healthy machine.
     summary = `out of memory — start-command reported memory exhaustion${reportedMechanism ? ` (${reportedMechanism})` : ''}${reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : ''}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
-  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && oomKilled && !memoryExhausted && victims.length === 0 && memoryLine) {
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && containerOomObserved && !memoryExhausted && victims.length === 0 && memoryLine) {
     summary = `container OOM event — a process in the task cgroup was killed earlier; the session-end memory reading was ${memoryLine}`;
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
   } else if (cause === KILL_CAUSE_DISK_FULL) {
-    summary = `disk full${diskLine ? ` — ${diskLine}` : ''}`;
+    const fullDiskLine = markerDiskFull ? diskLine : observedDiskFull ? `host ${observedDiskLine}` : diskFullMarker ? `\`${diskFullMarker.line}\`` : diskLine;
+    summary = `disk full${fullDiskLine ? ` — ${fullDiskLine}` : ''}`;
   } else if (cause === KILL_CAUSE_FORCED_KILL) {
     const healthy = [memoryLine ? `memory (${memoryLine})` : null, diskLine ? diskLine : null].filter(Boolean).join(', ');
-    summary = stopRequestedByUser ? 'forced kill — an operator requested the stop' : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
+    summary = stoppedByOperator ? `stopped by operator (/stop) — CTRL+C was sent, then the process was killed${lastPhase ? ` during ${lastPhase}` : ''}` : `forced kill${healthy ? ` — ${healthy} were within normal limits` : ' — no resource exhaustion was observed'}`;
+  } else if (unobservedExit) {
+    summary = 'unknown — the container was removed while still running, and no memory or disk exhaustion was observed';
+  } else if (statusQueryFailure) {
+    summary = 'unknown — the session status could not be read and its backend is gone, and no memory or disk exhaustion was observed';
   } else {
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
+  return { cause, summary, evidence, stoppedByOperator, lastPhase, memory, heap: heapMemory, heapUsedPercent, disk, observedDisk, diskFullMarker, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
 }
 
 /**
@@ -405,14 +531,15 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
  * @param {Object} diagnosis - describeKillCause() result
  * @param {Object} [options]
  * @param {string|null} [options.locale]
+ * @param {boolean} [options.notTheCause] - Issue #2498: solve stopped on its own, so the event is reported, not blamed
  * @returns {string} Markdown block, or '' when there is nothing to report
  */
-export function formatKillDiagnosticsSection(diagnosis, { locale = null } = {}) {
+export function formatKillDiagnosticsSection(diagnosis, { locale = null, notTheCause = false } = {}) {
   if (!diagnosis || diagnosis.cause === KILL_CAUSE_UNKNOWN) {
     if (!diagnosis?.evidence?.length) return '';
   }
-  const title = text(locale, 'telegram.session_kill_diagnostics', 'Kill diagnostics');
-  const causeLabel = text(locale, 'telegram.session_kill_cause', 'Cause');
+  const title = notTheCause ? text(locale, 'telegram.session_kill_event_diagnostics', 'Container OOM event diagnostics (not the cause of this stop)') : text(locale, 'telegram.session_kill_diagnostics', 'Kill diagnostics');
+  const causeLabel = notTheCause ? text(locale, 'telegram.session_kill_event', 'Event') : text(locale, 'telegram.session_kill_cause', 'Cause');
   const lines = [`🔎 *${title}*`, `${causeLabel}: ${diagnosis.summary}`];
   for (const item of diagnosis.evidence) lines.push(`• ${item}`);
   return lines.join('\n');
@@ -473,7 +600,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, minByteOffset = 0, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null, reportedCgroupMemory = null, observedDisk = null, unobservedExit = null, statusQueryFailure = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -482,10 +609,10 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       // transcript was pulled into the bot's own heap over and over. Everything
       // this function needs — the `📈 [RESOURCES]` markers and the runtime's
       // dying `FATAL ERROR` line — lives at the two ends of the transcript.
-      logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, verbose });
+      logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, minByteOffset, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason, reportedCgroupMemory, observedDisk, unobservedExit, statusQueryFailure });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

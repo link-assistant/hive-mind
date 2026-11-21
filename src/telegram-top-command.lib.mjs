@@ -17,6 +17,7 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -201,19 +202,28 @@ export function registerTopCommand(bot, options) {
     }
 
     // Set up periodic update (every 2 seconds)
+    // Issue #2571: 30 edits a minute exceed a group's 20 messages per minute, so the
+    // refresh runs at low priority: the governor drops the edits that would not fit
+    // instead of letting them take the room replies need.
+    let lastOutput = firstOutput;
     const intervalId = setInterval(async () => {
       const output = await captureTopOutput(chatId);
-      if (output) {
+      if (output && output !== lastOutput) {
         try {
-          await safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
-            reply_markup: {
-              inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
-            },
-            verbose: VERBOSE,
-          });
+          await withTelegramRequestPriority(TELEGRAM_PRIORITY_LOW, () =>
+            safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
+              reply_markup: {
+                inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
+              },
+              verbose: VERBOSE,
+            })
+          );
+          lastOutput = output;
         } catch (error) {
-          // Ignore "message is not modified" errors
-          if (!error.message?.includes('message is not modified')) {
+          if (isTelegramRateLimitError(error)) {
+            if (VERBOSE) console.log(`[VERBOSE] /top refresh for chat ${chatId} skipped: ${error.message}`);
+          } else if (!error.message?.includes('message is not modified')) {
+            // Ignore "message is not modified" errors
             console.error('[ERROR] Failed to update message:', error);
           }
         }

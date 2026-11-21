@@ -14,9 +14,20 @@
  */
 
 import assert from 'node:assert/strict';
-import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
+import { getVersionInfo as gatherVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
 import { preloadAllLocales } from '../src/i18n.lib.mjs';
 import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+
+// Unit tests must not launch all installed AI agents and language runtimes on
+// every assertion. Real process cleanup is covered by issue-2613-regressions.
+const runCommand = async command => {
+  if (command.startsWith('uname')) return '6.8.0-test';
+  if (command.includes('/etc/os-release')) return 'PRETTY_NAME="Test Linux"';
+  if (command.includes('/proc/1/cgroup')) return 'docker';
+  if (command.startsWith('git ')) return 'git version 2.43.0';
+  return null;
+};
+const getVersionInfo = (verbose, processVersion) => gatherVersionInfo(verbose, processVersion, { runCommand });
 
 await preloadAllLocales();
 

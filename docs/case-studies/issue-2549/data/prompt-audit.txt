@@ -1,0 +1,4 @@
+Audit scope: all src/*prompts*.mjs and src/locales/*.lino
+No prompt requires Hive Mind-generated file counts, line counts, changed-file lists, or hive-mind:changes markers.
+Agent instructions to maintain its own description, reproduction steps, tests, and UI screenshots remain appropriate and unchanged.
+Generated formatting was found in completion code and the E2E evaluator; those implementations are removed or corrected.

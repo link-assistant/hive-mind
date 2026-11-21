@@ -1,0 +1,47 @@
+Pinned native Codex optimized/package controls, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41211781231
+Source: f7b1f506d3b44cada82957ba3c010cb3f82cdb22
+Created: 2026-10-31 14:47:46 UTC
+
+PASS: optimized linux-x64 and linux-arm64 builds, assembly of both platforms
+into the actual npm artifact, and installation/execution of that npm artifact
+on both native runner architectures. The earlier ARM64 first-auth failure is
+resolved. Both platforms pass all 16 storage-flag controls before compilation.
+The optimized compilation logs finish in 99m35s (x64) and 100m18s (ARM64).
+
+The actual native auth/status/logout, model requests for API-key and ChatGPT
+credentials, replacement/logout/recreation, provider overrides and constructor
+refusals, selected directory identity, retired usage-response refusal, startup
+SQLite configuration/log redirection and database-alias controls all pass on
+both architectures. The installed package additionally passes native command
+activation, altered/extra/non-executable payload refusals, production capability
+and bundled model discovery, peer history/compression/private-root disposal,
+TUI history, identity publication and uncertain refresh-owner-death controls.
+
+All runtime, npm, compiler-diagnostic and installed-control artifacts have been
+downloaded before another push. The 40 build/control text files contain 8473
+lines, reviewed in 44 chunks of at most 1500 lines, with no unexpected failure.
+The four installed-control logs contain 156 lines. Their native controls have
+76 lines per architecture; only declared blocked background-origin counts differ.
+The four complete build/installed job logs contain 1604 lines in four chunks.
+
+Both downloaded runtime artifacts independently pass the production build
+driver's complete source/recipe/compiler/license/binary provenance verification
+against the current checked-out recipe, without executing downloaded code.
+Recipe SHA256:
+bdde3fe83239560d5f8281839fb23d8a51d82e00e68d184949df709859548dd1
+linux-x64, 350992512 bytes, SHA256:
+23b77b8102d338a6f68023591bf414ee525f126848be380da54a39067858c9a4
+linux-arm64, 304921536 bytes, SHA256:
+3b44003297827874ee288ac6465413f5cd42bbe99ca99d3aca11b91ce83a01d0
+Actual npm archive, 249595495 bytes, SHA256:
+3224ee187a9e6a1bc7eeb446ab74b51b63728c6c738574b2147e628ac9941a6d
+
+This result establishes these specific native build/package controls. The full
+Docker image job subsequently failed during native activation after Bun
+installation (Dockerfile:376, release log lines 75257-75273). The optimized and
+npm-installed controls above passed; the image result is not passing. SQLite
+operation lifetime, default canonical storage/migration and the six-tool storage
+and configuration-isolation inventory remain unfinished. Keep the PR draft
+and unmerged until every required criterion is implemented and verified.

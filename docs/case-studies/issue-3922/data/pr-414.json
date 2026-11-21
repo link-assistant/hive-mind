@@ -1,0 +1,1 @@
+{ "baseRefName": "main", "headRefName": "issue-413-e424ca2a7c62", "headRepositoryOwner": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "name": "Konstantin Diachenko", "login": "konard" }, "isCrossRepository": true, "mergedAt": "2026-10-31T18:04:39Z", "number": 414, "state": "MERGED", "title": "docs: ADR-017 (n8n — оркестратор этапа 3), отчёт и запуск этапа 1 на сайте (#413)" }

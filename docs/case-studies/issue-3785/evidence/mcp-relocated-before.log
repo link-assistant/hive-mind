@@ -1,0 +1,184 @@
+✔ claude Playwright name cannot approve arbitrary command (66.803818ms)
+✔ claude Playwright name cannot approve missing package (31.444553ms)
+✔ claude Playwright name cannot approve different package (41.776981ms)
+✔ claude Playwright name cannot approve npx package injection (26.960791ms)
+✔ claude Playwright name cannot approve package URL (28.580803ms)
+✔ claude Playwright name cannot approve script option (42.808268ms)
+✔ claude Playwright name cannot approve config option (22.356041ms)
+✔ claude Playwright name cannot approve environment injection (24.106439ms)
+✔ claude Playwright name cannot approve working directory (27.715619ms)
+✔ claude Playwright name cannot approve remote transport (31.993373ms)
+✔ claude shipped Playwright registration remains byte-for-byte unchanged (35.744949ms)
+✖ claude-config-dir Playwright name cannot approve arbitrary command (68.444008ms)
+✖ claude-config-dir Playwright name cannot approve missing package (54.69835ms)
+✖ claude-config-dir Playwright name cannot approve different package (73.271795ms)
+✖ claude-config-dir Playwright name cannot approve npx package injection (68.551149ms)
+✖ claude-config-dir Playwright name cannot approve package URL (52.356632ms)
+✖ claude-config-dir Playwright name cannot approve script option (78.342159ms)
+✖ claude-config-dir Playwright name cannot approve config option (71.347441ms)
+✖ claude-config-dir Playwright name cannot approve environment injection (66.909556ms)
+✖ claude-config-dir Playwright name cannot approve working directory (65.68748ms)
+✖ claude-config-dir Playwright name cannot approve remote transport (69.545156ms)
+✔ claude-config-dir shipped Playwright registration remains byte-for-byte unchanged (49.030523ms)
+✔ codex Playwright name cannot approve arbitrary command (53.802046ms)
+✔ codex Playwright name cannot approve missing package (39.579853ms)
+✔ codex Playwright name cannot approve different package (71.940626ms)
+✔ codex Playwright name cannot approve npx package injection (25.73603ms)
+✔ codex Playwright name cannot approve package URL (43.684934ms)
+✔ codex Playwright name cannot approve script option (28.603665ms)
+✔ codex Playwright name cannot approve config option (25.484616ms)
+✔ codex Playwright name cannot approve environment injection (36.211866ms)
+✔ codex Playwright name cannot approve working directory (33.612282ms)
+✔ codex Playwright name cannot approve remote transport (34.638802ms)
+✔ codex shipped Playwright registration remains byte-for-byte unchanged (48.073294ms)
+✔ profile Playwright name cannot approve arbitrary command (40.623142ms)
+✔ profile Playwright name cannot approve missing package (40.580702ms)
+✔ profile Playwright name cannot approve different package (40.141938ms)
+✔ profile Playwright name cannot approve npx package injection (37.478004ms)
+✔ profile Playwright name cannot approve package URL (40.180058ms)
+✔ profile Playwright name cannot approve script option (36.925526ms)
+✔ profile Playwright name cannot approve config option (64.230222ms)
+✔ profile Playwright name cannot approve environment injection (37.405718ms)
+✔ profile Playwright name cannot approve working directory (36.694603ms)
+✔ profile Playwright name cannot approve remote transport (78.592288ms)
+✔ profile shipped Playwright registration remains byte-for-byte unchanged (127.032331ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 34
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2280.913219
+
+✖ failing tests:
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve arbitrary command (68.444008ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve missing package (54.69835ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve different package (73.271795ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve npx package injection (68.551149ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve package URL (52.356632ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve script option (78.342159ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve config option (71.347441ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve environment injection (66.909556ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve working directory (65.68748ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-mcp-baseline.test.mjs:45:5
+✖ claude-config-dir Playwright name cannot approve remote transport (69.545156ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-mcp-baseline.test.mjs:53:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

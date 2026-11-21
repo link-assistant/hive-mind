@@ -1,0 +1,8 @@
+scripts/formal-ai-draft.lib.mjs 226ms (unchanged)
+src/solve.mjs 325ms (unchanged)
+tests/issue-2613-regressions.test.mjs 86ms (unchanged)
+docs/case-studies/issue-2613/README.md 224ms (unchanged)
+docs/case-studies/issue-2613/plan.md 29ms (unchanged)
+experiments/issue-2613/pr-description.md 20ms (unchanged)
+experiments/issue-2613/publish-validation.mjs 10ms (unchanged)
+experiments/issue-2613/publish-ci.mjs 13ms (unchanged)

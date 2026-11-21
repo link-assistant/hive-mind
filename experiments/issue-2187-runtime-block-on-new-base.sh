@@ -19,7 +19,7 @@ export HOME=/home/box
 export NVM_DIR=/home/box/.nvm
 export BUN_INSTALL=/home/box/.bun
 HIVE_MIND_NODE_VERSION=24.21.0
-HIVE_MIND_BUN_VERSION=1.4.2
+HIVE_MIND_BUN_VERSION=1.4.3
 
 echo "=== BEFORE ==="
 ls -1 "$NVM_DIR"/versions/node

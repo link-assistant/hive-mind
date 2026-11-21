@@ -1,0 +1,76 @@
+
+📋 getVersionInfo Tests
+
+✅ getVersionInfo returns success object
+✅ getVersionInfo includes gatherTimeMs metric
+   (actual time: 2ms)
+✅ getVersionInfo completes within the reasonable CI bound
+✅ getVersionInfo includes hiveMind version
+✅ getVersionInfo includes Node.js version from process
+✅ getVersionInfo includes platform info
+✅ getVersionInfo includes AI agent version fields
+✅ getVersionInfo with processVersion tracks restart warning
+
+📋 formatVersionMessage Tests
+
+✅ formatVersionMessage returns string
+✅ formatVersionMessage includes Hive-Mind header
+✅ formatVersionMessage shows restart warning when needsRestart is true
+✅ formatVersionMessage does not show restart warning when needsRestart is false
+✅ formatVersionMessage groups JavaScript tools under JavaScript/Node.js section
+✅ formatVersionMessage groups Python tools under Python section
+✅ formatVersionMessage groups Rust tools under Rust section
+✅ formatVersionMessage groups AI agents under AI Agents section
+✅ formatVersionMessage shows mixed Playwright MCP connection state for Claude and Codex
+✅ formatVersionMessage groups C/C++ tools under C/C++ section
+✅ formatVersionMessage does not include empty sections
+✅ formatVersionMessage includes platform at the end
+✅ formatVersionMessage localizes Russian UI labels
+
+============================================================
+Results: 21 passed, 0 failed, 21 total
+============================================================
+
+📋 formatVersionMessage - Browser Versions Tests
+
+✅ formatVersionMessage shows Browsers section when browser versions are present
+✅ formatVersionMessage hides Browsers section when no browsers are installed
+✅ formatVersionMessage shows partial browser list
+✅ formatVersionMessage shows WebKit in Browsers section
+
+📋 formatVersionMessage - Browser Automation Tests
+
+✅ formatVersionMessage shows Browser Automation section with all tools
+✅ formatVersionMessage shows Playwright MCP status when connected
+✅ formatVersionMessage shows not connected when MCP installed but not in Claude
+✅ formatVersionMessage separates Playwright from Development Tools
+
+📋 formatVersionMessage - New Language Runtimes Tests
+
+✅ formatVersionMessage shows Ruby section
+✅ formatVersionMessage shows Kotlin section
+✅ formatVersionMessage shows Swift section
+✅ formatVersionMessage shows R section
+
+📋 formatVersionMessage - New Dev Tools Tests
+
+✅ formatVersionMessage shows GitLab CLI in Development Tools
+✅ formatVersionMessage shows assemblers in C, C++, Assembly section
+✅ formatVersionMessage shows wget and screen in Development Tools
+✅ formatVersionMessage shows curl, zip, unzip, expect, xvfb in Development Tools
+
+📋 formatVersionMessage - Comprehensive Output Tests
+
+✅ formatVersionMessage renders all sections in correct order
+
+📋 getVersionInfo - Structure Tests
+
+✅ getVersionInfo returns success with expected browser keys
+✅ getVersionInfo returns expected browser automation keys
+✅ getVersionInfo returns expected language runtime keys
+✅ getVersionInfo returns expected dev tool keys
+✅ getVersionInfo gatherTimeMs is reasonable
+
+============================================================
+Results: 22 passed, 0 failed, 22 total
+============================================================

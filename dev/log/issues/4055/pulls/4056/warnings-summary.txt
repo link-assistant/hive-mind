@@ -1,0 +1,41 @@
+=== run-43334991887.log
+=== run-43334991939.log
+      1 Check Links	2026-11-13T00:11:27.7834000Z ^[[36;1m  echo "::error title=lychee failed::lychee exited with code $exit_code (2 means broken links); see the output above."^[[0m
+      1 Check Links	2026-11-13T00:11:27.7832136Z ^[[36;1m  echo "::error title=No links checked::lychee found no links; the input globs or exclusions are wrong."^[[0m
+      1 Check Links	2026-11-13T00:11:27.7830006Z ^[[36;1m  echo "::error title=lychee failed::lychee exited with code $exit_code without writing a report; see the output above."^[[0m
+=== run-43334992000.log
+=== run-43334992149.log
+      1 test-suites	2026-11-13T00:22:20.7590950Z   ^[[32m✅^[[0m Corrected camelCase takes precedence over deprecated
+      1 test-suites	2026-11-13T00:22:10.6201186Z [WARN] /merge-queue: Cannot start merge queue: 1 CI run(s) failed on main: Checks and release (commit cb3bb2d, below HEAD 6702efe). Please fix the CI failures first.
+      1 test-suites	2026-11-13T00:22:10.6181065Z [WARN] /merge-queue: Cannot start merge queue: 1 CI run(s) failed on main: Checks and release. Please fix the CI failures first.
+      1 test-suites	2026-11-13T00:22:10.6174263Z [WARN] /merge-queue: Cannot start merge queue: CI on main is still running after waiting (Checks and release); cannot confirm main is green. Please run /merge again once CI finishes.
+      1 test-suites	2026-11-13T00:22:10.6172869Z [WARN] /merge-queue: Target branch CI wait ended without success: Timeout waiting for 1 CI runs on main branch
+      1 test-suites	2026-11-13T00:22:10.6170816Z [WARN] /merge-queue: Merge queue stopped before PR #2401: 1 CI run(s) failed on main: Checks and release. Please fix the CI failures first.
+      1 test-suites	2026-11-13T00:22:10.6158630Z [WARN] /merge-queue: Cannot start merge queue: 1 CI run(s) failed on main: Checks and release. Please fix the CI failures first.
+      1 test-suites	2026-11-13T00:21:54.4168348Z   ✓ opencode defaults to a model OpenCode still serves and hides deprecated ones
+      1 test-suites	2026-11-13T00:21:46.9934150Z   ✅ PASS: a bare `npm link` still warns about unreviewed install scripts — if this fails, either npm fixed linkPkg() and the --ignore-scripts workaround in scripts/test-global-commands.sh can be dropped, or npm re-w
+      1 test-suites	2026-11-13T00:21:08.8633713Z ok - deprecated floor remains a fallback for existing configurations
+      1 test-suites	2026-11-13T00:21:08.5408499Z ok - queue startup interval takes precedence over the deprecated floor
+      1 test-suites	2026-11-13T00:21:08.2249614Z ok - matching deprecated floor preserves existing configurations
+      1 test-suites	2026-11-13T00:20:56.6124473Z ✅ WARNING_THRESHOLD_BYTES is exactly 5 GB (binary)
+      1 test-suites	2026-11-13T00:20:16.0859260Z ✅ PASS: JSON WARN level (uppercase) — case-insensitive, should NOT be an error
+      1 test-suites	2026-11-13T00:19:03.5755177Z 1️⃣4️⃣ Testing deprecated models backward compatibility...
+      1 test-suites	2026-11-13T00:18:54.1223414Z Testing hidden options are not documented (internal/deprecated)... ✅ PASSED
+      1 test-suites	2026-11-13T00:18:26.2244363Z Test 2: agent.lib.mjs does NOT set OPENCODE_VERBOSE env var (deprecated)
+      1 test-suites	2026-11-13T00:14:46.3811996Z   ^[[32mPASS:^[[0m a pre-existing .gitkeep is kept without a WARNING
+      1 test-execution	2026-11-13T00:14:42.2877223Z Testing deprecated start-screen.mjs accepts --auto-fork without opening a screen...
+      1 test-execution	2026-11-13T00:14:21.5935396Z                                             budget statistics (⚠️ WARNING: May
+      1 test-execution	2026-11-13T00:14:20.7801333Z                                             budget statistics (⚠️ WARNING: May
+      1 test-execution	2026-11-13T00:14:14.6652313Z                                             budget statistics (⚠️ WARNING: May
+      1 test-execution	2026-11-13T00:14:12.1621488Z                                             budget statistics (⚠️ WARNING: May
+      1 detect-changes	2026-11-13T00:11:38.1823893Z ##[warning]Dockerfile.formal-ai:10: library/rust 1.99 -> 1.100.0 (minor)
+      1 detect-changes	2026-11-13T00:11:38.1822518Z ##[warning]Dockerfile.dind:34: library/rust 1.99 -> 1.100.0 (minor)
+=== run-43418490693.log
+      1 cleanup	2026-11-13T12:17:53.1897214Z ##[warning]1380 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 1375 
+=== run-43431816453.log
+=== run-43443919872.log
+      1 Dependabot	2026-11-13T14:34:49.1386810Z updater | 2026/11/13 14:34:49 WARN <job_1701842350> Please check your configuration as there are groups where no dependencies match:
+=== run-43463503145.log
+=== run-43491294883.log
+      1 Formal AI draft	2026-11-13T19:23:32.1788605Z ##[error]Process completed with exit code 1.
+      1 Formal AI draft	2026-11-13T19:23:32.1713022Z ##[error][DRAFT_IMAGE_UNAVAILABLE] Could not pull konard/hive-mind:2.40.1 after 1 attempt: Error response from daemon: manifest for konard/hive-mind:2.40.1 not found: manifest unknown: manifest unknown

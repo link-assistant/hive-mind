@@ -1,0 +1,55 @@
+Verified pushed commit:
+  b44086a4cd2d80034be4346aaefd9bea713ec7e1
+All eight workflows were created at 2026-10-31T01:44:34Z and completed
+successfully. Checkout used merge 63d2532, combining this head with default
+branch 279ac05609d2a791c184c4f9fe7ee071e40ef6a4.
+
+Checks/release:
+  https://github.com/link-assistant/hive-mind/actions/runs/41156793281
+  Preserved full log: ci-logs/checks-41156793281.log (72161 lines).
+  Line 63290: all 739 default test files pass.
+  Line 63352: both integration test files pass.
+  Lines 71715-71720: nested daemon and committed-container restart controls.
+  Lines 71722-71727: actual installed-package host/nested task backing,
+    Agent/OpenCode atomic replacement, deletion/recreation, two-task writes
+    and private-redirection refusal controls pass.
+  Line 71729: all Docker verification checks pass at 02:07:42Z.
+
+Compiled native Codex:
+  https://github.com/link-assistant/hive-mind/actions/runs/41156793261
+  Preserved full log: ci-logs/native-codex-41156793261.log (1791 lines).
+  All three jobs pass; the final native-file-authority job ends at 02:18:54Z.
+  Lines 344/365: seven canonical storage and five session-index tests pass.
+  Line 701: actual native status/logout shares canonical authority across
+    private configuration homes and replacement without credential copies.
+  Line 758: strict expected owner-death predecessor-reuse failure before repair.
+  Lines 843-852: actual repaired CLI owner-death and explicit repair controls.
+  Lines 853-875: actual prompt-history/TUI and provider request controls.
+  Downloaded native-codex-auth-build artifacts additionally confirm:
+    actual native peers refuse a second G0 exchange/model request after death;
+    explicit native login repairs safe malformed storage without private copies;
+    healthy TUI inference succeeds and unsafe prompt history refuses inference;
+    API-key/ChatGPT two-live-client replacement/logout/recreation pass;
+    alternate Bedrock constructor refusal and unselected behavior pass;
+    exact durable refresh-intent storage tests pass (7, one worker ignored).
+  Expected before-repair identity failures at lines 1730-1734 are strict
+    negative controls, not failing CI checks.
+
+Native Gemini:
+  https://github.com/link-assistant/hive-mind/actions/runs/41156793225
+  All six Node 24 jobs pass; see ci-b44086a4c-gemini.txt for actual ACP
+    artifacts, strict before controls, eighteen-stage reconstruction and all
+    surrounding metadata/authentication results.
+
+Other successful workflows at this exact head:
+  Workflows: 41156793178
+  Links: 41156793063
+  Qwen: 41156793264
+  Claude: 41156793128
+  Security: 41156793433
+
+These results precede the subsequent terminal turn-boundary, terminal resume
+admission, both headless checkpoint writers and child-directory repairs. They
+do not verify those newer changes. Claude's successful reproduction job still
+demonstrates its unfixed refresh-owner-death defect. Complete production and
+all-six-backend lifecycle acceptance remain unfinished.

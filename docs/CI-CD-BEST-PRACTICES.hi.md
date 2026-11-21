@@ -15,17 +15,20 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 ## अनुशंसित CI/CD Templates
 
-हम सभी सर्वोत्तम प्रथाओं के साथ पूर्व-कॉन्फ़िगर किए गए कई भाषाओं के लिए ready-to-use templates प्रदान करते हैं:
+इन भाषा टेम्पलेट में CI/CD वर्कफ़्लो शामिल हैं।
 
-| भाषा                  | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| भाषा                  | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
 
@@ -94,6 +97,44 @@ docker-pr-check:
 - CI/CD workflow files (`.github/workflows/*.yml`)
 - `Dockerfile` और संबंधित infrastructure files
 
+#### कमिट और समीक्षा के लिए तैयार PR की जाँच
+
+- **कमिट स्तर (`synchronize`)** में बदले हुए पैकेजों की लिंटिंग, प्रकार जाँच और तेज़ यूनिट टेस्ट चलाएँ। ये जाँचें ड्राफ़्ट PR पर भी चलती हैं। क्रिटिकल पाथ के लिए 5–10 मिनट का लक्ष्य रखें।
+- **समीक्षा स्तर (`ready_for_review`)** में अधिक समय लेने वाले यूनिट, इंटीग्रेशन और एंड-टू-एंड टेस्ट चलाएँ। PR को ड्राफ़्ट के रूप में खोलें और पूरी जाँच चलाने के समय उसे समीक्षा के लिए तैयार चिह्नित करें।
+
+`opened`, `reopened` और `edited` इवेंट हटाएँ। नए कमिट के बाद पूरी जाँच दोहराने के लिए PR को फिर से ड्राफ़्ट बनाकर समीक्षा के लिए तैयार चिह्नित करें या जाँच को मैन्युअल रूप से चलाएँ। `main` पर पूरी रिलीज़ जाँच रखें और मैन्युअल जाँच के लिए प्रकाशन से अलग मोड दें।
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+समीक्षा रन उसी रिविज़न की जाँच करता है जिसने उसे शुरू किया। यदि मर्ज के लिए पूरी जाँच अनिवार्य है, तो वर्तमान रिविज़न की पूरी जाँच का परिणाम ज़रूरी करें। कमिट स्तर का सफल रन अकेले पर्याप्त नहीं है। मैन्युअल रन के लिए इच्छित PR रिविज़न या मर्ज परिणाम चुनें।
+
+#### वर्कस्पेस ग्राफ़ से मोनोरेपो के टेस्ट चुनें
+
+एक प्लानर जॉब वर्कस्पेस मैनिफ़ेस्ट (जैसे हर पैकेज की `package.json`) से ग्राफ़ पढ़े और बदले हुए पाथ को उनके पैकेजों से जोड़े।
+
+- पैकेज स्वयं बदले तो उसका यूनिट टेस्ट सूट चलाएँ।
+- इंटीग्रेशन टेस्ट के लिए हर बदले हुए पैकेज से ग्राफ़ को निर्भरताओं की उलटी दिशा में पार करें। बदले हुए पैकेज और उन पर सीधे या परोक्ष रूप से निर्भर सभी पैकेज जाँचें। ग्राफ़ में चक्र हो तब भी हरेक पैकेज पर एक ही बार जाएँ।
+- यदि किसी पाथ का वर्ग तय न हो या ग्राफ़ या diff पता न चले तो सभी सूट चलाएँ। लॉकफ़ाइल, वर्कस्पेस कॉन्फ़िगरेशन और साझा टेस्ट सेटअप जैसे इनपुट को स्पष्ट रूप से सभी पैकेजों पर असर डालने वाला मानें।
+
+प्लानर से जॉब मैट्रिक्स JSON में निकालें और खाली चयन के लिए `[]` दें। आउटपुट के अनुसार जॉब चलाएँ और सूट को शार्ड में बाँटें। उदाहरण के लिए `test-db` में `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]` हो सकता है।
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. फ़ाइल आकार सीमाएँ
 
 **प्रति code file अधिकतम 1000-1500 lines लागू करें।**
@@ -128,6 +169,12 @@ done
 }
 ```
 
+#### सिर्फ़ घटने वाली बेसलाइन से फ़ाइल सीमा अपनाएँ
+
+मौजूदा रिपॉज़िटरी में सीमा से बड़ी केवल ट्रैक की गई फ़ाइलों की पंक्ति संख्या JSON में कमिट करें, जैसे `{ "src/legacy.mjs": 1830 }`। हर प्रविष्टि उस फ़ाइल की अधिकतम पंक्ति संख्या तय करती है। सीमा से बड़ी नई फ़ाइल और बेसलाइन से अधिक बढ़ने वाली फ़ाइल अस्वीकार करें। `--update` से बेसलाइन में वर्तमान पंक्ति संख्या दर्ज करें और हटाई गई या सामान्य सीमा में आ चुकी फ़ाइलों की प्रविष्टियाँ मिटाएँ। फ़ाइल के छोटे होने के साथ बेसलाइन बदलाव कमिट करें। बेसलाइन बदलाव की तुलना लक्ष्य ब्रांच से करें ताकि सीमा बढ़ाकर या नई प्रविष्टि जोड़कर जाँच को दरकिनार न किया जा सके।
+
+नई फ़ाइलों पर पहले दिन से सामान्य सीमा लागू होती है। मौजूदा बड़ी फ़ाइलें अलग-अलग PR में बाँटी जा सकती हैं। [चलने योग्य उदाहरण](../examples/ci-cd-pull-request-tiers/README.md) देखें।
+
 ### 3. Automated Code Formatting
 
 Consistent formatting style debates को समाप्त करती है और diff noise कम करती है:
@@ -140,7 +187,10 @@ Consistent formatting style debates को समाप्त करती ह�
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
 
@@ -148,15 +198,18 @@ Consistent formatting style debates को समाप्त करती ह�
 
 Code review तक पहुँचने से पहले bugs पकड़ें और patterns लागू करें:
 
-| भाषा                  | Tools                               |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint with strict rules            |
-| Rust                  | Clippy (pedantic + nursery)         |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET analyzers (warnings as errors) |
-| Java                  | SpotBugs (maximum effort)           |
-| PHP                   | PHPStan (max level)                 |
+| भाषा                  | Tools                                               |
+| --------------------- | --------------------------------------------------- |
+| JavaScript/TypeScript | ESLint with strict rules                            |
+| Rust                  | Clippy (pedantic + nursery)                         |
+| Python                | Ruff + mypy                                         |
+| Go                    | go vet + staticcheck                                |
+| C#                    | .NET analyzers (warnings as errors)                 |
+| Java                  | SpotBugs (maximum effort)                           |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors)          |
+| PHP                   | PHPStan (max level)                                 |
+| Swift                 | कंपाइलर चेतावनियों को त्रुटि मानें (`-warnings-as-errors`) |
+| Kotlin                | Detekt                                              |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -184,6 +237,12 @@ test-suites:
     needs.check-file-line-limits.result == 'success'
 ```
 
+#### जॉब की अवधि तय करें और सबसे लंबा काम पहले शुरू करें
+
+बड़े रनर जॉब के लिए लगभग 5–30 मिनट का लक्ष्य रखें। तेज़ जाँचों को छोटा रखें और मापे गए समय के आधार पर लंबे सूट शार्ड करें, जैसे `--shard i/n`। हर जॉब के लिए `timeout-minutes` दें। वर्कफ़्लो टेस्ट में 30 मिनट की अधिकतम सीमा जाँचें और हर दर्ज अपवाद का जॉब नाम और अधिकतम समय तय करें। दोबारा इस्तेमाल किए जाने वाले वर्कफ़्लो के लिए बुलाए गए वर्कफ़्लो के अंदर के जॉब जाँचें।
+
+एक जॉब में स्वतंत्र कामों को मापी हुई अवधि के घटते क्रम में सीमित संख्या में वर्करों पर चलाएँ। सबसे लंबे काम पहले शुरू करें और खाली स्लॉट में छोटे काम भरें। रनर के CPU, मेमोरी और सेवाओं की क्षमता के अनुसार वर्करों की संख्या रखें। निर्भर काम क्रम से चलाएँ और उनकी विफलता आगे पहुँचाएँ।
+
 ### 6. Changeset-Based Versioning
 
 सभी templates एक changeset system उपयोग करते हैं जो:
@@ -193,13 +252,16 @@ test-suites:
 - **Changelogs generate करता है** - Release notes automatically compiled होते हैं
 - **Semantic versioning का समर्थन करता है** - patch/minor/major bumps explicit हैं
 
-| भाषा                  | Tool                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | @changesets/cli              |
-| Rust                  | changelog.d + custom scripts |
-| Python                | Scriv                        |
-| PHP                   | changelog.d + custom scripts |
-| Go, C#, Java          | Custom changeset workflows   |
+| भाषा                  | Tool                                   |
+| --------------------- | -------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                        |
+| Rust                  | changelog.d + custom scripts           |
+| Python                | Scriv                                  |
+| PHP                   | changelog.d + custom scripts           |
+| C/C++                 | changelog.d + custom scripts           |
+| Swift                 | हर PR के लिए changeset + SwiftPM Git टैग |
+| Kotlin                | Gradle changesets                      |
+| Go, C#, Java          | Custom changeset workflows             |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
 
@@ -257,6 +319,8 @@ Automated release workflows सुनिश्चित करते हैं:
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
 - **Version bump को सीधे default branch पर commit करें** - Release job अपना generated version commit (package metadata, lockfile, changelog, consumed changesets) `github-actions[bot]` के रूप में सीधे `main` पर push करता है, और यदि वह commit release metadata के अलावा कुछ भी बदलता है तो fail closed करता है। इसे auto-merged release pull request के रास्ते न भेजें: तब हर release एक और pull request और एक और branch जोड़ता है (no-deletion ruleset उसे हमेशा के लिए रखता है), और विफल run एक खुला release pull request छोड़ जाता है जिसे किसी को बंद करना पड़ता है
 - **Rule से रुका हुआ push rule में ठीक होता है, workflow में नहीं** - जब कोई repository rule version push को अस्वीकार करे, तो release को rule के output के साथ विफल करें और rule को ठीक करें (उसे हटाएँ, या `github-actions` को bypass actor के रूप में जोड़ें)। हारी हुई दौड़ का rebase-and-retry रास्ता उसी शब्द को छापने वाली अस्वीकृति का एक अलग recovery है (देखें सिद्धांत 10)
+- **Registry का उतना इंतज़ार करें जितना वास्तव में लगता है, और जांचने के लिए कभी दोबारा publish न करें** - `npm publish` उस समय से कई मिनट पहले सफल हो सकता है जब `npm view` version को देख पाता है। सितंबर 2026 में Hive Mind की देरी 2–9 s से बढ़कर 99–377 s हो गई, और 2.35.1 में 874 s लगे (issue #2923)। 330 s की window ने एक सफल release को लाल run बना दिया, जिसमें न GitHub release बनी, न Docker image, न Helm chart। Window को मापे गए data से बड़े margin के साथ तय करें (`experiments/npm-publish-lag-2923.mjs` Sigstore attestations से देरी मापता है), log करें कि हर इंतज़ार कितना चला, और `E409 Cannot publish over previously staged version` को failure नहीं बल्कि "पहले से publish हो चुका" मानें
+- **"क्या release करने को कुछ है?" का फ़ैसला हर artifact से करें, केवल registry से नहीं** - अगर job publish के बाद रुक जाता है, तो अगला push npm पर version देखता है और release को हमेशा के लिए छोड़ देता है। GitHub release भी जांचें, और उसके न होने पर बिना version bump के release दोबारा चलाएं; विफल lookup का अर्थ "अज्ञात" है, जो कभी release नहीं करता
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -278,8 +342,8 @@ jobs:
     # Job की पहचान (और मौजूद होने पर matrix values) शामिल करें, ताकि असंबंधित
     # checks parallel चलें और नया run केवल उसी पुराने check को बदले।
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -293,10 +357,10 @@ jobs:
     # ...
 ```
 
-- **Read-only jobs:** Runner load घटाने के लिए pull requests और `main`, दोनों पर पुराने checks रद्द करें। हर job को अलग suffix दें; matrix entries को parallel रखने के लिए संबंधित matrix values भी जोड़ें।
+- **Read-only jobs:** रनर का भार घटाने के लिए पुराने कमिट-स्तरीय रन रद्द करें। समीक्षा के लिए तैयार PR और `main` की हर रिविज़न की पूरी जाँच बनाए रखें। हर job को अलग suffix दें; matrix entries को parallel रखने के लिए संबंधित matrix values भी जोड़ें।
 - **Dependent writers:** `needs` उपयोग करें और prerequisites की सफलता आवश्यक रखें। रद्द हुए prerequisite के बाद उसका write job शुरू नहीं होना चाहिए।
 - **Active writers:** हर release, deploy, tag, generated-content push और दूसरे write job को `cancel-in-progress: false` वाला एक ही repository-scoped group दें। पहले से शुरू writer पूरा होता है और अगला writer queue में प्रतीक्षा करता है, चाहे वह किसी दूसरे workflow file से आया हो।
-- **Workflow scope:** Write jobs वाले workflow पर cancellable concurrency को workflow level पर न लगाएँ। ऐसा करने से पहले से शुरू writer भी रद्द हो जाएगा।
+- **Workflow scope:** वर्कफ़्लो स्तर पर रद्द करने की अनुमति केवल ऐसे इवेंट को दें जो प्रकाशन, डिप्लॉयमेंट या रिपॉज़िटरी की स्थिति में बदलाव नहीं कर सकते। वर्कफ़्लो रद्द होने पर सक्रिय लेखक भी रुक जाएगा।
 
 Default रूप से concurrency group में अधिकतम एक running और एक pending job रहता है; नया pending writer पुराने pending writer को बदल देता है। यदि हर queued write चलना आवश्यक है, तो writer के concurrency block में `queue: max` जोड़ें (अधिकतम 100 jobs प्रतीक्षा कर सकते हैं)। `queue: max` को `cancel-in-progress: true` के साथ उपयोग नहीं किया जा सकता, और execution order workflow dispatch order के बजाय jobs के प्रतीक्षा शुरू करने के समय पर आधारित होता है; इसलिए write jobs idempotent होने चाहिए।
 
@@ -330,6 +394,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **Rebase के बाद वह सब दोबारा गणना करें जो उससे पहले निकाला गया था।** पुरानी tip के सापेक्ष चुना गया version number, changelog entry या tag उस writer द्वारा पहले ही लिया जा चुका हो सकता है जिसने queue जीती। योजना दोहराने के बजाय state दोबारा पढ़ें।
 - **सफलता तभी बताएँ जब push land कर चुका हो।** Push की पुष्टि से पहले `version_committed=true` सेट करने वाला step downstream publish job को ऐसे commit पर काम करने देता है जो केवल उसी runner पर मौजूद है।
 - **Retries की सीमा रखें और log में कारण बताएँ।** छोटी देरी के साथ कुछ प्रयास queue के लिए पर्याप्त हैं; वास्तव में protected branch के विरुद्ध अनंत loop तेज़ विफलता को लंबी विफलता बना देता है।
+
+#### नया कमिट आने पर पूरी जाँच जारी रखें
+
+वर्कफ़्लो और PR के अनुसार कमिट जाँच के समूह बनाएँ। केवल पुराने `synchronize` रन रद्द करें। समीक्षा और मैन्युअल रन को अलग-अलग रन कुंजियाँ दें ताकि कतार में लगे रन भी बचें। पुश को SHA से समूहित करें ताकि `main` की हर रिविज़न की जाँच बनी रहे।
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+जॉब स्तर के समूहों में कुंजी के साथ जॉब और मैट्रिक्स पहचान रखें। प्रकाशन और डिप्लॉयमेंट के लिए साझा, रद्द न होने वाला समूह रखें। वर्कफ़्लो स्तर पर रद्द करना तभी सुरक्षित है जब रद्द किए जा सकने वाले इवेंट केवल जाँच चलाते हों और प्रकाशन या डिप्लॉयमेंट न करते हों। [भाषा टेम्पलेट के पैच](../examples/ci-cd-pull-request-tiers/README.md) देखें।
 
 ### 11. Secrets Detection
 
@@ -452,6 +528,32 @@ release:
 - **Trusted publishing को प्राथमिकता दें।** समाप्त होने वाला credential एक ऐसा release outage है जो कैलेंडर की तारीख का इंतज़ार कर रहा है। npm (`id-token: write` + `--provenance`) और Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, कोई `password:` नहीं) दोनों OIDC का समर्थन करते हैं। कोशिश करने से पहले `ACTIONS_ID_TOKEN_REQUEST_URL` जाँचें — runner उसे तभी inject करता है जब `id-token: write` दिया गया हो, ताकि आधा-अधूरा setup token request के बारे में नहीं, permission के बारे में संदेश के साथ विफल हो।
 - **प्रकाशित परिणाम को अनाम रूप से, और अलग से सत्यापित करें।** Release को कभी push पर मत टिकाइए (एक विफल mirror एक अच्छे release को मिटाए नहीं), लेकिन बाद में बिना किसी credential के अवश्य जाँचिए कि जो आपने प्रकाशित किया वह pull हो सकता है या नहीं। Authenticate करने वाली जाँच publisher का दृष्टिकोण मापती है; पाठक को न वह login मिलता है और न ही संदेह का लाभ।
 - **अनुमान नहीं, `unknown` रिपोर्ट करें।** Timeout देने वाली या HTTP 429 लौटाने वाली registry ने यह नहीं कहा कि credential टूटा हुआ है, और जिस run में कुछ भी सत्यापित न हो सका वह pass नहीं है। बताइए कि इनमें से क्या हुआ: "0 सत्यापित, 3 unknown" पर कार्रवाई हो सकती है, "कोई विफलता नहीं" पर नहीं।
+- **Upload करने से पहले tarball को मापें।** npm ने `@link-assistant/hive-mind` 2.40.0 और 2.40.1 को `E413 Payload Too Large` के साथ अस्वीकार किया, जबकि सभी builds pass हो चुके थे (2.40.1 का tarball 249,862,346 bytes का था); यहाँ स्वीकार हुआ सबसे बड़ा ज्ञात tarball 165,142,849 bytes का है। वास्तविक archive को इससे नीचे gate करें (`npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin`) और उसकी सबसे बड़ी files के नाम बताएँ। E413 नियतात्मक है, इसलिए retry करने के बजाय पहली बार में ही विफल करें। Platform-specific binaries को `optionalDependencies` से pinned per-platform packages के रूप में भेजें, जैसा `@openai/codex` करता है (#4050, `src/native-codex/PACKAGES.md`)।
+
+### 17. टूटे हुए Pipeline और बदली हुई दुनिया में फ़र्क करें
+
+**जो job ऐसे कारण से fail होता है जिसे कोई commit ठीक नहीं कर सकता, वह false negative है, और वह सभी को लाल रंग को अनदेखा करना सिखा देता है।** Issue #2625 में `main` पर एक साथ चार ऐसे job मिले: एक dependency gate जो हर push पर fail होता था क्योंकि upstream का नया major version आ गया था; एक cleanup जो हर दिन fail होता था क्योंकि ruleset branches को delete करने से रोकता है; एक dispatch जिसे GitHub ने शुरू होने से पहले ही अस्वीकार कर दिया; और एक log upload जिसने एक इनकार को तीन बार retry किया। हर एक ने अपने पास की असली failures को छिपा दिया।
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        required: true
+        default: patch # इसके बिना dispatch API HTTP 422 लौटाता है
+```
+
+- **बाहरी state पर pull request में रोकें; push पर केवल warning दें।** "एक नया version publish हुआ है" दुनिया के बारे में तथ्य है, commit के बारे में नहीं। Push को fail करना ऐसे बदलाव के लिए lint, tests और release को छोड़ देता है जिसने कुछ नहीं तोड़ा; इस पर कार्रवाई pull request में की जा सकती है।
+- **Policy का इनकार एक निर्णय है, अस्थायी error नहीं।** `Resource not accessible by integration` (workflow का `GITHUB_TOKEN` gists नहीं बना सकता) और ruleset का `Repository rule violations found` हर प्रयास पर एक जैसा जवाब देते हैं। `HTTP 429` और `5xx` को retry करें; इनकार को एक बार report करें, बताएं कि क्या उसे अनुमति देगा, और आगे बढ़ें।
+- **API से dispatch होने वाले workflow के हर input को default चाहिए।** `gh workflow run` form नहीं भर सकता: `default:` के बिना `required: true` input पर GitHub `HTTP 422: Required input '<name>' not provided` लौटाता है, और run बनता ही नहीं। Test से पुष्टि करें कि हर dispatch होने वाला workflow ठीक वही inputs स्वीकार करता है जो caller भेजता है।
+- **जिस पर आप निर्भर हैं उसे बनाएं, या उसकी अनुपस्थिति सहें।** जिस repository में label कभी था ही नहीं, वहां `gh pr edit --add-label` `'<label>' not found` के साथ fail होता है। पहली बार उपयोग पर उसे बनाएं (`gh label create`), बजाय उस run को fail करने के जो अपना काम कर चुका है।
+- **Logs वहां लिखें जहां upload step उन्हें खोजता है।** जो artifact step कुछ नहीं पाता वह `No files were found with the provided path` की warning देकर pass हो जाता है; जल्दी fail हुआ run — ठीक वही जिसके लिए artifact है — कोई सबूत नहीं छोड़ता। गायब log को tests में ज़ोर से fail होने दें, production में चुपचाप नहीं।
+- **बताएं कि job क्यों skip हुआ।** Upstream के विफल होने पर skip होने वाला downstream workflow सही है, लेकिन चुपचाप कुछ न करने वाला हरा run "tested" जैसा पढ़ा जाता है। कारण को `::notice::` annotation के रूप में print करें ताकि वह run summary में दिखे (issue #2923)।
+- **एक परिणाम, एक संदेश।** जो log एक ही error के लिए पहले "recovered and completed successfully" और फिर "❌ Agent reported error" कहता है, वह पढ़ने वाले को गलत दिशा में भेजता है। पहले अंतिम निर्णय निकालें, फिर केवल वही log करें जो सच है।
+- **हरा bot run भी अटका हुआ हो सकता है।** जब तक कोई खुला group pull request मौजूद है, Dependabot `Deferring creation of a new pull request` लिखकर हरे रंग में समाप्त होता है, भले ही किसी नए major version ने उसे पीछे छोड़ दिया हो (dependabot/dependabot-core#16791)। Pull request #2285 52 दिन खुला रहा और उस पर 37 "Dependabot is rebasing this PR" banners जमा हुए, जबकि हर दैनिक run pass हुआ। Exit status नहीं, परिणाम जांचें: जब कोई bot pull request 14 दिन से पुराना हो या उस पर 2 से अधिक rebase banners हों, तो Dependabot Health workflow विफल होता है (issue #4055)।
+- **केवल वही configure करें जो मौजूद है।** जिन compose files की हर image locally build होती है, उनके लिए Dependabot की `docker-compose` entry किसी dependency से match नहीं करती और हर run में `groups where no dependencies match` की चेतावनी देती है। Ecosystem सूची repository से निकालें और उसका test लिखें (issue #4055)।
+- **बार-बार होने वाली विफलताओं को text से नहीं, अर्थ से समूहित करें।** जो health check विफलताओं को उनके सटीक संदेश से पहचानता है, वह `Could not pull …:2.40.0` और `…:2.40.1` को दो अलग faults गिनता है, इसलिए बारह एक जैसी विफलताएं पांच की सीमा तक कभी नहीं पहुंचतीं। तुलना से पहले versions, ids, hashes और paths हटाएं (issue #4055)।
+- **Asynchronous release की प्रतीक्षा सीमा के साथ करें।** Async database pool `close()` लौटने के बाद worker thread पर अपने connections बंद करता है। जिस step को उसके तुरंत बाद "कोई खुला handle नहीं" चाहिए, उसे backoff और deadline के साथ poll करना चाहिए और बताना चाहिए कि वह किस holder की प्रतीक्षा कर रहा था, न कि पहली जांच पर ही विफल होना चाहिए (issue #4055)।
 
 ## Quality Enforcement रणनीति
 
@@ -478,9 +580,16 @@ Developer Machine    →    CI/CD Pipeline    →    Release
 1. **एक template चुनें** ऊपर की table से अपनी भाषा से मेल खाता हुआ
 2. **इसे GitHub template के रूप में उपयोग करें** अपना नया repository बनाने के लिए
 3. **Secrets configure करें** यदि publishing के लिए आवश्यक हो (OIDC preferred)
-4. **Development शुरू करें** सभी सर्वोत्तम प्रथाओं के साथ पूर्व-कॉन्फ़िगर
+4. **Development शुरू करें** टेम्पलेट वर्कफ़्लो के साथ
 
 AI solvers automatically सभी configured checks के साथ respect करेंगे और iterate करेंगे, CI/CD enforcement के बिना repositories की तुलना में उच्च quality output produce करेंगे।
+
+### बहुभाषी रिपॉज़िटरी में Swift CI जोड़ें
+
+1. Swift टेम्पलेट के एक ही संस्करण से `swift/ci/` और `.github/workflows/swift-ci.yml` को अपनी रिपॉज़िटरी में उन्हीं पथों पर कॉपी करें।
+2. `.github/workflows/swift-checks.yml` जैसा कॉलर वर्कफ़्लो जोड़ें। उसे `contents: read` अनुमति दें और `./.github/workflows/swift-ci.yml` को `mode: embedded` और `pipeline-directory: swift/ci` के साथ कॉल करें। ट्रिगर अपनी डिफ़ॉल्ट ब्रांच और मर्ज कतार के अनुसार सेट करें। [Swift मोनोरेपो गाइड और कॉलर का उदाहरण](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. `package-directory` में `Package.swift` की डायरेक्टरी दें। अगर मैनिफ़ेस्ट रिपॉज़िटरी के रूट में है, तो `'.'` दें। `source-paths` में मैनिफ़ेस्ट, `Package.resolved` (अगर मौजूद है), सोर्स, टेस्ट और साझा टेस्ट डेटा के पथ लिखें। हर पंक्ति में एक पथ दें, जो रिपॉज़िटरी के रूट के सापेक्ष हो।
+4. मौजूदा वर्कफ़्लो, Swift की विशेष जाँचें और रिलीज़ नीति बनाए रखें। एम्बेडेड मोड में CI सिर्फ़ पढ़ने की अनुमति के साथ चलता है। जाँचें कि Swift में बदलाव से Linux और macOS की जाँचें चलती हैं और सिर्फ़ दूसरी भाषाओं में बदलाव होने पर Swift कंपाइल नहीं होता।
 
 ## Automatic CI/CD Remediation
 
@@ -508,7 +617,7 @@ fix https://github.com/owner/repo --ci-cd
 
 ### Language → Template Mapping
 
-command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं):
+command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं, और C, C++ तथा CMake भी एक ही template साझा करते हैं):
 
 | Detected Language(s)  | Template                                                         |
 | --------------------- | ---------------------------------------------------------------- |
@@ -518,7 +627,10 @@ command पता लगाई गई भाषाओं को templates से
 | Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।
 
@@ -529,8 +641,22 @@ fix owner/repo --ci-cd --dry-run
 fix owner/repo --ci-cd --no-solve
 ```
 
+repository का निरीक्षण होते ही issue बना दिया जाता है, लेकिन `/solve` तभी शुरू होता है जब default branch पर कोई GitHub Actions run pending न हो, ताकि AI का काम बदलती हुई default branch से शुरू न हो और उन runs पर निर्भर न करे जिनका परिणाम अभी बदलने वाला है। प्रतीक्षा हर 30 सेकंड में जाँच करती है, `--ci-wait-timeout <minutes>` (default 60) के बाद रुक जाती है और `--no-wait-for-ci` से छोड़ी जा सकती है। प्रतीक्षा के दौरान Telegram reply में अलग "⏳ CI/CD के पूरा होने की प्रतीक्षा" status दिखता है जिसमें अभी चल रहे runs होते हैं, और यदि runs प्रतीक्षा के दौरान पूरे हो गए तो उनके नवीनतम परिणाम issue पर comment के रूप में जोड़े जाते हैं ([issue #3326](https://github.com/link-assistant/hive-mind/issues/3326)):
+
+```bash
+fix owner/repo --ci-cd
+fix owner/repo --ci-cd --ci-wait-timeout 30
+fix owner/repo --ci-cd --no-wait-for-ci
+```
+
 ## संदर्भ
 
 - [Code Architecture Principles](https://github.com/link-foundation/code-architecture-principles)
 - [Contributing Guidelines](./CONTRIBUTING.md)
 - [Best Practices](./BEST-PRACTICES.md)
+
+वास्तविक GitHub Hello World E2E रन इश्यू, पुल रिक्वेस्ट और परीक्षण शाखाएँ बनाते हैं। डिफ़ॉल्ट रूप से `ENABLE_REAL_GITHUB_E2E` को सेट न करें: निर्धारित और `workflow_run` रन केवल वैकल्पिक रिपॉज़िटरी वैरिएबल `ENABLE_REAL_GITHUB_E2E=true` से सक्षम होते हैं, जबकि मैन्युअल डिस्पैच उपलब्ध रहता है। डिफ़ॉल्ट यूनिट परीक्षण कैप्चर किए गए Agent, Claude और Codex आउटपुट को दोहराते हैं और उसी रन से बँधे साक्ष्य की जाँच करते हैं। वास्तविक रन के लिए परीक्षण संसाधनों की वास्तविक सफ़ाई अभी भी आवश्यक है; संरक्षित शाखाएँ रन को विफल रखती हैं। कैप्चर किए गए साक्ष्य के रिग्रेशन परीक्षण पास होने से #1483 की पूर्ण स्वीकृति या सभी क्लाइंटों में डिलीवरी की स्वीकृति सिद्ध नहीं होती।
+
+पुल रिक्वेस्ट में डिफ़ॉल्ट रूप से आवश्यक स्रोत, निर्भरता और कैप्चर किए गए साक्ष्य के रिग्रेशन परीक्षण चलते हैं। `docker-pr-check` में वास्तविक Docker इमेज बिल्ड और कंटेनर इंटीग्रेशन के लिए वैकल्पिक रिपॉज़िटरी वैरिएबल `ENABLE_DOCKER_PR_BUILDS=true` आवश्यक है; उनके स्क्रिप्ट और अभिकथन उपलब्ध रहते हैं। डिफ़ॉल्ट शाखा का Docker प्रकाशन अब भी npm प्रकाशन के बाद वास्तविक रिलीज़ इमेज बनाता है। वैकल्पिक PR बिल्ड अतिरिक्त कवरेज देता है, डिफ़ॉल्ट शाखा के उत्पादन रिलीज़ सत्यापन का स्थान नहीं लेता।
+
+पुल रिक्वेस्ट घटनाएँ और वास्तविक फ़ीचर शाखाओं पर स्पष्ट मैन्युअल रन `pull-request` स्रोत-परीक्षण प्रोफ़ाइल चलाते हैं। यह डिफ़ॉल्ट शाखा जैसा ही पूरा डिफ़ॉल्ट यूनिट सूट, उसी साझा रनर से, `--continue-on-failure` के साथ चलाती है, ताकि एक ही रन हर विफल फ़ाइल की सूची दे। Issue #4025 ने 13 फ़ाइलों वाले `pr-essential` उपसमुच्चय को बदला: बाकी ~690 डिफ़ॉल्ट परीक्षण केवल मर्ज के बाद चलते थे, और main एक सप्ताह में दो बार (रन 41801786544 और 42570340658) उन रिग्रेशन से लाल हुआ जिन्हें पुल रिक्वेस्ट ने कभी नहीं चलाया था, जबकि पहली विफलता पर रुकने से केवल पहली दिखती थी। `pr-essential` मार्कर तेज़ स्थानीय जाँच (`node scripts/run-tests.mjs --suite pr-essential`) के लिए बना रहता है, मर्ज की शर्त के रूप में नहीं। PR नंबर का नया इनपुट या चेकआउट लक्ष्य का ओवरराइड नहीं जोड़ा जाता। GitHub इंटीग्रेशन परीक्षण और उनके क्रेडेंशियल का समाधान केवल डिफ़ॉल्ट शाखा के `default` मोड में `ENABLE_REAL_GITHUB_E2E=true` होने पर चलता है।

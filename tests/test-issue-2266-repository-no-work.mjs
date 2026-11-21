@@ -111,7 +111,7 @@ test('Telegram preflight failures fall through to the normal solve path', async 
 
 test('Telegram answers no-work before reserving queue capacity or starting a session', async () => {
   const source = await readFile(new URL('../src/telegram-bot.mjs', import.meta.url), 'utf8');
-  const preflight = source.indexOf('const repliedNoWork = await replyIfRepositoryHasNoWork');
+  const preflight = source.indexOf('const repositoryPreflight = await preflightRepositoryTarget');
   const reserveSlot = source.indexOf('solveQueue.reserveStartSlot');
   const launch = source.indexOf("executeAndUpdateMessage(ctx, startingMessage, 'solve'");
 

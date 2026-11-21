@@ -88,6 +88,6 @@ const typo = await validateRuntimeModelName('gpt-6-slo', 'codex', {
   availableModels: ['gpt-6-sol', 'gpt-6-luna'],
 });
 assert.equal(typo.valid, false, 'unknown aliases and typos still fail closed');
-assert.match(typo.message, /Did you mean: "gpt-6-sol"/);
+assert.match(typo.message, /Did you mean "gpt-6-sol"\?/);
 
 console.log('Issue #2290 dynamic model regression tests passed.');

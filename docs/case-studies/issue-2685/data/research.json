@@ -1,0 +1,28 @@
+{
+  "researched_at": "2026-10-08T02:18:34.527597+00:00",
+  "sources": [
+    {
+      "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue",
+      "finding": "Closing keywords declare which issues a PR closes; automatic closure depends on the default target branch."
+    },
+    {
+      "url": "https://nodejs.org/api/process.html#processexitcode",
+      "finding": "Normal exit defaults to zero, requiring an explicit outcome code for no-work and incomplete runs."
+    },
+    {
+      "url": "https://github.com/sindresorhus/p-queue",
+      "finding": "onIdle waits for empty queued and pending work; it cannot establish that useful work was performed."
+    },
+    {
+      "url": "https://github.com/nodejs/node/releases/tag/v26.11.1",
+      "finding": "Repository dependency freshness detected this release and required updating all three exact Docker Node pins."
+    }
+  ],
+  "related_pull_requests": [
+    2616,
+    2336,
+    2493,
+    2614
+  ],
+  "decision": "Extend the existing queue, report and completion formatter; a replacement queue cannot fix the missing outcome contract."
+}

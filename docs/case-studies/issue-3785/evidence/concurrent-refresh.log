@@ -1,0 +1,4 @@
+codex-cli 0.164.0
+REPRODUCED: two real Codex processes submitted the same predecessor before commit.
+Provider accepted one exchange and rejected consumed-token reuse by the other.
+Both processes shared a directory-mounted auth store; no scoped credential copies were involved.

@@ -41,6 +41,7 @@ export const SUBSCRIPTION_ERROR_KINDS = {
   BILLING: 'billing',
   PLAN_RESTRICTED: 'plan_restricted',
   API_KEY_INVALID: 'api_key_invalid',
+  ACCESS_DENIED: 'access_denied',
 };
 
 const K = SUBSCRIPTION_ERROR_KINDS;
@@ -60,6 +61,7 @@ export const SUBSCRIPTION_ERROR_CODES = Object.freeze({
   invalid_api_key: K.API_KEY_INVALID,
   billing_error: K.BILLING,
   credit_balance_low: K.BILLING,
+  permission_error: K.ACCESS_DENIED,
   // Codex
   missing_codex_entitlement: K.ACCOUNT_NO_ACCESS,
   disabled_by_admin: K.ORG_SUBSCRIPTION_DISABLED,
@@ -78,6 +80,7 @@ const SUBSCRIPTION_ERROR_CODE_TOOLS = Object.freeze({
   invalid_api_key: 'claude',
   billing_error: 'claude',
   credit_balance_low: 'claude',
+  permission_error: 'claude',
   missing_codex_entitlement: 'codex',
   disabled_by_admin: 'codex',
   plan_not_eligible: 'codex',
@@ -93,6 +96,27 @@ const SUBSCRIPTION_ERROR_CODE_TOOLS = Object.freeze({
  * subscription (which would stop the whole hive).
  */
 const TRANSIENT_AUTH_PATTERNS = ['this may be a temporary network issue', 'could not authenticate with its upstream provider', 'temporary failure in name resolution'];
+
+/**
+ * Issue #4053: an HTML page served by the provider's CDN/WAF instead of an API
+ * answer. Claude Code 2.1.x renders every generic 401/403 as
+ * "Failed to authenticate. API Error: <status> <html title>" with the code
+ * `authentication_failed`, so a Cloudflare challenge
+ * ("403 Attention Required! | Cloudflare") looked exactly like an expired login.
+ * The page says nothing about the credentials: it is a property of the edge.
+ */
+const EDGE_BLOCK_PATTERNS = ['attention required! | cloudflare', 'cf-mitigated', 'cloudflare ray id', 'checking your browser before accessing', 'enable javascript and cookies to continue'];
+/** Raw HTML or a bare "Just a moment..." title only counts next to an API/HTTP error, never in agent prose. */
+const EDGE_BLOCK_WEAK_PATTERNS = ['<!doctype html', '<html', 'just a moment...'];
+const API_ERROR_CONTEXT = /\b(?:api error|http)\b:?\s*(?:403|429|5\d\d)\b/;
+
+/**
+ * Generic auth/access codes: the CLI uses them for *any* 401/403, including
+ * edge pages and short provider incidents. Only these are re-verified by a
+ * retry; explicit wordings ("OAuth token revoked", "login expired", …) and
+ * every other code stay terminal at once.
+ */
+const VERIFIABLE_SUBSCRIPTION_CODES = new Set(['authentication_failed', 'permission_error']);
 
 /**
  * Verbatim strings from the shipped CLIs, lower-cased. Provider-specific rules
@@ -158,6 +182,7 @@ const KIND_LABELS = Object.freeze({
   [K.BILLING]: 'Subscription/billing problem',
   [K.PLAN_RESTRICTED]: 'Current plan does not allow this request',
   [K.API_KEY_INVALID]: 'Invalid API key or auth token',
+  [K.ACCESS_DENIED]: 'Provider denied access (HTTP 403)',
 });
 
 const KIND_REASONS = Object.freeze({
@@ -167,6 +192,7 @@ const KIND_REASONS = Object.freeze({
   [K.BILLING]: 'The subscription is expired, cancelled or out of credit. Requests stay rejected until billing is restored.',
   [K.PLAN_RESTRICTED]: 'The account is authenticated, but the requested model/mode is not included in the current plan.',
   [K.API_KEY_INVALID]: 'The configured API key or auth token was rejected by the provider.',
+  [K.ACCESS_DENIED]: 'HTTP 403 confirms that access was denied, but does not identify why. A cancelled or expired subscription, an organization access policy, or the active API credential can cause this response.',
 });
 
 /** Per-tool re-authentication commands, used to build actionable guidance. */
@@ -208,12 +234,22 @@ export const isTransientAuthError = value => {
   return TRANSIENT_AUTH_PATTERNS.some(p => lower.includes(p));
 };
 
+/** True when the text is a CDN/WAF challenge page rather than a provider API error (issue #4053). */
+export const isEdgeBlockedResponse = value => {
+  const lower = toText(value).toLowerCase();
+  if (!lower) return false;
+  if (EDGE_BLOCK_PATTERNS.some(p => lower.includes(p))) return true;
+  return API_ERROR_CONTEXT.test(lower) && EDGE_BLOCK_WEAK_PATTERNS.some(p => lower.includes(p));
+};
+
 const buildGuidance = (kind, tool) => {
   const loginHint = TOOL_LOGIN_HINTS[tool] || TOOL_LOGIN_HINTS.claude;
   const accountUrl = TOOL_ACCOUNT_URLS[tool] || null;
   const steps = [];
   switch (kind) {
     case K.ORG_SUBSCRIPTION_DISABLED:
+      steps.push('Check whether the subscription ended after cancellation or a failed renewal; reactivate it if needed.');
+      if (accountUrl) steps.push(`Billing page: ${accountUrl}`);
       steps.push('Ask the organization/workspace admin to renew or enable subscription access to this tool.');
       steps.push('Or switch this run to API-key billing instead of the subscription.');
       break;
@@ -238,6 +274,13 @@ const buildGuidance = (kind, tool) => {
       break;
     case K.API_KEY_INVALID:
       steps.push('Fix or regenerate the configured API key / auth token, then re-run.');
+      break;
+    case K.ACCESS_DENIED:
+      steps.push('Check whether the subscription ended after cancellation or expiry; renew/reactivate it if needed.');
+      if (accountUrl) steps.push(`Billing page: ${accountUrl}`);
+      steps.push('Run /status in Claude Code to verify the active account and authentication method; check whether ANTHROPIC_API_KEY overrides the subscription login.');
+      steps.push('For an active subscription, ask the organization admin to check access settings, or contact Anthropic support with the request ID.');
+      steps.push('Alternatively, configure an authorized Anthropic API key for API billing.');
       break;
     default:
       steps.push(`Re-authenticate the tool: ${loginHint}`);
@@ -265,7 +308,17 @@ export const detectSubscriptionError = input => {
   if (rawCode && Object.hasOwn(SUBSCRIPTION_ERROR_CODES, rawCode)) {
     const codeTool = SUBSCRIPTION_ERROR_CODE_TOOLS[rawCode] || null;
     if (tool && codeTool && tool !== codeTool) return null;
-    const kind = SUBSCRIPTION_ERROR_CODES[rawCode];
+    const codeKind = SUBSCRIPTION_ERROR_CODES[rawCode];
+    // Claude can wrap an explicit cancellation in `authentication_failed`.
+    // Its broad auth/access category must not hide a specific billing reason.
+    const explicitBilling = (codeKind === K.LOGIN_REQUIRED || codeKind === K.ACCESS_DENIED) && MESSAGE_RULES.some(rule => rule.kind === K.BILLING && (!tool || !rule.tool || tool === rule.tool) && rule.needles.every(needle => message.toLowerCase().includes(needle)));
+    const kind = explicitBilling ? K.BILLING : codeKind;
+    // Issue #4053: a generic auth code with no explicit provider wording is a
+    // claim to verify (retry), not proof. An edge/CDN page is evidence it is not about the account.
+    const lower = message.toLowerCase();
+    const explicitWording = MESSAGE_RULES.some(rule => rule.tool && (!tool || tool === rule.tool) && rule.needles.every(needle => lower.includes(needle)));
+    const edgeBlock = isEdgeBlockedResponse(message);
+    const verifiable = VERIFIABLE_SUBSCRIPTION_CODES.has(rawCode) && !explicitBilling && (!explicitWording || edgeBlock);
     return {
       isSubscriptionError: true,
       kind,
@@ -276,6 +329,8 @@ export const detectSubscriptionError = input => {
       message,
       apiErrorStatus,
       guidance: buildGuidance(kind, tool),
+      verifiable,
+      transientEvidence: edgeBlock ? 'edge_block' : isTransientAuthError(lower) ? 'transient_wording' : null,
     };
   }
 
@@ -299,6 +354,8 @@ export const detectSubscriptionError = input => {
       message,
       apiErrorStatus,
       guidance: buildGuidance(rule.kind, tool || rule.tool),
+      verifiable: false,
+      transientEvidence: null,
     };
   }
   return null;
@@ -323,9 +380,18 @@ export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = n
   lines.push(`   Provider said: ${info.message || '(no message)'}`);
   if (info.code) lines.push(`   Error code: ${info.code}${info.apiErrorStatus ? ` (HTTP ${info.apiErrorStatus})` : ''}`);
   else if (info.apiErrorStatus) lines.push(`   HTTP status: ${info.apiErrorStatus}`);
+  // Issue #4053: say how the classification was checked before the run stopped.
+  const verification = info.verification || null;
+  if (verification?.retries > 0) lines.push(`   Retried: ${verification.retries} time(s) over ${verification.elapsed || 'n/a'}; the provider kept returning the same error.`);
+  if (verification?.statusSummary) lines.push(`   Status page: ${verification.statusSummary}`);
   lines.push(`   Why this stops the run: ${info.reason}`);
-  lines.push('   This is NOT a usage limit and NOT a transient API error. The provider gave no reset time,');
-  lines.push('   so retrying, waiting, or switching only the model is not expected to restore access.');
+  if (verification?.retries > 0) {
+    lines.push('   The error was re-checked with retries before stopping. If the status page reports an incident,');
+    lines.push('   resume after it is resolved; otherwise re-login as described below.');
+  } else {
+    lines.push('   This is NOT a usage limit and NOT a transient API error. The provider gave no reset time,');
+    lines.push('   so retrying, waiting, or switching only the model is not expected to restore access.');
+  }
   lines.push('');
   lines.push('   What to do:');
   for (const step of info.guidance || []) lines.push(`     • ${step}`);
@@ -337,6 +403,17 @@ export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = n
   if (resumeCommand) lines.push(`   ▶️  Resume after access is restored: ${resumeCommand}`);
   lines.push('');
   return lines;
+};
+
+/**
+ * Line logged the moment an access error is detected. A `verifiable` error is
+ * re-checked by retries first (issue #4053), so it must not carry
+ * SUBSCRIPTION_BLOCKED_MARKER: /hive stops every worker as soon as it sees it.
+ */
+export const formatSubscriptionDetectionLine = info => {
+  if (!info) return '';
+  if (info.verifiable) return `⚠️ Unconfirmed access error — ${info.label}${info.code ? ` [${info.code}]` : ''}; it will be re-checked by retrying before the run stops`;
+  return `${SUBSCRIPTION_BLOCKED_MARKER} — ${info.label}`;
 };
 
 /** One-line summary used for exit messages, PR comments and commit reasons. */
@@ -353,6 +430,8 @@ export default {
   detectSubscriptionError,
   isSubscriptionBlockedError,
   isTransientAuthError,
+  isEdgeBlockedResponse,
   formatSubscriptionErrorReport,
+  formatSubscriptionDetectionLine,
   formatSubscriptionErrorSummary,
 };

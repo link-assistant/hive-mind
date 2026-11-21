@@ -221,7 +221,7 @@ test('Issue #1805: formatPrLink emits a clickable MarkdownV2 link', () => {
   // Label: `\#42: Fix bug` (Fix bug has no specials so it survives escaping verbatim)
   assert.ok(out.startsWith('[\\#42: Fix bug]('), `expected MarkdownV2 link prefix, got: ${out}`);
   assert.ok(out.endsWith(')'), 'expected closing paren');
-  assert.ok(out.includes('https://github.com/owner/repo/pull/42'), 'should keep URL intact');
+  assert.ok(/https:\/\/github\.com\/owner\/repo\/pull\/42/.test(out), 'should keep URL intact');
 });
 
 test('Issue #1805: formatPrLink truncates long titles and escapes ellipsis', () => {

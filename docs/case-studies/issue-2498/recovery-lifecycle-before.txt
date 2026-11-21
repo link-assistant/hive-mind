@@ -1,0 +1,128 @@
+Session replacement has finished. Sending notification to chat 42
+[telegram-send] s1 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=659 bytes=683 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137) (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `original`\n🔁 Recovery session: `replacement`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory "… (+359 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✖ a resumed executing record with OOM=false cannot reuse the original run's footer (1221.997034ms)
+Session replacement has finished. Sending notification to chat 42
+[telegram-send] s2 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=708 bytes=732 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137) (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `original`\n🔁 Recovery session: `replacement`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory\n• container reports `State.OOMKilled = true` (an O"… (+408 chars)
+[telegram-send] s2 safeEditMessageText ✓ delivered
+✖ a resumed executing record with OOM=true cannot reuse the original run's footer (61.214548ms)
+Session replacement has finished. Sending notification to chat 42
+[telegram-send] s3 safeEditMessageText → chat=42 message=77 parse_mode=Markdown chars=659 bytes=683 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137) (automatic recoveries: 1)*\n\n⏱️ Duration: 0s\n📊 Session: `original`\n🔁 Recovery session: `replacement`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory "… (+359 chars)
+[telegram-send] s3 safeEditMessageText ✓ delivered
+✖ a resumed failed record with OOM=false cannot reuse the original run's footer (71.058291ms)
+✖ a launch notice says restart accepted and outcome pending, without promising recovery or future progress (3.327224ms)
+✖ in-process recovery posts the eventual failure and logs the entire attempt (3.534599ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2345.702273
+
+✖ failing tests:
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:37:3
+✖ a resumed executing record with OOM=false cannot reuse the original run's footer (1221.997034ms)
+  AssertionError [ERR_ASSERTION]: the replacement is still alive; the old footer belongs to the killed run
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:47:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:37:3
+✖ a resumed executing record with OOM=true cannot reuse the original run's footer (61.214548ms)
+  AssertionError [ERR_ASSERTION]: the replacement is still alive; the old footer belongs to the killed run
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:47:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:37:3
+✖ a resumed failed record with OOM=false cannot reuse the original run's footer (71.058291ms)
+  AssertionError [ERR_ASSERTION]: the replacement is still alive; the old footer belongs to the killed run
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:47:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:56:1
+✖ a launch notice says restart accepted and outcome pending, without promising recovery or future progress (3.327224ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /recovered from|Progress below continues/. Input:
+
+  '<!-- hive-mind:session-kill-notice -->\n' +
+    '## ⚠️ Working session recovered from out of memory\n' +
+    '\n' +
+    '- **Exit code:** 137\n' +
+    '\n' +
+    '🔄 A **new working session was started** to recover from this event. Progress below continues in that session. Its working session is `replacement`.\n' +
+    '\n' +
+    '_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._\n' +
+    '\n' +
+    '<sub>Reported by Hive Mind</sub>'
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:58:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<!-- hive-mind:session-kill-notice -->\n## ⚠️ Working session recovered from out of memory\n\n- **Exit code:** 137\n\n🔄 A **new working session was started** to recover from this event. Progress below continues in that session. Its working session is `replacement`.\n\n_The intermediate working-session log was not uploaded because `--attach-logs` is disabled._\n\n<sub>Reported by Hive Mind</sub>',
+    expected: /recovered from|Progress below continues/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at tests/issue-2498-recovery-lifecycle.test.mjs:63:1
+✖ in-process recovery posts the eventual failure and logs the entire attempt (3.534599ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /recovery attempt.*failed/i. Input:
+
+  '## ⚠️ Working process killed (exit code 137, likely out of memory)\n' +
+    '\n' +
+    'The CLAUDE process was killed with SIGKILL (exit code 137), which almost always means the out-of-memory killer ended it or a memory-hungry child process. This is a warning, not a failure of the work itself.\n' +
+    '\n' +
+    'Hive Mind is **automatically resuming** the same CLAUDE session `tool-session` in the same working directory (attempt 1/3), asking it to use less memory.\n' +
+    '\n' +
+    '<sub>Reported by Hive Mind (issue #2408)</sub>'
+
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1791240758223/tests/issue-2498-recovery-lifecycle.test.mjs:72:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '## ⚠️ Working process killed (exit code 137, likely out of memory)\n\nThe CLAUDE process was killed with SIGKILL (exit code 137), which almost always means the out-of-memory killer ended it or a memory-hungry child process. This is a warning, not a failure of the work itself.\n\nHive Mind is **automatically resuming** the same CLAUDE session `tool-session` in the same working directory (attempt 1/3), asking it to use less memory.\n\n<sub>Reported by Hive Mind (issue #2408)</sub>',
+    expected: /recovery attempt.*failed/i,
+    operator: 'match',
+    diff: 'simple'
+  }

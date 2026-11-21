@@ -1,0 +1,97 @@
+en
+  prompt
+    templates
+      bidirectional-interactive
+        formatFeedbackForClaude
+          text1 "[USER FEEDBACK FROM PR COMMENT]"
+          text2 "[END OF USER FEEDBACK - Please address this feedback in your current work]"
+          text3 "[CI/CD STATUS UPDATE — auto-input-until-mergeable]"
+          text4 "[END OF CI STATUS — Please address the failing checks before continuing]"
+          text5 "[UNCOMMITTED CHANGES DETECTED — auto-input-until-mergeable]"
+          text6 "[END OF UNCOMMITTED CHANGES — Please commit them if part of the solution, or revert them otherwise]"
+          text7 "[ISSUE/PR METADATA UPDATE — auto-input-until-mergeable]"
+          text8 "[END OF METADATA UPDATE — Please incorporate this into your current work]"
+        createBidirectionalHandler
+          text9 """
+            Pull request #{{prNumber}} metadata changed during this session:
+
+            {{summary}}
+          """
+          text10 """
+            Issue #{{issueNumber}} metadata changed during this session:
+
+            {{summary}}
+          """
+          text11 """
+            The local clone has uncommitted changes (git status --porcelain):
+
+            {{out}}
+
+            Please either commit them (git add + git commit + git push) if they belong to the solution, or revert them (git checkout -- <file> or git clean -fd) otherwise.
+          """
+          text12 """
+            CI/CD blocker detected during this session: {{value1}}
+            {{value2}}
+
+            Please address the failing checks before continuing.
+          """
+        diffMetadataSnapshot
+          title """
+            Title changed:
+              before: {{before}}
+              after:  {{after}}
+          """
+          body """
+            Body changed (length {{beforeLength}} → {{afterLength}}). New body:
+            {{body}}
+          """
+      solve-auto-ensure
+        runAutoEnsureRequirements
+          text1 "🔍 FINALIZE REQUIREMENTS CHECK:"
+          text2 "We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass."
+      solve
+        module
+          text1 "⚠️ AUTOMATIC MERGE FAILED:"
+          text2 "git merge {{defaultBranch}} was executed but resulted in conflicts that should be resolved first."
+          text3 "Please resolve the merge conflicts and commit the changes."
+          text4 "⚠️ AUTOMATIC MERGE ERROR:"
+          text5 "git merge {{defaultBranch}} failed with error: {{value2}}"
+          text6 "Please check the repository state and resolve any issues."
+      solve-results
+        buildPRNotUpdatedHint
+          text1 "Pull request title and description were not updated."
+          text2 "Pull request title was not updated."
+          text3 "Pull request description was not updated."
+      solve-pr-base-guard
+        buildPullRequestBaseBranchInterventionMessage
+          text1 "the pull request"
+          text2 " to {{attempted}}"
+          text3 """
+
+            Forbidden command observed: {{command}}
+          """
+          text4 "The user requested --base-branch {{expected}}. {{pullRequestLabel}} must keep that base branch. Do not change {{value3}}'s base{{attemptedText}}. Restore or keep the base as {{value5}}, then continue finishing the pull request and make it ready for review.{{commandText}}"
+        buildPullRequestBaseBranchMismatchMessage
+          text5 "Cannot {{action}} PR #{{prNumber}} because its base branch changed to {{currentBaseBranch}}. The user requested --base-branch {{expectedBaseBranch}}; restore the PR base to {{value5}} before {{value6}}."
+      ci-pre-existing-failure
+        detectPreExistingCiFailures
+          text1 "the head of the base branch `{{baseBranch}}`"
+          text2 "the placeholder commit that only adds the task file"
+        describeEvidence
+          text3 "`{{value1}}` also fails (`{{value2}}`) on {{value3}}: https://github.com/{{owner}}/{{repo}}/commit/{{value6}}"
+      restart-evidence
+        collectRestartEvidence
+          text1 "⚠️ The same checks have failed {{repeatedCiFailures}} restarts in a row - previous attempts did not fix them, so re-read the failing job logs and change approach."
+      github-error-reporter
+        createIssueForError
+          instructions """
+            ### Instructions
+
+            We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions (including known existing components/libraries, that solve similar problem or can help in solutions).
+
+            If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.
+
+            If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.
+
+
+          """

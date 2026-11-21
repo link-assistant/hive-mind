@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 // Agent-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
@@ -27,105 +31,24 @@ import Decimal from 'decimal.js-light';
 import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap, isFormalAiModel } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
-import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createDisabledAttributionSession, resolveFormalAiAttributionSession } from './formal-ai-attribution.lib.mjs'; // Issue #2229
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { getAgentModelOverlayEnv } from './agent-model-overlay.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
-import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
+import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
-import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { describeAgentToolError, detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText, isAgentErrorRecord, isRecoverableAgentToolError, omitRawRecords } from './agent-error-events.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, retryTransientFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
-import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
+import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent, resolveStreamingErrorRecovery } from './agent-command.lib.mjs';
 import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
+import { assertSharedToolData } from './tool-data-mounts.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
-
-/**
- * Render one streamed agent error record as human-readable text (issue #2141).
- *
- * `@link-assistant/agent` 0.25.x publishes `NamedError.toObject()` under the
- * `error` key: `{"type":"error","error":{"name":"RetryTimeoutExceededError",
- * "data":{"message":"…"}}}`. The previous chain `data.message || data.error ||
- * raw.substring(0, 100)` returned that *object*, and interpolating it into
- * `Agent reported error: ${…}` produced the reason published to GitHub in issue
- * #2141: "AGENT execution failed with Agent reported error: [object Object]".
- *
- * @param {object} record - a sanitized JSON record from the agent stream.
- * @param {string} [raw] - the raw record text, used as a last resort.
- * @returns {string} readable error text, never `[object Object]`.
- */
-export const extractAgentErrorText = (record, raw = '') => {
-  const fallback = String(raw || '').substring(0, 200) || 'Agent emitted an error event without any details';
-  return firstErrorText([record?.message, record?.error, record?.data, record], { fallback });
-};
-
-/**
- * Model/provider initialization failures that leave the session unable to do any
- * work at all (issue #2141).
- */
-const FATAL_AGENT_LOG_PATTERNS = [/ProviderModelNotFoundError/i, /ProviderInitError/i, /NoSuchModelError/i, /ModelNotFoundError/i, /failed to initialize .*model/i];
-
-/**
- * Detect an agent `log` record that reports a fatal startup failure (issue #2141).
- *
- * Reproduced locally with agent CLI 0.25.5: `agent --model nonexistent/model`
- * prints
- *
- *   {"type":"log","level":"error","service":"session.prompt",
- *    "error":"ProviderModelNotFoundError",
- *    "hint":"Check that the model exists in the provider",
- *    "message":"Failed to initialize specified model - NOT falling back to default"}
- *
- * then `session.idle` and exits **0** without ever emitting `{"type":"error"}`.
- * Hive Mind therefore reported the run as a success with no result summary, which
- * is the same class of undiagnosable outcome as issue #2141's `[object Object]`:
- * the run failed, but nothing said so.
- *
- * @param {object} record - a sanitized JSON record from the agent stream.
- * @returns {string|null} readable failure text, or null when the record is not fatal.
- */
-export const detectFatalAgentLogRecord = record => {
-  if (!record || typeof record !== 'object') return null;
-  if (record.type !== 'log' || record.level !== 'error') return null;
-
-  const text = firstErrorText([record.error, record.message], { fallback: '' });
-  if (!text) return null;
-  const haystack = `${stringifyErrorValue(record.error)} ${stringifyErrorValue(record.message)}`;
-  if (!FATAL_AGENT_LOG_PATTERNS.some(pattern => pattern.test(haystack))) return null;
-
-  const parts = [stringifyErrorValue(record.error), stringifyErrorValue(record.message), record.hint ? `hint: ${stringifyErrorValue(record.hint)}` : ''];
-  return parts.filter(Boolean).join(' — ');
-};
-
-/**
- * Scan agent stdout for explicit JSON error records (issues #1201, #2119, #2141).
- *
- * Exported so the detection precedence can be tested directly instead of being
- * re-implemented in tests (the old duplicate in tests/test-agent-error-detection.mjs
- * kept the `[object Object]` bug invisible).
- *
- * @param {string} stdoutOutput - captured agent stdout.
- * @returns {{detected: boolean, type?: string, match?: string, record?: object}}
- */
-export const detectAgentErrorsInOutput = stdoutOutput => {
-  // Issue #2119: frame records by balanced JSON, not by newlines, so
-  // pretty-printed and concatenated records are still inspected.
-  for (const record of parseJsonRecords(stdoutOutput)) {
-    const msg = sanitizeObjectStrings(record);
-
-    // Issue #1968: ignore bare `null`/primitive records (msg.type would throw on null).
-    if (msg === null || typeof msg !== 'object') continue;
-
-    // Check for explicit error message types from agent
-    if (msg.type === 'error' || msg.type === 'step_error') {
-      return { detected: true, type: 'AgentError', match: extractAgentErrorText(msg, JSON.stringify(msg)), record: msg };
-    }
-  }
-
-  return { detected: false };
-};
+export { detectAgentErrorsInOutput, detectFatalAgentLogRecord, extractAgentErrorText };
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -210,7 +133,8 @@ const getBaseModelForPricing = modelName => {
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Issue #2119: Formal AI requests never reach OpenCode Zen, so neither the
   // provider label nor a models.dev price lookup applies to them.
-  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
+  const servedPricing = servedModelPricingInfo(modelId, tokenUsage); // Issue #3279: one registry keyed by the served model
+  if (servedPricing) return servedPricing;
 
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
@@ -358,11 +282,16 @@ export const mapModelToId = model => {
 // `agent.lib.mjs` -- tests/test-codex-support.mjs and
 // tests/test-issue-2186-agent-snapshot-leak.mjs among them -- do not move.
 import { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion } from './agent.version-gates.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion, agentCliSupportsLiveInput, agentCliFailsClosedOnModelMismatch, agentCliPrunesOrphanSnapshots } from './agent.version-gates.lib.mjs';
 
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log });
+  const guardEnv = () => ({ ...process.env, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) });
+  assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
+  await assertSharedToolData({ tool: 'agent' });
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const requireLiveInput = !!options.requireLiveInput;
@@ -382,7 +311,8 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       // Check if Agent CLI is installed and get version
       let agentVersion = null;
       try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
+        assertRouterTaskAuthentication({ tool: 'agent', env: guardEnv() });
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           agentVersion = getAgentCliVersion(version);
@@ -391,6 +321,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  Agent CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
@@ -440,7 +371,11 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      const validationEnv = { ...process.env, ...getAgentModelOverlayEnv({ mappedModel }), ...buildGeolocationEnv() }; // Issue #2625: models Agent's provider table lacks
+      await assertSharedToolData({ tool: 'agent', env: validationEnv });
+      assertRouterTaskAuthentication({ tool: 'agent', env: { ...validationEnv, ...(options.useRouter === true ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+      const runValidation = createRouterConnectionRunner({ $, tool: 'agent', useRouter: options.useRouter, log, env: () => validationEnv });
+      const testResult = await runValidation`printf %s ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -462,6 +397,7 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
       await log('✅ Agent connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       await log(`❌ Failed to validate Agent connection: ${error.message}`, { level: 'error' });
       await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', {
         level: 'error',
@@ -486,7 +422,7 @@ export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailabil
 
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
 
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
@@ -510,6 +446,7 @@ export const executeAgent = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,
@@ -540,16 +477,7 @@ export const executeAgent = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   // Execute the Agent command
@@ -577,7 +505,8 @@ export const executeAgent = async params => {
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, prUrl, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown, createAttributionSession = resolveFormalAiAttributionSession } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, prUrl, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown, createAttributionSession = resolveFormalAiAttributionSession } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
 
   // Issue #2229: commits authored by Formal AI carry the trailers and the
   // evidence bundle its self-hosting metric reads. Created once for the whole
@@ -590,6 +519,15 @@ export const executeAgentCommand = async params => {
   // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
   // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
   const transientRetryBudget = createTransientRetryBudget();
+  const retryProgress = createRetryProgressObserver({
+    tool: 'agent',
+    budget: transientRetryBudget,
+    argv,
+    log,
+    onRecovery: () => {
+      retryCount = 0;
+    },
+  });
 
   const executeWithRetry = async () => {
     // Execute agent command from the cloned repository directory
@@ -620,7 +558,8 @@ export const executeAgentCommand = async params => {
 
     // Issue #1521: Build environment for agent process.
     // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
-    const agentEnv = { ...process.env };
+    const agentEnv = { ...process.env, ...buildGeolocationEnv(argv) };
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
     if (argv.verbose) {
       agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
     }
@@ -638,6 +577,7 @@ export const executeAgentCommand = async params => {
 
     // Build Agent command
     let execCommand;
+    let routerStream;
     let bidirectionalHandler = null;
     let bidirectionalHandlerFinalized = false;
     let queuedFeedback = [];
@@ -652,7 +592,12 @@ export const executeAgentCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
-    Object.assign(agentEnv, toolInvocation.env);
+    Object.assign(agentEnv, toolInvocation.env, buildGeolocationEnv(argv));
+    await assertSharedToolData({ tool: 'agent', env: agentEnv });
+    // Issue #2625: the default free model is on Kilo, reachable only with the provider entry Hive Mind supplies.
+    const modelOverlayEnv = getAgentModelOverlayEnv({ env: agentEnv, mappedModel });
+    if (modelOverlayEnv.LINK_ASSISTANT_AGENT_CONFIG_CONTENT) await log(`   Agent provider entry supplied for ${mappedModel} (LINK_ASSISTANT_AGENT_CONFIG_CONTENT)`, { verbose: true });
+    Object.assign(agentEnv, modelOverlayEnv);
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
@@ -661,6 +606,7 @@ export const executeAgentCommand = async params => {
     // Agent supports stdin in both plain text and JSON format
     // We'll combine system and user prompts into a single message
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    let sessionId = argv.resume || null;
 
     try {
       if (argv.acceptIncommingCommentsAsInput) {
@@ -696,9 +642,13 @@ export const executeAgentCommand = async params => {
 
       const fullCommand = streamingInput ? `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${displayedAgentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${displayedAgentArgs})`;
 
+      await logFinalPrompts({ log, tool: 'agent', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: streamingInput ? 'the first stream-json frame on stdin' : `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
       const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
       if (preparedResult) return preparedResult;
 
+      await assertSharedToolData({ tool: 'agent', env: agentEnv });
+      if (argv.useRouter === true) agentEnv.HIVE_MIND_USE_ROUTER = '1';
+      assertRouterTaskAuthentication({ tool: 'agent', cwd: tempDir, env: agentEnv });
       if (streamingInput) {
         const commandRunner = $({
           cwd: tempDir,
@@ -707,6 +657,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
         const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
         if (!attached) {
           throw new Error('Agent live stream-json input requested, but stdin attachment failed');
@@ -719,6 +670,7 @@ export const executeAgentCommand = async params => {
           env: agentEnv,
         });
         execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
+        routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'agent', env: agentEnv, cwd: tempDir, log });
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -732,7 +684,7 @@ export const executeAgentCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
       let exitCode = 0;
-      let sessionId = null;
+
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
@@ -742,6 +694,7 @@ export const executeAgentCommand = async params => {
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
       let streamingErrorDetected = false;
       let streamingErrorMessage = null;
+      const recoverableToolErrorRecords = []; // raw records, kept out of the raw-text fallback scan
       // Only a strong terminal success record may clear a preceding error.
       // `session.idle` is also emitted after terminal API failures (#2146).
       let agentCompletedSuccessfully = false;
@@ -790,6 +743,8 @@ export const executeAgentCommand = async params => {
         // Issue #1968: a bare `null`/primitive record must not abort event
         // processing (any data.X access would throw on null).
         if (data === null || typeof data !== 'object') return;
+        retryProgress.observe(data);
+        await retryProgress.flushLog();
         // Output formatted JSON
         await log(JSON.stringify(data, null, 2));
         // Capture session ID from the first message (agent may use stdout or stderr)
@@ -818,8 +773,12 @@ export const executeAgentCommand = async params => {
             execCommand?.kill?.('SIGTERM');
           }
         }
-        // Issue #1201: Detect error events during streaming for reliable detection
-        if (data.type === 'error' || data.type === 'step_error') {
+        // A failed tool call is a tool result the model recovers from, not a run error.
+        if (isRecoverableAgentToolError(data)) {
+          recoverableToolErrorRecords.push(raw);
+          await log(`ℹ️  ${describeAgentToolError(data, raw)}`);
+        } else if (isAgentErrorRecord(data)) {
+          // Issue #1201: Detect error events during streaming for reliable detection
           streamingErrorDetected = true;
           // Issue #2141: render `{name, data:{message}}` payloads as text so the
           // published failure reason is diagnosable instead of "[object Object]".
@@ -882,7 +841,7 @@ export const executeAgentCommand = async params => {
         }
       };
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await handleAgentStreamEvents(stdoutScanner.write(output));
@@ -933,11 +892,10 @@ export const executeAgentCommand = async params => {
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
       // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
       // Check for: exit code 0 AND (completion event detected OR no streaming error)
-      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+      const recovery = resolveStreamingErrorRecovery({ exitCode, agentCompletedSuccessfully, streamingErrorDetected, outputErrorDetected: outputError.detected });
+      if (recovery.clearStreamingError) {
         // Agent exited successfully - clear any streaming errors that were recovered from
-        if (streamingErrorDetected && agentCompletedSuccessfully) {
-          await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
-        }
+        if (recovery.message) await log(recovery.message, { verbose: true });
         streamingErrorDetected = false;
         streamingErrorMessage = null;
       }
@@ -958,6 +916,7 @@ export const executeAgentCommand = async params => {
       // The fallback can cause false positives when error events (like AI_JSONParseError)
       // appear in the output but the agent recovered and completed successfully
       if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
+        const fallbackOutput = omitRawRecords(fullOutput, recoverableToolErrorRecords);
         // Check for error type patterns in raw output (handles pretty-printed JSON)
         const errorTypePatterns = [
           { pattern: '"type": "error"', type: 'AgentError' },
@@ -967,14 +926,14 @@ export const executeAgentCommand = async params => {
         ];
 
         for (const { pattern, type } of errorTypePatterns) {
-          if (fullOutput.includes(pattern)) {
+          if (fallbackOutput.includes(pattern)) {
             outputError.detected = true;
             outputError.type = type;
             // Issue #1276: Try to extract the error message from the output
             // First try "error" field (agent error format), then "message" field (generic format)
             // Find the error closest to the "type": "error" pattern for more accurate extraction
-            const patternIndex = fullOutput.indexOf(pattern);
-            const relevantOutput = patternIndex >= 0 ? fullOutput.substring(patternIndex) : fullOutput;
+            const patternIndex = fallbackOutput.indexOf(pattern);
+            const relevantOutput = patternIndex >= 0 ? fallbackOutput.substring(patternIndex) : fallbackOutput;
             // Look for "error" or "message" field near the error type pattern
             const errorFieldMatch = relevantOutput.match(/"error":\s*"([^"]+)"/);
             const messageFieldMatch = relevantOutput.match(/"message":\s*"([^"]+)"/);
@@ -994,10 +953,10 @@ export const executeAgentCommand = async params => {
           ];
 
           for (const { pattern, extract } of criticalErrorPatterns) {
-            if (fullOutput.includes(pattern)) {
+            if (fallbackOutput.includes(pattern)) {
               outputError.detected = true;
               outputError.type = 'CriticalError';
-              const match = fullOutput.match(extract);
+              const match = fallbackOutput.match(extract);
               outputError.match = match ? match[0] : `Critical error pattern detected: ${pattern}`;
               await log(`⚠️  Critical error pattern detected via fallback: ${outputError.match}`, { level: 'warning' });
               break;
@@ -1217,6 +1176,11 @@ export const executeAgentCommand = async params => {
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
+      const authenticationError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'agent', cwd: tempDir, env: agentEnv });
+      if (authenticationError) {
+        await finalizeAgentBidirectionalHandler();
+        return { success: false, sessionId, routerAuthViolation: authenticationError.routerAuthViolation, errorInfo: { message: authenticationError.message } };
+      }
       reportError(error, {
         context: 'execute_agent',
         command: params.command,
@@ -1225,11 +1189,15 @@ export const executeAgentCommand = async params => {
       });
 
       await finalizeAgentBidirectionalHandler();
+      if (await retryTransientFailure({ tool: 'agent', retryableError: classifyRetryableError(error), sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay })) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       await attribution.finalize({ branchName }); // Issue #2229
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
       return {
         success: false,
-        sessionId: null,
+        sessionId,
         limitReached: false,
         limitResetTime: null,
         tokenUsage: null,

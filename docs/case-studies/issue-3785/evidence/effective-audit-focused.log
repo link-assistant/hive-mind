@@ -1,0 +1,243 @@
+✔ disabled repair cannot admit known global contamination (69.384493ms)
+✔ unrepaired global commands reject admission even when repair is enabled (80.073222ms)
+✔ a failed removal rejects admission instead of logging and continuing (48.616555ms)
+✔ successful repair must be followed by another audit before admission (119.598491ms)
+✔ a clean re-audit admits safe repair and preserves protected state (165.569552ms)
+✔ read-only audit keeps reporting findings without enforcing admission (102.280708ms)
+✔ a clean initial audit is revalidated after yielding to verbose logging (163.059153ms)
+✔ semantic TOML additions reject admission: mcp_servers = { rogue = { command = "/usr/bin/false" } } (21.456625ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers = { rogue = { command = "/usr/bin/false" } } (84.609346ms)
+✔ semantic TOML additions reject admission: mcp_servers.rogue.command = "/usr/bin/false" (35.856066ms)
+✔ semantic TOML additions can be repaired without retaining nested state: mcp_servers.rogue.command = "/usr/bin/false" (137.552472ms)
+✔ semantic TOML additions reject admission: ["mcp_servers"."rogue"] (28.214099ms)
+✔ semantic TOML additions can be repaired without retaining nested state: ["mcp_servers"."rogue"] (113.201812ms)
+✔ semantic TOML additions reject admission: [mcp_servers."rogue.with.dot"] (55.577809ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers."rogue.with.dot"] (73.720243ms)
+✔ semantic TOML additions reject admission: [mcp_servers.rogue] (41.253719ms)
+✔ semantic TOML additions can be repaired without retaining nested state: [mcp_servers.rogue] (45.681661ms)
+✔ semantic TOML additions reject admission: plugins = { "rogue@synthetic" = { enabled = true } } (52.082078ms)
+✔ semantic TOML additions can be repaired without retaining nested state: plugins = { "rogue@synthetic" = { enabled = true } } (48.055234ms)
+✔ a clean quoted feature pin needs no repair: ["features"]
+remote_plugin = false (66.145541ms)
+✔ a clean quoted feature pin needs no repair: "features"."remote_plugin" = false (44.799223ms)
+✔ a clean quoted feature pin needs no repair: features = { "remote_plugin" = false } (77.663519ms)
+✔ table-like text inside a multiline string is data and needs no repair (81.875446ms)
+✔ TOML repair preserves unrelated typed configuration and approved MCP settings (117.596831ms)
+✔ malformed global JSON stops repair without exposing input or changing other state (71.639926ms)
+✔ symlink from settings into credentials is rejected before repair (11.550519ms)
+✔ hardlink from settings into credentials is rejected before repair (14.224183ms)
+✔ a linked plugin ancestor cannot redirect cleanup into conversation storage (6.680751ms)
+✔ unreadable audit surfaces stop repair rather than becoming an empty catalog (7.181105ms)
+✔ unreadable Codex configuration stops every repair (14.909765ms)
+✔ a concurrent configuration edit invalidates the repair plan (29.950212ms)
+✔ a concurrent file creation prevents empty-parent pruning (25.444966ms)
+✔ unattested hidden stock stops repair before any extension or protected file changes (15.277ms)
+✔ malformed TOML stops repair without exposing configuration or changing other state (118.826007ms)
+✔ configuration growth after the size check cannot trigger an unbounded read (59.899925ms)
+✔ effective CLAUDE_CONFIG_DIR cannot hide CLAUDE.md behind a clean conventional home (180.501308ms)
+✔ effective CLAUDE_CONFIG_DIR cannot hide .claude.json behind a clean conventional home (31.627044ms)
+✔ effective CODEX_HOME cannot hide AGENTS.md behind a clean conventional home (66.95775ms)
+✔ unsafe effective input prevents unrelated conventional-home repair (58.649788ms)
+✔ effective config root symlink cannot redirect repair (35.400954ms)
+✔ effective config ancestor symlink cannot redirect repair (20.824654ms)
+✔ effective repairs preserve auth/history identities and unrelated settings (165.397551ms)
+✔ a concurrent effective edit invalidates every pending repair (133.416455ms)
+✔ relative effective config paths reject admission without disclosing values (14.819556ms)
+✔ changed path selectors reject clean admission after asynchronous logging (113.582222ms)
+✔ changed path selectors reject repair after asynchronous logging (99.905551ms)
+✔ an effective hard-linked configuration cannot repair a credential inode (58.588734ms)
+✔ a conventional registration is repaired once when effective roots also exist (276.200071ms)
+✔ the installed-runtime verifier audits selected tool roots before native commands (44.265104ms)
+✔ global instruction or command payload blocks admission: .claude/CLAUDE.md (214.581437ms)
+✔ global instruction or command payload blocks admission: .claude/rules/operator.md (142.569696ms)
+✔ global instruction or command payload blocks admission: .codex/AGENTS.md (140.455836ms)
+✔ global instruction or command payload blocks admission: .codex/AGENTS.override.md (171.280252ms)
+✔ global instruction or command payload blocks admission: .codex/prompts/operator.md (144.270883ms)
+✔ Claude inline hooks are repaired without changing provider, permissions or auth metadata (240.210374ms)
+✔ Codex hook manifests block admission without executing or deleting payloads (176.870936ms)
+✔ Codex inline global behavior is repaired: notify (157.318977ms)
+✔ Codex inline global behavior is repaired: developer_instructions (110.098933ms)
+✔ Codex inline global behavior is repaired: model_instructions_file (85.247386ms)
+✔ Codex inline global behavior is repaired: hooks (27.248525ms)
+✔ Codex profiles cannot hide global registrations and hooks (95.331014ms)
+✔ Codex global agent declarations are removed while concurrency limits survive (161.118716ms)
+✔ symlink on .claude/CLAUDE.md cannot redirect inspection or repair into credentials (48.608629ms)
+✔ hardlink on .claude/CLAUDE.md cannot redirect inspection or repair into credentials (21.835031ms)
+✔ symlink on .claude/rules/operator.md cannot redirect inspection or repair into credentials (92.625961ms)
+✔ hardlink on .claude/rules/operator.md cannot redirect inspection or repair into credentials (60.705238ms)
+✔ symlink on .codex/AGENTS.md cannot redirect inspection or repair into credentials (43.167013ms)
+✔ hardlink on .codex/AGENTS.md cannot redirect inspection or repair into credentials (69.015723ms)
+✔ symlink on .codex/hooks.json cannot redirect inspection or repair into credentials (30.588414ms)
+✔ hardlink on .codex/hooks.json cannot redirect inspection or repair into credentials (56.653008ms)
+✔ malformed hook manifest prevents unrelated repairs and keeps diagnostics constant (30.657022ms)
+✔ clean profiles inherit disabled remote plugins without configuration rewrites (82.124171ms)
+✔ claude Playwright name cannot approve arbitrary command (76.522158ms)
+✔ claude Playwright name cannot approve missing package (17.038461ms)
+✔ claude Playwright name cannot approve different package (20.904053ms)
+✔ claude Playwright name cannot approve npx package injection (54.471683ms)
+✔ claude Playwright name cannot approve package URL (51.331156ms)
+✔ claude Playwright name cannot approve script option (43.548677ms)
+✔ claude Playwright name cannot approve config option (88.93167ms)
+✔ claude Playwright name cannot approve environment injection (56.277166ms)
+✔ claude Playwright name cannot approve working directory (120.382947ms)
+✔ claude Playwright name cannot approve remote transport (120.99428ms)
+✔ claude Playwright name cannot approve unexpected field (69.186061ms)
+✔ claude Playwright name cannot approve untyped arguments (70.038715ms)
+✔ claude shipped Playwright registration remains byte-for-byte unchanged (165.762073ms)
+✔ claude-config-dir Playwright name cannot approve arbitrary command (79.601531ms)
+✔ claude-config-dir Playwright name cannot approve missing package (68.916779ms)
+✔ claude-config-dir Playwright name cannot approve different package (91.384272ms)
+✔ claude-config-dir Playwright name cannot approve npx package injection (93.63184ms)
+✔ claude-config-dir Playwright name cannot approve package URL (36.965689ms)
+✔ claude-config-dir Playwright name cannot approve script option (72.590092ms)
+✔ claude-config-dir Playwright name cannot approve config option (78.251647ms)
+✔ claude-config-dir Playwright name cannot approve environment injection (43.121718ms)
+✔ claude-config-dir Playwright name cannot approve working directory (66.070552ms)
+✔ claude-config-dir Playwright name cannot approve remote transport (82.505074ms)
+✔ claude-config-dir Playwright name cannot approve unexpected field (64.89227ms)
+✔ claude-config-dir Playwright name cannot approve untyped arguments (99.772561ms)
+✔ claude-config-dir shipped Playwright registration remains byte-for-byte unchanged (226.35518ms)
+✔ codex Playwright name cannot approve arbitrary command (78.592695ms)
+✔ codex Playwright name cannot approve missing package (83.01693ms)
+✔ codex Playwright name cannot approve different package (59.352942ms)
+✔ codex Playwright name cannot approve npx package injection (35.581421ms)
+✔ codex Playwright name cannot approve package URL (61.285991ms)
+✔ codex Playwright name cannot approve script option (82.882317ms)
+✔ codex Playwright name cannot approve config option (49.871828ms)
+✔ codex Playwright name cannot approve environment injection (68.20651ms)
+✔ codex Playwright name cannot approve working directory (74.709148ms)
+✔ codex Playwright name cannot approve remote transport (75.635068ms)
+✔ codex Playwright name cannot approve unexpected field (99.431414ms)
+✔ codex Playwright name cannot approve untyped arguments (134.639178ms)
+✔ codex shipped Playwright registration remains byte-for-byte unchanged (46.070677ms)
+✔ profile Playwright name cannot approve arbitrary command (55.517325ms)
+✔ profile Playwright name cannot approve missing package (39.689477ms)
+✔ profile Playwright name cannot approve different package (48.382095ms)
+✔ profile Playwright name cannot approve npx package injection (44.132237ms)
+✔ profile Playwright name cannot approve package URL (60.849586ms)
+✔ profile Playwright name cannot approve script option (71.994175ms)
+✔ profile Playwright name cannot approve config option (45.420042ms)
+✔ profile Playwright name cannot approve environment injection (46.948097ms)
+✔ profile Playwright name cannot approve working directory (41.551094ms)
+✔ profile Playwright name cannot approve remote transport (34.758544ms)
+✔ profile Playwright name cannot approve unexpected field (60.175496ms)
+✔ profile Playwright name cannot approve untyped arguments (39.710646ms)
+✔ profile shipped Playwright registration remains byte-for-byte unchanged (64.649825ms)
+✔ the pinned native stock catalog is accepted independently of discovery order (3.272545ms)
+✔ native stock discovery rejects admin before trusting its file tree (373.701309ms)
+✔ native stock discovery rejects user before trusting its file tree (311.404459ms)
+✔ native stock discovery rejects repo before trusting its file tree (285.904548ms)
+✔ native stock discovery rejects outside-stock before trusting its file tree (209.401848ms)
+✔ native stock discovery rejects duplicate before trusting its file tree (346.877044ms)
+✔ native stock discovery rejects missing before trusting its file tree (330.187305ms)
+✔ native stock discovery rejects disabled before trusting its file tree (290.362483ms)
+✔ native stock discovery rejects plugin before trusting its file tree (378.165444ms)
+✔ native stock discovery rejects name before trusting its file tree (294.65855ms)
+✔ native stock discovery rejects errors before trusting its file tree (247.422232ms)
+✔ native stock discovery rejects wrong-cwd before trusting its file tree (272.403732ms)
+✔ native stock discovery rejects missing-errors before trusting its file tree (231.011265ms)
+✔ native stock discovery rejects malformed-skills before trusting its file tree (215.768588ms)
+✔ native stock discovery rejects extra-result before trusting its file tree (257.820457ms)
+✔ all stock-gate native children receive disposable homes without inherited credentials or overrides (542.911098ms)
+✔ unattested stock content blocks admission: operator/SKILL.md (120.343022ms)
+✔ unattested stock content blocks admission: .operator/SKILL.md (61.910039ms)
+✔ unattested stock content blocks admission: imagegen/SKILL.md (25.93444ms)
+✔ unattested stock content blocks admission: .codex-system-skills.marker (14.685705ms)
+✔ nested stock credential symlink blocks admission (45.944142ms)
+✔ nested stock credential hard link blocks admission (45.434158ms)
+✔ an empty stock directory is not a pristine CLI baseline (45.797116ms)
+✔ Dockerfile pins the CLI version used to generate the stock baseline (1.749568ms)
+✔ Dockerfile.dind pins the CLI version used to generate the stock baseline (1.641928ms)
+✔ coolify/Dockerfile pins the CLI version used to generate the stock baseline (1.899709ms)
+✔ the bounded verifier accepts only the exact complete synthetic stock tree (41.08927ms)
+✔ stock verification rejects an oversized file before opening it (27.870887ms)
+✔ concurrent stock edits reject verification without exposing content (19.372871ms)
+✔ PR image builds install this branch as a package in both images (2.42983ms)
+✔ both packaged images require a network-disabled stock-runtime gate (2.099591ms)
+✔ packaged runtime rejects a native CLI that materializes unapproved stock (195.681394ms)
+✔ packaged runtime rejects a native CLI that does not materialize stock (299.490015ms)
+
+1. The drifted configuration is fully reported
+  PASS: every non-minimal item is a finding and playwright MCP is not
+  PASS: only the custom command is warn-only
+  PASS: custom commands are reported but never removed
+  PASS: everything else carries a repair
+  PASS: the codex plugin repair targets the whole <marketplace>/<plugin> directory
+
+2. Scoping by tool
+  PASS: tool=claude only inspects claude
+  PASS: tool=codex only inspects codex
+  PASS: unknown tools produce no findings
+
+3. Repair leaves exactly the minimal configuration
+  PASS: no repair failed
+  PASS: every repair was applied
+  PASS: superpowers cache is gone
+  PASS: global codex skills are gone
+  PASS: global ~/.agents skills are gone
+  PASS: codex auth is untouched
+  PASS: codex sessions are untouched
+  PASS: playwright MCP survives in config.toml
+  PASS: the extra MCP table is removed
+  PASS: the plugin table is removed
+  PASS: unrelated top-level keys survive
+  PASS: existing feature pins survive
+  PASS: features.remote_plugin is pinned to false
+  PASS: claude marketplaces are gone
+  PASS: installed_plugins.json is gone
+  PASS: known_marketplaces.json is gone
+  PASS: global claude skill is gone
+  PASS: custom command is kept
+  PASS: claude credentials are untouched
+  PASS: claude projects are untouched
+  PASS: only the plugin enable entry left settings.json
+  PASS: only playwright MCP remains in ~/.claude.json
+  PASS: auth state in ~/.claude.json survives
+
+4. A repaired home is clean
+  PASS: second audit reports only the warn-only item
+
+5. A fresh Docker-image home is clean
+  PASS: the minimal configuration has no findings
+  PASS: an empty home only needs the remote plugin pin
+  PASS: the pin creates config.toml when missing
+
+6. runAgentConfigAudit honours auto-repair and logs warnings
+  PASS: nothing is repaired when auto-repair is off
+  PASS: the skipped repairs are reported
+  PASS: superpowers stays when auto-repair is off
+  PASS: a warning is logged
+  PASS: the opt-out flag is named in the warning
+  PASS: auto-repair removes everything repairable
+  PASS: superpowers is removed by auto-repair
+  PASS: a clean home logs nothing
+
+7. Auto-repair resolution
+  PASS: auto-repair is on by default
+  PASS: --no-agent-config-auto-repair turns it off
+  PASS: raw argv from the Docker launcher is honoured
+  PASS: HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0 turns it off
+  PASS: argv wins over the environment
+
+8. Prevention: the environment and flags that keep the configuration minimal
+  PASS: claude quiet env stops the official marketplace auto-install
+  PASS: the minimal env is exported for other launchers
+  PASS: codex exec pins remote_plugin off per run
+  PASS: playwright is the only MCP server in the minimal set
+
+9. removeTomlTable
+  PASS: a middle table is removed
+  PASS: a lone table leaves an empty file
+  PASS: quoted dotted keys are matched exactly
+  PASS: a missing table is a no-op
+
+Result: 56 passed, 0 failed
+✔ tests/test-issue-2190-agent-config-audit.mjs (427.318401ms)
+ℹ tests 158
+ℹ suites 0
+ℹ pass 158
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4874.286541

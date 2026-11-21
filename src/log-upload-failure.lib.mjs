@@ -17,9 +17,11 @@
  * It also serves multi-part uploads: {@link formatLogLinkLines} lists every part.
  */
 
+import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
+import { GH_UPLOAD_LOG_FIXED_VERSION, GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL, GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
-import { LOG_UPLOAD_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { LOG_UPLOAD_FAILED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, buildSessionEndFooter, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
 
 const formatSize = bytes => (bytes >= 1024 * 1024 ? `${Math.round(bytes / 1024 / 1024)} MB` : `${Math.round(bytes / 1024)} KB`);
 
@@ -49,18 +51,28 @@ export const formatLogLinkLines = ({ uploadResult, logUrl, label, selectUrl }) =
  * The isolation runner exports `HIVE_MIND_PARENT_SESSION_ID` to every
  * Docker-isolated task (isolation-runner.lib.mjs), so it identifies that case.
  *
+ * A `docker run --rm` container (the Formal AI draft workflow) says so through
+ * `HIVE_MIND_EPHEMERAL_CONTAINER`: no path inside it outlives the session, so
+ * none is named. Every kind carries `runUrl` when the session belongs to a CI
+ * run ({@link resolveCiRunUrl}), whose artifacts hold the log.
+ *
  * @param {Object} [options]
  * @param {Object} [options.env=process.env]
  * @param {Function} [options.detectContext=detectExecutionContext] - injectable for tests
- * @returns {{kind: 'isolated-container', sessionId: string} | {kind: 'container', runtime: string|null} | {kind: 'host'}}
+ * @returns {{kind: 'ephemeral-container'} | {kind: 'isolated-container', sessionId: string} | {kind: 'container', runtime: string|null} | {kind: 'host'}} with an optional `runUrl`
  */
 export const describeLogFileLocation = ({ env = process.env, detectContext = detectExecutionContext } = {}) => {
+  const runUrl = resolveCiRunUrl(env);
+  const withRun = location => (runUrl ? { ...location, runUrl } : location);
+  if (isEphemeralContainer(env)) return withRun({ kind: 'ephemeral-container' });
   const sessionId = String(env?.HIVE_MIND_PARENT_SESSION_ID || '').trim();
-  if (sessionId) return { kind: 'isolated-container', sessionId };
+  if (sessionId) return withRun({ kind: 'isolated-container', sessionId });
   const context = detectContext({ env });
-  if (context?.inContainer) return { kind: 'container', runtime: context.runtime || null };
-  return { kind: 'host' };
+  if (context?.inContainer) return withRun({ kind: 'container', runtime: context.runtime || null });
+  return withRun({ kind: 'host' });
 };
+
+const runLinkLine = location => (location?.runUrl ? `\nThe log is also an artifact of the [workflow run](${location.runUrl}).` : '');
 
 /**
  * Markdown that tells the reader how to reach `logFile` given where it lives.
@@ -69,6 +81,10 @@ export const describeLogFileLocation = ({ env = process.env, detectContext = det
  * @returns {string}
  */
 const formatLogLocationSection = (logFile, location) => {
+  if (location?.kind === 'ephemeral-container') {
+    if (location.runUrl) return `The complete log was written inside the container that ran this session, which was removed when the session ended. It is kept as an artifact of the [workflow run](${location.runUrl}): open the run and download the log artifact.`;
+    return 'The complete log was written inside the container that ran this session, which was removed when the session ended, so no copy of it is left to publish.';
+  }
   if (location?.kind === 'isolated-container') {
     const id = location.sessionId;
     return `The complete log was written inside the isolated Docker container of session \`${id}\`:
@@ -79,13 +95,13 @@ That path exists only inside the container, not on the host. The container is re
 \`\`\`bash
 docker cp "${id}:${logFile}" .
 \`\`\`
-The console output of the session stays on the host either way: send \`/log ${id}\` to the Telegram bot, or run \`$ --status ${id}\` on the host to find its log file.`;
+The console output of the session stays on the host either way: send \`/log ${id}\` to the Telegram bot, or run \`$ --status ${id}\` on the host to find its log file.${runLinkLine(location)}`;
   }
   const where = location?.kind === 'container' ? `inside the ${location.runtime ? `${location.runtime} ` : ''}container that ran this session (the path exists only while that container exists)` : 'on the machine that ran this session';
   return `The complete log is kept ${where}:
 \`\`\`
 ${logFile}
-\`\`\``;
+\`\`\`${runLinkLine(location)}`;
 };
 
 /**
@@ -95,12 +111,14 @@ ${logFile}
  * @returns {Array<string>}
  */
 export const formatLogLocationConsoleLines = (logFile, location = describeLogFileLocation()) => {
+  const runLines = location?.runUrl ? [`  🔗 The log is also an artifact of the workflow run: ${location.runUrl}`] : [];
+  if (location?.kind === 'ephemeral-container') return [`  📁 Full log is at ${logFile} until this container is removed at the end of the session`, ...runLines];
   if (location?.kind === 'isolated-container') {
     const id = location.sessionId;
-    return [`  📁 Full log remains available inside isolated container ${id} at: ${logFile}`, `  ℹ️  The container is removed when the session succeeds; the host keeps the console log (/log ${id} in Telegram, or $ --status ${id}).`];
+    return [`  📁 Full log remains available inside isolated container ${id} at: ${logFile}`, `  ℹ️  The container is removed when the session succeeds; the host keeps the console log (/log ${id} in Telegram, or $ --status ${id}).`, ...runLines];
   }
-  if (location?.kind === 'container') return [`  📁 Full log remains available inside this ${location.runtime ? `${location.runtime} ` : ''}container at: ${logFile}`];
-  return [`  📁 Full log remains available locally at: ${logFile}`];
+  if (location?.kind === 'container') return [`  📁 Full log remains available inside this ${location.runtime ? `${location.runtime} ` : ''}container at: ${logFile}`, ...runLines];
+  return [`  📁 Full log remains available locally at: ${logFile}`, ...runLines];
 };
 
 /**
@@ -116,21 +134,42 @@ export const formatLogLocationConsoleLines = (logFile, location = describeLogFil
  * @param {Object} [params.location] - Where `logFile` lives ({@link describeLogFileLocation}).
  * @returns {string}
  */
-export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation() }) => {
+export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation(), sessionEndFooter = buildSessionEndFooter() }) => {
   const heading = errorMessage ? `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}\nThe automated solution draft encountered an error:\n\`\`\`\n${errorMessage}\n\`\`\`${failureAction || ''}\n\n### ⚠️ ${LOG_UPLOAD_FAILED_MARKER}` : `## ⚠️ ${SOLUTION_DRAFT_LOG_MARKER}: ${LOG_UPLOAD_FAILED_MARKER}`;
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
+  // A removed container leaves no file to run gh-upload-log on.
+  // Issue #4042: when gh-upload-log's own sanitizer refused the file, the same
+  // command refuses it again, so suggest bounded parts (GNU `split --line-bytes`
+  // also cuts lines longer than the part size) instead. ERR_LIMIT only comes
+  // from gh-upload-log 0.13.1 and older, which an upgrade fixes; ERR_SANITIZATION
+  // is the long-run bug (sanitizer #172) that the automatic part upload isolates.
+  const visibility = isPublic ? '--public' : '--private';
+  const refusal = detectGhUploadLogSanitizerRefusal(failureReason);
+  // A 2 MiB part never holds enough of one run to trigger sanitizer #172.
+  const partSize = refusal === 'ERR_SANITIZATION' ? '2M' : '20M';
+  const publishHint =
+    location?.kind === 'ephemeral-container'
+      ? ''
+      : refusal
+        ? `
+gh-upload-log's own sanitizer refused this file (\`${refusal}\`), so running \`gh-upload-log\` on it again fails the same way. ${refusal === 'ERR_LIMIT' ? `That refusal comes from gh-upload-log 0.13.1 or older (${GH_UPLOAD_LOG_REFUSAL_ISSUE_URL}); upgrade it to ${GH_UPLOAD_LOG_FIXED_VERSION} or later (\`npm install -g gh-upload-log@latest\`), which removes the 64 MiB record and dense base64 limits. Without the upgrade, parts of at most 20 MB, with longer lines cut, get past the record limit:` : refusal === 'ERR_SANITIZATION' ? `A long run of letters or digits (such as zero-filled binary as base64) next to non-ASCII text triggers it (${GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL}); parts of at most 2 MiB stay below that size:` : 'Parts of at most 20 MB may still be accepted:'}
+\`\`\`bash
+split --line-bytes=${partSize} --numeric-suffixes=1 --additional-suffix=.log "${logFile}" "${logFile}.part-"
+for part in "${logFile}".part-*.log; do gh-upload-log "$part" ${visibility}; done
+\`\`\``
+        : `
+To publish it from there:
+\`\`\`bash
+gh-upload-log "${logFile}" ${visibility}
+\`\`\``;
   return `${heading}
 The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(logSizeBytes)}) could not be uploaded${attemptText}, so it is not attached here. A partial log is not posted instead, because it could be mistaken for the complete trace.${reason}
 
-${formatLogLocationSection(logFile, location)}
-To publish it from there:
-\`\`\`bash
-gh-upload-log "${logFile}" ${isPublic ? '--public' : '--private'}
-\`\`\`
+${formatLogLocationSection(logFile, location)}${publishHint}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${errorMessage ? buildSessionEndFooter() : sessionEndFooter}`;
 };
 
 /**

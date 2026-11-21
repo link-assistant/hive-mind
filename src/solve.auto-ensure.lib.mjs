@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -20,20 +21,20 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage } = lib;
 
 // Import shared restart utilities
-const restartShared = await import('./solve.restart-shared.lib.mjs');
+import * as restartShared from './solve.restart-shared.lib.mjs';
 const { executeToolIteration } = restartShared;
 
 // Issue #1763: Re-verify PR ↔ issue link after every finalize iteration so a
 // PR body that the AI rewrote without a closing keyword does not survive past
 // the last requirements-check.
-const resultsLib = await import('./solve.results.lib.mjs');
+import * as resultsLib from './solve.results.lib.mjs';
 const { ensurePullRequestIssueLink } = resultsLib;
 
 const sentryLib = await import('./sentry.lib.mjs');
@@ -95,7 +96,7 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
       throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout?.toString() || pullResult.stderr?.toString() || 'no output'}`);
     }
 
-    const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
+    const ensureFeedbackLines = ['', '='.repeat(60), promptText('prompt.templates.solve-auto-ensure.runAutoEnsureRequirements.text1'), '='.repeat(60), '', promptText('prompt.templates.solve-auto-ensure.runAutoEnsureRequirements.text2'), ''];
 
     const ensureResult = await executeToolIteration({
       issueUrl,

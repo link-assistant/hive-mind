@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-3282-63c25a07a947",
+  "mergedAt": "2026-10-15T12:14:32Z",
+  "number": 3295,
+  "state": "MERGED",
+  "title": "Link repair and merge guard: no closing references for kept-open or other-repository sub-issues (#3174, #3276)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/3295"
+}

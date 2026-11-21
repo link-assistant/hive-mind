@@ -66,6 +66,11 @@ const executeAgainstMcpFreeFormalAiHome = async ({ resume = null } = {}) =>
   withCodexHomes(async fixture => {
     const commands = [];
     let modelRequests = 0;
+    // Issue #2888: solve resumes only a thread whose rollout is in CODEX_HOME.
+    if (resume) {
+      await mkdir(path.join(fixture.formalAiHome, 'sessions', '2026', '01', '01'), { recursive: true });
+      await writeFile(path.join(fixture.formalAiHome, 'sessions', '2026', '01', '01', `rollout-2026-01-01T00-00-00-${resume}.jsonl`), '');
+    }
     const fakeDollar =
       options =>
       (strings, ...values) => {

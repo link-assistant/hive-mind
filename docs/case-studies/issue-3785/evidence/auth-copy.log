@@ -1,0 +1,2 @@
+REPRODUCED: task A rotation is invisible to the base and task B.
+REPRODUCED: repeated preflight overwrites task A with stale base state.

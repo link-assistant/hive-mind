@@ -51,7 +51,7 @@ const stateDirs = [];
 const makeEnv = (extra = {}) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-formal-ai-image-'));
   stateDirs.push(dir);
-  return { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_IMAGE_VARIANT: 'dind', ...extra };
+  return { HIVE_MIND_STATE_DIR: dir, HIVE_MIND_LOG_DIR: path.join(dir, 'logs'), HIVE_MIND_IMAGE_VARIANT: 'dind', ...extra };
 };
 
 const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} };
@@ -64,18 +64,20 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
   const candidates = resolveFormalAiSidecarImageCandidates({ HIVE_MIND_IMAGE_VARIANT: 'dind' });
   assert.deepEqual(
     candidates.map(candidate => candidate.image),
-    [PUBLISHED_IMAGE, HIVE_MIND_IMAGE]
+    // Issue #3207: the slim published tag is tried before the full one.
+    [`${PUBLISHED_IMAGE}-slim`, PUBLISHED_IMAGE, HIVE_MIND_IMAGE]
   );
   assert.equal(candidates[0].pullable, true);
+  assert.equal(candidates[1].pullable, true);
   // The fallback's whole value is that it is already on the host; pulling it
   // would mean pulling the *larger* of the two images.
-  assert.equal(candidates[1].pullable, false, 'the Hive Mind image is used, never pulled');
+  assert.equal(candidates[2].pullable, false, 'the Hive Mind image is used, never pulled');
 
   // An operator pin is exact: naming an image means that image, with no fallback.
   assert.deepEqual(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_IMAGE: 'local/formal-ai:dev' }), [{ image: 'local/formal-ai:dev', source: 'operator-pin', pullable: true }]);
 
   // A deployment may name its own fallback (e.g. an internal mirror).
-  assert.equal(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_FALLBACK_IMAGE: 'mirror/hive-mind:2.12.2' })[1].image, 'mirror/hive-mind:2.12.2');
+  assert.equal(resolveFormalAiSidecarImageCandidates({ HIVE_MIND_FORMAL_AI_FALLBACK_IMAGE: 'mirror/hive-mind:2.12.2' })[2].image, 'mirror/hive-mind:2.12.2');
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +232,7 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
 {
   const env = makeEnv();
   // Issue #2305: only a host that ran a Formal AI task recently checks for updates.
-  writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: UNAUTHORIZED });
   const logs = [];
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });
@@ -254,7 +256,7 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
   // next cycle will simply try again.
   const env = makeEnv();
   // Issue #2305: only a host that ran a Formal AI task recently checks for updates.
-  writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
+  await writeFormalAiSidecarState({ lastUsedAt: new Date().toISOString() }, { env });
   const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: 'dial tcp 140.82.121.33:443: i/o timeout' });
   const logs = [];
   const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });

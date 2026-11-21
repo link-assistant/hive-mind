@@ -1,6 +1,7 @@
 /** Telegram startup adapter for Docker task resource limits (issue #449). */
 import { getenv } from './cli-arguments.lib.mjs';
 import { hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
+import { formatDockerCpuPenaltyConfig, normalizeDockerCpuPenaltyConfig } from './docker-cpu-penalty.lib.mjs';
 
 // Three concurrent tasks at this cap use at most 75% of host RAM. Docker
 // applies it before releasing each task's start gate; operators can override
@@ -27,5 +28,30 @@ export function initializeTelegramContainerResourceLimits(config = {}, isolation
     logError(`Error: Invalid container resource limit: ${error?.message || error}`);
     exit(1);
     return { cpu: null, memory: null, disk: null };
+  }
+}
+
+/** Issue #2801: CPU penalty settings; on by default, and only meaningful for Docker isolation. */
+export function resolveTelegramDockerCpuPenalty(config = {}, isolationBackend = '') {
+  const penalty = normalizeDockerCpuPenaltyConfig({
+    enabled: config.containerCpuPenalty,
+    penaltyCpus: config.containerCpuPenaltyCpus,
+    triggerPercent: config.containerCpuPenaltyTrigger,
+    triggerWindowMs: config.containerCpuPenaltyTriggerWindow,
+    releasePercent: config.containerCpuPenaltyRelease,
+    releaseWindowMs: config.containerCpuPenaltyReleaseWindow,
+  });
+  return isolationBackend === 'docker' ? penalty : { ...penalty, enabled: false };
+}
+
+export function initializeTelegramDockerCpuPenalty(config = {}, isolationBackend = '', { log = console.log, logError = console.error, exit = code => process.exit(code) } = {}) {
+  try {
+    const penalty = resolveTelegramDockerCpuPenalty(config, isolationBackend);
+    if (isolationBackend === 'docker') log(`🐢 Docker task CPU penalty: ${formatDockerCpuPenaltyConfig(penalty)}`);
+    return penalty;
+  } catch (error) {
+    logError(`Error: Invalid container CPU penalty setting: ${error?.message || error}`);
+    exit(1);
+    return { enabled: false };
   }
 }

@@ -7,6 +7,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { isFormalAiModel } from '../src/formal-ai-model.lib.mjs';
 import { codexModels, getLatestCodexGenerationAliases, getValidModelsForTool, resolveModelId, validateModelName } from '../src/models/index.mjs';
 
 const assertValidCodexModel = (input, expected) => {
@@ -16,10 +17,12 @@ const assertValidCodexModel = (input, expected) => {
   assert.equal(validation.mappedModel, expected);
 };
 
+// Issue #2591: each alias follows its own family's newest generation. GPT-6 ships
+// Sol and Luna but no Terra, so only `terra` stays on GPT-5.6.
 const generationAliases = {
-  sol: 'gpt-5.6-sol',
+  sol: 'gpt-6.1-sol',
   terra: 'gpt-5.6-terra',
-  luna: 'gpt-5.6-luna',
+  luna: 'gpt-6-luna',
 };
 
 for (const [alias, modelId] of Object.entries(generationAliases)) {
@@ -28,7 +31,8 @@ for (const [alias, modelId] of Object.entries(generationAliases)) {
   assertValidCodexModel(`openai.${alias}`, `openai.${modelId}`);
 }
 
-const knownOpenAIModels = [...new Set(Object.values(codexModels).filter(model => !model.startsWith('openai.')))];
+// Formal AI is served by its own provider, so it has no OpenAI-prefixed spelling (#3215).
+const knownOpenAIModels = [...new Set(Object.values(codexModels).filter(model => !model.startsWith('openai.') && !isFormalAiModel(model)))];
 for (const modelId of knownOpenAIModels) {
   const bareModelId = modelId.replace(/^openai[/.]/, '');
   assertValidCodexModel(`openai/${bareModelId}`, `openai/${bareModelId}`);
@@ -37,6 +41,8 @@ for (const modelId of knownOpenAIModels) {
 
 assert.equal(validateModelName('openai/not-a-real-model', 'codex').valid, false);
 assert.equal(validateModelName('openai.not-a-real-model', 'codex').valid, false);
+assert.equal(validateModelName('openai/formal-ai', 'codex').valid, false);
+assert.equal(validateModelName('openai.formal-ai', 'codex').valid, false);
 
 assert.deepEqual(
   getLatestCodexGenerationAliases({
@@ -53,6 +59,9 @@ assert.deepEqual(
     luna: 'gpt-5.7-luna',
   }
 );
+
+// A generation that ships only part of the family moves only those aliases (issue #2591).
+assert.deepEqual(getLatestCodexGenerationAliases({ 'gpt-5.6-sol': 'gpt-5.6-sol', 'gpt-5.6-terra': 'gpt-5.6-terra', 'gpt-6-sol': 'gpt-6-sol' }), { sol: 'gpt-6-sol', terra: 'gpt-5.6-terra' });
 
 const validModels = getValidModelsForTool('codex');
 for (const alias of Object.keys(generationAliases)) {

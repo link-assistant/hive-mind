@@ -188,7 +188,6 @@ await asyncTest('Issue #2013: processItem waits for an unfinished PR before merg
       return { success: true };
     },
     getMergeCommitSha: async () => ({ sha: 'abc1234567890' }),
-    closeLinkedIssueIfNotAutoClosed: async () => ({ closed: false }),
   });
   processor.sleep = async () => {};
 

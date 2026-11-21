@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { buildSystemPrompt, buildUserPrompt } from '../src/claude.prompts.lib.mjs';
 import { generateMinimalRestartPrompt } from '../src/solve.minimal-restart-prompt.lib.mjs';
+import { ISSUE_COMPLETION_GOAL } from '../src/issue-completion.prompts.lib.mjs';
 
 const tests = [];
 
@@ -45,7 +46,8 @@ test('minimal restart context omits the full issue prompt', () => {
     argv: { minimalRestartContext: true, resume: 'session-123' },
   });
 
-  assert.equal(prompt, 'Minimal auto-restart prompt\n');
+  // Issue #2406: the one-line complete-delivery goal survives even the minimal prompt.
+  assert.equal(prompt, `Minimal auto-restart prompt\n${ISSUE_COMPLETION_GOAL}\n`);
   assert(!prompt.includes('Issue to solve:'));
   assert(!prompt.includes('Your prepared branch:'));
 });

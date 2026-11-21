@@ -196,7 +196,10 @@ const KNOWN_OPTION_NAMES = [
   'auto-close-pull-request-on-fail',
   'on-session-kill',
   'session-kill-resume-attempts',
+  'session-kill-resume-delay',
   'auto-pull-request-creation',
+  'uncommitted-changes-after-clone',
+  'neutralize-checkout-conversion-artifacts',
   'auto-commit-uncommitted-changes',
   'auto-restart-on-uncommitted-changes',
   'auto-resume-on-uncommitted-changes',
@@ -213,6 +216,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-case-studies',
   'development-log',
   'update-all-dependencies',
+  'report-dependencies-issues',
   'use-handoff',
   'prompt-playwright-mcp',
   'prompt-check-sibling-pull-requests',
@@ -229,6 +233,11 @@ const KNOWN_OPTION_NAMES = [
   'prefix-fork-name-with-owner-name',
   'auto-restart-max-iterations',
   'auto-restart-until-mergeable-timeout-hours',
+  'auto-restart-until-mergeable-review-window-minutes',
+  'auto-restart-on-unresolved-review-threads',
+  'check-merge-prerequisites',
+  'review-bots',
+  'review-bots-wait-minutes',
   'auto-resume-max-iterations',
   'auto-continue-only-on-new-comments',
   'auto-restart-on-limit-reset',
@@ -244,6 +253,7 @@ const KNOWN_OPTION_NAMES = [
   'session-type',
   'working-directory',
   'auto-init-repository',
+  'requirements-report',
   'prompt-ensure-all-requirements-are-met',
   'finalize',
   'finalize-model',
@@ -286,12 +296,12 @@ export function detectMalformedFlags(args) {
     { regex: /^---+\w/, description: 'Too many dashes', suggestion: arg => arg.replace(/^-+/, '--') },
   ];
 
-  for (const arg of args) {
+  for (const [index, arg] of args.entries()) {
     for (const pattern of malformedPatterns) {
       if (pattern.regex.test(arg)) {
         malformed.push(arg);
         const suggestion = pattern.suggestion(arg);
-        errors.push(`Malformed option "${arg}": ${pattern.description}. Did you mean "${suggestion}"?`);
+        errors.push(`Malformed option "${arg}": ${pattern.description}. Did you mean "${suggestion}"?\nCheck argument ${index + 1}: ${JSON.stringify(arg)}`);
         break; // Don't double-report the same argument
       }
     }
@@ -309,7 +319,7 @@ export function detectMalformedFlags(args) {
         const lowerNextArg = nextArg.toLowerCase();
         if (KNOWN_OPTION_NAMES.includes(lowerNextArg)) {
           malformed.push(`-- ${nextArg}`);
-          errors.push(`Malformed option "-- ${nextArg}": Space after "--". Did you mean "--${nextArg}"?`);
+          errors.push(`Malformed option "-- ${nextArg}": Space after "--". Did you mean "--${nextArg}"?\nCheck arguments ${i + 1}–${i + 2}: ${JSON.stringify(`-- ${nextArg}`)}`);
         }
       }
     }

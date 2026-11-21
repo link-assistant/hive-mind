@@ -14,7 +14,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
@@ -30,7 +30,7 @@ const lib = await import('./lib.mjs');
 const { log, getLogFile, cleanErrorMessage, formatAligned } = lib;
 
 // Import GitHub-related functions
-const githubLib = await import('./github.lib.mjs');
+import * as githubLib from './github.lib.mjs';
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;

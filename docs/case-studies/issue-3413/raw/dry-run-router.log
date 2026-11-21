@@ -1,0 +1,197 @@
+🔧 /fix --update-all-dependencies for link-assistant/router
+   🤖 Would merge 5 open Dependabot pull request(s) without waiting for CI/CD (--merge; pass --no-merge-dependabot-prs to skip)...
+      🔎 #766 would be merged (2 failing, 0 pending of 35 check(s)): chore(deps): bump rust from `24e632c` to `2752b33`
+      🔎 #767 would be merged (2 failing, 0 pending of 35 check(s)): chore(deps): bump oven/bun from `9114c05` to `ec06c3b`
+      🔎 #768 would be merged (3 failing, 0 pending of 34 check(s)): chore(deps-dev): bump vite from 8.3.3 to 8.3.4 in /ui in the reviewed-ui-dependencies group
+      🔎 #769 would be merged (2 failing, 0 pending of 38 check(s)): chore(deps): bump the reviewed-rust-dependencies group with 15 updates
+      🔎 #770 would be merged (3 failing, 0 pending of 49 check(s)): chore(deps): bump the reviewed-actions group with 3 updates
+   ℹ️  Detected 9 dependency ecosystem(s) across 1842 file(s).
+   Dependabot:     5 of 5 open pull request(s) would be merged
+   Default branch: main
+   Latest commit:  50170b6
+   Ecosystems:     9 (27 manifest file(s))
+                   Rust, Python, JavaScript / TypeScript, Docker, Go, Java / Kotlin / Scala, PHP, GitHub Actions, Infrastructure as code
+
+--- DRY RUN: issue that would be created ---
+
+Title: Update all dependencies in all languages to their latest versions
+
+### Dependabot pull requests to merge before this issue is created (dry run)
+
+These open Dependabot pull requests will be merged automatically, **without waiting for CI/CD**, so this work starts from the versions Dependabot had already proposed:
+
+- [#766](https://github.com/link-assistant/router/pull/766) chore(deps): bump rust from `24e632c` to `2752b33` → `main` — not passing: [CI/CD Pipeline / Changelog Fragment Check](https://github.com/link-assistant/router/actions/runs/38890200196/job/116944133523) (failure), [CI/CD Pipeline / Dependency Audit](https://github.com/link-assistant/router/actions/runs/38890200196/job/116944133493) (failure)
+- [#767](https://github.com/link-assistant/router/pull/767) chore(deps): bump oven/bun from `9114c05` to `ec06c3b` → `main` — not passing: [CI/CD Pipeline / Changelog Fragment Check](https://github.com/link-assistant/router/actions/runs/38890202607/job/116947740296) (failure), [CI/CD Pipeline / Dependency Audit](https://github.com/link-assistant/router/actions/runs/38890202607/job/116947740193) (failure)
+- [#768](https://github.com/link-assistant/router/pull/768) chore(deps-dev): bump vite from 8.3.3 to 8.3.4 in /ui in the reviewed-ui-dependencies group → `main` — not passing: [CI/CD Pipeline / Changelog Fragment Check](https://github.com/link-assistant/router/actions/runs/38890244599/job/116939047788) (failure), [CI/CD Pipeline / Lint and Format Check](https://github.com/link-assistant/router/actions/runs/38890244599/job/116939047611) (failure), [CI/CD Pipeline / Dependency Audit](https://github.com/link-assistant/router/actions/runs/38890244599/job/116939047599) (failure)
+- [#769](https://github.com/link-assistant/router/pull/769) chore(deps): bump the reviewed-rust-dependencies group with 15 updates → `main` — not passing: [CI/CD Pipeline / Changelog Fragment Check](https://github.com/link-assistant/router/actions/runs/38890470924/job/116943369728) (failure), [CI/CD Pipeline / Dependency Audit](https://github.com/link-assistant/router/actions/runs/38890470924/job/116943369746) (failure)
+- [#770](https://github.com/link-assistant/router/pull/770) chore(deps): bump the reviewed-actions group with 3 updates → `main` — not passing: [CI/CD Pipeline / Changelog Fragment Check](https://github.com/link-assistant/router/actions/runs/38890492727/job/116948317675) (failure), [CI/CD Pipeline / Lint and Format Check](https://github.com/link-assistant/router/actions/runs/38890492727/job/116948317442) (failure), [CI/CD Pipeline / Dependency Audit](https://github.com/link-assistant/router/actions/runs/38890492727/job/116948317689) (failure)
+
+**Fix every error these merges introduced.** Their CI/CD was not waited for, and the checks listed above were not passing when they were merged. Look at the CI/CD runs of the default branch after these merges, reproduce each failing build, test, lint, type-check, security or deprecation error they caused, and fix all of them as part of this issue. Do not revert a merged update to make a check pass — adapt the code, the configuration or the workflow instead. The work is not done until CI/CD of the default branch is green again.
+
+### Dependency ecosystems detected in this repository
+
+Update **every** ecosystem below, in this order (most of the repository first). One pull request may cover them all, but each ecosystem must end up fully current — not partially.
+
+1. **Rust**
+   - Detected languages: Rust
+   - Manifests: `Cargo.toml`, `experiments/include-coverage-paths/Cargo.toml`, `experiments/issue-372-locks/Cargo.toml`, `experiments/issue-372/Cargo.toml`, `experiments/issue-725/test-sharder/Cargo.toml`, `fuzz/Cargo.toml`
+   - Lockfiles to regenerate and commit: `Cargo.lock`, `experiments/include-coverage-paths/Cargo.lock`, `experiments/issue-372-locks/Cargo.lock`, `experiments/issue-372/Cargo.lock`, `experiments/issue-725/test-sharder/Cargo.lock`, `fuzz/Cargo.lock`
+   - Update everything: `cargo upgrade --incompatible && cargo update  (cargo-edit)`
+   - Plain `cargo update` only moves Cargo.lock inside the requirements already in Cargo.toml. `cargo update --breaking` rewrites them but is nightly-only (`-Z unstable-options`), so `cargo upgrade --incompatible` from cargo-edit is the stable route. Revisit `edition` and `rust-version` too.
+
+2. **Python**
+   - Detected languages: Python
+   - Manifests: `packages/python/pyproject.toml`
+   - Update everything: `uv lock --upgrade  •  pip-compile --upgrade  •  poetry update`
+   - Raise the floors in pyproject.toml as well: a `>=` floor years below the resolved version means CI and a fresh install are not testing the same tree. Drop upper bounds that exclude the current release.
+
+3. **JavaScript / TypeScript**
+   - Detected languages: JavaScript, TypeScript
+   - Manifests: `docs/case-studies/issue-37/raw/proxypal/package.json`, `packages/javascript/package.json`, `ui/package.json`
+   - Lockfiles to regenerate and commit: `packages/javascript/package-lock.json`, `ui/package-lock.json`
+   - Update everything: `npx npm-check-updates -u && npm install`
+   - `npm update` stays inside the existing semver ranges and never crosses a major; `npm-check-updates -u` rewrites package.json to the `latest` dist-tag.
+
+4. **Docker**
+   - Detected languages: Dockerfile
+   - Manifests: `Dockerfile`, `docker/tunnel/Dockerfile`, `experiments/remote-deploy-failing-candidate/Dockerfile`
+   - Update everything: bump each `FROM` base-image tag (and re-pin the digest, if digests are used)
+   - A base image is a dependency: an old `FROM` ships the distribution’s unpatched libraries no matter how current the language packages are.
+
+5. **Go**
+   - Detected languages: Go
+   - Manifests: _none found — check whether one is missing_
+   - Update everything: `go get -u ./... && go mod tidy`
+   - Also review the `go` directive itself — it pins the language version, not just the dependencies.
+
+6. **Java / Kotlin / Scala**
+   - Detected languages: Java
+   - Manifests: _none found — check whether one is missing_
+   - Update everything: `mvn versions:use-latest-releases versions:update-properties  •  ./gradlew dependencyUpdates`
+   - Maven pins most versions in `<properties>`, so `versions:use-latest-releases` alone leaves them behind — run `versions:update-properties` too. Review `maven.compiler.source/target` and the Gradle wrapper version.
+
+7. **PHP**
+   - Detected languages: PHP
+   - Manifests: _none found — check whether one is missing_
+   - Update everything: `composer update --with-all-dependencies`
+   - Crossing a major needs the constraint rewritten first (`composer require vendor/pkg:^X`); `composer update` alone resolves inside composer.json.
+
+8. **GitHub Actions**
+   - Manifests: `.github/workflows/benchmarks.yml`, `.github/workflows/bindings.yml`, `.github/workflows/delivery.yml`, `.github/workflows/docker-build.yml`, `.github/workflows/fuzz.yml`, `.github/workflows/live-tier.yml`, `.github/workflows/macos-keychain.yml`, `.github/workflows/mutants.yml`, `.github/workflows/real-clients.yml`, `.github/workflows/release.yml`, `.github/workflows/soak.yml`, `.github/workflows/upgrade-matrix.yml`, `.github/workflows/verify-releases.yml`
+   - Update everything: bump every `uses:` reference to the newest release (tag or pinned digest)
+   - Actions pinned to a stale major (`actions/checkout@v3`) are the most common source of deprecation warnings in an otherwise green pipeline. Update reusable workflows and composite `action.yml` files too.
+
+9. **Infrastructure as code**
+   - Manifests: `.pre-commit-config.yaml`
+   - Update everything: `terraform init -upgrade  •  helm dependency update  •  pre-commit autoupdate  •  git submodule update --remote`
+
+Detected languages with no dependency manifest of their own: Shell, Nix, HTML. Check whether they pull dependencies through one of the ecosystems above.
+
+### Keeping them current
+
+`.github/dependabot.yml` already exists — verify it covers every ecosystem and directory listed above, then keep it in sync with any manifest this work adds or moves.
+
+The ecosystems found in this repository correspond to these entries:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: 'cargo'
+    directories:
+      - '/'
+      - '/experiments/include-coverage-paths'
+      - '/experiments/issue-372'
+      - '/experiments/issue-372-locks'
+      - '/experiments/issue-725/test-sharder'
+      - '/fuzz'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'pip'
+    directory: '/packages/python'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'npm'
+    directories:
+      - '/packages/javascript'
+      - '/ui'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'docker'
+    directories:
+      - '/'
+      - '/docker/tunnel'
+      - '/experiments/remote-deploy-failing-candidate'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'gomod'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'maven'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'composer'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'pre-commit'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+```
+
+[Renovate](https://docs.renovatebot.com/) is the alternative if grouped or automerged updates are wanted instead.
+
+Update all dependencies to their latest versions, in Rust, Python, JavaScript / TypeScript, Docker, Go, Java / Kotlin / Scala, PHP, GitHub Actions, Infrastructure as code. "All" is literal: development dependencies, transitive lockfile entries, build plugins, test runners, linters, base images, GitHub Actions, and the language/toolchain versions themselves.
+
+For each ecosystem, produce a table of every dependency with the version pinned today and the version released today, resolved from the registry — not from memory. Anything left behind must have a written reason recorded (an upstream bug, a dropped platform, a paid tier), not silence.
+
+Cross major versions deliberately. Read the changelog and the migration guide for every major bump, adapt the code to the new API, and remove the shims the old version needed. A constraint loosened or a test skipped to make a major "pass" is not an update.
+
+Use the new features. Where a newer version replaces something this repository implements by hand, delete the hand-rolled copy and use the upstream feature, so there is less duplicated code and logic afterwards than before.
+
+Make the constraints honest: raise floors that are years below what is actually installed, drop upper bounds that exclude the current release, and regenerate and commit every lockfile so a fresh install and CI resolve the same tree.
+
+If the same dependency is pinned in more than one place — several language implementations, a Dockerfile, a workflow — bring every pin to the same version. A repository that pins one library at four different versions has four different behaviours.
+
+Run the full build, test and lint suite of every ecosystem after updating, and make CI green. Resolve every new deprecation warning the update introduces rather than leaving it for the next reader.
+
+Check the security advisories for the tree as it stands afterwards (`npm audit`, `cargo audit`, `pip-audit`, `bundle audit`, `dotnet list package --vulnerable`, or the ecosystem equivalent) and make sure the update leaves none unresolved.
+
+Report to each dependency’s upstream all general logic or duplicated code that belongs in that dependency, missing features, and bugs that lead to workarounds in this repository. Search existing upstream issues first, then create or update a report with a minimal reproducible example, affected versions, the local workaround, and a suggested fix in code or feature proposal; link every report from the pull request. Keep necessary workarounds in this repository so upstream fixes do not block the pull request.
+
+Follow the dependency-update practices collected in [https://github.com/link-assistant/hive-mind/blob/main/docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md](https://github.com/link-assistant/hive-mind/blob/main/docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md).
+
+Please plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.
+
+---
+
+<details>
+<summary>Context collected by <code>/fix --update-all-dependencies</code></summary>
+
+- **Repository:** [link-assistant/router](https://github.com/link-assistant/router)
+- **Default branch:** `main`
+- **Latest commit:** `50170b6` ([commit](https://github.com/link-assistant/router/commit/50170b6ae591f9d3518d242ad35a6248aed6b35a)) — chore: release v1.24.1
+- **Ecosystems detected:** 9
+- **Manifest files found:** 27
+
+**Detected languages**
+
+- **Rust** — 91.7%
+- **Python** — 6.1%
+- **Shell** — 1.3%
+- **JavaScript** — 0.8%
+- **Nix** — 0.0%
+- **Dockerfile** — 0.0%
+- **TypeScript** — 0.0%
+- **Go** — 0.0%
+- **Java** — 0.0%
+- **PHP** — 0.0%
+- **HTML** — 0.0%
+
+</details>

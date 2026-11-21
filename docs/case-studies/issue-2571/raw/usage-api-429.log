@@ -1,0 +1,47 @@
+  "x-robots-tag": "none"
+}
+[VERBOSE] /limits API error body: {
+  "error": {
+    "type": "rate_limit_error",
+    "message": "Rate limited. Please try again later."
+  }
+}
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] /queue: Cannot start: CPU usage is 88% (threshold: 65%), Claude process is already running (3 processes)
+[VERBOSE] /queue: Dequeue decision (global FIFO across tool queues):
+[VERBOSE] /queue:   claude: waited 33m 23s - blocked by [CPU usage is 88% (threshold: 65%); Claude process is already running (3 processes)]
+[VERBOSE] /queue:   -> nothing startable this cycle
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "602a0ce1-06d9-4ee1-8261-0ebf997b693b",
+--
+  "x-robots-tag": "none"
+}
+[VERBOSE] /limits API error body: {
+  "error": {
+    "type": "rate_limit_error",
+    "message": "Rate limited. Please try again later."
+  }
+}
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] /queue: Cannot start: CPU usage is 88% (threshold: 65%), Claude process is already running (3 processes)
+[telegram-send] s641 safeEditMessageText → chat=-1002975819706 message=118163 thread=857 parse_mode=Markdown chars=410 bytes=416 text="⏳ Waiting (claude queue #1)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nPull request: https://github.com/link-foundation/package-registry-manager/pull/27\n\n🛠 Options: --think medium --auto-merge --tool claude\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\n*Reason:*\nCPU usage is 88% (threshold: 65%)\nClaude process is already running (3 processes)"
+[telegram-send] s642 editMessageText → chat=-1002975819706 message=118163 parse_mode=Markdown chars=410 bytes=416 text="⏳ Waiting (claude queue #1)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nPull request: https://github.com/link-foundation/package-registry-manager/pull/27\n\n🛠 Options: --think medium --auto-merge --tool claude\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\n*Reason:*\nCPU usage is 88% (threshold: 65%)\nClaude process is already running (3 processes)"
+[VERBOSE] Telegram Bot API editMessageText accepted; windows: {"chat":1,"group":1,"broadcast":1}
+[telegram-send] s642 editMessageText ✓ delivered message_id=118163
+[telegram-send] s641 safeEditMessageText ✓ delivered message_id=118163
+--
+  "x-robots-tag": "none"
+}
+[VERBOSE] /limits API error body: {
+  "error": {
+    "type": "rate_limit_error",
+    "message": "Rate limited. Please try again later."
+  }
+}
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] /queue: Cannot start: CPU usage is 88% (threshold: 65%), Claude process is already running (3 processes)
+[VERBOSE] /queue: Enqueued: [solve-1791152408214-viu0hdn] https://github.com/konard/vietnam-accomodation-search (queued) to claude queue, queue length: 5
+[telegram-send] s649 safeReply → chat=-1002975819706 parse_mode=Markdown reply_to=118175 chars=411 bytes=419 text="📋 Solve command queued (claude queue position #5)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nURL: https://github.com/konard/vietnam-accomodation-search\n\n🛠 Options: --think medium --auto-merge --tool claude\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue -"… (+111 chars)
+[telegram-send] s650 sendMessage → chat=-1002975819706 thread=857 parse_mode=Markdown reply_to=118175 thread=857 chars=411 bytes=419 text="📋 Solve command queued (claude queue position #5)\n\nRequested by: [@drakonard](https://t.me/drakonard)\nURL: https://github.com/konard/vietnam-accomodation-search\n\n🛠 Options: --think medium --auto-merge --tool claude\n🔒 Locked options: --attach-logs --verbose --no-tool-check --disable-report-issue --isolation docker\n\n⏳ Waiting: CPU usage is 88% (threshold: 65%)\nClaude process is already running (3 processes)"
+[VERBOSE] Telegram Bot API sendMessage accepted; windows: {"chat":5,"group":5,"broadcast":1}
+[telegram-send] s650 sendMessage ✓ delivered message_id=118176

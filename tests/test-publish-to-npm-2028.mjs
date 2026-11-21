@@ -127,6 +127,25 @@ await test('publishWithRetry: fast-fails a non-retryable auth error', async () =
   assert.equal(result.attempt, 1, 'must not retry an auth failure');
 });
 
+await test('publishWithRetry: fast-fails npm E413 (issue #4050) with an annotation and size guidance', async () => {
+  // Verbatim from run 43242624306, where all three attempts re-uploaded 250 MB.
+  const TOO_LARGE = { code: 1, stdout: 'Some packages failed to publish:\n└ E413: 413 Payload Too Large - PUT https://registry.npmjs.org/@link-assistant%2fhive-mind', stderr: '', message: '' };
+  const runner = makeRunner({
+    'npm run changeset:publish': q(TOO_LARGE),
+    'npm view': q(NOT_PUBLISHED),
+  });
+  const errors = [];
+  const result = await publishWithRetry({ runner, version: VERSION, sleeper: noSleep, logger: { log: () => {}, error: line => errors.push(String(line)) } });
+  assert.equal(result.ok, false);
+  assert.equal(result.nonRetryable, true);
+  assert.equal(result.attempt, 1, 'the registry refuses the same tarball every time');
+  assert.equal(runner.calls.filter(call => call.args.join(' ') === 'run changeset:publish').length, 1);
+  assert.match(result.reason, /E413/);
+  assert.ok(errors.some(line => line.startsWith('::error title=npm publish rejected: tarball too large (E413)::')));
+  assert.ok(errors.some(line => line.includes('check-npm-tarball-size.mjs')));
+  assert.ok(!errors.some(line => line.includes('trusted publishing')), 'E413 is not an authentication failure');
+});
+
 await test('runPublishFlow: skips publish when version already on npm', async () => {
   const outputs = {};
   const runner = makeRunner({ 'npm view': q(IS_PUBLISHED) });

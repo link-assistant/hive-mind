@@ -27,16 +27,49 @@
  * rejected by a repository rule now fails the release with an explanation
  * instead of opening a pull request, because only a repository admin can fix it.
  *
- * Uses only Node built-ins so it has no dependency on node_modules state.
+ * Issue #3552: a push answered by a GitHub server-side fault (for example
+ * `remote: fatal error in commit_refs ... [remote rejected] (failure)`) is
+ * retried as-is, without rebasing, because the remote did not move.
+ *
+ * Uses only Node built-ins (plus the dependency-free transient-error leaf
+ * module) so it has no dependency on node_modules state.
  */
 
 import { readFileSync } from 'node:fs';
 
+import { isFailedCommandResult, retryGitHubOperation, wrapRunnerWithTransientRetry } from '../src/github-operation-retry.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
 const DEFAULT_PUSH_DELAY_MS = 3000;
 const RELEASE_METADATA_FILES = new Set(['package.json', 'package-lock.json', 'CHANGELOG.md']);
+
+/**
+ * The paths that are not release metadata (package metadata, lockfile,
+ * changelog or a changeset Markdown file).
+ *
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+export function nonReleaseMetadataPaths(paths) {
+  return paths.filter(path => path && !RELEASE_METADATA_FILES.has(path) && !/^\.changeset\/[^/]+\.md$/.test(path));
+}
+
+// Documentation, data, experiments and collected logs are not code the checks
+// validate, and scripts/detect-code-changes.mjs keeps most of them out of the
+// release trigger, so a newer commit touching only them may never release.
+const UNTESTED_SOURCE_EXCLUDED = /^(\.changeset|data|docs|experiments|dev)\/|\.md$/;
+
+/**
+ * Paths that changed on the remote branch and would be released untested:
+ * anything that is neither release metadata nor documentation.
+ *
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+export function untestedSourcePaths(paths) {
+  return nonReleaseMetadataPaths(paths).filter(path => !UNTESTED_SOURCE_EXCLUDED.test(path));
+}
 
 /**
  * Prove that a generated version commit did not change the source tree that the
@@ -48,7 +81,7 @@ const RELEASE_METADATA_FILES = new Set(['package.json', 'package-lock.json', 'CH
  * @returns {void}
  */
 export function assertReleaseMetadataOnly(paths) {
-  const unexpected = paths.filter(path => path && !RELEASE_METADATA_FILES.has(path) && !/^\.changeset\/[^/]+\.md$/.test(path));
+  const unexpected = nonReleaseMetadataPaths(paths);
   if (unexpected.length > 0) {
     throw new Error(`Refusing to publish a release commit with unvalidated source changes: ${unexpected.join(', ')}`);
   }
@@ -135,26 +168,39 @@ export function isNonFastForward(result) {
  */
 export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main', remote = 'origin', maxAttempts = DEFAULT_PUSH_ATTEMPTS, delayMs = DEFAULT_PUSH_DELAY_MS, sleeper, logger = console, verbose = false }) {
   const wait = sleeper ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const log = (message, meta) => meta?.level !== 'verbose' && logger.log(message);
+  const pushArgs = ['push', remote, branch];
+  let pushes = 0;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = await runner('git', ['push', remote, branch], { verbose, logger });
+  for (;;) {
+    // A GitHub server fault or network error (issue #3552) is not a lost race:
+    // the shared retry loop pushes the same commit again, without rebasing.
+    // Both kinds of retry draw on the one budget of `maxAttempts` pushes.
+    const result = await retryGitHubOperation(() => (pushes++, runner('git', pushArgs, { verbose, logger })), {
+      label: 'git push',
+      noun: 'git',
+      maxAttempts: maxAttempts - pushes,
+      delayMs,
+      backoff: 1,
+      sleep: wait,
+      log,
+      // A rule rejection is final, whatever else its output happens to say.
+      isFailedResult: value => isFailedCommandResult(value) && !isBlockedByRepositoryRule(value),
+    });
     if (result.code === 0) {
-      return { pushed: true, attempt };
+      return { pushed: true, attempt: pushes };
     }
 
-    // Anything other than a lost race (auth, protected branch, network) will not
-    // be fixed by rebasing, so fail immediately with the real error.
-    if (!isNonFastForward(result) || attempt === maxAttempts) {
-      throw new CommandFailedError('git', ['push', remote, branch], result);
+    // Anything other than a lost race (auth, protected branch) will not be
+    // fixed by rebasing, so fail immediately with the real error.
+    if (!isNonFastForward(result) || pushes >= maxAttempts) {
+      throw new CommandFailedError('git', pushArgs, result);
     }
 
-    logger.log(`Push rejected: ${remote}/${branch} has advanced (attempt ${attempt} of ${maxAttempts}). Rebasing and retrying...`);
+    logger.log(`Push rejected: ${remote}/${branch} has advanced (attempt ${pushes} of ${maxAttempts}). Rebasing and retrying...`);
     await wait(delayMs);
-    await runStrict('git', ['pull', '--rebase', remote, branch], { runner, verbose, logger });
+    await runStrict('git', ['pull', '--rebase', remote, branch], { runner: wrapRunnerWithTransientRetry(runner, { sleep: wait, log }), verbose, logger });
   }
-
-  // Unreachable: the loop either returns or throws.
-  throw new Error(`Failed to push to ${remote}/${branch}`);
 }
 
 /**
@@ -172,10 +218,13 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {(ms: number) => Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
- * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
+ * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean, skippedUntestedRemote?: boolean}>}
  */
 export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', sleeper, logger = console, verbose = false }) {
-  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
+  // Network git (fetch) goes through the shared retry loop; local commands
+  // pass straight through (issue #3552).
+  const retryingRunner = wrapRunnerWithTransientRetry(runner, { ...(sleeper && { sleep: sleeper }), log: (message, meta) => meta?.level !== 'verbose' && logger.log(message) });
+  const strict = (command, args) => runStrict(command, args, { runner: retryingRunner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
   // The numeric prefix is what links the commit to the github-actions[bot]
@@ -193,6 +242,23 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
   if (localHead !== remoteHead) {
     logger.log(`Remote ${branch} has advanced (local: ${localHead}, remote: ${remoteHead})`);
     logger.log('This may indicate a previous attempt partially succeeded.');
+
+    // Issue #4029: rebasing onto a main that gained source changes would
+    // version and publish code this run never tested, and the release would
+    // still report green. Only release metadata (a previous attempt's bump, or
+    // another run's) may be picked up. Main runs queue rather than cancel, so
+    // the run for the newer commit validates that source and releases it.
+    const untested = untestedSourcePaths((await strict('git', ['diff', '--name-only', localHead, remoteHead])).stdout.split('\n').map(path => path.trim()));
+    if (untested.length > 0) {
+      const shown = untested.length > 10 ? `${untested.slice(0, 10).join(', ')} and ${untested.length - 10} more` : untested.join(', ');
+      if (mode === 'instant') {
+        throw new Error(`Remote ${branch} changed after this run validated ${localHead} (${shown}). Dispatch the release again on the current ${branch}.`);
+      }
+      logger.log(`::notice::Not releasing from this run: ${branch} gained changes this run did not test (${shown}). The run for ${remoteHead} tests them and releases.`);
+      output('version_committed', 'false');
+      output('already_released', 'false');
+      return { versionCommitted: false, alreadyReleased: false, skippedUntestedRemote: true };
+    }
 
     if (countChangesets() === 0) {
       const remotePackageJson = await strict('git', ['show', `${remote}/${branch}:package.json`]);

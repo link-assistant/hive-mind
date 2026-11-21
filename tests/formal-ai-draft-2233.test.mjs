@@ -53,6 +53,7 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
   assert.equal(argv.logDir, '/home/box/logs', 'the session log lands where the workflow can upload it');
 
   assert.equal(argv.autoRestartUntilMergeable, false, 'the run must not loop watching CI: #2233 says a failed draft "stays open and red until a later run succeeds", and the later run is the next attempt, not this one restarting for up to 24 hours');
+  assert.equal(argv.autoRestartOnUncommittedChanges, false, 'the run must not restart the model over uncommitted files: Formal AI leaves its own derivations in the clone, and #3248 drafts restarted five times over them');
   assert.equal(argv.autoMerge, false, 'a draft is "never hand-corrected and merged" (#2233 item 3)');
   assert.equal(argv.autoClosePullRequestOnFail, false, 'a failed draft stays open — closing it would discard the evidence the exercise exists to collect');
 

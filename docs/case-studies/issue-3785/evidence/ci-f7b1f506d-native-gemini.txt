@@ -1,0 +1,27 @@
+Native Gemini verification, 2026-10-31 UTC
+
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41211781171
+Source: f7b1f506d3b44cada82957ba3c010cb3f82cdb22
+Created: 2026-10-31 14:47:46 UTC
+Conclusion: success; all six jobs pass.
+
+All six diagnostic artifacts and the complete workflow log are preserved.
+The index reads 2762 text diagnostics in 2500 chunks, totalling 111288 lines.
+Fifty-two strict before-control logs contain expected assertion failures;
+the history-regression control also belongs to that set. Corresponding
+positive native controls pass. The index is diagnostic, not a success gate.
+
+Primary after logs independently confirm canonical credential replacement,
+logout/request refusal, all 41 refresh/login/account/writer controls, complete
+CLI history resume after private-home disposal, retained Git checkpoints and
+tracker tasks, and fresh complete CLI recovery after interrupted first and
+replacement Plan Mode proof publication. Those actual assertions were read.
+The workflow requires both the reproducing failures and repaired controls.
+
+Complete workflow: 3922 lines, indexed in three bounded chunks.
+SHA256: 8424e3adff31ccaf29b99a3cbbbeaf4c93c942a4e3351d7195c7b885047c3b16
+
+This verifies the opt-in native adapter at the stated source. Default canonical
+selection, prior-state migration, remaining writers/backends and complete
+release-image lifecycle remain unfinished. It does not complete the six-tool
+acceptance inventory; keep PR 3786 draft and unmerged.

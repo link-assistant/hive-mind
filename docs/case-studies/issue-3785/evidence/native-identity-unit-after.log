@@ -1,0 +1,16 @@
+
+running 11 tests
+test api_key_login_refuses ... ok
+test healthy_legacy_login_publishes ... ok
+test legacy_account_switch_refuses ... ok
+test legacy_fresh_owned_login_refuses ... ok
+test legacy_logout_refuses ... ok
+test legacy_rotation_preserves_new_tokens ... ok
+test missing_owner_changed_generation_refuses ... ok
+test missing_owner_recovery_retains_native_semantics ... ok
+test owned_new_login_refuses ... ok
+test owned_rotation_preserves_new_tokens ... ok
+test unselected_legacy_behavior_is_preserved ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

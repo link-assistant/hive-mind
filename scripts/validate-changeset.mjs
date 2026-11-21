@@ -10,6 +10,7 @@
  */
 
 import { execSync } from 'child_process';
+import { execSyncWithRetry } from '../src/github-operation-retry.lib.mjs'; // Issue #3552: fetches retry transient faults
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -37,10 +38,10 @@ function getAddedChangesetFiles() {
         // Try to fetch the base commit if not available locally
         console.log('Base commit not available locally, attempting fetch...');
         try {
-          execSync(`git fetch origin ${baseSha}`, { stdio: 'inherit' });
+          execSyncWithRetry(`git fetch origin ${baseSha}`, { stdio: 'inherit' });
         } catch {
           // If that fails, try fetching all
-          execSync(`git fetch origin`, { stdio: 'inherit' });
+          execSyncWithRetry(`git fetch origin`, { stdio: 'inherit' });
         }
       }
 
@@ -71,7 +72,7 @@ function getAddedChangesetFiles() {
     try {
       // Fetch the base branch to ensure we have it
       try {
-        execSync(`git fetch origin ${prBase}`, { stdio: 'inherit' });
+        execSyncWithRetry(`git fetch origin ${prBase}`, { stdio: 'inherit' });
       } catch {
         // Ignore fetch errors, we might already have it
       }

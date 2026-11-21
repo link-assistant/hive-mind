@@ -1,6 +1,8 @@
 import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
-import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
+import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, describeCommandStartFailure, normalizeExitCode } from './session-status.lib.mjs';
+import { EXIT_CODE_HIVE_NO_WORK, EXIT_CODE_HIVE_INCOMPLETE } from './hive.run-outcome.lib.mjs';
+import { EXIT_CODE_SOLVE_NO_CHANGES } from './solve.exit-codes.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
   if (!locale) return fallback;
@@ -38,13 +40,17 @@ export function getSessionCompletionExitCode({ exitCode = null, statusResult = n
  * @param {string|null} [params.status] - Session status string, if known
  * @returns {{ failed: boolean, killed: boolean, signal: object|null }}
  */
-export function classifySessionOutcome({ exitCode = null, status = null } = {}) {
+export function classifySessionOutcome({ exitCode = null, status = null, command = null } = {}) {
   const code = normalizeExitCode(exitCode);
   const signal = describeExitSignal(code);
   const killedByStatus = isKilledSessionStatus(status);
   const killed = Boolean(signal) || killedByStatus;
   const failed = killed || (code !== null && code !== 0) || FAILURE_SESSION_STATUSES.has(String(status || '').toLowerCase());
-  return { failed, killed, signal };
+  // Issue #3211: `failed` stays true for the nonzero exit, but a solve that
+  // finished without changes is not a crash; callers that count or clean up
+  // failures (docker keep policy, /queue history) check `noChanges` (#3215).
+  const noChanges = failed && !killed && command === 'solve' && code === EXIT_CODE_SOLVE_NO_CHANGES;
+  return { failed, killed, signal, noChanges };
 }
 
 export { KILLED_SESSION_STATUSES };
@@ -65,6 +71,7 @@ export function formatSessionDurationSeconds(seconds) {
   return parts.join(' ');
 }
 
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
 export function formatStartingWorkSessionMessage({ sessionName = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
   const header = text(locale, 'telegram.work_session_starting', '🔄 Starting...');
   const details = infoBlock ? `\n\n${infoBlock}` : '';
@@ -80,7 +87,8 @@ export function formatStartingWorkSessionMessage({ sessionName = null, isolation
   return `${header}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
-export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
+export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null, header = null } = {}) {
   const sessionLabel = text(locale, 'telegram.session_label', 'Session');
   const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
   const isolationInfo = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
@@ -92,7 +100,8 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
   // never carries an empty label.
   const executionLabel = text(locale, 'telegram.execution_label', 'Execution');
   const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
-  return `${text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
+  // Issue #3326: `/fix` replaces the header with its live progress status.
+  return `${header || text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
 }
 
 /**
@@ -121,6 +130,7 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
  * @returns {string} Markdown reply
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2154
+ * @telegram-markdown
  */
 export function formatFailedLaunchMessage({ commandName = 'command', sessionName = null, isolationBackend = null, infoBlock = '', error = '', locale = null } = {}) {
   const header = text(locale, 'telegram.error_executing_command', `❌ Error executing ${commandName} command`, { commandName });
@@ -144,37 +154,53 @@ export function formatFailedLaunchMessage({ commandName = 'command', sessionName
  * @returns {string} New infoBlock
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1688
+ * @telegram-markdown
  */
 export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null } = {}) {
   if (!pullRequestUrl || !infoBlock) return infoBlock || '';
   if (infoBlock.includes(pullRequestUrl) || infoBlock.includes(escapeMarkdown(pullRequestUrl))) return infoBlock;
+  // Issue #1801: escape underscores/asterisks so Markdown parser doesn't open
+  //   an entity on URLs like .../save_visiogetbb/pull/8 that the Issue: line
+  //   above already had escaped at buildTelegramInfoBlock time.
+  return insertInfoBlockUrlLine(infoBlock, `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${escapeMarkdown(pullRequestUrl)}`, { locale });
+}
 
+/**
+ * Insert `line` right after the info block's last URL line (`Repository:`,
+ * `Issue:`, `Pull request:`, `URL:`), so links stay together above the options.
+ * Issue #3469: `/fix` starts on a `Repository:` line and later learns its issue
+ * and pull request; both used to land after the options.
+ */
+export function insertInfoBlockUrlLine(infoBlock, line, { locale = null } = {}) {
+  if (!line) return infoBlock || '';
+  if (!infoBlock) return line;
   const lines = infoBlock.split('\n');
   let lastUrlLineIdx = -1;
-  const urlLabels = ['Issue', 'Pull request', 'URL'];
+  const urlLabels = ['Repository', 'Issue', 'Pull request', 'URL'];
   if (locale) {
     urlLabels.push(t('telegram.info_issue_label', {}, { locale }));
     urlLabels.push(t('telegram.info_pull_request_label', {}, { locale }));
     urlLabels.push(t('telegram.info_url_label', {}, { locale }));
+    urlLabels.push(t('telegram.fix.issue_label', {}, { locale }));
   }
   for (let i = 0; i < lines.length; i++) {
     if (urlLabels.some(label => lines[i].startsWith(`${label}: `))) {
       lastUrlLineIdx = i;
     }
   }
-  // Issue #1801: escape underscores/asterisks so Markdown parser doesn't open
-  //   an entity on URLs like .../save_visiogetbb/pull/8 that the Issue: line
-  //   above already had escaped at buildTelegramInfoBlock time.
-  const prLine = `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${escapeMarkdown(pullRequestUrl)}`;
   if (lastUrlLineIdx === -1) {
-    return `${infoBlock}\n${prLine}`;
+    return `${infoBlock}\n${line}`;
   }
   const before = lines.slice(0, lastUrlLineIdx + 1);
   const after = lines.slice(lastUrlLineIdx + 1);
-  return [...before, prLine, ...after].join('\n');
+  return [...before, line, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null } = {}) {
+// Issue #2303: the diagnosed kill cause, named in the headline.
+const KILL_CAUSE_LABELS = { 'out-of-memory': 'out of memory', 'disk-full': 'disk full', 'forced-kill': 'forced kill' };
+
+/** @telegram-markdown Telegram legacy-Markdown text (issue #3505). */
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null, resumedAs = null, recoveryCount = null, launchUnobserved = false, killCause = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -200,35 +226,74 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // the recovery session edits this message again when it actually ends.
     // Issue #2408: that is a warning, not a failure and not a neutral state.
     statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    if (killed && !signal) {
+      // Issue #2303: a kill without a signal exit has no real exit code (the 1 is a sentinel), so name the kill and its cause.
+      const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+      const causeSuffix = causeLabel ? ` (${causeLabel})` : '';
+      statusText = text(messageLocale, 'telegram.work_session_recovering_from_kill', `Work session still in progress: recovering from a kill${causeSuffix}`, { causeSuffix });
+    } else {
+      statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
+    }
+  } else if (stopRequestedByUser && (killed || statusResult?.status === 'stopped')) {
+    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
+    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
+    // The template already says "by user". Drop '*' in the name because
+    // Telegram cannot escape it inside a bold Markdown span.
+    const requestedBy = sessionInfo?.stopRequestedBy ? ` (${String(sessionInfo.stopRequestedBy).replace(/\*/g, '')})` : '';
+    statusEmojiOverride = '🛑';
+    statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
+    statusEmojiOverride = '⚠️';
+    statusText = 'Work session ended; final outcome could not be confirmed';
+  } else if (finalExitCode === null && !failed && !killed && Number.isFinite(sessionInfo?.trackingExpiredAfterMs)) {
+    // Issue #3215: a screen session without isolation was only tracked for a
+    // fixed time and reported no exit status; it may still be running.
+    const minutes = Math.round(sessionInfo.trackingExpiredAfterMs / 60000);
+    statusEmojiOverride = 'ℹ️';
+    statusText = text(messageLocale, 'telegram.work_session_tracking_expired', `Stopped tracking the work session after ${minutes} minutes without an exit status; it may still be running in its screen session`, { minutes });
+  } else if (finalExitCode === null && !failed && !killed) {
+    // Issue #3209: no exit code is not a success. A session whose execution was
+    // never observed (still launching, or never started) says so explicitly.
+    statusEmojiOverride = '⚠️';
+    statusText = launchUnobserved ? text(messageLocale, 'telegram.work_session_never_observed', 'Work session status unknown: the session was never observed running') : text(messageLocale, 'telegram.work_session_status_unknown', 'Work session ended, but its exit status is unknown');
   } else if (!failed && recoveries > 0) {
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';
     statusText = text(messageLocale, 'telegram.work_session_recovered', 'Work session finished successfully after automatic recovery');
-  } else if (killed && stopRequestedByUser) {
-    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
-    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
-    statusEmojiOverride = '🛑';
-    statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if ((failed || killed) && pullRequestMerged) {
+    // Issue #2117: the runner's exit code is still authoritative and must not
+    // be hidden, but calling the entire session "failed" contradicts the
+    // externally verified result when its pull request has already merged.
+    // Describe both outcomes so operators know the requested goal completed
+    // and that a later orchestration failure still needs investigation.
+    // Issue #2498: the same holds for a kill after the merge — the work is
+    // done, so it is neither "killed" nor something to recover.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode ?? 'unknown'}`, { exitCode: finalExitCode ?? 'unknown' });
   } else if (killed) {
     // A real signal exit is always >128; an exit code of exactly 1 on a
     // status-only kill (process vanished, code unknown) is a synthesized failure
     // sentinel, so suppress the misleading "(exit code: 1)" in that case.
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    const reason = signal ? signal.reason : 'killed';
+    // Issue #2303: a kill without a signal exit (container removed from under the session) names its diagnosed cause.
+    const causeLabel = KILL_CAUSE_LABELS[killCause] || null;
+    const reason = signal ? signal.reason : causeLabel ? `killed (${causeLabel})` : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
-  } else if (failed && pullRequestMerged) {
-    // Issue #2117: the runner's exit code is still authoritative and must not
-    // be hidden, but calling the entire session "failed" contradicts the
-    // externally verified result when its pull request has already merged.
-    // Describe both outcomes so operators know the requested goal completed
-    // and that a later orchestration failure still needs investigation.
+  } else if (sessionInfo?.command === 'hive' && (finalExitCode === EXIT_CODE_HIVE_NO_WORK || finalExitCode === EXIT_CODE_HIVE_INCOMPLETE)) {
     statusEmojiOverride = '⚠️';
-    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode}`, { exitCode: finalExitCode });
+    statusText = finalExitCode === EXIT_CODE_HIVE_NO_WORK ? text(messageLocale, 'telegram.work_session_hive_no_work', 'No issues processed; check the log for skipped issues or blockers. To continue issues with existing PRs, use `--no-skip-issues-with-prs --auto-continue`') : text(messageLocale, 'telegram.work_session_hive_incomplete', 'Hive session ended with issues still waiting; check the log for blockers');
+  } else if (sessionInfo?.command === 'solve' && finalExitCode === EXIT_CODE_SOLVE_NO_CHANGES) {
+    // Issue #3211: the run finished, but changed nothing; neither a success nor a crash.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_no_changes', 'Work session finished without changes; see the pull request comment for the reason');
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
+    // Issue #2887: 126/127 mean the command never ran; say so rather than leave
+    // a bare exit code that reads as if the tool itself failed.
+    const startFailure = describeCommandStartFailure(finalExitCode)?.reason;
+    if (startFailure === 'command-not-found') statusText += `: ${text(messageLocale, 'telegram.work_session_command_not_found', 'command not found (the program the session was asked to run does not exist)')}`;
+    else if (startFailure === 'command-not-executable') statusText += `: ${text(messageLocale, 'telegram.work_session_command_not_executable', 'command not executable (the program the session was asked to run cannot be executed)')}`;
   } else {
     statusText = text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
   }

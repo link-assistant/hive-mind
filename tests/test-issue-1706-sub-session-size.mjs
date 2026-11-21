@@ -13,7 +13,7 @@
  *   - applyDisable1mContextToClaudeEnv: env var set when disabled
  *   - buildCodexSubSessionSizeConfigArgs: -c model_auto_compact_token_limit=...
  *   - buildCodexDisable1mContextConfigArgs: -c model_context_window=...
- *   - SOLVE_OPTION_DEFINITIONS: defaults are 150k and true (disable-1m-context)
+ *   - SOLVE_OPTION_DEFINITIONS: defaults are 150k and auto/undefined (disable-1m-context, issue #2771)
  *   - getClaudeEnv: integration via config.lib.mjs
  */
 
@@ -29,31 +29,32 @@ const pass = name => {
   passed++;
 };
 
-const fail = (name, detail) => {
+// getClaudeEnv includes inherited environment values. Keep assertion names,
+// but never print compared values or exception messages in failure output.
+const fail = name => {
   console.log(`❌ ${name}`);
-  if (detail) console.log(`   ${detail}`);
   failed++;
 };
 
 const assertEqual = (name, actual, expected) => {
   const ok = actual === expected;
   if (ok) pass(name);
-  else fail(name, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  else fail(name);
 };
 
 const assertDeep = (name, actual, expected) => {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
   if (ok) pass(name);
-  else fail(name, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  else fail(name);
 };
 
 const assertThrows = (name, fn, messageMatch) => {
   try {
     fn();
-    fail(name, 'expected throw');
+    fail(name);
   } catch (e) {
     if (!messageMatch || e.message.includes(messageMatch)) pass(name);
-    else fail(name, `expected message containing "${messageMatch}", got "${e.message}"`);
+    else fail(name);
   }
 };
 
@@ -180,7 +181,7 @@ console.log('\n=== SOLVE_OPTION_DEFINITIONS ===\n');
 
 assertEqual('sub-session-size default = "150k"', SOLVE_OPTION_DEFINITIONS['sub-session-size']?.default, '150k');
 assertEqual('sub-session-size type = "string"', SOLVE_OPTION_DEFINITIONS['sub-session-size']?.type, 'string');
-assertEqual('disable-1m-context default = true', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.default, true);
+assertEqual('disable-1m-context default = undefined (auto, issue #2771)', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.default, undefined);
 assertEqual('disable-1m-context type = "boolean"', SOLVE_OPTION_DEFINITIONS['disable-1m-context']?.type, 'boolean');
 
 console.log('\n=== getClaudeEnv integration ===\n');

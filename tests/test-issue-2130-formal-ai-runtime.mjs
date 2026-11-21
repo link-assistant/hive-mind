@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { buildFormalAiClientEnv, buildGeminiAuthSettings, buildQwenAuthEnv, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, resolveFormalAiHomeRoot, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
+import { buildFormalAiClientEnv, buildGeminiAuthSettings, buildQwenAuthEnv, configureFormalAiClientHome, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, resolveFormalAiHomeRoot, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -473,11 +473,20 @@ test('no tool adapter dispatches through the `formal-ai with` argv wrapper', asy
 });
 
 test('the isolated HOME is only ever used to hold Formal AI configuration', async () => {
-  const source = await readFile(join(repoRoot, 'src', 'formal-ai-runtime.lib.mjs'), 'utf8');
   // `formal-ai with --global` needs HOME to land in the isolated directory, but
   // the environment handed to the CLI must not carry it.
-  assert.match(source, /env: \{ \.\.\.process\.env, \.\.\.env, HOME: home \}/, 'configuration is written with an isolated HOME');
-  assert.ok(!/clientEnv\.HOME\s*=/.test(source), 'the CLI environment never overrides HOME');
+  let writerHome;
+  await configureFormalAiClientHome({
+    tool: 'codex',
+    home: '/isolated-formal-ai-home',
+    env: {},
+    run: async (_command, _args, options) => {
+      writerHome = options.env.HOME;
+    },
+  });
+  assert.equal(writerHome, '/isolated-formal-ai-home', 'configuration is written with an isolated HOME');
+  const { env } = await buildFormalAiClientEnv({ client: { id: 'codex', global_configs: [{ format: 'toml', path: '.codex/config.toml' }] }, home: '/isolated-formal-ai-home' });
+  assert.equal(Object.hasOwn(env, 'HOME'), false, 'the CLI environment never overrides HOME');
 });
 
 // --- the isolated HOME must live outside /tmp -------------------------------

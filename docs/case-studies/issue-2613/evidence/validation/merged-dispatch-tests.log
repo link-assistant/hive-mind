@@ -1,0 +1,15 @@
+✔ the dispatch-checks action defaults only to workflows the script allows (4.901403ms)
+✔ the dispatch passes mode=checks and nothing else (5.301917ms)
+✔ release.yml can be dispatched with only mode=checks (2.717198ms)
+✔ security.yml can be dispatched with only mode=checks (1.178278ms)
+✔ links.yml can be dispatched with only mode=checks (1.359596ms)
+✔ workflows.yml can be dispatched with only mode=checks (3.36149ms)
+✔ the parser sees the inputs a manual release still needs (2.996529ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38.848304

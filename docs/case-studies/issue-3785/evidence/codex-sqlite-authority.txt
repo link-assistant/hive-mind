@@ -1,0 +1,56 @@
+Native Codex SQLite configuration authority, 2026-10-31 UTC
+
+Pinned upstream: openai/codex 6aaac694803004a63c6f393d153c96d22521a6b9
+Native development CLI: the preserved 6c422b57 experiment artifact.
+No live credential, provider request or model inference is used.
+
+Actual-CLI reproducer:
+  python3 experiments/issue-3785/probe-codex-native-sqlite-authority.py /absolute/codex
+The healthy baseline creates native databases only in CODEX_SQLITE_HOME.
+The strict regression then fails because private sqlite_home configuration
+redirects native acknowledged metadata despite the explicit selected root.
+Log: /tmp/issue-3785-recovery/codex-sqlite-authority-strict-before.log
+
+All three bounded negative controls reproduce actual upstream redirection:
+  --case configuration --expect-redirect
+  --case cli --expect-redirect
+  --case logs --expect-redirect
+Logs: /tmp/issue-3785-recovery/codex-sqlite-authority-{configuration,cli,logs}-before.log
+The logs case redirects the separate native logs database; the other cases
+redirect the main native databases. The probe uses actual initialize/thread/list
+requests, finite RPC/output bounds, limited native data/stack, and child reaping.
+
+Root cause: core/src/config/mod.rs resolves sqlite_home after configuration and
+managed requirements. Its cfg.sqlite_home wins over CODEX_SQLITE_HOME, and
+cfg.log_dir can select a different logs database directory. Merely exporting
+the environment selector does not enforce canonical native storage.
+
+The proposed Linux-only guard validates the final native database/logs choices
+against the selected history contract, with distinct private configuration and
+private current-owner real directories. It refuses disagreement without making
+directories or repairing permissions. Without CODEX_ROLLOUT_HOME, upstream
+CODEX_SQLITE_HOME precedence remains unchanged.
+
+The exact pinned patch applicability check passes without source mutation.
+The standalone native guard compiles with rustc 1.99.1 under a finite memory
+limit; all six filesystem unit tests pass, with no skips.
+Logs: /tmp/issue-3785-recovery/codex-sqlite-authority-{apply-check,unit}.log
+
+The native experiment workflow now requires all three actual-CLI negative
+controls, a strict before failure and explicit after refusals. These new CI
+controls have not run yet.
+
+The distributed recipe now pins the guard/applier/tests as its thirteenth
+adapter stage. Two fresh source checkouts independently prepare and verify the
+same complete 34-file source inventory, with digest:
+  8af3a34fe10a01a7f0f02547a0c5c9e700861bf9c136b84e405bef6ee4be1aa3
+Recipe SHA256:
+  be418612690f58f86993a02627ed29a9a697e24cf41993bed8c4e6d16d8b4501
+Logs: /tmp/issue-3785-recovery/codex-release-sqlite-preparation/prepare-{1,2}.log
+Both platform build jobs and the actual installed-command control now require
+all three explicit after refusals. Those changed jobs have not run yet.
+
+This is final-configuration admission only; compiled actual-CLI validation is
+still due. SQLite operation leases, database file binding, root replacement
+during a running operation and production default selection remain unfinished.
+No complete canonical history or lifecycle acceptance claim is made here.

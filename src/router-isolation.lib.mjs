@@ -43,6 +43,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2202
  */
 
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { buildRouterGitUrlPrefix, buildRouterToolServiceUrl, resolveRouterRouteDialect, ROUTER_TOOL_SERVICE } from './router-routes.lib.mjs';
 
 export const ROUTER_SIDECAR_CONTAINER_NAME = 'hive-mind-router';
@@ -73,10 +74,11 @@ export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
 // and bumping across 1.0 would silently delete the `gh` mediation this feature
 // shipped (upstream link-assistant/router#415; measured in
 // `docs/case-studies/issue-2202/data/measurements/
-// router-route-comparison-2026-09-04.md`). Every other route is already
-// supported on both dialects, so the day upstream lands a gh-reachable base
-// this becomes a one-line change with the tests already in place.
-export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.125.4';
+// router-route-comparison-2026-09-04.md`). Router 1.2.1 closed #415 by serving
+// `gh` on a separate GitHub adapter unix socket, so adopting 1.x now means
+// sharing that socket with the task and pointing `gh` at it (issue #3395). The
+// dependency freshness gate accepts this pin only while that issue is open.
+export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.125.4'; // https://github.com/link-assistant/hive-mind/issues/3395
 
 /**
  * Router image this run should use.
@@ -94,6 +96,16 @@ export const resolveRouterSidecarImage = (env = process.env) => String(env?.HIVE
  */
 export function resolveRouterDialect({ env = process.env } = {}) {
   return resolveRouterRouteDialect({ image: resolveRouterSidecarImage(env), env });
+}
+
+/** Validate routing before minting a lease or inspecting native credentials. */
+export function resolveRouterTaskRoute({ tool = 'claude', env = process.env } = {}) {
+  const endpoint = resolveRouterBaseUrl({ env });
+  if (endpoint.error || !endpoint.baseUrl) return { error: 'Router isolation requires a valid HTTP(S) origin; check HIVE_MIND_ROUTER_URL.' };
+  const routes = resolveRouterDialect({ env });
+  if (routes.error) return { error: 'Router isolation requires a valid route dialect; check HIVE_MIND_ROUTER_ROUTES.' };
+  if (!buildRouterToolServiceUrl({ baseUrl: endpoint.baseUrl, dialect: routes.dialect, tool })) return { error: `Router isolation has no provider route for ${tool}; select a backend dialect supporting this tool.` };
+  return { ...endpoint, dialect: routes.dialect, error: null };
 }
 
 /** The one GitHub name the router impersonates; see the module header. */
@@ -345,6 +357,7 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode
     HIVE_MIND_USE_ROUTER: '1',
     HIVE_MIND_ROUTER_URL: baseUrl,
     HIVE_MIND_ROUTER_TOKEN: token,
+    HIVE_MIND_ROUTER_ROUTES: routes.id,
     // Trust the router's CA without losing the public roots.
     NODE_EXTRA_CA_CERTS: ROUTER_CA_CONTAINER_PATH,
     SSL_CERT_FILE: ROUTER_CA_BUNDLE_CONTAINER_PATH,
@@ -515,6 +528,8 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
     suppressed.push('.codex', '.agents');
   } else if (normalizedTool === 'claude') {
     suppressed.push('.claude', '.claude.json');
+  } else if (normalizedTool === 'agent' || normalizedTool === 'opencode') {
+    suppressed.push(`.local/share/${normalizedTool === 'agent' ? 'link-assistant-agent' : normalizedTool}`);
   }
   // gh config is only withheld when gh actually has somewhere else to go;
   // otherwise the task would lose GitHub access entirely (see resolveRouterGitHubRouting).
@@ -567,7 +582,7 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
     gaps.push(`Routing for '${normalizeTool(tool)}' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/.`);
   }
   const requested = String(model || '').trim();
-  if (requested === 'formal-ai') {
+  if (isFormalAiModel(requested)) {
     gaps.push("Formal AI is registered on the router as an OpenAI-compatible provider, so `--model formal-ai` is served through it and appears in the audit log. The Formal AI sidecar's own upstream calls are not routed yet: when it is run in agent mode against a vendor API, that leg still leaves the sidecar directly.");
   } else if (requested && !/\d/.test(requested)) {
     // The router ships no alias table by design (upstream router#192), and

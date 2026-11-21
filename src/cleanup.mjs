@@ -353,7 +353,7 @@ async function main() {
   if (options.dockerIsolationMode === 'none') {
     await log('\n🐳 Docker isolation containers: disabled (--docker-isolation=none)');
   } else {
-    const dockerIsolationContainers = listDockerIsolationContainers();
+    const dockerIsolationContainers = await listDockerIsolationContainers();
     dockerIsolationPlan = planDockerIsolationCleanup({
       containers: dockerIsolationContainers,
       sessionTasks,
@@ -473,7 +473,7 @@ async function main() {
       let removed = 0;
       let failed = 0;
       for (const item of dockerIsolationPlan.remove) {
-        const ok = removeDockerContainer(item.name);
+        const ok = await removeDockerContainer(item.name);
         if (ok) {
           removed++;
           await log(`   ✓ ${item.command}`);

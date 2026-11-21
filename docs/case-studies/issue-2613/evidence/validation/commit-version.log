@@ -1,0 +1,17 @@
+⋯ Backing up original state…
+✔ Done backing up original state (62f417df)!
+⋯ Running tasks for staged files…
+    *.{js,mjs,json,md} — 5 files
+      ⋯ prettier --write
+
+✔ prettier --write
+
+✔ Done running tasks for staged files!
+⋯ Staging changes from tasks…
+✔ Done staging changes from tasks!
+⋯ Cleaning up temporary files…
+✔ Done cleaning up temporary files!
+[issue-2613-2efa14ce78a7 8b425e5d] fix: bound version probes and clean up descendant processes
+ 5 files changed, 630 insertions(+), 551 deletions(-)
+ create mode 100644 src/version-command.lib.mjs
+ create mode 100644 src/version-parsers.lib.mjs

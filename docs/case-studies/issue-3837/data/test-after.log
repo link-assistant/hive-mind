@@ -1,0 +1,18 @@
+✔ agent: resource-aware defaults survive workspace and optional prompt sections (120.971682ms)
+✔ claude: resource-aware defaults survive workspace and optional prompt sections (8.112241ms)
+✔ codex: resource-aware defaults survive workspace and optional prompt sections (4.893347ms)
+✔ gemini: resource-aware defaults survive workspace and optional prompt sections (4.026972ms)
+✔ opencode: resource-aware defaults survive workspace and optional prompt sections (8.491999ms)
+✔ qwen: resource-aware defaults survive workspace and optional prompt sections (3.770393ms)
+✔ en: translated prompt catalogue follows the same validation policy (49.227111ms)
+✔ ru: translated prompt catalogue follows the same validation policy (45.293273ms)
+✔ zh: translated prompt catalogue follows the same validation policy (42.494654ms)
+✔ hi: translated prompt catalogue follows the same validation policy (39.364865ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 581.089462

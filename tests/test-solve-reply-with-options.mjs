@@ -57,7 +57,7 @@ function parseCommandArgs(text) {
  */
 function simulateSolveReplyLogic(commandText, replyText) {
   const userArgs = parseCommandArgs(commandText);
-  const firstArgIsUrl = userArgs.length > 0 && (userArgs[0].includes('github.com') || userArgs[0].match(/^https?:\/\//));
+  const firstArgIsUrl = userArgs.length > 0 && (/github\.com/.test(userArgs[0]) || userArgs[0].match(/^https?:\/\//));
   const isReply = true;
 
   if (isReply && !firstArgIsUrl) {

@@ -43,9 +43,9 @@ const dindDockerfile = await read('Dockerfile.dind');
 const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
 // Keep the DinD variant on the same current Box release as the regular image.
-// Box 2.10.2 includes the box#119 release-pipeline repair and is multi-arch in
+// Box 2.10.5 includes the box#119 release-pipeline repair and is multi-arch in
 // both GHCR and the repaired Docker Hub mirror.
-assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.10.2', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.10.5', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'FROM konard/box-dind:', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
@@ -58,7 +58,7 @@ assertIncludes(dindDockerfile, 'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE
 // for. Guard both directions so the regression cannot silently return.
 assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="fuse-overlayfs"', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'bun install --backend=copyfile -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'test "$(hive --version)" = "${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json --verify', 'Dockerfile.dind');
@@ -66,7 +66,7 @@ assertExcludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'Keep the final image as root', 'Dockerfile.dind');
 
 const detectCodeChanges = await read('scripts/detect-code-changes.mjs');
-assertIncludes(detectCodeChanges, 'Dockerfile.dind', 'scripts/detect-code-changes.mjs');
+assertIncludes(detectCodeChanges, 'Dockerfile\\.dind', 'scripts/detect-code-changes.mjs');
 
 const dockerDocs = await read('docs/DOCKER.md');
 assertIncludes(dockerDocs, 'konard/hive-mind-dind:latest', 'docs/DOCKER.md');

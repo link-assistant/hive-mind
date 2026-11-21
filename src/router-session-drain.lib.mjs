@@ -104,7 +104,7 @@ export const drainTaskSessionData = async ({ sessionId, env = process.env, run =
     // Nothing left to copy from: the container was already reclaimed.
     if (!task.exists) return { ...empty, skipped: 'task container is gone' };
 
-    staging = fsImpl.mkdtempSync(path.join(tmpDir, `hive-mind-drain-${sessionId}-`));
+    staging = await fsImpl.promises.mkdtemp(path.join(tmpDir, `hive-mind-drain-${sessionId}-`));
     const drained = [];
     for (const entry of paths) {
       if (await copyTaskPath({ sessionId, source: entry.source, destination: path.join(staging, entry.label), run, timeoutMs })) drained.push(entry.label);
@@ -114,13 +114,13 @@ export const drainTaskSessionData = async ({ sessionId, env = process.env, run =
     // A manifest makes an archived directory self-describing: an auditor reading
     // it months later should not have to correlate it with a lease file to learn
     // which task it came from.
-    fsImpl.writeFileSync(path.join(staging, 'manifest.json'), `${JSON.stringify({ sessionId, drainedAt: now().toISOString(), paths: drained, source: 'hive-mind router session drain (issue #2164)' }, null, 2)}\n`, { encoding: 'utf8' });
+    await fsImpl.promises.writeFile(path.join(staging, 'manifest.json'), `${JSON.stringify({ sessionId, drainedAt: now().toISOString(), paths: drained, source: 'hive-mind router session drain (issue #2164)' }, null, 2)}\n`, { encoding: 'utf8' });
 
     const hostDir = resolveSessionArchiveHostDir(env);
     if (hostDir) {
       const destination = path.join(hostDir, sessionId);
-      fsImpl.mkdirSync(destination, { recursive: true });
-      fsImpl.cpSync(staging, destination, { recursive: true });
+      await fsImpl.promises.mkdir(destination, { recursive: true });
+      await fsImpl.promises.cp(staging, destination, { recursive: true });
       if (log) await log(`🗄️ Archived session data for '${sessionId}' to ${destination} (${drained.join(', ')})`);
       return { drained, destination, skipped: null, error: null };
     }
@@ -142,7 +142,7 @@ export const drainTaskSessionData = async ({ sessionId, env = process.env, run =
   } finally {
     if (staging) {
       try {
-        fsImpl.rmSync(staging, { recursive: true, force: true });
+        await fsImpl.promises.rm(staging, { recursive: true, force: true });
       } catch {
         // A leftover staging directory in /tmp is harmless; failing here is not.
       }

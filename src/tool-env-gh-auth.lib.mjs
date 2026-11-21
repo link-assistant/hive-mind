@@ -23,8 +23,12 @@ import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 
-const execFileAsync = promisify(execFile);
+// Issue #3552: `gh auth status` reaches the API, so it is retried on transient faults. The
+// rate-limit policy is loaded on first use: its config/lino imports fetch use-m, and the
+// isolation runner imports this module and must stay offline.
+const execFileAsync = wrapRunnerWithTransientRetry(promisify(execFile), { retryGh: async (fn, options) => (await import('./github-rate-limit.lib.mjs')).ghWithRateLimitRetry(fn, options) });
 const GH_TIMEOUT_MS = 30_000;
 
 /** Names that must never be rendered into a logged command line. */

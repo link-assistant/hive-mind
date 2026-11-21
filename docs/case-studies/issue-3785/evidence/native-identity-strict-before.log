@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-codex-native-agent-identity.py", line 221, in <module>
+    run(args.binary, case, args.expect_stale_publication)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/gh-issue-solver-1793358310378/experiments/issue-3785/probe-codex-native-agent-identity.py", line 196, in run
+    assert (identity is not None) == (allowed or bypass), \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: A stale identity must not be published into a replacement login.

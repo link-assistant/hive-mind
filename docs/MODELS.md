@@ -1,4 +1,4 @@
-# Models: the live catalogue, `/models`, and `hive-models` (languages: en • [zh](MODELS.zh.md) • [hi](MODELS.hi.md) • [ru](MODELS.ru.md))
+# Models: the live catalogue, `/models`, and `hive-manager models` (languages: en • [zh](MODELS.zh.md) • [hi](MODELS.hi.md) • [ru](MODELS.ru.md))
 
 A model that a provider released this morning is useless to you if Hive Mind
 only knows the list it was published with. This page describes how Hive Mind
@@ -16,16 +16,16 @@ mechanism is built around: **listing models must never cost you a token.**
 
 ```bash
 # Every tool, using cached answers.
-hive-models
+hive-manager models
 
 # Just Codex.
-hive-models --tool codex
+hive-manager models --tool codex
 
 # Claude, with context windows, pricing and provenance, ignoring the cache.
-hive-models --tool claude --details --refresh
+hive-manager models --tool claude --details --refresh
 
 # Machine-readable.
-hive-models --json | jq '.tools.claude.liveOnly'
+hive-manager models --json | jq '.tools.claude.liveOnly'
 ```
 
 In Telegram the same listing is `/models`, and it takes the same arguments in a
@@ -48,8 +48,8 @@ Models for claude (default: opus)
 3 bundled and live · 2 hot loaded · 14 bundled only
 
 Bundled and live (3) — shipped with this installation and confirmed reachable now
-  * claude-opus-5 (opus, opus-5) [1M ctx · 128K out · $5/$25 per Mtok · reasoning · text+image+pdf · 2026-07-24]
-    claude-sonnet-5 (sonnet, sonnet-5)
+  * claude-opus-5-5 (opus, opus-5-5) [1M ctx · 128K out · $4/$20 per Mtok · reasoning · text+image+pdf]
+    claude-sonnet-5-5 (sonnet, sonnet-5-5)
     ...
 
 Hot loaded (2) — a live source has them, this installation does not ship them
@@ -143,7 +143,7 @@ list so you can see _why_ the catalogue looks the way it does.
 A stale `claude` or `codex` binary is the usual reason a brand-new model name is
 rejected, so the commands that drive one check for a newer version first:
 `/solve`, `/hive`, `/task`, `/fix` (through the `/solve` child it starts),
-`hive-models` and `/models`.
+`hive-manager models` and `/models`.
 
 The check is deliberately timid:
 

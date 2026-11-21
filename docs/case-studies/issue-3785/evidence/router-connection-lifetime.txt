@@ -1,0 +1,43 @@
+Router connection probe lifetime, 2026-10-31 UTC
+
+The production connection validators for Claude, Codex, Agent, OpenCode,
+Gemini and Qwen previously checked admission between probes but did not
+monitor a running version or paid-validation command. Argument-only Router
+selection was absent from actual native child environments. Claude ordinary
+pipe recovery could also replace a vanished-file refusal with another probe.
+
+The strict before control on bd3efca28 has 60 cases: six tools, environment
+or argument selection, and healthy/version-persistent/version-removed/
+paid-persistent/paid-removed scenarios. Synthetic thenable native commands
+create a forbidden file, await cancellation or a finite 600 ms bound, optionally
+remove the file, and throw an ordinary command error. No native AI executable
+or provider connection is used. Each test has a ten-second deadline.
+Before: 6 pass, 54 fail. Complete before log (1,574 lines) SHA256:
+965f07eb70659dc7ef78b37b050d2ee5263f0ceaade59f86ec19edaa3a7c5249
+
+A shared runner now admits the exact child environment and arms retained
+monitoring before awaiting the lazy native command. It closes monitoring on
+success and failure, cancels a violating/failed command once, and throws the
+retained typed refusal before any ordinary version or Claude pipe fallback.
+Explicit selection reaches both actual probe environments. Agent model
+overlays and Codex execution/verbose overlays remain in place. Ordinary
+commands preserve their original command-tag behavior and credential stores.
+
+All 60 paired after cases pass, plus six ordinary-mode controls with existing
+native credentials (66 total, no skips/cancellations). After log SHA256:
+337977dde3c4792ae31323f6ed5210eece2d5454553d99814d7b6f54c2d54bd4
+All 765 affected tests pass in 26 sequential files (two suites). This includes
+existing admission, storage, execution lifetime, provider retry, Formal AI and
+Claude timeout/result-close controls. Focused log (1,441 lines) SHA256:
+a0f75b9ac8a964509a5a8203e105ec4a1e1a0bdf4c3fea3e98c297ff3af755d0
+
+The default-suite wrapper is tests/issue-3785-router-connection-lifetime.test.mjs.
+Repository ESLint (zero warnings), all 42 GitHub retry-shell checks, Secretlint,
+duplication (10.02%), file limits, changed-file formatting and diff checks pass.
+The complete combined default suite is recorded separately before push.
+
+Limits: these controls prove validator admission and retained file-monitoring
+decisions with finite synthetic commands. They do not prove native provider
+request authority, process-subtree cancellation, production OAuth availability,
+durable Router audit/restart, or complete six-tool canonical storage/migration.
+Those acceptance criteria remain unfinished; the PR remains draft and unmerged.

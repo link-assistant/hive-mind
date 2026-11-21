@@ -1,0 +1,8 @@
+{
+  "headRefName": "issue-2891-9cf3e081050b",
+  "mergedAt": null,
+  "number": 2899,
+  "state": "OPEN",
+  "title": "fix: post session notices on the session's own PR, not the first linked PR (#2891)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2899"
+}

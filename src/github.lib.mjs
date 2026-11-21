@@ -2,7 +2,9 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') await ensureUseM();
-const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
+// Use command-stream for consistent $ behavior. Issue #3552: every `gh`/network
+// git call made with `$` goes through the shared GitHub retry loop.
+const { $: rawDollar$ } = await use('command-stream');
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
@@ -10,7 +12,12 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
+import { getActiveDevelopmentLogRepositoryPath } from './development-log.finalize.lib.mjs';
 import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
+import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
+import { noteUploadedLogSize, statLogSize } from './log-upload-snapshot.lib.mjs'; // Issue #4091
+import { emitSolveProgress, getLastSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -18,18 +25,20 @@ import { recordResourceSnapshot, RESOURCE_PHASE_LOG_UPLOAD_START, RESOURCE_PHASE
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
+import { getObservedModelIds } from './observed-models.lib.mjs'; // Issue #2840
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString, isFreeModelPricing } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
-import { execGhWithRetry } from './github-rate-limit.lib.mjs';
+import { execGhWithRetry, wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+const $ = wrapDollarWithGhRetry(rawDollar$);
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
 import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
-import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile, buildSessionEndFooter, monitoringFollowsSession, noteMonitoringPromisePublished } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 // Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
@@ -54,7 +63,6 @@ const normalizeFailureActionSection = section => {
   return text.startsWith('\n') ? text : `\n\n${text}`;
 };
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
-  const { $ } = await use('command-stream');
   try {
     // Issue #2130: this is an existence probe, and "absent" is the answer the caller is usually looking for. Mirroring the command would print the whole contents payload on a hit and `gh: Not Found (HTTP 404)` on a miss, which reads as a failure in the log even though nothing went wrong.
     const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
@@ -76,7 +84,6 @@ export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
 };
 // Helper function to check GitHub permissions and warn about missing scopes
 export const checkGitHubPermissions = async () => {
-  const { $ } = await use('command-stream');
   try {
     await log('\n🔐 Checking GitHub authentication and permissions...');
     // Get auth status including token scopes. Issue #2130: capture without mirroring - the parsed summary below is what belongs in the log, not gh's raw account/token/scope block.
@@ -153,7 +160,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
   try {
     await log('🔍 Checking repository write permissions...');
     // Use GitHub API to check repository permissions (issue #1536: retry on network errors)
-    const permResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
+    const permResult = await ghCmdRetry(() => rawDollar$`gh api repos/${owner}/${repo} --jq .permissions`, { label: `write perms ${owner}/${repo}` });
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
       const errorOutput = (permResult.stderr?.toString() ? permResult.stderr.toString() : '') + (permResult.stdout?.toString() ? permResult.stdout.toString() : '');
@@ -375,7 +382,7 @@ export const buildUsageLimitSummary = ({ toolName, limitResetTime, sessionId, re
  * @param {number} params.logSizeBytes - Size of the log on disk, for the summary line
  * @returns {string} Markdown comment body
  */
-function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction }) {
+function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction, sessionEndFooter = buildSessionEndFooter() }) {
   let logComment;
   // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
   if (isUsageLimit) {
@@ -428,7 +435,7 @@ ${logContent}
 </details>
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
   } else {
     const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
     // Determine title based on session type (Issue #1152) Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so the filter in checkForAiCreatedComments matches every variant with a single substring check against the centralized marker constant.
@@ -457,10 +464,20 @@ ${logContent}
 </details>
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
   }
   return logComment;
 }
+/**
+ * Issue #4087: what the most recent {@link attachLogToGitHub} call left on its
+ * target. `failureCommentPosted` is true when a "Solution Draft Failed" comment
+ * for the session error reached it: either the log comment itself, or the
+ * "Log Upload Failed" comment, which carries the same heading and error. The
+ * auto-restart loop then does not repeat that error in a stop comment.
+ */
+let lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+export const getLastLogAttachOutcome = () => ({ ...lastLogAttachOutcome });
+
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 /**
  * Attach the session log to a pull request or issue.
@@ -472,14 +489,25 @@ ${logContent}
  * @returns {Promise<boolean>} Whether the log was attached.
  */
 export async function attachLogToGitHub(options) {
-  const attached = await attachLogToGitHubOnce(options);
+  // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
+  rememberLogUsage(options);
+  lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+  const outcome = { uploadFailureCommentPosted: false };
+  // Issue #4091: the size this upload covers (an interrupt uploads only what came after it), and a phase marker for the Telegram status.
+  const coveredBytes = options?.logFile ? await statLogSize(options.logFile) : null;
+  if (getLastSolveProgress()) emitSolveProgress({ phase: 'uploading-log', since: new Date().toISOString() });
+  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options), outcome);
+  if (attached === true && coveredBytes != null) noteUploadedLogSize(options.logFile, coveredBytes);
+  lastLogAttachOutcome = { attached: attached === true, failureCommentPosted: Boolean(options?.errorMessage) && !options?.isUsageLimit && (attached === true || outcome.uploadFailureCommentPosted) };
   global.latestLogAttachFailed = attached !== true;
   // Issue #2400: once the log is attached, a later failure is news again.
   if (attached === true) forgetLogUploadFailureReports(options);
+  if (attached === true) recordLogAttached();
+  if (attached === true && options?.targetType === 'pr' && !options?.errorMessage && !options?.isUsageLimit && (options?.monitoringContinues ?? monitoringFollowsSession(options?.argv))) noteMonitoringPromisePublished(); // Issue #4091
   return attached;
 }
 
-async function attachLogToGitHubOnce(options) {
+async function attachLogToGitHubOnce(options, outcome = {}) {
   const fs = (await use('fs')).promises;
   const {
     logFile,
@@ -512,16 +540,24 @@ async function attachLogToGitHubOnce(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
+    leadingSection = null, // Issue #2563: e.g. the auto-merge held-back notice, published in the same comment as the log
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
     uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
+  // Issue #4091: a pull request that is still monitored afterwards is not told the working session ended.
+  const monitoringContinues = targetType === 'pr' && !errorMessage && !isUsageLimit && (options.monitoringContinues ?? monitoringFollowsSession(argv));
+  const sessionEndFooter = buildSessionEndFooter({ monitoringContinues });
   // Issue #2318: a free model's comment carries one cost figure, the $0.00 of the cost estimation section.
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   let uploadPhaseEntered = false;
   // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
   const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
-  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
+  const reportUploadFailure = async failureReason => {
+    const posted = await postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, sessionEndFooter, ...failureReport });
+    if (posted === true) outcome.uploadFailureCommentPosted = true; // Issue #4087
+    return posted;
+  };
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -587,6 +623,14 @@ async function attachLogToGitHubOnce(options) {
         if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
+    // Issue #2840: a session that ended before its result (crash, OOM kill, error) still named its model in the stream.
+    if (!actualModelIds) {
+      const observedModelIds = getObservedModelIds();
+      if (observedModelIds.length > 0) {
+        actualModelIds = observedModelIds;
+        if (verbose) await log(`  🤖 Using models reported in the session stream: ${observedModelIds.join(', ')}`, { verbose: true });
+      }
+    }
     // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
     if (!actualModelIds && pricingInfo?.modelId) {
       actualModelIds = [pricingInfo.modelId];
@@ -602,7 +646,7 @@ async function attachLogToGitHubOnce(options) {
       try {
         // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
         const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment });
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment, actualModelUnknownReason: errorMessage || isUsageLimit ? 'session ended before result' : 'not reported by the tool' });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }
@@ -637,7 +681,8 @@ async function attachLogToGitHubOnce(options) {
         await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
       }
       logContent = escapeCodeBlocksInLog(logContent);
-      logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction });
+      logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction, sessionEndFooter });
+      if (leadingSection) logComment = `${leadingSection}\n\n${logComment}`;
     } else if (verbose) {
       await log(`  ⏭️  Log is ${formatLogSizeForHumans(logStats.size)} — skipping inline comment construction, the log goes straight to gh-upload-log`, { verbose: true });
     }
@@ -683,11 +728,14 @@ async function attachLogToGitHubOnce(options) {
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
         failureReport.isPublic = isPublicRepo;
+        // Failure paths often pass no tempDir; the active session's clone still lets the log reach the PR branch.
+        const branchRepositoryPath = tempDir || getActiveDevelopmentLogRepositoryPath();
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
+          ...(targetType === 'pr' && branchRepositoryPath ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: branchRepositoryPath, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
         failureReport.attempts = uploadResult.attempts;
@@ -740,7 +788,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 ${logLinks('View complete solution draft log')}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
@@ -764,8 +812,9 @@ ${sessionNote}
 ${logLinks('View complete solution draft log')}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
           }
+          if (leadingSection) logUploadComment = `${leadingSection}\n\n${logUploadComment}`;
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
           await writeSanitizedPublicationFile(tempCommentFile, logUploadComment);
           // Issue #1625: post via postTrackedCommentFromFile so the returned comment ID is registered in-memory and excluded from the "did the AI post anything?" check.
@@ -1140,12 +1189,10 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
       await log('   Try this corrected command:', { level: 'error' });
       await log('', { level: 'error' });
       const commandParts = [`solve https://github.com/${owner}/${repo}/issues/${prNumber}`];
-      if (argv.autoContinue) commandParts.push('--auto-continue');
+      // Issue #3190: suggest the SAME options the user ran with, not a hand-picked subset
+      const { getPreservedSolveCliArgs, SOLVE_RELAUNCH_STATE_OPTIONS } = await import('./solve.forwarded-args.lib.mjs');
+      commandParts.push(...getPreservedSolveCliArgs({ exclude: [...SOLVE_RELAUNCH_STATE_OPTIONS, 'attach-logs'] }));
       if (shouldAttachLogs || argv.attachLogs || argv['attach-logs']) commandParts.push('--attach-logs');
-      if (argv.verbose) commandParts.push('--verbose');
-      if (argv.model && argv.model !== 'sonnet') commandParts.push('--model', argv.model);
-      if (argv.think) commandParts.push('--think', argv.think);
-      if (argv.thinkingBudget !== undefined) commandParts.push('--thinking-budget', argv.thinkingBudget);
       await log(`   ${commandParts.join(' ')}`, { level: 'error' });
       await log('', { level: 'error' });
     }
@@ -1162,7 +1209,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
 export async function detectRepositoryVisibility(owner, repo) {
   try {
     // Issue #1536: retry on transient network errors
-    const visibilityResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
+    const visibilityResult = await ghCmdRetry(() => rawDollar$(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
     if (visibilityResult.code === 0) {
       const visibility = visibilityResult.stdout.toString().trim();
       const isPublic = visibility === 'public';

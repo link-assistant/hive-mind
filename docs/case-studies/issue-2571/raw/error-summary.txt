@@ -1,0 +1,66 @@
+   3435 N-N-NTN:N:N.NZ INFO  EVENT heartbeat {"pid":N,"activeSessions":N,"uptimeSec":N,"resources":{"phase":"bot_heartbeat","timestamp":"N-N-NTN:N:N
+    564 [VERBOSE] /limits Codex API error body: {
+    131 [VERBOSE] /limits API error body: {
+     68 [VERBOSE] /queue: Failed to update message: N: Too Many Requests: retry after N
+     66 [telegram-send] sN safeEditMessageText → chat=-N message=N parse_mode=Markdown chars=N bytes=N text="📊 *Usage Limits*\n\n```\nCurrent t
+     66 [telegram-send] sN editMessageText → chat=-N message=N parse_mode=Markdown chars=N bytes=N text="📊 *Usage Limits*\n\n```\nCurrent time:
+     43 [VERBOSE] /limits API error body: {"type":"error","error":{"type":"authentication_error","message":"OAuth access token has expired. Re-authe
+     32 [telegram-send] sN safeEditMessageText → chat=-N message=N thread=N parse_mode=Markdown chars=N bytes=N text="✅ *Work session finished s
+     32 [telegram-send] sN editMessageText → chat=-N message=N parse_mode=Markdown chars=N bytes=N text="✅ *Work session finished successfully*\
+     18     error_code: N,
+     13 [VERBOSE] Session UUID removed from tracking (exit: N, status: failed)
+     13 N-N-NTN:N:N.NZ INFO  EVENT session_completion_notified {"sessionName":"UUID","exitCode":N,"status":"failed","notifiedAt":"N-N-NTN:N:N.NZ"}
+     13 N-N-NTN:N:N.NZ INFO  EVENT session_completed {"sessionName":"UUID","exitCode":N,"status":"failed"}
+     13 N-N-NTN:N:N.NZ DEBUG Removed session UUID from snapshot {"status":"failed","exitCode":N}
+     12 [telegram-send] sN safeEditMessageText → chat=-N message=N thread=N parse_mode=Markdown chars=N bytes=N text="❌ *Work session failed (ex
+     12 [telegram-send] sN editMessageText → chat=-N message=N parse_mode=Markdown chars=N bytes=N text="❌ *Work session failed (exit code: N)*\
+      6 [telegram-send] sN sendMessage → chat=-N thread=N parse_mode=none thread=N chars=N bytes=N text="An error occurred while processing your r
+      6 [telegram-send] sN sendMessage → chat=-N thread=N parse_mode=Markdown thread=N chars=N bytes=N text="❌ An error occurred while processin
+      6 [telegram-send] sN sendMessage → chat=-N thread=N parse_mode=Markdown reply_to=N thread=N chars=N bytes=N text="❌ This URL is already in
+      6 [telegram-send] sN safeReply → chat=-N parse_mode=Markdown reply_to=N chars=N bytes=N text="❌ This URL is already in the queue.\n\nURL: 
+      6 [telegram-send] sN safeReply → chat=-N parse_mode=Markdown chars=N bytes=N text="❌ An error occurred while processing your request.\n\nD
+      6 [VERBOSE] Error context: {
+      6 Unhandled error while processing update N
+      6 Failed to send fallback error message: TelegramError: N: Too Many Requests: retry after N
+      6 Failed to send error message to user: TelegramError: N: Too Many Requests: retry after N
+      6 Error: TelegramError: N: Too Many Requests: retry after N
+      6 Error details: {
+      6   stack: 'Error: N: Too Many Requests: retry after N\n' +
+      6   name: 'Error',
+      6       text: '❌ An error occurred while processing your request.\n' +
+      6       text: 'An error occurred while processing your request. Please try again or contact support.\n' +
+      6         '• If the issue persists, contact support with the error details above\n' +
+      6         'Error: N: Too Many Requests: retry after N'
+      4 [VERBOSE] Session UUID reported oomKilled=true, but its log footer says exit N (failed) and wins — the session SURVIVED the out-of-memory 
+      4 [VERBOSE] Deliberate-stop scan of /tmp/start-command/logs/isolation/docker/UUID.log: subscription-blocked ("❌ ⚠️ SUBSCRIPTION/ACCESS U
+      4 N-N-NTN:N:N.NZ INFO  EVENT session_kill_recovery_decision {"sessionName":"UUID","exitCode":N,"status":"failed","killed":false,"oomEventOnly"
+      3 [telegram-send] sN sendMessage → chat=-N thread=N parse_mode=Markdown reply_to=N thread=N chars=N bytes=N text="📋 *Solve Queue Status*\
+      3 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/leaderstat/hr-lzt-N/pull/N, merged=false, 
+      2 [VERBOSE] agentic-cli-updater: N updated, N current, N failed
+      2         '▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ N% ⚠️ (flood control, retry in Ns)\n
+      1 [telegram-send] sN sendMessage → chat=-N thread=N parse_mode=Markdown reply_to=N thread=N chars=N bytes=N text="❌ First argument must be
+      1 [telegram-send] sN safeReply → chat=-N parse_mode=Markdown reply_to=N chars=N bytes=N text="❌ First argument must be a GitHub URL\n\nExa
+      1 [telegram-send] sN safeEditMessageText:plainText → chat=-N message=N parse_mode=none chars=N bytes=N text="⚠️ Formatting error detecte
+      1 [telegram-send] sN safeEditMessageText → chat=-N message=N thread=N parse_mode=Markdown chars=N bytes=N text="❌ *Рабочий сеан
+      1 [telegram-send] sN editMessageText → chat=-N message=N parse_mode=none chars=N bytes=N text="⚠️ Formatting error detected. Showing pla
+      1 [telegram-send] sN editMessageText → chat=-N message=N parse_mode=Markdown chars=N bytes=N text="❌ *Рабочий сеанс завер
+      1 [telegram-bot] safeEditMessageText:preflight: formatted Telegram message failed: Bad Request: can't parse entities: Can't find end of the en
+      1 [telegram-bot] safeEditMessageText:preflight: Fallback message (N bytes): ⚠️ Formatting error detected. Showing plain text fallback.
+      1 [VERBOSE] ⚠️  IMPORTANT: If bot is not receiving messages in group chats:
+      1 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/xlabtg/tonbankcard-protocol/pull/N, merged
+      1 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/linksplatform/Comparisons.SQLiteVSDoublets
+      1 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/link-foundation/package-registry-manager/p
+      1 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/leaderstat/koz-N/pull/N, merged=false, mer
+      1 [VERBOSE] Completion evidence for UUID: exitCode=N, status=failed, pullRequest=https://github.com/PavelChurkin/ai_mind_testN/pull/N, merged=
+      1 [VERBOSE]   message.reply_to_message: {"message_id":N,"from":{"id":N,"is_bot":true,"first_name":"Hive Mind","username":"SwarmMindBot"},"chat
+      1 [VERBOSE]   message.reply_to_message: {"message_id":N,"from":{"id":N,"is_bot":false,"first_name":"Дмитрий","last_name":"Пороше�
+      1 N-N-NTN:N:N.NZ INFO  EVENT isolation_executions_reconciled {"attempted":true,"reconciled":N,"reattached":N,"running":N,"unsupported":false,"
+      1   ❌ Failed to post comment with log link: unexpected end of JSON input
+      1   text: '@drakonard 🚨 Solution Draft Failed\n' +
+      1     text: '❌ Work session failed (exit code: N)\n' +
+      1     text: '@drakonard 🚨 Solution Draft Failed\n' +
+      1     'The automated solution draft encountered an error:\n' +
+      1       text: '❌ This URL is already in the queue.\n' +
+      1       'The automated solution draft encountered an error:\n' +
+      1         '▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓ N% ⚠️\n' +
+      1         '▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓░░░░ N% ⚠️\n' +

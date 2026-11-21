@@ -18,8 +18,10 @@
  */
 
 import { REPEATED_TOOL_CALL_REASON, takeRepeatedToolCallVerdict } from './tool-call-loop-guard.lib.mjs';
+import { describeObservedToolCallLoop, takeObservedToolCallLoop } from './repeated-tool-call-breaker.lib.mjs';
 import { postTrackedComment } from './tool-comments.lib.mjs';
 import { logProcessesSurvivingSession } from './session-survivors.lib.mjs';
+import { recordAiSessionFinished } from './log-attach-state.lib.mjs';
 
 /** A restart loop runs another session after this one. */
 export const willRestartAfterSession = argv => !!(argv?.autoRestartUntilMergeable || argv?.watch);
@@ -39,8 +41,16 @@ export const buildRepeatedToolCallComment = ({ verdict, restarting }) => ['## ü
  * @returns {Promise<Object>} the classified tool result
  */
 export const classifySessionResult = async ({ toolResult, argv, owner, repo, prNumber, $, log = async () => {}, tempDir = null }) => {
+  // Issue #2563: the log now holds AI work no attached log covers yet, with this session's usage.
+  recordAiSessionFinished(toolResult);
   await logProcessesSurvivingSession({ tempDir, argv, log });
   let result = toolResult;
+  // Issue #3211: name a loop even with the breaker off (#2395); the session is not stopped for it.
+  const observedLoop = takeObservedToolCallLoop();
+  if (observedLoop) {
+    await log(`üîÅ Session ${describeObservedToolCallLoop(observedLoop)} (observed only; the session was not stopped)`, { level: 'warning' });
+    if (result && typeof result === 'object') result = { ...result, observedToolCallLoop: observedLoop };
+  }
   const verdict = takeRepeatedToolCallVerdict();
   if (!verdict || !result) return result;
 

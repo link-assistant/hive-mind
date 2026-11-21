@@ -35,9 +35,7 @@ export function parseHumanBytes(value) {
   if (!match) return null;
   const number = Number(match[1].replace(/,/g, ''));
   if (!Number.isFinite(number)) return null;
-  const unit = String(match[2] || 'B')
-    .toUpperCase()
-    .replace(/IB$/, 'IB');
+  const unit = String(match[2] || 'B').toUpperCase();
   const multiplier = UNIT_MULTIPLIERS.get(unit);
   if (!multiplier) return null;
   return Math.round(number * multiplier);

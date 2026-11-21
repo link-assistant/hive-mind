@@ -1,0 +1,26 @@
+✔ usage-limit result takes precedence over exit 127 ({"newline":true}) (86.725256ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false}) (16.281022ms)
+✔ usage-limit result takes precedence over exit 127 ({"newline":false,"split":true}) (10.253781ms)
+✔ explicit provider errors keep their diagnostics (newline=true) (16.187346ms)
+✔ temporary 429 still resumes the session (newline=true) (32.963112ms)
+✔ failed terminal verification still overrides genuine success (newline=true) (13.353535ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=true) (8.460052ms)
+✔ a machine-readable usage limit needs no English wording (newline=true) (14.685904ms)
+✔ a usage limit overrides an earlier transient error (newline=true) (9.813247ms)
+✔ explicit provider errors keep their diagnostics (newline=false) (5.741216ms)
+✔ temporary 429 still resumes the session (newline=false) (11.984041ms)
+✔ failed terminal verification still overrides genuine success (newline=false) (7.749186ms)
+✔ provider execution and disk errors survive an earlier tool failure (newline=false) (10.606097ms)
+✔ a machine-readable usage limit needs no English wording (newline=false) (7.43545ms)
+✔ a usage limit overrides an earlier transient error (newline=false) (9.588149ms)
+✔ a nonzero CLI exit takes precedence over an earlier tool failure (11.028056ms)
+✔ a missing Claude executable retains its installation guidance (11.230084ms)
+✔ an error result cannot trigger background-task continuation (0.482762ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 315.812774

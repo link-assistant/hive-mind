@@ -1,0 +1,102 @@
+Native SQLite full-development verification, 2026-10-31 UTC
+
+Commit: 7d09cacbed9fa96f008f330088cd87e7f324f594
+Run: https://github.com/link-assistant/hive-mind/actions/runs/41230250111
+Job: https://github.com/link-assistant/hive-mind/actions/runs/41230250111/job/124622822426
+All three jobs pass, including every native-file-authority step.
+Guarded development binary SHA256: 107797b38588ab66720e1cf0155f4fc3f8d2e0580b1a70efd57b58c3e400037e
+Preceding development binary SHA256: de066350705cd7564947e7958f5f17c34143629729f770b80a7270dd204cbd7d
+
+Both strict controls fail before repair: the actual process reads and writes
+retired directory/database storage. After repair, both exit 78 before the
+next native operation and all unsafe file snapshots remain unchanged.
+Selected/ordinary corruption recovery retains exact corrupt backup bytes and
+unrelated database contents. Three live native peers retain 18 acknowledged
+sections after one private config is disposed and a fresh peer joins; both
+selector modes pass database quick-check. Full conversation storage and the
+Docker/daemon lifecycle matrix are not established by section persistence.
+
+After selected guard, development startup 486.394–496.938 ms versus ordinary
+146.145–158.603 ms; 25 reads 52.986–56.510 ms versus 33.827–37.618 ms;
+ten writes 27.462–28.905 ms versus 10.772–11.410 ms. Material overhead remains.
+Both alternating before pairs and after pairs finish on the same runner.
+
+native-sqlite-7d09-124622822426.log
+sha256: 741428337208570f920c610568a8ce7d49aaa5e5f7d18c31bebdf9c92cf9a723
+lines: 1342
+
+native-sqlite-lifetime-directory-before.log
+sha256: 370c6ab285394bd7ca54c969e6977bd018cb633d75c85a07671bd25351161749
+lines: 3
+
+native-sqlite-lifetime-directory-regression.log
+sha256: bbd04e89a7a31048c05e4d326395dff20244eb574a7c64de88449c3b3fec4e80
+lines: 9
+
+native-sqlite-lifetime-directory-after.log
+sha256: c3d669e2d8b6a0494a11dab2047ce06b75e2b6800bfee3f519fedeac1943fd20
+lines: 5
+
+native-sqlite-lifetime-database-before.log
+sha256: 3563db3cec7d87f9cc36df5ef1b2baa39449cff2d5ba9897604a02d8f868a89f
+lines: 3
+
+native-sqlite-lifetime-database-regression.log
+sha256: 4ffd8768e8bf675fecdc089657a651be8dbcd83301f6e671dbcaac0b8ac2a61b
+lines: 9
+
+native-sqlite-lifetime-database-after.log
+sha256: 82f116650af32978a3218fda66f29bacf96bead34f553fb483e97d839439910d
+lines: 5
+
+native-sqlite-recovery-after.log
+sha256: bcda90e9e18487e08771d783fd598767652bd3822167c0a600a05253f305c1f9
+lines: 2
+
+native-sqlite-recovery-ordinary.log
+sha256: 6ba55253efe6b6730e8619e5e69672dc200916de2f3b80d9cc70d4a2a1b85b05
+lines: 2
+
+native-sqlite-peers-after.log
+sha256: c20251ab832760fadaa0fe2fc44d242a765b519f3498d6ba484c9160dc7d904d
+lines: 2
+
+native-sqlite-peers-ordinary.log
+sha256: a437a4e50c65f05023c017fde7a5e45a21d957f2ef0180c32985473f76dc6971
+lines: 2
+
+native-sqlite-performance-before.log
+sha256: 1680c0ec798357f4b73f8fba03a1becfe4f0100e61303898ab5c3b4cceeb7299
+lines: 5
+
+native-sqlite-performance-after.log
+sha256: 9193464d6b92bff40d83a0899dcf263b731ea64782e13bb5081d2e8ff84ce4c6
+lines: 5
+
+native-sqlite-components.log
+sha256: f65f38b2b0313328f39cf08b48d8cfc27c1a5b15ea3f66ed9b69d927d816313e
+lines: 1031
+
+native-sqlite-sqlx.log
+sha256: 7fbc939076e6cfd1583dbbf4945dc9f2c49e29105b01ae11ae4369f27ab1db28
+lines: 40
+
+native-sqlite-config-lock.log
+sha256: ca2a95712d4fb04bee4644f3c0514efd259f4e20a1062c94ba8925b7923d592a
+lines: 1
+
+test-suites-7d09-124623378521.log
+sha256: 55670c255fb72c1c7e4b5418420068d2a68b006fcb6b6a297f080ab3466ccda1
+lines: 24037
+
+Full native log: step 43 compilation completes 19:11:45 UTC; step 44
+operation/recovery/peer controls complete 19:12:10 UTC (lines 1012–1029).
+Fresh default suite: all 766 selected files pass at line 23907; both GitHub
+integration files pass at line 23969 of the separately preserved test log.
+That successful default-suite run uses the same exact head SHA.
+
+The successful native development workflow predates the startup-fallback
+and fortified C compiler fixes and does not validate them in the full CLI.
+It also predates candidate recipe activation. Optimized x64/ARM64, installed
+npm and final-image candidate after controls remain pending. Atomic external
+rename exclusion, fresh-process rollback and broad six-tool criteria remain OPEN.

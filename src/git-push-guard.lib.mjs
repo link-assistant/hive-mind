@@ -152,18 +152,18 @@ export function resolveGitPushGuardHostDir({ env = process.env, homeDir = os.hom
  * (the caller warns), because the remaining layers — branch protection — are
  * the ones that were never bypassable anyway.
  *
- * @returns {{installed: boolean, dir: string, hookPath: string, error: string|null}}
+ * @returns {Promise<{installed: boolean, dir: string, hookPath: string, error: string|null}>}
  */
-export function installGitPushGuard({ env = process.env, homeDir = os.homedir(), fsImpl = fs } = {}) {
+export async function installGitPushGuard({ env = process.env, homeDir = os.homedir(), fsImpl = fs } = {}) {
   const dir = resolveGitPushGuardHostDir({ env, homeDir });
   const hookPath = path.join(dir, GIT_PUSH_GUARD_HOOK_NAME);
   try {
-    fsImpl.mkdirSync(dir, { recursive: true });
-    fsImpl.writeFileSync(hookPath, PRE_PUSH_GUARD_SCRIPT, { mode: 0o755 });
-    // writeFileSync only applies `mode` when it creates the file, so an existing
+    await fsImpl.promises.mkdir(dir, { recursive: true });
+    await fsImpl.promises.writeFile(hookPath, PRE_PUSH_GUARD_SCRIPT, { mode: 0o755 });
+    // writeFile only applies `mode` when it creates the file, so an existing
     // hook keeps whatever permissions it had — including non-executable ones,
     // which git ignores silently.
-    fsImpl.chmodSync(hookPath, 0o755);
+    await fsImpl.promises.chmod(hookPath, 0o755);
     return { installed: true, dir, hookPath, error: null };
   } catch (error) {
     return { installed: false, dir, hookPath, error: error?.message || String(error) };

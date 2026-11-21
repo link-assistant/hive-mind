@@ -1,0 +1,261 @@
+{
+  "page": {
+    "id": "01JMDK9XYNY6RXSED6SDWW50WY",
+    "name": "OpenAI",
+    "url": "https://status.openai.com/",
+    "updated_at": "2026-11-12T18:29:14Z"
+  },
+  "status": {
+    "description": "Partial System Degradation",
+    "indicator": "minor"
+  },
+  "components": [
+    {
+      "id": "01JMXBRMFE6N2NNT7DG6XZQ6PW",
+      "name": "Chat Completions",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 0,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JP8CD9JR3HR6Y7G4Q75N4DVW",
+      "name": "Responses",
+      "status": "operational",
+      "created_at": "2025-03-13T18:31:32Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 1,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01M3Q6W0264T1RJS1YEM47CAQJ",
+      "name": "Agents",
+      "status": "operational",
+      "created_at": "2026-09-29T18:29:41Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 2,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01M3Q6W0262E8VW5DE1MJMMN0T",
+      "name": "Decisions",
+      "status": "operational",
+      "created_at": "2026-09-29T18:29:41Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 3,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFEMZK0HPK19RYET250",
+      "name": "Fine-tuning",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 4,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFEV0AJ0VVS68N9CD6R",
+      "name": "Embeddings",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 5,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFE4MAP2BHSJNZ787WX",
+      "name": "Images",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 6,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFE5ESNNV8JDHVCGSRD",
+      "name": "Batch",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 7,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFEKVBWKK82B44QFMCE",
+      "name": "Audio",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 8,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFEVZ7E0X9GD9FWR9WX",
+      "name": "Moderations",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 9,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFEQW613TFE89F45035",
+      "name": "Realtime",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 10,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBRMFESJCBGJR10PDD3WCQ",
+      "name": "Files",
+      "status": "operational",
+      "created_at": "2025-02-25T01:32:55Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 11,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JSM5RTJWHRWDTS6Q604VEW3B",
+      "name": "Login",
+      "status": "operational",
+      "created_at": "2025-04-24T15:13:29Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 12,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01M534EG9N1SYV22NNJPRGYESP",
+      "name": "Live",
+      "status": "operational",
+      "created_at": "2026-10-16T19:53:57Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 13,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBNJXGV1T5GT2M9XA83XNG",
+      "name": "Conversations",
+      "status": "operational",
+      "created_at": "2025-02-25T01:31:15Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 14,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBNJXG1S2D9V65P1ZZTD94",
+      "name": "Login",
+      "status": "operational",
+      "created_at": "2025-02-25T01:31:15Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 15,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01KX45G1SH21AX5DT93D4HMF0P",
+      "name": "ChatGPT Work",
+      "status": "operational",
+      "created_at": "2026-07-09T19:25:56Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 16,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01KMKFAMWKQ81YWSE1Z18R6VHR",
+      "name": "Codex in ChatGPT Desktop",
+      "status": "operational",
+      "created_at": "2026-03-25T21:45:05Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 17,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JNKS9D9S72PMP1938PVFFQN4",
+      "name": "Compliance API",
+      "status": "operational",
+      "created_at": "2025-03-05T18:32:33Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 18,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBNJXGKKP51D4DEJ2HZJ8Q",
+      "name": "Search",
+      "status": "operational",
+      "created_at": "2025-02-25T01:31:15Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 19,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBNJXG1YMQPPCPCQX3MPA2",
+      "name": "File uploads",
+      "status": "operational",
+      "created_at": "2025-02-25T01:31:15Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 20,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JMXBNJXGGT5SR5DB9J7GYY48",
+      "name": "Voice mode",
+      "status": "operational",
+      "created_at": "2025-02-25T01:31:15Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 21,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JSFK5QX36ZRW0TW0ZV0ZYFXQ",
+      "name": "GPTs",
+      "status": "operational",
+      "created_at": "2025-04-22T20:31:32Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 22,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JQ7EKW990MSPSWVXC7VPV2ZJ",
+      "name": "Image Generation",
+      "status": "operational",
+      "created_at": "2025-03-25T20:06:33Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 23,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    },
+    {
+      "id": "01JSYVYQSWMJ9QG35XHP08BHA7",
+      "name": "Deep Research",
+      "status": "operational",
+      "created_at": "2025-04-28T18:53:36Z",
+      "updated_at": "2026-10-16T20:01:40Z",
+      "position": 24,
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "01M78GAT3AK9P9W8Z230KHFVE8",
+      "name": "Elevated errors affecting the Microsoft 365 connector",
+      "status": "investigating",
+      "created_at": "2026-11-12T18:29:14Z",
+      "updated_at": "2026-11-12T18:29:14Z",
+      "impact": "minor",
+      "page_id": "01JMDK9XYNY6RXSED6SDWW50WY",
+      "incident_updates": [
+        {
+          "id": "01M78GAT3A3RJB684K8JWKWBPQ",
+          "body": "We’re investigating an issue with Microsoft connectors where new connections may be broken and tools are not working as expected. We’ll share an update when we know more.",
+          "created_at": "2026-11-12T18:29:15Z",
+          "display_at": "2026-11-12T18:29:14Z",
+          "incident_id": "01M78GAT3AK9P9W8Z230KHFVE8",
+          "status": "investigating",
+          "updated_at": "2026-11-12T18:29:15Z"
+        }
+      ]
+    }
+  ]
+}

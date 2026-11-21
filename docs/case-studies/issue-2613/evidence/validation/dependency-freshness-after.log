@@ -1,0 +1,13 @@
+Dependency freshness: 157/168 declarations current
+ERROR .github/workflows/e2e-hello-world-matrix.yml:110: nektos/act: https://api.github.com/repos/nektos/act/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:1034: actions/download-artifact: https://api.github.com/repos/actions/download-artifact/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:1157: actions/download-artifact: https://api.github.com/repos/actions/download-artifact/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:1217: azure/setup-helm: https://api.github.com/repos/azure/setup-helm/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:452: azure/setup-helm: https://api.github.com/repos/azure/setup-helm/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:673: actions/download-artifact: https://api.github.com/repos/actions/download-artifact/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:796: actions/download-artifact: https://api.github.com/repos/actions/download-artifact/tags?per_page=100: 403 
+ERROR .github/workflows/release.yml:856: azure/setup-helm: https://api.github.com/repos/azure/setup-helm/tags?per_page=100: 403 
+ERROR .github/workflows/security.yml:76: actions/dependency-review-action: https://api.github.com/repos/actions/dependency-review-action/tags?per_page=100: 403 
+ERROR .github/workflows/workflows.yml:53: rhysd/actionlint: https://api.github.com/repos/rhysd/actionlint/tags?per_page=100: 403 
+ERROR .github/workflows/workflows.yml:71: zizmorcore/zizmor-action: https://api.github.com/repos/zizmorcore/zizmor-action/tags?per_page=100: 403 
+Dependency freshness failed: 0 stale, 11 unresolved.

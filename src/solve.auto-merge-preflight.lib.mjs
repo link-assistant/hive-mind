@@ -19,16 +19,16 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 
 const lib = await import('./lib.mjs');
 const { log, formatAligned } = lib;
 
-const { checkMergePermissions } = await import('./github-merge.lib.mjs');
-const { checkForExistingComment } = await import('./solve.auto-merge-helpers.lib.mjs');
+import { checkMergePermissions } from './github-merge.lib.mjs';
+import { checkForExistingComment } from './solve.auto-merge-helpers.lib.mjs';
 const { AUTO_MERGE_BLOCKED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
-const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+import { ensurePullRequestBaseBranch } from './solve.pr-base-guard.lib.mjs';
 
 /**
  * Issue #2492: this notice is posted before CI, conflicts or the diff are

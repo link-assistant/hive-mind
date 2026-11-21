@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Guard rails for the --auto-merge / --auto-restart-until-mergeable watch loop.
  *
@@ -18,8 +19,15 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  */
 
-const { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+// Static imports on purpose (issue #3469): on Node 26 (V8 14.6) a top-level
+// `await import()` of a module that is still evaluating-async in the same graph
+// - here when a caller statically imports this file and pr-draft-state.lib.mjs,
+// which waits on config.lib.mjs's top-level await - resolves to its namespace
+// before it ran, so destructuring it threw "Cannot access
+// 'ensurePullRequestIsReady' before initialization".
+// See experiments/node26-tla-tdz/README.md.
+import { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } from './merge-error-classification.lib.mjs';
+import { ensurePullRequestIsReady, getPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 
 export { MAX_CONSECUTIVE_MERGE_FAILURES };
 
@@ -83,14 +91,28 @@ export const evaluateWatchTimeout = ({ watchTimeoutHours, watchStartedAt, now, c
 export const buildDeliberateDraftFeedback = deliberate => {
   if (deliberate?.kind === 'no_changes') {
     return {
-      restartReason: 'The previous working session produced no changes',
-      feedbackLines: ['📭 The previous working session produced no changes: the pull request diff against the base branch is empty.', '', 'Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.'],
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text1'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text2'), '', promptText('prompt.templates.solve-auto-merge.watchUntilMergeable_text4')],
     };
   }
-  const reason = deliberate?.reason || 'the solution session failed or verification did not succeed';
+  // Issue #3211: the run finished but changed nothing; that is not a failed session.
+  if (deliberate?.kind === 'no_session_changes') {
+    return {
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text3'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text4'), `  ${deliberate.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text6')}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text7')],
+    };
+  }
+  // Issue #3330: the session's effect could not be measured; that is not a failed session either.
+  if (deliberate?.kind === 'session_effect_unverified') {
+    return {
+      restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text8'),
+      feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text9'), `  ${deliberate.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text11')}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text12')],
+    };
+  }
+  const reason = deliberate?.reason || promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text13');
   return {
-    restartReason: `The previous working session failed: ${reason}`,
-    feedbackLines: ['🛑 The previous working session failed:', `  ${reason}`, '', 'Find the cause of this failure, fix it, and commit the fix to the pull request branch. Do not repeat the same steps unchanged.'],
+    restartReason: promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text14', { reason: String(reason) }),
+    feedbackLines: [promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text15'), `  ${reason}`, '', promptText('prompt.templates.solve-auto-merge-guards.buildDeliberateDraftFeedback.text16')],
   };
 };
 

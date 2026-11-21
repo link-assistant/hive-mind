@@ -1,0 +1,33 @@
+$ docker rm -f kr2889-exp3 -> 
+$ docker create --name kr2889-exp3 --entrypoint  rhysd/actionlint:1.7.12 sh -c gate='/tmp/hive-mind-disk-baseline-kr2889-exp3'; w -> e9fd432a930d9870b2ebebee2307040dfa601068861ba57728e2c3d867305cbb
+$ docker start kr2889-exp3 -> kr2889-exp3
+$ docker exec kr2889-exp3 touch /tmp/hive-mind-disk-baseline-kr2889-exp3 -> 
+$ docker kill kr2889-exp3 -> kr2889-exp3
+$ docker inspect --size -f {{.SizeRw}} kr2889-exp3 -> 35000076
+SizeRw before: 35000076
+[VERBOSE] Launch of kr2889-exp3: {"commandHandoff":false,"startGate":"fail-closed"}
+launch: {"commandHandoff":false,"startGate":"fail-closed"}
+[VERBOSE] Pruned 2 cache directories (35020800 bytes) from kr2889-exp3
+pruned: {"pruned":true,"freedBytes":35020800,"paths":["/tmp/ws/target","/tmp/ws/web/node_modules/.cache"],"reason":null}
+$ docker inspect --size -f {{.SizeRw}} {{.State.Status}} {{.State.ExitCode}} kr2889-exp3 -> 32 exited 137
+state after: 32 exited 137
+$ docker commit kr2889-exp3 kr2889/snap3:1 -> sha256:91b7608708fe5372ae1e1a86c3f450d991ed4e7b4e388399081aa4450f3361dc
+$ docker run --rm --entrypoint sh kr2889/snap3:1 -c find /tmp/ws | sort; cat /tmp/runs; true -> /tmp/ws
+/tmp/ws/Cargo.toml
+/tmp/ws/src
+/tmp/ws/src/main.rs
+/tmp/ws/web
+/tmp/ws/web/node_modules
+TASK-RAN
+snapshot contents: /tmp/ws
+/tmp/ws/Cargo.toml
+/tmp/ws/src
+/tmp/ws/src/main.rs
+/tmp/ws/web
+/tmp/ws/web/node_modules
+TASK-RAN
+gate-open case: {"pruned":false,"freedBytes":0,"paths":[],"reason":"the start gate was already open, so the container was stopped without pruning"}
+$ docker rm -f kr2889-exp3 -> kr2889-exp3
+$ docker image rm kr2889/snap3:1 -> Untagged: kr2889/snap3:1
+Deleted: sha256:91b7608708fe5372ae1e1a86c3f450d991ed4e7b4e388399081aa4450f3361dc
+Deleted: sha256:f3ef4b82a7243e5a72cf3a9abf77354c5410cc52fae6f86680a1bbbcda951fc0

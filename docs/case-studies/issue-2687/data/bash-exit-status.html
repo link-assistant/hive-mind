@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<!-- Created by GNU Texinfo 7.2, https://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<!-- This text is a brief description of the features that are present in
+the Bash shell (version 5.3, 18 May 2025).
+
+This is Edition 5.3, last updated 18 May 2025,
+of The GNU Bash Reference Manual,
+for Bash, Version 5.3.
+
+Copyright © 1988-2025 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled
+"GNU Free Documentation License". -->
+<title>Exit Status (Bash Reference Manual)</title>
+
+<meta name="description" content="Exit Status (Bash Reference Manual)">
+<meta name="keywords" content="Exit Status (Bash Reference Manual)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<link href="index.html" rel="start" title="Top">
+<link href="Indexes.html" rel="index" title="Indexes">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Executing-Commands.html" rel="up" title="Executing Commands">
+<link href="Signals.html" rel="next" title="Signals">
+<link href="Environment.html" rel="prev" title="Environment">
+<style type="text/css">
+<!--
+a.copiable-link {visibility: hidden; text-decoration: none; line-height: 0em}
+span:hover a.copiable-link {visibility: visible}
+-->
+</style>
+<link rel="stylesheet" type="text/css" href="https://www.gnu.org/software/gnulib/manual.css">
+
+
+</head>
+
+<body lang="en">
+<div class="subsection-level-extent" id="Exit-Status">
+<div class="nav-panel">
+<p>
+Next: <a href="Signals.html" accesskey="n" rel="next">Signals</a>, Previous: <a href="Environment.html" accesskey="p" rel="prev">Environment</a>, Up: <a href="Executing-Commands.html" accesskey="u" rel="up">Executing Commands</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Indexes.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<h4 class="subsection" id="Exit-Status-1"><span>3.7.5 Exit Status<a class="copiable-link" href="#Exit-Status-1"> &para;</a></span></h4>
+<a class="index-entry-id" id="index-exit-status-1"></a>
+
+<p>The exit status of an executed command is the value returned by the
+<code class="code">waitpid</code> system call or equivalent function.
+Exit statuses fall between 0 and 255, though, as explained below,
+the shell may use values above 125 specially.
+Exit statuses from shell builtins and compound commands are also limited
+to this range.
+Under certain circumstances, the shell will use special values to
+indicate specific failure modes.
+</p>
+<p>For the shell&rsquo;s purposes, a command which exits with a
+zero exit status has succeeded.
+So while an exit status of zero indicates success, a non-zero
+exit status indicates failure.
+This seemingly counter-intuitive scheme is used so there
+is one well-defined way to indicate success and a variety of
+ways to indicate various failure modes.
+</p>
+<p>When a command terminates on a fatal signal whose number is <var class="var">N</var>,
+Bash uses the value 128+<var class="var">N</var> as the exit status.
+</p>
+<p>If a command is not found, the child process created to
+execute it returns a status of 127.
+If a command is found but is not executable, the return status is 126.
+</p>
+<p>If a command fails because of an error during expansion or redirection,
+the exit status is greater than zero.
+</p>
+<p>The exit status is used by the Bash conditional commands
+(see <a class="pxref" href="Conditional-Constructs.html">Conditional Constructs</a>) and some of the list
+constructs (see <a class="pxref" href="Lists.html">Lists of Commands</a>).
+</p>
+<p>All of the Bash builtins return an exit status of zero if they succeed
+and a non-zero status on failure, so they may be used by the
+conditional and list constructs.
+All builtins return an exit status of 2 to indicate incorrect usage,
+generally invalid options or missing arguments.
+</p>
+<p>The exit status of the last command is available in the special
+parameter $? (see <a class="pxref" href="Special-Parameters.html">Special Parameters</a>).
+</p>
+<p>Bash itself returns the exit status of the last command
+executed, unless a syntax error occurs, in which case it exits
+with a non-zero value.
+See also the <code class="code">exit</code> builtin command (see <a class="pxref" href="Bourne-Shell-Builtins.html">Bourne Shell Builtins</a>.
+</p>
+</div>
+<hr>
+<div class="nav-panel">
+<p>
+Next: <a href="Signals.html">Signals</a>, Previous: <a href="Environment.html">Environment</a>, Up: <a href="Executing-Commands.html">Executing Commands</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Indexes.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+[log verbose] 🔍 Clone status: 2 path(s) reported as changed; 1 of them hold exactly the committed bytes (git content conversion artifacts)
+[log verbose] ⚠️  The repository's committed content does not match its own .gitattributes for 1 file(s); a fresh clone reports them as modified although their bytes equal the commit:
+[log verbose]    M mvnw.cmd
+[log verbose]    git version 2.43.0; core.autocrlf=(unset), core.eol=(unset), core.safecrlf=(unset)
+[log verbose]    • mvnw.cmd: attributes text eol=crlf; i/crlf w/crlf attr/text eol=crlf
+[log verbose]    Handled locally: line-ending/encoding conversion is unset for these paths in .git/info/attributes (never committed), so they stay byte-for-byte as committed and out of the pull request.
+[log verbose]    Repository fix (for the repository owner): git add --renormalize . && git commit -m "Normalize line endings per .gitattributes"
+[log verbose] 🔍 Uncommitted changes after clone: 2 path(s); 1 neutralized; 1 remaining; --uncommitted-changes-after-clone warn-ai
+[log verbose] ⚠️  Repository has uncommitted changes after clone; continuing (--uncommitted-changes-after-clone warn-ai):
+[log verbose]     M pom.xml
+[log verbose]    The AI will be told about them in its prompt.
+mode=warn-ai remaining=[" M pom.xml"] neutralized=["mvnw.cmd"]
+----- AI user prompt lines -----
+
+⚠️ UNCOMMITTED CHANGES RIGHT AFTER CLONE:
+The working tree already had uncommitted changes right after the repository was cloned, before any work started, so they are not your changes. This is the exact `git status --porcelain` output of the fresh clone:
+
+```
+ M mvnw.cmd
+ M pom.xml
+```
+
+These files hold exactly the committed bytes. Git reports them as modified only because the committed content does not match the repository's own .gitattributes (for example a file committed with CRLF line endings but marked `text eol=crlf`):
+- mvnw.cmd
+To keep that whole-file line-ending rewrite out of this pull request, content conversion is unset for these files in the clone-local `.git/info/attributes` (never committed), so `git status` now reports them as unchanged.
+If it fits this task, fix the repository so the next clone is clean: delete the lines for these files below `# hive-mind: committed bytes that do not match .gitattributes conversion (issue #4063)` in `.git/info/attributes`, run `git add --renormalize -- <the files above>`, check that the staged diff changes only line endings, commit it as a separate commit (for example "Normalize line endings per .gitattributes") and mention it in the pull request description.
+
+These changes are still in the working tree:
+
+```
+ M pom.xml
+```
+Before you finish, decide for each of them: commit it if it belongs to the solution, otherwise restore it (`git checkout -- <file>` for a tracked file, delete an untracked file). If such a change appears in every fresh clone, fix its cause in the repository (for example in .gitattributes or .gitignore) when that fits this task.
+
+----- git status after: " M pom.xml\n"

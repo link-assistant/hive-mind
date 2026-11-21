@@ -54,8 +54,10 @@ import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion, readRequiredHiveMindVersion } from './formal-ai-version.lib.mjs';
+import { keepProcessAcrossSessions, releaseKeptProcess } from './session-survivors.lib.mjs';
 import { prepareToolGhAuth } from './tool-env-gh-auth.lib.mjs';
 import { getVersion } from './version.lib.mjs';
+import { readCanonicalCodexAuth, selectedCodexAuthHome } from './codex-canonical-auth.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -86,6 +88,16 @@ export const FORMAL_AI_SIDECAR_PROVENANCE_ENV = Object.freeze({
   version: 'HIVE_MIND_FORMAL_AI_SIDECAR_VERSION',
   imageSource: 'HIVE_MIND_FORMAL_AI_SIDECAR_SOURCE',
 });
+
+/**
+ * Carries the sidecar's startup logging warning into the task container
+ * (issue #3583): the sidecar's stdout is only visible to the bot, so without
+ * this the solve log never learns that the dialogs of the session are lost.
+ */
+export const FORMAL_AI_SIDECAR_WARNING_ENV = 'HIVE_MIND_FORMAL_AI_SIDECAR_WARNING';
+
+/** The leased sidecar's logging warning, or null (issue #3583). */
+export const readFormalAiSidecarWarning = (env = process.env) => String(env[FORMAL_AI_SIDECAR_WARNING_ENV] || '').trim() || null;
 
 export const resolveFormalAiApiKey = (env = process.env) => env.FORMAL_AI_API_KEY?.trim() || FORMAL_AI_DEFAULT_API_KEY;
 
@@ -353,7 +365,9 @@ export const buildFormalAiClientEnv = async ({ client, home, apiKey = FORMAL_AI_
  * Issue #2247 (H7): the only files of the operator's Codex home a Formal AI task
  * is allowed to inherit.
  *
- * `auth.json` is the one credential the CLI needs to start; `config.toml` is
+ * This legacy allowlist applies without CODEX_AUTH_HOME. Selected canonical
+ * authentication is validated in place and never copied into a task home.
+ * `auth.json` is the legacy credential; `config.toml` is
  * seeded with every `mcp_servers` entry removed (see {@link stripCodexMcpServers}).
  * Everything else in `~/.codex` — `plugins/`, `skills/`, `sessions/`,
  * `history.jsonl` — is operator state that a task has no reason to read and
@@ -410,18 +424,24 @@ export const stripCodexMcpServers = config => {
 };
 
 /**
- * Seed a Codex home with one credential and a config that declares no MCP
- * servers — issue #2247 (H7).
+ * Seed private configuration without MCP servers. With selected canonical
+ * authentication, refuse independent credentials and never make a snapshot.
  */
-const seedCodexClientHome = async ({ source, destination, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
+const seedCodexClientHome = async ({ source, destination, authHome, expectedIdentity, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
   const seeded = [];
+  if (authHome) {
+    await readCanonicalCodexAuth(authHome, { configurationHome: source, expectedIdentity });
+    await readCanonicalCodexAuth(authHome, { configurationHome: destination, expectedIdentity });
+  }
   await mkdirImpl(destination, { recursive: true });
 
-  try {
-    await cpImpl(join(source, 'auth.json'), join(destination, 'auth.json'), { verbatimSymlinks: true, force: true });
-    seeded.push({ file: 'auth.json', note: null });
-  } catch {
-    // Not signed in yet — Formal AI's provider block carries the API key.
+  if (!authHome) {
+    try {
+      await cpImpl(join(source, 'auth.json'), join(destination, 'auth.json'), { verbatimSymlinks: true, force: true });
+      seeded.push({ file: 'auth.json', note: null });
+    } catch {
+      // Not signed in yet — Formal AI's provider block carries the API key.
+    }
   }
 
   try {
@@ -433,6 +453,7 @@ const seedCodexClientHome = async ({ source, destination, cpImpl, mkdirImpl, rea
     // No global config — `formal-ai with --global` writes a fresh one.
   }
 
+  if (authHome) await readCanonicalCodexAuth(authHome, { configurationHome: destination, expectedIdentity });
   return seeded;
 };
 
@@ -457,9 +478,11 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
     if (!relativeDir || relativeDir === '.' || relativeDir.startsWith('..')) continue;
     // Codex reads CODEX_HOME, which Hive Mind may already have repointed at a repository-scoped home (issue #2074).
     const isCodex = client.id === 'codex';
-    const source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    const authHome = isCodex ? selectedCodexAuthHome(env) : null;
+    let source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    if (authHome) source = env.CODEX_HOME ?? join(realHome, relativeDir);
     if (isCodex) {
-      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
+      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), authHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY, cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
       for (const { file, note } of files) seeded.push(`${join(source, file)} → ${join(relativeDir, file)}${note ? ` (${note})` : ''}`);
       continue;
     }
@@ -475,13 +498,22 @@ export const seedFormalAiClientHome = async ({ client, home, env = process.env, 
 
 /** Materialise the tool's provider configuration inside an isolated HOME. */
 export const configureFormalAiClientHome = async ({ tool, baseUrl, home, formalAiPath = 'formal-ai', run = execFileAsync, env = process.env, timeoutMs = 120_000 }) => {
+  const authHome = tool === 'codex' ? selectedCodexAuthHome(env) : null;
+  const configurationHome = join(home, '.codex');
+  const admitSelectedAuthentication = async () => {
+    if (!authHome) return;
+    await readCanonicalCodexAuth(authHome, { configurationHome: env.CODEX_HOME ?? join(homedir(), '.codex'), expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
+    await readCanonicalCodexAuth(authHome, { configurationHome, expectedIdentity: env.HIVE_MIND_CODEX_AUTH_IDENTITY });
+  };
+  await admitSelectedAuthentication();
   const args = ['with', '--global', '--no-start-server', '--base-url', baseUrl, tool];
   await run(formalAiPath, args, {
     encoding: 'utf8',
-    env: { ...process.env, ...env, HOME: home },
+    env: { ...process.env, ...env, HOME: home, ...(authHome ? { CODEX_HOME: configurationHome } : {}) },
     timeout: timeoutMs,
     maxBuffer: 32 * 1024 * 1024,
   });
+  await admitSelectedAuthentication();
   return { args, home };
 };
 
@@ -629,6 +661,36 @@ const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocal
   };
 };
 
+/**
+ * Seed the isolated HOME, let `formal-ai with --global` write the provider
+ * block into it, and build the environment that points the CLI there. The
+ * wrapper merges into the seeded config, so repeating this is safe.
+ */
+const applyFormalAiClientConfig = async ({ tool, client, home, baseUrl, apiKey, formalAiPath, env, deps }) => {
+  const seeded = await (deps.seedImpl || seedFormalAiClientHome)({ client, home, env });
+  await (deps.configureImpl || configureFormalAiClientHome)({ tool, baseUrl, home, formalAiPath, env });
+
+  const { env: clientEnv, notes } = await buildFormalAiClientEnv({ client, home, apiKey });
+  for (const entry of seeded) notes.push(`seeded ${entry}`);
+
+  // Issue #2314: `gh` keeps the operator's identity in the tool environment,
+  // and a tool environment where it does not is rejected before the session.
+  Object.assign(clientEnv, await (deps.ghAuthImpl || prepareToolGhAuth)({ env, toolEnv: clientEnv, tool }));
+  return { env: clientEnv, notes };
+};
+
+const logFormalAiClientWiring = async ({ log, verbose, client, baseUrl, notes, clientEnv }) => {
+  if (!verbose) return;
+  await log(`🧠 Formal AI: protocol ${client?.default_protocol}, endpoint ${baseUrl}${client?.endpoints?.[client?.default_protocol] || ''}`, { verbose: true });
+  await log(`🧠 Formal AI: config ${notes?.join(', ') || 'none'}`, { verbose: true });
+  await log(
+    `🧠 Formal AI: environment ${Object.keys(clientEnv || {})
+      .sort()
+      .join(', ')}`,
+    { verbose: true }
+  );
+};
+
 const runtimeCache = new Map();
 let exitHookInstalled = false;
 
@@ -646,6 +708,7 @@ const installExitHook = () => {
         /* already gone */
       }
       try {
+        // hive-sync-ok: runs from the 'exit' handler, where async work never completes
         if (entry.runtime?.home) rmSync(entry.runtime.home, { recursive: true, force: true });
       } catch {
         /* best effort */
@@ -672,9 +735,21 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     const backend = await resolveFormalAiBackend({ baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), env, deps, startedLocally: cached.runtime.serverStarted });
     if (backend.version !== cached.runtime.backend?.version || backend.imageDigest !== cached.runtime.backend?.imageDigest) {
       await log(`🧠 Formal AI: serving backend changed to ${describeFormalAiBackend(backend)}`);
+    } else {
+      await log(`🧠 Formal AI: reusing the ${tool} runtime prepared for this workspace; serving backend ${describeFormalAiBackend(backend)}`);
     }
     cached.runtime.backend = backend;
     cached.runtime.formalAiVersion = backend.version;
+    if (tool === 'codex') {
+      // Codex reads its provider from CODEX_HOME, and the capability preflight
+      // rewrites the repository-scoped config before every iteration. Re-apply
+      // the client configuration from that scope so each iteration carries the
+      // provider block instead of the operator config.
+      const { env: clientEnv, notes } = await applyFormalAiClientConfig({ tool, client: cached.runtime.client, home: cached.runtime.home, baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), formalAiPath: resolvedFormalAiPath, env, deps });
+      cached.runtime.env = clientEnv;
+      cached.runtime.notes = notes;
+    }
+    await logFormalAiClientWiring({ log, verbose, client: cached.runtime.client, baseUrl: cached.runtime.baseUrl, notes: cached.runtime.notes, clientEnv: cached.runtime.env });
     return cached.runtime;
   }
 
@@ -703,7 +778,11 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
   try {
     if (!baseUrl) {
       await log(`🧠 Formal AI: starting a local server in ${workdir}`, { verbose: true });
-      server = await (deps.startServerImpl || startFormalAiServer)({ cwd: workdir, formalAiPath: resolvedFormalAiPath, env, logFile: join(home, 'serve.log') });
+      // The server's own cache lives in the task home, not in the clone. Its cwd stays the clone:
+      // tool-call paths are resolved against it. Derivations still land under the cwd
+      // (link-assistant/formal-ai#1208), which is why `data/cache/derivations/` is AI tool scratch.
+      const serverEnv = { ...env, FORMAL_AI_CACHE_DIR: env.FORMAL_AI_CACHE_DIR || join(home, 'cache') };
+      server = await (deps.startServerImpl || startFormalAiServer)({ cwd: workdir, formalAiPath: resolvedFormalAiPath, env: serverEnv, logFile: join(home, 'serve.log') });
       baseUrl = server.baseUrl;
       await log(`🧠 Formal AI: server ready on ${baseUrl} (pid ${server.pid})`, { verbose: true });
     } else {
@@ -713,6 +792,8 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     // Before any client configuration is written, ask the endpoint who it is.
     const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, startedLocally: !!server });
     await log(`🧠 Formal AI: serving backend ${describeFormalAiBackend(backend)}`);
+    const sidecarWarning = readFormalAiSidecarWarning(env);
+    if (sidecarWarning) await log(`⚠️ ${sidecarWarning}`, { level: 'warn' });
     if (backend.version !== formalAiWrapperVersion) {
       await log(`🧠 Formal AI: local wrapper ${formalAiWrapperVersion} differs from the serving backend ${backend.version}; provenance records the backend`, { verbose: true });
     }
@@ -721,15 +802,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     const client = findFormalAiClient(clients, tool);
     if (!client) throw new Error(`Formal AI does not list a client configuration for "${tool}"`);
 
-    const seeded = await (deps.seedImpl || seedFormalAiClientHome)({ client, home, env });
-    await (deps.configureImpl || configureFormalAiClientHome)({ tool, baseUrl, home, formalAiPath: resolvedFormalAiPath, env });
-
-    const { env: clientEnv, notes } = await buildFormalAiClientEnv({ client, home, apiKey });
-    for (const entry of seeded) notes.push(`seeded ${entry}`);
-
-    // Issue #2314: `gh` keeps the operator's identity in the tool environment,
-    // and a tool environment where it does not is rejected before the session.
-    Object.assign(clientEnv, await (deps.ghAuthImpl || prepareToolGhAuth)({ env, toolEnv: clientEnv, tool }));
+    const { env: clientEnv, notes } = await applyFormalAiClientConfig({ tool, client, home, baseUrl, apiKey, formalAiPath: resolvedFormalAiPath, env, deps });
 
     if (tool === 'gemini') {
       // Upstream gap: headless Gemini needs an explicit auth type in settings.
@@ -749,11 +822,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       for (const name of Object.keys(qwenAuthEnv)) notes.push(`${name}=${qwenAuthEnv[name]}`);
     }
 
-    if (verbose) {
-      await log(`🧠 Formal AI: protocol ${client.default_protocol}, endpoint ${baseUrl}${client.endpoints?.[client.default_protocol] || ''}`, { verbose: true });
-      await log(`🧠 Formal AI: config ${notes.join(', ') || 'none'}`, { verbose: true });
-      await log(`🧠 Formal AI: environment ${Object.keys(clientEnv).sort().join(', ')}`, { verbose: true });
-    }
+    await logFormalAiClientWiring({ log, verbose, client, baseUrl, notes, clientEnv });
 
     const runtime = {
       enabled: true,
@@ -773,12 +842,15 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
         runtimeCache.delete(cacheKey);
         try {
           await server?.stop?.();
+          releaseKeptProcess(server?.pid);
         } finally {
           await rm(home, { recursive: true, force: true }).catch(() => {});
         }
       },
     };
     runtimeCache.set(cacheKey, { runtime, server });
+    // The cached server outlives this session on purpose (issue #2923).
+    if (server?.pid) keepProcessAcrossSessions(server.pid, 'task-owned Formal AI server, stopped when Hive Mind exits');
     return runtime;
   } catch (error) {
     await server?.stop?.();

@@ -1,0 +1,8 @@
+# npx eslint src/fix-progress.lib.mjs on the pre-fix file (v2.39.1, before #3505)
+
+src/fix-progress.lib.mjs
+  68:87  error  `item.status` is interpolated unescaped into a Telegram Markdown message: a `_`, `*`, `` ` `` or `[` in it breaks the whole message ("can't parse entities", issue #3505). Wrap it in escapeMarkdown()/codeSpan(), or mark the line `// telegram-markdown-ok: <reason>`     telegram-safety/no-unescaped-telegram-markdown
+  97:94  error  `event.issueUrl` is interpolated unescaped into a Telegram Markdown message: a `_`, `*`, `` ` `` or `[` in it breaks the whole message ("can't parse entities", issue #3505). Wrap it in escapeMarkdown()/codeSpan(), or mark the line `// telegram-markdown-ok: <reason>`  telegram-safety/no-unescaped-telegram-markdown
+
+✖ 2 problems (2 errors, 0 warnings)
+

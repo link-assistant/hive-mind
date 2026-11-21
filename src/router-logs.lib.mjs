@@ -61,7 +61,7 @@ export const describeSystemLogLocations = ({ env = process.env } = {}) => [
     key: 'bot-logs',
     path: resolveBotLogDir(env),
     kind: 'directory',
-    description: 'Rotated Telegram bot log (`telegram-bot.log` plus timestamped backups): every command, launch, and lifecycle event.',
+    description: 'Rotated Telegram bot log (`telegram-bot.log` plus timestamped backups): every command, launch, and lifecycle event. Also holds `formal-ai-sidecar-<start>.log`: the Formal AI sidecar stdout saved before each `docker rm`.',
   },
   {
     key: 'bot-state',

@@ -31,7 +31,7 @@
 import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
 import { getTelegramCommandArgumentsText } from './telegram-command-text.lib.mjs';
-import { cleanNonPrintableChars } from './telegram-markdown.lib.mjs';
+import { cleanNonPrintableChars, escapeMarkdown } from './telegram-markdown.lib.mjs';
 // Issue #2166: every reply/edit in this module goes through the one send funnel
 // (validated, logged, plain-text fallback) even when a caller does not inject it.
 import { safeReply as defaultSafeReply, safeEditMessageText as defaultSafeEditMessageText } from './telegram-safe-reply.lib.mjs';
@@ -107,7 +107,8 @@ export const DEFAULT_STOP_REASON = 'This bot is currently not accepting new task
 export function getStoppedChatRejectMessage(chatId, commandName = 'Command') {
   const stopInfo = getChatStopInfo(chatId);
   const reason = stopInfo?.reason || DEFAULT_STOP_REASON;
-  return `❌ ${commandName} command rejected.\n\n🚫 Reason: ${reason}\n\nUse /start to resume (chat owner only).`;
+  // telegram-markdown-ok: commandName is a fixed command label ('Solve', 'Hive', ...)
+  return `❌ ${commandName} command rejected.\n\n🚫 Reason: ${escapeMarkdown(reason)}\n\nUse /start to resume (chat owner only).`;
 }
 
 /**
@@ -212,8 +213,11 @@ export function extractStopTarget(text, repliedTo) {
 export async function updateQueueCardForCancellation(item, url, tool, stopperName, { safeEditMessageText = defaultSafeEditMessageText, verbose = false } = {}) {
   if (!item || !item.messageInfo || !item.ctx) return false;
   const toolSuffix = tool ? ` from \`${tool}\` queue` : '';
-  const stopperSuffix = stopperName ? ` by ${stopperName}` : '';
-  const text = `🗑 *Cancelled*\n\n${url}\n\nRemoved${toolSuffix}${stopperSuffix} via /stop.`;
+  // Issue #2571: `@anton_poroshin` opened an italic entity that never closed, so
+  // Telegram refused the card ("Can't find end of the entity") and it was only
+  // updated by the plain-text fallback — one more request in an already busy chat.
+  const stopperSuffix = stopperName ? ` by ${escapeMarkdown(stopperName)}` : '';
+  const text = `🗑 *Cancelled*\n\n${escapeMarkdown(url)}\n\nRemoved${toolSuffix}${stopperSuffix} via /stop.`;
   try {
     const { chatId, messageId } = item.messageInfo;
     // Issue #2166: go through the shared safe funnel when the caller provides
@@ -282,7 +286,7 @@ export function registerStartStopCommands(bot, options) {
   // Issue #2166: every reply goes through the shared safe-send funnel (pre-send
   // validation, audit log, plain-text fallback). The defaults keep the module
   // usable in isolation (tests) without a bot wired up.
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = defaultSafeReply, safeEditMessageText = defaultSafeEditMessageText } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = defaultSafeReply, safeEditMessageText = defaultSafeEditMessageText, detachHandler = handler => handler } = options;
   const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
   // Issue #1783: look the UUID up in the session monitor so /stop can let the
   // user who started the task stop it (mirrors /terminal_watch from PR #1779).
@@ -455,15 +459,17 @@ export function registerStartStopCommands(bot, options) {
       reply_to_message_id: message.message_id,
     });
 
-    // Issue #2052: mark the stop as user-initiated BEFORE forwarding CTRL+C, so
-    // even a fast SIGKILL race still finds the flag when the completion message
-    // is formatted.
     const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || null;
-    await markSessionStopRequestedSafe(sessionId, requestedBy);
-
     let result;
     try {
-      result = await stopIsolatedSessionImpl(sessionId, VERBOSE);
+      const track = options.stopTrackedDockerSession && (await lookupTrackedSessionInfo(sessionId));
+      if (track?.isolationBackend === 'docker') {
+        result = await options.stopTrackedDockerSession(sessionId, { requestedBy, verbose: VERBOSE });
+      } else {
+        // Mark before the signal so completion can report an intentional stop.
+        await markSessionStopRequestedSafe(sessionId, requestedBy);
+        result = await stopIsolatedSessionImpl(sessionId, VERBOSE);
+      }
     } catch (error) {
       console.error('[ERROR] /stop: stopIsolatedSession threw:', error);
       result = { success: false, output: '', error: error?.message || String(error) };
@@ -578,7 +584,12 @@ export function registerStartStopCommands(bot, options) {
     // delivered as replies (issues #524, #1780).
     const message = ctx.message;
     const repliedTo = message?.reply_to_message || null;
-    const target = extractStopTarget(message?.text || '', repliedTo);
+    let target = extractStopTarget(message?.text || '', repliedTo);
+    const name = getTelegramCommandArgumentsText(message?.text).trim();
+    if (target.source !== 'argument' && /^[a-z\d][a-z\d_.-]*$/i.test(name)) {
+      const info = await lookupTrackedSessionInfo(name);
+      if (info?.isolationBackend === 'docker') target = { kind: 'uuid', value: name, source: 'argument' };
+    }
 
     if (target.kind === 'uuid') {
       const sessionId = target.value;
@@ -601,6 +612,8 @@ export function registerStartStopCommands(bot, options) {
 
     if (target.kind === 'url') {
       const url = target.value;
+      // Shown at the top level of Markdown replies; `url` itself stays raw for lookups.
+      const shownUrl = escapeMarkdown(url);
       VERBOSE && console.log(`[VERBOSE] /stop: detected URL ${url} (source=${target.source})`);
 
       // Look up the queue item AND any running detached session BEFORE auth so
@@ -633,7 +646,7 @@ export function registerStartStopCommands(bot, options) {
         // running-but-non-stoppable (non-isolation) session, say so; otherwise
         // fall back to the UUID hint.
         if (runningSession) {
-          await safeReply(ctx, `⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
+          await safeReply(ctx, `⚠️ Found a running task for ${shownUrl}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
@@ -651,13 +664,13 @@ export function registerStartStopCommands(bot, options) {
         // have forwarded CTRL+C above). If it tracked a non-isolation session,
         // explain why it can't be stopped; otherwise report not found.
         if (runningSession) {
-          await safeReply(ctx, `⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
+          await safeReply(ctx, `⚠️ Found a running task for ${shownUrl}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
           return;
         }
-        await safeReply(ctx, `ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with an isolation backend, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
+        await safeReply(ctx, `ℹ️ No queued or running task found for ${shownUrl}.\n\nIf the task is running with an isolation backend, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,
         });
@@ -675,7 +688,7 @@ export function registerStartStopCommands(bot, options) {
         const stopperName = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || `user ${ctx.from?.id}`;
         await updateQueueCardForCancellation(lookup.item, url, lookup.tool, stopperName, { safeEditMessageText, verbose: VERBOSE });
 
-        await safeReply(ctx, `🗑 Removed queued task for ${url}${toolLabel}.`, {
+        await safeReply(ctx, `🗑 Removed queued task for ${shownUrl}${toolLabel}.`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,
         });
@@ -691,7 +704,7 @@ export function registerStartStopCommands(bot, options) {
       // running-not-isolated: a started, non-isolated screen session. We
       // could shell out to `screen -X -S <name> stuff $'\003'`, but that's
       // brittle and out of scope for #1780. Tell the user how to recover.
-      await safeReply(ctx, `⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
+      await safeReply(ctx, `⚠️ Found a running task for ${shownUrl}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
         parse_mode: 'Markdown',
         reply_to_message_id: message.message_id,
       });
@@ -716,7 +729,7 @@ export function registerStartStopCommands(bot, options) {
       const stoppedAtStr = stopInfo?.stoppedAt ? stopInfo.stoppedAt.toISOString() : 'unknown';
       let alreadyStoppedMsg = `ℹ️ Bot is already stopped in this chat.\n\nStopped at: ${stoppedAtStr}`;
       if (stopInfo?.reason) {
-        alreadyStoppedMsg += `\nReason: ${stopInfo.reason}`;
+        alreadyStoppedMsg += `\nReason: ${escapeMarkdown(stopInfo.reason)}`;
       }
       alreadyStoppedMsg += '\n\nUse /start to resume accepting tasks.';
       await safeReply(ctx, alreadyStoppedMsg, {
@@ -747,7 +760,7 @@ export function registerStartStopCommands(bot, options) {
 
     let stopMessage = '🛑 *Bot Stopped*\n\n' + 'This bot is now in read-only mode for this chat.\n\n';
     if (reason) {
-      stopMessage += `*Reason:* ${reason}\n\n`;
+      stopMessage += `*Reason:* ${escapeMarkdown(reason)}\n\n`;
     }
     stopMessage += '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n' + '• /merge - No new merge operations will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.';
 
@@ -757,7 +770,8 @@ export function registerStartStopCommands(bot, options) {
     });
   };
 
-  bot.command('stop', handleStopCommand);
+  // Issue #3206: `$ --stop` waits for the session to stop; telegram-bot.mjs runs it outside the update loop.
+  bot.command('stop', detachHandler(handleStopCommand));
 
   // /start command - resume accepting new tasks in this chat
   // Only accessible by chat owner (creator)

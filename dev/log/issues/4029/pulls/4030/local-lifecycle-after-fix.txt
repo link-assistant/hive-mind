@@ -1,0 +1,18 @@
+✅ P0 baseline (Playwright-only, default Claude authority): capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P1 deployment version/login/MCP/model probes with forced account sync: capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P2 positive control (pre-#3785 home): 2 account-sync, 3 curated-catalog and 1 hosted-connector request(s); manifest 13 entries; audit 9 findings (claude:cloud-capabilities, claude:plugin, claude:skill, codex:curated-plugin-sync, codex:hosted-connectors, codex:marketplace), none claims a cached item is enabled
+✅ P2 repaired control: the next native Claude and Codex starts sent 0 capability requests and repopulated nothing (the persisted pins, not the cleanup, prevent recurrence)
+✅ P3 previous CLI releases installed (claude 2.1.321, codex 0.163.0): capability manifest empty, audit clean, 0 capability requests (6 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 native start with the previous releases: capability manifest empty, launch refused on the unpinned Codex 0.163.0 stock runtime (typed fail-closed, no repair), 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+ℹ️  P3 updater: updated [claude 2.1.321→2.1.322, codex 0.163.0→0.167.0], current []
+✅ P3 idle CLI updater (claude update / bun install -g): capability manifest empty, launch refused on the unpinned Codex 0.163.0 stock runtime (typed fail-closed, no repair), 0 capability requests (6 answered, 2 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 first native start with the updated binaries: capability manifest empty, launch refused on the unpinned Codex 0.167.0 stock runtime (typed fail-closed, no repair), 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P3 pinned image binaries restored the stock runtime after codex 0.167.0: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P4 task completion (scoped Codex preflight + exec + dispose, Claude task): capability manifest empty, audit clean, 0 capability requests (24 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P5 root restart (startup audit admits unchanged) + native start: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+⏭️  P6 Router restart: SKIPPED by HIVE_LIFECYCLE_SKIP
+ℹ️  P7 restore brought back 13 capability entries; startup audit repaired 9
+✅ P7 archive restore + startup audit: capability manifest empty, audit clean, 0 capability requests (0 answered, 0 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ P7 native start after restore: capability manifest empty, audit clean, 0 capability requests (22 answered, 1 download tunnel(s), 0 refused origin(s)); 6 canonical auth/history files unchanged
+✅ capability lifecycle gate passed (skipped: router)
+exit=0

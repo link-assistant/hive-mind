@@ -1,0 +1,120 @@
+Issue #3785 — Claude refresh gate, scenario E (revoked refresh grant)
+=====================================================================
+
+Gate: scripts/verify-mounted-claude-refresh.mjs. It runs the pinned native
+Claude 2.1.310 as the host root process and in two concurrent Docker peers,
+all sharing the default credential authority, against a strict synthetic
+rotating OAuth provider. All credentials are synthetic generations
+(SYNTHETIC-ACCESS-G<n> / SYNTHETIC-REFRESH-G<n>), and the provider is
+loopback-only.
+
+Scenario E publishes an expired generation 60 whose refresh grant the provider
+rejects with 400 invalid_grant. Then all three processes run concurrently.
+Every process must end requiring re-authentication: native `auth status`
+reports loggedIn=false, and Hive's /limits classifies the failure as `auth`.
+
+Observed failure
+----------------
+CI run 41402569005, attempt 2, at 4ac2e5ff8, job 125181491050
+(docker-pr-check, host-daemon variant):
+  AssertionError [ERR_ASSERTION]: A rejected refresh must not execute with stale credentials.
+    at verifyMountedClaudeRefresh (file:///verify-mounted-claude-refresh.mjs:303:12)
+  actual: [ 60 ],
+  expected: [],
+Before scenario E, the same job passed the Codex auth, Claude auth and Claude
+history gates, including the history negative control, and refresh scenarios
+A–D. The job stopped there, so the nested variant did not run in that job.
+
+Local reproduction: the same gate on the development workspace's nested
+(threaded cgroup, box-dind) daemon with HIVE_MOUNT_TEST_DIAGNOSTICS=1 failed 1 of
+6 runs, so the race is not specific to one daemon layout. The diagnostic line (from
+synthetic data only) was:
+  {"phase":"revoked","exchanges":[60],"duplicates":[],"models":[60],...}
+The first output belongs to the host root process, which reported a
+successful turn: the provider served a model request carrying the expired G60
+access token. Both Docker peers ended with an API error. Runs 7–14 passed.
+After the rejected grant, the stored shape was
+  {accessToken:"", refreshToken:"", expiresAt:null, scopes, subscriptionType, rateLimitTier}
+which is native Claude's own clearing of an invalid grant. Deterministic
+owner/waiter orderings (pausing the exchange, then starting waiters) passed
+every time, so the window is narrow.
+
+What the pinned binary shows (2.1.310, read-only extraction of the bundled JS)
+------------------------------------------------------------------------------
+- The expiry predicate treats a missing expiry as valid:
+    function rC(e,n=Date.now()){if(e===null)return!1;return n+300000>=e}
+- The refresh routine re-reads the store before and after taking
+  `.oauth_refresh.lock`, and it returns "no_refresh_token" when the re-read
+  has no refresh token. That is exactly what a peer's invalid_grant clearing
+  leaves behind.
+- The in-memory credential cache is invalidated by an mtime/version
+  comparison of `.credentials.json`.
+The exact path by which the root reuses its in-memory expired G60 after a
+peer clears the store has not been isolated. The candidates are the mtime
+comparison and the "no_refresh_token" return feeding a request built from an
+earlier read. It is a native, in-process behaviour. Hive cannot coordinate it:
+the launcher does not instrument native writers or caches.
+
+Production consequence
+----------------------
+The token sent is an *expired* access token. The real API refuses expired
+OAuth access tokens with 401 authentication_error, so no request is served
+with stale credentials. Native Claude then runs its 401 recovery, which finds
+no refresh token and reports that re-authentication is required. The earlier
+synthetic provider was weaker than the real API: it served any syntactically
+valid generation, even an expired one. That turned a refused attempt into a
+"served" request.
+
+Gate change
+-----------
+- Like the real API, the provider now refuses every access generation that
+  the gate published as expired with 401 authentication_error, and records it
+  in `rejected`. `models` still counts only requests that were actually
+  served.
+- Scenarios A, C and D now additionally require `rejected` to be empty, so no
+  expired predecessor may even be attempted there. Scenario E still requires
+  zero served requests, re-authentication everywhere (native status and
+  /limits), no invented credentials, and no duplicates other than G60. It
+  allows at most three refused attempts, and only with the expired G60.
+- tests/issue-3785-rotating-provider.test.mjs covers the provider's refusal
+  (401, counted in `rejected`, not in `models`) and the per-scenario reset.
+  The test fails on the earlier provider, which has no expiry model.
+
+Local verification after the change
+-----------------------------------
+Same nested development daemon, pinned 2.1.310 root plus two Docker peers,
+HIVE_MOUNT_TEST_DIAGNOSTICS=1, 10 consecutive runs:
+  run 3 reproduced the race: {"exchanges":[60],"duplicates":[],"models":[],"rejected":[60]}
+  Root and both peers reported:
+    "Failed to authenticate: OAuth session expired and could not be refreshed"
+  Native `auth status` reported loggedIn=false on all three, and /limits returned `auth`.
+  PASS: "... revoked: 1 exchange attempt(s), 0 served model requests,
+         1 expired-token request(s) refused, stored refresh cleared,
+         re-authentication required by native status and /limits."
+  10/10 runs PASS. Runs 3, 5 and 9 each refused exactly one expired G60
+  request; runs 1, 2, 4, 6, 7, 8 and 10 had none. Every run: 1 exchange of G60,
+  0 served model requests, stored refresh cleared, re-authentication required.
+  Scenarios A, C and D had no refused request in any run.
+
+Remaining limit: an expired-token request is still sent once in rare
+concurrent orderings. This is a native Claude behaviour and is recorded here,
+not repaired. Its consequence is one refused request.
+
+CI verification
+---------------
+CI run 41425746071 at 078d2338e, docker-pr-check job 125265324264, passed both
+daemon layouts (https://github.com/link-assistant/hive-mind/actions/runs/41425746071):
+  host:   "... file-only control: 3 exchanges, 2 rejected duplicates; ...
+           revoked: 1 exchange attempt(s), 0 served model requests,
+           0 expired-token request(s) refused, stored refresh cleared,
+           re-authentication required by native status and /limits."
+  nested: "... file-only control: 2 exchanges, 1 rejected duplicates; ...
+           revoked: 1 exchange attempt(s), 0 served model requests,
+           1 expired-token request(s) refused, stored refresh cleared,
+           re-authentication required by native status and /limits."
+The nested variant reproduced the race in CI as well, and the attempt was refused.
+
+The opt-in `revoked-stored` diagnostic (HIVE_MOUNT_TEST_DIAGNOSTICS=1, off by
+default) now reports only whether each of accessToken, refreshToken and
+expiresAt is missing, empty, null or present. It never prints token values, not
+even synthetic ones (CodeQL alert 313 on f90afda10).

@@ -1,0 +1,932 @@
+{
+  "edits": [
+    {
+      "at": 0,
+      "remove": [],
+      "insert": [
+        "import { nativeGeminiPlansDirectory, nativeGeminiPlanPolicyPattern, readNativeGeminiPlan, writeNativeGeminiPlan } from \"./hive-gemini-history.mjs\";\n",
+        "import { nativeGeminiSubagentChatsDirectory } from \"./hive-gemini-history.mjs\";\n",
+        "import { registerNativeGeminiRestorableAdmission, assertNativeGeminiRestorableAdmission, prepareNativeGeminiRestorableEdit } from \"./hive-gemini-restorable-admission.mjs\";\n",
+        "import { readNativeGeminiRestorableHistory, saveNativeGeminiRestorableHistory, assertNativeGeminiRestorableRestore } from \"./hive-gemini-restorable-history.mjs\";\n",
+        "import { withNativeGeminiGitHistory, nativeGeminiGitEnvironment, assertNativeGeminiGitOperation } from \"./hive-gemini-git-history.mjs\";\n",
+        "import { nativeGeminiTrackerOperation } from \"./hive-gemini-tracker-transactions.mjs\";\n",
+        "import { registerNativeGeminiTracker, initializeNativeGeminiTracker, readNativeGeminiTracker, listNativeGeminiTracker, readNativeGeminiTrackerFile, saveNativeGeminiTracker } from \"./hive-gemini-tracker-history.mjs\";\n",
+        "import { readNativeGeminiPromptHistory, appendNativeGeminiPromptHistory, nativeGeminiCheckpoint } from \"./hive-gemini-history.mjs\";\n",
+        "import { writeNativeGeminiBlob, readNativeGeminiBlob } from \"./hive-gemini-history.mjs\";\n",
+        "import { registerNativeGeminiProjectTemp, writeNativeGeminiToolOutput, readNativeGeminiToolOutput } from \"./hive-gemini-history.mjs\";\n",
+        "import { Readable as HiveHistoryReadable } from \"node:stream\";\n",
+        "import { nativeGeminiChatsDirectory, readNativeGeminiConversation, appendNativeGeminiConversation, rewriteNativeGeminiConversation, admitNativeGeminiConversation, archiveNativeGeminiConversation, claimNativeGeminiConversation, nativeGeminiHistorySelected } from \"./hive-gemini-history.mjs\";\n",
+        "import { assertNativeGeminiAuthority, validateNativeGeminiRequest } from \"./hive-gemini-admission.mjs\";\n",
+        "import { publishNativeGeminiCredentials, clearNativeGeminiCredentials, withNativeGeminiPostAuth } from \"./hive-gemini-writers.mjs\";\n",
+        "import { getNativeGeminiAccountsPath, readNativeGeminiAccounts, cacheNativeGeminiAccount, clearNativeGeminiAccount } from \"./hive-gemini-accounts.mjs\";\n",
+        "import { nativeGeminiSelected, initializeNativeGeminiClient, validateNativeGeminiClient, refuseNativeGeminiWriter } from \"./hive-gemini-reads.mjs\";\n"
+      ]
+    },
+    {
+      "at": 19436,
+      "remove": [],
+      "insert": ["        if (nativeGeminiSelected()) {\n", "          opts.retry = false;\n", "          opts.retryConfig = { retry: 0, noResponseRetries: 0 };\n", "        }\n"]
+    },
+    {
+      "at": 19487,
+      "remove": [],
+      "insert": ["          if (nativeGeminiSelected()) {\n", "            opts.retry = false;\n", "            opts.retryConfig = { retry: 0, noResponseRetries: 0 };\n", "          }\n"]
+    },
+    {
+      "at": 19631,
+      "remove": [],
+      "insert": ["        if (nativeGeminiSelected()) {\n", "          opts.retry = false;\n", "          opts.retryConfig = { retry: 0, noResponseRetries: 0 };\n", "        }\n"]
+    },
+    {
+      "at": 253309,
+      "remove": ["    return path4.join(tempDir, identifier);\n"],
+      "insert": ["    const temporary = path4.join(tempDir, identifier);\n", "    registerNativeGeminiProjectTemp(_Storage.getGlobalGeminiDir(), this.getProjectRoot(), temporary);\n", "    return temporary;\n"]
+    },
+    {
+      "at": 253412,
+      "remove": [],
+      "insert": ["    const canonical = nativeGeminiPlansDirectory(this.getProjectTempDir(), this.sessionId);\n", "    if (canonical !== undefined) return canonical;\n"]
+    },
+    {
+      "at": 253418,
+      "remove": ["    if (this.sessionId) {\n", "      return path4.join(this.getProjectTempDir(), this.sessionId, \"tracker\");\n", "    }\n", "    return path4.join(this.getProjectTempDir(), \"tracker\");\n"],
+      "insert": ["    const temporary = this.getProjectTempDir();\n", "    const file = this.sessionId ? path4.join(temporary, this.sessionId, \"tracker\") : path4.join(temporary, \"tracker\");\n", "    return registerNativeGeminiTracker(temporary, this.sessionId, file);\n"]
+    },
+    {
+      "at": 253424,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) return this.getProjectTempPlansDir();\n"]
+    },
+    {
+      "at": 253441,
+      "remove": [],
+      "insert": ["  getProjectChatsDir() {\n", "    return nativeGeminiChatsDirectory(_Storage.getGlobalGeminiDir(), this.getProjectRoot()) ?? path4.join(this.getProjectTempDir(), \"chats\");\n", "  }\n"]
+    },
+    {
+      "at": 253442,
+      "remove": ["    const chatsDir = path4.join(this.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = this.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 253465,
+      "remove": ["    const absolutePath = path4.join(this.getProjectTempDir(), filePath);\n"],
+      "insert": ["    const absolutePath = filePath.startsWith(\"chats/\") ? path4.join(this.getProjectChatsDir(), filePath.slice(6)) : path4.join(this.getProjectTempDir(), filePath);\n"]
+    },
+    {
+      "at": 253975,
+      "remove": ["async function detectFileType(filePath) {\n"],
+      "insert": ["async function detectFileType(filePath, checkedBytes) {\n", "  const binary = () => checkedBytes === undefined ? isBinaryFile(filePath) : (0, import_isbinaryfile.isBinaryFile)(checkedBytes, checkedBytes.length);\n"]
+    },
+    {
+      "at": 253989,
+      "remove": ["      if (!await isBinaryFile(filePath)) {\n"],
+      "insert": ["      if (!await binary()) {\n"]
+    },
+    {
+      "at": 254000,
+      "remove": ["    if (!await isBinaryFile(filePath)) {\n"],
+      "insert": ["    if (!await binary()) {\n"]
+    },
+    {
+      "at": 254008,
+      "remove": ["  if (await isBinaryFile(filePath)) {\n"],
+      "insert": ["  if (await binary()) {\n"]
+    },
+    {
+      "at": 254013,
+      "remove": [],
+      "insert": [
+        "function formatHiveGeminiToolText(content, filePath, rootDirectory, startLine, endLine) {\n",
+        "  const relativePathForDisplay = path7.relative(rootDirectory, filePath).replace(/\\\\/g, \"/\");\n",
+        "        const lines = content.split(/\\r?\\n/);\n",
+        "        const originalLineCount = lines.length;\n",
+        "        let sliceStart = 0;\n",
+        "        let sliceEnd = originalLineCount;\n",
+        "        if (startLine !== void 0 || endLine !== void 0) {\n",
+        "          sliceStart = startLine ? startLine - 1 : 0;\n",
+        "          sliceEnd = endLine ? Math.min(endLine, originalLineCount) : Math.min(sliceStart + DEFAULT_MAX_LINES_TEXT_FILE, originalLineCount);\n",
+        "        } else {\n",
+        "          sliceEnd = Math.min(DEFAULT_MAX_LINES_TEXT_FILE, originalLineCount);\n",
+        "        }\n",
+        "        const actualStart = Math.min(sliceStart, originalLineCount);\n",
+        "        const selectedLines = lines.slice(actualStart, sliceEnd);\n",
+        "        let linesWereTruncatedInLength = false;\n",
+        "        const formattedLines = selectedLines.map((line) => {\n",
+        "          if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {\n",
+        "            linesWereTruncatedInLength = true;\n",
+        "            return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + \"... [truncated]\";\n",
+        "          }\n",
+        "          return line;\n",
+        "        });\n",
+        "        const isTruncated = actualStart > 0 || sliceEnd < originalLineCount || linesWereTruncatedInLength;\n",
+        "        const llmContent = formattedLines.join(\"\\n\");\n",
+        "        let returnDisplay = \"\";\n",
+        "        if (actualStart > 0 || sliceEnd < originalLineCount) {\n",
+        "          returnDisplay = `Read lines ${actualStart + 1}-${sliceEnd} of ${originalLineCount} from ${relativePathForDisplay}`;\n",
+        "          if (linesWereTruncatedInLength) {\n",
+        "            returnDisplay += \" (some lines were shortened)\";\n",
+        "          }\n",
+        "        } else if (linesWereTruncatedInLength) {\n",
+        "          returnDisplay = `Read all ${originalLineCount} lines from ${relativePathForDisplay} (some lines were shortened)`;\n",
+        "        }\n",
+        "        return {\n",
+        "          llmContent,\n",
+        "          returnDisplay,\n",
+        "          isTruncated,\n",
+        "          originalLineCount,\n",
+        "          linesShown: [actualStart + 1, sliceEnd]\n",
+        "        };\n",
+        "}\n"
+      ]
+    },
+    {
+      "at": 254014,
+      "remove": [],
+      "insert": [
+        "  const blob = readNativeGeminiBlob(filePath);\n",
+        "  if (blob !== undefined) {\n",
+        "    const relativePathForDisplay = path7.relative(rootDirectory, filePath).replace(/\\\\/g, \"/\");\n",
+        "    const fileSizeInMB = blob.bytes.length / (1024 * 1024);\n",
+        "    if (fileSizeInMB > MAX_FILE_SIZE_MB) return {\n",
+        "      llmContent: `File size exceeds the ${MAX_FILE_SIZE_MB}MB limit.`,\n",
+        "      returnDisplay: `File size exceeds the ${MAX_FILE_SIZE_MB}MB limit.`,\n",
+        "      error: `File size exceeds the ${MAX_FILE_SIZE_MB}MB limit: ${filePath} (${fileSizeInMB.toFixed(2)}MB)`,\n",
+        "      errorType: ToolErrorType.FILE_TOO_LARGE\n",
+        "    };\n",
+        "    const fileType = await detectFileType(\"blob.\" + blob.mimeType.split(\"/\")[1], blob.bytes);\n",
+        "    if (fileType === \"svg\" && blob.bytes.length > 1024 * 1024) return {\n",
+        "      llmContent: `Cannot display content of SVG file larger than 1MB: ${relativePathForDisplay}`,\n",
+        "      returnDisplay: `Skipped large SVG file (>1MB): ${relativePathForDisplay}`\n",
+        "    };\n",
+        "    if (fileType === \"text\" || fileType === \"svg\") {\n",
+        "      const bom = detectBOM(blob.bytes);\n",
+        "      const content = bom ? decodeBOMContent(blob.bytes, bom) : blob.bytes.toString(\"utf8\");\n",
+        "      if (fileType === \"svg\") return { llmContent: content, returnDisplay: `Read SVG as text: ${relativePathForDisplay}` };\n",
+        "      return formatHiveGeminiToolText(content, filePath, rootDirectory, startLine, endLine);\n",
+        "    }\n",
+        "    const normalizedMime = blob.mimeType.toLowerCase();\n",
+        "    const mimeType = AUDIO_MIME_TYPE_NORMALIZATION[normalizedMime] ?? normalizedMime;\n",
+        "    if (fileType === \"binary\") return {\n",
+        "      llmContent: `Cannot display content of binary file: ${relativePathForDisplay}`,\n",
+        "      returnDisplay: `Skipped binary file: ${relativePathForDisplay}`\n",
+        "    };\n",
+        "    if (fileType === \"audio\" && ![...SUPPORTED_AUDIO_MIME_TYPES_BY_EXTENSION.values()].includes(mimeType)) return {\n",
+        "      llmContent: `Could not read audio file because its format is not supported. Supported audio formats are ${SUPPORTED_AUDIO_FORMATS_DISPLAY}.`,\n",
+        "      returnDisplay: `Unsupported audio file format: ${relativePathForDisplay}`,\n",
+        "      error: `Unsupported audio file format for ${filePath}. Supported audio formats are ${SUPPORTED_AUDIO_FORMATS_DISPLAY}.`,\n",
+        "      errorType: ToolErrorType.READ_CONTENT_FAILURE\n",
+        "    };\n",
+        "    return {\n",
+        "      llmContent: { inlineData: { data: blob.bytes.toString(\"base64\"), mimeType } },\n",
+        "      returnDisplay: `Read ${fileType} file: ${relativePathForDisplay}`\n",
+        "    };\n",
+        "  }\n",
+        "  const canonical = readNativeGeminiToolOutput(filePath) ?? readNativeGeminiPlan(filePath);\n",
+        "  if (canonical !== undefined) return formatHiveGeminiToolText(canonical, filePath, rootDirectory, startLine, endLine);\n"
+      ]
+    },
+    {
+      "at": 254065,
+      "remove": [
+        "        const content = await readFileWithEncoding(filePath, stats);\n",
+        "        const lines = content.split(/\\r?\\n/);\n",
+        "        const originalLineCount = lines.length;\n",
+        "        let sliceStart = 0;\n",
+        "        let sliceEnd = originalLineCount;\n",
+        "        if (startLine !== void 0 || endLine !== void 0) {\n",
+        "          sliceStart = startLine ? startLine - 1 : 0;\n",
+        "          sliceEnd = endLine ? Math.min(endLine, originalLineCount) : Math.min(sliceStart + DEFAULT_MAX_LINES_TEXT_FILE, originalLineCount);\n",
+        "        } else {\n",
+        "          sliceEnd = Math.min(DEFAULT_MAX_LINES_TEXT_FILE, originalLineCount);\n",
+        "        }\n",
+        "        const actualStart = Math.min(sliceStart, originalLineCount);\n",
+        "        const selectedLines = lines.slice(actualStart, sliceEnd);\n",
+        "        let linesWereTruncatedInLength = false;\n",
+        "        const formattedLines = selectedLines.map((line) => {\n",
+        "          if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {\n",
+        "            linesWereTruncatedInLength = true;\n",
+        "            return line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + \"... [truncated]\";\n",
+        "          }\n",
+        "          return line;\n",
+        "        });\n",
+        "        const isTruncated = actualStart > 0 || sliceEnd < originalLineCount || linesWereTruncatedInLength;\n",
+        "        const llmContent = formattedLines.join(\"\\n\");\n",
+        "        let returnDisplay = \"\";\n",
+        "        if (actualStart > 0 || sliceEnd < originalLineCount) {\n",
+        "          returnDisplay = `Read lines ${actualStart + 1}-${sliceEnd} of ${originalLineCount} from ${relativePathForDisplay}`;\n",
+        "          if (linesWereTruncatedInLength) {\n",
+        "            returnDisplay += \" (some lines were shortened)\";\n",
+        "          }\n",
+        "        } else if (linesWereTruncatedInLength) {\n",
+        "          returnDisplay = `Read all ${originalLineCount} lines from ${relativePathForDisplay} (some lines were shortened)`;\n",
+        "        }\n",
+        "        return {\n",
+        "          llmContent,\n",
+        "          returnDisplay,\n",
+        "          isTruncated,\n",
+        "          originalLineCount,\n",
+        "          linesShown: [actualStart + 1, sliceEnd]\n",
+        "        };\n"
+      ],
+      "insert": ["        return formatHiveGeminiToolText(await readFileWithEncoding(filePath, stats), filePath, rootDirectory, startLine, endLine);\n"]
+    },
+    {
+      "at": 254191,
+      "remove": [],
+      "insert": ["  const canonical = writeNativeGeminiToolOutput(projectTempDir, content, sessionId);\n", "  if (canonical !== undefined) return { outputFile: canonical };\n"]
+    },
+    {
+      "at": 273328,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) return getNativeGeminiAccountsPath(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());\n"]
+    },
+    {
+      "at": 273359,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) {\n", "      if (filePath !== this.getGoogleAccountsCachePath()) throw new Error(\"Gemini canonical account storage is unavailable or unsafe.\");\n", "      return readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());\n", "    }\n"]
+    },
+    {
+      "at": 273372,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) {\n", "      if (filePath !== this.getGoogleAccountsCachePath()) throw new Error(\"Gemini canonical account storage is unavailable or unsafe.\");\n", "      return readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());\n", "    }\n"]
+    },
+    {
+      "at": 273384,
+      "remove": ["  async cacheGoogleAccount(email3) {\n"],
+      "insert": ["  async cacheGoogleAccount(email3, credentials3) {\n", "    if (nativeGeminiSelected()) return cacheNativeGeminiAccount(email3, credentials3);\n"]
+    },
+    {
+      "at": 273398,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) return readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath()).active;\n"]
+    },
+    {
+      "at": 273403,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) {\n", "      const accounts = readNativeGeminiAccounts(Storage.getGoogleAccountsPath(), Storage.getOAuthCredsPath());\n", "      return new Set([...accounts.old, ...(accounts.active ? [accounts.active] : [])]).size;\n", "    }\n"]
+    },
+    {
+      "at": 273412,
+      "remove": [],
+      "insert": ["    if (nativeGeminiSelected()) return clearNativeGeminiAccount();\n"]
+    },
+    {
+      "at": 279307,
+      "remove": [],
+      "insert": ["  if (nativeGeminiSelected()) return withNativeGeminiPostAuth(emitPostAuthCallbacks);\n", "  return emitPostAuthCallbacks(tokens);\n", "}\n", "async function emitPostAuthCallbacks(tokens) {\n"]
+    },
+    {
+      "at": 279341,
+      "remove": [],
+      "insert": ["  if (nativeGeminiSelected()) {\n", "    return initializeNativeGeminiClient(createBaseOAuth2Client, Storage.getGlobalGeminiDir(), authType, {\n", "      interactive: config2.isInteractive(),\n", "      accountFile: Storage.getGoogleAccountsPath(),\n", "      onLogout: clearOauthClientCache,\n", "      login: client => completeNativeGeminiLogin(client, authType, config2),\n", "      onReady: async client => {\n", "        if (!userAccountManager2.getCachedGoogleAccount()) await fetchAndCacheUserInfo(client);\n", "        await triggerPostAuthCallbacks(client.credentials);\n", "      },\n", "    });\n", "  }\n"]
+    },
+    {
+      "at": 279476,
+      "remove": [],
+      "insert": [
+        "`\n",
+        "    });\n",
+        "    try {\n",
+        "      const childProcess2 = await open_default(webLogin.authUrl);\n",
+        "      childProcess2.on(\"error\", (error40) => {\n",
+        "        coreEvents.emit(CoreEvent.UserFeedback, {\n",
+        "          severity: \"error\",\n",
+        "          message: `Failed to open browser with error: ${getErrorMessage(error40)}\n",
+        "Please try running again with NO_BROWSER=true set.`\n",
+        "        });\n",
+        "      });\n",
+        "    } catch (err2) {\n",
+        "      coreEvents.emit(CoreEvent.UserFeedback, {\n",
+        "        severity: \"error\",\n",
+        "        message: `Failed to open browser with error: ${getErrorMessage(err2)}\n",
+        "Please try running again with NO_BROWSER=true set.`\n",
+        "      });\n",
+        "      throw new FatalAuthenticationError(`Failed to open browser: ${getErrorMessage(err2)}`);\n",
+        "    }\n",
+        "    coreEvents.emit(CoreEvent.UserFeedback, {\n",
+        "      severity: \"info\",\n",
+        "      message: \"Waiting for authentication...\\n\"\n",
+        "    });\n",
+        "    const authTimeout = 5 * 60 * 1e3;\n",
+        "    let timeoutId;\n",
+        "    const timeoutPromise = new Promise((_, reject) => {\n",
+        "      timeoutId = setTimeout(() => {\n",
+        "        reject(new FatalAuthenticationError(\"Authentication timed out after 5 minutes. The browser tab may have gotten stuck in a loading state. Please try again or use NO_BROWSER=true for manual authentication.\"));\n",
+        "      }, authTimeout);\n",
+        "    });\n",
+        "    let sigIntHandler;\n",
+        "    let stdinHandler;\n",
+        "    const cancellationPromise = new Promise((_, reject) => {\n",
+        "      sigIntHandler = () => reject(new FatalCancellationError(\"Authentication cancelled by user.\"));\n",
+        "      process.on(\"SIGINT\", sigIntHandler);\n",
+        "      stdinHandler = (data) => {\n",
+        "        if (data.length === 1 && data[0] === 3) {\n",
+        "          reject(new FatalCancellationError(\"Authentication cancelled by user.\"));\n",
+        "        }\n",
+        "      };\n",
+        "      process.stdin.on(\"data\", stdinHandler);\n",
+        "    });\n",
+        "    try {\n",
+        "      await Promise.race([\n",
+        "        webLogin.loginCompletePromise,\n",
+        "        timeoutPromise,\n",
+        "        cancellationPromise\n",
+        "      ]);\n",
+        "    } finally {\n",
+        "      if (timeoutId) {\n",
+        "        clearTimeout(timeoutId);\n",
+        "      }\n",
+        "      if (sigIntHandler) {\n",
+        "        process.removeListener(\"SIGINT\", sigIntHandler);\n",
+        "      }\n",
+        "      if (stdinHandler) {\n",
+        "        process.stdin.removeListener(\"data\", stdinHandler);\n",
+        "      }\n",
+        "    }\n",
+        "    coreEvents.emit(CoreEvent.UserFeedback, {\n",
+        "      severity: \"info\",\n",
+        "      message: \"Authentication succeeded\\n\"\n",
+        "    });\n",
+        "    await triggerPostAuthCallbacks(client.credentials);\n",
+        "  }\n",
+        "  return client;\n",
+        "}\n",
+        "async function completeNativeGeminiLogin(client, authType, config2) {\n",
+        "  if (authType === AuthType2.COMPUTE_ADC) {\n",
+        "    try {\n",
+        "      debugLogger.log(\"Attempting to authenticate via metadata server application default credentials.\");\n",
+        "      const computeClient = new import_google_auth_library3.Compute({\n",
+        "        // We can leave this empty, since the metadata server will provide\n",
+        "        // the service account email.\n",
+        "      });\n",
+        "      await computeClient.getAccessToken();\n",
+        "      debugLogger.log(\"Authentication successful.\");\n",
+        "      return computeClient;\n",
+        "    } catch (e2) {\n",
+        "      throw new Error(`Could not authenticate using metadata server application default credentials. Please select a different authentication method or ensure you are in a properly configured environment. Error: ${getErrorMessage(e2)}`);\n",
+        "    }\n",
+        "  }\n",
+        "  if (config2.isBrowserLaunchSuppressed()) {\n",
+        "    if (!config2.isInteractive()) {\n",
+        "      throw new FatalAuthenticationError(\"Manual authorization is required but the current session is non-interactive. Please run the Gemini CLI in an interactive terminal to log in, provide a GEMINI_API_KEY, or ensure Application Default Credentials are configured.\");\n",
+        "    }\n",
+        "    let success2 = false;\n",
+        "    const maxRetries = 2;\n",
+        "    enterAlternateScreen();\n",
+        "    writeToStdout(\"\\x1B[2J\\x1B[H\");\n",
+        "    disableMouseEvents();\n",
+        "    disableKittyKeyboardProtocol();\n",
+        "    enableLineWrapping();\n",
+        "    try {\n",
+        "      for (let i3 = 0; !success2 && i3 < maxRetries; i3++) {\n",
+        "        success2 = await authWithUserCode(client);\n",
+        "        if (!success2) {\n",
+        "          writeToStderr(\"\\nFailed to authenticate with user code.\" + (i3 === maxRetries - 1 ? \"\" : \" Retrying...\\n\"));\n",
+        "        }\n",
+        "      }\n",
+        "    } finally {\n",
+        "      exitAlternateScreen();\n",
+        "      coreEvents.emit(CoreEvent.ExternalEditorClosed);\n",
+        "    }\n",
+        "    if (!success2) {\n",
+        "      writeToStderr(\"Failed to authenticate with user code.\\n\");\n",
+        "      throw new FatalAuthenticationError(\"Failed to authenticate with user code.\");\n",
+        "    }\n",
+        "    try {\n",
+        "      await fetchAndCacheUserInfo(client);\n",
+        "    } catch (error40) {\n",
+        "      debugLogger.warn(\"Failed to retrieve Google Account ID during authentication:\", getErrorMessage(error40));\n",
+        "    }\n",
+        "    await triggerPostAuthCallbacks(client.credentials);\n",
+        "  } else {\n",
+        "    if (!config2.getAcpMode()) {\n",
+        "      const userConsent = await getConsentForOauth(\"\");\n",
+        "      if (!userConsent) {\n",
+        "        throw new FatalCancellationError(\"Authentication cancelled by user.\");\n",
+        "      }\n",
+        "    }\n",
+        "    const webLogin = await authWithWeb(client);\n",
+        "    coreEvents.emit(CoreEvent.UserFeedback, {\n",
+        "      severity: \"info\",\n",
+        "      message: `\n",
+        "\n",
+        "Attempting to open authentication page in your browser.\n",
+        "Otherwise navigate to:\n",
+        "\n",
+        "${webLogin.authUrl}\n",
+        "\n",
+        "\n"
+      ]
+    },
+    {
+      "at": 279544,
+      "remove": [],
+      "insert": ["  assertNativeGeminiAuthority({ authType }, config2);\n"]
+    },
+    {
+      "at": 279547,
+      "remove": ["  return oauthClientPromises.get(authType);\n"],
+      "insert": ["  const pending = oauthClientPromises.get(authType);\n", "  let client;\n", "  try { client = await pending; }\n", "  catch (error) {\n", "    if (nativeGeminiSelected() && oauthClientPromises.get(authType) === pending) oauthClientPromises.delete(authType);\n", "    throw error;\n", "  }\n", "  if (nativeGeminiSelected()) await validateNativeGeminiClient(client);\n", "  return client;\n"]
+    },
+    {
+      "at": 279775,
+      "remove": [],
+      "insert": ["  if (nativeGeminiSelected()) { await clearNativeGeminiCredentials(); clearOauthClientCache(); return; }\n"]
+    },
+    {
+      "at": 279794,
+      "remove": [],
+      "insert": ["    const accountCredentials = nativeGeminiSelected() ? { ...client.credentials } : undefined;\n"]
+    },
+    {
+      "at": 279804,
+      "remove": ["    await userAccountManager2.cacheGoogleAccount(userInfo2.email);\n"],
+      "insert": ["    await userAccountManager2.cacheGoogleAccount(userInfo2.email, accountCredentials);\n"]
+    },
+    {
+      "at": 279814,
+      "remove": [],
+      "insert": ["  if (nativeGeminiSelected()) return publishNativeGeminiCredentials(credentials3);\n"]
+    },
+    {
+      "at": 285953,
+      "remove": [],
+      "insert": ["  if (nativeGeminiHistorySelected()) {\n", "    await loadConversationRecord(filePath);\n", "    if (archiveNativeGeminiConversation(filePath) === \"busy\") throw new Error(\"Gemini conversation is currently being written.\");\n", "    return;\n", "  }\n"]
+    },
+    {
+      "at": 286010,
+      "remove": ["    const chatsDir = path28.join(tempDir, \"chats\");\n"],
+      "insert": ["    const chatsDir = config2.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 286819,
+      "remove": ["  if (!fs32.existsSync(filePath)) {\n"],
+      "insert": ["  const selectedContent = readNativeGeminiConversation(filePath, options?.importSource === true);\n", "  if (selectedContent === null || selectedContent === undefined && !fs32.existsSync(filePath)) {\n"]
+    },
+    {
+      "at": 286823,
+      "remove": ["    const content = fs32.readFileSync(filePath, \"utf8\");\n"],
+      "insert": ["    const content = selectedContent ?? fs32.readFileSync(filePath, \"utf8\");\n"]
+    },
+    {
+      "at": 286836,
+      "remove": ["      return result2;\n"],
+      "insert": ["      return admitNativeGeminiConversation(filePath, result2, options?.importSource === true);\n"]
+    },
+    {
+      "at": 286838,
+      "remove": ["    return parseLegacyContentFallback(content, options);\n"],
+      "insert": ["    return selectedContent === undefined ? parseLegacyContentFallback(content, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(content, options), options?.importSource === true);\n"]
+    },
+    {
+      "at": 286840,
+      "remove": [],
+      "insert": ["    if (selectedContent !== undefined) return admitNativeGeminiConversation(filePath, null, options?.importSource === true);\n"]
+    },
+    {
+      "at": 286845,
+      "remove": ["  if (!fs32.existsSync(filePath)) {\n"],
+      "insert": ["  const selectedContent = readNativeGeminiConversation(filePath, options?.importSource === true);\n", "  if (selectedContent === null || selectedContent === undefined && !fs32.existsSync(filePath)) {\n"]
+    },
+    {
+      "at": 286849,
+      "remove": ["    const fileStream = fs32.createReadStream(filePath);\n"],
+      "insert": ["    const fileStream = selectedContent === undefined ? fs32.createReadStream(filePath) : HiveHistoryReadable.from([selectedContent]);\n"]
+    },
+    {
+      "at": 286860,
+      "remove": ["      return result2;\n"],
+      "insert": ["      return admitNativeGeminiConversation(filePath, result2, options?.importSource === true);\n"]
+    },
+    {
+      "at": 286862,
+      "remove": ["    return await parseLegacyRecordFallback(filePath, options);\n"],
+      "insert": ["    return selectedContent === undefined ? await parseLegacyRecordFallback(filePath, options) : admitNativeGeminiConversation(filePath, parseLegacyContentFallback(selectedContent, options), options?.importSource === true);\n"]
+    },
+    {
+      "at": 286864,
+      "remove": [],
+      "insert": ["    if (selectedContent !== undefined) return admitNativeGeminiConversation(filePath, null, options?.importSource === true);\n"]
+    },
+    {
+      "at": 286906,
+      "remove": [],
+      "insert": ["        claimNativeGeminiConversation(this.conversationFile);\n"]
+    },
+    {
+      "at": 286917,
+      "remove": [],
+      "insert": ["        claimNativeGeminiConversation(this.conversationFile);\n"]
+    },
+    {
+      "at": 286952,
+      "remove": ["        let chatsDir = path29.join(this.context.config.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["        let chatsDir = this.context.config.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 286958,
+      "remove": ["          chatsDir = path29.join(chatsDir, safeParentId);\n"],
+      "insert": ["          chatsDir = nativeGeminiSubagentChatsDirectory(chatsDir, safeParentId) ?? path29.join(chatsDir, safeParentId);\n"]
+    },
+    {
+      "at": 286978,
+      "remove": [],
+      "insert": ["        claimNativeGeminiConversation(this.conversationFile);\n"]
+    },
+    {
+      "at": 287080,
+      "remove": ["      fs32.appendFileSync(this.conversationFile, line);\n"],
+      "insert": ["      if (!appendNativeGeminiConversation(this.conversationFile, line)) fs32.appendFileSync(this.conversationFile, line);\n"]
+    },
+    {
+      "at": 287102,
+      "remove": [],
+      "insert": ["        claimNativeGeminiConversation(this.conversationFile);\n"]
+    },
+    {
+      "at": 287112,
+      "remove": [],
+      "insert": ["    if (rewriteNativeGeminiConversation(this.conversationFile, content)) return;\n"]
+    },
+    {
+      "at": 287358,
+      "remove": [],
+      "insert": ["      if (nativeGeminiHistorySelected()) {\n", "        await loadConversationRecord(this.conversationFile);\n", "        if (archiveNativeGeminiConversation(this.conversationFile) === \"busy\") throw new Error(\"Gemini conversation is currently being written.\");\n", "        return;\n", "      }\n"]
+    },
+    {
+      "at": 311784,
+      "remove": [],
+      "insert": ["  assertNativeGeminiAuthority({ authType: \"oauth-personal\", customHeaders: httpOptions?.headers }, config2);\n"]
+    },
+    {
+      "at": 311964,
+      "remove": [],
+      "insert": ["    await validateNativeGeminiRequest(this.client, this.httpOptions, this.config, this.getMethodUrl(method));\n"]
+    },
+    {
+      "at": 311988,
+      "remove": [],
+      "insert": ["    await validateNativeGeminiRequest(this.client, this.httpOptions, this.config, url3);\n"]
+    },
+    {
+      "at": 312007,
+      "remove": [],
+      "insert": ["    await validateNativeGeminiRequest(this.client, this.httpOptions, this.config, this.getMethodUrl(method));\n"]
+    },
+    {
+      "at": 312054,
+      "remove": [],
+      "insert": ["    assertNativeGeminiRestorableAdmission(this.config);\n", "    assertNativeGeminiAuthority({ authType: \"oauth-personal\", customHeaders: this.httpOptions?.headers }, this.config);\n"]
+    },
+    {
+      "at": 312799,
+      "remove": [],
+      "insert": ["  assertNativeGeminiAuthority({ authType, customHeaders: httpOptions?.headers }, config2);\n"]
+    },
+    {
+      "at": 313107,
+      "remove": [],
+      "insert": ["  assertNativeGeminiAuthority({ authType, apiKey, baseUrl, customHeaders }, config2);\n"]
+    },
+    {
+      "at": 313145,
+      "remove": [],
+      "insert": ["  assertNativeGeminiAuthority(config2, gcConfig);\n"]
+    },
+    {
+      "at": 314887,
+      "remove": [],
+      "insert": ["    readNativeGeminiToolOutput(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n", "    readNativeGeminiPlan(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n", "    readNativeGeminiBlob(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n"]
+    },
+    {
+      "at": 314970,
+      "remove": [],
+      "insert": ["    readNativeGeminiToolOutput(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n", "    readNativeGeminiPlan(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n", "    readNativeGeminiBlob(path52.resolve(this.config.getTargetDir(), sanitizedPath));\n"]
+    },
+    {
+      "at": 333711,
+      "remove": [],
+      "insert": ["  admitNativeRecording() {\n", "    if (!nativeGeminiHistorySelected()) return;\n", "    const file = this.chatRecordingService.getConversationFilePath();\n", "    if (!file || readNativeGeminiConversation(file) === null) {\n", "      throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "    }\n", "  }\n"]
+    },
+    {
+      "at": 333712,
+      "remove": [],
+      "insert": ["    this.admitNativeRecording();\n"]
+    },
+    {
+      "at": 333713,
+      "remove": [],
+      "insert": ["    this.admitNativeRecording();\n"]
+    },
+    {
+      "at": 333899,
+      "remove": [],
+      "insert": ["        try {\n"]
+    },
+    {
+      "at": 333918,
+      "remove": ["        streamDoneResolver();\n"],
+      "insert": ["        } finally {\n", "          streamDoneResolver();\n", "        }\n"]
+    },
+    {
+      "at": 334119,
+      "remove": [],
+      "insert": ["      this.admitNativeRecording();\n"]
+    },
+    {
+      "at": 334344,
+      "remove": [],
+      "insert": ["      this.admitNativeRecording();\n"]
+    },
+    {
+      "at": 334420,
+      "remove": [],
+      "insert": ["        this.admitNativeRecording();\n"]
+    },
+    {
+      "at": 343878,
+      "remove": [],
+      "insert": ["    await prepareNativeGeminiRestorableEdit(deps.config, currentCall.request);\n"]
+    },
+    {
+      "at": 345231,
+      "remove": ["    await fsPromises11.mkdir(toolOutputsDir, { recursive: true });\n"],
+      "insert": ["    if (!nativeGeminiHistorySelected()) await fsPromises11.mkdir(toolOutputsDir, { recursive: true });\n"]
+    },
+    {
+      "at": 345243,
+      "remove": ["      const filePath = path68.join(toolOutputsDir, fileName);\n", "      await fsPromises11.writeFile(filePath, content, \"utf-8\");\n"],
+      "insert": ["      const canonical = writeNativeGeminiToolOutput(config2.storage.getProjectTempDir(), content, sessionId);\n", "      const filePath = canonical ?? path68.join(toolOutputsDir, fileName);\n", "      if (canonical === undefined) await fsPromises11.writeFile(filePath, content, \"utf-8\");\n"]
+    },
+    {
+      "at": 345455,
+      "remove": ["        if (!directoryCreated) {\n"],
+      "insert": ["        if (!directoryCreated && !nativeGeminiHistorySelected()) {\n"]
+    },
+    {
+      "at": 345460,
+      "remove": ["        const filePath = path69.join(toolOutputsDir, fileName);\n", "        await fs57.writeFile(filePath, content);\n"],
+      "insert": ["        const canonical = writeNativeGeminiToolOutput(env2.projectTempDir, content, sessionId);\n", "        const filePath = canonical ?? path69.join(toolOutputsDir, fileName);\n", "        if (canonical === undefined) await fs57.writeFile(filePath, content);\n"]
+    },
+    {
+      "at": 345599,
+      "remove": ["        if (!directoryCreated) {\n"],
+      "insert": ["        if (!directoryCreated && !nativeGeminiHistorySelected()) {\n"]
+    },
+    {
+      "at": 345613,
+      "remove": ["          const filePath = path70.join(blobOutputsDir, fileName);\n"],
+      "insert": ["          const canonical = writeNativeGeminiBlob(env2.projectTempDir, payload.inlineData.data, payload.inlineData.mimeType, sessionId);\n", "          const filePath = canonical ?? path70.join(blobOutputsDir, fileName);\n"]
+    },
+    {
+      "at": 345615,
+      "remove": ["          await fs58.writeFile(filePath, buffer);\n"],
+      "insert": ["          if (canonical === undefined) await fs58.writeFile(filePath, buffer);\n"]
+    },
+    {
+      "at": 349301,
+      "remove": [],
+      "insert": ["        await prepareNativeGeminiRestorableEdit(this.config, request);\n"]
+    },
+    {
+      "at": 349408,
+      "remove": ["        } catch {\n"],
+      "insert": ["        } catch (error40) {\n", "          if (nativeGeminiHistorySelected()) throw error40;\n"]
+    },
+    {
+      "at": 360685,
+      "remove": [],
+      "insert": ["    return withNativeGeminiGitHistory(this, \"initialize\", async () => {\n"]
+    },
+    {
+      "at": 360695,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 360707,
+      "remove": ["    return {\n"],
+      "insert": ["    return nativeGeminiGitEnvironment(this, {\n"]
+    },
+    {
+      "at": 360724,
+      "remove": ["    };\n"],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 360769,
+      "remove": [],
+      "insert": ["    assertNativeGeminiGitOperation(this);\n"]
+    },
+    {
+      "at": 360777,
+      "remove": [],
+      "insert": ["    return withNativeGeminiGitHistory(this, \"getCurrentCommitHash\", async () => {\n"]
+    },
+    {
+      "at": 360779,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 360781,
+      "remove": [],
+      "insert": ["    return withNativeGeminiGitHistory(this, \"createFileSnapshot\", async () => {\n"]
+    },
+    {
+      "at": 360802,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 360804,
+      "remove": [],
+      "insert": ["    return withNativeGeminiGitHistory(this, \"restoreProjectFromSnapshot\", async () => {\n"]
+    },
+    {
+      "at": 360807,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 360820,
+      "remove": [],
+      "insert": ["    const canonical = readNativeGeminiPlan(filePath);\n", "    if (canonical !== undefined) return canonical;\n"]
+    },
+    {
+      "at": 360831,
+      "remove": [],
+      "insert": ["    if (writeNativeGeminiPlan(filePath, content)) return;\n"]
+    },
+    {
+      "at": 364273,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      initializeNativeGeminiTracker(this, TrackerTaskSchema);\n", "      this.initialized = true;\n", "      return;\n", "    }\n"]
+    },
+    {
+      "at": 364288,
+      "remove": [],
+      "insert": ["    return nativeGeminiTrackerOperation(this, async () => {\n"]
+    },
+    {
+      "at": 364301,
+      "remove": ["    await this.saveTask(task);\n"],
+      "insert": ["    await this.saveTask(task, void 0, true);\n"]
+    },
+    {
+      "at": 364303,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 364308,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) return readNativeGeminiTrackerFile(this, filePath, TrackerTaskSchema);\n"]
+    },
+    {
+      "at": 364328,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) return readNativeGeminiTracker(this, id, TrackerTaskSchema);\n"]
+    },
+    {
+      "at": 364336,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) return listNativeGeminiTracker(this, TrackerTaskSchema);\n"]
+    },
+    {
+      "at": 364355,
+      "remove": [],
+      "insert": ["    return nativeGeminiTrackerOperation(this, async () => {\n"]
+    },
+    {
+      "at": 364375,
+      "remove": ["    await this.saveTask(updatedTask);\n"],
+      "insert": ["    await this.saveTask(updatedTask, task);\n"]
+    },
+    {
+      "at": 364377,
+      "remove": [],
+      "insert": ["    });\n"]
+    },
+    {
+      "at": 364381,
+      "remove": ["  async saveTask(task) {\n"],
+      "insert": ["  async saveTask(task, expectedTask, creating = false) {\n", "    if (nativeGeminiHistorySelected()) return saveNativeGeminiTracker(this, task, TrackerTaskSchema, expectedTask, creating);\n"]
+    },
+    {
+      "at": 381559,
+      "remove": [],
+      "insert": ["    this.refreshNativePlanPolicy();\n", "    if (nativeGeminiHistorySelected() && this.isTrackerEnabled()) {\n", "      await this.getTrackerService().ensureInitialized();\n", "    }\n"]
+    },
+    {
+      "at": 381583,
+      "remove": [],
+      "insert": ["      registerNativeGeminiRestorableAdmission(this.storage, getToolCallDataSchema());\n"]
+    },
+    {
+      "at": 382070,
+      "remove": [],
+      "insert": ["  refreshNativePlanPolicy() {\n", "    if (!nativeGeminiHistorySelected()) return;\n", "    const pattern = nativeGeminiPlanPolicyPattern(this.storage.getPlansDir());\n", "    this.policyEngine.removeRulesBySource(\"hive-native-canonical-plans\");\n", "    for (const toolName of [\"write_file\", \"replace\"]) {\n", "      this.policyEngine.addRule({ toolName, decision: PolicyDecision.ALLOW,\n", "        priority: 1.07, modes: [ApprovalMode.PLAN], argsPattern: pattern,\n", "        source: \"hive-native-canonical-plans\" });\n", "    }\n", "  }\n"]
+    },
+    {
+      "at": 382072,
+      "remove": [],
+      "insert": ["    this.refreshNativePlanPolicy();\n"]
+    },
+    {
+      "at": 382889,
+      "remove": [],
+      "insert": ["      if (readNativeGeminiToolOutput(absolutePath) !== undefined || readNativeGeminiBlob(absolutePath) !== undefined) return null;\n"]
+    },
+    {
+      "at": 383925,
+      "remove": ["  const schema2 = historyItemSchema ?? external_exports.any();\n"],
+      "insert": ["  const schema2 = historyItemSchema ?? (nativeGeminiHistorySelected() ? external_exports.object({\n", "    type: external_exports.string(), id: external_exports.number()\n", "  }).passthrough() : external_exports.any());\n"]
+    },
+    {
+      "at": 383972,
+      "remove": [],
+      "insert": ["        if (nativeGeminiHistorySelected()) throw error40;\n"]
+    },
+    {
+      "at": 383996,
+      "remove": ["      checkpointsToWrite.set(fileName, JSON.stringify(checkpointData, null, 2));\n"],
+      "insert": ["      const content = JSON.stringify(checkpointData, null, 2);\n", "      saveNativeGeminiRestorableHistory(gitService.storage, fileName, content, getToolCallDataSchema());\n", "      checkpointsToWrite.set(fileName, content);\n"]
+    },
+    {
+      "at": 384024,
+      "remove": [],
+      "insert": ["  if (nativeGeminiHistorySelected()) {\n", "    if (!gitService) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "    assertNativeGeminiRestorableRestore(gitService.storage, toolCallData, getToolCallDataSchema());\n", "    await gitService.restoreProjectFromSnapshot(toolCallData.commitHash);\n", "    if (toolCallData.history && toolCallData.clientHistory) {\n", "      yield { type: \"load_history\", history: toolCallData.history, clientHistory: toolCallData.clientHistory };\n", "    }\n", "    yield { type: \"message\", messageType: \"info\", content: \"Restored project to the state before the tool call.\" };\n", "    return;\n", "  }\n"]
+    },
+    {
+      "at": 385719,
+      "remove": ["  const chatsDir = path98.join(config2.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["  const chatsDir = config2.storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 386799,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) return readNativeGeminiPromptHistory(this.storage.getProjectTempDir());\n"]
+    },
+    {
+      "at": 386837,
+      "remove": [],
+      "insert": ["      if (nativeGeminiHistorySelected()) this.logs = await this._readLogFile();\n"]
+    },
+    {
+      "at": 386842,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      this.logs = await this._readLogFile();\n", "      this.messageId = this.logs.reduce((next, entry) => entry.sessionId === this.sessionId ? entry.messageId + 1 : next, 0);\n", "      this.initialized = true;\n", "      return;\n", "    }\n"]
+    },
+    {
+      "at": 386863,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      const result = appendNativeGeminiPromptHistory(this.storage.getProjectTempDir(), entryToAppend);\n", "      this.logs = result.logs;\n", "      return result.writtenEntry;\n", "    }\n"]
+    },
+    {
+      "at": 386897,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) this.logs = await this._readLogFile();\n"]
+    },
+    {
+      "at": 386921,
+      "remove": ["    } catch {\n"],
+      "insert": ["    } catch (error40) {\n", "      if (nativeGeminiHistorySelected()) throw error40;\n"]
+    },
+    {
+      "at": 386958,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      if (!this.initialized) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      return nativeGeminiCheckpoint(this.storage.getProjectTempDir(), tag, \"save\", checkpoint);\n", "    }\n"]
+    },
+    {
+      "at": 386970,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      if (!this.initialized) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      const checkpoint = nativeGeminiCheckpoint(this.storage.getProjectTempDir(), tag);\n", "      return checkpoint === undefined ? { history: [] } : Array.isArray(checkpoint) ? { history: checkpoint } : checkpoint;\n", "    }\n"]
+    },
+    {
+      "at": 386996,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      if (!this.initialized) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      return nativeGeminiCheckpoint(this.storage.getProjectTempDir(), tag, \"delete\");\n", "    }\n"]
+    },
+    {
+      "at": 387028,
+      "remove": [],
+      "insert": ["    if (nativeGeminiHistorySelected()) {\n", "      if (!this.initialized) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      return nativeGeminiCheckpoint(this.storage.getProjectTempDir(), tag) !== undefined;\n", "    }\n"]
+    },
+    {
+      "at": 391263,
+      "remove": ["    await fs89.appendFile(sessionPath, `${JSON.stringify({ $set: metadataUpdate })}\n", "`);\n"],
+      "insert": ["    const record = `${JSON.stringify({ $set: metadataUpdate })}\\n`;\n", "    if (!appendNativeGeminiConversation(sessionPath, record)) await fs89.appendFile(sessionPath, record);\n"]
+    },
+    {
+      "at": 391267,
+      "remove": ["    await fs89.writeFile(sessionPath, JSON.stringify({\n", "      ...freshConversation,\n", "      ...metadataUpdate,\n", "      lastUpdated\n", "    }, null, 2));\n"],
+      "insert": ["    const record = JSON.stringify({ ...freshConversation, ...metadataUpdate, lastUpdated }, null, 2);\n", "    if (!rewriteNativeGeminiConversation(sessionPath, record)) await fs89.writeFile(sessionPath, record);\n"]
+    },
+    {
+      "at": 391277,
+      "remove": ["    const chatsDir = path106.join(config2.storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["    const chatsDir = config2.storage.getProjectChatsDir();\n"]
+    }
+  ]
+}

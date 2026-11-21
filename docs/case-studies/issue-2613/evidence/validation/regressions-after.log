@@ -1,0 +1,19 @@
+✔ simultaneous version reports share the concurrency limit and return valid output (815.436482ms)
+✔ a timed-out version probe kills its shell descendants (687.532975ms)
+✔ startup log directory supports aliases, equals syntax and the argument separator (6.997773ms)
+✔ formal drafts preserve development logs and create missing labels (1.966744ms)
+✔ checks-only workflow dispatch has defaults for all required inputs (4.620485ms)
+✔ branch fallback commits only its sanitized log and refuses other checkouts (1793.270124ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+✔ permanent Gist permission failure is attempted once without splitting (67.495771ms)
+  ❌ gh-upload-log failed (log, attempt 1/3): HTTP 403: Resource not accessible by integration (https://api.github.com/gists)
+✔ failed Gist upload publishes the complete sanitized log through the branch fallback (85.543543ms)
+✔ solve --log-dir writes startup and parsing diagnostics in the requested directory (3213.571112ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6691.694034

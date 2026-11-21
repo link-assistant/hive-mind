@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { promptText } from './prompt-text.lib.mjs';
 /**
  * Bidirectional Interactive Mode Library
  *
@@ -24,6 +25,7 @@
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { extractFrameText, logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083: print every live frame the tool receives
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
@@ -68,20 +70,20 @@ const formatFeedbackForClaude = (feedbackText, options = {}) => {
   const kind = options.kind || 'comment';
   const headers = {
     comment: {
-      open: '[USER FEEDBACK FROM PR COMMENT]',
-      close: '[END OF USER FEEDBACK - Please address this feedback in your current work]',
+      open: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text1'),
+      close: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text2'),
     },
     ci: {
-      open: '[CI/CD STATUS UPDATE — auto-input-until-mergeable]',
-      close: '[END OF CI STATUS — Please address the failing checks before continuing]',
+      open: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text3'),
+      close: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text4'),
     },
     uncommitted: {
-      open: '[UNCOMMITTED CHANGES DETECTED — auto-input-until-mergeable]',
-      close: '[END OF UNCOMMITTED CHANGES — Please commit them if part of the solution, or revert them otherwise]',
+      open: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text5'),
+      close: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text6'),
     },
     metadata: {
-      open: '[ISSUE/PR METADATA UPDATE — auto-input-until-mergeable]',
-      close: '[END OF METADATA UPDATE — Please incorporate this into your current work]',
+      open: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text7'),
+      close: promptText('prompt.templates.bidirectional-interactive.formatFeedbackForClaude.text8'),
     },
   };
   const { open, close } = headers[kind] || headers.comment;
@@ -297,6 +299,21 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
+   * PR #4083 feedback: print the full text of every live frame written to the
+   * tool stdin, so the log shows each prompt the tool received mid-session.
+   * The initial prompt frame is not logged here; the tool runner logs it.
+   */
+  const logLiveFrame = async jsonFrame => {
+    const text = extractFrameText(jsonFrame);
+    if (text === null || typeof log !== 'function') return;
+    try {
+      await logFinalPrompts({ log, tool: toolLabel, prompts: [{ kind: 'live', text, delivery: `a stream-json frame on ${toolLabel} stdin` }] });
+    } catch {
+      /* logging must never break the input channel */
+    }
+  };
+
+  /**
    * Issue #1708: Delivery-mode-aware frame dispatcher.
    *
    * - In stream mode (default for --accept-incomming-comments-as-input),
@@ -335,6 +352,7 @@ export const createBidirectionalHandler = options => {
     const ok = await writeFrameToStdin(state.claudeStdin, jsonFrame, log, verbose);
     if (ok) {
       state.totalFeedbackStreamed++;
+      await logLiveFrame(jsonFrame);
       if (verbose) {
         await log(`📤 Bidirectional mode: Streamed frame (${meta.kind || 'frame'}: ${meta.label || ''}) into ${toolLabel} stdin`, { verbose: true });
       }
@@ -378,6 +396,7 @@ export const createBidirectionalHandler = options => {
       }
       flushed++;
       state.totalFramesFlushed++;
+      await logLiveFrame(jsonFrame);
       state.totalFeedbackStreamed++;
       if (verbose) {
         await log(`📤 Bidirectional mode: Flushed pending frame (${meta?.kind || 'frame'}: ${meta?.label || ''}) into ${toolLabel} stdin`, { verbose: true });
@@ -505,10 +524,10 @@ export const createBidirectionalHandler = options => {
     if (!prev || !next) return null;
     const lines = [];
     if (prev.title !== next.title) {
-      lines.push(`Title changed:\n  before: ${prev.title}\n  after:  ${next.title}`);
+      lines.push(promptText('prompt.templates.bidirectional-interactive.diffMetadataSnapshot.title', { before: prev.title, after: next.title }));
     }
     if (prev.body !== next.body) {
-      lines.push(`Body changed (length ${prev.body.length} → ${next.body.length}). New body:\n${next.body}`);
+      lines.push(promptText('prompt.templates.bidirectional-interactive.diffMetadataSnapshot.body', { beforeLength: prev.body.length, afterLength: next.body.length, body: next.body }));
     }
     return lines.length > 0 ? lines.join('\n\n') : null;
   };
@@ -542,7 +561,7 @@ export const createBidirectionalHandler = options => {
         } else {
           const summary = diffMetadataSnapshot(state.lastPrSnapshot, next);
           if (summary) {
-            const frame = formatFeedbackForClaude(`Pull request #${prNumber} metadata changed during this session:\n\n${summary}`, { kind: 'metadata' });
+            const frame = formatFeedbackForClaude(promptText('prompt.templates.bidirectional-interactive.createBidirectionalHandler.text9', { prNumber: String(prNumber), summary: String(summary) }), { kind: 'metadata' });
             await dispatchFrame(frame, { kind: 'metadata', label: `PR #${prNumber} title/body` });
             state.totalStatusFramesSent++;
             state.lastPrSnapshot = next;
@@ -559,7 +578,7 @@ export const createBidirectionalHandler = options => {
         } else {
           const summary = diffMetadataSnapshot(state.lastIssueSnapshot, next);
           if (summary) {
-            const frame = formatFeedbackForClaude(`Issue #${issueNumber} metadata changed during this session:\n\n${summary}`, { kind: 'metadata' });
+            const frame = formatFeedbackForClaude(promptText('prompt.templates.bidirectional-interactive.createBidirectionalHandler.text10', { issueNumber: String(issueNumber), summary: String(summary) }), { kind: 'metadata' });
             await dispatchFrame(frame, { kind: 'metadata', label: `issue #${issueNumber} title/body` });
             state.totalStatusFramesSent++;
             state.lastIssueSnapshot = next;
@@ -576,7 +595,7 @@ export const createBidirectionalHandler = options => {
           const sig = `uncommitted::${out}`;
           if (out && !state.statusSignatures.has(sig)) {
             state.statusSignatures.add(sig);
-            const frame = formatFeedbackForClaude(`The local clone has uncommitted changes (git status --porcelain):\n\n${out}\n\nPlease either commit them (git add + git commit + git push) if they belong to the solution, or revert them (git checkout -- <file> or git clean -fd) otherwise.`, { kind: 'uncommitted' });
+            const frame = formatFeedbackForClaude(promptText('prompt.templates.bidirectional-interactive.createBidirectionalHandler.text11', { out: String(out) }), { kind: 'uncommitted' });
             await dispatchFrame(frame, { kind: 'uncommitted', label: 'git status --porcelain' });
             state.totalStatusFramesSent++;
           }
@@ -601,7 +620,7 @@ export const createBidirectionalHandler = options => {
             if (state.statusSignatures.has(sig)) continue;
             state.statusSignatures.add(sig);
             const detailLines = (b.details || []).map(d => `  - ${d}`).join('\n');
-            const frame = formatFeedbackForClaude(`CI/CD blocker detected during this session: ${b.message}\n${detailLines || ''}\n\nPlease address the failing checks before continuing.`, { kind: 'ci' });
+            const frame = formatFeedbackForClaude(promptText('prompt.templates.bidirectional-interactive.createBidirectionalHandler.text12', { value1: String(b.message), value2: String(detailLines || '') }), { kind: 'ci' });
             await dispatchFrame(frame, { kind: 'ci', label: b.message });
             state.totalStatusFramesSent++;
           }
@@ -847,7 +866,9 @@ export const createBidirectionalHandler = options => {
   const sendFeedback = async (feedbackText, options = {}) => {
     if (!state.claudeStdin) return false;
     const frame = formatFeedbackForClaude(feedbackText, { kind: options.kind || 'metadata' });
-    return writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+    const ok = await writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+    if (ok) await logLiveFrame(frame);
+    return ok;
   };
 
   /**

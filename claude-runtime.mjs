@@ -16,12 +16,14 @@
 // same corrupt/incomplete-alias recovery as the rest of the codebase instead of
 // crashing on a partially installed global package.
 import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
+import { USE_M_PACKAGE_VERSIONS } from './src/use-with-retry.lib.mjs';
 
 const use = await ensureUseM();
 
-const yargsModule = await use('yargs@17.7.2');
+// The yargs pin is shared with src/ so the dependency freshness gate keeps it current.
+const yargsModule = await use(`yargs@${USE_M_PACKAGE_VERSIONS.yargs}`);
 const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
+const { hideBin } = await use(`yargs@${USE_M_PACKAGE_VERSIONS.yargs}/helpers`);
 
 // Import Claude library functions
 const claudeLib = await import('./src/claude.lib.mjs');
@@ -64,12 +66,7 @@ async function main() {
     try {
       // Find Claude CLI location
       const whichResult = await $`which claude`;
-      let claudePath = '';
-      for await (const chunk of whichResult.stream()) {
-        if (chunk.type === 'stdout') {
-          claudePath = chunk.data.toString().trim();
-        }
-      }
+      const claudePath = whichResult.stdout.toString().trim();
 
       if (!claudePath) {
         console.log('❌ Claude CLI not found in PATH');

@@ -1,4 +1,4 @@
-# Модели: живой каталог, `/models` и `hive-models` (languages: [en](MODELS.md) • [zh](MODELS.zh.md) • [hi](MODELS.hi.md) • ru)
+# Модели: живой каталог, `/models` и `hive-manager models` (languages: [en](MODELS.md) • [zh](MODELS.zh.md) • [hi](MODELS.hi.md) • ru)
 
 Модель, выпущенная провайдером сегодня утром, бесполезна, если Hive Mind знает
 только тот список, с которым был опубликован. Эта страница описывает, как Hive
@@ -17,16 +17,16 @@ Mind узнаёт, что существует **прямо сейчас**, ка
 
 ```bash
 # Все инструменты, из кэша.
-hive-models
+hive-manager models
 
 # Только Codex.
-hive-models --tool codex
+hive-manager models --tool codex
 
 # Claude, с окнами контекста, ценами и происхождением, игнорируя кэш.
-hive-models --tool claude --details --refresh
+hive-manager models --tool claude --details --refresh
 
 # Машиночитаемый вывод.
-hive-models --json | jq '.tools.claude.liveOnly'
+hive-manager models --json | jq '.tools.claude.liveOnly'
 ```
 
 В Telegram тот же список — это `/models`, и он принимает те же аргументы в
@@ -49,8 +49,8 @@ Models for claude (default: opus)
 3 bundled and live · 2 hot loaded · 14 bundled only
 
 Bundled and live (3) — shipped with this installation and confirmed reachable now
-  * claude-opus-5 (opus, opus-5) [1M ctx · 128K out · $5/$25 per Mtok · reasoning · text+image+pdf · 2026-07-24]
-    claude-sonnet-5 (sonnet, sonnet-5)
+  * claude-opus-5-5 (opus, opus-5-5) [1M ctx · 128K out · $4/$20 per Mtok · reasoning · text+image+pdf]
+    claude-sonnet-5-5 (sonnet, sonnet-5-5)
     ...
 
 Hot loaded (2) — a live source has them, this installation does not ship them
@@ -145,7 +145,7 @@ Issue #2202 формулирует это как жёсткое ограниче
 Устаревший бинарник `claude` или `codex` — обычная причина, по которой имя
 совсем новой модели отвергается, поэтому команды, которые его запускают, сначала
 проверяют наличие новой версии: `/solve`, `/hive`, `/task`, `/fix` (через
-дочерний `/solve`), `hive-models` и `/models`.
+дочерний `/solve`), `hive-manager models` и `/models`.
 
 Проверка намеренно осторожна:
 

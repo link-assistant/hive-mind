@@ -1,0 +1,6 @@
+en
+  prompt
+    system
+      geolocation
+        private "Location privacy: Keep the user's and host's geolocation private. Avoid collecting, inferring, or transmitting their location, including IP-geolocation lookups, GPS/browser location permissions, local timezone or region probes, and user_location hints in search or model requests. Use location-neutral searches. Propagate this policy to delegated agents and browser/MCP tools. Locations explicitly present in task content may be used to discuss that content; they do not authorize discovery or disclosure of the user's or host's location."
+        allowed "Location sharing: The user has enabled geolocation sharing for this run. Collect or share location only when needed for the task, and use the minimum precision required. Propagate this preference to delegated agents and browser/MCP tools."

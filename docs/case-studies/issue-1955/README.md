@@ -111,7 +111,7 @@ fields.
 
 ```js
 const turnCompleted = (codexJsonState?.eventCounts?.['turn.completed'] || 0) > 0;
-const turnFailed   = (codexJsonState?.turnFailures?.length || 0) > 0;
+const turnFailed = (codexJsonState?.turnFailures?.length || 0) > 0;
 const sessionSucceeded = turnCompleted && !turnFailed;
 // …inside addEvents():
 if (type !== 'turn' && sessionSucceeded) {

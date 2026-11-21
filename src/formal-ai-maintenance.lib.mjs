@@ -25,9 +25,11 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2305
  */
 
+import fs from 'node:fs';
+
 import { updateAgenticClisWhenIdle } from './agentic-cli-updater.lib.mjs';
 import { startSidecarMaintenance } from './docker-sidecar.lib.mjs';
-import { reconcileFormalAiSidecar, stopFormalAiSidecar, withFormalAiSidecarLock } from './formal-ai-sidecar.lib.mjs';
+import { reconcileFormalAiSidecar, resolveFormalAiSidecarStatePath, stopFormalAiSidecar, withFormalAiSidecarLock } from './formal-ai-sidecar.lib.mjs';
 import { unloadIdleFormalAiSidecar } from './formal-ai-unload.lib.mjs';
 import { updateFormalAiSidecarWhenIdle } from './formal-ai-updater.lib.mjs';
 
@@ -95,6 +97,28 @@ export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log =
   return { idle, unload, formalAi, agenticClis, errors };
 };
 
+const skipStep = async () => null;
+
+/**
+ * Only the idle duties — stop a sidecar no task leases, unload an image unused
+ * past `HIVE_MIND_FORMAL_AI_UNLOAD_AFTER` — for `hive` and `solve` run without
+ * the bot (issue #3282). They launch Formal AI tasks too, so they offload it
+ * too; updating images and CLIs under their own workers stays the bot's job.
+ *
+ * A host where Formal AI never ran has no sidecar record and is skipped, so a
+ * Codex or Claude run never calls Docker for it.
+ *
+ * @returns {Promise<object|null>} the tick result, or null when skipped
+ */
+export const runFormalAiIdleDuties = async ({ env = process.env, fsImpl = fs, runTick = runFormalAiMaintenanceTick, ...options } = {}) => {
+  const ranHere = await fsImpl.promises.access(resolveFormalAiSidecarStatePath(env)).then(
+    () => true,
+    () => false
+  );
+  if (!ranHere) return null;
+  return runTick({ env, ...options, updateFormalAi: skipStep, updateClis: skipStep });
+};
+
 /**
  * Start the periodic maintenance timer.
  *
@@ -104,4 +128,4 @@ export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log =
  */
 export const startFormalAiMaintenance = ({ env = process.env, log = null, verbose = false, intervalMs = DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, runTick = runFormalAiMaintenanceTick } = {}) => startSidecarMaintenance({ runTick, logPrefix: 'formal-ai-maintenance', env, log, verbose, intervalMs, setIntervalImpl, clearIntervalImpl });
 
-export default { DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, runFormalAiMaintenanceTick, startFormalAiMaintenance, stopIdleFormalAiSidecar };
+export default { DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, runFormalAiIdleDuties, runFormalAiMaintenanceTick, startFormalAiMaintenance, stopIdleFormalAiSidecar };

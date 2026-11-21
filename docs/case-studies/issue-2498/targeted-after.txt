@@ -1,0 +1,39 @@
+✔ cgroup v2: limit, usage, peak and OOM counters are read (23.85062ms)
+✔ cgroup v2: the process own cgroup path is preferred, and "max" means no limit of its own (1.414589ms)
+✔ cgroup v1 fallback, and nothing at all outside Linux or without a memory controller (0.671724ms)
+✔ the snapshot marker carries the cgroup data, and old markers still parse (11.153595ms)
+✔ the log says how many processes the OOM killer took in this container (3.594134ms)
+✔ the kill diagnosis quotes the last in-container cgroup reading as evidence (84.022723ms)
+✔ the real log tail is recognised as a deliberate stop (expired authentication) (7.380006ms)
+✔ a flag-derived "memory exhaustion" from `$ --status` is not presented as separate evidence (2.764617ms)
+✔ the Telegram sections do not call the earlier OOM event the cause of the stop (352.104669ms)
+✔ the pull-request notice leads with the real reason for the stop (4.745371ms)
+Session bebf2e57-01e1-4b47-af4a-06290e562446 has finished. Sending notification to chat 4242
+[telegram-send] s1 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1746 bytes=1798 text="❌ *Work session failed (exit code: 1)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `bebf2e57-01e1-4b47-af4a-06290e562446`\n🔒 Isolation: `docker`\n\n⚠️ A container OOM event affected a child process at 2026-10-04T19:32:49.507Z; the work process continued and later failed with exit code 1.\n\nℹ️ The work did not fai"… (+1446 chars)
+[telegram-send] s1 safeEditMessageText ✓ delivered
+✔ the incident end to end: one corrected PR notice, no recovery, no OOM verdict (1347.546457ms)
+✔ announceKillOnPullRequest forwards the deliberate stop to the notice (11.747744ms)
+✔ the default delay is a random 30–90 seconds (15.806964ms)
+✔ the delay is configurable by flag or environment, and 0 turns it off (0.544947ms)
+✔ parsed CLI defaults allow the environment delay and explicit flags override it (116.106941ms)
+✔ non-finite and overflowing timer delays fall back to the default (0.58965ms)
+✔ a recovery session starts only after its random delay (3.26468ms)
+✔ sessions killed by one OOM event are not restarted at the same moment (1.124096ms)
+✔ a delay of 0 starts the recovery immediately, and a refused plan never waits (3.365869ms)
+✔ an in-process resume after a tool kill waits its random delay too, and says so (11.546979ms)
+✔ a stop requested during the recovery delay cancels both launch paths (0.925677ms)
+✔ status and list preserve the watcher counters; missing and malformed counters remain unknown (8.318738ms)
+✔ links-notation counters come from the cgroupMemory block, not recoveryHistory (16.58117ms)
+✔ the monitor uses counters without OOMKilled, while footer and liveness still win (7.854832ms)
+✔ watcher counters reach diagnostics even without a final solve resource snapshot (3.87572ms)
+✔ a watcher sample missing the final increment does not erase a solve OOM observation (2.676683ms)
+✔ a prior container OOM does not explain SIGTERM or a runtime self-abort (2.024948ms)
+✔ the monitor cgroup and unrelated kernel victims cannot attribute a task kill (1.925582ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3087.713699

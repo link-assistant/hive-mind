@@ -76,7 +76,7 @@ await test('buildFormalAiClientEnv for the agent client does not change where gh
     assert.ok(!notes.some(note => note.startsWith('XDG_CONFIG_HOME')));
     // `gh api user` with that env succeeds.
     const gh = createFakeGh();
-    await gh.run('gh', ['api', 'user'], { env: toolEnv });
+    await gh.run('gh', ['api', 'user'], { env: toolEnv }); // github-retry-ok: fake gh in a temp PATH
   } finally {
     await rm(home, { recursive: true, force: true });
   }
@@ -85,10 +85,11 @@ await test('buildFormalAiClientEnv for the agent client does not change where gh
 await test('the Scala env (XDG_CONFIG_HOME relocated) is unauthenticated without the fix, authenticated with it', async () => {
   const gh = createFakeGh();
   const scalaEnv = { ...operatorEnv, XDG_CONFIG_HOME: '/tmp/formal-ai-home/agent-x/.config' };
+  // github-retry-ok: fake gh in a temp PATH
   await assert.rejects(gh.run('gh', ['issue', 'view'], { env: scalaEnv }), error => /gh auth login/.test(error.stderr));
   const ghEnv = await resolveGhAuthEnv({ env: operatorEnv, run: gh.run });
   assert.deepEqual(ghEnv, { GH_CONFIG_DIR: '/home/box/.config/gh', GH_TOKEN: TOKEN });
-  await gh.run('gh', ['api', 'user'], { env: { ...scalaEnv, ...ghEnv } });
+  await gh.run('gh', ['api', 'user'], { env: { ...scalaEnv, ...ghEnv } }); // github-retry-ok: fake gh in a temp PATH
 });
 
 await test('an existing GH_TOKEN is kept, and GH_CONFIG_DIR wins over XDG_CONFIG_HOME', async () => {

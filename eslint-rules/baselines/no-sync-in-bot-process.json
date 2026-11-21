@@ -1,0 +1,30 @@
+{
+  "src/agent-config-audit.lib.mjs": {
+    "count": 9,
+    "reason": "runAgentConfigAudit runs only from solve.mjs and hive.mjs at task start; the bot reaches this module through imports but never calls it from a handler."
+  },
+  "src/cleanup.os.lib.mjs": {
+    "count": 17,
+    "reason": "Filesystem sweeps of the hive-cleanup CLI command; the bot only uses the async getActiveTasks/listSessionTasks helpers of this module."
+  },
+  "src/container-resource-limits.lib.mjs": {
+    "count": 1,
+    "reason": "A single statfs syscall on the host disk, answered from kernel memory without blocking I/O."
+  },
+  "src/fix.report-dependencies.lib.mjs": {
+    "count": 1,
+    "reason": "yargs parseSync parses an argv array in memory and does no I/O."
+  },
+  "src/router-auth-guard.lib.mjs": {
+    "count": 4,
+    "reason": "Synchronous Router admission and its runtime guard execute in solve, not the bot; nonblocking no-follow opens and bounded regular-file reads reject FIFOs and oversized credential surfaces before command creation."
+  },
+  "src/solve.resource-diagnostics.lib.mjs": {
+    "count": 16,
+    "reason": "procfs, cgroupfs and statfs reads that the kernel serves from memory (no disk or network wait), used by the heartbeat and the solve process."
+  },
+  "src/system-cleanup-estimates.lib.mjs": {
+    "count": 3,
+    "reason": "Disk-usage estimates for the hive-cleanup CLI path of cleanup.os; never called from a bot handler."
+  }
+}

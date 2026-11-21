@@ -1,0 +1,46 @@
+
+Final result message.
+
+```typescript theme={null}
+type SDKResultMessage =
+  | {
+      type: "result";
+      subtype: "success";
+      uuid: UUID;
+      session_id: string;
+      duration_ms: number;
+      duration_api_ms: number;
+      is_error: boolean;
+      api_error_status?: number | null;
+      num_turns: number;
+      result: string;
+      stop_reason: string | null;
+      ttft_ms?: number;
+      ttft_stream_ms?: number;
+      user_message_uuid?: string;
+      user_message_uuids?: string[];
+      resume_reason?: string;
+      local_command?: string;
+      request_sent_wall_ms?: number;
+      first_content_frame_ms?: number;
+      first_stream_post_ms?: number;
+      first_stream_post_ack_ms?: number;
+      first_stream_post_queue_wait_ms?: number;
+      first_stream_post_queued_behind?: "durable_post" | "ephemeral_post" | "retry_backoff" | "hold" | "none";
+      first_stream_post_wall_ms?: number;
+      first_text_post_ms?: number;
+      first_text_post_queue_wait_ms?: number;
+      first_text_post_queued_behind?: "durable_post" | "ephemeral_post" | "retry_backoff" | "hold" | "none";
+      first_text_post_wall_ms?: number;
+      total_cost_usd: number;
+      usage: NonNullableUsage;
+      modelUsage: { [modelName: string]: ModelUsage };
+      permission_denials: SDKPermissionDenial[];
+      queued_turn_count?: number;
+      structured_output?: unknown;
+      deferred_tool_use?: { id: string; name: string; input: Record<string, unknown> };
+      terminal_reason?: TerminalReason;
+      result_index?: number;
+      fast_mode_state?: FastModeState;
+      fast_mode_disabled_reason?: FastModeDisabledReason;
+      origin?: SDKMessageOrigin;

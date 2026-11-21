@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  */
 
 import assert from 'assert/strict';
 import path from 'path';
+import { withGeolocationPolicy } from '../src/geolocation-policy.lib.mjs';
 import { buildStartAgentArgs, getBundledStartAgentCandidate, resolveStartAgentCommand } from '../src/task.agent-command.lib.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseTaskIssueUrl, TASK_SPLIT_MARKER_START } from '../src/task.split.lib.mjs';
 
@@ -112,7 +113,7 @@ await test('start-agent args enforce read-only planning mode', () => {
     verbose: true,
   });
 
-  assert.deepEqual(args.slice(0, 13), ['--tool', 'codex', '--working-directory', '/repo', '--prompt', 'Split issue', '--system-prompt', 'Return JSON', '--model', 'gpt-5.5', '--isolation', 'screen', '--read-only']);
+  assert.deepEqual(args.slice(0, 13), ['--tool', 'codex', '--working-directory', '/repo', '--prompt', 'Split issue', '--system-prompt', withGeolocationPolicy('Return JSON'), '--model', 'gpt-5.5', '--isolation', 'screen', '--read-only']);
   assert.equal(args.includes('--screen-name'), true);
   assert.equal(args.includes('task-split-test'), true);
   assert.equal(args.includes('--verbose'), true);

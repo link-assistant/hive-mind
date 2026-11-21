@@ -76,6 +76,9 @@ export const createDevelopmentLogFinalizer = ({ collect, getParams, register = t
   };
 
   finalize.getCollectedSessionKeys = () => [...collections.keys()];
+  // The clone the development log is committed in, for failure paths that
+  // publish the log to the pull request branch without a repository path.
+  finalize.getRepositoryPath = () => getParams()?.repositoryPath || null;
   // Publish the finalizer so restart iterations (watch mode,
   // auto-restart-until-mergeable, keep-working, escalation, auto-ensure) and
   // every exit path can collect the session they just finished.
@@ -94,6 +97,21 @@ export const setActiveDevelopmentLogFinalizer = finalizer => {
 };
 
 export const getActiveDevelopmentLogFinalizer = () => activeFinalizer;
+
+/**
+ * Repository path of the active session, or null. Several failure paths call
+ * `attachLogToGitHub` without `tempDir`; this lets them still publish the log
+ * to the pull request branch when no gist can be created (the workflow
+ * `GITHUB_TOKEN` cannot create gists).
+ * @returns {string|null}
+ */
+export const getActiveDevelopmentLogRepositoryPath = () => {
+  try {
+    return activeFinalizer?.getRepositoryPath?.() || null;
+  } catch {
+    return null;
+  }
+};
 
 export const finalizeActiveDevelopmentLog = async (options = {}) => {
   if (!activeFinalizer) return { skipped: 'no-active-finalizer' };

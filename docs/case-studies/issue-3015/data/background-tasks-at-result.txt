@@ -1,0 +1,18 @@
+== solve-pr-2824-sanitized.log.txt
+   line 55775: result subtype=success is_error=false; running background tasks: bsjy27k7g (Wait for final CI run), b4ldmzlfk (Wait for CI to start)
+   line 55780: solver SIGTERM; running background tasks: bsjy27k7g (Wait for final CI run), b4ldmzlfk (Wait for CI to start)
+== start-command-pr-2853.log.txt
+   line 18786: result subtype=success is_error=false; running background tasks: bq0splpj9 (Wait for full suite and show summary)
+   line 18791: solver SIGTERM; running background tasks: bq0splpj9 (Wait for full suite and show summary)
+   line 18803: task_notification bq0splpj9 stopped (Wait for full suite and show summary)
+== start-command-pr-2894.log.txt
+   line 79611: result subtype=success is_error=false; running background tasks: bxoo6kjks (Wait for npm test to finish)
+   line 79616: solver SIGTERM; running background tasks: bxoo6kjks (Wait for npm test to finish)
+   line 79628: task_notification bxoo6kjks stopped (Wait for npm test to finish)
+== start-command-pr-2918.log.txt
+   line 80381: result subtype=success is_error=false; running background tasks: bs0yv2yzy (Wait for CI poller output)
+   line 80386: solver SIGTERM; running background tasks: bs0yv2yzy (Wait for CI poller output)
+== solve-pr-2802-sanitized.log.txt
+   line 28955: result subtype=success is_error=false; running background tasks: bzyssdyux (Wait for CI runs on latest commit)
+   line 28961: solver SIGTERM; running background tasks: bzyssdyux (Wait for CI runs on latest commit)
+   line 28973: task_notification bzyssdyux stopped (Wait for CI runs on latest commit)

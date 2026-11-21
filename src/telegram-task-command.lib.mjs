@@ -5,14 +5,23 @@ import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { createUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
-import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
+import { resolveFixDependencyReporting } from './fix.report-dependencies.lib.mjs';
+import { FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES, FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { escapeMarkdown, escapeMarkdownKeepingCodeSpans } from './telegram-markdown.lib.mjs';
+import { formatInputLocationMarkdown } from './input-diagnostics.lib.mjs';
 import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+
+/** Issue #2326: show the offending URL part under a caret in a monospace block. */
+export function formatTaskUrlError(parsedIssue, url) {
+  const { reason, parsed } = parsedIssue;
+  if (!reason || !parsed?.inputLocation) return `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`;
+  return `❌ ${escapeMarkdown(reason)}\n\n${formatInputLocationMarkdown(url, parsed.inputLocation)}${parsed.suggestion ? `\n\n💡 Did you mean \`${parsed.suggestion}\`?` : ''}`;
+}
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
 
@@ -117,6 +126,28 @@ export function buildTaskRepositoryCommandArgs(text) {
   };
 }
 
+/** Whether `/task --update-all-dependencies` merges open Dependabot pull requests first (issue #3413). */
+export function resolveMergeDependabotPrs(args = []) {
+  const last = [...args].reverse().find(arg => arg === '--merge-dependabot-prs' || arg === '--no-merge-dependabot-prs');
+  return last !== '--no-merge-dependabot-prs';
+}
+
+/**
+ * `--dependabot-wait-timeout <minutes>` of `/task --update-all-dependencies`
+ * in milliseconds (issue #4061); the last valid value wins, the default
+ * otherwise.
+ */
+export function resolveDependabotWaitTimeoutMs(args = []) {
+  let minutes = FIX_DEPENDABOT_WAIT_DEFAULT_TIMEOUT_MINUTES;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg !== '--dependabot-wait-timeout' && !arg.startsWith('--dependabot-wait-timeout=')) continue;
+    const value = String(arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : (args[index + 1] ?? '')).trim();
+    if (/^\d+(?:\.\d+)?$/.test(value)) minutes = Number(value);
+  }
+  return Math.round(minutes * 60 * 1000);
+}
+
 /** @deprecated Use {@link buildTaskRepositoryCommandArgs}; kept for callers written before /task gained a second generated-issue mode. */
 export const buildTaskCiCdCommandArgs = buildTaskRepositoryCommandArgs;
 
@@ -151,7 +182,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null, detachHandler = handler => handler } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -213,11 +244,16 @@ export function registerTaskCommands(bot, options) {
       });
 
       try {
+        // Issue #3413: like /fix, merge the open Dependabot pull requests first
+        // unless the last of --merge-dependabot-prs/--no-merge-dependabot-prs opts out.
+        const reportingOptions = generatedIssueMode.mode === FIX_MODE_UPDATE_ALL_DEPENDENCIES ? { reportDependenciesIssues: resolveFixDependencyReporting(built.args), mergeDependabotPrs: resolveMergeDependabotPrs(built.args), dependabotWaitTimeoutMs: resolveDependabotWaitTimeoutMs(built.args) } : {};
         const createdIssue = await createIssueFn({
           repository: built.repository,
+          ...reportingOptions,
           log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
         });
-        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${generatedIssueMode.followUp} to continue ${generatedIssueMode.followUpDescription}.`);
+        const followUp = `${generatedIssueMode.followUp}${reportingOptions.reportDependenciesIssues === false ? ' --no-report-dependencies-issues' : ''}`;
+        await editTelegramMessage(ctx, statusMessage, `${createdIssue.reused ? 'Reused open GitHub issue' : 'Created GitHub issue'}:\n${createdIssue.url}\n\nReply to this message with ${followUp} to continue ${generatedIssueMode.followUpDescription}.`);
       } catch (error) {
         await editTelegramMessage(ctx, statusMessage, `Error creating ${generatedIssueMode.context} issue:\n${error.message || String(error)}`);
       }
@@ -264,7 +300,7 @@ export function registerTaskCommands(bot, options) {
 
     const parsedIssue = parseTaskIssueUrl(built.issueUrl);
     if (!parsedIssue.valid) {
-      await safeReply(ctx, `❌ ${escapeMarkdown(parsedIssue.error || 'Invalid GitHub issue URL')}`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, formatTaskUrlError(parsedIssue, built.issueUrl), { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
@@ -277,7 +313,7 @@ export function registerTaskCommands(bot, options) {
     try {
       await parseArgsWithYargs(filteredArgs, getLinoYargsFactory(), createTaskYargsConfig);
     } catch (error) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdownKeepingCodeSpans(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
@@ -301,7 +337,7 @@ export function registerTaskCommands(bot, options) {
 
   bot.command(
     TASK_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
-    handleTaskCommand
+    detachHandler(handleTaskCommand)
   );
 
   return { handleTaskCommand, TASK_COMMAND_NAMES };

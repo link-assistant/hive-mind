@@ -21,25 +21,25 @@
 
 Hive Mind एक **सामान्यवादी AI** (मिनी-AGI) है जो कार्यों की एक विस्तृत श्रृंखला पर काम करने में सक्षम है - केवल प्रोग्रामिंग तक सीमित नहीं। किसी रिपॉजिटरी में फ़ाइलों के साथ किया जाने वाला लगभग कोई भी कार्य स्वचालित किया जा सकता है।
 
-| विशेषता                            | आपके लिए इसका अर्थ                                                                                                                                                                  |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **बिना निगरानी के**                | sudo एक्सेस के साथ पूर्ण स्वायत्त मोड। AI को एक वास्तविक प्रोग्रामर की तरह रचनात्मक स्वतंत्रता है।                                                                                  |
-| **क्लाउड आइसोलेशन**                | समर्पित VMs या Docker पर चलता है। टूट जाने पर पुनर्स्थापित करना आसान।                                                                                                               |
-| **पूर्ण इंटरनेट + Sudo**           | AI पैकेज इंस्टॉल कर सकता है, दस्तावेज़ प्राप्त कर सकता है, और आवश्यकतानुसार सिस्टम को कॉन्फ़िगर कर सकता है।                                                                         |
-| **पूर्व-स्थापित टूलचेन**           | 25GB+ तैयार: 10 भाषा रनटाइम, 2 थ्योरम प्रूवर, बिल्ड टूल्स। और इंस्टॉल कर सकते हैं।                                                                                                  |
-| **टोकन दक्षता**                    | नियमित कार्य कोड में स्वचालित, ताकि AI टोकन रचनात्मक समस्या-समाधान पर केंद्रित रहें।                                                                                                |
-| **समय की स्वतंत्रता**              | जो काम मनुष्यों को 2-8 घंटे लगता है, AI प्रत्येक कार्य सत्र में 10-25 मिनट में पूरा करता है। रिपॉजिटरी में कार्यों का बड़े पैमाने पर निष्पादन संभव है। "सोते समय कोड लिखा जाता है।" |
-| **ऑर्केस्ट्रेशन के साथ स्केल**     | समानांतर वर्कर डेवलपर्स की एक टीम की तरह महसूस होते हैं। Claude MAX और ChatGPT Pro (प्रत्येक $200) को जोड़कर दो स्वतंत्र लगभग असीमित बजट मिलते हैं।                                 |
-| **मानव नियंत्रण**                  | AI ड्राफ्ट PR बनाता है - आप तय करते हैं क्या मर्ज होगा। जहाँ मायने रखता है वहाँ गुणवत्ता द्वार।                                                                                     |
-| **किसी भी डिवाइस से प्रोग्रामिंग** | Telegram बॉट के माध्यम से `/solve` और `/hive` से किसी भी डिवाइस से AI प्रबंधित करें। कोई PC, IDE या लैपटॉप की आवश्यकता नहीं।                                                        |
-| **100% ओपन सोर्स**                 | Unlicense (पब्लिक डोमेन)। पूर्ण पारदर्शिता, कोई वेंडर लॉक-इन नहीं।                                                                                                                  |
+| विशेषता                         | आपके लिए इसका अर्थ                                                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **बिना निगरानी के**             | sudo एक्सेस के साथ पूर्ण स्वायत्त मोड। AI को एक वास्तविक प्रोग्रामर की तरह रचनात्मक स्वतंत्रता है।                                                                   |
+| **क्लाउड आइसोलेशन**              | समर्पित VMs या Docker पर चलता है। टूट जाने पर पुनर्स्थापित करना आसान।                                                                                        |
+| **पूर्ण इंटरनेट + Sudo**           | AI पैकेज इंस्टॉल कर सकता है, दस्तावेज़ प्राप्त कर सकता है, और आवश्यकतानुसार सिस्टम को कॉन्फ़िगर कर सकता है।                                                            |
+| **पूर्व-स्थापित टूलचेन**            | 25GB+ तैयार: 10 भाषा रनटाइम, 2 थ्योरम प्रूवर, बिल्ड टूल्स। और इंस्टॉल कर सकते हैं।                                                                                |
+| **टोकन दक्षता**                 | नियमित कार्य कोड में स्वचालित, ताकि AI टोकन रचनात्मक समस्या-समाधान पर केंद्रित रहें।                                                                             |
+| **समय की स्वतंत्रता**             | जो काम मनुष्यों को 2-8 घंटे लगता है, AI प्रत्येक कार्य सत्र में 10-25 मिनट में पूरा करता है। रिपॉजिटरी में कार्यों का बड़े पैमाने पर निष्पादन संभव है। "सोते समय कोड लिखा जाता है।" |
+| **ऑर्केस्ट्रेशन के साथ स्केल**         | समानांतर वर्कर डेवलपर्स की एक टीम की तरह महसूस होते हैं। Claude MAX और ChatGPT Pro (प्रत्येक $200) को जोड़कर दो स्वतंत्र लगभग असीमित बजट मिलते हैं।                     |
+| **मानव नियंत्रण**                | AI ड्राफ्ट PR बनाता है - आप तय करते हैं क्या मर्ज होगा। जहाँ मायने रखता है वहाँ गुणवत्ता द्वार।                                                                      |
+| **किसी भी डिवाइस से प्रोग्रामिंग** | Telegram बॉट के माध्यम से `/solve` और `/hive` से किसी भी डिवाइस से AI प्रबंधित करें। कोई PC, IDE या लैपटॉप की आवश्यकता नहीं।                                      |
+| **100% ओपन सोर्स**              | Unlicense (पब्लिक डोमेन)। पूर्ण पारदर्शिता, कोई वेंडर लॉक-इन नहीं।                                                                                            |
 
 **लागत**: Hive Mind दो $200/माह सदस्यताओं को पूर्ण-फीचर वाले लगभग "unlimited" विकल्पों के रूप में समर्थन देता है:
 
-| सदस्यता                                                          | `--tool` के साथ     | डिफ़ॉल्ट मॉडल | किसके लिए बेहतर है                                |
-| ---------------------------------------------------------------- | ------------------- | ------------- | ------------------------------------------------- |
-| **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Opus          | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग      |
-| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-6-sol`   | भरोसेमंद deterministic refactors और तेज iteration |
+| सदस्यता                                                       | `--tool` के साथ    | डिफ़ॉल्ट मॉडल | किसके लिए बेहतर है                                |
+| ------------------------------------------------------------ | ----------------- | ----------- | ---------------------------------------------- |
+| **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Opus        | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग        |
+| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)               | `codex`           | `gpt-6-sol` | भरोसेमंद deterministic refactors और तेज iteration |
 
 दोनों टूल एक ही hive में साथ उपयोग किए जा सकते हैं। Worker अलग-अलग टूल समानांतर चला सकते हैं, और `/codex` या `/solve --tool codex` कार्यों को ChatGPT Pro पर भेजता है जबकि डिफ़ॉल्ट Claude MAX पर जाता है। किसी एक को चुनना आवश्यक नहीं है: किसी भी एक सदस्यता से संचालन संभव है, और दोनों का उपयोग per-tool/model concurrency mode (#1474) खोलता है।
 
@@ -150,94 +150,28 @@ sudo docker run hello-world
 
 ### Docker का उपयोग करके
 
-सुरक्षित स्थानीय इंस्टॉलेशन के लिए Docker का उपयोग करके Hive Mind चलाएँ - कोई मैन्युअल सेटअप की आवश्यकता नहीं:
-
-**नोट:** Docker स्थानीय इंस्टॉलेशन के लिए अधिक सुरक्षित है और इसका उपयोग सर्वर या Kubernetes क्लस्टर पर कई अलग-थलग इंस्टेंस इंस्टॉल करने के लिए किया जा सकता है। Kubernetes डिप्लॉयमेंट के लिए, नीचे [Helm चार्ट इंस्टॉलेशन](#helm-installation-kubernetes-experimental) अनुभाग देखें।
+Docker वाले होस्ट पर [Hive Mind Manager](./docs/deployment/hive-manager.md) चलाएँ। पैकेज पहले से इंस्टॉल है तो डिप्लॉय कमांड से शुरू करें।
 
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
-
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
-gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
-claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# `--think` न देने पर Hive Mind इसे `--think off` मानता है।
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
-codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
-exit
-
-# Attach to main bash process
-docker attach hive-mind
-
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
-docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
-docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
-
-# Fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
-chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` से बंद करें); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
+दिखाए गए लिंक अपनी मशीन के ब्राउज़र में खोलें। Claude का प्राधिकरण कोड चल रही कमांड में पेस्ट करें। Codex का कोड उसके ब्राउज़र पेज पर और GitHub का कोड [GitHub डिवाइस पेज](https://github.com/login/device) पर दर्ज करें। जिन सेवाओं का उपयोग करेंगे उनमें साइन इन करें। [रिमोट डिप्लॉयमेंट](./docs/deployment/hive-manager.md#profiles-and-remote-use) और [मैन्युअल Docker और लॉगिन कमांड](./docs/deployment/hive-manager-manual.md) देखें।
+
+```bash
+# इंस्टेंस में कमांड चलाएँ
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
+
+# निजी एनवायरनमेंट फ़ाइल के साथ Telegram बॉट शुरू करें
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
+```
+
+`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` केवल सुधार बंद करता है; शेष ऑडिट निष्कर्ष कार्य को रोकते हैं); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
 
 **Docker के लाभ:**
 
@@ -251,40 +185,11 @@ docker run -dit \
 
 #### Docker कंटेनर बंद करना और हटाना
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Helm इंस्टॉलेशन (Kubernetes) (प्रयोगात्मक)
@@ -343,13 +248,13 @@ review --repo owner/repo --pr 456
 
 ## 📋 मुख्य घटक
 
-| स्क्रिप्ट                                  | उद्देश्य                    | मुख्य विशेषताएँ                                                  |
-| ------------------------------------------ | --------------------------- | ---------------------------------------------------------------- |
-| `solve.mjs` (स्थिर)                        | GitHub इश्यू सॉल्वर         | ऑटो फोर्क, ब्रांच निर्माण, PR जनरेशन, सत्र रिज्यूम, फोर्क सपोर्ट |
-| `hive.mjs` (स्थिर)                         | AI ऑर्केस्ट्रेशन और निगरानी | मल्टी-रेपो निगरानी, समानांतर वर्कर, इश्यू कतार प्रबंधन           |
-| `review.mjs` (अल्फा)                       | कोड समीक्षा स्वचालन         | सहयोगी AI समीक्षाएँ, स्वचालित प्रतिक्रिया                        |
-| `reviewers-hive.mjs` (अल्फा / प्रयोगात्मक) | समीक्षा टीम प्रबंधन         | मल्टी-एजेंट सर्वसम्मति, समीक्षक असाइनमेंट                        |
-| `telegram-bot.mjs` (स्थिर)                 | Telegram बॉट इंटरफेस        | रिमोट कमांड निष्पादन, ग्रुप चैट सपोर्ट, डायग्नोस्टिक टूल         |
+| स्क्रिप्ट                                  | उद्देश्य                  | मुख्य विशेषताएँ                                            |
+| --------------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `solve.mjs` (स्थिर)                      | GitHub इश्यू सॉल्वर       | ऑटो फोर्क, ब्रांच निर्माण, PR जनरेशन, सत्र रिज्यूम, फोर्क सपोर्ट |
+| `hive.mjs` (स्थिर)                       | AI ऑर्केस्ट्रेशन और निगरानी | मल्टी-रेपो निगरानी, समानांतर वर्कर, इश्यू कतार प्रबंधन         |
+| `review.mjs` (अल्फा)                     | कोड समीक्षा स्वचालन      | सहयोगी AI समीक्षाएँ, स्वचालित प्रतिक्रिया                   |
+| `reviewers-hive.mjs` (अल्फा / प्रयोगात्मक) | समीक्षा टीम प्रबंधन       | मल्टी-एजेंट सर्वसम्मति, समीक्षक असाइनमेंट                      |
+| `telegram-bot.mjs` (स्थिर)               | Telegram बॉट इंटरफेस     | रिमोट कमांड निष्पादन, ग्रुप चैट सपोर्ट, डायग्नोस्टिक टूल        |
 
 ## 🔧 solve विकल्प
 
@@ -357,25 +262,27 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले), एक संयुक्त issue बनाता है जिसमें अधिकतम 100 issues GitHub native sub-issues के रूप में जुड़ते हैं (GitHub की प्रति parent सीमा) और बाकी समेत हर issue आवश्यक closing reference के रूप में सूचीबद्ध होता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। जो issues अब भी किसी पुराने, बंद संयुक्त issue से जुड़े हैं, उन्हें नए संयुक्त issue में ले जाया जाता है, और `--auto-merge` के साथ pull request तभी merge होता है जब उसका description सूचीबद्ध हर issue को बंद करता है। कोई open issue न होने पर CLI बिना कुछ बनाए सफलतापूर्वक समाप्त होता है; Telegram बिना work session शुरू किए सीधे no-work परिणाम बताता है। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
+> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले), एक संयुक्त issue बनाता है जिसमें अधिकतम 100 issues GitHub native sub-issues के रूप में जुड़ते हैं (GitHub की प्रति parent सीमा) और बाकी समेत हर issue आवश्यक closing reference के रूप में सूचीबद्ध होता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। जो issues अब भी किसी पुराने, बंद संयुक्त issue से जुड़े हैं, उन्हें नए संयुक्त issue में ले जाया जाता है, और `--auto-merge` के साथ pull request तभी merge होता है जब उसका description सूचीबद्ध हर issue को बंद करता है। कोई open issue न होने पर CLI बिना कुछ बनाए सफलतापूर्वक समाप्त होता है; Telegram बिना work session शुरू किए सीधे no-work परिणाम बताता है। ठीक एक open issue होने पर कोई संयुक्त issue नहीं बनता: वही issue सीधे हल किया जाता है, मानो उसका URL दिया गया हो (Telegram भी issue URL दिखाता और चलाता है)। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
+
+> **निकास कोड**: जब रन ने प्रगति की (कमिट, फ़ाइल परिवर्तन या टिप्पणी) या उसका pull request मर्ज हो गया, तो `solve` 0 के साथ निकलता है, और जब वह बिना परिवर्तन के समाप्त हुआ तो 5 के साथ: कारण pull request टिप्पणी में बताया जाता है, ड्राफ़्ट pull request ड्राफ़्ट ही रहता है और 🎉 सफलता नहीं बताई जाती ([#3211](https://github.com/link-assistant/hive-mind/issues/3211))। कोई अन्य गैर-शून्य कोड विफलता है। `hive` और Telegram बॉट निकास कोड 5 को विफलता नहीं, बल्कि ⚠️ बिना परिवर्तन के समाप्त के रूप में दिखाते हैं; जो स्क्रिप्ट `solve` को सीधे चलाती हैं और हर गैर-शून्य कोड को त्रुटि मानती हैं, उन्हें बिना परिवर्तन वाले रन की अपेक्षा होने पर 5 स्वीकार करना चाहिए, या पुराना निकास कोड रखने के लिए `HIVE_MIND_SOLVE_NO_CHANGES_EXIT_CODE=0` सेट करना चाहिए।
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प          | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट   |
-| --------------- | --------- | --------------------------------------------------------- | ---------- |
-| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus       |
-| `--think`       |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off        |
-| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                                  | (डिफ़ॉल्ट) |
+| विकल्प           | संक्षिप्त | विवरण                                                   | डिफ़ॉल्ट   |
+| --------------- | ------ | ------------------------------------------------------- | -------- |
+| `--model`       | `-m`   | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)            | opus     |
+| `--think`       |        | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off      |
+| `--base-branch` | `-b`   | PR के लिए टार्गेट ब्रांच                                     | (डिफ़ॉल्ट) |
 
 **अन्य उपयोगी विकल्प:**
 
-| विकल्प                   | संक्षिप्त | विवरण                                                       | डिफ़ॉल्ट |
-| ------------------------ | --------- | ----------------------------------------------------------- | -------- |
-| `--tool`                 |           | AI टूल (claude, opencode, codex, agent, qwen, gemini)       | claude   |
-| `--verbose`              | `-v`      | विस्तृत लॉगिंग सक्षम करें                                   | false    |
-| `--attach-logs`          |           | PR में लॉग संलग्न करें (⚠️ संवेदनशील डेटा उजागर हो सकता है) | false    |
-| `--auto-init-repository` |           | खाली रेपो स्वतः-आरंभ करें (README.md बनाता है)              | false    |
-| `--help`                 | `-h`      | सभी उपलब्ध विकल्प दिखाएँ                                    | -        |
+| विकल्प                    | संक्षिप्त | विवरण                                                | डिफ़ॉल्ट |
+| ------------------------ | ------ | ---------------------------------------------------- | ------ |
+| `--tool`                 |        | AI टूल (claude, opencode, codex, agent, qwen, gemini) | claude |
+| `--verbose`              | `-v`   | विस्तृत लॉगिंग सक्षम करें                                  | false  |
+| `--attach-logs`          |        | PR में लॉग संलग्न करें (⚠️ संवेदनशील डेटा उजागर हो सकता है)    | false  |
+| `--auto-init-repository` |        | खाली रेपो स्वतः-आरंभ करें (README.md बनाता है)             | false  |
+| `--help`                 | `-h`   | सभी उपलब्ध विकल्प दिखाएँ                                | -      |
 
 > **📖 पूर्ण विकल्प सूची**: फोर्किंग, ऑटो-कंटिन्यू, वॉच मोड और प्रयोगात्मक विशेषताओं सहित सभी उपलब्ध विकल्पों के लिए [docs/CONFIGURATION.hi.md](./docs/CONFIGURATION.hi.md#solve-options) देखें।
 
@@ -387,25 +294,29 @@ hive <github-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प         | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट |
-| -------------- | --------- | --------------------------------------------------------- | -------- |
-| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus     |
-| `--think`      |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off      |
-| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)                 | false    |
-| `--once`       |           | एकल रन (लगातार निगरानी न करें)                            | false    |
+| विकल्प          | संक्षिप्त | विवरण                                                   | डिफ़ॉल्ट |
+| -------------- | ------ | ------------------------------------------------------- | ------ |
+| `--model`      | `-m`   | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)            | opus   |
+| `--think`      |        | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off    |
+| `--all-issues` | `-a`   | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)                       | false  |
+| `--once`       |        | एकल रन (लगातार निगरानी न करें)                            | false  |
 
 **अन्य उपयोगी विकल्प:**
 
-| विकल्प                   | संक्षिप्त | विवरण                                                       | डिफ़ॉल्ट |
-| ------------------------ | --------- | ----------------------------------------------------------- | -------- |
-| `--tool`                 |           | AI टूल (claude, opencode, codex, agent, qwen, gemini)       | claude   |
-| `--concurrency`          | `-c`      | समानांतर वर्कर की संख्या                                    | 2        |
-| `--skip-issues-with-prs` | `-s`      | मौजूदा PR वाले इश्यू छोड़ें                                 | false    |
-| `--verbose`              | `-v`      | विस्तृत लॉगिंग सक्षम करें                                   | false    |
-| `--attach-logs`          |           | PR में लॉग संलग्न करें (⚠️ संवेदनशील डेटा उजागर हो सकता है) | false    |
-| `--help`                 | `-h`      | सभी उपलब्ध विकल्प दिखाएँ                                    | -        |
+| विकल्प                    | संक्षिप्त | विवरण                                                | डिफ़ॉल्ट |
+| ------------------------ | ------ | ---------------------------------------------------- | ------ |
+| `--tool`                 |        | AI टूल (claude, opencode, codex, agent, qwen, gemini) | claude |
+| `--concurrency`          | `-c`   | समानांतर वर्कर की संख्या                                 | 2      |
+| `--skip-issues-with-prs` | `-s`   | मौजूदा PR वाले इश्यू छोड़ें                                 | false  |
+| `--verbose`              | `-v`   | विस्तृत लॉगिंग सक्षम करें                                  | false  |
+| `--attach-logs`          |        | PR में लॉग संलग्न करें (⚠️ संवेदनशील डेटा उजागर हो सकता है)    | false  |
+| `--help`                 | `-h`   | सभी उपलब्ध विकल्प दिखाएँ                                | -      |
 
 > **📖 पूर्ण विकल्प सूची**: प्रोजेक्ट निगरानी, YouTrack इंटीग्रेशन और प्रयोगात्मक विशेषताओं सहित सभी उपलब्ध विकल्पों के लिए [docs/CONFIGURATION.hi.md](./docs/CONFIGURATION.hi.md#hive-options) देखें।
+
+`--once` के साथ अंतिम सारांश में मिले, पूरे हुए, विफल, छोड़े गए और प्रतीक्षारत इश्यू की संख्या तथा उन्हें छोड़ने का कारण बने PR के लिंक दिखते हैं। निकास कोड 3 का अर्थ है कि कोई इश्यू संसाधित नहीं हुआ; 4 का अर्थ है कि कुछ काम पूरा हुआ, लेकिन कुछ इश्यू अभी प्रतीक्षा में हैं; 1 कार्यकर्ता या इश्यू प्राप्त करने की विफलता बताता है। स्पष्ट `--dry-run` में निकास कोड 0 रहता है। कार्यकर्ता का सफल निकास यह साबित नहीं करता कि PR मर्ज हो गया है।
+
+`--skip-issues-with-prs` उन इश्यू को छोड़ता है जिनके अपने खुले PR हैं। पैरेंट इश्यू का PR पैरेंट का ही होता है, भले ही उसमें सब-इश्यू के संदर्भ हों। पैरेंट अपने खुले सब-इश्यू बंद होने तक प्रतीक्षा करता है; मौजूदा PR पर काम करते समय भी निर्भरता क्रम लागू रहता है। कोई उपयुक्त इश्यू न मिलने पर Hive मौजूदा ड्राफ्ट जारी रखने के लिए `--no-skip-issues-with-prs --auto-continue` सुझाता है। Telegram में बिना इश्यू संसाधित किए समाप्त हुए और आंशिक hive रन चेतावनी के रूप में दिखते हैं; `--verbose` लॉग में इश्यू प्राप्त करने का विवरण जोड़ता है।
 
 ## 🤖 Telegram बॉट
 
@@ -471,6 +382,12 @@ Hive Mind को क्रिया में देखना चाहते �
 
 ### बॉट कमांड
 
+एक ग्रुप में कई Hive Mind बॉट का पता चले तो Telegram में बॉट को संबोधित करने वाला कमांड इस्तेमाल करें, जैसे `/help@SwarmMindBot` या `/solve@SwarmMindBot <github-url>`। ग्रुप में एक Hive Mind बॉट का पता चलने पर दोनों फ़ॉर्म काम करते हैं।
+
+`/who@SwarmMindBot` से बॉट की पहचान और उसका मौजूदा Hive Mind संस्करण पता चलता है। Hive Mind दूसरे बॉट खोजने के लिए `/who` भेजता है और पुराने बॉट के लिए उन्हें संबोधित करके `/version` आज़माता है। कस्टम नाम वाले बॉट के लिए @BotFather में Bot-to-Bot Communication Mode चालू करें। इस मोड में ग्रुप एडमिन या Group Privacy Mode बंद रखने वाले बॉट बिना संबोधन वाले अनुरोध भी पा सकते हैं। [Telegram के संदेश पहुँचाने के नियम](https://core.telegram.org/api/bots/bot-to-bot)
+
+Hive Mind एडमिन की सूची, सदस्यता में बदलाव और दिखाई देने वाले संदेशों से **Hive Mind** और **Swarm Mind** नाम भी पहचानता है। जिन बॉट की पहचान Telegram उपलब्ध नहीं कराता, उनके लिए भाग लेने वाले बॉट पर `TELEGRAM_HIVE_MIND_PEER_BOTS` (या `--peer-bots`) सेट करें। Links Notation की हर जोड़ी में ग्रुप ID और बॉट की संख्यात्मक ID होती है, जैसे `((-1001234567890 987654321))`। पूरे ग्रुप में केवल संबोधित कमांड लागू करने के लिए भाग लेने वाले सभी बॉट अपडेट करें।
+
 अधिकांश operational commands केवल **ग्रुप चैट में** काम करते हैं (बॉट के साथ
 निजी संदेशों में नहीं)। `/terminal_watch` जैसे commands, जो जानबूझकर private
 updates भेजते हैं, direct messages में भी उपयोग किए जा सकते हैं:
@@ -495,15 +412,15 @@ Aliases:
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
-/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/opencode https://github.com/owner/repo/issues/123 --model big-pickle
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
-/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+/gemini https://github.com/owner/repo/issues/123 --model flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
@@ -518,9 +435,44 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
+GitHub issue या pull request links वाले संदेश का `/solve` (या कोई भी alias, options के साथ, जैसे `/codex --think medium`) से उत्तर दें, ताकि वे शुरू हों। एक link सामान्य रूप से शुरू होता है। कई links होने पर हर मान्य link अलग कार्य के रूप में शुरू होता है, मानो command हर link के लिए अलग से भेजा गया हो: हर शुरुआत उसी command संदेश का उत्तर है, एक-एक करके, दो शुरुआतों के बीच 10–15 सेकंड के यादृच्छिक अंतराल के साथ। जो links शुरू नहीं हो सके (अमान्य, नहीं मिले, पहले से चल रहे या queue में, queue द्वारा अस्वीकृत), वे सभी मान्य links शुरू होने के बाद एक सारांश में सूचीबद्ध होते हैं। command स्वयं भी कई links दे सकता है, जैसे `/solve <url-1> <url-2> --model opus`।
+
 > **📖 मुफ्त मॉडल गाइड**: OpenCode Zen और Kilo Gateway प्रदाताओं सहित सभी मुफ्त मॉडलों के बारे में व्यापक जानकारी के लिए [docs/FREE_MODELS.hi.md](./docs/FREE_MODELS.hi.md) देखें।
 
-> **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
+> **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-manager models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
+
+#### `/after` और `/enqueue` - किसी दूसरे कार्य के बाद कार्य शुरू करें
+
+```
+/after <task-link> [options]                     (प्रतीक्षित कार्य के संदेश का उत्तर दें)
+/after <uuid|awaited-link> <task-link> [options]
+/after [options]                                 (उत्तर: बाद में वही link फिर से चलाएँ)
+/enqueue ...                                     (वही रूप)
+```
+
+दोनों commands किसी दूसरे कार्य के समाप्त होने के बाद ठीक एक कार्य शुरू करते हैं।
+प्रतीक्षित कार्य वैसे ही खोजा जाता है जैसे `/stop`, `/log` और `/watch` खोजते हैं:
+session UUID या issue/pull request link, उत्तर दिए गए संदेश में या command में।
+बाकी सब `/solve` की तरह काम करता है (शुरू करने वाला link और उसके options)।
+
+- `/after` कार्य तभी शुरू करता है जब प्रतीक्षित कार्य **सफल** हो (बिना बदलाव वाला
+  run भी सफल माना जाता है)। यदि प्रतीक्षित कार्य विफल, रद्द या बंद हो जाता है, तो
+  प्रतीक्षा करने वाला कार्य भी विफल हो जाता है।
+- `/enqueue` प्रतीक्षित कार्य के **समाप्त** होने के बाद कार्य शुरू करता है, परिणाम चाहे जो हो।
+
+प्रतीक्षा करने वाला कार्य `/queue` में "अन्य कार्यों की प्रतीक्षा में" के अंतर्गत दिखता है
+और शुरू होने से पहले `/stop` से रोका जा सकता है।
+
+**`--respect-blockers` (प्रायोगिक, डिफ़ॉल्ट रूप से बंद)।** इसे `/solve`, `/claude`,
+`/codex` या किसी अन्य solve command में जोड़ें, ताकि issue के GitHub संबंधों का
+सम्मान हो, जैसा `/hive` करता है: खुले "blocked by" issues, खुले sub-issues (sub-issue
+अपने parent को block करता है) और पूर्वजों के blockers। यदि सभी खुले blockers पहले से
+queue में हैं या चल रहे हैं, तो कार्य `/after` की तरह उनकी प्रतीक्षा करता है। यदि कोई
+blocker न queue में है न चल रहा है, तो कार्य शुरू नहीं होता।
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` इसे हर solve command के लिए चालू करता है। कई
+links वाला command डिफ़ॉल्ट रूप से blockers का सम्मान करता है और पहले unblocked links
+शुरू करता है (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false`, या एक command के लिए
+`--no-respect-blockers`, इसे बंद करता है)।
 
 #### `/hive` - Hive ऑर्केस्ट्रेशन चलाएँ
 
@@ -566,6 +518,8 @@ Examples:
 /fix owner/repo --ci-cd --no-solve
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
+/fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
@@ -586,13 +540,16 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
 विवरण के लिए
 [स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
-देखें। हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
+देखें। रिपॉज़िटरी की जाँच से पहले यह हर खुले Dependabot pull request को CI/CD की प्रतीक्षा किए बिना merge करता है, और issue में solver से इन merges से आई हर त्रुटि ठीक करने को कहता है। जिस pull request के अपडेट default branch में पहले से हैं, उसे superseded के रूप में बंद किया जाता है, चाहे उसमें conflict हो या नहीं ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863), [issue #4061](https://github.com/link-assistant/hive-mind/issues/4061))। बाकी conflict वाले pull requests `@dependabot recreate` से दोबारा बनाए जाते हैं; जिसे पीछे होने के कारण कोई ruleset रोकता है, उसे `@dependabot rebase` से rebase किया जाता है; दोनों required checks पास होने पर merge किए जाते हैं। `--dependabot-wait-timeout <मिनट>` (डिफ़ॉल्ट 30, `0` = प्रतीक्षा नहीं) इस प्रतीक्षा को सीमित करता है, और `--no-merge-dependabot-prs` यह चरण छोड़ देता है ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413))।
+हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
 
 यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` और
 `/task --update-all-dependencies <repository>` केवल वही issue-generation चरण चलाते हैं।
 वे बनाए गए issue का URL लौटाते हैं; सामान्य solve workflow से काम जारी रखने के लिए
 `/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
 `--update-all-dependencies` भी जोड़कर) से reply करें।
+
+`--update-all-dependencies` से `--report-dependencies-issues` चालू होता है: साझा logic, duplicated code, missing features और workarounds की वजह बनने वाले bugs की सूचना dependency के upstream को दें। pull request आगे बढ़ सके इसलिए ज़रूरी स्थानीय workarounds रख सकते हैं। reporting बंद करने के लिए `--no-report-dependencies-issues` जोड़ें, या dependencies अपडेट किए बिना `/solve` या `/hive` पर `--report-dependencies-issues` का उपयोग करें।
 
 #### `/organize` - खुले issues को वर्गीकृत करें
 
@@ -623,34 +580,31 @@ Shows:
 - Solve queue status
 ```
 
-#### `/pause` और `/resume` - Task रोकें और जारी रखें
+#### Docker कार्यों का नियंत्रण
 
 ```text
-/pause <session-uuid या GitHub issue/PR URL>
-/resume <session-uuid या GitHub issue/PR URL>
+/pause <सत्र ID या GitHub issue/PR URL> [--reason <कारण>]
+/unpause <सत्र ID या GitHub issue/PR URL>
+/stop <सत्र ID या GitHub issue/PR URL>
+/resume <सत्र ID या GitHub issue/PR URL>
+/status <सत्र ID या GitHub issue/PR URL>
+/list
 ```
 
-Task message का reply इनमें से किसी command से करें। बिना arguments का `/resume`
-आपके paused tasks दिखाता है। Task requester और मूल chat owner उस group chat
-या bot को direct message में task नियंत्रित कर सकते हैं।
+अनुरोधकर्ता या मूल चैट का मालिक कार्य को उसके समूह में या बॉट के साथ निजी चैट
+में नियंत्रित कर सकता है। कंटेनर नाम, सत्र UUID, निष्पादन UUID या URL दें, या
+कार्य संदेश का जवाब दें। `/list` और बिना लक्ष्य की कमांड आपके मेल खाते Docker
+कार्य दिखाती हैं।
 
-`/pause` पूरे Docker task container को रोकता है, जिससे execution का CPU और RAM
-खाली होता है और filesystem सुरक्षित रहती है। Paused tasks bot restart के बाद
-भी सुरक्षित रहते हैं, automatic recovery और cleanup से संरक्षित रहते हैं और
-running queue slot खाली करते हैं। वही URL दोबारा भेजने पर मौजूदा paused task दिखता है।
+`/pause` कंटेनर को रोककर CPU स्लॉट खाली करता है। प्रक्रिया, RAM और फ़ाइलें
+बनी रहती हैं। `/unpause` उसी प्रक्रिया को जारी रखता है। `/queue` और `/limits`
+रुके कार्य अलग दिखाते हैं। एक घंटे के बाद बॉट एक सूचना भेजता है। बॉट फिर से
+शुरू होने पर भी Docker में सीधे लगाए या हटाए गए विराम की पहचान करता है।
 
-`/resume` सुरक्षित filesystem के snapshot से काम जारी करता है। Solve tasks अपना
-मूल working directory और अंतिम recorded AI session इस्तेमाल करते हैं, जिसमें
-local edits और installed dependencies सुरक्षित रहते हैं। दूसरी commands सुरक्षित
-files के साथ अपना मूल invocation फिर चलाती हैं। Execution UUID उपलब्ध रहता है
-और completion monitoring फिर शुरू होती है। Disk और AI conversation state से
-काम जारी होता है; task रुकने पर process memory खाली हो जाती है।
-
-Task pause/resume के लिए Docker isolation और snapshot resume वाला `start-command`
-चाहिए (0.33.0 या बाद का; resource limits वाले tasks के लिए 0.35.0 या बाद का)।
-Router और Formal AI sidecar tasks अभी समर्थित नहीं हैं। सुरक्षित container या
-workspace न मिलने पर खाली filesystem से शुरू करने के बजाय resume रोका जाता है।
-जब paused tasks को उनके stopped containers चाहिए, Docker system pruning नहीं होती।
+`/stop` RAM खाली करके कंटेनर की फ़ाइलें सहेजता है। `/resume` बंद कार्य को उसके
+सहेजे हुए कार्यक्षेत्र और अंतिम दर्ज AI सत्र से शुरू करता है। निष्पादन UUID
+उपयोग में रहता है। इसके लिए सहेजा गया कंटेनर ज़रूरी है। राउटर या Formal AI
+sidecar वाले कार्यों के लिए अभी यह सुविधा उपलब्ध नहीं है।
 
 #### `/terminal_watch` - Live Session Log
 
@@ -709,7 +663,7 @@ sessions के लिए अपने आप एक अलग live terminal wat
 - private `/auth` तब disabled रहता है जब `TELEGRAM_ALLOWED_CHATS` set नहीं है,
   और इसे केवल listed chats के owners इस्तेमाल कर सकते हैं
 - बॉट चलाने वाले सिस्टम उपयोगकर्ता के रूप में कमांड चलते हैं
-- उचित प्रमाणीकरण सुनिश्चित करें (`gh auth login`, `claude-profiles`)
+- बॉट चलाने वाले उपयोगकर्ता के लिए उसके प्रदाताओं में साइन इन करें। [हेडलेस साइन-इन](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 सर्वोत्तम प्रथाएँ
 
@@ -876,7 +830,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### डिस्क क्लीनअप
 
-`hive-cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
+`hive-manager cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
 `/tmp/gh-issue-solver-*`, MCP कॉन्फ़िग फ़ाइलें, लॉग डाउनलोड डायरेक्टरी आदि) को हटाकर
 डिस्क स्थान खाली करता है, जबकि **वर्तमान में चल रहे कार्यों से संबंधित फ़ोल्डर**,
 सुरक्षित सिस्टम पथ, और बिना कमिट या बिना पुश किए बदलावों वाले किसी भी क्लोन को बनाए
@@ -886,40 +840,40 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ```bash
 # पूर्वावलोकन: रखे जाने वाले और हटाए जाने वाले फ़ोल्डरों की सूची (कुछ भी नहीं हटाता)
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # पुरानी अस्थायी फ़ाइलें वास्तव में हटाएँ (पहले पुष्टि माँगता है)
-hive-cleanup
+hive-manager cleanup
 
 # पुष्टि प्रॉम्प्ट के बिना हटाएँ
-hive-cleanup --force
+hive-manager cleanup --force
 
 # गैर-hive-mind अस्थायी प्रविष्टियों पर भी विचार करें (अधिक आक्रामक)
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # /tmp/start-command को हटाने की अनुमति दें (डिफ़ॉल्ट रूप से रखा जाता है; इसमें आइसोलेशन लॉग होते हैं)
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-विकल्पों की पूरी सूची के लिए `hive-cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
+विकल्पों की पूरी सूची के लिए `hive-manager cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
 हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
 कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
 
@@ -935,8 +889,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **प्रमाणीकरण:**
 
-- `gh auth login` - GitHub CLI प्रमाणीकरण
-- `claude-profiles` - सर्वर पर Claude प्रमाणीकरण प्रोफ़ाइल माइग्रेशन
+Hive Mind चलाने वाले खाते से `hive-manager auth github`, `hive-manager auth claude`, या `hive-manager auth codex` चलाएँ। [रिमोट साइन-इन और मैनुअल कमांड](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **OpenRouter इंटीग्रेशन:**
 
@@ -977,14 +930,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ```bash
 # agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # उसी report में कोई भी PID शामिल करें।
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # केवल terminal task वाले orphaned agents रोकें।
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।
@@ -1076,28 +1029,28 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### स्क्रीन प्रबंधन के लिए स्क्रिप्ट
 
-`hive-screens` पूरे हो चुके solve sessions का प्रबंधन करता है। यह `@link-assistant/hive-mind` के साथ आता है, इसलिए पैकेज इंस्टॉल होने के बाद (globally, `npx` के माध्यम से, या किसी project में) यह `PATH` पर उपलब्ध रहता है।
+`hive-manager screens` पूरे हो चुके solve sessions का प्रबंधन करता है। यह `@link-assistant/hive-mind` के साथ आता है, इसलिए पैकेज इंस्टॉल होने के बाद (globally, `npx` के माध्यम से, या किसी project में) यह `PATH` पर उपलब्ध रहता है।
 
 यह detached GNU screen sessions को स्कैन करता है, ऐसे solve runs खोजता है जो पूरे हो चुके हैं और जिनका PR merge किया जा सकता है (scrollback में `process completed` और `PR is mergeable!` या `PR merged!` दोनों हों), और फिर उन्हें सूचीबद्ध करता है, उनमें प्रवेश करता है या उन्हें बंद करता है। `--list`, `--enter` और `--close` **एक ही matching शर्त** का उपयोग करते हैं, इसलिए `--list` में दिखने वाला सेट ठीक वही है जिस पर `--close` काम करेगा — पहले `--list` से जाँचें, फिर `--close` के साथ दोबारा चलाएँ।
 
 ```bash
 # सुरक्षित पूर्वावलोकन — सभी पूरे हो चुके, merge योग्य solve sessions दिखाएँ।
-hive-screens --list
+hive-manager screens --list
 
 # सबसे पुराना पूरा हुआ session बंद करें।
-hive-screens --close
+hive-manager screens --close
 
 # सबसे नए पूरे हुए session में प्रवेश करें।
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # सभी पूरे हुए sessions बंद करें।
-hive-screens --close --all
+hive-manager screens --close --all
 
 # स्कैन करते समय diagnostic output दिखाएँ (matching विफल होने पर उपयोगी)।
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` का default `--all` है, इसलिए केवल `hive-screens --list` सभी matches दिखाता है। `--enter` और `--close` का default `--oldest` है क्योंकि वे स्थिति बदलते हैं। इसे बदलने के लिए `--oldest`, `--newest` या `--all` दें। पूरी option सूची के लिए `hive-screens --help` चलाएँ।
+`--list` का default `--all` है, इसलिए केवल `hive-manager screens --list` सभी matches दिखाता है। `--enter` और `--close` का default `--oldest` है क्योंकि वे स्थिति बदलते हैं। इसे बदलने के लिए `--oldest`, `--newest` या `--all` दें। पूरी option सूची के लिए `hive-manager screens --help` चलाएँ।
 
 ### सर्वर रिबूट करें।
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { CODEX_MODEL_VARIANTS } from './models/catalog.mjs';
+import { getRuntimeModelAlias } from './models/aliases.mjs';
 import { REASONING_EFFORT_ORDER, getModelReasoningCapabilities, normalizeReasoningCapabilities, selectSupportedReasoningEffort } from './model-reasoning.lib.mjs';
 
-export const mapModelToId = model => CODEX_MODEL_VARIANTS[model] || model;
+// A live-catalogue alias recorded by validation wins (issue #2591).
+export const mapModelToId = model => getRuntimeModelAlias('codex', model) || CODEX_MODEL_VARIANTS[model] || model;
 
 // Translate the shared --think level into a requested Codex effort. The selected
 // model's capabilities are applied below: none, minimal, max and ultra are not

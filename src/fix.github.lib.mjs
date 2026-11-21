@@ -16,9 +16,10 @@
 
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
+import { wrapRunnerWithGitHubRetry } from './github-rate-limit.lib.mjs';
 
 /** Run a command and resolve with its captured output (never rejects). */
-export function runCommand(command, args, options = {}) {
+function spawnCommand(command, args, options = {}) {
   return new Promise(resolve => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -41,6 +42,12 @@ export function runCommand(command, args, options = {}) {
     });
   });
 }
+
+/**
+ * The default runner: `spawnCommand` with every GitHub operation (`gh ...`,
+ * network git) retried through the shared loop (issue #3552).
+ */
+export const runCommand = wrapRunnerWithGitHubRetry(spawnCommand);
 
 /** Run a command through `run` and return trimmed stdout, throwing on failure. */
 export async function commandOutput(run, command, args) {
@@ -216,6 +223,25 @@ export async function getRecentBranchRuns(repository, branch, run, warn) {
     paginate: true,
   });
   return normalizeWorkflowRuns(pages);
+}
+
+/**
+ * One page of the most recent Actions runs on a branch, or `null` when the
+ * request failed (issue #3326). Used for polling, so it never paginates: runs
+ * that are still pending are always among the newest ones. The server-side
+ * `branch=` filter is eventually consistent, so the branch is re-checked here.
+ */
+export async function getBranchRunsSnapshot(repository, branch, run, warn) {
+  if (!branch) return [];
+  const response = await ghJson({
+    run,
+    warn,
+    endpoint: `repos/${repository.fullName}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`,
+    label: `fetch the latest CI/CD runs for branch ${branch}`,
+    fallback: null,
+  });
+  if (response == null) return null;
+  return normalizeWorkflowRuns([response]).filter(item => !item.head_branch || item.head_branch === branch);
 }
 
 /**

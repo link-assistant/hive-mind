@@ -1,0 +1,156 @@
+name: kotlin
+
+on:
+  workflow_call:
+    inputs:
+      verbose:
+        description: "Print extra diagnostics (never secret values)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  CI_VERBOSE: ${{ inputs.verbose && 'true' || vars.CI_VERBOSE || 'false' }}
+
+defaults:
+  run:
+    working-directory: kotlin
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: ci-kotlin-${{ github.ref }}-lint
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: gradle
+      - name: Check ktlint formatting
+        run: ./gradlew --no-daemon --console=plain ktlintCheck
+
+  # JVM, Node.js and WebAssembly from one Linux runner; the shared fixtures
+  # are compiled into every test binary by the generateParityCases task.
+  test:
+    needs: [lint]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-kotlin-${{ github.ref }}-test
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: gradle
+      - name: Test on the JVM, Node.js and WebAssembly
+        run: ./gradlew --no-daemon --console=plain jvmTest jsNodeTest wasmJsNodeTest
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: Verify Mocha reporter compatibility and failure reporting
+        run: build/js/node_modules/.bin/mocha --version && node --test ../experiments/issue-405/mocha-reporter.test.mjs
+      - name: Show the test summary
+        if: ${{ always() }}
+        run: bash test-summary.sh
+
+  # Random documents, parsed by the JavaScript reference parser and by the
+  # Kotlin parser on the JVM, must give the same links and formatted text, or
+  # the same error at the same position. The run id seeds the generator, so
+  # every run checks new documents and a failure names its reproducible seed.
+  differential:
+    needs: [lint]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-kotlin-${{ github.ref }}-differential
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: gradle
+      - name: Compare the Kotlin parser with the JavaScript parser
+        run: |
+          echo "Seed: $GITHUB_RUN_ID"
+          node ../experiments/issue-370/differential/differential.mjs 20000 "$GITHUB_RUN_ID" 8
+
+  # The Android target is built only where an Android SDK exists, so this job
+  # fails rather than silently testing nothing when the image lacks one.
+  android:
+    needs: [lint]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-kotlin-${{ github.ref }}-android
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: gradle
+      - name: Require the Android SDK
+        run: |
+          if [ -z "${ANDROID_HOME:-}" ] || [ ! -d "$ANDROID_HOME" ]; then
+            echo "::error::ANDROID_HOME does not name an Android SDK on this runner image"
+            exit 1
+          fi
+      - name: Build and test the Android library
+        run: ./gradlew --no-daemon --console=plain assembleAndroidMain testAndroidHostTest
+
+  # Kotlin/Native for iOS builds only on macOS. The simulator test runs the
+  # whole suite natively; the device and Intel simulator targets are linked.
+  ios:
+    needs: [lint]
+    runs-on: macos-26
+    timeout-minutes: 45
+    concurrency:
+      group: ci-kotlin-${{ github.ref }}-ios
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          java-version: "27.0.1"
+          distribution: "temurin"
+          cache: gradle
+      - name: Test on the iOS simulator and build every iOS target
+        run: ./gradlew --no-daemon --console=plain iosSimulatorArm64Test linkDebugTestIosArm64 linkDebugTestIosX64

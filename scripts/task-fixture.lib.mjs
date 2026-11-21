@@ -1,6 +1,7 @@
 /** Token-free fixture isolation. Git trees are created without the host repo. */
 import { appendFileSync } from 'node:fs';
 import { ghApi, gh } from './github-actions.lib.mjs';
+import { isBranchDeletionRuleViolation } from './cleanup-task-fixtures.lib.mjs';
 
 export function fixtureBranch({ kind = 'hello-world', runId, tool, model }) {
   const branch = `e2e/${kind}/${runId}/${tool}-${model}`;
@@ -39,10 +40,10 @@ export async function cleanupBranchFixture(resource, { api = ghApi, log = consol
     } catch (error) {
       // A branch already removed by solve is successfully cleaned up.
       if (options.method === 'DELETE' && /404|Reference does not exist/.test(error.message)) continue;
-      if (options.method === 'DELETE' && /\bHTTP 422\b/i.test(error.message) && /Repository rule violations found/i.test(error.message) && /Cannot delete this branch/i.test(error.message)) {
+      if (options.method === 'DELETE' && isBranchDeletionRuleViolation(error.message)) {
         const branch = endpoint.slice(`${root}/git/refs/heads/`.length);
         retainedBranches.push(branch);
-        const message = `Fixture branch ${branch} retained by a repository rule that prohibits deletion; scheduled cleanup will retry. Removing it requires a disposable-branch rule exemption.`;
+        const message = `Fixture branch ${branch} retained by a repository rule that prohibits deletion. Removing it requires a ruleset exclusion, or a bypass for the cleanup token, that covers disposable branches; the scheduled cleanup deletes it once the rule allows it.`;
         log(`::warning::${message}`);
         if (summaryFile) appendFileSync(summaryFile, `${message}\n\n`);
         continue;

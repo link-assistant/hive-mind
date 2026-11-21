@@ -6,11 +6,13 @@ import { promisify } from 'node:util';
 import { findFormalAiClient, loadFormalAiClientRegistry, prepareFormalAiRuntime } from './formal-ai-runtime.lib.mjs';
 import { SECRET_TOOL_ENV_NAMES } from './tool-env-gh-auth.lib.mjs';
 import { assertSupportedFormalAiVersion, parseFormalAiVersion, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
+import { FORMAL_AI_SUPPORTED_TOOLS } from './formal-ai-model.lib.mjs';
 import { isFormalAiModel } from './models/index.mjs';
+
+export { FORMAL_AI_SUPPORTED_TOOLS };
 
 const execFileAsync = promisify(execFile);
 
-export const FORMAL_AI_SUPPORTED_TOOLS = Object.freeze(['claude', 'agent', 'opencode', 'codex', 'qwen', 'gemini']);
 export const DEFAULT_FORMAL_AI_PATH = 'formal-ai';
 
 const SAFE_SHELL_WORD = /^[a-zA-Z0-9_\-./=,+@:]+$/;
@@ -90,7 +92,9 @@ export const resolveFormalAiToolExecution = async ({ tool, model, toolPath, work
     displayCommand: shellQuote(toolPath),
     formalAi: true,
     baseUrl: runtime.baseUrl,
-    env: runtime.env,
+    // A copy: callers pin CODEX_HOME and add capability variables per
+    // iteration, and those edits must not leak into the cached runtime.
+    env: { ...runtime.env },
     home: runtime.home,
     client: runtime.client,
     // Issue #2208: provenance names the backend that answered, and the local

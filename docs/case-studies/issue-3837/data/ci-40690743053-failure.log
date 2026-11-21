@@ -1,0 +1,20 @@
+3776: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0189743Z Dependency freshness: 177/180 declarations current, 14 lockfile entries behind their allowed range
+3777: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0191726Z EXCEPTION src/router-isolation.lib.mjs:81: ghcr.io/link-assistant/router: https://github.com/link-assistant/hive-mind/issues/3395
+3778: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0193444Z STALE package-lock.json#lino-i18n: lino-i18n 0.4.0 -> 0.4.1 (exact)
+3779: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0194316Z STALE package.json#dependencies: lino-i18n ^0.4.0 -> 0.4.1 (exact)
+3780: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0195291Z STALE package-lock.json#@babel/code-frame: @babel/code-frame 7.29.7 -> 7.29.7, 8.0.6 (npm update)
+3781: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0196404Z STALE package-lock.json#@babel/generator: @babel/generator 7.29.8 -> 8.0.6 (npm update)
+3782: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0197569Z STALE package-lock.json#@babel/helper-globals: @babel/helper-globals 7.29.7 -> 8.0.6 (npm update)
+3783: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0198828Z STALE package-lock.json#@babel/helper-string-parser: @babel/helper-string-parser 7.29.11 -> 8.0.8 (npm update)
+3784: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0200295Z STALE package-lock.json#@babel/helper-validator-identifier: @babel/helper-validator-identifier 7.29.7 -> 7.29.7, 8.0.6 (npm update)
+3785: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0201815Z STALE package-lock.json#@babel/parser: @babel/parser 7.29.11 -> 8.0.8 (npm update)
+3786: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0202739Z STALE package-lock.json#@babel/template: @babel/template 7.29.7 -> 8.0.0 (npm update)
+3787: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0203653Z STALE package-lock.json#@babel/traverse: @babel/traverse 7.29.10 -> 8.0.7 (npm update)
+3788: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0204312Z STALE package-lock.json#@babel/types: @babel/types 7.29.11 -> 8.0.8 (npm update)
+3789: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0204955Z STALE package-lock.json#@jridgewell/gen-mapping: @jridgewell/gen-mapping 0.3.13 -> 0.4.0-beta.0 (npm update)
+3790: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0206080Z STALE package-lock.json#@types/jsesc: @types/jsesc absent -> 2.5.1 (npm update)
+3791: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0206992Z STALE package-lock.json#js-tokens: js-tokens 4.0.0 -> 10.0.0, 4.0.0 (npm update)
+3792: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0207852Z STALE package-lock.json#lino-i18n: lino-i18n 0.4.0 -> 0.4.1 (npm update)
+3793: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0208660Z STALE package-lock.json#obug: obug absent -> 3.0.0 (npm update)
+3794: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0209370Z Dependency freshness failed: 16 stale, 0 unresolved.
+3795: detect-changes	Verify dependency freshness and detect changes	2026-10-28T12:48:15.0306546Z ##[error]Process completed with exit code 1.

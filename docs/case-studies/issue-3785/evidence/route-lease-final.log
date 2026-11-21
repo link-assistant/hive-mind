@@ -1,0 +1,18 @@
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (2.948699ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.390097ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.695768ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (0.746483ms)
+✔ task routing uses the selected image dialect from the launch environment (2.432016ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (0.723108ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (0.346967ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.259243ms)
+✔ the launch dialect follows the lease through container attachment (1.052083ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (1.111623ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37.310585

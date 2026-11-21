@@ -2,7 +2,7 @@
 
 import { retryLimits } from './config.lib.mjs';
 import { resolveDefaultFallbackModel, resolveModelId } from './models/index.mjs';
-import { detectSubscriptionError, isTransientAuthError } from './subscription-error.lib.mjs';
+import { detectSubscriptionError, isEdgeBlockedResponse, isTransientAuthError } from './subscription-error.lib.mjs';
 
 const normalizeMessage = value => {
   if (value === null || value === undefined) return '';
@@ -61,6 +61,13 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access unavailable' };
   }
 
+  // Issue #4053: a CDN/WAF challenge page ("API Error: 403 Attention Required! |
+  // Cloudflare") is a property of the provider's edge, not of the account. It
+  // cleared within minutes in the reported run, so it takes the transient path.
+  if (isEdgeBlockedResponse(message)) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Provider edge/CDN block (HTTP 403 challenge page)' };
+  }
+
   // Issue #2161: the counterpart — Claude Code's own wording marks this
   // authentication failure as temporary ("This may be a temporary network
   // issue, please try again"). Without an explicit branch it would fall through
@@ -96,15 +103,15 @@ export const classifyRetryableError = value => {
   // surface only "We're currently experiencing high demand, which may cause
   // temporary errors." The terminal message omits both the preceding 503 and
   // the backend's concurrency_limit code, so it must be recognized directly.
-  if (lower.includes('overloaded') || lower.includes('overloaded_error') || lower.includes('currently experiencing high demand') || lower.includes('too many concurrent requests') || lower.includes('concurrency_limit')) {
+  if (lower.includes('overloaded') || lower.includes('overloaded_error') || lower.includes('currently experiencing high demand') || lower.includes('is experiencing high load') || lower.includes('too many concurrent requests') || lower.includes('concurrency_limit') || matchesHttpStatus(lower, '529')) {
     return { message, isRetryable: true, isCapacity: false, label: 'API overload' };
   }
 
-  if (lower.includes('request timed out')) {
+  if (lower.includes('request timed out') || lower.includes('timeout_error') || lower.includes('apitimeouterror') || lower.includes('no response from api') || lower === 'request_timeout') {
     return { message, isRetryable: true, isCapacity: false, label: 'Request timeout' };
   }
 
-  if (lower.includes('stream disconnected before completion')) {
+  if (lower.includes('stream disconnected before completion') || /response_?stream(?:_?connection_?failed|_?disconnected)|response_?too_?many_?failed_?attempts/i.test(lower)) {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
@@ -215,7 +222,7 @@ export const classifyRetryableError = value => {
   // retry with the session preserved (--resume) after a backoff. Switching models
   // does not help (the throttle is request-rate, not model capacity), so
   // isCapacity is false.
-  if (lower.includes('temporarily limiting requests') || (lower.includes('rate limited') && lower.includes('not your usage limit')) || (lower.includes('rate_limit') && lower.includes('429'))) {
+  if (lower.includes('temporarily limiting requests') || (lower.includes('rate limited') && lower.includes('not your usage limit')) || lower.includes('rate_limit_error') || lower === 'rate_limit_exceeded' || (lower.includes('rate_limit') && lower.includes('429'))) {
     return { message, isRetryable: true, isCapacity: false, label: 'Server rate limited (429)' };
   }
 
@@ -228,7 +235,7 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }
 
-  if (lower.includes('internal server error') || lower.includes('api error: 500')) {
+  if (lower.includes('internal server error') || /internal_?server_?error/.test(lower) || lower === 'api_error' || lower === 'server_error' || lower === 'internal_error' || matchesHttpStatus(lower, '500')) {
     return { message, isRetryable: true, isCapacity: false, label: 'Internal server error (500)' };
   }
 
@@ -277,7 +284,8 @@ export const formatRetryDuration = ms => {
 // fixed number of attempts (10), which — with the old 2 min → 30 min backoff — gave up after
 // ~3.5 hours. The budget below turns "how long do we keep trying" into the primary knob: retries
 // continue while the *next* backoff still fits inside `budgetMs` (default 12 h), measured from
-// the first retry of the run. The per-tool retry counts stay as runaway-loop backstops.
+// the first retry of a continuous outage. Provider progress resets the window; productive
+// task execution must not spend the outage budget. Retry counts remain runaway backstops.
 //
 // Usage inside a tool's retry loop (the budget object lives outside `executeWithRetry` so it
 // survives the recursive calls):
@@ -287,6 +295,7 @@ export const formatRetryDuration = ms => {
 export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErrorRetryBudgetMs, now = () => Date.now() } = {}) => {
   let startedAt = null;
   let retriesGranted = 0;
+  let recoveries = 0;
   const elapsedMs = () => (startedAt === null ? 0 : Math.max(0, now() - startedAt));
   const remainingMs = () => (budgetMs > 0 ? Math.max(0, budgetMs - elapsedMs()) : Infinity);
   return {
@@ -295,6 +304,18 @@ export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErr
     remainingMs,
     get retriesGranted() {
       return retriesGranted;
+    },
+    // Number of outages ended by provider progress; lets helpers sharing this budget reset themselves (#4053).
+    get recoveries() {
+      return recoveries;
+    },
+    // Genuine provider progress ends the previous continuous outage (#3831).
+    recordProgress() {
+      const wasRetrying = startedAt !== null;
+      if (wasRetrying) recoveries += 1;
+      startedAt = null;
+      retriesGranted = 0;
+      return wasRetrying;
     },
     // Starts the clock on the first granted retry and counts it.
     grant() {
@@ -348,7 +369,12 @@ export const waitWithCountdown = async (delayMs, log) => {
 // hop from the default chain of the *current* model. An explicitly user-pinned
 // fallback (`explicit: true`) is never walked past — the user chose that model on
 // purpose, so it stays put.
-export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false } = {}) => {
+//
+// Issue #2840: `actualModel` is the model the tool itself reported running for
+// `currentModel` (e.g. Claude's `system/init` says `claude-opus-5-5` for the rolling
+// `opus` alias). When known, the chain steps down from what actually ran rather than
+// from the bundled guess of what the alias means, so no generation is skipped.
+export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false, actualModel = null } = {}) => {
   // A user-pinned fallback (--fallback-model) is honoured as-is and never walked
   // past: the user chose that exact model on purpose. Return it while it still
   // differs from the current model; once the run is already on it, stop switching.
@@ -363,7 +389,7 @@ export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredF
   // (e.g. gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4).
   // The auto-set argv.fallbackModel is intentionally ignored here — it only ever
   // holds the first default hop and would otherwise pin the chain to one step.
-  return resolveDefaultFallbackModel(tool, currentModel);
+  return (actualModel && resolveDefaultFallbackModel(tool, actualModel)) || resolveDefaultFallbackModel(tool, currentModel);
 };
 
 // Issue #1949: Render a model alias together with the full ID it resolves to, e.g.
@@ -394,12 +420,13 @@ export const logExecutionContext = async ({ log, model, tool, tempDir, branchNam
   await log(feedbackCount > 0 ? `   Feedback info included: Yes (${feedbackCount} lines)` : '   Feedback info included: No', { verbose: true });
 };
 
-export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage } = {}) => {
+export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage, actualModel = null } = {}) => {
   const fallbackModel = resolveConfiguredFallbackModel({
     tool,
     currentModel: argv?.model,
     configuredFallbackModel: argv?.fallbackModel,
     explicit: argv?._fallbackModelExplicit === true,
+    actualModel,
   });
 
   const classification = classifyRetryableError(errorMessage);
@@ -435,7 +462,9 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   if (typeof log === 'function') {
     // Issue #1949: show the resolved full model IDs so the switch is unambiguous,
     // e.g. "opus (claude-opus-4-8) -> opus-4-7 (claude-opus-4-7)".
-    await log(`🔀 Switching to fallback model: ${formatModelWithResolvedId(previousModel, tool)} -> ${formatModelWithResolvedId(fallbackModel, tool)}`, { level: 'warning' });
+    // Issue #2840: name the model that actually ran when the tool reported a different one.
+    const actualSuffix = actualModel && normalizeModelKey(actualModel) !== currentResolvedModel ? ` [actually ran ${actualModel}]` : '';
+    await log(`🔀 Switching to fallback model: ${formatModelWithResolvedId(previousModel, tool)}${actualSuffix} -> ${formatModelWithResolvedId(fallbackModel, tool)}`, { level: 'warning' });
   }
 
   return {
@@ -459,7 +488,7 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
 // survives the recursive executeWithRetry calls without each tool tracking extra
 // state. It resets to 0 whenever we actually switch models, so every model in the
 // fallback chain gets its own batch of same-model retries before stepping down.
-export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs, minDelayMs = 0 } = {}) => {
+export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs, minDelayMs = 0, actualModel = null } = {}) => {
   const classification = classifyRetryableError(errorMessage);
   const isCapacity = classification.isCapacity === true && !!argv?.model;
   const capacityRetryCount = argv?._capacityRetryCount || 0;
@@ -477,11 +506,38 @@ export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, re
     return { delay, switched: false };
   }
 
-  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage });
+  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage, actualModel });
   // A model switch starts a fresh batch of same-model retries for the new model.
   if (switchResult?.switched && argv) argv._capacityRetryCount = 0;
   const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs, minDelayMs });
   return { delay, switched: switchResult?.switched === true };
+};
+
+// Shared by process/stream exception paths: preserve the same policy and session
+// as an explicit provider error instead of terminating on a transient transport.
+export const retryTransientFailure = async ({ tool, retryableError, sessionId, argv, log, budget, retryCount, waitForRetryDelay = waitWithCountdown }) => {
+  if (!retryableError.isRetryable) return false;
+  const isRequestTimeout = retryableError.label === 'Request timeout';
+  const options = {
+    retryCount,
+    maxRetries: isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries,
+    initialDelayMs: isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+    maxDelayMs: isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+    minDelayMs: retryLimits.minTransientErrorDelayMs,
+  };
+  const decision = budget.evaluate(options);
+  if (!decision.allowed) {
+    await log(`\n\n❌ ${retryableError.label} persisted: ${budget.describeExhaustion(decision)}`, { level: 'error' });
+    return false;
+  }
+  budget.grant();
+  if (sessionId && !argv.resume) argv.resume = sessionId;
+  const { delay } = await prepareRetryAfterError({ tool, argv, log, errorMessage: retryableError.message, ...options });
+  const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+  await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${budget.describeProgress()})...`, { level: 'warning' });
+  await waitForRetryDelay(delay, log);
+  await log('\n🔄 Retrying now...');
+  return true;
 };
 
 export default {
@@ -495,6 +551,7 @@ export default {
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,
   prepareRetryAfterError,
+  retryTransientFailure,
   formatModelWithResolvedId,
   logExecutionContext,
 };

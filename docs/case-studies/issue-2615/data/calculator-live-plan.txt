@@ -1,0 +1,20 @@
+19 open issues, 19 relation records, 1 GraphQL queries
+READY   https://github.com/link-assistant/calculator/issues/229 (critical path 6, unblocks 15)
+READY   https://github.com/link-assistant/calculator/issues/232 (critical path 2, unblocks 2)
+READY   https://github.com/link-assistant/calculator/issues/231 (critical path 2, unblocks 2)
+READY   https://github.com/link-assistant/calculator/issues/230 (critical path 2, unblocks 2)
+WAITING https://github.com/link-assistant/calculator/issues/246: blocked by #245, #244, #243, #242, #241, #240, #239, #238, #237, #236, #235, #234, #233, #232, #231, #230
+WAITING https://github.com/link-assistant/calculator/issues/245: blocked by #242, #236
+WAITING https://github.com/link-assistant/calculator/issues/244: blocked by #237, #235, #234
+WAITING https://github.com/link-assistant/calculator/issues/243: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/242: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/241: blocked by #240
+WAITING https://github.com/link-assistant/calculator/issues/240: blocked by #239, #229
+WAITING https://github.com/link-assistant/calculator/issues/239: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/238: blocked by #236, #233, #237
+WAITING https://github.com/link-assistant/calculator/issues/237: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/236: blocked by #235, #233
+WAITING https://github.com/link-assistant/calculator/issues/235: blocked by #233, #229
+WAITING https://github.com/link-assistant/calculator/issues/234: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/233: blocked by #229
+WAITING https://github.com/link-assistant/calculator/issues/227: 18 open sub-issues (#229, #230, #231, #232, #233, #234, #235, #236, #237, #238, #239, #240, #241, #242, #243, #244, #245, #246)

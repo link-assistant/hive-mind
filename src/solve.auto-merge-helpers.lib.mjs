@@ -23,8 +23,11 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 const $ = wrapDollarWithGhRetry(__rawDollar$);
+// Issue #2293: these probes return whole comment threads (180 KB on link-foundation/meta-language#196, logged 7 times in a row) and the login; they are read, never shown.
+const { quietProbe } = await import('./quiet-probe.lib.mjs');
+const quiet$ = quietProbe($);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, formatAligned } = lib;
@@ -34,8 +37,11 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
 // Import GitHub merge functions
-const githubMergeLib = await import('./github-merge.lib.mjs');
+import * as githubMergeLib from './github-merge.lib.mjs';
+import { DEFAULT_REVIEW_BOTS, createReviewBotMatcher, isReviewBotFeedback } from './review-bots.lib.mjs'; // Issue #4081
+import { stripHtmlComments } from './merge-prerequisites.lib.mjs';
 const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
+import { describeWorkflowTriggers } from './github-merge-ci-signals.lib.mjs'; // Issue #3922
 
 // Issue #1952: Cross-reference cancelled check-runs against workflow-run conclusions so a
 // job that hit `timeout-minutes` (check-run cancelled + workflow_run failed) is treated as a
@@ -113,7 +119,7 @@ const { formatExternalReviewLimitCheck, splitExternalReviewLimitChecks } = exter
  * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
  * @returns {Promise<boolean>} - True if a matching comment already exists
  */
-export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false, commandRunner = $) => {
+export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false, commandRunner = quiet$) => {
   try {
     // Fetch every PR comment page so long threads don't scope deduplication to
     // a stale first-page session-ending marker.
@@ -177,6 +183,51 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
 };
 
 /**
+ * Issue #4082: turn submitted pull request reviews into comment-shaped
+ * feedback entries for {@link checkForNonBotComments}.
+ *
+ * - Pending (unsubmitted) reviews are never feedback.
+ * - A human review counts when it requests changes, or when it carries a body
+ *   (a COMMENTED / APPROVED review with text). An empty COMMENTED review is
+ *   only the wrapper of inline comments, which are read separately.
+ * - A bot review counts when it requests changes. Bots post summary
+ *   reviews on every push; their inline findings are review threads and are
+ *   handled by the unresolved-thread gate (src/review-threads.lib.mjs).
+ * - Issue #4081: a review app's (`--review-bots`) review also counts when its
+ *   body reports findings; see `isReviewBotFeedback` in src/review-bots.lib.mjs.
+ *
+ * @param {Array} reviews - `gh api repos/O/R/pulls/N/reviews` answer
+ * @param {(login: string) => boolean} isBot - bot login classifier
+ * @param {(login: string) => boolean} isReviewBot - review app classifier (issue #4081)
+ * @returns {Array<{id, user, body, created_at, html_url, review_state, countsFromBot}>}
+ */
+export const reviewsAsFeedbackComments = (reviews, isBot = () => false, isReviewBot = () => false) => {
+  if (!Array.isArray(reviews)) return [];
+  const entries = [];
+  for (const review of reviews) {
+    const state = String(review?.state || '').toUpperCase();
+    if (!review?.submitted_at || state === 'PENDING' || state === 'DISMISSED') continue;
+    const body = typeof review.body === 'string' ? review.body.trim() : '';
+    const fromBot = isBot(review.user?.login);
+    const requestsChanges = state === 'CHANGES_REQUESTED';
+    // Issue #4081: a review app's summary review that reports findings
+    // (CodeRabbit "Actionable comments posted: N", the Codex marker) counts too.
+    const botFindings = fromBot && !requestsChanges && isReviewBot(review.user?.login) && isReviewBotFeedback('review', review);
+    if (fromBot ? !requestsChanges && !botFindings : !requestsChanges && !body) continue;
+    entries.push({
+      id: review.id,
+      user: review.user,
+      body: (botFindings ? stripHtmlComments(body).trim() : body) || `Review requested changes (${state})`,
+      created_at: review.submitted_at,
+      html_url: review.html_url,
+      review_state: state,
+      countsFromBot: fromBot && (requestsChanges || botFindings),
+    });
+  }
+  return entries;
+};
+
+/**
  * Check for new comments from non-bot users since last commit
  *
  * Same-account comments are only considered feedback when
@@ -187,11 +238,14 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
  * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
  * @param {Object} options - Comment classification options
  * @param {boolean} options.trustAuthenticatedUserComments - True only when the caller knows the AI tool is not running
+ * @param {string[]} options.reviewBots - Issue #4081: review app logins whose findings are feedback (default: DEFAULT_REVIEW_BOTS; [] disables)
+ * @param {boolean} options.countReviewBotInlineComments - Issue #4081: also count review apps' top-level inline comments (set when the unresolved-thread gate is off)
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
-export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $, options = {}) => {
+export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = quiet$, options = {}) => {
   try {
-    const { trustAuthenticatedUserComments = false } = options;
+    const { trustAuthenticatedUserComments = false, reviewBots = DEFAULT_REVIEW_BOTS, countReviewBotInlineComments = false } = options;
+    const isReviewBot = createReviewBotMatcher(reviewBots);
 
     // Get current GitHub user to identify which comments are from the bot/hive-mind
     let currentUser = null;
@@ -233,18 +287,31 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
 
     const isToolComment = comment => isToolTrackedCommentId(comment.id) || isToolGeneratedComment(comment.body);
 
+    // Issue #4081: review apps (Codex connector, CodeRabbit, …) are bots, but
+    // their findings are feedback. CI and deploy bots stay ignored. A review
+    // app edits its summary comment in place, so the edit time counts.
+    const markReviewBotFeedback = (kind, comments) => {
+      for (const comment of comments) {
+        if (!isReviewBot(comment?.user?.login) || !isReviewBotFeedback(kind, comment, { countInline: countReviewBotInlineComments })) continue;
+        comment.countsFromBot = true;
+        if (kind === 'issue_comment' && comment.updated_at && new Date(comment.updated_at) > new Date(comment.created_at)) comment.created_at = comment.updated_at;
+        if (typeof comment.body === 'string') comment.body = stripHtmlComments(comment.body).trim() || comment.body;
+      }
+      return comments;
+    };
+
     // Fetch PR conversation comments
     const prCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
     let prComments = [];
     if (prCommentsResult.code === 0 && prCommentsResult.stdout?.toString()) {
-      prComments = JSON.parse(prCommentsResult.stdout.toString() || '[]');
+      prComments = markReviewBotFeedback('issue_comment', JSON.parse(prCommentsResult.stdout.toString() || '[]'));
     }
 
     // Fetch PR review comments (inline code comments)
     const prReviewCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
     let prReviewComments = [];
     if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout?.toString()) {
-      prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString() || '[]');
+      prReviewComments = markReviewBotFeedback('review_comment', JSON.parse(prReviewCommentsResult.stdout.toString() || '[]'));
     }
 
     // Fetch issue comments if we have an issue number
@@ -256,8 +323,22 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       }
     }
 
+    // Issue #4082 (cases 1, 3): a submitted review (BLOCK / changes needed)
+    // lives in pulls/N/reviews, which this check never read, so a review
+    // posted after "Ready to merge" needed a manual restart. Its own failure
+    // must not hide the comments read above.
+    let reviews = [];
+    try {
+      const reviewsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
+      if (reviewsResult.code === 0 && reviewsResult.stdout?.toString()) {
+        reviews = reviewsAsFeedbackComments(JSON.parse(reviewsResult.stdout.toString() || '[]'), isBot, isReviewBot);
+      }
+    } catch (reviewsError) {
+      if (verbose) console.log(`[VERBOSE] Could not read pull request reviews: ${reviewsError.message}`);
+    }
+
     // Combine all comments
-    const allComments = [...prComments, ...prReviewComments, ...issueComments];
+    const allComments = [...prComments, ...prReviewComments, ...issueComments, ...reviews];
 
     // Filter for new comments from non-bot users. Automated hive-mind/tool
     // comments are excluded by marker/ID, including comments posted by the
@@ -269,7 +350,9 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       const isFromAuthenticatedUser = Boolean(currentUser && login === currentUser);
       const isFromTool = isToolComment(comment);
       const isFromAuthenticatedUserToolContext = isFromAuthenticatedUser && !trustAuthenticatedUserComments;
-      const isFromBot = isBot(login) || isFromAuthenticatedUserToolContext;
+      // Issue #4082: a bot review that requests changes is feedback; its inline findings are covered by the unresolved-thread gate.
+      // Issue #4081: so are review apps' findings (countsFromBot is set above only for `--review-bots` logins).
+      const isFromBot = (isBot(login) && !comment.countsFromBot) || isFromAuthenticatedUserToolContext;
       const isFromNonBot = !isFromBot && !isFromTool;
 
       if (verbose && isAfterLastCheck && isFromTool) {
@@ -350,7 +433,7 @@ export const nextMonotonicCheckTime = (lastCheckTime, candidate) => {
  * @param {string} [options.currentUser] - Pre-resolved authenticated login (skips the `gh api user` call)
  * @returns {Promise<string[]>} Newly tracked comment IDs (as strings)
  */
-export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = $, options = {}) => {
+export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = quiet$, options = {}) => {
   const { verbose = false, currentUser: providedUser } = options;
   const trackedIds = [];
 
@@ -471,7 +554,9 @@ export const shouldResetNoRunsCounter = (ciStatus, noWorkflowRunsForCommit = fal
  * CLEAN/MERGEABLE. Only this explicit pair is strong enough to override the
  * rollup; every other merge state remains conservative.
  */
-export const isAuthoritativeCleanMergeState = mergeStatus => mergeStatus?.mergeable === true && mergeStatus?.mergeableState === 'MERGEABLE' && mergeStatus?.mergeStateStatus === 'CLEAN';
+// Issue #4048: shared with checkCIConsensus, which must apply the same rule.
+import { isAuthoritativeCleanMergeState } from './github-ci-stuck-runs.lib.mjs';
+export { isAuthoritativeCleanMergeState };
 
 export const reconcileStaleCIBlockers = (blockers, ciStatus, mergeStatus) => {
   if (ciStatus?.status !== 'failure' || !isAuthoritativeCleanMergeState(mergeStatus)) {
@@ -656,7 +741,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           const commitInfo = await getCommitDate(owner, repo, ciStatus.sha, verbose);
 
           // Issue #1480: Parse workflow files for PR triggers (used in both grace period and post-grace checks)
-          const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, prBranchRef);
+          const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, ciStatus.sha || prBranchRef);
 
           // Issue #1480: If .github/workflows folder doesn't exist or has no workflow files,
           // that's a definitive signal — no CI/CD will execute, skip grace period entirely
@@ -707,13 +792,13 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             }
 
             if (verbose) {
-              await log(formatAligned('⏳', 'Waiting for CI:', `No workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s`, 2));
+              await log(formatAligned('⏳', 'Waiting for CI:', `No workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${describeWorkflowTriggers(prTriggers)}) — check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s`, 2));
             }
             // Issue #1918: Still waiting for workflow runs to register — keep the counter.
             noWorkflowRunsForCommit = true;
             blockers.push({
               type: 'ci_pending',
-              message: `CI/CD workflow runs have not appeared yet — workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}), waiting for GitHub to register workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
+              message: `CI/CD workflow runs have not appeared yet — workflows have PR/push triggers (${describeWorkflowTriggers(prTriggers)}), waiting for GitHub to register workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
               details: prTriggers.workflows.map(w => w.name),
             });
           } else if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
@@ -784,7 +869,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
       // (e.g., CodeFactor, Codecov). Check if the repo has workflows that should produce runs.
       const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
       if (repoWorkflows.hasWorkflows) {
-        const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, prBranchRef);
+        const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, ciStatus.sha || prBranchRef);
         if (prTriggers.hasPRTriggers) {
           // Repo has workflows with PR triggers but no runs yet — CI hasn't started
           // This is the exact scenario from Case 2 of Issue #1480
@@ -943,6 +1028,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           type: 'ci_failure',
           message: 'CI/CD checks are failing',
           details: actionableFailedChecks.map(c => c.name),
+          // Issue #2293: run URLs, so a restart comment can link the failing job, and the output, so a repeat of the very same failure is recognised
+          checks: actionableFailedChecks.map(c => ({ name: c.name, conclusion: c.conclusion || null, html_url: c.html_url || null, description: c.description || null })),
         });
       }
     }
@@ -998,7 +1085,9 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     });
   }
 
-  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  // Issue #4048: mergeStatus is passed on to checkCIConsensus so both checks
+  // apply the same CLEAN/MERGEABLE rule instead of contradicting each other.
+  return { blockers, ciStatus, mergeStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
 };
 
 /**
@@ -1020,11 +1109,17 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
  * @param {Object|null} previousSnapshot - Prior { title, body } snapshot, or null on first call
  * @param {boolean} [verbose=false]
  * @param {Function} [commandRunner=$] - Tagged-template command runner (injectable for tests)
+ * @param {{pullRequestNumber?: number|string|null}} [options] - the pull request being watched
  * @returns {Promise<{changed: boolean, snapshot: Object|null, changes: Array<{field: string, from: string, to: string}>}>}
  */
-export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $) => {
+export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = quiet$, { pullRequestNumber = null } = {}) => {
   const empty = { changed: false, snapshot: previousSnapshot || null, changes: [] };
   if (!issueNumber) return empty;
+  // Issue #2293: with no separate linked issue, solve falls back to issueNumber = prNumber, so the "issue" is the pull request itself, whose title and description the AI owns and rewrites every session.
+  if (pullRequestNumber && Number(issueNumber) === Number(pullRequestNumber)) {
+    if (verbose) console.log(`[VERBOSE] Issue #${issueNumber} is the pull request itself (no separate linked issue); not watching its title/description as issue feedback (issue #2293)`);
+    return empty;
+  }
 
   let snapshot;
   try {

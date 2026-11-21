@@ -1,3 +1,4 @@
+import { promptText } from './prompt-text.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
 
 export const TASK_SPLIT_MARKER_START = '<!-- hive-mind-task-split:start -->';
@@ -10,9 +11,11 @@ export function parseTaskIssueUrl(url) {
     return parsed;
   }
   if (parsed.type !== 'issue') {
+    const reason = parsed.type === 'pull' ? 'The task command accepts GitHub issues, not pull requests' : 'The task command requires a specific GitHub issue URL';
     return {
       valid: false,
-      error: parsed.type === 'pull' ? 'The task command accepts GitHub issues, not pull requests' : 'The task command requires a specific GitHub issue URL',
+      error: reason + (parsed.inputHint ? `\n\n${parsed.inputHint}` : '') + (parsed.suggestion ? `\n\nDid you mean ${parsed.suggestion}?` : ''),
+      reason,
       parsed,
     };
   }
@@ -20,38 +23,11 @@ export function parseTaskIssueUrl(url) {
 }
 
 export function buildTaskSplitSystemPrompt() {
-  return ['You split GitHub issues into smaller GitHub issues.', 'Read only the issue details supplied by the user.', 'Do not clone repositories, create branches, edit files, create GitHub issues, or execute shell commands.', 'Return only valid JSON matching the requested schema.'].join('\n');
+  return [promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text1'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text2'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text3'), promptText('prompt.system.templates.task-split.buildTaskSplitSystemPrompt.text4')].join('\n');
 }
 
 export function buildTaskSplitPrompt({ issue, splitCount }) {
-  return `Split this GitHub issue into exactly ${splitCount} smaller GitHub issues.
-
-Source issue:
-- Repository: ${issue.owner}/${issue.repo}
-- Issue number: ${issue.number}
-- URL: ${issue.url}
-- Title: ${issue.title}
-
-Issue body:
-${issue.body || '(empty)'}
-
-Return only this JSON shape:
-{
-  "tasks": [
-    {
-      "title": "short issue title",
-      "body": "complete issue body with objective, scope, deliverables, and acceptance criteria",
-      "dependencies": [1]
-    }
-  ]
-}
-
-Rules:
-- The tasks array must contain exactly ${splitCount} items.
-- Each task must be independently actionable.
-- Together the tasks must cover the full source issue.
-- Dependencies must be 1-based task numbers and should be empty when none are needed.
-- Do not include Markdown fences, prose, comments, or extra top-level keys.`;
+  return promptText('prompt.templates.task-split.buildTaskSplitPrompt.text5', { splitCount: String(splitCount), value2: String(issue.owner), value3: String(issue.repo), value4: String(issue.number), value5: String(issue.url), value6: String(issue.title), value7: String(issue.body || '(empty)') });
 }
 
 function tryParseJson(text) {
@@ -245,4 +221,36 @@ export function buildAddSubIssueApiArgs({ parentIssue, subIssueId, replaceParent
  */
 export function buildParentIssueApiArgs(issue) {
   return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/parent`, '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
+}
+
+/**
+ * Build the `gh api` arguments that list the sub-issues of an issue, every page
+ * in one JSON array of pages
+ * (https://docs.github.com/en/rest/issues/sub-issues#list-sub-issues).
+ *
+ * Issue #3684: a repeated run attaches only the issues that are not attached yet.
+ *
+ * @param {{owner: string, repo: string, number: number}} issue
+ * @returns {string[]}
+ */
+export function buildListSubIssuesApiArgs(issue) {
+  return ['api', `repos/${issue.owner}/${issue.repo}/issues/${issue.number}/sub_issues?per_page=100`, '--paginate', '--slurp', '-H', 'Accept: application/vnd.github+json', '-H', `X-GitHub-Api-Version: ${GITHUB_SUB_ISSUES_API_VERSION}`];
+}
+
+/**
+ * Issue #3684: the split section an earlier `/task --split` wrote into the
+ * parent body, as `[{ number, title }]`, or null when the parent was never
+ * split. A parent that has it is not split a second time.
+ */
+export function parseParentSplitSection(body) {
+  const text = String(body || '');
+  const start = text.indexOf(TASK_SPLIT_MARKER_START);
+  const end = text.indexOf(TASK_SPLIT_MARKER_END);
+  if (start < 0 || end <= start) return null;
+  return text
+    .slice(start + TASK_SPLIT_MARKER_START.length, end)
+    .split('\n')
+    .map(line => line.match(/^\s*- \[[ xX]\] #(\d+)\s*(.*)$/))
+    .filter(Boolean)
+    .map(match => ({ number: Number(match[1]), title: match[2].trim() }));
 }

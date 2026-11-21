@@ -1,0 +1,128 @@
+OpenCode CLI (opencode-ai) -- model catalogue evidence for issue #2591
+Collected 2026-10-10. No paid model API was called.
+
+B = ~/.bun/install/global/node_modules/opencode-ai/bin/opencode.exe
+    (a 185 MB compiled Bun binary, launched by ~/.bun/bin/opencode)
+C = ~/.cache/opencode/models.json
+    (models.dev catalogue cache, 5375250 bytes, written 2026-10-10 07:39 UTC, 226 providers)
+Claims about B cite byte offsets from `/usr/bin/grep -a -o -b '<pattern>' $B`.
+Claims about C come from node lookups of db[provider].models[id].
+
+== 1. Version ==
+$ opencode --version
+1.18.35
+
+== 2. Available models (no API keys configured) ==
+$ opencode models --help    -> options --verbose and --refresh
+
+Run 1: the first invocation. There was no cache yet, so it used the
+models.dev snapshot embedded in B, and wrote C as a side effect.
+  opencode/big-pickle
+  opencode/fledge-alpha-free
+  opencode/ling-3.0-flash-fin-free
+  opencode/ling-3.1-flash-free
+  opencode/longcat-2.5-preview-free
+  opencode/mimo-v2.6-flash-free
+  opencode/muse-spark-1.3-contributor-free
+  opencode/nemotron-3-ultra-free
+  opencode/nemotron-3.5-lightning-free
+  opencode/space-bunny-free
+
+Run 2: the second invocation, which read the refreshed C.
+  opencode/big-pickle
+  opencode/exo-free                    <- new
+  opencode/ling-3.0-flash-fin-free
+  opencode/ling-3.1-flash-free
+  opencode/longcat-2.5-preview-free
+  opencode/mimo-v2.6-flash-free
+  opencode/muse-spark-1.3-contributor-free
+  opencode/nemotron-3-ultra-free
+  opencode/nemotron-3.5-lightning-free
+  opencode/space-bunny-free
+  opencode/step-5-preview-free         <- new
+  (fledge-alpha-free is gone, because it now has status "alpha")
+
+=> The free list changes from week to week. Hive should not hard-code it as the
+   only source of truth. `opencode models` is the authoritative live listing
+   and needs no paid call.
+
+Live OpenCode Zen list (unauthenticated catalogue GET,
+https://opencode.ai/zen/v1/models, 2026-10-10). The free IDs are:
+  big-pickle, exo-free, gpt-5-nano, jev-1.13-free, ling-3.0-flash-fin-free,
+  ling-3.1-flash-free, longcat-2.5-preview-free, mimo-v2.6-flash-free,
+  muse-spark-1.2-contributor-free, muse-spark-1.3-contributor-free,
+  nemotron-3-ultra-free, nemotron-3.5-lightning-free, space-bunny-free,
+  step-5-preview-free
+Paid Zen IDs include claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5,
+gpt-6-sol, gpt-6.1-sol, gemini-3.1-pro, gemini-3.8-flash, grok-4.7, qwen3.8-max,
+kimi-k3, glm-5.3 and minimax-m3.
+
+== 3. Model filtering in B ==
+B@98311466   if(W.cost.input===0)continue;delete Z.models[Y]
+             This is in the "opencode" provider loader. With no API key the
+             apiKey is "public", and every model whose cost.input is not 0 is
+             deleted. So without a key only free models remain.
+             Note: in C, opencode/gpt-5-nano has cost.input=0.05, so it is
+             hidden without a key, although Zen lists it as free.
+B@98335591   Models with status "alpha" are deleted unless
+             enableExperimentalModels is set. Models with status "deprecated"
+             are always deleted.
+
+== 4. Default model in B ==
+B@98341171   Mv=["gpt-5","claude-sonnet-4","big-pickle","gemini-3-pro"]
+             This is the priority list for choosing a provider's default
+             model. Sort function tJ ranks by Mv findIndex (desc), then puts
+             IDs containing "latest" first.
+             Right after it: fN=["gemini-flash","gpt-nano","claude-haiku"],
+             the families used to pick the small model.
+B@98339624   The small-model selector ("opencode" -> ["gpt-nano"],
+             github-copilot -> ["gpt-mini",...fN], otherwise fN). It sorts by
+             release_date desc and returns the first model in the family.
+B@~98340400  Provider.defaultModel:
+               1) config.model, if set
+               2) otherwise the "recent" list in <state>/model.json
+               3) otherwise the top tJ-sorted model of the first provider
+=> With no config and no keys, the only provider is "opencode", and the only Mv
+   entry that survives is "big-pickle". So the effective default is
+   opencode/big-pickle.
+=> OpenCode has no short alias table (no sonnet/opus/...). `-m` takes
+   provider/model. Any alias handling must stay in Hive's catalogue.
+
+== 5. Hive opencodeModels (src/models/catalog.mjs:138-149) vs C ==
+ alias            Hive maps to                 status in C (cost.input $/Mtok)
+ gpt4             openai/gpt-4                 present, status=deprecated -> deleted
+ gpt4o            openai/gpt-4o                present, 2.5, paid (needs key)
+ claude           anthropic/claude-3-5-sonnet  ABSENT
+ sonnet           anthropic/claude-3-5-sonnet  ABSENT
+ opus             anthropic/claude-3-opus      ABSENT
+ gemini           google/gemini-pro            ABSENT
+ grok             opencode/grok-code           present, 0, status=deprecated -> deleted
+ grok-code        opencode/grok-code           (same)
+ grok-code-fast-1 opencode/grok-code           (same)
+Hive default (catalog.mjs defaultModels): opencode 'grok-code-fast-1'
+  -> resolves to a deleted model, so the default is broken.
+
+Current replacements present in C:
+  anthropic/claude-opus-5-5     4     anthropic/claude-sonnet-5-5   2
+  anthropic/claude-haiku-5-5    0.1   openai/gpt-6-sol              2
+  openai/gpt-6.1-sol            2     google/gemini-3.1-pro-preview 2
+  google/gemini-3.8-flash       0.75  opencode/big-pickle           0 (free)
+  opencode/claude-sonnet-5-5    2     opencode/gpt-6-sol            2
+  opencode/gemini-3.1-pro       2     opencode/gemini-3-pro         deprecated
+Absent from C: anthropic/claude-3-5-haiku, google/gemini-3-pro-preview.
+
+== 6. Recommendation for Hive opencodeModels ==
+ - Set default 'grok-code-fast-1' -> 'big-pickle' (opencode/big-pickle). This
+   matches OpenCode's own keyless default (section 4).
+ - Remove or retarget grok, grok-code and grok-code-fast-1 (deprecated).
+ - claude, sonnet -> anthropic/claude-sonnet-5-5
+   opus           -> anthropic/claude-opus-5-5
+   haiku (new)    -> anthropic/claude-haiku-5-5
+   gemini         -> google/gemini-3.1-pro-preview
+   gpt4, gpt4o    -> openai/gpt-6-sol (or drop them; gpt-4 is deprecated)
+ - Add the free Zen IDs as opencode/<id>: nemotron-3-ultra-free,
+   nemotron-3.5-lightning-free, ling-3.1-flash-free, exo-free,
+   step-5-preview-free, mimo-v2.6-flash-free, longcat-2.5-preview-free.
+ - Better still: list models via `opencode models` (or `--refresh`) at runtime
+   instead of a static list, because the free set changed between two runs on
+   the same day (section 2).

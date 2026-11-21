@@ -1,0 +1,12 @@
+0 tests/dependency-freshness-2264.test.mjs
+0 tests/issue-2301-incomplete-claude-turn.test.mjs
+0 tests/issue-2301-print-bg-ceiling.test.mjs
+0 tests/optional-automation-2324.test.mjs
+0 tests/test-command-stream-1x-results.mjs
+0 tests/test-issue-1700-isolation-parsing.mjs
+0 tests/test-issue-1851-process-debug.mjs
+0 tests/test-issue-2015-oom-killed-status.mjs
+0 tests/test-issue-2189-start-command-0.33.mjs
+0 tests/test-preinstall-use-m-packages-1724.mjs
+0 tests/test-ready-to-merge-pagination-1645.mjs
+0 tests/test-use-with-retry.mjs

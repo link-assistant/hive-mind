@@ -158,4 +158,39 @@ export const buildNoChangesNotice = changeStats => {
   return '> ⚠️ This pull request still contains no changes - nothing was implemented yet.';
 };
 
-export default { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, SUMMARY_MAX_CHARACTERS, WORKSPACE_PATH_PLACEHOLDER };
+/**
+ * Issue #3211: final messages that only repeat the last tool result.
+ *
+ * Claude's fallback text for a turn that ended on a tool call is "The `X`
+ * command completed. Output: …"; codex's is "Read N file(s): - `path`: …".
+ * Neither says what the session did, and published under "Working session
+ * summary" both read as completed work.
+ */
+const ECHOED_COMMAND_OUTPUT = /^The `([^`\n]+)` command completed\. Output:/;
+const ECHOED_FILE_READ = /^Read \d+ file\(s\):\n- `[^`\n]+`:/;
+
+/**
+ * @param {string} text - the session's final message
+ * @returns {{tool: string}|null} the tool whose output the message only repeats
+ */
+export const describeEchoedToolOutputSummary = text => {
+  if (typeof text !== 'string') return null;
+  const trimmed = text.trim();
+  const command = ECHOED_COMMAND_OUTPUT.exec(trimmed);
+  if (command) {
+    // Text after the fenced output means the AI went on to write its own report.
+    const rest = trimmed.slice(command[0].length).trim();
+    const fence = /^(```|~~~)[^\n]*\n[\s\S]*?\n\1[ \t]*(?:\n|$)/.exec(rest);
+    return fence && rest.slice(fence[0].length).trim() ? null : { tool: command[1] };
+  }
+  return ECHOED_FILE_READ.test(trimmed) ? { tool: 'Read' } : null;
+};
+
+/** Replace an echoed tool output with a neutral sentence; any other text is returned unchanged. */
+export const replaceEchoedToolOutputSummary = text => {
+  const echoed = describeEchoedToolOutputSummary(text);
+  if (!echoed) return text;
+  return `The AI tool did not write a summary of this session: its final message only repeated the output of its last \`${echoed.tool}\` call. See the session log for what it did.`;
+};
+
+export default { buildNoChangesNotice, capWorkingSessionSummary, describeEchoedToolOutputSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, replaceEchoedToolOutputSummary, SUMMARY_MAX_CHARACTERS, WORKSPACE_PATH_PLACEHOLDER };

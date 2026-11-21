@@ -1,0 +1,1 @@
+{"model":"kilo/nemotron-3-super-free","version":"0.26.11","exit":0,"reply":"hello","notFound":false,"freeTierError":false}

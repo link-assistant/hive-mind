@@ -17,12 +17,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
+import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
-import { getPausedTaskContainerNames } from './session-store.lib.mjs';
+import { getProtectedTaskContainerNames } from './session-store.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -34,6 +36,22 @@ function tryExec(cmd, args, options = {}) {
       maxBuffer: 64 * 1024 * 1024,
       ...options,
     }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Issue #3552: the `gh` calls below are retried on transient GitHub faults.
+const execFileAsync = wrapRunnerWithTransientRetry(promisify(execFile));
+
+/**
+ * Async {@link tryExec}, for the paths the Telegram bot reaches through
+ * {@link getActiveTasks}: a 20 s `gh` call must not freeze its event loop (issue #3278).
+ */
+async function tryExecAsync(cmd, args, options = {}) {
+  try {
+    const { stdout } = await execFileAsync(cmd, args, { encoding: 'utf8', timeout: options.timeout ?? 20000, maxBuffer: 64 * 1024 * 1024, ...options });
+    return stdout.trim();
   } catch {
     return null;
   }
@@ -340,7 +358,7 @@ export function parseDockerPsJsonLines(output) {
       .toLowerCase();
     const status = String(data.Status || data.status || '').trim();
     const exitCode = parseDockerContainerExitCode(status);
-    const running = state === 'running' || /^Up\b/i.test(status);
+    const running = state === 'running' || state === 'paused' || /^Up\b/i.test(status);
 
     for (const name of splitDockerNames(data.Names || data.Name || data.names || data.name)) {
       if (!isDockerIsolationSessionName(name)) continue;
@@ -367,10 +385,11 @@ export function parseDockerPsJsonLines(output) {
  *
  * @returns {Array}
  */
-export function listDockerIsolationContainers() {
+export async function listDockerIsolationContainers() {
   const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
-  const paused = getPausedTaskContainerNames();
-  return out ? parseDockerPsJsonLines(out).map(container => ({ ...container, pausedByUser: paused.has(container.name) })) : [];
+  if (!out) return [];
+  const protectedNames = await getProtectedTaskContainerNames();
+  return parseDockerPsJsonLines(out).map(container => ({ ...container, retainForResume: protectedNames.has(container.name) }));
 }
 
 function listStartCommandLogFiles(logRoot, maxFiles) {
@@ -606,24 +625,27 @@ export function signalOrphanedAgentTrees(report, options = {}) {
  * Collect task references (owner/repo/number/type) from running solve/hive
  * processes by scanning /proc/<pid>/cmdline.
  *
- * @returns {Array<{owner, repo, type, number}>}
+ * @returns {Promise<Array<{owner, repo, type, number}>>}
  */
-export function listActiveTaskRefsFromProc() {
+export async function listActiveTaskRefsFromProc() {
   const refs = [];
   const seen = new Set();
   let pids;
   try {
-    pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
+    pids = (await fs.promises.readdir('/proc')).filter(name => /^\d+$/.test(name));
   } catch {
     return refs;
   }
-  for (const pid of pids) {
-    let cmdline;
-    try {
-      cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim();
-    } catch {
-      continue;
-    }
+  // Read every cmdline concurrently; the loop below keeps the /proc order.
+  const cmdlines = await Promise.all(
+    pids.map(pid =>
+      fs.promises.readFile(`/proc/${pid}/cmdline`, 'utf8').then(
+        raw => raw.replace(/\0/g, ' ').trim(),
+        () => null
+      )
+    )
+  );
+  for (const cmdline of cmdlines) {
     if (!cmdline || !/github\.com/.test(cmdline)) continue;
     for (const ref of extractTaskRefsFromCommand(cmdline)) {
       const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
@@ -724,10 +746,10 @@ export async function listActiveTaskRefsFromSessions(sessionIds) {
  * (offline, no gh, not found) — callers fall back to issue-prefix matching.
  *
  * @param {{owner, repo, number}} ref
- * @returns {string|null}
+ * @returns {Promise<string|null>}
  */
-export function resolvePrHeadBranch(ref) {
-  const out = tryExec('gh', ['pr', 'view', String(ref.number), '--repo', `${ref.owner}/${ref.repo}`, '--json', 'headRefName', '--jq', '.headRefName']);
+export async function resolvePrHeadBranch(ref) {
+  const out = await tryExecAsync('gh', ['pr', 'view', String(ref.number), '--repo', `${ref.owner}/${ref.repo}`, '--json', 'headRefName', '--jq', '.headRefName']);
   return out || null;
 }
 
@@ -795,7 +817,7 @@ export async function listSessionTasks(options = {}) {
     for (const task of tasks) {
       if (task.type !== 'pull') continue;
       const key = `${task.owner}/${task.repo}#${task.number}`;
-      if (!branchCache.has(key)) branchCache.set(key, resolvePrHeadBranch(task));
+      if (!branchCache.has(key)) branchCache.set(key, await resolvePrHeadBranch(task));
       task.branch = branchCache.get(key);
     }
   }
@@ -814,7 +836,7 @@ export async function listSessionTasks(options = {}) {
  */
 export async function getActiveTasks(options = {}) {
   const { useSessions = true, resolveBranches = true, sessionTasks = null } = options;
-  const refs = [...listActiveTaskRefsFromProc()];
+  const refs = [...(await listActiveTaskRefsFromProc())];
   const seen = new Set(refs.map(r => `${r.owner}/${r.repo}#${r.number}:${r.type}`));
 
   if (useSessions) {
@@ -832,13 +854,15 @@ export async function getActiveTasks(options = {}) {
     }
   }
 
-  return refs.map(ref => {
+  const tasks = [];
+  for (const ref of refs) {
     let branch = ref.branch || null;
     if (!branch && ref.type === 'pull' && resolveBranches) {
-      branch = resolvePrHeadBranch(ref);
+      branch = await resolvePrHeadBranch(ref);
     }
-    return { ...ref, branch };
-  });
+    tasks.push({ ...ref, branch });
+  }
+  return tasks;
 }
 
 /**
@@ -863,10 +887,12 @@ export function removePath(targetPath) {
  * @param {string} containerName
  * @returns {boolean}
  */
-export function removeDockerContainer(containerName) {
+export async function removeDockerContainer(containerName) {
   if (!isDockerIsolationSessionName(containerName)) return false;
-  if (getPausedTaskContainerNames().has(containerName)) return false;
-  return tryExec('docker', ['rm', '-f', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
+  if ((await getProtectedTaskContainerNames()).has(containerName)) return false;
+  const state = tryExec('docker', ['inspect', '--format', '{{.State.Paused}}', containerName], { timeout: 30000 });
+  if (!state || state.trim() !== 'false') return false;
+  return tryExec('docker', ['rm', '--', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
 }
 
 /**
@@ -886,9 +912,10 @@ export function removeDockerContainer(containerName) {
  */
 export async function runSystemCleanup(options = {}) {
   const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
-  const paused = docker ? options.pausedContainerNames || getPausedTaskContainerNames() : new Set();
-  if (paused.size > 0) await logFn('   Docker system prune skipped: paused task files are preserved for /resume.');
-  const plan = buildSystemCleanupPlan({ apt, journal, docker: docker && paused.size === 0, npm, journalVacuumTime, useSudo });
+  const protectedNames = docker ? await getProtectedTaskContainerNames() : new Set();
+  const protectedContainer = protectedNames.size > 0 && parseDockerPsJsonLines(tryExec('docker', ['ps', '-a', '--format', '{{json .}}']) || '').some(container => protectedNames.has(container.name));
+  if (protectedContainer) await logFn('   Docker system prune skipped to preserve retained task files.');
+  const plan = buildSystemCleanupPlan({ apt, journal, docker: docker && !protectedContainer, npm, journalVacuumTime, useSudo });
   const results = [];
 
   if (dryRun) {

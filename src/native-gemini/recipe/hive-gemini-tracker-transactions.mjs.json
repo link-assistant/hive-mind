@@ -1,0 +1,16 @@
+{
+  "lines": [
+    "// Keep the actual native async validators tied to their checked commit.\nimport { AsyncLocalStorage } from 'node:async_hooks';\n",
+    "\nconst operations = new AsyncLocalStorage();\n",
+    "const refusal = () => new Error('Gemini canonical conversation history is unavailable or unsafe.');\n\n",
+    "export function nativeGeminiTrackerOperation(service, action) {\n  return operations.run({ service, observed: new Map() }, action);\n",
+    "}\n\n",
+    "export function observeNativeGeminiTracker(service, id, revision) {\n  const operation = operations.getStore();\n",
+    "  if (!operation || operation.service !== service) return;\n  if (operation.observed.has(id) && operation.observed.get(id) !== revision) throw refusal();\n",
+    "  operation.observed.set(id, revision);\n}\n",
+    "\nexport function assertNativeGeminiTrackerObservations(service, current) {\n",
+    "  const operation = operations.getStore();\n  if (!operation || operation.service !== service) return;\n",
+    "  for (const [id, revision] of operation.observed) {\n    if (current.get(id)?.revision !== revision) throw refusal();\n",
+    "  }\n}\n"
+  ]
+}

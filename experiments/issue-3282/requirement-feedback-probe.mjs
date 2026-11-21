@@ -1,0 +1,5 @@
+/* global console */
+// Probe: which PR comments count as requirement feedback for the #2406 digest.
+import { requirementFeedback } from '../../src/issue-requirements.lib.mjs';
+const bodies = ['## ✅ Ready to merge\n\nThis pull request is now ready to be merged:', '## 🔄 Auto-restart 1/5\n\nDetected uncommitted changes', '## ⚠️ Auto-merge blocked\n\nAuto-merge cannot merge', '## 🛑 Automation stopped: CI failed', '## :warning: Session Force-Killed (stream timeout)\n\nx', '<!-- hive-mind:recovery-lifecycle -->\n## Recovery', '## 🤖 Solution Draft Log\nThis log file contains', 'Please fix the bug; the bot said "Ready to merge" but it is not.', '## Ready to merge?\nNo, please also add docs.', '## Requirements\n- [ ] Ready to merge only after docs', '## Ready to merge\nNot yet: the docs are missing.', '## Cancelled CI/CD Requires Review\n\nx'];
+for (const body of bodies) console.log(requirementFeedback([{ id: 1, body }]).length ? 'FEEDBACK  ' : 'bookkeep  ', JSON.stringify(body.slice(0, 60)));

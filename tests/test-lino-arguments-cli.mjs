@@ -37,7 +37,14 @@ function getWorkflowJob(source, jobName) {
 }
 
 await test('package depends on lino-arguments', () => {
-  assert.equal(packageJson.dependencies?.['lino-arguments'], '^0.3.0');
+  // The adapter needs 0.4.x or later; the exact patch moves with every
+  // dependency refresh (a hard-coded '^0.4.0' failed main after the '^0.4.1'
+  // bump, issue #4025), so only the floor is checked here.
+  const range = packageJson.dependencies?.['lino-arguments'];
+  const match = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(range ?? '');
+  assert.ok(match, `lino-arguments must be a caret range on an exact version, got ${JSON.stringify(range)}`);
+  const [major, minor] = match.slice(1).map(Number);
+  assert.ok(major > 0 || minor >= 4, `lino-arguments ${range} is below the 0.4.0 floor`);
 });
 
 await test('CLI argument parsers route through lino-arguments adapter', async () => {

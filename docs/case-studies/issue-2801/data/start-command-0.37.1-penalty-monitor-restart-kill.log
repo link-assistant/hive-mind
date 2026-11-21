@@ -1,0 +1,16 @@
+05:45:55 start-command version: 0.37.1; NCPU=6 TRIGGER=20% SIGNAL=KILL
+05:46:23 penalized: NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=2996 monitor pids: 26595 26611 26612 26614 
+05:46:25 watcher and monitor killed; monitor pids: ''
+05:46:25 container made idle; waiting 30 s without a monitor
+05:46:56 still capped? NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=35747
+05:46:56 watcher-side processes: 
+resume-all: reattached state=running Re-attached completion watcher to running container: issue-2801-start-restart-26084
+05:46:58 after --resume-all: status=executing null null
+05:46:58 after --resume-all: processes: 29132 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |29151 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |29152 sh -c __start_command_cgroup_dir() { __scd_id=$(docker inspect -f '{{.Id}}' "$1" 2>/dev/null); [ -n "$__scd_id" ] || return 1; __scd_pid=$(docker inspect |29154 docker logs -f issue-2801-start-restart-26084|29156 /home/box/.bun/bin/bun /tmp/sc0371/node_modules/start-command/src/lib/cpu-penalty-monitor.js 58e1581b-7af6-47e4-ad97-020963ea3504 issue-2801-start-restart|
+05:47:02 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=41806
+05:47:05 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=45273
+05:47:09 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=48811
+05:47:12 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=52146
+05:47:16 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=55517
+05:47:19 idle NanoCpus=2000000000 penalized limit=2 count=1 penalizedMs=58883
+05:47:22 idle NanoCpus=6000000000 observing limit=6 count=1 penalizedMs=61197

@@ -1,0 +1,25 @@
+Final local validation after refreshing the required dependency pins:
+
+npm test -- --continue-on-failure: exit 0; all 548 selected default test files passed.
+node scripts/check-dependency-freshness.mjs: exit 0; 168/168 declarations current.
+Dependency retry tests: exit 0; 43 passed.
+Preinstallation tests: exit 0; 8 passed.
+Current dependency pin assertions: exit 0.
+Start-command adoption checks: exit 0; 37 passed.
+Pinned command-stream result-shape tests: exit 0; 6 passed.
+Dependency freshness unit tests: exit 0.
+Retained diff-path assertions were restored during self-review after that test file's full-suite execution. The updated file was rerun separately and passed, as did its ESLint and Prettier checks.
+
+npm run lint: exit 0.
+npm run format:check: exit 0.
+npm run check:secrets: exit 0.
+npm run check:duplication: exit 0; 11.33%, below 12%.
+bash scripts/check-mjs-syntax.sh: exit 0.
+bash scripts/check-file-line-limits.sh: exit 0.
+node scripts/check-package-manager.mjs: exit 0.
+node scripts/check-version.mjs: exit 0.
+GITHUB_BASE_REF=main node scripts/validate-changeset.mjs: exit 0; one patch changeset.
+npm audit --audit-level=high: exit 0; zero vulnerabilities.
+git diff --check: exit 0.
+
+The GitHub-mutating integration suite is left to the repository's existing CI job. No manual paid live-agent Hello World matrix was run.

@@ -52,7 +52,7 @@ export function ensureIssueLinkInPullRequestBody(prBody, { issueNumber, owner = 
     return { body, updated: false, issueRef };
   }
 
-  const separator = body.length > 0 ? '\n\n' : '';
+  const separator = body.length > 0 ? '\n\n---\n\n' : '';
   return {
     body: `${body}${separator}Fixes ${issueRef}`,
     updated: true,

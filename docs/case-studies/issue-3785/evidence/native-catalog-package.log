@@ -1,0 +1,3 @@
+Verified: disposable Bun installation contains the branch package, stock manifest and required runtime verifier.
+Its installed verifier passed with the real offline Codex stock tree and local Claude version check.
+This does not verify release-image boot, persisted-state migration, auth/history or daemon lifecycle gates.

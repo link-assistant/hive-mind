@@ -1,0 +1,25 @@
+file:///tmp/wt-before/tests/test-issue-3108-repository-single-issue.mjs:22
+import { checkRepositoryModeWork, preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue, replyIfRepositoryHasNoWork } from '../src/telegram-solve-repository-preflight.lib.mjs';
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../src/telegram-solve-repository-preflight.lib.mjs' does not provide an export named 'preflightRepositoryTarget'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:463:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:561:5)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:105:5)
+
+Node.js v26.11.1
+✖ tests/test-issue-3108-repository-single-issue.mjs (247.145399ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 261.646254
+
+✖ failing tests:
+
+test at tests/test-issue-3108-repository-single-issue.mjs:1:1
+✖ tests/test-issue-3108-repository-single-issue.mjs (247.145399ms)
+  'test failed'

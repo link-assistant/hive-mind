@@ -1,0 +1,3 @@
+{"command":"kill -TERM $$","exits":[{"type":"exit","code":143,"signal":null}],"resultCode":143,"runnerSignal":null}
+{"command":"kill -KILL $$","exits":[{"type":"exit","code":137,"signal":null}],"resultCode":137,"runnerSignal":null}
+{"command":"exit 3","exits":[{"type":"exit","code":3,"signal":null}],"resultCode":3,"runnerSignal":null}

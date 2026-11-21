@@ -291,22 +291,30 @@ export function createSessionStore(options = {}) {
 
   function flushSnapshotSync() {
     exiting = true;
-    if (pendingUpdates.length === 0 || disabled) return;
+    const batch = pendingUpdates.splice(0, pendingUpdates.length);
+    if (batch.length === 0) return;
+    if (disabled) {
+      for (const { resolve } of batch) resolve?.(false);
+      return;
+    }
     let sessions = {};
     try {
       sessions = parseSnapshot(fsImpl.readFileSync(snapshotPath, 'utf8')); // hive-sync-ok: exit handler, the event loop is gone
     } catch {
       /* missing or corrupt: start from empty, as the asynchronous path does */
     }
-    const batch = pendingUpdates.splice(0, pendingUpdates.length);
-    if (!applyUpdates(sessions, batch)) return;
+    let written = true;
     try {
-      fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: exit handler, the event loop is gone
-      fsImpl.writeFileSync(tmpPath, snapshotPayload(sessions)); // hive-sync-ok: exit handler, the event loop is gone
-      fsImpl.renameSync(tmpPath, snapshotPath); // hive-sync-ok: exit handler, the event loop is gone
+      if (applyUpdates(sessions, batch)) {
+        fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: exit handler, the event loop is gone
+        fsImpl.writeFileSync(tmpPath, snapshotPayload(sessions)); // hive-sync-ok: exit handler, the event loop is gone
+        fsImpl.renameSync(tmpPath, snapshotPath); // hive-sync-ok: exit handler, the event loop is gone
+      }
     } catch (error) {
+      written = false;
       log('error', `Could not write session snapshot: ${error.message}`);
     }
+    for (const { resolve } of batch) resolve?.(written);
   }
 
   function updateSnapshot(update, confirm = false) {

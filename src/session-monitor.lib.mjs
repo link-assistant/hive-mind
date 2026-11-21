@@ -217,7 +217,7 @@ function persistSessionSnapshot(sessionName, sessionInfo) {
  */
 export function getTrackedSessionInfo(sessionName) {
   if (!sessionName) return null;
-  return findTrackedSessionByIdentifier(sessionName)?.sessionInfo || null;
+  return activeSessions.get(sessionName) || findTrackedSessionByIdentifier(sessionName)?.sessionInfo || null;
 }
 /**
  * Issue #2052: record that an operator explicitly requested a session stop

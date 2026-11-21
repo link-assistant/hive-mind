@@ -21,6 +21,7 @@ const name = randomUUID();
 const containers = new Set([name]);
 const root = await mkdtemp(join(tmpdir(), 'hive-pause-smoke-'));
 process.env.START_TEMP_ROOT = root;
+process.env.START_APP_FOLDER = join(root, 'state');
 const script = 'ulimit -v 65536; mkdir -p /task; test -f /task/uncommitted || echo retained-work > /task/uncommitted; i=$(cat /task/progress 2>/dev/null || echo 0); trap "exit 0" TERM; while [ "$i" -lt 90 ]; do i=$((i+1)); echo "$i" > /task/progress; echo "progress=$i"; sleep 1; done';
 const activeSessions = new Map();
 const controls = createSessionPauseControls({ activeSessions, sessionsInFlight: new Set(), findSession: id => ({ sessionName: id, sessionInfo: activeSessions.get(id) }), getRunner: async () => runner, persist: () => {} });

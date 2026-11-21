@@ -26,9 +26,9 @@ try {
     if ((await docker(['exec', name, 'sh', '-c', 'test -f /root/.cache/pip/mounted && echo ready || true'])) === 'ready') break;
     await delay(200);
   }
-  const records = { executions: [{ uuid: execution, command: `solve ${target}`, options: { isolated: 'docker', containerId: id, sessionName: name } }] };
-  writeFileSync(join(stage, '$'), `#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(records)}'\n`, { mode: 0o700 });
-  process.env.PATH = `${stage}:${process.env.PATH}`;
+  const records = [{ uuid: execution, command: `solve ${target}`, options: { isolated: 'docker', containerId: id, sessionName: name } }];
+  writeFileSync(join(stage, 'executions.lino'), JSON.stringify(records), { mode: 0o600 });
+  process.env.START_APP_FOLDER = stage;
   await docker(['pause', id]);
   const report = await diskReport(docker, 'hive-storage-fixture-missing-bot', 10);
   const row = report.containers.find(row => row.id === id);

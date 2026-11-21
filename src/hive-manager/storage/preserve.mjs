@@ -4,6 +4,7 @@ import { copyFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { absolute, dockerRoot, executionId, inspect, mountTable, overlaps, runtimeRoots, upperDirectory, within } from './lib/docker.mjs';
 import { output, run } from './lib/process.mjs';
+import { taskRecords } from './lib/records.mjs';
 
 const schema = 'hive-manager-stopped-writable-layer-v1';
 const evidenceFiles = ['layer.tar.gz', 'container.json', 'execution.json', 'task.log', 'docker.stdout.log', 'docker.stderr.log'];
@@ -45,18 +46,11 @@ function matchesRecord(record, facts) {
 }
 
 async function captureTaskLog(docker, instance, facts, stage) {
-  const args = ['--status', facts.execution, '--output-format', 'json'];
-  let record;
-  let source;
-  try {
-    record = JSON.parse(await docker(['exec', '--user', 'box', instance, '$', ...args], { maxBytes: 4 * 1024 ** 2 }));
-  } catch {
-    record = JSON.parse(await output('$', args, { maxBytes: 4 * 1024 ** 2 }));
-    source = record.logPath;
-  }
+  const { data: record, local } = await taskRecords(docker, instance, { execution: facts.execution }, { maxBytes: 4 * 1024 ** 2 });
   if (!matchesRecord(record, facts)) throw new Error('The stored start-command attempt differs from the stopped task.');
   if (!absolute(record.logPath)) throw new Error('The execution record has no usable task log path.');
-  if (source === undefined) {
+  let source = record.logPath;
+  if (!local) {
     const [bot] = await inspect(docker, [instance]);
     const mount = (bot.mounts ?? []).filter(entry => absolute(entry.Destination) && absolute(entry.Source) && within(record.logPath, entry.Destination)).sort((a, b) => b.Destination.length - a.Destination.length)[0];
     if (!mount) throw new Error('The task log is outside the deployment’s persisted mounts.');

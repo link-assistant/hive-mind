@@ -1,7 +1,8 @@
 import { lstatSync, realpathSync, statfsSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
-import { absolute, correlate, dockerRoot, inventory, mountTable, runtimeRoots, taskRecords, upperDirectory, within } from './lib/docker.mjs';
+import { absolute, correlate, dockerRoot, executionId, inventory, mountTable, runtimeRoots, upperDirectory, within } from './lib/docker.mjs';
 import { output } from './lib/process.mjs';
+import { taskRecords } from './lib/records.mjs';
 
 const hostPaths = ['/var/log', '/var/cache', '/var/lib', '/home', '/root', '/tmp', '/opt', '/srv', '/workspace', '/usr'];
 
@@ -30,11 +31,12 @@ export async function diskReport(docker, instance, seconds) {
   const root = await measure('Docker data root', () => dockerRoot(docker, options()));
   const mounts = await measure('Host mounts', () => mountTable());
   const rows = (await measure('Docker containers', () => inventory(docker, options, { onError: message => issues.push(message) }))) ?? [];
-  const records = await measure('Start-command records', async () => {
-    const { executions } = await taskRecords(docker, instance, ['--list'], options);
-    if (!Array.isArray(executions)) throw new Error('invalid start-command list');
-    return executions;
-  });
+  const records = rows.length
+    ? await measure('Start-command records', async () => {
+        const query = { ids: rows.map(row => row.id), uuids: rows.flatMap(row => (executionId.test(row.execution) ? [row.execution.toLowerCase()] : [])) };
+        return (await taskRecords(docker, instance, query, options)).data;
+      })
+    : [];
 
   const usage = async (path, excludes = []) => {
     if (!absolute(path) || !mounts) throw new Error('path or mount boundaries unavailable');

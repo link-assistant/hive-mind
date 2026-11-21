@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http2';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { readCleanupStatus, scopedCleanup } from '../src/hive-manager/storage/cleanup.mjs';
 import { snapshotUpper } from '../src/hive-manager/storage/lib/containerd.mjs';
 import { openTree, planFiles, removeApproved } from '../src/hive-manager/storage/lib/files.mjs';
-import { MemoryPressure, memoryGuard, run } from '../src/hive-manager/storage/lib/process.mjs';
+import { MemoryPressure, memoryGuard, output, run } from '../src/hive-manager/storage/lib/process.mjs';
 import { cleanupPreserved, preserveLayer } from '../src/hive-manager/storage/preserve.mjs';
 import { diskReport } from '../src/hive-manager/storage/report.mjs';
 
@@ -94,8 +94,8 @@ test('reads writable snapshot metadata without activating a containerd mount', {
   assert.deepEqual(seen[0].request, Buffer.concat([field(1, 'overlayfs'), field(2, id)]));
 });
 
-test('reports running, paused and stopped layers and correlates a historical execution without a Docker size walk', { skip: !linux }, async t => {
-  const { root, upper, mount, row, log } = fixture(t);
+test('reports running, paused and stopped layers and reads historical execution records without mutating the store', { skip: !linux }, async t => {
+  const { root, upper, mount, row, log, state } = fixture(t);
   writeFileSync(join(upper, 'writable'), 'written above the image');
   const rows = {
     [id]: { ...row(id, 'running', 'running'), executionEnv: [`START_EXECUTION_ID=${uuid}`, 'START_SESSION_NAME=running'] },
@@ -103,8 +103,11 @@ test('reports running, paused and stopped layers and correlates a historical exe
     [stoppedId]: { ...row(stoppedId, 'failed', 'exited'), graph: {}, driver: 'unmeasurable', logPath: join(root, 'missing') },
   };
   const tasks = [{ uuid, command, options: { isolated: 'docker', containerId: id }, attemptHistory: [{ containerId: stoppedId }] }];
-  const docker = async args => {
-    assert.ok(!args.some(arg => ['--size', 'diff', 'system'].includes(arg)), args);
+  const store = join(state, 'executions.lino');
+  writeFileSync(store, JSON.stringify(tasks));
+  chmodSync(store, 0o400);
+  const docker = async (args, options) => {
+    assert.ok(!args.some(arg => ['--size', 'diff', 'system', '--list', '--status'].includes(arg)), args);
     switch (args.slice(0, 2).join(' ')) {
       case 'info --format':
         return root;
@@ -116,7 +119,7 @@ test('reports running, paused and stopped layers and correlates a historical exe
           .map(id => JSON.stringify(rows[id]))
           .join('\n');
       case 'exec --user':
-        return JSON.stringify({ executions: tasks });
+        return output('env', [`START_APP_FOLDER=${state}`, ...args.slice(4)], options);
       case 'image ls':
         return '{"ID":"sha256:test","Repository":"test","Tag":"fixture","Size":"8MB"}';
       case 'volume ls':
@@ -143,6 +146,8 @@ test('reports running, paused and stopped layers and correlates a historical exe
   assert.ok(report.issues.some(issue => issue.startsWith('failed writable layer:')));
   assert.deepEqual(report.images[0].tags, ['test:fixture']);
   assert.ok(report.volumes[0].bytes >= 0);
+  assert.deepEqual(JSON.parse(readFileSync(store, 'utf8')), tasks);
+  assert.deepEqual(readdirSync(state), ['executions.lino']);
 });
 
 test('scoped preview skips paused and stopped tasks and protects host bind sources', { skip: !linux }, async t => {
@@ -344,7 +349,7 @@ test('a disconnected launcher leaves one observable worker, and a stale running 
 });
 
 test('stopped-layer receipt verifies ownership, execution and logs before exact container removal', { skip: !linux, timeout: 10_000 }, async t => {
-  const { cwd, root, upper, mount, row } = fixture(t);
+  const { cwd, root, upper, mount, row, state } = fixture(t);
   const layerPath = join(upper, 'evidence');
   const taskLog = join(mount, 'task.log');
   writeFileSync(layerPath, 'writable bytes', { mode: 0o640 });
@@ -352,6 +357,7 @@ test('stopped-layer receipt verifies ownership, execution and logs before exact 
   writeFileSync(taskLog, 'start-command log');
   const stopped = { ...row(stoppedId, 'failed', 'exited'), execution: uuid, mounts: [{ Source: mount, Destination: '/mounted' }] };
   const record = { uuid, command, status: 'executed', exitCode: 27, logPath: '/persistent/task.log', options: { isolated: 'docker', containerId: stoppedId, sessionName: 'failed' } };
+  writeFileSync(join(state, 'executions.lino'), JSON.stringify([record]));
   let removed = false;
   const docker = async (args, options) => {
     switch (args.slice(0, 2).join(' ')) {
@@ -360,7 +366,7 @@ test('stopped-layer receipt verifies ownership, execution and logs before exact 
       case 'info --format':
         return root;
       case 'exec --user':
-        return JSON.stringify(record);
+        return output('env', [`START_APP_FOLDER=${state}`, ...args.slice(4)], options);
       case 'logs --timestamps':
         writeFileSync(options.stdio[1], 'Docker stdout');
         writeFileSync(options.stdio[2], 'Docker stderr');

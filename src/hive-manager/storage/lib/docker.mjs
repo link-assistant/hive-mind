@@ -147,12 +147,3 @@ export function correlate(rows, executions) {
     return { execution: uuid ?? task?.uuid ?? null, session: row.session || task?.options?.sessionName || null, target: targetUrl(task?.command) ?? (uuid ? targetUrl(row.command) : null), recordMatched: Boolean(task) };
   });
 }
-
-export async function taskRecords(docker, instance, args, options) {
-  const taskArgs = [...args, '--output-format', 'json'];
-  try {
-    return JSON.parse(await docker(['exec', '--user', 'box', instance, '$', ...taskArgs], typeof options === 'function' ? options() : options));
-  } catch {
-    return JSON.parse(await output('$', taskArgs, typeof options === 'function' ? options() : options));
-  }
-}

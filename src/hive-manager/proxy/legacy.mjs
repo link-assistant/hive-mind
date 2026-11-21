@@ -91,8 +91,7 @@ function lines(value) {
 }
 
 function legacyName(name) {
-  const classic = /^mtproxy-classic-([1-9]\d{0,4})(?:-old)?$/.exec(name);
-  return name === 'mtproxy' || name === 'mtproxy-classic' || (classic && Number(classic[1]) <= 65535);
+  return /^mtproxy(?:-classic(?:-\d+)?(?:-old)?)?$/.test(name);
 }
 
 async function listContainers(host) {

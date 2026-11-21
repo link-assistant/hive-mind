@@ -237,7 +237,7 @@ hive-manager proxy-pcap --compare baseline.json candidate.json
 
 ### Stop or remove legacy proxy resources
 
-Run `proxy inventory` for recognized unowned containers, including `mtproxy`, `mtproxy-classic`, `mtproxy-classic-PORT` and `mtproxy-classic-PORT-old`. Add `--legacy-mss` on the Docker host with systemd and iptables access to inspect the original `mtproxy-mss.service` and the rules installed by its script. Selecting the MSS hook includes the whole unit and the rules attributed to its configured ports and MSS. Review all resources in the plan before applying.
+Run `proxy inventory` for recognized unowned containers, including `mtproxy`, `mtproxy-classic`, `mtproxy-classic-old`, `mtproxy-classic-PORT` and `mtproxy-classic-PORT-old`. Add `--legacy-mss` on the Docker host with systemd and iptables access to inspect the original `mtproxy-mss.service` and the rules installed by its script. Selecting the MSS hook includes the whole unit and the rules attributed to its configured ports and MSS. Review all resources in the plan before applying.
 
 ```bash
 cleanup=(hive-manager --host hive-production deploy proxy)

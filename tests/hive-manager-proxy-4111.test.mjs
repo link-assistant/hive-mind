@@ -169,7 +169,7 @@ printf '%s\n' '-P FORWARD ACCEPT' \
 });
 
 function cleanupHost() {
-  const names = ['mtproxy', 'mtproxy-classic', 'mtproxy-classic-8443', 'mtproxy-classic-8443-old', 'hive-mind', 'mtproxy-classic-65536'];
+  const names = ['mtproxy', 'mtproxy-classic', 'mtproxy-classic-8443', 'mtproxy-classic-8443-old', 'mtproxy-classic-old', 'hive-mind', 'mtproxy-classic-65536'];
   const containers = names.map((name, index) => ({
     name,
     id: String(index + 1).repeat(64),
@@ -257,10 +257,10 @@ test('legacy cleanup reviews exact identities, disables MSS, preserves files and
   const { containers, mss } = await inventoryLegacyProxy({ legacyMss: true }, host);
   assert.deepEqual(
     containers.map(c => c.name),
-    ['mtproxy', 'mtproxy-classic', 'mtproxy-classic-8443', 'mtproxy-classic-8443-old']
+    ['mtproxy', 'mtproxy-classic', 'mtproxy-classic-65536', 'mtproxy-classic-8443', 'mtproxy-classic-8443-old', 'mtproxy-classic-old']
   );
   assert.equal(mss.rules.length, 4);
-  const names = ['mtproxy', 'mtproxy-classic-8443-old'];
+  const names = ['mtproxy', 'mtproxy-classic-8443-old', 'mtproxy-classic-old'];
   const options = { action: 'stop', names, legacyMss: true };
   const plan = await planLegacyProxyCleanup(options, host);
   state.containers[0].id = id;

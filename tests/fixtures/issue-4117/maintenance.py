@@ -115,8 +115,45 @@ command = "unapproved-content"
             plan.verify_all()
         self.assertEqual(auth.read_text(), '{}')
 
+    def test_redirected_skill_directories_are_quarantined_without_traversing_them(self):
+        task_skill = self.write('.codex/hive-mind/tasks/run/SKILL.md', 'task skill')
+        for relative in ('.codex/skills', '.codex/skills/.system'):
+            with self.subTest(relative=relative):
+                link = self.home / relative
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(task_skill.parent, target_is_directory=True)
+                plan, = self.plan()
+                self.assertIsNone(plan.error)
+                backup = Path(tempfile.mkdtemp(dir=self.root))
+                plan.prepare(backup)
+                plan.apply()
+                self.assertFalse(link.is_symlink())
+                self.assertTrue((plan.backup / 'removed' / relative).is_symlink())
+                self.assertEqual(task_skill.read_text(), 'task skill')
+
+    def test_claude_overrides_cannot_reenable_shared_extensions(self):
+        for relative, kind in (('.claude/settings.local.json', 'user'), ('managed-settings.json', 'claude')):
+            with self.subTest(relative=relative):
+                file = self.write(relative, json.dumps({
+                    'permissions': {'deny': ['Bash']},
+                    'syncClaudeAiSkills': True,
+                    'allowAllClaudeAiMcps': True,
+                    'disableAllHooks': False,
+                    'env': {'ENABLE_CLAUDEAI_MCP_SERVERS': 'true', 'CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL': '0'},
+                }))
+                plan, = global_tools.plan_scopes([('fixture', self.fd, kind)], self.policy)
+                plan.prepare(Path(tempfile.mkdtemp(dir=self.root)))
+                plan.apply()
+                self.assertEqual(json.loads(file.read_text()), {
+                    'permissions': {'deny': ['Bash']},
+                    'syncClaudeAiSkills': False,
+                    'allowAllClaudeAiMcps': False,
+                    'disableAllHooks': True,
+                    'env': {'ENABLE_CLAUDEAI_MCP_SERVERS': 'false', 'CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL': '1'},
+                })
+
     def test_requirements_and_managed_configs_preserve_security_policy(self):
-        file = self.write('requirements.toml', 'allowed_approval_policies = ["on-request"]\n[mcp_servers.approved]\ncommand = "pinned"\n[hooks]\nStop = []\n')
+        file = self.write('requirements.toml', 'allowed_approval_policies = ["on-request"]\n[mcp_servers.approved]\ncommand = "pinned"\n[hooks]\nStop = []\n[config_server]\nurl = "https://config.invalid"\n')
         plan, = global_tools.plan_scopes([('system-codex', self.fd, 'codex')], self.policy)
         self.assertIsNone(plan.error)
         plan.prepare(self.root)
@@ -125,6 +162,7 @@ command = "unapproved-content"
         self.assertEqual(result['allowed_approval_policies'], ['on-request'])
         self.assertEqual(result['mcp_servers'], {'approved': {'command': 'pinned'}})
         self.assertNotIn('hooks', result)
+        self.assertNotIn('config_server', result)
 
     def test_mount_source_cannot_redirect_a_config_into_a_task_scope(self):
         with self.assertRaises(ValueError):

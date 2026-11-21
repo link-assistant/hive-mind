@@ -25,6 +25,8 @@ STOCK_SKILLS = frozenset({
     'skill-installer', 'skill-creator', 'openai-docs', 'review-agent', 'imagegen',
     '.codex-system-skills.marker',
 })
+TOOL_HOME_NAMES = ('.codex', '.claude', '.claude.json', '.agents', '.mcp.json')
+HOME_INSTRUCTIONS = ('AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md')
 USER_PATHS = (
     '.codex/plugins', '.codex/hooks', '.codex/hooks.json', '.codex/.hook-trust',
     '.codex/.tmp/plugins', '.codex/.tmp/plugins.sha', '.codex/.tmp/plugins.sync.lock',
@@ -32,8 +34,8 @@ USER_PATHS = (
     '.codex/agents', '.codex/prompts',
     '.claude/skills', '.claude/plugins', '.claude/hooks', '.claude/agents',
     '.claude/commands', '.claude/rules', '.claude/output-styles', '.claude/CLAUDE.md',
-    '.claude/CLAUDE.local.md', '.agents/skills', 'AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md',
-)
+    '.claude/CLAUDE.local.md', '.agents/skills',
+) + HOME_INSTRUCTIONS
 PROTECTED = (
     '.codex/auth.json', '.codex/sessions', '.codex/archived_sessions',
     '.codex/history.jsonl', '.codex/session_index.jsonl', '.codex/hive-mind',
@@ -49,13 +51,21 @@ ADDON_KEYS = (
     'experimental_instructions_file', 'developer_instructions', 'instructions',
     'additional_developer_instructions', 'compact_prompt', 'experimental_compact_prompt_file',
     'experimental_realtime_ws_backend_prompt', 'experimental_realtime_ws_startup_context',
-    'experimental_realtime_start_instructions', 'policyHelper',
+    'experimental_realtime_start_instructions', 'model_catalog_json', 'policyHelper',
 )
 EXTENSION_ENV = (
     'CODEX_HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_PLUGIN_CACHE_DIR',
     'CLAUDE_PLUGIN_ROOT', 'PLUGIN_ROOT', 'CLAUDE_CODE_ENABLE_BACKGROUND_PLUGIN_REFRESH',
     'FORCE_AUTOUPDATE_PLUGINS',
 )
+# Match the cloud capability policy used by the task-launch audit.
+CLAUDE_DISABLED_SETTINGS = {
+    'syncClaudeAiSkills': False, 'syncClaudeAiPlugins': False,
+    'disableClaudeAiConnectors': True, 'allowAllClaudeAiMcps': False, 'disableAllHooks': True,
+}
+CLAUDE_DISABLED_ENV = {
+    'CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL': '1', 'ENABLE_CLAUDEAI_MCP_SERVERS': 'false',
+}
 
 
 def load_policy(path):
@@ -90,6 +100,8 @@ def scrub(data, kind, policy, defaults=False, main_mcp=False):
     for key in ADDON_KEYS:
         result.pop(key, None)
     if codex:
+        if kind == 'requirements':
+            result.pop('config_server', None)
         # Scalar agent settings govern concurrency and session behavior.
         if 'agents' in result:
             result['agents'] = {k: v for k, v in table(result, 'agents').items() if not isinstance(v, dict)}
@@ -108,13 +120,16 @@ def scrub(data, kind, policy, defaults=False, main_mcp=False):
                 result['profiles'][key] = scrub(profile, kind, policy)
     else:
         result.pop('agents', None)
+        for key, value in CLAUDE_DISABLED_SETTINGS.items():
+            if defaults or key in result:
+                result[key] = value
         if defaults or 'env' in result:
             env = table(result, 'env')
             for key in EXTENSION_ENV:
                 env.pop(key, None)
-            if defaults:
-                env['CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL'] = '1'
-                result['disableAllHooks'] = True
+            for key, value in CLAUDE_DISABLED_ENV.items():
+                if defaults or key in env:
+                    env[key] = value
             result['env'] = env
     if kind != 'requirements':
         for key in ('mcp_servers', 'mcpServers', 'managedMcpServers'):
@@ -176,32 +191,44 @@ class Plan:
     def config(self, path, kind, defaults=False, main_mcp=False):
         with at_path(self.root, path) as (parent, name):
             info = info_at(parent, name) if parent is not None else None
-            if info is None and not (defaults or (main_mcp and self.policy.get('claudeMcp'))):
+            allowed = self.policy.get('codexMcp' if kind == 'codex' else 'claudeMcp')
+            if info is None and not (defaults or (main_mcp and allowed)):
                 return
             original = read_config(parent, name, info, self.protected) if info else None
         updated = config_bytes(original, kind, self.policy, defaults, main_mcp)
         if updated != original:
             self.operations.append(dict(path=path, action='config', revision=revision(info) if info else None, before=original, after=updated))
 
+    def skill_entries(self, path):
+        with at_path(self.root, path) as (parent, name):
+            info = info_at(parent, name) if parent is not None else None
+        if info and stat.S_ISLNK(info.st_mode):
+            self.quarantine(path)
+            return []
+        return children(self.root, path)
+
     def user(self):
+        defaults = self.label == 'bot-user' or any(info_at(self.root, name) for name in TOOL_HOME_NAMES)
         for path in USER_PATHS:
             self.quarantine(path)
-        for name in children(self.root, '.codex/skills'):
+        skills = self.skill_entries('.codex/skills')
+        for name in skills:
             if name != '.system':
                 self.quarantine('.codex/skills/' + name)
-        for name in children(self.root, '.codex/skills/.system'):
-            path = '.codex/skills/.system/' + name
-            with at_path(self.root, path) as (parent, child):
-                info = info_at(parent, child)
-                if name not in STOCK_SKILLS or (info and stat.S_ISLNK(info.st_mode)):
-                    self.quarantine(path)
-        self.config('.codex/config.toml', 'codex', defaults=True, main_mcp=True)
+        if '.system' in skills:
+            for name in self.skill_entries('.codex/skills/.system'):
+                path = '.codex/skills/.system/' + name
+                with at_path(self.root, path) as (parent, child):
+                    info = info_at(parent, child)
+                    if name not in STOCK_SKILLS or (info and stat.S_ISLNK(info.st_mode)):
+                        self.quarantine(path)
+        self.config('.codex/config.toml', 'codex', defaults=defaults, main_mcp=defaults)
         for name in children(self.root, '.codex'):
             if re.fullmatch(r'[\w-]+\.config\.toml', name):
                 self.config('.codex/' + name, 'codex')
-        self.config('.claude/settings.json', 'claude', defaults=True)
+        self.config('.claude/settings.json', 'claude', defaults=defaults)
         self.config('.claude/settings.local.json', 'claude')
-        self.config('.claude.json', 'claude', main_mcp=True)
+        self.config('.claude.json', 'claude', main_mcp=defaults)
         self.config('.mcp.json', 'claude')
 
     def system(self, kind):
@@ -390,7 +417,7 @@ def scopes(stack, rootfs):
             if label == 'bot-user':
                 raise ValueError('Missing bot-user home.')
             continue
-        if optional and not any(info_at(root, name) for name in ('.codex', '.claude', '.claude.json', '.agents', '.mcp.json')):
+        if optional and not any(info_at(root, name) for name in TOOL_HOME_NAMES + HOME_INSTRUCTIONS):
             continue
         key = identity(os.fstat(root))
         if key not in seen:

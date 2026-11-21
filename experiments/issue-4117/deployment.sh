@@ -32,11 +32,11 @@ id=$(docker run --rm -d --name "$instance" --env HOME=/home/box \
   --mount "type=bind,source=$fixture,target=/fixture" \
   --mount "type=bind,source=$fixture/claude.json,target=/home/box/.claude.json" alpine:3.23 \
   sh -eu -c '
-    mkdir -p /home/box/.codex/hive-mind/task /home/box/.codex/plugins /root/.codex/plugins /etc/codex
+    mkdir -p /home/box/.codex/hive-mind/task /home/box/.codex/plugins /etc/codex
     printf auth > /home/box/.codex/auth.json
     printf task > /home/box/.codex/hive-mind/task/config.toml
     printf plugin > /home/box/.codex/plugins/unwanted
-    printf plugin > /root/.codex/plugins/unwanted
+    printf instructions > /root/CLAUDE.md
     printf "allowed_approval_policies = [\"on-request\"]\n[hooks]\nStop = []\n" > /etc/codex/requirements.toml
     /fixture/codex app-server --managed-daemon &
     /fixture/codex exec &
@@ -69,6 +69,7 @@ docker run --rm --privileged --pid=host --cgroupns=host \
     tool "$1" global-tools --policy /fixture/policy.json --apply > /fixture/global-apply.json
     tool "$1" global-tools --policy /fixture/policy.json > /fixture/global-clean.json
     test ! -e /root/.codex/plugins/unwanted
+    docker exec "$1" sh -ec "test ! -e /root/CLAUDE.md && test ! -e /root/.claude"
     test "$(docker exec "$1" cat /home/box/.codex/auth.json)" = auth
     test "$(docker exec "$1" cat /home/box/.codex/hive-mind/task/config.toml)" = task
     tool "$1" tool-services --tools codex --apply > /fixture/services-protected.json

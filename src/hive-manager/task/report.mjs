@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify, parseArgs } from 'node:util';
 import { readAttemptEvidence, summarizeTaskEvidence } from './lib/evidence.mjs';
+import { findReport, readIssue, reconcileReport } from './lib/issue-history.mjs';
 import { resolveBotStateDir } from '../../session-store.lib.mjs';
 import { withStateLock } from '../../state-lock.lib.mjs';
 import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
@@ -14,11 +15,13 @@ const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
        hive-manager tasks report --collect UUID [--attempt NUMBER]
        hive-manager tasks report --window UUID [--attempt NUMBER]
        hive-manager tasks report --incident UUID [--attempt NUMBER] [--host-signature NAME] [--destination OWNER/REPO [--follow-up ISSUE | --routes FILE] [--publish SHA256]]
+       hive-manager tasks report --incident UUID --destination OWNER/REPO --reconcile [--attempt NUMBER] [--legacy-ledger FILE] [--follow-up ISSUE | --routes FILE] [--installed-version VERSION]
 Summarize tracked tasks and recent failures without command lines or logs.
 Use --group to count repeat failures by backend and exit evidence across recorded attempts.
 Use --collect to find retry loops and suspicious exits in a bounded excerpt of one task attempt's log.
 An incident preview describes one failure. Approve its digest to open an issue or comment on an existing issue.
 Use --routes to select a follow-up from a JSON file keyed by the failure group.
+Use --reconcile to check past reports and review closed issues without publishing.
 `;
 
 function timestamp(value) {
@@ -38,8 +41,8 @@ function taskBackend(task) {
   return ['docker', 'screen', 'tmux', 'ssh'].includes(backend) ? backend : 'local';
 }
 
-function latestAttempt(task) {
-  return task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + 1;
+export function latestAttempt(task) {
+  return task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + (Number(task.options?.recoveryAttempts) || 0) + 1;
 }
 
 export function taskAttempts(task) {
@@ -137,23 +140,15 @@ async function incidentPreview(task, requestedAttempt, destination, explicitFoll
 Generated from start-command's execution record by Hive Mind Manager.
 `);
   const digest = createHash('sha256').update(JSON.stringify({ destination, followUp, title, body })).digest('hex');
-  return { destination, followUp, title, body, marker, digest };
-}
-
-async function githubIssueJson(args) {
-  const { ghWithRateLimitRetry } = await import('../../github-rate-limit.lib.mjs');
-  return ghWithRateLimitRetry(async () => {
-    const { stdout } = await execFileAsync('gh', ['api', '--hostname', 'github.com', '--method', 'GET', ...args], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
-    return JSON.parse(stdout);
-  });
+  return { destination, followUp, title, body, marker, digest, id: task.uuid, attempt: attempt.number };
 }
 
 async function requireOpenIssue(destination, followUp) {
-  const issue = await githubIssueJson([`repos/${destination}/issues/${followUp}`]);
-  if (issue.number !== followUp || issue.state !== 'open' || issue.pull_request) throw new Error('Follow-up requires an open GitHub issue in the destination repository.');
+  const issue = await readIssue(destination, followUp);
+  if (issue.state !== 'open') throw new Error('Follow-up requires an open GitHub issue in the destination repository.');
 }
 
-async function publishIncident({ destination, followUp, title, body, marker }) {
+async function publishIncident({ destination, followUp, title, body, marker, id, attempt }) {
   const key = createHash('sha256')
     .update(`${destination}${followUp === undefined ? '' : `#${followUp}`}\0${marker}`)
     .digest('hex');
@@ -171,18 +166,9 @@ async function publishIncident({ destination, followUp, title, body, marker }) {
         const suffix = url.slice(prefix.length);
         return followUp === undefined ? /^\d+$/.test(suffix) : suffix.startsWith(`${followUp}#issuecomment-`) && /^\d+$/.test(suffix.split('#issuecomment-')[1]);
       };
-      let result;
-      if (followUp === undefined) {
-        const query = `repo:${destination} is:issue in:title "${title}"`;
-        const pages = await githubIssueJson(['search/issues', '--raw-field', `q=${query}`, '--paginate', '--slurp']);
-        if (!Array.isArray(pages) || pages.length === 0 || pages.some(page => page.incomplete_results || !Array.isArray(page.items))) throw new Error('GitHub could not confirm whether the incident already exists.');
-        result = pages.flatMap(page => page.items).find(issue => issue.title === title && issue.body?.includes(marker));
-      } else {
-        const pages = await githubIssueJson([`repos/${destination}/issues/${followUp}/comments?per_page=100`, '--paginate', '--slurp']);
-        if (!Array.isArray(pages) || pages.length === 0 || pages.some(page => !Array.isArray(page))) throw new Error('GitHub could not confirm whether the follow-up already exists.');
-        result = pages.flat().find(comment => comment.body?.includes(marker));
-      }
-      if (isIssueUrl(result?.html_url)) return result.html_url;
+      const knownIssue = followUp === undefined ? undefined : await readIssue(destination, followUp);
+      const duplicate = await findReport({ destination, id, attempt, followUp, knownIssue, publishTitle: title });
+      if (duplicate) return duplicate.url;
       if (previous) {
         const { url } = JSON.parse(previous);
         if (isIssueUrl(url)) return url;
@@ -221,12 +207,12 @@ export async function listTrackedTasks(timeout = 120_000) {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, collect: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, 'host-signature': { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, collect: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, 'host-signature': { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' }, reconcile: { type: 'boolean' }, 'legacy-ledger': { type: 'string' }, 'installed-version': { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
     return;
   }
-  const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes, values['host-signature']].some(value => value !== undefined);
+  const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes, values['host-signature'], values.reconcile, values['legacy-ledger'], values['installed-version']].some(value => value !== undefined);
   if (values.collect !== undefined) {
     if (values.group || values.window !== undefined || values.incident !== undefined || hasPublicationOptions) throw new Error('Collect evidence for one task separately from the other report modes.');
     const task = await selectedTask(values.collect);
@@ -257,9 +243,18 @@ async function report() {
     if ((destination !== null && !/^[a-z\d][a-z\d-]*\/[a-z\d_-][a-z\d_.-]*$/.test(destination)) || (expectedDigest !== undefined && (!destination || !/^[a-f\d]{64}$/.test(expectedDigest)))) throw new Error('Publishing requires a GitHub destination and the approved preview digest.');
     if (explicitFollowUp !== undefined && (!destination || !/^\d+$/.test(values['follow-up']) || !Number.isSafeInteger(explicitFollowUp) || explicitFollowUp < 1)) throw new Error('Specify a GitHub destination and a positive issue number for follow-up.');
     if (values.routes !== undefined && (!destination || explicitFollowUp !== undefined)) throw new Error('Incident routes require a GitHub destination and replace --follow-up.');
+    if (values.reconcile && (!destination || expectedDigest !== undefined)) throw new Error('--reconcile requires a destination and is read-only.');
+    if (!values.reconcile && (values['legacy-ledger'] !== undefined || values['installed-version'] !== undefined)) throw new Error('Use --legacy-ledger and --installed-version with --reconcile.');
+    const installedVersion = values['installed-version']?.replace(/^v/, '');
+    if (installedVersion !== undefined && !/^\d+\.\d+\.\d+(?:-[a-z\d.-]+)?(?:\+[a-z\d.-]+)?$/i.test(installedVersion)) throw new Error('Specify the installed Hive Mind release version.');
     const task = await selectedTask(values.incident);
     const preview = await incidentPreview(task, attempt, destination, explicitFollowUp, values.routes, values['host-signature']);
-    if (!values.publish) {
+    if (values.reconcile) {
+      const { followUp, title, body } = preview;
+      const version = installedVersion ?? JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')).version;
+      const reconciliation = await reconcileReport(preview, values['legacy-ledger'], version);
+      process.stdout.write(`${JSON.stringify({ destination, followUp, title, body, reconciliation }, null, 2)}\n`);
+    } else if (!values.publish) {
       if (preview.followUp !== undefined) await requireOpenIssue(destination, preview.followUp);
       const { followUp, title, body, digest } = preview;
       process.stdout.write(`${JSON.stringify({ destination, followUp, title, body, digest: `sha256:${digest}` }, null, 2)}\n`);

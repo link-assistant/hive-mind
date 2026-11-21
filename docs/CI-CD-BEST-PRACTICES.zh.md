@@ -27,6 +27,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
 | C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
 | PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)   |
 
 > **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
 
@@ -185,6 +186,7 @@ done
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
 
@@ -192,16 +194,17 @@ done
 
 在代码到达审查之前捕获 bug 并强制执行模式：
 
-| 语言                  | 工具                                  |
-| --------------------- | ------------------------------------- |
-| JavaScript/TypeScript | ESLint（严格规则）                    |
-| Rust                  | Clippy（pedantic + nursery）          |
-| Python                | Ruff + mypy                           |
-| Go                    | go vet + staticcheck                  |
-| C#                    | .NET 分析器（警告视为错误）           |
-| Java                  | SpotBugs（最大力度）                  |
-| C/C++                 | clang-tidy + cppcheck（警告视为错误） |
-| PHP                   | PHPStan（最高级别）                   |
+| 语言                  | 工具                                          |
+| --------------------- | --------------------------------------------- |
+| JavaScript/TypeScript | ESLint（严格规则）                            |
+| Rust                  | Clippy（pedantic + nursery）                  |
+| Python                | Ruff + mypy                                   |
+| Go                    | go vet + staticcheck                          |
+| C#                    | .NET 分析器（警告视为错误）                   |
+| Java                  | SpotBugs（最大力度）                          |
+| C/C++                 | clang-tidy + cppcheck（警告视为错误）         |
+| PHP                   | PHPStan（最高级别）                           |
+| Swift                 | 将编译器警告视为错误（`-warnings-as-errors`） |
 
 ### 5. 快速失败任务排序
 
@@ -244,14 +247,15 @@ test-suites:
 - **生成变更日志** - 发布说明自动编译
 - **支持语义化版本** - patch/minor/major 升级是明确的
 
-| 语言                  | 工具                     |
-| --------------------- | ------------------------ |
-| JavaScript/TypeScript | @changesets/cli          |
-| Rust                  | changelog.d + 自定义脚本 |
-| Python                | Scriv                    |
-| PHP                   | changelog.d + 自定义脚本 |
-| C/C++                 | changelog.d + 自定义脚本 |
-| Go、C#、Java          | 自定义 changeset 工作流  |
+| 语言                  | 工具                                    |
+| --------------------- | --------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                         |
+| Rust                  | changelog.d + 自定义脚本                |
+| Python                | Scriv                                   |
+| PHP                   | changelog.d + 自定义脚本                |
+| C/C++                 | changelog.d + 自定义脚本                |
+| Swift                 | 每个 PR 的 changeset + SwiftPM Git 标签 |
+| Go、C#、Java          | 自定义 changeset 工作流                 |
 
 **免除仅文档 PR 的 changeset 要求：**
 
@@ -574,6 +578,13 @@ on:
 
 AI 求解器将自动尊重所有已配置的检查并与之迭代，产生比没有 CI/CD 强制的仓库更高质量的输出。
 
+### 在多语言仓库中添加 Swift CI
+
+1. 从 Swift 模板的同一个版本复制 `swift/ci/` 和 `.github/workflows/swift-ci.yml` 到仓库中的相同路径。
+2. 添加调用工作流，例如 `.github/workflows/swift-checks.yml`。授予 `contents: read` 权限，调用 `./.github/workflows/swift-ci.yml`，并设置 `mode: embedded` 和 `pipeline-directory: swift/ci`。根据仓库的默认分支和合并队列调整触发条件。[Swift 单体仓库指南和调用示例](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. 将 `package-directory` 设置为 `Package.swift` 所在的目录。清单位于仓库根目录时使用 `'.'`。在 `source-paths` 中为清单、`Package.resolved`（如果存在）、源代码、测试和共享测试数据逐行指定相对于仓库根目录的路径。
+4. 保留现有工作流、Swift 专用检查和发布策略。嵌入模式以只读方式运行 CI。确认 Swift 变更会触发 Linux 和 macOS 检查，仅涉及其他语言的变更会跳过 Swift 编译。
+
 ## 自动 CI/CD 修复
 
 对于现有仓库，您无需手动应用这些实践。`fix` 命令可自动完成整个流程：
@@ -612,6 +623,7 @@ fix https://github.com/owner/repo --ci-cd
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
 
 没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。
 

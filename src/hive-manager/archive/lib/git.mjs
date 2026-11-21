@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -30,10 +30,19 @@ export async function openArchiveGit(destination, branch, work) {
   const remote = `https://github.com/${destination}.git`;
   const repo = join(work, 'archive.git');
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'].includes(key)));
-  const git = async (args, cwd = repo, maxBuffer = 1024 * 1024) => (await run('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd, env: { ...env, GIT_TERMINAL_PROMPT: '0' }, timeout: 180_000, maxBuffer })).stdout.trim();
+  const gitBytes = async (args, cwd = repo, maxBuffer = 1024 * 1024) => (await run('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd, env: { ...env, GIT_TERMINAL_PROMPT: '0' }, timeout: 180_000, maxBuffer, encoding: 'buffer' })).stdout;
+  const git = async (...args) => (await gitBytes(...args)).toString('utf8').trim();
   await git(['clone', '--bare', '--filter=blob:none', '--depth=1', '--single-branch', '--branch', branch, '--', remote, repo], work);
   const base = await git(['rev-parse', '--verify', 'HEAD']);
-  return { git, base, remote };
+  return { git, gitBytes, base, remote };
+}
+
+export async function stageRevisionMarkers(git, work, revisions) {
+  if (!revisions.length) return;
+  const marker = join(work, 'empty');
+  await writeFile(marker, '', { mode: 0o600, flag: 'wx' });
+  const empty = await git(['hash-object', '--no-filters', '-w', '--', marker]);
+  for (const revision of revisions) await git(['update-index', '--add', '--cacheinfo', `100644,${empty},${revision}`]);
 }
 
 export async function publishedArchiveRevisions(source, destination) {

@@ -94,7 +94,7 @@
     "decimal.js-light": "^2.5.1",
     "jpeg-js": "0.4.4",
     "lino-arguments": "^0.4.1",
-    "lino-i18n": "^0.6.0",
+    "lino-i18n": "^0.6.1",
     "pngjs": "7.0.0",
     "secretlint": "^14.0.1",
     "semver": "^7.8.6",

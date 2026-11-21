@@ -163,6 +163,8 @@ format='{{.Id}} {{.Name}} {{.State.Status}} {{.State.ExitCode}} {{.State.Started
 )
 ```
 
+This saves a flattened filesystem export. Preserve mounted data and task logs separately. Use the manager's [failed task preservation workflow](hive-manager.md#failed-task-preservation) for a verified stopped writable-layer receipt with execution records and logs.
+
 Before removal, review the archive and identity. Run `(cd "$backup" && sha256sum -c SHA256SUMS)` and `docker inspect --format "$format" EXACT_DOCKER_ID | diff - "$backup/identity"`. Only remove the verified stopped ID with `docker container rm EXACT_DOCKER_ID` after both checks succeed.
 
 The following feature modules can run independently of the Bash launcher. From a checkout, set `source_path="$PWD/src"`. With a global package on Linux, set `source_path=$(dirname "$(readlink -f "$(command -v hive)")")`. If running inside Docker, resolve the path there. Use the same arguments as in the [manager guide](hive-manager.md#maintenance-and-diagnostics), including any review and apply flags. The `--import` preloads the same terminal credential filter used by the launcher.

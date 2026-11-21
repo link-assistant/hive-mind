@@ -663,6 +663,7 @@ hi
       models "*/models* - उपलब्ध models दिखाएँ, जो इस installation और सभी live sources से मिलाकर बनाई गई हैं। उपयोग: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - उपयोग सीमाएँ दिखाएँ"
       version "*/version* - bot और runtime versions दिखाएँ"
+      who "*/who* - बॉट की पहचान और उसका मौजूदा Hive Mind संस्करण दिखाएँ"
       language "*/language* `[en|ru|zh|hi]` - अपनी पसंदीदा reply language सेट या दिखाएँ (in-memory, per-user)"
       accept
         invites "`/accept_invites` - सभी pending GitHub invitations स्वीकार करें"
@@ -682,6 +683,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
+        addressing "कई Hive Mind बॉट वाले ग्रुप में `/command@BotUsername` इस्तेमाल करें।"
         note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"

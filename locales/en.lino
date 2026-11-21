@@ -663,6 +663,7 @@ en
       models "*/models* - List available models, merged from this installation and every live source. Usage: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - Show usage limits"
       version "*/version* - Show bot and runtime versions"
+      who "*/who* - Identify the bot and show its running Hive Mind version"
       language "*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)"
       accept
         invites "`/accept_invites` - Accept all pending GitHub invitations"
@@ -682,6 +683,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
+        addressing "Use `/command@BotUsername` in groups with multiple Hive Mind bots."
         note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"

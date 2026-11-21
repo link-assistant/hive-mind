@@ -663,6 +663,7 @@ ru
       models "*/models* - Показать доступные модели, объединённые из этой установки и всех живых источников. Использование: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - Показать лимиты использования"
       version "*/version* - Показать версии бота и среды выполнения"
+      who "*/who* - Определить бота и узнать текущую версию Hive Mind"
       language "*/language* `[en|ru|zh|hi]` - Установить или показать предпочитаемый язык ответов (в памяти, для пользователя)"
       accept
         invites "`/accept_invites` - Принять все ожидающие приглашения GitHub"
@@ -682,6 +683,7 @@ ru
       isolation
         mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
       group
+        addressing "В группах с несколькими ботами Hive Mind используйте `/command@BotUsername`."
         note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
       common
         options "🔧 *Общие опции:*"

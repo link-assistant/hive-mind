@@ -162,6 +162,10 @@ printf '%s\n' '-P FORWARD ACCEPT' \
   assert.match(remote.stderr, /observations are unavailable/);
   assert.match(remote.stdout, /egress 149\.154\.161\.144:8888=unavailable/);
   assert.ok(!existsSync(file('probes')));
+  const remoteSnapshot = run([...args, ...checks, 'snapshot'], undefined, { DOCKER_HOST: 'tcp://remote.example:2376' });
+  assert.equal(remoteSnapshot.status, 0, remoteSnapshot.stderr);
+  assert.match(remoteSnapshot.stdout, /^mss=unavailable$/m);
+  assert.doesNotMatch(remoteSnapshot.stdout, /^mss-rule=/m);
 });
 
 function cleanupHost() {

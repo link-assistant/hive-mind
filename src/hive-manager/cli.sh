@@ -1128,17 +1128,21 @@ proxy_secret() {
   printf '%s' "$value"
 }
 
+proxy_docker_endpoint() {
+  if [[ ${DOCKER_CONTEXT-} || ! ${DOCKER_HOST-} ]]; then
+    docker context inspect --format '{{.Endpoints.docker.Host}}'
+  else
+    printf '%s\n' "$DOCKER_HOST"
+  fi
+}
+
 proxy_namespace_egress() {
   local id=$1 metadata pid sandbox context dc address output result=0
   local observations=()
   local endpoints=(149.154.161.144:8888 149.154.161.184:8888 91.105.192.110:443)
   metadata=$(docker container inspect --format '{{.State.Pid}} {{.NetworkSettings.SandboxKey}}' "$id") || return 3
   read -r pid sandbox <<< "$metadata"
-  if [[ ${DOCKER_CONTEXT-} || ! ${DOCKER_HOST-} ]]; then
-    context=$(docker context inspect --format '{{.Endpoints.docker.Host}}') || return 3
-  else
-    context=$DOCKER_HOST
-  fi
+  context=$(proxy_docker_endpoint) || return 3
   # SandboxKey is assigned by Docker on the daemon host. Pin the namespace and
   # confirm its identity before using host tooling inside it.
   if [[ $context == unix://* && $pid =~ ^[1-9][0-9]*$ && $sandbox == /* &&
@@ -1178,8 +1182,9 @@ proxy_namespace_egress() {
 }
 
 proxy_snapshot_mss() {
-  local rules
-  if ! rules=$(iptables -w -t mangle -S FORWARD 2>/dev/null); then
+  local context rules
+  context=$(proxy_docker_endpoint) || return
+  if [[ $context != unix://* ]] || ! rules=$(iptables -w -t mangle -S FORWARD 2>/dev/null); then
     printf 'mss=unavailable\n'
     return
   fi

@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 2.46.0
+
+### Minor Changes
+
+- 260fde5: Import verified legacy session revisions into a private archive index after review. Support source-specific literal redactions and configurable session age, and report oversized transcripts skipped by archive exports.
+- 9ab281e: Route shared Telegram group commands to a single Hive Mind bot using Telegram's `/command@BotUsername` syntax. Identify peers with `/who` and fall back to addressed `/version` probes for older bots. Bare commands still work in groups with one detected Hive Mind bot.
+- 8d08370: Review and resume known Telegram alias failures and policy-approved later Docker attempts with a writable-layer space check. Reconcile historical incident reports from GitHub markers or the Control Center ledger and review closed issue routes against the installed release.
+
 ## 2.45.1
 
 ### Patch Changes

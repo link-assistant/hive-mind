@@ -73,12 +73,12 @@ export async function output(command, args, options) {
 
 export class MemoryPressure extends Error {}
 
-export async function memoryGuard() {
-  const pids = (await output('pgrep', ['-x', 'dockerd'])).split(/\s+/);
+export async function memoryGuard({ read = readFileSync, dockerPids } = {}) {
+  const pids = dockerPids ?? (await output('pgrep', ['-x', 'dockerd'])).split(/\s+/);
   if (!pids.length || pids.some(pid => !/^\d+$/.test(pid))) throw new Error('Cannot monitor the local Docker daemon.');
   const scopes = new Set();
   for (const pid of ['self', ...pids]) {
-    const scope = /^0::(.*)$/m.exec(readFileSync(`/proc/${pid}/cgroup`, 'utf8'))?.[1];
+    const scope = /^0::(.*)$/m.exec(read(`/proc/${pid}/cgroup`, 'utf8'))?.[1];
     if (scope === undefined) continue;
     for (let path = scope; ; path = path.slice(0, path.lastIndexOf('/')) || '/') {
       scopes.add(`/sys/fs/cgroup${path === '/' ? '' : path}`);
@@ -91,18 +91,30 @@ export async function memoryGuard() {
     const now = performance.now();
     if (now < nextSample) return;
     nextSample = now + 250;
-    const available = Number(/^MemAvailable:\s+(\d+)/m.exec(readFileSync('/proc/meminfo', 'utf8'))?.[1]);
+    const available = Number(/^MemAvailable:\s+(\d+)/m.exec(read('/proc/meminfo', 'utf8'))?.[1]);
     if (!Number.isFinite(available) || available < 1536 * 1024) throw new MemoryPressure('Host memory available fell below 1536 MiB.');
     for (const pid of pids) {
-      const status = readFileSync(`/proc/${pid}/status`, 'utf8');
+      const status = read(`/proc/${pid}/status`, 'utf8');
       const rss = Number(/^VmRSS:\s+(\d+)/m.exec(status)?.[1]);
       if (!/^Name:\s+dockerd$/m.test(status) || !Number.isFinite(rss) || rss > 2560 * 1024) {
         throw new MemoryPressure('Docker daemon memory or process identity is outside the cleanup limits.');
       }
     }
     for (const scope of scopes) {
-      const max = Number(readFileSync(`${scope}/memory.max`, { encoding: 'utf8', flag: 'r' }).trim());
-      if (Number.isFinite(max) && max - Number(readFileSync(`${scope}/memory.current`, 'utf8')) < 256 * 1024 ** 2) {
+      let limit;
+      try {
+        limit = read(`${scope}/memory.max`, 'utf8').trim();
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        // The root cgroup and children without the memory controller can omit
+        // memory.max. Ensure the scope is still present and check its ancestors.
+        read(`${scope}/cgroup.controllers`, 'utf8');
+        continue;
+      }
+      if (limit === 'max') continue;
+      const max = Number(limit);
+      const usage = Number(read(`${scope}/memory.current`, 'utf8'));
+      if (!Number.isFinite(max) || !Number.isFinite(usage) || max - usage < 256 * 1024 ** 2) {
         throw new MemoryPressure('The host or daemon cgroup has less than 256 MiB of memory headroom.');
       }
     }

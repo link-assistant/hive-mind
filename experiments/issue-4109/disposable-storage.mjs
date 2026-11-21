@@ -1,10 +1,13 @@
 // Run on a Linux Docker host with Node >= 24. This creates one disposable
 // container and named volume and downloads the pinned scanner for the preview.
 import assert from 'node:assert/strict';
+import { log } from 'node:console';
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { localDocker } from '../../src/hive-manager/storage/lib/docker.mjs';
 import { pinnedScanner } from '../../src/hive-manager/storage/lib/scanner.mjs';
 import { diskReport } from '../../src/hive-manager/storage/report.mjs';
@@ -21,7 +24,7 @@ try {
 
   for (let attempt = 0; attempt < 30; attempt++) {
     if ((await docker(['exec', name, 'sh', '-c', 'test -f /root/.cache/pip/mounted && echo ready || true'])) === 'ready') break;
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await delay(200);
   }
   const records = { executions: [{ uuid: execution, command: `solve ${target}`, options: { isolated: 'docker', containerId: id, sessionName: name } }] };
   writeFileSync(join(stage, '$'), `#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(records)}'\n`, { mode: 0o700 });
@@ -35,14 +38,21 @@ try {
   assert.equal(row.recordMatched, true);
   if (row.writableBytes === null) assert.ok(report.issues.some(issue => issue.startsWith(`${name} writable layer`)));
   else assert.ok(row.writableBytes >= 2 * 1024 ** 2);
-  console.log(JSON.stringify({ task: row, volume: report.volumes.find(item => item.name === volume) }));
+  log(JSON.stringify({ task: row, volume: report.volumes.find(item => item.name === volume) }));
   await docker(['unpause', id]);
   const scan = await pinnedScanner(stage, () => {});
   const candidates = await scan(['/root/.cache/pip'], docker, id);
   assert.ok(candidates.includes('/root/.cache/yarn'), JSON.stringify(candidates));
   assert.ok(!candidates.some(path => path.startsWith('/root/.cache/pip')));
+  const active = await docker(['exec', id, 'sh', '-ec', `node -e 'process.title = "yarn"; require("node:fs").openSync("/root/.cache/yarn/old"); setTimeout(() => {}, 60000)' </dev/null >/dev/null 2>&1 & echo $!`]);
+  for (let attempt = 0; attempt < 30; attempt++) {
+    if ((await docker(['exec', id, 'cat', `/proc/${active}/comm`])) === 'yarn') break;
+    await delay(200);
+  }
+  assert.equal(await docker(['exec', id, 'cat', `/proc/${active}/comm`]), 'yarn');
+  assert.ok(!(await scan(['/root/.cache/pip'], docker, id)).includes('/root/.cache/yarn'));
   await docker(['exec', id, 'test', '-f', '/root/.cache/pip/mounted']);
-  console.log(JSON.stringify({ candidates, protectedMount: '/root/.cache/pip' }));
+  log(JSON.stringify({ candidates, activeCache: '/root/.cache/yarn', protectedMount: '/root/.cache/pip' }));
 } finally {
   await docker(['unpause', name]).catch(() => {});
   await docker(['container', 'rm', '--force', name]).catch(() => {});

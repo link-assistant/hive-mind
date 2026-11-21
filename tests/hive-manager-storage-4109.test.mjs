@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readCleanupStatus, scopedCleanup } from '../src/hive-manager/storage/cleanup.mjs';
 import { openTree, planFiles, removeApproved } from '../src/hive-manager/storage/lib/files.mjs';
-import { MemoryPressure, run } from '../src/hive-manager/storage/lib/process.mjs';
+import { MemoryPressure, memoryGuard, run } from '../src/hive-manager/storage/lib/process.mjs';
 import { cleanupPreserved, preserveLayer } from '../src/hive-manager/storage/preserve.mjs';
 import { diskReport } from '../src/hive-manager/storage/report.mjs';
 
@@ -246,6 +246,29 @@ test('memory pressure stops a running scan process group and blocks subsequent w
     /stop the entire job/
   );
   assert.deepEqual(calls, ['info --format {{.DockerRootDir}}', 'container ls -aq --no-trunc']);
+});
+
+test('the memory guard accepts the cgroup root without a limit and checks bounded ancestors', async () => {
+  const files = new Map([
+    ['/proc/meminfo', 'MemAvailable: 5000000 kB\n'],
+    ['/proc/self/cgroup', '0::/system.slice/worker.service\n'],
+    ['/proc/123/cgroup', '0::/system.slice/docker.service\n'],
+    ['/proc/123/status', 'Name:\tdockerd\nVmRSS:\t243000 kB\n'],
+    ['/sys/fs/cgroup/cgroup.controllers', 'memory cpu\n'],
+    ['/sys/fs/cgroup/system.slice/cgroup.controllers', 'memory cpu\n'],
+    ['/sys/fs/cgroup/system.slice/worker.service/cgroup.controllers', 'cpu\n'],
+    ['/sys/fs/cgroup/system.slice/docker.service/memory.max', 'max\n'],
+  ]);
+  const read = path => {
+    if (!files.has(path)) throw Object.assign(new Error(path), { code: 'ENOENT' });
+    return files.get(path);
+  };
+  assert.doesNotThrow(await memoryGuard({ read, dockerPids: ['123'] }));
+  files.set('/sys/fs/cgroup/system.slice/memory.max', '1073741824\n');
+  files.set('/sys/fs/cgroup/system.slice/memory.current', '1000000000\n');
+  const check = await memoryGuard({ read, dockerPids: ['123'] });
+  assert.throws(check, /cgroup has less than 256 MiB/);
+  assert.throws(check, MemoryPressure);
 });
 
 test('a disconnected launcher leaves one observable worker, and a stale running record is detected', { skip: !linux, timeout: 10_000 }, async t => {

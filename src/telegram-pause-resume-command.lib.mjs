@@ -23,13 +23,12 @@ export function registerPauseResumeCommands(bot, options = {}) {
     const tracked = monitor.getActiveSessions().filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && visible(ctx, sessionInfo) && requester(ctx, sessionInfo));
     const lines = [];
     for (const { sessionName, sessionInfo } of tracked) {
-      // Probe sequentially and stop after one Telegram message's worth of tasks.
+      // Probe sequentially to avoid flooding Docker when many tasks are tracked.
       // eslint-disable-next-line no-await-in-loop
       const result = await monitor.getDockerTaskControlState(sessionName, { verbose: VERBOSE });
       if (!result.success || result.state === 'removed') continue;
       if ((command === 'pause' && result.state !== 'running') || (command === 'unpause' && result.state !== 'paused') || (command === 'resume' && !['exited', 'created'].includes(result.state))) continue;
       lines.push(`${stateLabel(result.state, tr)} · ${escapeMarkdown(sessionName)}${sessionInfo.url ? `\n${escapeMarkdown(sessionInfo.url)}` : ''}`);
-      if (lines.length === 12) break;
     }
     const heading = command === 'list' ? tr('telegram.task_control_list') : tr('telegram.task_control_usage', { command });
     await reply([heading, ...(lines.length ? lines : [tr('telegram.task_control_empty')])].join('\n\n'));

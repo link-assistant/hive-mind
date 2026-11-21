@@ -293,7 +293,7 @@ test('Telegram resolves the configured names, URLs and replies and protects the 
       isChatAuthorized: id => id === -100,
       safeReply: async (_ctx, message) => replies.push(message),
       monitor: {
-        getActiveSessions: () => [entry],
+        getActiveSessions: () => [entry, ...Array.from({ length: 13 }, (_, index) => ({ ...entry, sessionName: `another-task-${index}` }))],
         findTrackedSessionByIdentifier: id => ([SESSION, NEXT, EXECUTION].includes(id) ? entry : null),
         findStoppableSessionByUrl: url => (url === TASK_URL ? entry : null),
         getDockerTaskControlState: async () => ({ success: true, state: 'paused' }),
@@ -322,6 +322,7 @@ test('Telegram resolves the configured names, URLs and replies and protects the 
   ]);
   await run(handlers.unpause, '/unpause');
   assert.match(replies.at(-1), /Paused.*resume-1/);
+  assert.match(replies.at(-1), /another-task-12/);
 });
 
 test('guard refuses a fresh launch but forwards a snapshot-derived launch', async () => {

@@ -128,6 +128,7 @@ maintenance_spec() {
     archive-publish) bin=hive-manager; module=hive-manager/archive/publish.mjs ;;
     proxy-test) bin=hive-manager; module=hive-manager/proxy/test.mjs ;;
     proxy-pcap) bin=hive-manager; module=hive-manager/proxy/pcap.mjs ;;
+    proxy-legacy) bin=hive-manager; module=hive-manager/proxy/legacy.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager/audit-config.mjs ;;
     task-report) bin=hive-manager; module=hive-manager/task/report.mjs ;;
     task-check-browser) bin=hive-manager; module=hive-manager/task/check-browser.mjs ;;
@@ -1047,12 +1048,21 @@ proxy_usage() {
 Usage: hive-manager deploy proxy [OPTIONS] ACTION
 
   apply       Create or start the proxy
-  update      Pull a new image and replace the proxy
+  update      Replace the proxy and keep its predecessor for review
+  rollback    Restore the predecessor of an update or same-port trial
+  accept      Remove the retained predecessor after client verification
+  trial-plan  Preview a switch to the stopped container named by --candidate
+  trial FILE  Switch to --candidate using the reviewed plan (target path or - for stdin)
+  inventory   List legacy proxy containers and optional MSS resources
+  cleanup-plan stop|remove
+              Preview changes to --select NAME and/or --legacy-mss resources
+  cleanup FILE
+              Apply a reviewed legacy cleanup with deploy --adopt (target path or -)
   status      Check the running proxy, published port and restart policy
   verify      Check status and TCP connectivity to Telegram data centers
   connect     Check TCP from the caller to --public-host and --port
   capture     Capture TCP headers for this port to stdout as a pcap
-  snapshot    Print current configuration facts and the secret's SHA-256 hash
+  snapshot    Record configuration and the secret's SHA-256 hash without writing state
   compare FILE
               Check configuration against a snapshot on the target or - for stdin
   logs        Show the last 100 proxy log lines
@@ -1064,9 +1074,14 @@ Usage: hive-manager deploy proxy [OPTIONS] ACTION
   --port PORT         Published TCP port (default: 443)
   --workers COUNT     Classic MTProto workers from 1 to 6 (default: 4)
   --image IMAGE       Classic MTProto image (default: mtproxy/mtproxy:latest)
-  --secret-file PATH  Import a 32-digit hex key when creating proxy state
+  --secret-file PATH  Read a baseline secret or import a classic key during apply/update
+  --check-egress      Include namespace TCP checks in snapshot/compare
+  --check-mss         Include installed IPv4 TCPMSS rules in snapshot/compare
   --public-host HOST  Public DNS name or IPv4 address used by link
   --proxy-name NAME   Use an existing proxy container name
+  --candidate NAME    Staged container for a same-port trial
+  --select NAME       Include this legacy container in cleanup (repeatable)
+  --legacy-mss        Include the installed legacy MSS unit, script and rules
   --mss BYTES         MSS clamp used by mss-unit (default: 1200)
   --seconds SECONDS   Capture for 1 to 60 seconds (default: 15)
   --interface NAME    Capture interface (default: any)
@@ -1075,22 +1090,130 @@ HELP
 }
 
 proxy_status() {
-  container_running "$proxy" || fail "Proxy is not running: $proxy"
-  [[ $(docker container inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$proxy") == unless-stopped ]] ||
-    fail "Unexpected restart policy for $proxy"
-  docker port "$proxy" 443/tcp
+  local id=${1:-$proxy}
+  container_running "$id" || { printf 'Proxy is not running: %s\n' "$proxy" >&2; return 1; }
+  [[ $(docker container inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$id") == unless-stopped ]] ||
+    { printf 'Unexpected restart policy for %s\n' "$proxy" >&2; return 1; }
+  docker port "$id" 443/tcp
+}
+
+proxy_bindings() {
+  docker container inspect --format '{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "%s %s %s\n" $port .HostPort .HostIp}}{{end}}{{end}}' "$1"
+}
+
+proxy_check_binding() {
+  local bindings
+  bindings=$(proxy_bindings "$1") || return
+  # A trial must never stop a container that publishes any other port.
+  [[ $bindings && $(awk -v port="$port" '$1 != "443/tcp" || $2 != port' <<< "$bindings") == '' ]] ||
+    fail "Container $1 must publish only TCP $port to container port 443"
+}
+
+proxy_find() {
+  local containers
+  containers=$(docker container ls -a --no-trunc --format '{{.ID}} {{.Names}}') || return
+  awk -v name="$1" '$2 == name { print $1 }' <<< "$containers"
+}
+
+proxy_secret() {
+  local value
+  [[ -f $1 ]] || fail "Proxy secret file is unavailable: $1"
+  value=$(head -c 1025 -- "$1" && printf '.') || fail "Cannot read proxy secret file"
+  value=${value%.}
+  value=${value%$'\n'}
+  value=${value%$'\r'}
+  value=${value,,}
+  [[ $value =~ ^([a-f0-9]{32}|dd[a-f0-9]{32}|ee[a-f0-9]{32}([a-f0-9]{2}){1,253})$ ]] ||
+    fail "Invalid MTProto proxy secret file"
+  printf '%s' "$value"
+}
+
+proxy_docker_endpoint() {
+  if [[ ${DOCKER_CONTEXT-} || ! ${DOCKER_HOST-} ]]; then
+    docker context inspect --format '{{.Endpoints.docker.Host}}'
+  else
+    printf '%s\n' "$DOCKER_HOST"
+  fi
+}
+
+proxy_namespace_egress() {
+  local id=$1 metadata pid sandbox context dc address output result=0
+  local observations=()
+  local endpoints=(149.154.161.144:8888 149.154.161.184:8888 91.105.192.110:443)
+  metadata=$(docker container inspect --format '{{.State.Pid}} {{.NetworkSettings.SandboxKey}}' "$id") || return 3
+  read -r pid sandbox <<< "$metadata"
+  context=$(proxy_docker_endpoint) || return 3
+  # SandboxKey is assigned by Docker on the daemon host. Pin the namespace and
+  # confirm its identity before using host tooling inside it.
+  if [[ $context == unix://* && $pid =~ ^[1-9][0-9]*$ && $sandbox == /* &&
+        $sandbox -ef /proc/$pid/ns/net ]] && command -v timeout >/dev/null && command -v nsenter >/dev/null &&
+     { exec 8<"$sandbox"; } 2>/dev/null; then
+    local pinned
+    pinned=$(docker container inspect --format '{{.State.Pid}} {{.NetworkSettings.SandboxKey}}' "$id") || return 3
+    if [[ $metadata == "$pinned" &&
+          $sandbox -ef /proc/self/fd/8 && $sandbox -ef /proc/$pid/ns/net ]]; then
+      for dc in "${endpoints[@]}"; do
+        address=${dc%:*}
+        # The marker is emitted only by a shell that nsenter has started.
+        if output=$(timeout -k 1 7 nsenter --net=/proc/self/fd/8 -- bash -c '
+          if timeout -k 1 5 bash -c '\''exec 3<>"/dev/tcp/$1/$2"'\'' _ "$1" "$2" 2>/dev/null; then
+            printf reachable
+          else
+            printf unreachable
+          fi' _ "$address" "${dc##*:}" 2>/dev/null); then
+          observations+=("egress $dc=$output")
+          if [[ $output != reachable && $result == 0 ]]; then result=1; fi
+        else
+          observations+=("egress $dc=unavailable")
+          result=2
+        fi
+      done
+      exec 8<&-
+      pinned=$(docker container inspect --format '{{.State.Pid}} {{.NetworkSettings.SandboxKey}}' "$id") || return 3
+      if [[ $metadata == "$pinned" ]]; then
+        printf '%s\n' "${observations[@]}"
+        return "$result"
+      fi
+    fi
+    exec 8<&-
+  fi
+  for dc in "${endpoints[@]}"; do printf 'egress %s=unavailable\n' "$dc"; done
+  return 2
+}
+
+proxy_snapshot_mss() {
+  local context rules
+  context=$(proxy_docker_endpoint) || return
+  if [[ $context != unix://* ]] || ! rules=$(iptables -w -t mangle -S FORWARD 2>/dev/null); then
+    printf 'mss=unavailable\n'
+    return
+  fi
+  printf 'mss=observed\n'
+  # Compare only the generated manager and legacy port-scoped TCPMSS rules.
+  awk -v port="$port" '
+    $0 ~ ("^-A FORWARD -p tcp -m tcp --(sport|dport) " port " --tcp-flags SYN,RST SYN -j TCPMSS --set-mss [0-9]+$") ||
+    $0 ~ (" --ctorigdstport " port " .*--comment \"?hive-manager-mtproxy-" port "\"? -j TCPMSS --set-mss [0-9]+$") { print "mss-rule=" $0 }
+  ' <<< "$rules" | LC_ALL=C sort
 }
 
 proxy_snapshot() {
   require sha256sum
-  local digest workers_setting
-  digest=$(sha256sum < "$proxy_state/secret") || fail "Cannot hash saved proxy secret"
-  docker container inspect --format '{{printf "image=%s\nrunning=%t\nrestart=%s\n" .Image .State.Running .HostConfig.RestartPolicy.Name}}{{range .HostConfig.Ulimits}}{{if eq .Name "nofile"}}{{printf "nofile=%d:%d\n" .Soft .Hard}}{{end}}{{end}}' "$proxy" || return
-  workers_setting=$(docker container inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "WORKERS"}}{{println .}}{{end}}{{end}}' "$proxy") || return
+  local digest workers_setting id key egress_status=0
+  id=$(container_id "$proxy") || fail "Proxy container not found: $proxy"
+  key=$(proxy_secret "${secret_input:-$proxy_state/secret}") || return
+  digest=$(printf '%s\n' "$key" | sha256sum) || fail "Cannot hash proxy secret"
+  docker container inspect --format '{{printf "image=%s\nrunning=%t\nrestart=%s\nnetwork=%s\n" .Image .State.Running .HostConfig.RestartPolicy.Name .HostConfig.NetworkMode}}{{range .HostConfig.Ulimits}}{{if eq .Name "nofile"}}{{printf "nofile=%d:%d\n" .Soft .Hard}}{{end}}{{end}}' "$id" || return
+  workers_setting=$(docker container inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "WORKERS"}}{{println .}}{{end}}{{end}}' "$id") || return
   [[ $workers_setting =~ ^WORKERS=[1-6]$ ]] || workers_setting=WORKERS=unknown
   printf '%s\n' "$workers_setting"
   printf 'secret-sha256=%s\n' "${digest%% *}"
-  docker port "$proxy" 443/tcp | LC_ALL=C sort
+  docker port "$id" 443/tcp | LC_ALL=C sort || return
+  if (( observe_egress )); then
+    proxy_namespace_egress "$id" || egress_status=$?
+    # A failed connection is evidence for a snapshot. A Docker error is not.
+    (( egress_status <= 2 )) || return "$egress_status"
+  fi
+  if (( observe_mss )); then proxy_snapshot_mss; fi
 }
 
 proxy_mss_unit() {
@@ -1113,15 +1236,144 @@ UNIT
   printf '%s\n' "${removes[@]}" '' '[Install]' 'WantedBy=docker.service'
 }
 
+proxy_owner() {
+  docker container inspect --format '{{with index .Config.Labels "io.github.link-assistant.hive-manager.proxy"}}{{.}}{{end}}' "$1"
+}
+
+proxy_authorize() {
+  local owner
+  owner=$(proxy_owner "$1") || return
+  [[ $owner == "$name" || ( ! $owner && $adopt == 1 ) ]] ||
+    fail "Container $1 needs --adopt or belongs to a different manager deployment"
+}
+
+proxy_running_state() {
+  local running
+  running=$(docker container inspect --format '{{.State.Running}}' "$1") || return
+  [[ $running == true || $running == false ]] || fail "Unexpected proxy running state"
+  printf '%s\n' "$running"
+}
+
+proxy_restore() {
+  local active previous staged
+  active=$(proxy_find "$proxy") || return
+  previous=$(proxy_find "$proxy.previous") || return
+  staged=$(proxy_find "$candidate_name") || return
+  if [[ ( $active != "$candidate" || $staged ) && ( $active && $active != "$old" ) ||
+        ( $previous && $previous != "$old" ) || ( $staged && $staged != "$candidate" ) ||
+        ( $previous != "$old" && $active != "$old" ) ]]; then
+    fail "Proxy identities changed. Inspect the rollout before retrying rollback: $proxy_journal"
+  fi
+  if [[ $active == "$candidate" || $staged == "$candidate" ]]; then
+    local running
+    running=$(proxy_running_state "$candidate") || return
+    if [[ $running == true ]]; then docker stop "$candidate" >/dev/null || return; fi
+    if [[ $active == "$candidate" ]]; then docker rename "$candidate" "$candidate_name" || return; fi
+  elif [[ $kind == trial ]]; then
+    fail "The trial candidate is missing: $candidate"
+  fi
+  if [[ $previous == "$old" ]]; then docker rename "$old" "$proxy" || return; fi
+  local running
+  running=$(proxy_running_state "$old") || return
+  if [[ $old_running == true && $running == false ]]; then
+    docker start "$old" >/dev/null && container_ready "$old" || return
+  elif [[ $old_running == false && $running == true ]]; then
+    docker stop "$old" >/dev/null || return
+  fi
+  if [[ $kind == update && ( $active == "$candidate" || $staged == "$candidate" ) ]]; then
+    docker rm "$candidate" >/dev/null || return
+  fi
+  rm -- "$proxy_journal"
+}
+
+proxy_switch() {
+  local kind=$1
+  (
+    umask 077
+    mkdir -p -- "$state_dir" || exit
+    local record
+    record=$(mktemp "$proxy_journal.XXXXXXXX") || exit
+    trap 'rm -f -- "$record"' EXIT
+    printf '%s\n' "$kind" "$old" "$old_running" "$candidate" "$candidate_name" > "$record" &&
+      ln -T -- "$record" "$proxy_journal"
+  ) || return
+  if { [[ $old_running == false ]] || docker stop "$old" >/dev/null; } &&
+    docker rename "$old" "$proxy.previous" && docker rename "$candidate" "$proxy" &&
+    docker start "$candidate" >/dev/null && container_ready "$candidate" && proxy_status "$candidate"; then
+    printf 'Rollback retained for %s. Run the client probe before accepting.\n' "$proxy"
+    return
+  fi
+  proxy_restore || fail "Could not restore the predecessor. Retry proxy rollback with the same deployment options."
+  fail "Proxy candidate failed to start. Restored the predecessor."
+}
+
+proxy_read_rollout() {
+  local record=()
+  [[ -f $proxy_journal && ! -L $proxy_journal ]] || fail "No proxy rollout recorded at $proxy_journal"
+  mapfile -t record < "$proxy_journal"
+  kind=${record[0]-} old=${record[1]-} old_running=${record[2]-} candidate=${record[3]-} candidate_name=${record[4]-}
+  [[ ${#record[@]} == 5 && ( $kind == update || $kind == trial ) &&
+    $old =~ ^[a-f0-9]{64}$ && $candidate =~ ^[a-f0-9]{64}$ && $old != "$candidate" &&
+    ( $old_running == true || $old_running == false ) && $candidate_name =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ &&
+    $candidate_name != "$proxy" && $candidate_name != "$proxy.previous" ]] || fail "Invalid proxy rollout record: $proxy_journal"
+}
+
+proxy_trial_plan() {
+  [[ $candidate_name =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ && $candidate_name != "$proxy" &&
+    $candidate_name != "$proxy.previous" && $candidate_name != "$proxy.candidate" ]] ||
+    fail "Supply a distinct staged container with --candidate"
+  [[ $old ]] || fail "No proxy baseline container exists: $proxy"
+  [[ $candidate && $candidate != "$old" ]] || fail "No staged candidate exists: $candidate_name"
+  proxy_authorize "$candidate" || return
+  proxy_check_binding "$candidate" || return
+  [[ $(proxy_running_state "$candidate") == false ]] || fail "The staged proxy candidate must be stopped"
+  [[ $(docker container inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$candidate") == unless-stopped ]] ||
+    fail "The staged proxy candidate must use --restart unless-stopped"
+  printf 'manager=%s\nport=%s\n' "$name" "$port"
+  docker container inspect --format 'container={{.Name}} id={{.Id}} image={{.Image}} running={{.State.Running}}{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf " binding=%s:%s:%s" .HostIp .HostPort $port}}{{end}}{{end}}' "$old" "$candidate"
+}
+
+proxy_init_key() {
+  local source='' saved=''
+  if [[ $secret_input ]]; then
+    source=$(proxy_secret "$secret_input") || return
+    if [[ $source == dd* && ${#source} == 34 ]]; then source=${source:2}; fi
+    [[ ${#source} == 32 ]] || fail "A classic proxy requires a 32-digit hex key"
+  fi
+  if [[ $legacy_data ]]; then
+    local legacy_key
+    legacy_key=$(proxy_secret "$legacy_data/secret") || return
+    [[ ${#legacy_key} == 32 && ( ! $source || $source == "$legacy_key" ) ]] ||
+      fail "The imported key must match the key in the legacy /data mount"
+    source=$legacy_key
+  fi
+  if [[ -f $proxy_state/secret ]]; then
+    saved=$(proxy_secret "$proxy_state/secret") || return
+    [[ ${#saved} == 32 && ( ! $source || $source == "$saved" ) ]] || fail "The supplied key differs from the saved classic key"
+    return
+  fi
+  if [[ ! $source ]]; then
+    require openssl
+    source=$(openssl rand -hex 16) || return
+  fi
+  (umask 077 && mkdir -p -- "$proxy_state" && set -o noclobber && printf '%s\n' "$source" > "$proxy_state/secret")
+}
+
 proxy_deploy() {
   local port=443 workers=4 proxy_image=mtproxy/mtproxy:latest secret_input='' public_host='' proxy='' mss=1200
-  local seconds=15 interface=any client_ip=''
+  local seconds=15 interface=any client_ip='' observe_egress=0 observe_mss=0
+  local candidate_name='' legacy_mss=0 legacy_names=()
   while (( $# )); do
     case "$1" in
       -h|--help) proxy_usage; return ;;
-      --port|--workers|--image|--secret-file|--public-host|--proxy-name|--mss|--seconds|--interface|--client-ip)
+      --check-egress) observe_egress=1; shift ;;
+      --check-mss) observe_mss=1; shift ;;
+      --legacy-mss) legacy_mss=1; shift ;;
+      --select|--candidate|--port|--workers|--image|--secret-file|--public-host|--proxy-name|--mss|--seconds|--interface|--client-ip)
         need_value "$@"
         case "$1" in
+          --select) legacy_names+=("$2") ;;
+          --candidate) candidate_name=$2 ;;
           --port) port=$2 ;;
           --workers) workers=$2 ;;
           --image) proxy_image=$2 ;;
@@ -1138,11 +1390,11 @@ proxy_deploy() {
     esac
   done
   if (( $# == 0 )); then proxy_usage; return; fi
-  if [[ $1 == compare ]]; then
-    [[ $# == 2 && $2 ]] || fail "Usage: deploy proxy compare FILE|-"
-  else
-    (( $# == 1 )) || fail "Unexpected arguments for deploy proxy $1"
-  fi
+  case "$1" in
+    compare|trial|cleanup) [[ $# == 2 && $2 ]] || fail "Usage: deploy proxy $1 FILE|-" ;;
+    cleanup-plan) [[ $# == 2 && ( $2 == stop || $2 == remove ) ]] || fail "Usage: deploy proxy cleanup-plan stop|remove" ;;
+    *) (( $# == 1 )) || fail "Unexpected arguments for deploy proxy $1" ;;
+  esac
   [[ $port =~ ^[1-9][0-9]{0,4}$ ]] && (( port <= 65535 )) || fail "Invalid proxy port: $port"
   [[ $workers =~ ^[1-6]$ ]] || fail "Proxy workers must be between 1 and 6"
   [[ $proxy_image != -* ]] || fail "Invalid proxy image: $proxy_image"
@@ -1177,9 +1429,9 @@ proxy_deploy() {
       printf 'TCP connection to %s:%s succeeded\n' "$public_host" "$port"
       return
     fi
-    key=$(<"$proxy_state/secret") || fail "Proxy secret not found: $proxy_state/secret"
-    [[ $key =~ ^[a-fA-F0-9]{32}$ ]] || fail "Invalid saved proxy secret"
-    printf 'tg://proxy?server=%s&port=%s&secret=dd%s\n' "$public_host" "$port" "$key"
+    key=$(proxy_secret "${secret_input:-$proxy_state/secret}") || return
+    if [[ ${#key} == 32 ]]; then key=dd$key; fi
+    printf 'tg://proxy?server=%s&port=%s&secret=%s\n' "$public_host" "$port" "$key"
     return
   fi
   require docker
@@ -1191,26 +1443,58 @@ proxy_deploy() {
       snapshot=$(proxy_snapshot) || return
       require diff
       diff -q -- "$2" <(printf '%s\n' "$snapshot") >/dev/null || fail "Proxy configuration differs from the supplied snapshot or the snapshot could not be read"
+      if [[ $snapshot == *'=unavailable'* ]]; then fail "Requested proxy observations are unavailable"; fi
       printf 'Proxy configuration matches the supplied snapshot\n' ;;
-    status|verify)
-      proxy_status
-      if [[ $action == verify ]]; then
-        require timeout
-        local dc
-        for dc in 149.154.161.144:8888 149.154.161.184:8888 91.105.192.110:443; do
-          timeout 5 bash -c 'exec 3<>"/dev/tcp/${1%:*}/${1##*:}"' _ "$dc" ||
-            fail "Cannot reach Telegram data center $dc"
-        done
-      fi ;;
-    apply|update|stop|remove)
-      # Lock proxy changes by their host port, independent of Hive Mind rollouts.
-      lock_deployment "mtproxy-port-$port"
-      local old='' old_running=false candidate owner proxy_image_id
-      old=$(container_id "$proxy") || old=''
+    status) proxy_status ;;
+    verify)
+      local id egress_status=0
+      id=$(container_id "$proxy") || fail "Proxy container not found: $proxy"
+      proxy_status "$id"
+      proxy_check_binding "$id"
+      proxy_namespace_egress "$id" || egress_status=$?
+      if (( egress_status == 2 )); then fail "Proxy namespace observations are unavailable. Run on the Docker host with network namespace access."; fi
+      if (( egress_status == 1 )); then fail "Cannot reach all Telegram data centers from the proxy namespace"; fi
+      return "$egress_status" ;;
+    inventory|cleanup-plan|cleanup)
+      local legacy_args=()
+      if (( dry_run )) && [[ $action == cleanup ]]; then fail "Use proxy cleanup-plan to preview cleanup"; fi
+      if [[ $action == cleanup ]]; then
+        (( adopt )) || fail "Use --adopt to apply a reviewed legacy cleanup plan"
+        legacy_args+=(--adopt)
+      fi
+      if (( legacy_mss )); then legacy_args+=(--legacy-mss); fi
+      local selected
+      for selected in "${legacy_names[@]}"; do legacy_args+=(--select "$selected"); done
+      run_maintenance proxy-legacy "${legacy_args[@]}" "$@" ;;
+    apply|update|stop|remove|trial-plan|trial|rollback|accept)
+      if (( dry_run )) && [[ $action != trial-plan ]]; then
+        printf 'Proxy action: %s\nContainer: %s\nPort: %s\nImage: %s\n' "$action" "$proxy" "$port" "$proxy_image"
+        return
+      fi
+      if [[ $action != trial-plan ]]; then lock_deployment mtproxy; fi
+      local old old_running=false candidate owner proxy_image_id kind previous legacy_data='' staged
+      local proxy_journal=$state_dir/.mtproxy-$port.$proxy.rollout
+      if [[ $action == rollback || $action == accept ]]; then
+        proxy_read_rollout
+        if [[ $action == rollback ]]; then proxy_restore; return; fi
+        [[ $(proxy_find "$proxy") == "$candidate" ]] || fail "The recorded candidate is not active"
+        container_ready "$candidate" || fail "The candidate is not ready"
+        proxy_status "$candidate"
+        previous=$(proxy_find "$proxy.previous") || return
+        [[ ! $previous || $previous == "$old" ]] || fail "The retained container does not match the recorded predecessor"
+        if [[ $previous ]]; then docker rm "$old" >/dev/null; fi
+        rm -- "$proxy_journal"
+        return
+      fi
+      [[ ! -e $proxy_journal && ! -L $proxy_journal ]] || fail "Accept or roll back the outstanding proxy rollout first"
+      previous=$(proxy_find "$proxy.previous") || return
+      [[ ! $previous ]] || fail "Reserved proxy name exists: $proxy.previous"
+      old=$(proxy_find "$proxy") || return
       if [[ $old ]]; then
-        owner=$(docker container inspect --format '{{index .Config.Labels "io.github.link-assistant.hive-manager.proxy"}}' "$old")
-        [[ $owner == "$name" ]] || (( adopt )) || fail "Use --adopt for an existing proxy container: $proxy"
-        if container_running "$old"; then old_running=true; fi
+        proxy_authorize "$old"
+        proxy_check_binding "$old"
+        owner=$(proxy_owner "$old") || return
+        old_running=$(proxy_running_state "$old") || return
       fi
       case "$action" in
         stop|remove)
@@ -1218,36 +1502,62 @@ proxy_deploy() {
           if [[ $old_running == true ]]; then docker stop "$old" >/dev/null; fi
           if [[ $action == remove ]]; then docker rm "$old" >/dev/null; fi
           return ;;
+        trial-plan|trial)
+          local reviewed
+          candidate=$(proxy_find "$candidate_name") || return
+          reviewed=$(proxy_trial_plan) || return
+          if [[ $action == trial-plan ]]; then
+            printf '%s\n' "$reviewed"
+            return
+          fi
+          diff -q -- "$2" <(printf '%s\n' "$reviewed") >/dev/null ||
+            fail "Proxy trial differs from the supplied plan or the plan could not be read"
+          proxy_switch trial
+          return ;;
         apply)
-          if [[ $old ]]; then
+          if [[ $old && $owner ]]; then
             if [[ $old_running == false ]]; then docker start "$old" >/dev/null; fi
-            proxy_status
+            proxy_status "$old"
             return
           fi ;;
       esac
       [[ $proxy_state != *','* && $proxy_state != *'"'* ]] || fail "Invalid proxy state directory"
-      (umask 077 && mkdir -p -- "$proxy_state")
-      if [[ ! -f $proxy_state/secret ]]; then
-        if [[ $secret_input ]]; then
-          key=$(<"$secret_input") || fail "Cannot read proxy secret file"
-        else
-          require openssl
-          key=$(openssl rand -hex 16)
+      local binding bindings ip workers_setting publish=()
+      if [[ $old ]]; then
+        bindings=$(proxy_bindings "$old") || return
+        while read -r binding _ ip; do
+          if [[ $ip == *:* ]]; then ip="[$ip]"; fi
+          publish+=(--publish "${ip:+$ip:}$port:${binding%/tcp}")
+        done <<< "$bindings"
+        legacy_data=$(docker container inspect --format '{{range .Mounts}}{{if and (eq .Destination "/data") (eq .Type "bind")}}{{.Source}}{{end}}{{end}}' "$old") || return
+        if [[ ! $owner ]]; then
+          if [[ $action == apply ]]; then
+            [[ $legacy_data || $secret_input ]] || fail "Supply the legacy classic proxy key with --secret-file"
+            proxy_image=$(docker container inspect --format '{{.Image}}' "$old") || return
+            workers_setting=$(docker container inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "WORKERS"}}{{println .}}{{end}}{{end}}' "$old") || return
+            if [[ $workers_setting =~ ^WORKERS=([1-6])$ ]]; then workers=${BASH_REMATCH[1]}; fi
+          elif [[ ! $legacy_data && ! $secret_input ]]; then
+            fail "Supply an existing classic key with --secret-file when replacing an unmanaged proxy"
+          fi
         fi
-        [[ $key =~ ^[a-fA-F0-9]{32}$ ]] || fail "Expected a 32-digit hex proxy secret"
-        (umask 077 && set -o noclobber && printf '%s\n' "$key" > "$proxy_state/secret")
+      else
+        publish=(--publish "$port:443")
       fi
-      key=$(<"$proxy_state/secret")
-      [[ $key =~ ^[a-fA-F0-9]{32}$ ]] || fail "Invalid saved proxy secret"
-      if (( pull_image )); then docker pull "$proxy_image"; fi
-      proxy_image_id=$(docker image inspect --format '{{.Id}}' "$proxy_image")
-      if container_id "$proxy.previous" >/dev/null; then fail "Reserved proxy name exists: $proxy.previous"; fi
-      candidate=$(docker create --pull never --label io.github.link-assistant.hive-manager.proxy="$name" --restart unless-stopped \
-        --ulimit nofile=524288:524288 --env "WORKERS=$workers" \
-        --publish "$port:443" --mount "type=bind,source=$proxy_state,target=/data" "$proxy_image_id")
-      activate_candidate "$proxy" "$candidate" "$old" "$old_running"
-      if [[ $old ]]; then docker rm "$old" >/dev/null; fi
-      proxy_status ;;
+      proxy_init_key
+      candidate_name=$proxy.candidate
+      staged=$(proxy_find "$candidate_name") || return
+      [[ ! $staged ]] || fail "Reserved proxy name exists: $candidate_name"
+      if (( pull_image )) && [[ ! ( $old && ! $owner && $action == apply ) ]]; then docker pull "$proxy_image"; fi
+      proxy_image_id=$(docker image inspect --format '{{.Id}}' "$proxy_image") || return
+      candidate=$(docker create --name "$candidate_name" --pull never --label io.github.link-assistant.hive-manager.proxy="$name" \
+        --restart unless-stopped --ulimit nofile=524288:524288 --env "WORKERS=$workers" \
+        "${publish[@]}" --mount "type=bind,source=$proxy_state,target=/data" "$proxy_image_id") || return
+      if [[ $old ]]; then
+        proxy_switch update
+      else
+        activate_candidate "$proxy" "$candidate" '' false
+        proxy_status "$candidate"
+      fi ;;
     *) fail "Unknown proxy action: $action" ;;
   esac
 }

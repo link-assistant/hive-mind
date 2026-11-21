@@ -174,49 +174,82 @@ The backup is a private archive of the state directory. Keep configuration insid
 
 ## Telegram MTProto proxy
 
-The classic proxy can run independently of the bot. `apply` creates or starts it, `update` replaces it, and `remove` keeps its data and secret. An existing proxy can be adopted by matching `--proxy-name` and importing its 32-digit hex secret from a private `--secret-file`. Use `link` only when you need to share the secret-bearing link.
+The proxy can run independently of the bot. Use `apply` to create or start a managed classic proxy. Use `deploy --adopt proxy --proxy-name NAME apply` to recreate a legacy classic proxy with the manager ownership label. When the legacy container has a classic `/data` bind mount, the manager reads its key. You can also supply a private `--secret-file`. A supplied key must agree with the mounted key and any saved manager key. The legacy container and its configuration stay available for rollback.
 
 ```bash
 hive-manager --host hive-production deploy proxy --port 8443 apply
-hive-manager --host hive-production deploy proxy --port 8443 status
 hive-manager --host hive-production deploy proxy --port 8443 verify
 hive-manager deploy proxy --port 8443 --public-host proxy.example.net connect
-hive-manager --host hive-production deploy proxy --port 8443 --public-host proxy.example.net link
 ```
 
-`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. `snapshot` records the running configuration, including the published ports, workers, and a hash of the secret. Use `compare` with a baseline file on the deployment host or pass `-` to read it over SSH.
+`verify` checks running status, the selected binding and TCP connectivity to each Telegram data center from the selected container's network namespace. Run it on the Linux Docker host with permission to enter Docker namespaces. A connection failure is reported as `unreachable`. A missing namespace, inaccessible namespace or nonlocal Docker endpoint is reported as `unavailable`. Both cause verification to fail. `connect` checks public TCP reachability from the caller.
+
+Use `snapshot` to record the image, restart policy, workers, published bindings and a SHA-256 hash of the supplied or persisted key. Add `--check-egress` and `--check-mss` to include namespace connectivity and installed IPv4 TCPMSS rules. With `--secret-file`, snapshot and compare can read the legacy key in place. The path is on the Docker host. `compare` accepts a baseline on the target or `-` for stdin over SSH.
 
 ```bash
-hive-manager --host hive-production deploy proxy snapshot > proxy.baseline
-hive-manager --host hive-production deploy proxy compare - < proxy.baseline
+proxy=(hive-manager --host hive-production deploy proxy --port 8443 --proxy-name mtproxy-classic-8443)
+observations=(--secret-file /root/.hive-mtproxy-classic-8443/secret --check-egress --check-mss)
+"${proxy[@]}" "${observations[@]}" snapshot > proxy.baseline
+"${proxy[@]}" "${observations[@]}" compare - < proxy.baseline
 ```
 
-Run `proxy-test` on the affected client network with a pre-authorized Telegram StringSession and private API credentials. The probe uses the session's Saved Messages, verifies a text round trip, and deletes its test messages. `--media` adds a byte-for-byte document round trip. `--photo FILE` adds a JPEG or PNG upload and download. Use `--direct` to run the same checks against Telegram without the proxy.
+Run `proxy-test` on the affected client network with a pre-authorized Telegram StringSession and private API credentials. It verifies a text round trip in Saved Messages and deletes its test messages. `--media` adds a byte-for-byte document round trip. `--roundtrip-photo` uploads a deterministic 128 × 128 test image. `--photo FILE` accepts a selected JPEG or PNG of at most 256 KiB. Both options compare decoded dimensions and pixels with a tolerance for recompression. Use `--direct` to run the same checks without a proxy.
 
 ```bash
 hive-manager proxy-test --credentials ./telegram-api.json --session-file ./telegram.session \
   --proxy-host proxy.example.net --proxy-port 8443 --secret-file ./mtproxy.secret \
-  --media --photo ./probe.png
+  --media --roundtrip-photo
 ```
 
-For comparison on the same network, pass `--matrix routes.json` instead of the single-route options. The manager runs the selected tests sequentially for every profile and reports each result. Start proxy candidates ahead of time on distinct ports, and store each secret in a file next to the matrix. The matrix can include an existing FakeTLS proxy with its hexadecimal secret.
+### Compare routes on the same client network
+
+`--matrix routes.json` runs the selected tests sequentially against existing routes. Store secret files relative to the matrix, including the hexadecimal FakeTLS key if applicable. When multiple candidates share a port, run one matrix entry at a time with `--route NAME` after activating the matching candidate.
 
 ```json
 [
   { "name": "direct", "direct": true },
-  { "name": "baseline", "host": "proxy.example.net", "port": 443, "secretFile": "baseline.secret" },
+  { "name": "baseline", "host": "proxy.example.net", "port": 8443, "secretFile": "baseline.secret" },
   { "name": "candidate", "host": "proxy.example.net", "port": 8443, "secretFile": "candidate.secret" }
 ]
 ```
 
-If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`. Collect the client and server files on their external interfaces during the same probe window. `proxy-pcap` reads classic pcap files, summarizes unfragmented TCP traffic matching the published port and compares bytes observed on both sides. Repeat counts and gaps are diagnostic indicators. Capture loss and interface offloading can affect the measurements.
+Run the baseline client probe first. For a managed classic configuration change, `proxy update` activates the new image and/or worker setting and retains the predecessor. For other configurations, such as FakeTLS, create a stopped candidate with `docker create`, `--restart unless-stopped`, and the same selected host port mapped to TCP 443, using its own reviewed configuration. Review the two container IDs, image IDs and bindings before applying the plan. Use the same target, deployment name, state directory, port and proxy name throughout the rollout.
+
+```bash
+rollout=(hive-manager --host hive-production deploy --adopt proxy --port 8443 --proxy-name mtproxy-classic-8443)
+trial=(--candidate staged-faketls)
+"${rollout[@]}" "${trial[@]}" trial-plan > trial.plan
+cat trial.plan
+"${rollout[@]}" "${trial[@]}" trial - < trial.plan
+```
+
+Run the candidate client probe with the same account, client network and media options. Save each `proxy-test` JSON result. Use the same route name across reports if you want numeric deltas for that route. To restore the predecessor, run `"${rollout[@]}" rollback`. Rollback restores its original running or stopped state and returns a staged candidate to its original name for another run. If activation is interrupted, use the same rollback command to restore the recorded predecessor. After the selected candidate passes the live text, document and photo checks, run `"${rollout[@]}" accept` to remove the retained predecessor. Keep the local data directories and image if needed for subsequent trials.
+
+### Capture and compare TCP and application results
+
+Collect bounded classic pcap files on both external interfaces during the same probe window. `proxy-pcap` reports payload bytes, retransmitted segments and bytes, duplicate ACKs, resets and per-direction ACK gaps. Its comparable flow count shows where both payload and peer ACKs were observed. Interface offloading and capture loss can affect the measurements. Attach the `proxy-test` JSON with `--probe` to record the application outcome alongside the packet counts. `--compare` compares two saved reports or two standalone probe results.
 
 ```bash
 ( umask 077; hive-manager --host hive-production deploy proxy --port 8443 --interface eth0 --seconds 15 --client-ip 192.0.2.12 capture > server.pcap )
-hive-manager proxy-pcap --port 8443 client.pcap server.pcap
+hive-manager proxy-pcap --port 8443 --probe candidate-probe.json client.pcap server.pcap > candidate.json
+hive-manager proxy-pcap --compare baseline.json candidate.json
 ```
 
-For an IPv4 path where measurements identify an MSS problem, `proxy --port 8443 --mss 1200 mss-unit` generates an optional systemd unit for review and installation on an iptables-based Docker host. Its rules match Docker DNAT by the original published port, in both directions.
+### Stop or remove legacy proxy resources
+
+Run `proxy inventory` for recognized unowned containers, including `mtproxy`, `mtproxy-classic`, `mtproxy-classic-old`, `mtproxy-classic-PORT` and `mtproxy-classic-PORT-old`. Add `--legacy-mss` on the Docker host with systemd and iptables access to inspect the original `mtproxy-mss.service` and the rules installed by its script. Selecting the MSS hook includes the whole unit and the rules attributed to its configured ports and MSS. Review all resources in the plan before applying.
+
+```bash
+cleanup=(hive-manager --host hive-production deploy proxy)
+"${cleanup[@]}" --legacy-mss inventory
+"${cleanup[@]}" --select mtproxy --select mtproxy-classic-8443-old --legacy-mss cleanup-plan stop > cleanup.json
+cat cleanup.json
+hive-manager --host hive-production deploy --adopt proxy cleanup - < cleanup.json
+```
+
+Use `cleanup-plan stop` to retain the selected containers and disable the legacy MSS hook while keeping its files. Use `cleanup-plan remove` to remove those containers and the selected hook files. Both actions preserve the Docker images, configuration and keys. Apply rejects stale plans and verifies the resulting Docker and MSS state. Generate a fresh plan after any partial failure. A temporary stop can be resumed by starting the preserved containers and re-enabling the reviewed MSS service if needed.
+
+For a manager-owned IPv4 clamp, `proxy --port 8443 --mss 1200 mss-unit` generates a systemd unit. Its rules match Docker DNAT by the original published port in both directions.
 
 ## Compose and Helm
 

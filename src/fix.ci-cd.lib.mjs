@@ -87,6 +87,12 @@ export const CI_CD_TEMPLATES = Object.freeze([
     languages: ['PHP'],
     repo: 'link-foundation/php-ai-driven-development-pipeline-template',
   },
+  {
+    key: 'swift',
+    label: 'Swift',
+    languages: ['Swift'],
+    repo: 'link-foundation/swift-ai-driven-development-pipeline-template',
+  },
 ]);
 
 /**

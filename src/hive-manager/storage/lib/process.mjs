@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 export function run(command, args, { ms = 5000, maxBytes = 2 * 1024 * 1024, check, input, keepInput = false, stdio } = {}) {
   check?.();
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: stdio ?? ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { detached: true, shell: false, stdio: stdio ?? ['pipe', 'pipe', 'pipe'] });
     const chunks = [[], []];
     let bytes = 0;
     let failure;

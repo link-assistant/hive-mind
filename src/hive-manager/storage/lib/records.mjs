@@ -4,11 +4,11 @@ import { output } from './process.mjs';
 // start-command codec resolve there. The public status and list commands
 // reconcile pause state, and the store API can write a decoded cache.
 async function readStore() {
-  const { closeSync, constants, fstatSync, openSync, readSync, realpathSync } = await import('node:fs');
+  const { accessSync, closeSync, constants, fstatSync, openSync, readSync, realpathSync, statSync } = await import('node:fs');
   const { createRequire } = await import('node:module');
   const { homedir } = await import('node:os');
-  const { join } = await import('node:path');
-  const { ids, uuids, execution } = JSON.parse(process.argv[2]);
+  const { delimiter, join, resolve } = await import('node:path');
+  const { ids, uuids, execution } = JSON.parse(process.argv[1]);
   const folder = process.env.START_APP_FOLDER || join(homedir(), '.start-command');
   const fd = openSync(join(folder, 'executions.lino'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   let source;
@@ -33,7 +33,19 @@ async function readStore() {
     try {
       records = JSON.parse(source);
     } catch {
-      const require = createRequire(realpathSync(process.argv[1]));
+      const cli = (process.env.PATH ?? '/usr/bin:/bin')
+        .split(delimiter)
+        .map(directory => resolve(directory, '$'))
+        .find(candidate => {
+          try {
+            accessSync(candidate, constants.X_OK);
+            return statSync(candidate).isFile();
+          } catch {
+            return false;
+          }
+        });
+      if (!cli) throw new Error('Cannot locate the installed start-command codec.');
+      const require = createRequire(realpathSync(cli));
       records = require('lino-objects-codec').decode({ notation: source });
     }
   }
@@ -59,12 +71,11 @@ async function readStore() {
 }
 
 export async function taskRecords(docker, instance, query, options) {
-  const args = ['-c', `exec "$1" --max-old-space-size=192 --input-type=module -e "$2" -- "$(command -v '$' || true)" "$3"`, 'hive-read-start-command-records'];
-  const data = [`await (${readStore.toString()})();`, JSON.stringify(query)];
+  const args = ['--max-old-space-size=192', '--input-type=module', '-e', `await (${readStore.toString()})();`, '--', JSON.stringify(query)];
   const currentOptions = () => (typeof options === 'function' ? options() : options);
   try {
-    return { data: JSON.parse(await docker(['exec', '--user', 'box', instance, 'bash', ...args, 'node', ...data], currentOptions())), local: false };
+    return { data: JSON.parse(await docker(['exec', '--user', 'box', instance, 'node', ...args], currentOptions())), local: false };
   } catch {
-    return { data: JSON.parse(await output('bash', [...args, process.execPath, ...data], currentOptions())), local: true };
+    return { data: JSON.parse(await output(process.execPath, args, currentOptions())), local: true };
   }
 }

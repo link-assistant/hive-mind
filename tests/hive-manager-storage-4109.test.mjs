@@ -104,8 +104,17 @@ test('reports running, paused and stopped layers and reads historical execution 
   };
   const tasks = [{ uuid, command, options: { isolated: 'docker', containerId: id }, attemptHistory: [{ containerId: stoppedId }] }];
   const store = join(state, 'executions.lino');
-  writeFileSync(store, JSON.stringify(tasks));
+  const notation = `fixture\n${JSON.stringify(tasks)}`;
+  writeFileSync(store, notation);
   chmodSync(store, 0o400);
+  const bin = join(state, 'bin with spaces');
+  const install = join(state, 'start-command');
+  const codec = join(install, 'node_modules', 'lino-objects-codec');
+  mkdirSync(bin);
+  mkdirSync(codec, { recursive: true });
+  writeFileSync(join(install, 'cli.mjs'), 'throw new Error("The CLI must not run");', { mode: 0o700 });
+  symlinkSync(join(install, 'cli.mjs'), join(bin, '$'));
+  writeFileSync(join(codec, 'index.js'), 'exports.decode = ({ notation }) => JSON.parse(notation.slice(8));');
   const docker = async (args, options) => {
     assert.ok(!args.some(arg => ['--size', 'diff', 'system', '--list', '--status'].includes(arg)), args);
     switch (args.slice(0, 2).join(' ')) {
@@ -119,7 +128,8 @@ test('reports running, paused and stopped layers and reads historical execution 
           .map(id => JSON.stringify(rows[id]))
           .join('\n');
       case 'exec --user':
-        return output('env', [`START_APP_FOLDER=${state}`, ...args.slice(4)], options);
+        assert.equal(args[4], 'node');
+        return output('env', [`PATH=${bin}:${process.env.PATH}`, `START_APP_FOLDER=${state}`, ...args.slice(4)], options);
       case 'image ls':
         return '{"ID":"sha256:test","Repository":"test","Tag":"fixture","Size":"8MB"}';
       case 'volume ls':
@@ -146,8 +156,8 @@ test('reports running, paused and stopped layers and reads historical execution 
   assert.ok(report.issues.some(issue => issue.startsWith('failed writable layer:')));
   assert.deepEqual(report.images[0].tags, ['test:fixture']);
   assert.ok(report.volumes[0].bytes >= 0);
-  assert.deepEqual(JSON.parse(readFileSync(store, 'utf8')), tasks);
-  assert.deepEqual(readdirSync(state), ['executions.lino']);
+  assert.equal(readFileSync(store, 'utf8'), notation);
+  assert.deepEqual(readdirSync(state).sort(), ['bin with spaces', 'executions.lino', 'start-command']);
 });
 
 test('scoped preview skips paused and stopped tasks and protects host bind sources', { skip: !linux }, async t => {

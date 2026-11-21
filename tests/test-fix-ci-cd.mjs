@@ -14,6 +14,8 @@ import { buildCreateIssueArgs, createTaskIssue, findRecentlyCreatedIssue, resolv
 import { isBugIssueType } from '../src/development-log.lib.mjs';
 import { readFile } from 'node:fs/promises';
 
+const KOTLIN_TEMPLATE_REPO = 'link-foundation/kotlin-ai-driven-development-pipeline-template';
+
 let passed = 0;
 let failed = 0;
 
@@ -66,13 +68,34 @@ await test('mapLanguagesToTemplates maps a C-only repository to the C/C++ templa
   assert.deepEqual(unmatchedLanguages, ['Makefile']);
 });
 
+await test('prepareCiCdIssue recommends the Kotlin and Java templates for a Kotlin-first repository (issue #4098)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const responses = {
+    'repos/owner/repo/languages': JSON.stringify({ Kotlin: 9000, Java: 1000, Shell: 500 }),
+    'repos/owner/repo': 'main',
+    'repos/owner/repo/commits/main': JSON.stringify({ sha: 'abcdef1' }),
+    'repos/owner/repo/actions/workflows?per_page=100': JSON.stringify([{ workflows: [] }]),
+  };
+  const run = async (command, [, endpoint]) => {
+    assert.equal(command, 'gh');
+    assert.ok(Object.hasOwn(responses, endpoint), `Unexpected GitHub endpoint: ${endpoint}`);
+    return { code: 0, stdout: responses[endpoint], stderr: '' };
+  };
+
+  const { body } = await prepareCiCdIssue({ repository, run, warn: message => assert.fail(message) });
+  const javaRepo = 'link-foundation/java-ai-driven-development-pipeline-template';
+  assert.ok(body.includes(`1. **Kotlin** — [${KOTLIN_TEMPLATE_REPO}](https://github.com/${KOTLIN_TEMPLATE_REPO}) _(detected: Kotlin)_`), 'Kotlin must receive the Kotlin template link');
+  assert.ok(body.includes(`2. **Java** — [${javaRepo}](https://github.com/${javaRepo}) _(detected: Java)_`), 'Java must still receive the Java template link');
+  assert.match(body, /Other detected languages without a dedicated template: Shell\./);
+});
+
 await test('diffCiCdTemplates reports unlisted and stale template repositories (issue #2573)', () => {
   const listed = CI_CD_TEMPLATES.map(t => t.repo.split('/')[1]);
   assert.deepEqual(diffCiCdTemplates([...listed, 'hive-mind', '.github']), { unlisted: [], stale: [] });
 
   // The state that hid the C/C++ template: a new template repository appears.
-  const withNew = diffCiCdTemplates([...listed, { name: `kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
-  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/kotlin${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
+  const withNew = diffCiCdTemplates([...listed, { name: `new${CI_CD_TEMPLATE_REPO_SUFFIX}` }, { name: `old${CI_CD_TEMPLATE_REPO_SUFFIX}`, archived: true }]);
+  assert.deepEqual(withNew, { unlisted: [`${CI_CD_TEMPLATE_OWNER}/new${CI_CD_TEMPLATE_REPO_SUFFIX}`], stale: [] });
 
   // A listed template that was renamed, deleted or archived no longer resolves.
   const withoutPhp = diffCiCdTemplates(listed.filter(name => !name.startsWith('php-')));
@@ -85,7 +108,8 @@ await test('every CI-CD-BEST-PRACTICES translation lists every template in both 
     const doc = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     for (const { repo } of CI_CD_TEMPLATES) {
       const name = repo.split('/')[1];
-      assert.ok(doc.includes(`| [${name}](${templateUrl(repo)})`), `${file}: "Recommended CI/CD Templates" must link ${repo}`);
+      const url = repo === KOTLIN_TEMPLATE_REPO ? `${templateUrl(repo)}/tree/main` : templateUrl(repo);
+      assert.ok(doc.includes(`| [${name}](${url})`), `${file}: "Recommended CI/CD Templates" must link ${url}`);
       assert.ok(doc.includes(`| \`${repo}\``), `${file}: "Language → Template Mapping" must list ${repo}`);
     }
   }

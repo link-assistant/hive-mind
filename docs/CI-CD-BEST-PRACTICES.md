@@ -17,16 +17,17 @@ This approach ensures consistent quality regardless of whether the team consists
 
 These language templates include CI/CD workflows.
 
-| Language              | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| Language              | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
 
 > **Tip:** You don't have to pick a template by hand. Run `fix <repository-url> --ci-cd` (see [Automatic CI/CD Remediation](#automatic-cicd-remediation)) and Hive Mind detects the repository's languages and selects the matching templates for you.
 
@@ -185,6 +186,7 @@ Consistent formatting eliminates style debates and reduces diff noise:
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
+| Kotlin                | ktlint                        |
 | PHP                   | PHP CS Fixer                  |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
@@ -202,6 +204,7 @@ Catch bugs and enforce patterns before code reaches review:
 | C#                    | .NET analyzers (warnings as errors)        |
 | Java                  | SpotBugs (maximum effort)                  |
 | C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| Kotlin                | Detekt                                     |
 | PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
@@ -252,6 +255,7 @@ All templates use a changeset system that:
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
 | C/C++                 | changelog.d + custom scripts |
+| Kotlin                | Gradle changesets            |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Exempt docs-only PRs from changeset requirements:**
@@ -612,6 +616,7 @@ The command maps detected languages to templates as follows (JavaScript and Type
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Languages without a dedicated template (for example Shell or Dockerfile) are listed in the issue for awareness, and the closest matching template is recommended.

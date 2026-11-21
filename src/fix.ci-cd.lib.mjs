@@ -87,6 +87,12 @@ export const CI_CD_TEMPLATES = Object.freeze([
     languages: ['PHP'],
     repo: 'link-foundation/php-ai-driven-development-pipeline-template',
   },
+  {
+    key: 'kotlin',
+    label: 'Kotlin',
+    languages: ['Kotlin'],
+    repo: 'link-foundation/kotlin-ai-driven-development-pipeline-template',
+  },
 ]);
 
 /**

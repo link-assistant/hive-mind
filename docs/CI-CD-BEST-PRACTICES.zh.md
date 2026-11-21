@@ -17,16 +17,17 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 
 这些语言模板包含 CI/CD 工作流。
 
-| 语言                  | 模板仓库                                                                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| 语言                  | 模板仓库                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
 
 > **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
 
@@ -184,6 +185,7 @@ done
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
+| Kotlin                | ktlint                        |
 | PHP                   | PHP CS Fixer                  |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
@@ -201,6 +203,7 @@ done
 | C#                    | .NET 分析器（警告视为错误）           |
 | Java                  | SpotBugs（最大力度）                  |
 | C/C++                 | clang-tidy + cppcheck（警告视为错误） |
+| Kotlin                | Detekt                                |
 | PHP                   | PHPStan（最高级别）                   |
 
 ### 5. 快速失败任务排序
@@ -251,6 +254,7 @@ test-suites:
 | Python                | Scriv                    |
 | PHP                   | changelog.d + 自定义脚本 |
 | C/C++                 | changelog.d + 自定义脚本 |
+| Kotlin                | Gradle changeset         |
 | Go、C#、Java          | 自定义 changeset 工作流  |
 
 **免除仅文档 PR 的 changeset 要求：**
@@ -611,6 +615,7 @@ fix https://github.com/owner/repo --ci-cd
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。

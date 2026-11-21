@@ -17,16 +17,17 @@ AI-решатель задач Hive Mind инструктирован обращ
 
 Эти языковые шаблоны включают рабочие процессы CI/CD.
 
-| Язык                  | Репозиторий шаблона                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| Язык                  | Репозиторий шаблона                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
 
 > **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
 
@@ -186,6 +187,7 @@ done
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
+| Kotlin                | ktlint                        |
 | PHP                   | PHP CS Fixer                  |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
@@ -203,6 +205,7 @@ done
 | C#                    | .NET analyzers (предупреждения как ошибки)        |
 | Java                  | SpotBugs (максимальные усилия)                    |
 | C/C++                 | clang-tidy + cppcheck (предупреждения как ошибки) |
+| Kotlin                | Detekt                                            |
 | PHP                   | PHPStan (max level)                               |
 
 ### 5. Порядок быстрого обнаружения ошибок
@@ -253,6 +256,7 @@ test-suites:
 | Python                | Scriv                                |
 | PHP                   | changelog.d + кастомные скрипты      |
 | C/C++                 | changelog.d + кастомные скрипты      |
+| Kotlin                | Changesets для Gradle                |
 | Go, C#, Java          | Кастомные рабочие процессы changeset |
 
 **Освобождайте PR только с документацией от требования changeset:**
@@ -613,6 +617,7 @@ fix https://github.com/owner/repo --ci-cd
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.

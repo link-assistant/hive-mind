@@ -17,16 +17,17 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 इन भाषा टेम्पलेट में CI/CD वर्कफ़्लो शामिल हैं।
 
-| भाषा                  | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| भाषा                  | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
 
@@ -186,6 +187,7 @@ Consistent formatting style debates को समाप्त करती ह�
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
+| Kotlin                | ktlint                        |
 | PHP                   | PHP CS Fixer                  |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
@@ -203,6 +205,7 @@ Code review तक पहुँचने से पहले bugs पकड़�
 | C#                    | .NET analyzers (warnings as errors)        |
 | Java                  | SpotBugs (maximum effort)                  |
 | C/C++                 | clang-tidy + cppcheck (warnings as errors) |
+| Kotlin                | Detekt                                     |
 | PHP                   | PHPStan (max level)                        |
 
 ### 5. Fast-Fail Job Ordering
@@ -253,6 +256,7 @@ test-suites:
 | Python                | Scriv                        |
 | PHP                   | changelog.d + custom scripts |
 | C/C++                 | changelog.d + custom scripts |
+| Kotlin                | Gradle changesets            |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
@@ -613,6 +617,7 @@ command पता लगाई गई भाषाओं को templates से
 | C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।

@@ -69,6 +69,49 @@ const caseADeps = {
   getCommitShas: async () => [HEAD_A],
 };
 
+test('#4106: PR-scoped consensus reads workflow runs for HEAD only', async () => {
+  const requestedShas = [];
+  const consensus = await checkCIConsensus({
+    ...caseADeps,
+    checkOlderCommits: false,
+    getCommitShas: async () => assert.fail('read superseded commits'),
+    getWorkflowRunsForSha: async (_owner, _repo, sha, _verbose, options) => {
+      assert.equal(options.throwOnError, true);
+      requestedShas.push(sha);
+      return caseA.runs;
+    },
+  });
+  assert.deepEqual(requestedShas, [HEAD_A]);
+  assert.equal(consensus.allAgree, true);
+  assert.deepEqual(consensus.mechanisms.allCommitsCI, { skipped: true });
+});
+
+test('#4106: green checks from a new HEAD cannot confirm the previous HEAD', async () => {
+  const consensus = await checkCIConsensus({
+    ...caseADeps,
+    checkOlderCommits: false,
+    getDetailedCIStatus: async () => ({ sha: 'b'.repeat(40), status: 'success' }),
+    getWorkflowRunsForSha: async () => assert.fail('read runs from an outdated HEAD'),
+  });
+  assert.equal(consensus.allAgree, false);
+  assert.equal(consensus.mechanisms.checkRunsAPI.status, 'head_changed');
+  assert.match(consensus.reasons[0], /PR HEAD changed/);
+});
+
+test('#4106: an unavailable workflow runs API cannot confirm readiness', async () => {
+  await assert.rejects(
+    checkCIConsensus({
+      ...caseADeps,
+      checkOlderCommits: false,
+      getDetailedCIStatus: async () => ({ sha: HEAD_A, status: 'success' }),
+      getWorkflowRunsForSha: async () => {
+        throw new Error('API rate limit exceeded');
+      },
+    }),
+    /API rate limit exceeded/
+  );
+});
+
 test('case A before: the old call disagrees forever although GitHub says CLEAN', async () => {
   const consensus = await checkCIConsensus({ ...caseADeps, getDetailedCIStatus: async () => ({ ...caseA.ciStatus, checks: caseA.ciStatus.checks.map(({ checkSuiteId: _checkSuiteId, ...rest }) => rest) }) });
   assert.equal(consensus.allAgree, false);

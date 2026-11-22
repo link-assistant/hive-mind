@@ -273,20 +273,22 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
  * `mechanisms.workflowRunsAPI.ghostRuns` so the caller can recover them.
  *
  * @param {Object} params
+ * @param {boolean} [params.checkOlderCommits] - also inspect workflow runs on superseded commits
  * @param {Object} [params.mergeStatus] - checkPRMergeable() result for the same check
  * @param {Function} [params.getWorkflowRunJobsCount] - enables ghost-run detection
  * @param {number} [params.ghostMinAgeMs] - queued-with-no-jobs age that marks a ghost run
  * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array, reasons: string[]}>}
  */
-export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha, mergeStatus = null, getWorkflowRunJobsCount = null, ghostMinAgeMs = null, getCommitShas = getPRCommitShas, now = Date.now() }) {
+export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha, checkOlderCommits = true, mergeStatus = null, getWorkflowRunJobsCount = null, ghostMinAgeMs = null, getCommitShas = getPRCommitShas, now = Date.now() }) {
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
-  const workflowRuns = await getWorkflowRunsForSha(owner, repo, sha, verbose);
+  const headChanged = Boolean(sha && ciStatus.sha && sha !== ciStatus.sha);
+  const workflowRuns = headChanged || !sha ? [] : await getWorkflowRunsForSha(owner, repo, sha, verbose, { throwOnError: true });
 
-  let checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';
-  let checkRunsNote = null;
+  let checkRunsOK = !headChanged && Boolean(sha) && (ciStatus.status === 'success' || ciStatus.status === 'no_checks');
+  let checkRunsNote = headChanged ? `PR HEAD changed from ${sha} to ${ciStatus.sha}` : null;
   let relevantChecks = [];
   let outOfBandChecks = [];
-  if (!checkRunsOK && (ciStatus.status === 'failure' || ciStatus.status === 'cancelled')) {
+  if (!headChanged && sha && !checkRunsOK && (ciStatus.status === 'failure' || ciStatus.status === 'cancelled')) {
     const partition = partitionOutOfBandChecks(ciStatus.checks, workflowRuns);
     relevantChecks = partition.relevant;
     outOfBandChecks = partition.outOfBand;
@@ -307,7 +309,7 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
 
   let allCommitsOK = true;
   let allCommitsInfo = null;
-  if (checkRunsOK && workflowsOK && prNumber) {
+  if (checkOlderCommits && checkRunsOK && workflowsOK && prNumber) {
     allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, { headSha: sha, ghostMinAgeMs: canDetectGhosts ? ghostMinAgeMs : null, getJobsCount, getCommitShas, now });
     allCommitsOK = allCommitsInfo.allComplete;
   }
@@ -316,17 +318,17 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
   // This ensures safety when CI/CD pipelines interact or depend on each other.
   let repoOK = true;
   let repoInfo = null;
-  if (waitForAllRepoActionsFlag) {
+  if (waitForAllRepoActionsFlag && !headChanged) {
     repoInfo = await getAllActiveRepoRuns(owner, repo, verbose);
     repoOK = !repoInfo.hasActiveRuns;
   }
 
   const allAgree = checkRunsOK && workflowsOK && allCommitsOK && repoOK;
   const mechanisms = {
-    checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status, note: checkRunsNote, relevantChecks, outOfBandChecks },
+    checkRunsAPI: { complete: checkRunsOK, status: headChanged ? 'head_changed' : ciStatus.status, note: checkRunsNote, relevantChecks, outOfBandChecks },
     workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: incompleteRuns.length, ghostRuns: headGhostRuns },
     allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits, ignoredGhostRuns: allCommitsInfo.ignoredGhostRuns || [] } : { skipped: true },
-    repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: repoInfo?.count ?? 0 } : { skipped: true },
+    repoActions: repoInfo ? { complete: repoOK, count: repoInfo.count } : { skipped: true },
   };
   const reasons = allAgree ? [] : describeConsensusDisagreement(mechanisms);
 

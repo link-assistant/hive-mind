@@ -741,10 +741,8 @@ ru
       waiting_for_ci_default_branch "⏳ Ожидание завершения CI/CD в ветке по умолчанию..."
       issue_label "Задача"
     solve_progress
-      watching "⏳ Отслеживание pull request до готовности к слиянию"
-      blocker "Ожидание: {{blocker}}"
-      timing "Проверка #{{check}} · отслеживание {{elapsed}} · остановка в {{deadline}}"
-      updated "Статус обновлён {{time}}"
+      watching "⏳ Отслеживание"
+      elapsed "⏳ Отслеживание {{minutes}} мин {{seconds}} с"
       uploading_log "📎 Загрузка журнала сессии..."
     work
       session

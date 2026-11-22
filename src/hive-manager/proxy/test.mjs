@@ -4,6 +4,7 @@ import { clearTimeout, setTimeout } from 'node:timers';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { readBoundedFile } from '../lib/files.mjs';
+import { createProbePhoto, decodeProbePhoto, verifyProbePhoto } from './photo.mjs';
 
 const usage = `Usage: hive-manager proxy-test --session-file FILE [OPTIONS]
 Check a Telegram user session by writing, reading and deleting a marker in Saved Messages.
@@ -15,17 +16,12 @@ Check a Telegram user session by writing, reading and deleting a marker in Saved
   --secret-file FILE   File containing the MTProto proxy secret
   --direct             Exercise the same API checks without a proxy
   --matrix FILE        Compare up to 12 named direct and proxy routes from a JSON file
+  --route NAME         Run only this matrix route, for separately deployed candidates
   --media              Verify a 32 KiB document round trip by comparing bytes
-  --photo FILE         Test a selected JPEG or PNG of at most 256 KiB
+  --photo FILE         Compare decoded pixels of a selected JPEG or PNG (up to 256 KiB)
+  --roundtrip-photo    Compare decoded pixels of a generated 128 × 128 test image
   --timeout SECONDS    Per-step deadline from 1 to 120 seconds (default: 30)
 `;
-
-function photoType(data) {
-  if (!Buffer.isBuffer(data) || data.length < 24) return null;
-  if (data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) return 'png';
-  if (data.subarray(0, 3).equals(Buffer.from('ffd8ff', 'hex'))) return 'jpg';
-  return null;
-}
 
 async function attempt(operation, label, timeout) {
   let timer;
@@ -44,6 +40,7 @@ async function attempt(operation, label, timeout) {
 }
 
 export async function runProxyProbe(client, { media = false, photo = null, timeout = 30 } = {}) {
+  const expectedPhoto = photo ? decodeProbePhoto(photo) : null;
   const ids = [];
   const result = { text: false, document: null, photo: null, cleaned: false };
   const marker = `Hive Mind proxy probe ${randomBytes(12).toString('hex')}`;
@@ -84,9 +81,9 @@ export async function runProxyProbe(client, { media = false, photo = null, timeo
       if (!Buffer.isBuffer(received) || !document.equals(received)) throw new Error('The downloaded document differs from the probe document.');
       result.document = received.length;
     }
-    if (photo) {
-      const received = await transfer(photo, `hive-manager-probe.${photoType(photo)}`, false);
-      if (!photoType(received)) throw new Error('Telegram did not return a JPEG or PNG photo.');
+    if (expectedPhoto) {
+      const received = await transfer(photo, `hive-manager-probe.${expectedPhoto.extension}`, false);
+      verifyProbePhoto(expectedPhoto, received);
       result.photo = received.length;
     }
   } catch (error) {
@@ -120,7 +117,7 @@ async function proxyFromFile(host, port, secretFile) {
   return { host, port: Number(port), secret };
 }
 
-export async function readProxyMatrix(file) {
+export async function readProxyMatrix(file, route) {
   let profiles;
   try {
     const data = await readBoundedFile(file, 32 * 1024, 'proxy matrix');
@@ -139,7 +136,12 @@ export async function readProxyMatrix(file) {
       continue;
     }
     if (typeof secretFile !== 'string' || !secretFile || (direct !== undefined && direct !== false)) throw new Error(`Proxy profile ${name} needs a path to a secret file.`);
-    routes.set(name, await proxyFromFile(host, port, resolve(dirname(file), secretFile)));
+    // In a same-port trial, the caller only needs the selected route's key.
+    routes.set(name, route !== undefined && name !== route ? null : await proxyFromFile(host, port, resolve(dirname(file), secretFile)));
+  }
+  if (route !== undefined) {
+    if (!routes.has(route)) throw new Error('The selected route is absent from the matrix.');
+    return new Map([[route, routes.get(route)]]);
   }
   return routes;
 }
@@ -169,8 +171,10 @@ async function main() {
         'secret-file': { type: 'string' },
         direct: { type: 'boolean' },
         matrix: { type: 'string' },
+        route: { type: 'string' },
         media: { type: 'boolean' },
         photo: { type: 'string' },
+        'roundtrip-photo': { type: 'boolean' },
         timeout: { type: 'string', default: '30' },
       },
     }));
@@ -203,14 +207,16 @@ async function main() {
   const hasProxyOptions = ['proxy-host', 'proxy-port', 'secret-file'].some(option => values[option] !== undefined);
   if (values.matrix !== undefined) {
     if (values.direct || hasProxyOptions) throw new Error('Specify direct and proxy routes inside the matrix file.');
-    routes = await readProxyMatrix(values.matrix);
+    routes = await readProxyMatrix(values.matrix, values.route);
   } else if (values.direct) {
     if (hasProxyOptions) throw new Error('Use either a proxy or --direct.');
   } else {
     proxy = await proxyFromFile(values['proxy-host'], values['proxy-port'] ?? '443', values['secret-file']);
   }
-  const photo = values.photo ? await readBoundedFile(values.photo, 256 * 1024, 'probe photo') : null;
-  if (photo && !photoType(photo)) throw new Error('Probe photo must be JPEG or PNG.');
+  if (values.route !== undefined && values.matrix === undefined) throw new Error('Use --route with --matrix.');
+  if (values.photo !== undefined && values['roundtrip-photo']) throw new Error('Choose --photo FILE or --roundtrip-photo.');
+  const photo = values.photo !== undefined ? await readBoundedFile(values.photo, 256 * 1024, 'probe photo') : values['roundtrip-photo'] ? createProbePhoto() : null;
+  if (photo) decodeProbePhoto(photo);
   const session = (await readBoundedFile(values['session-file'], 8192, 'Telegram session')).toString('utf8').trim();
   let telegram;
   try {

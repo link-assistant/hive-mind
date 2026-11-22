@@ -1,0 +1,28 @@
+{
+  "issueComments": [],
+  "subIssues": [],
+  "prInlineComments": [],
+  "prReviews": [],
+  "prConversation": [
+    {
+      "created_at": "2026-11-20T17:04:24Z",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/4107#issuecomment-7045601904",
+      "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\nPlanned, not executed: https://github.com/link-assistant/hive-mind/issues/4106.\n\nThe requested work remains unverified. The plan below describes intended steps; writing or reading a plan record does not verify delivery. Plan:\n\n```lino\ngeneral_change_plan\n  id \"rep…dae\"\n  execution_mode \"repository_work_item\"\n  terminal_state \"planned_not_executed\"\n  goal \"It must be impossible to do monitoring after `Ready to merge` is reported\\n\\n<img width=\\\"718\\\" height=\\\"389\\\" alt=\\\"Screenshot 2026-11-20 at 7 51 59 PM\\\" src=\\\"https://github.com/user-attachments/assets/65dd525e-6cc9-402d-a03d-06116b82acc4\\\" />\\n\\n<img width=\\\"944\\\" height=\\\"667\\\" alt=\\\"Screenshot 2026-11-20 at 7 52 13 PM\\\" src=\\\"https://github.com/user-attachments/assets/96a16235-6fbf-4968-97bf-bbc8d70c00bc\\\" />\\n\\nThat is clearly a regression, previously it worked better.\\n\\nWe also don't need so much detail in monitoring status, we can just write that we in monitoring state for X minutes and seconds, in a single line.\\n\\nBut usually it should not stuck for long.\"\n  target \"https://github.com/link-assistant/hive-mind/issues/4106\"\n  step 1\n    capability \"Fetch\"\n    action \"read the referenced work item at https://github.com/link-assistant/hive-mind/issues/4106 before planning any change\"\n    expected_evidence \"the work-item text naming the artifact the change must produce\"\n  step 2\n    capability \"Write\"\n    action \"append the bounded repository work-item plan to .formal-ai/general-change-plan.lino\"\n    expected_evidence \"the exact repository work-item goal and execution boundary\"\n```\n\n> ⚠️ This pull request still contains no changes - nothing was implemented yet.\n\n---\n*This summary was automatically extracted from the AI working session output.*"
+    },
+    {
+      "created_at": "2026-11-20T17:04:33Z",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/4107#issuecomment-7045605590",
+      "body": "⚠️ **Finished without changes**\n\nThis run made no commit, changed no file and posted no comment. Reason: Formal AI produced no change (terminal state: planned_not_executed).\n\nNothing new is here to review, so it was not marked ready for review.\nCheck the session log for what the session did, then rerun the solver or continue manually."
+    },
+    {
+      "created_at": "2026-11-20T17:04:44Z",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/4107#issuecomment-7045609653",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: formal-ai\n- Provider: Link.Assistant\n- Public pricing estimate: $0.00 (Free model)\n\n### 📊 **Context and tokens usage:**\n- 28.5K / 40690.9M (0%) input tokens, 1.9K / 8.2K (23%) output tokens\n\nTotal: 56.4K input tokens, 1.9K output tokens\n\n### 🤖 **Models used:**\n- Tool: Agent CLI\n- Requested: `formal-ai` (`formalai/formal-ai`)\n- Thinking level: off (disabled)\n- **Model: formalai/formal-ai** (`formalai/formal-ai`)\n\n### 📎 **Log file uploaded as Repository** (452KB)\n- [View complete solution draft log](https://github.com/link-assistant/hive-mind/blob/e8a6ae2e10f2597fbd37263e85d28b2dc381da97/dev/log/issues/4106/pulls/4107/sessions/ses_e06164468ffeLSomKDnCqTTFhp/solve.log)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*"
+    },
+    {
+      "created_at": "2026-11-21T17:06:30Z",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/4107#issuecomment-7066216145",
+      "body": "🤖 **AI Work Session Started**\n\nStarted at 2026-11-21T17:06:28.327Z. Please wait for it to finish before giving feedback.\n\n_Runtime: solve `v2.39.10` · tool `codex` · model `gpt-6.2-sol` · task image `konard/hive-mind-dind:2.39.10@sha256:3be89e0510e606204a332e64547ebcfb4c8e527476abbbbbcdc7dac124476a86`_"
+    }
+  ]
+}

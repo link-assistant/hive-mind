@@ -6,7 +6,8 @@ import { createSessionStore } from '../../session-store.lib.mjs';
 import { withStateLock } from '../../state-lock.lib.mjs';
 import { aliasResumeCommand, solveTask, issueTarget } from './lib/recovery-command.mjs';
 import { docker, snapshotSpace } from './lib/snapshot-space.mjs';
-import { latestAttempt, listTrackedTasks, taskAttempts } from './report.mjs';
+import { latestAttempt, taskAttempts } from './lib/inspection.mjs';
+import { listTrackedTasks } from './report.mjs';
 
 const execFileAsync = promisify(execFile);
 const uuidPattern = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;

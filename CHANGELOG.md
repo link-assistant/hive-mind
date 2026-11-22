@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 2.47.0
+
+### Minor Changes
+
+- 90a4ee3: Verify Telegram data-center reachability inside the deployed MTProxy network namespace and compare decoded photo content in the client probe. Review and roll back same-port proxy trials, inspect scoped legacy MSS and Docker resources, and compare packet evidence alongside application results.
+- e912ecd: Expose a typed Hive Mind Manager library for inspecting task records and previewing detached Docker record repair. The task CLI shares these operations and requires explicit apply to adopt a running container.
+- 0981883: Finish pull request monitoring as soon as readiness is reported. Check CI on the current head without scanning superseded commits, and show elapsed monitoring time on one line in Telegram.
+- 1e48af1: Add bounded per-task Docker disk reporting, detached and pressure-guarded cache cleanup, and verified stopped writable-layer preservation to hive-manager.
+
 ## 2.46.0
 
 ### Minor Changes

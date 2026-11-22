@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.48.0
+
+### Minor Changes
+
+- 74ed2f4: Add independent Hive Mind Manager actions to preview and apply Bun global updates, audit and quarantine shared agent extensions using deployment policy, and stop verified idle vendor helpers.
+
 ## 2.47.0
 
 ### Minor Changes

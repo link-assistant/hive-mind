@@ -12,6 +12,36 @@ curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/h
 
 For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and local backup. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Install Node.js and Hive Mind to run package maintenance commands on the host, or use `deploy` to run them inside the image. When a standalone maintenance command is missing locally and npm is available, the manager uses `npm exec` with the published package. Set `HIVE_MANAGER_PACKAGE_VERSION` to pin that fallback.
 
+## JavaScript library
+
+Install `@link-assistant/hive-mind` in your project and import the public `@link-assistant/hive-mind/hive-manager` entry point from Node.js 24 or later. The package includes TypeScript declarations. Importing the entry point runs no commands, writes no files, and produces no output.
+
+```js
+import { HiveManagerError, previewTaskRecordRepair } from '@link-assistant/hive-mind/hive-manager';
+
+try {
+  const preview = await previewTaskRecordRepair({
+    uuids: ['40950000-1111-4000-8000-000000000001'],
+  });
+  console.log(preview.outcomes);
+} catch (error) {
+  if (!(error instanceof HiveManagerError)) throw error;
+  console.error(error.code, error.message);
+}
+```
+
+| Function                                        | Data and result                                                                                                                                                                                       | CLI equivalent                   |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `inspectTasks(tasks, { limit })`                | Counts tasks by state and summarizes recent failures from an array of start-command execution records.                                                                                                | `tasks report [--limit NUMBER]`  |
+| `groupTaskFailures(tasks, { limit })`           | Groups failed attempts by backend, failure kind and exit code. Both report functions default to 25 results and accept limits from 1 to 1000.                                                          | `tasks report --group`           |
+| `inspectTaskWindow(tasks, { uuid, attempt })`   | Returns `startedAt` and `finishedAt` in UTC. A running attempt has a `null` finish time.                                                                                                              | `tasks report --window UUID`     |
+| `collectTaskEvidence(tasks, { uuid, attempt })` | Returns a bounded attempt log summary. Omit `attempt` in either selection function to use the latest attempt.                                                                                         | `tasks report --collect UUID`    |
+| `previewTaskRecordRepair({ uuids, appFolder })` | Reads the start-command store and inspects running Docker snapshots. Returns `eligible` with a container name or `ambiguous` per matching UUID. No eligible snapshot yields no outcome for that UUID. | `tasks repair-records [UUID...]` |
+
+Pass the `executions` array from start-command's JSON task list or an existing snapshot to the inspection functions. `collectTaskEvidence` reads the `logPath` provided by the selected record. Give it trusted records from your task host. Record repair preview requires the start-command 0.44.0 executable (`$`) and Docker on `PATH`. `appFolder` defaults to `START_APP_FOLDER` or `~/.start-command`. An empty or omitted `uuids` array considers all records.
+
+Use the `HiveManagerError.code` property to handle invalid selections (`INVALID_INPUT`, `TASK_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `TASK_WINDOW_UNAVAILABLE`) and repair dependencies or read failures (`START_COMMAND_UNAVAILABLE`, `TASK_RECORDS_UNAVAILABLE`, `DOCKER_INSPECTION_FAILED`). An ambiguous match is a preview outcome. Only `tasks repair-records --apply` adopts a snapshot and attaches a watcher, after rechecking eligibility. Operators continue to own deployment profiles, schedules, incident routes and secrets. Deployment apply, adoption and publication approval use their existing CLI flags.
+
 ## First deployment
 
 Prepare the persistent state and start the setup container. Run each sign-in separately so it can use your terminal.

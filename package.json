@@ -4,6 +4,14 @@
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
+  "exports": {
+    ".": "./src/hive.mjs",
+    "./hive-manager": {
+      "types": "./src/hive-manager/index.d.mts",
+      "default": "./src/hive-manager/index.mjs"
+    },
+    "./*": "./*"
+  },
   "bin": {
     "hive": "./src/hive.mjs",
     "solve": "./src/solve.mjs",

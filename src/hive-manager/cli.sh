@@ -63,6 +63,9 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   exec [--] COMMAND     Run a command as box in the instance
   auth PROVIDER [login|status]
                         Sign in or check login in the instance
+  update-dependencies   Preview or apply Bun global dependency updates as box
+  global-tools          Audit or quarantine shared Claude and Codex extensions
+  tool-services         Check or stop idle vendor helper processes
   doctor                Check host disk space and instance/runtime status
   diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]
                         Show host resources, container exit facts and optional journal evidence
@@ -90,6 +93,7 @@ Options (before ACTION):
   --image IMAGE         Override the image tag or digest
   --env-file PATH       Private Docker environment file on the target
   --bot-config PATH     Private Telegram LINO configuration on the target
+  --tool-policy PATH    Global tool policy JSON on the Docker host
   --docker-socket PATH  Connect plain mode to the specified host Docker socket
                         or use it for host image passthrough in dind mode
   --adopt               Allow replacement of a container created outside the manager
@@ -133,6 +137,7 @@ maintenance_spec() {
     proxy-pcap) bin=hive-manager; module=hive-manager/proxy/pcap.mjs ;;
     proxy-legacy) bin=hive-manager; module=hive-manager/proxy/legacy.mjs ;;
     audit-config) bin=hive-manager; module=hive-manager/audit-config.mjs ;;
+    update-dependencies) bin=hive-manager; module=hive-manager/maintenance/update-dependencies.mjs ;;
     task-report) bin=hive-manager; module=hive-manager/task/report.mjs ;;
     task-check-browser) bin=hive-manager; module=hive-manager/task/check-browser.mjs ;;
     task-check-uploads) bin=hive-manager; module=hive-manager/task/check-uploads.mjs ;;
@@ -202,6 +207,24 @@ run_maintenance() {
     exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
   fi
   exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
+}
+
+run_host_maintenance() {
+  local action=$1 source_path entry
+  shift
+  if source_path=$(package_source) || source_path=$(package_source "$(command -v hive)"); then
+    entry=$source_path/hive-manager/maintenance/$action.py
+    if [[ -f $entry ]]; then
+      require python3
+      exec python3 -I -B -c '
+import os, runpy, sys
+sys.argv.pop(0)
+sys.path.insert(0, os.path.dirname(sys.argv[0]))
+runpy.run_path(sys.argv[0], run_name="__main__")
+' "$entry" "$@" --container "$name"
+    fi
+  fi
+  fail "Install a Hive Mind package with $action on the Linux Docker host"
 }
 
 auth_args() {
@@ -1595,6 +1618,7 @@ load_deploy_profile() {
       image=*) image=${line#*=} ;;
       env-file=*) env_file=$(profile_path "$base" "${line#*=}") ;;
       bot-config=*) bot_config=$(profile_path "$base" "${line#*=}") ;;
+      tool-policy=*) tool_policy=$(profile_path "$base" "${line#*=}") ;;
       docker-socket=*) socket=$(profile_path "$base" "${line#*=}") ;;
       setup=true) setup=1 ;;
       setup=false) setup=0 ;;
@@ -1611,12 +1635,12 @@ profile_path() {
 }
 
 deploy() {
-  local name=hive-mind state_dir='' variant=plain image='' env_file='' bot_config='' socket=''
+  local name=hive-mind state_dir='' variant=plain image='' env_file='' bot_config='' socket='' tool_policy=''
   local setup=0 pull_image=1 dry_run=0 tty=0 adopt=0
   while (( $# )); do
     case "$1" in
       -h|--help) deploy_usage; return ;;
-      --profile|--name|--state-dir|--variant|--image|--env-file|--bot-config|--docker-socket)
+      --profile|--name|--state-dir|--variant|--image|--env-file|--bot-config|--docker-socket|--tool-policy)
         need_value "$@"
         case "$1" in
           --profile) load_deploy_profile "$2" ;;
@@ -1626,6 +1650,7 @@ deploy() {
           --image) image=$2 ;;
           --env-file) env_file=$2 ;;
           --bot-config) bot_config=$2 ;;
+          --tool-policy) tool_policy=$2 ;;
           --docker-socket) socket=$2 ;;
         esac
         shift 2 ;;
@@ -1671,6 +1696,15 @@ deploy() {
       require systemctl
       exec systemctl "$1" docker.service ;;
     proxy) proxy_deploy "$@"; return ;;
+    update-dependencies)
+      if [[ ${1-} == --help || ${1-} == -h ]]; then run_maintenance "$action" "$@"; fi
+      require docker
+      inside hive-manager "$action" "$@" ;;
+    global-tools)
+      local policy_args=()
+      if [[ $tool_policy ]]; then policy_args=(--policy "$tool_policy"); fi
+      run_host_maintenance "$action" "${policy_args[@]}" "$@" ;;
+    tool-services) run_host_maintenance "$action" "$@" ;;
     disk)
       if [[ $# == 1 && $1 == --docker-summary ]]; then
         require docker

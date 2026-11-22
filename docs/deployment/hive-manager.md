@@ -134,6 +134,53 @@ Each package operation is available locally and inside a managed deployment. Use
 
 `deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for bounded host and task storage accounting and `deploy diagnose` for resource usage, exit status and OOM information. `deploy start`, `stop` and `restart` manage the selected container. On systemd hosts, `deploy docker-service status` checks the host daemon and `deploy docker-service start` starts it. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges. `audit-config --repair` applies Hive Mind's existing global agent settings repair and quarantines supported non-baseline additions.
 
+### Scoped tool maintenance
+
+Each action previews by default and writes a JSON receipt to stdout. Save the receipt if a scheduler or an incident report needs it. Add `--apply` after the action once you have reviewed the plan.
+
+```bash
+hive-manager deploy --profile PROFILE update-dependencies gh-upload-log
+hive-manager deploy --profile PROFILE update-dependencies --apply gh-upload-log
+hive-manager deploy --profile PROFILE update-dependencies --all
+```
+
+The dependency command runs Bun in the selected deployment as `box`. It uses `BUN_INSTALL_GLOBAL_DIR` when set, or the global install directory under `BUN_INSTALL` or `~/.bun`. The preview shows Bun's proposed versions. Apply backs up the original `package.json`, `bun.lock` and `bun.lockb` when present under `~/.hive-mind/state/tool-maintenance/dependency-backups/` before invoking Bun. The receipt includes the backup path, before and after versions and file checksums, and Bun output. A failed update retains its backup. To roll it back, restore the saved manifest and lockfile format in the original Bun global directory, remove any lockfile generated in the failed update whose original checksum was null, and reinstall from the restored manifest and lockfile. Keep this directory on the deployment's persistent state mount.
+
+Run the other two actions as root on the Linux Docker host using an installed Hive Mind Manager and Python 3.11 or later. For SSH, select an authorized root destination with `--host`. `tool-services` also requires Linux pidfd support.
+
+```bash
+hive-manager deploy --profile PROFILE global-tools --policy /etc/hive-mind/stage-tools.json
+hive-manager deploy --profile PROFILE global-tools --policy /etc/hive-mind/stage-tools.json --apply
+hive-manager deploy --profile PROFILE tool-services --tools codex,claude
+hive-manager deploy --profile PROFILE tool-services --tools codex,claude --apply
+```
+
+Store the allowlist on the Docker host. A deployment profile can supply `tool-policy=stage-tools.json` relative to that profile. Each of the `codexMcp` and `claudeMcp` objects maps an approved name to its exact registration in that tool's format. For instance, this file approves Playwright for both tools using the published Control Center arguments.
+
+```json
+{
+  "codexMcp": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--headless", "--no-sandbox", "--timeout-action=600000", "--viewport-size", "1920x1080"]
+    }
+  },
+  "claudeMcp": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--headless", "--no-sandbox", "--timeout-action=600000", "--viewport-size", "1920x1080"]
+    }
+  }
+}
+```
+
+Use `{}` for an empty allowlist. A deployment running the Hive Mind task-launch policy must also satisfy that policy before admitting tasks. On a shared host, align the policy across deployments for the shared root and system layers. The audit covers the bot user, bot root and host root homes, and managed Codex and Claude configuration on the host and in the deployment. It preserves stock Codex system skills, credentials, session history, task-scoped settings and managed permission constraints. Apply records original configurations and moved extensions in root-only quarantine under `/var/lib/hive-manager/tool-maintenance/quarantine/`. Single-file bind-mounted configs are rewritten in place. An audit exits nonzero on drift or an unsafe configuration. An apply exits nonzero if violations remain.
+
+Service cleanup selects the deployment's known managed Codex app-server, its updater, and orphaned Claude browser helpers. Add `--include-host` to consider eligible helpers in the host scope as well. The receipt lists blockers such as active or unclassified tasks, foreground tool processes, controlling terminals, owners and worker children. It reads the current start-command store without reconciling tasks or refreshing its cache. Each signal checks the current deployment identity, task state and process incarnation. Apply stops the updater first, sends SIGTERM to eligible helpers, and rechecks before escalating to SIGKILL if necessary.
+
+Control Center schedulers can switch their focused dependency, global-tool and service maintenance calls to these commands once the deployment and its host package run the supporting release. Compare each JSON preview with the existing runbook on staging, then verify the backups, preserved scopes and service blockers before switching callers. A pinned image rollout restores the image's pinned dependencies. The [queue work classifier](../../tests/queue-work-accounting-4021.test.mjs) discounts idle daemons for queue admission.
+
 `tasks status ID` reports one execution. `tasks report` tallies execution states and lists recent failures with exit and memory evidence in JSON. Use `tasks attach ID --read-only` to follow a live task, `tasks resume ID` to restart the stored execution, or `tasks resume-all` to reconcile running records and watchers. `tasks cleanup-dry-run [ID]` previews stale record or task container cleanup and `tasks cleanup [ID]` performs it. `tasks alias` and `tasks rename` manage task names. `tasks upload-log ID` invokes the sanitized upload workflow. The installed [start-command](https://github.com/link-foundation/start) version determines which actions and arguments are supported.
 
 To preserve a failed Docker task before removing its container, run `tasks backup-container CONTAINER --output NEW_DIRECTORY`, then preview removal with `tasks cleanup-backed-up NEW_DIRECTORY`. Supply `--apply SHA256` with the preview’s approval digest to remove the exact stopped container after rechecking the backup checksum and container identity. For an older container without task labels, add `--execution UUID` to the backup command. The manager checks that the stored Docker task recorded the same container, session and exit code. With `deploy tasks`, choose a directory on a persistent mount with enough free space. The private backup is a flattened Docker filesystem export. Inspect it with `tar -tzf NEW_DIRECTORY/filesystem.tar.gz`. Preserve mounted data and task logs separately. [Docker export](https://docs.docker.com/reference/cli/docker/container/export/)

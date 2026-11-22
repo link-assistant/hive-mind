@@ -12,7 +12,7 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile, describeCredentialSanitizationFailure } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
-import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
+import { publishLogToBranch } from './log-upload-branch.lib.mjs';
 import { getActiveDevelopmentLogRepositoryPath } from './development-log.finalize.lib.mjs';
 import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
 import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
@@ -38,7 +38,7 @@ import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
-import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile, buildSessionEndFooter, monitoringFollowsSession } from './tool-comments.lib.mjs';
+import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, buildSessionEndFooter, monitoringFollowsSession } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 // Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
@@ -559,19 +559,6 @@ async function attachLogToGitHubOnce(options, outcome = {}) {
     return posted;
   };
   try {
-    // Issue #1212: Check disk space before attempting log upload (100MB minimum)
-    try {
-      const { checkDiskSpace } = await import('./memory-check.mjs');
-      const diskCheck = await checkDiskSpace(100, { log: async () => {} });
-      if (!diskCheck.success) {
-        await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
-        failureReport.logSizeBytes = (await fs.stat(logFile).catch(() => null))?.size || 0;
-        if (failureReport.logSizeBytes > 0) await reportUploadFailure(`Insufficient disk space for the log upload: ${diskCheck.availableMB}MB available, 100MB required.`);
-        return false;
-      }
-    } catch {
-      /* disk check failure is non-fatal — continue to actual operation */
-    }
     // Check if log file exists and is not empty
     const logStats = await fs.stat(logFile);
     if (logStats.size === 0) {
@@ -698,7 +685,7 @@ async function attachLogToGitHubOnce(options, outcome = {}) {
       await log('  📎 Uploading log using gh-upload-log...');
       try {
         // Check if repository is public or private Issue #1173: Use public upload for public repos, private for private repos
-        let isPublicRepo = true;
+        let isPublicRepo = false;
         try {
           const repoVisibilityResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`;
           if (repoVisibilityResult.code === 0) {
@@ -735,10 +722,12 @@ async function attachLogToGitHubOnce(options, outcome = {}) {
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
-          ...(targetType === 'pr' && branchRepositoryPath ? { publishToBranch: sanitizedFile => publishLogToPullRequestBranch({ logFile: sanitizedFile, repositoryPath: branchRepositoryPath, owner, repo, prNumber: targetNumber, sessionId, $, log }) } : {}),
+          publishToBranch: (sourceFile, { needsSanitization }) => publishLogToBranch({ logFile: sourceFile, needsSanitization, repositoryPath: branchRepositoryPath, owner, repo, targetType, targetNumber, $, log }),
           ...(uploadRetryDelaysMs ? { retryDelaysMs: uploadRetryDelaysMs, partRetryDelaysMs: uploadRetryDelaysMs } : {}),
         });
         failureReport.attempts = uploadResult.attempts;
+        failureReport.publishedParts = uploadResult.publishedParts;
+        failureReport.destination = uploadResult.destination;
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
@@ -815,15 +804,7 @@ ${logLinks('View complete solution draft log')}
 ${sessionEndFooter}`;
           }
           if (leadingSection) logUploadComment = `${leadingSection}\n\n${logUploadComment}`;
-          const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
-          await writeSanitizedPublicationFile(tempCommentFile, logUploadComment);
-          // Issue #1625: post via postTrackedCommentFromFile so the returned comment ID is registered in-memory and excluded from the "did the AI post anything?" check.
-          let posted;
-          try {
-            posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempCommentFile });
-          } finally {
-            await fs.unlink(tempCommentFile).catch(() => {});
-          }
+          const posted = await postTrackedComment({ $, owner, repo, targetNumber, body: logUploadComment });
           if (posted.ok) {
             const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
             await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
@@ -892,15 +873,7 @@ async function attachRegularComment(options, logComment) {
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   void ghCommand;
   const logStats = await fs.stat(logFile);
-  const tempFile = `/tmp/log-comment-${targetType}-${Date.now()}.md`;
-  await writeSanitizedPublicationFile(tempFile, logComment);
-  // Issue #1625: track the posted comment ID so it's excluded from the AI-authored-comment check in --auto-attach-solution-summary.
-  let posted;
-  try {
-    posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
-  } finally {
-    await fs.unlink(tempFile).catch(() => {});
-  }
+  const posted = await postTrackedComment({ $, owner, repo, targetNumber, body: logComment });
   if (posted.ok) {
     const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
     await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as comment${posted.commentId ? ` (id=${posted.commentId})` : ''}`);

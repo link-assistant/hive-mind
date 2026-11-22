@@ -47,9 +47,7 @@ const fakeGhApi = id => () => async () => ({ code: 0, stdout: JSON.stringify({ i
 const createFakeGitHub = () => {
   const posted = [];
   let nextId = 5934184600;
-  const postComment = async ({ owner, repo, targetNumber, bodyFile }) => {
-    const fs = await import('node:fs/promises');
-    const body = await fs.readFile(bodyFile, 'utf8');
+  const postComment = async ({ owner, repo, targetNumber, body }) => {
     const result = await postTrackedComment({ $: fakeGhApi(nextId++), owner, repo, targetNumber, body });
     posted.push(body);
     return result;

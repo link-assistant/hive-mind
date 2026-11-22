@@ -204,31 +204,15 @@ export async function sanitizeLogFileToFile(options = {}) {
     dest = await fsImpl.open(destPath, 'wx', 0o600);
     destCreated = true;
 
-    let blockIndex = 0;
-    let blockStartChar = 0;
-    const stats = await forEachLogBlock(
+    const stats = await forEachSanitizedLogBlock(
       sourcePath,
-      async text => {
-        blockIndex += 1;
-        let sanitized;
-        try {
-          sanitized = String(await sanitize(text));
-        } catch (error) {
-          // Issue #2397: say where in the log publication was blocked.
-          if (error && typeof error === 'object' && !Number.isFinite(error.blockIndex)) {
-            error.blockIndex = blockIndex;
-            error.blockStartChar = blockStartChar;
-            error.blockChars = text.length;
-          }
-          throw error;
-        }
-        blockStartChar += text.length;
-        const out = transform ? String(transform(sanitized)) : sanitized;
-        if (!out) return;
-        await dest.write(out, null, 'utf8');
-        charsWritten += out.length;
+      async out => {
+        const text = transform ? String(transform(out)) : out;
+        if (!text) return;
+        await dest.write(text, null, 'utf8');
+        charsWritten += text.length;
       },
-      { chunkBytes, maxHoldBytes, startByte, endByte, fsImpl, onProgress }
+      { chunkBytes, maxHoldBytes, startByte, endByte, fsImpl, onProgress, sanitize }
     );
 
     await dest.chmod(0o600);
@@ -247,6 +231,33 @@ export async function sanitizeLogFileToFile(options = {}) {
   } finally {
     if (dest) await dest.close().catch(() => {});
   }
+}
+
+/** Process one fail-closed, publication-safe block at a time with backpressure. */
+export async function forEachSanitizedLogBlock(sourcePath, write, { sanitize = sanitizeForPublication, ...options } = {}) {
+  let blockIndex = 0;
+  let blockStartChar = 0;
+  return forEachLogBlock(
+    sourcePath,
+    async text => {
+      blockIndex += 1;
+      let sanitized;
+      try {
+        sanitized = String(await sanitize(text));
+      } catch (error) {
+        // Issue #2397: say where in the log publication was blocked.
+        if (error && typeof error === 'object' && !Number.isFinite(error.blockIndex)) {
+          error.blockIndex = blockIndex;
+          error.blockStartChar = blockStartChar;
+          error.blockChars = text.length;
+        }
+        throw error;
+      }
+      blockStartChar += text.length;
+      await write(sanitized);
+    },
+    options
+  );
 }
 
 /**

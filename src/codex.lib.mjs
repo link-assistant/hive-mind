@@ -32,6 +32,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
+import { createCodexTurnGuard, decideCodexContinuation, resolveCodexTurnLimits } from './codex-turn-guard.lib.mjs'; // Issue #4079
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
@@ -73,6 +74,7 @@ const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_L
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -582,16 +584,7 @@ export const executeCodex = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
@@ -658,6 +651,10 @@ export const executeCodexCommand = async params => {
   };
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  // Issue #4079: degenerate output, max_output_tokens and over-long turns resume the session.
+  const codexTurnLimits = resolveCodexTurnLimits();
+  const codexTurnGuardCounters = { truncation: 0, splits: 0 };
+  let codexContinuationPrompt = null;
   // Issue #2888: a recovery run may resume a thread whose rollout is not here.
   const resumeRolloutExists = createCodexResumeRolloutCheck();
   const executeWithRetry = async () => {
@@ -726,7 +723,7 @@ export const executeCodexCommand = async params => {
     }
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
-    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const promptForAttempt = [prompt, baseBranchInterventionPrompt, codexContinuationPrompt].filter(Boolean).join('\n\n') + (baseBranchInterventionPrompt || codexContinuationPrompt ? '\n' : '');
     const cgroupBefore = getCgroupMemory();
     await log(`📈 Codex cgroup memory before execution: ${JSON.stringify(cgroupBefore)}`, { verbose: true });
     const combinedPrompt = [systemPrompt, promptForAttempt, buildCodexMemoryBudgetPrompt(cgroupBefore)].filter(Boolean).join('\n\n');
@@ -735,6 +732,7 @@ export const executeCodexCommand = async params => {
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
+    await logFinalPrompts({ log, tool: 'codex', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
     await log(`   Resolved model ID: ${mappedModel}`, { verbose: true });
     await log(`   Execution mode: ${isResumeMode ? 'resume' : 'new exec'}`, { verbose: true });
     await log(`   Prompt file: ${promptFile}`, { verbose: true });
@@ -888,6 +886,8 @@ export const executeCodexCommand = async params => {
         },
       });
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
+      const codexTurnGuard = createCodexTurnGuard({ limits: codexTurnLimits, counters: codexTurnGuardCounters, stopSession: async () => execCommand?.kill?.('SIGTERM'), log }); // Issue #4079
+      codexTurnGuard.start();
       let codexJsonState = {
         sessionId: null,
         authError: false,
@@ -929,6 +929,7 @@ export const executeCodexCommand = async params => {
           const output = codexStdoutLines.write(raw);
           await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
+          await codexTurnGuard.observeStdout(output);
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout', onEvent: retryProgress.observe });
           await retryProgress.flushLog();
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -966,6 +967,7 @@ export const executeCodexCommand = async params => {
           if (argv.verbose) for (const line of codexStderrLog.write(rawError)) await log(line, { stream: 'stderr' });
           const errorOutput = codexStderrLines.write(rawError);
           stderrError = findCodexStderrError(errorOutput, stderrError);
+          await codexTurnGuard.observeStderr(errorOutput);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel, { source: 'stderr' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -974,6 +976,7 @@ export const executeCodexCommand = async params => {
         }
       }
       if (argv.verbose) for (const line of codexStderrLog.end()) await log(line, { stream: 'stderr' });
+      codexTurnGuard.end();
       const cgroupAfter = getCgroupMemory();
       await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.
@@ -1082,6 +1085,13 @@ export const executeCodexCommand = async params => {
         const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);
         error.isAuthError = true;
         throw error;
+      }
+      const continuation = decideCodexContinuation({ stopReason: codexTurnGuard.getStopReason(), state: codexJsonState, sessionId: sessionId || argv.resume, counters: codexTurnGuardCounters, limits: codexTurnLimits }); // Issue #4079
+      if (continuation) await log(continuation.message, { level: continuation.resume ? 'info' : 'warning' });
+      if (continuation?.resume) {
+        argv.resume = sessionId || argv.resume;
+        codexContinuationPrompt = continuation.prompt;
+        return await executeWithRetry();
       }
       const codexErrorSummary = classifyFormalAiCodexFailure({ model: argv.model, errorSummary: getCodexErrorEventSummary(codexJsonState) });
       if (codexErrorSummary.ignoredEvents.length > 0) {

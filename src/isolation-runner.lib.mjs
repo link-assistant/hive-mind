@@ -49,9 +49,11 @@ import { killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
-import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
+import { checkDockerDaemonReachability } from './docker-daemon-preflight.lib.mjs';
+import { DockerMountBackingError, resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
 import { toolDataContainerEnv, toolDataPrivateMounts } from './tool-data-mounts.lib.mjs';
 import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
@@ -187,6 +189,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  if (normalizeTool(tool) === 'claude') {
+    for (const [name, value] of Object.entries(buildClaudePromptCacheEnv(env))) startArgs.push('-e', `${name}=${value}`);
+  }
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
   // it resolved to - travel with the task so its session comment can state them.
@@ -376,12 +381,16 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Using $ binary at: ${binPath}`);
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
+  const hostEnv = options.env || process.env;
+  if (backend === 'docker') {
+    const daemonError = await checkDockerDaemonReachability(hostEnv);
+    if (daemonError) return failLaunch(daemonError);
+  }
   // Issue #2146 / PR #2147 review: a Formal AI task gets its own sidecar,
   // started on demand and reachable only over an internal Docker network. The
   // lease is taken before the container is launched so the endpoint is known
   // when the task's environment is built, and released again if the launch
   // fails. Fail closed — a Formal AI task must never start without Formal AI.
-  const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
   if (sidecarError) return failLaunch(sidecarError);
   // Issue #2164 (EXPERIMENTAL): --use-router replaces the task's credential
@@ -445,10 +454,11 @@ export async function executeWithIsolation(command, args, options = {}) {
   let startCommandArgs;
   try {
     startCommandArgs = await buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance, resolveMountSources: resolveDockerIsolationMountSources });
-  } catch {
+  } catch (error) {
     await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
     await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
-    return failLaunch('Task mount preparation failed. Verify persisted source mounts and local Docker daemon connectivity before retrying.');
+    const detail = error instanceof DockerMountBackingError ? error.message : 'Verify persisted source mounts before retrying.';
+    return failLaunch(`Task mount preparation failed. ${detail}`);
   }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);

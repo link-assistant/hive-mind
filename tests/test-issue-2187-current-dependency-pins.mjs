@@ -22,18 +22,18 @@ const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const expected = {
   agent: '0.27.2',
   box: '2.10.5',
-  bun: '1.4.4',
+  bun: '1.4.5',
   eslint: '10.15.0',
-  formalAi: '0.355.34',
+  formalAi: '0.356.5',
   jscpd: '5.4.3',
   jscpdThreshold: 12,
-  lintStaged: '17.6.1',
+  lintStaged: '17.6.2',
   node: '26.13.1',
   prettier: '3.10.1',
-  sentry: '11.12.0',
+  sentry: '11.16.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.44.0',
-  useM: '8.17.2',
+  useM: '8.18.2',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];

@@ -13,6 +13,23 @@ import { QUIET_PROBE, quietProbe } from './quiet-probe.lib.mjs'; // issue #2130:
 // not count as feedback in watch/continue mode, mirroring checkForNonBotComments.
 import { isToolGeneratedComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
 import { detectExternalContentEdits, formatEditEvidence } from './description-edits.lib.mjs'; // issue #2293
+import { buildUnresolvedReviewThreadLines, fetchUnresolvedReviewThreads } from './review-threads.lib.mjs'; // issue #4082: findings stay listed until their thread is resolved
+/**
+ * Issue #4082 (case 4): the latest decisive review of each reviewer, kept when
+ * it still requests changes. COMMENTED and PENDING reviews do not change a
+ * reviewer's decision; APPROVED and DISMISSED close an earlier change request.
+ */
+export const selectOutstandingChangeRequests = reviews => {
+  const latestByReviewer = new Map();
+  for (const review of Array.isArray(reviews) ? reviews : []) {
+    if (!['CHANGES_REQUESTED', 'APPROVED', 'DISMISSED'].includes(review?.state)) continue;
+    const reviewer = review.user?.login || 'ghost';
+    const previous = latestByReviewer.get(reviewer);
+    if (!previous || new Date(review.submitted_at || 0) >= new Date(previous.submitted_at || 0)) latestByReviewer.set(reviewer, review);
+  }
+  return [...latestByReviewer.values()].filter(review => review.state === 'CHANGES_REQUESTED');
+};
+
 export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $, repositoryPath = null } = params;
 
@@ -377,7 +394,8 @@ export const detectAndCountFeedback = async params => {
             const reviewsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
             if (reviewsResult.code === 0) {
               const reviews = JSON.parse(reviewsResult.stdout.toString());
-              const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);
+              // Issue #4082 (case 4): a change request stays open until its reviewer approves or it is dismissed, however old it is.
+              const changesRequestedReviews = selectOutstandingChangeRequests(reviews);
 
               if (changesRequestedReviews.length > 0) {
                 feedbackLines.push(promptText('prompt.templates.solve-feedback.detectAndCountFeedback.text8', { value1: String(changesRequestedReviews.length) }));
@@ -396,6 +414,20 @@ export const detectAndCountFeedback = async params => {
             }
           }
 
+          // 8. Issue #4082 (case 4): unresolved review threads, whatever their
+          // age. Comments above are counted only after the last commit, so any
+          // push (even a merge of the default branch) hid a finding that was
+          // still open. Thread state is GitHub's own "not addressed yet" signal.
+          const threads = await fetchUnresolvedReviewThreads({ owner, repo, prNumber, commandRunner: quietProbe($) });
+          if (threads.ok && threads.threads.length > 0) {
+            feedbackLines.push(...buildUnresolvedReviewThreadLines(threads.threads));
+            feedbackDetected = true;
+            feedbackSources.push(`Unresolved review threads (${threads.threads.length})`);
+            await log(formatAligned('🧵', 'Unresolved review threads:', String(threads.threads.length), 2));
+          } else if (!threads.ok && argv.verbose) {
+            await log(`Warning: Could not read review threads: ${threads.error}`, { level: 'warning' });
+          }
+
           // Handle --continue-only-on-feedback option
           if (argv.continueOnlyOnFeedback) {
             if (feedbackDetected) {
@@ -411,6 +443,7 @@ export const detectAndCountFeedback = async params => {
               await log('   • Merge status is not CLEAN (conflicts, unstable, blocked, etc.)');
               await log('   • Failed pull request checks');
               await log('   • Changes requested via review');
+              await log('   • Unresolved review threads');
               process.exit(1);
             }
           }

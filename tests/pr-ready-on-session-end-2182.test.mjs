@@ -206,6 +206,15 @@ await test('a non-continue session does not post work-session comments', async (
   }
 });
 
+await test('terminal watch outcomes skip the session comment and ready check', async () => {
+  const { endWorkSession } = await import('../src/solve.session.lib.mjs');
+  for (const reason of ['mergeable', 'ready_for_review_blocked', 'ready_status_publish_failed', 'auto-merged', 'merged']) {
+    const $ = makeFakeDollar({ isDraft: false, state: 'OPEN' });
+    await endWorkSession({ isContinueMode: true, prNumber: 42, argv: { watch: true }, log: silentLog, formatAligned: (icon, key, value) => `${icon} ${key} ${value}`, $, autoMergeResult: { reason } });
+    assert($.commands.length === 0, `session cleanup after ${reason} contacted GitHub: ${JSON.stringify($.commands)}`);
+  }
+});
+
 console.log('\nWiring: every session-end path must restore "ready for review":\n');
 
 const sessionSrc = readSrc('solve.session.lib.mjs');

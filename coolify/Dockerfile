@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.34
+ARG FORMAL_AI_VERSION=0.356.5
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -88,6 +88,8 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # DISABLE_COMPACT must never appear in this image (issue #2236)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_PROMPT_CACHE_TTL=1h \
+    CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h \
     CLAUDE_CODE_CLASSIFIER_SUMMARY=0 \
     CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES=0 \
     CLAUDE_CODE_ENABLE_NARRATION=0 \
@@ -170,7 +172,7 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.13.1
-ARG HIVE_MIND_BUN_VERSION=1.4.4
+ARG HIVE_MIND_BUN_VERSION=1.4.5
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -348,10 +350,12 @@ RUN if command -v claude >/dev/null 2>&1; then \
 # --strict-mcp-config --mcp-config <temp-file>.
 #
 # Every image requires the installed configuration command and verifies its result.
+COPY --chmod=0755 src/hive-manager/cli.sh /usr/local/bin/hive-manager
+
 RUN mkdir -p /home/box/.claude && \
-    command -v configure-claude >/dev/null && \
-    configure-claude --settings-path /home/box/.claude/settings.json && \
-    configure-claude --settings-path /home/box/.claude/settings.json --verify
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.

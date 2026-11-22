@@ -25,6 +25,7 @@ import { promptText } from './prompt-text.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { extractFrameText, logFinalPrompts } from './prompt-log.lib.mjs'; // PR #4083: print every live frame the tool receives
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
@@ -298,6 +299,21 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
+   * PR #4083 feedback: print the full text of every live frame written to the
+   * tool stdin, so the log shows each prompt the tool received mid-session.
+   * The initial prompt frame is not logged here; the tool runner logs it.
+   */
+  const logLiveFrame = async jsonFrame => {
+    const text = extractFrameText(jsonFrame);
+    if (text === null || typeof log !== 'function') return;
+    try {
+      await logFinalPrompts({ log, tool: toolLabel, prompts: [{ kind: 'live', text, delivery: `a stream-json frame on ${toolLabel} stdin` }] });
+    } catch {
+      /* logging must never break the input channel */
+    }
+  };
+
+  /**
    * Issue #1708: Delivery-mode-aware frame dispatcher.
    *
    * - In stream mode (default for --accept-incomming-comments-as-input),
@@ -336,6 +352,7 @@ export const createBidirectionalHandler = options => {
     const ok = await writeFrameToStdin(state.claudeStdin, jsonFrame, log, verbose);
     if (ok) {
       state.totalFeedbackStreamed++;
+      await logLiveFrame(jsonFrame);
       if (verbose) {
         await log(`📤 Bidirectional mode: Streamed frame (${meta.kind || 'frame'}: ${meta.label || ''}) into ${toolLabel} stdin`, { verbose: true });
       }
@@ -379,6 +396,7 @@ export const createBidirectionalHandler = options => {
       }
       flushed++;
       state.totalFramesFlushed++;
+      await logLiveFrame(jsonFrame);
       state.totalFeedbackStreamed++;
       if (verbose) {
         await log(`📤 Bidirectional mode: Flushed pending frame (${meta?.kind || 'frame'}: ${meta?.label || ''}) into ${toolLabel} stdin`, { verbose: true });
@@ -848,7 +866,9 @@ export const createBidirectionalHandler = options => {
   const sendFeedback = async (feedbackText, options = {}) => {
     if (!state.claudeStdin) return false;
     const frame = formatFeedbackForClaude(feedbackText, { kind: options.kind || 'metadata' });
-    return writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+    const ok = await writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+    if (ok) await logLiveFrame(frame);
+    return ok;
   };
 
   /**

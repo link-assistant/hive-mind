@@ -15,18 +15,20 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 ## अनुशंसित CI/CD Templates
 
-हम सभी सर्वोत्तम प्रथाओं के साथ पूर्व-कॉन्फ़िगर किए गए कई भाषाओं के लिए ready-to-use templates प्रदान करते हैं:
+इन भाषा टेम्पलेट में CI/CD वर्कफ़्लो शामिल हैं।
 
-| भाषा                  | Template Repository                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| भाषा                  | Template Repository                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
 
@@ -95,6 +97,44 @@ docker-pr-check:
 - CI/CD workflow files (`.github/workflows/*.yml`)
 - `Dockerfile` और संबंधित infrastructure files
 
+#### कमिट और समीक्षा के लिए तैयार PR की जाँच
+
+- **कमिट स्तर (`synchronize`)** में बदले हुए पैकेजों की लिंटिंग, प्रकार जाँच और तेज़ यूनिट टेस्ट चलाएँ। ये जाँचें ड्राफ़्ट PR पर भी चलती हैं। क्रिटिकल पाथ के लिए 5–10 मिनट का लक्ष्य रखें।
+- **समीक्षा स्तर (`ready_for_review`)** में अधिक समय लेने वाले यूनिट, इंटीग्रेशन और एंड-टू-एंड टेस्ट चलाएँ। PR को ड्राफ़्ट के रूप में खोलें और पूरी जाँच चलाने के समय उसे समीक्षा के लिए तैयार चिह्नित करें।
+
+`opened`, `reopened` और `edited` इवेंट हटाएँ। नए कमिट के बाद पूरी जाँच दोहराने के लिए PR को फिर से ड्राफ़्ट बनाकर समीक्षा के लिए तैयार चिह्नित करें या जाँच को मैन्युअल रूप से चलाएँ। `main` पर पूरी रिलीज़ जाँच रखें और मैन्युअल जाँच के लिए प्रकाशन से अलग मोड दें।
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+समीक्षा रन उसी रिविज़न की जाँच करता है जिसने उसे शुरू किया। यदि मर्ज के लिए पूरी जाँच अनिवार्य है, तो वर्तमान रिविज़न की पूरी जाँच का परिणाम ज़रूरी करें। कमिट स्तर का सफल रन अकेले पर्याप्त नहीं है। मैन्युअल रन के लिए इच्छित PR रिविज़न या मर्ज परिणाम चुनें।
+
+#### वर्कस्पेस ग्राफ़ से मोनोरेपो के टेस्ट चुनें
+
+एक प्लानर जॉब वर्कस्पेस मैनिफ़ेस्ट (जैसे हर पैकेज की `package.json`) से ग्राफ़ पढ़े और बदले हुए पाथ को उनके पैकेजों से जोड़े।
+
+- पैकेज स्वयं बदले तो उसका यूनिट टेस्ट सूट चलाएँ।
+- इंटीग्रेशन टेस्ट के लिए हर बदले हुए पैकेज से ग्राफ़ को निर्भरताओं की उलटी दिशा में पार करें। बदले हुए पैकेज और उन पर सीधे या परोक्ष रूप से निर्भर सभी पैकेज जाँचें। ग्राफ़ में चक्र हो तब भी हरेक पैकेज पर एक ही बार जाएँ।
+- यदि किसी पाथ का वर्ग तय न हो या ग्राफ़ या diff पता न चले तो सभी सूट चलाएँ। लॉकफ़ाइल, वर्कस्पेस कॉन्फ़िगरेशन और साझा टेस्ट सेटअप जैसे इनपुट को स्पष्ट रूप से सभी पैकेजों पर असर डालने वाला मानें।
+
+प्लानर से जॉब मैट्रिक्स JSON में निकालें और खाली चयन के लिए `[]` दें। आउटपुट के अनुसार जॉब चलाएँ और सूट को शार्ड में बाँटें। उदाहरण के लिए `test-db` में `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]` हो सकता है।
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. फ़ाइल आकार सीमाएँ
 
 **प्रति code file अधिकतम 1000-1500 lines लागू करें।**
@@ -129,6 +169,12 @@ done
 }
 ```
 
+#### सिर्फ़ घटने वाली बेसलाइन से फ़ाइल सीमा अपनाएँ
+
+मौजूदा रिपॉज़िटरी में सीमा से बड़ी केवल ट्रैक की गई फ़ाइलों की पंक्ति संख्या JSON में कमिट करें, जैसे `{ "src/legacy.mjs": 1830 }`। हर प्रविष्टि उस फ़ाइल की अधिकतम पंक्ति संख्या तय करती है। सीमा से बड़ी नई फ़ाइल और बेसलाइन से अधिक बढ़ने वाली फ़ाइल अस्वीकार करें। `--update` से बेसलाइन में वर्तमान पंक्ति संख्या दर्ज करें और हटाई गई या सामान्य सीमा में आ चुकी फ़ाइलों की प्रविष्टियाँ मिटाएँ। फ़ाइल के छोटे होने के साथ बेसलाइन बदलाव कमिट करें। बेसलाइन बदलाव की तुलना लक्ष्य ब्रांच से करें ताकि सीमा बढ़ाकर या नई प्रविष्टि जोड़कर जाँच को दरकिनार न किया जा सके।
+
+नई फ़ाइलों पर पहले दिन से सामान्य सीमा लागू होती है। मौजूदा बड़ी फ़ाइलें अलग-अलग PR में बाँटी जा सकती हैं। [चलने योग्य उदाहरण](../examples/ci-cd-pull-request-tiers/README.md) देखें।
+
 ### 3. Automated Code Formatting
 
 Consistent formatting style debates को समाप्त करती है और diff noise कम करती है:
@@ -143,6 +189,8 @@ Consistent formatting style debates को समाप्त करती ह�
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
 
@@ -150,16 +198,18 @@ Consistent formatting style debates को समाप्त करती ह�
 
 Code review तक पहुँचने से पहले bugs पकड़ें और patterns लागू करें:
 
-| भाषा                  | Tools                                      |
-| --------------------- | ------------------------------------------ |
-| JavaScript/TypeScript | ESLint with strict rules                   |
-| Rust                  | Clippy (pedantic + nursery)                |
-| Python                | Ruff + mypy                                |
-| Go                    | go vet + staticcheck                       |
-| C#                    | .NET analyzers (warnings as errors)        |
-| Java                  | SpotBugs (maximum effort)                  |
-| C/C++                 | clang-tidy + cppcheck (warnings as errors) |
-| PHP                   | PHPStan (max level)                        |
+| भाषा                  | Tools                                               |
+| --------------------- | --------------------------------------------------- |
+| JavaScript/TypeScript | ESLint with strict rules                            |
+| Rust                  | Clippy (pedantic + nursery)                         |
+| Python                | Ruff + mypy                                         |
+| Go                    | go vet + staticcheck                                |
+| C#                    | .NET analyzers (warnings as errors)                 |
+| Java                  | SpotBugs (maximum effort)                           |
+| C/C++                 | clang-tidy + cppcheck (warnings as errors)          |
+| PHP                   | PHPStan (max level)                                 |
+| Swift                 | कंपाइलर चेतावनियों को त्रुटि मानें (`-warnings-as-errors`) |
+| Kotlin                | Detekt                                              |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -187,6 +237,12 @@ test-suites:
     needs.check-file-line-limits.result == 'success'
 ```
 
+#### जॉब की अवधि तय करें और सबसे लंबा काम पहले शुरू करें
+
+बड़े रनर जॉब के लिए लगभग 5–30 मिनट का लक्ष्य रखें। तेज़ जाँचों को छोटा रखें और मापे गए समय के आधार पर लंबे सूट शार्ड करें, जैसे `--shard i/n`। हर जॉब के लिए `timeout-minutes` दें। वर्कफ़्लो टेस्ट में 30 मिनट की अधिकतम सीमा जाँचें और हर दर्ज अपवाद का जॉब नाम और अधिकतम समय तय करें। दोबारा इस्तेमाल किए जाने वाले वर्कफ़्लो के लिए बुलाए गए वर्कफ़्लो के अंदर के जॉब जाँचें।
+
+एक जॉब में स्वतंत्र कामों को मापी हुई अवधि के घटते क्रम में सीमित संख्या में वर्करों पर चलाएँ। सबसे लंबे काम पहले शुरू करें और खाली स्लॉट में छोटे काम भरें। रनर के CPU, मेमोरी और सेवाओं की क्षमता के अनुसार वर्करों की संख्या रखें। निर्भर काम क्रम से चलाएँ और उनकी विफलता आगे पहुँचाएँ।
+
 ### 6. Changeset-Based Versioning
 
 सभी templates एक changeset system उपयोग करते हैं जो:
@@ -196,14 +252,16 @@ test-suites:
 - **Changelogs generate करता है** - Release notes automatically compiled होते हैं
 - **Semantic versioning का समर्थन करता है** - patch/minor/major bumps explicit हैं
 
-| भाषा                  | Tool                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | @changesets/cli              |
-| Rust                  | changelog.d + custom scripts |
-| Python                | Scriv                        |
-| PHP                   | changelog.d + custom scripts |
-| C/C++                 | changelog.d + custom scripts |
-| Go, C#, Java          | Custom changeset workflows   |
+| भाषा                  | Tool                                   |
+| --------------------- | -------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                        |
+| Rust                  | changelog.d + custom scripts           |
+| Python                | Scriv                                  |
+| PHP                   | changelog.d + custom scripts           |
+| C/C++                 | changelog.d + custom scripts           |
+| Swift                 | हर PR के लिए changeset + SwiftPM Git टैग |
+| Kotlin                | Gradle changesets                      |
+| Go, C#, Java          | Custom changeset workflows             |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
 
@@ -284,8 +342,8 @@ jobs:
     # Job की पहचान (और मौजूद होने पर matrix values) शामिल करें, ताकि असंबंधित
     # checks parallel चलें और नया run केवल उसी पुराने check को बदले।
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -299,10 +357,10 @@ jobs:
     # ...
 ```
 
-- **Read-only jobs:** Runner load घटाने के लिए pull requests और `main`, दोनों पर पुराने checks रद्द करें। हर job को अलग suffix दें; matrix entries को parallel रखने के लिए संबंधित matrix values भी जोड़ें।
+- **Read-only jobs:** रनर का भार घटाने के लिए पुराने कमिट-स्तरीय रन रद्द करें। समीक्षा के लिए तैयार PR और `main` की हर रिविज़न की पूरी जाँच बनाए रखें। हर job को अलग suffix दें; matrix entries को parallel रखने के लिए संबंधित matrix values भी जोड़ें।
 - **Dependent writers:** `needs` उपयोग करें और prerequisites की सफलता आवश्यक रखें। रद्द हुए prerequisite के बाद उसका write job शुरू नहीं होना चाहिए।
 - **Active writers:** हर release, deploy, tag, generated-content push और दूसरे write job को `cancel-in-progress: false` वाला एक ही repository-scoped group दें। पहले से शुरू writer पूरा होता है और अगला writer queue में प्रतीक्षा करता है, चाहे वह किसी दूसरे workflow file से आया हो।
-- **Workflow scope:** Write jobs वाले workflow पर cancellable concurrency को workflow level पर न लगाएँ। ऐसा करने से पहले से शुरू writer भी रद्द हो जाएगा।
+- **Workflow scope:** वर्कफ़्लो स्तर पर रद्द करने की अनुमति केवल ऐसे इवेंट को दें जो प्रकाशन, डिप्लॉयमेंट या रिपॉज़िटरी की स्थिति में बदलाव नहीं कर सकते। वर्कफ़्लो रद्द होने पर सक्रिय लेखक भी रुक जाएगा।
 
 Default रूप से concurrency group में अधिकतम एक running और एक pending job रहता है; नया pending writer पुराने pending writer को बदल देता है। यदि हर queued write चलना आवश्यक है, तो writer के concurrency block में `queue: max` जोड़ें (अधिकतम 100 jobs प्रतीक्षा कर सकते हैं)। `queue: max` को `cancel-in-progress: true` के साथ उपयोग नहीं किया जा सकता, और execution order workflow dispatch order के बजाय jobs के प्रतीक्षा शुरू करने के समय पर आधारित होता है; इसलिए write jobs idempotent होने चाहिए।
 
@@ -336,6 +394,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **Rebase के बाद वह सब दोबारा गणना करें जो उससे पहले निकाला गया था।** पुरानी tip के सापेक्ष चुना गया version number, changelog entry या tag उस writer द्वारा पहले ही लिया जा चुका हो सकता है जिसने queue जीती। योजना दोहराने के बजाय state दोबारा पढ़ें।
 - **सफलता तभी बताएँ जब push land कर चुका हो।** Push की पुष्टि से पहले `version_committed=true` सेट करने वाला step downstream publish job को ऐसे commit पर काम करने देता है जो केवल उसी runner पर मौजूद है।
 - **Retries की सीमा रखें और log में कारण बताएँ।** छोटी देरी के साथ कुछ प्रयास queue के लिए पर्याप्त हैं; वास्तव में protected branch के विरुद्ध अनंत loop तेज़ विफलता को लंबी विफलता बना देता है।
+
+#### नया कमिट आने पर पूरी जाँच जारी रखें
+
+वर्कफ़्लो और PR के अनुसार कमिट जाँच के समूह बनाएँ। केवल पुराने `synchronize` रन रद्द करें। समीक्षा और मैन्युअल रन को अलग-अलग रन कुंजियाँ दें ताकि कतार में लगे रन भी बचें। पुश को SHA से समूहित करें ताकि `main` की हर रिविज़न की जाँच बनी रहे।
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+जॉब स्तर के समूहों में कुंजी के साथ जॉब और मैट्रिक्स पहचान रखें। प्रकाशन और डिप्लॉयमेंट के लिए साझा, रद्द न होने वाला समूह रखें। वर्कफ़्लो स्तर पर रद्द करना तभी सुरक्षित है जब रद्द किए जा सकने वाले इवेंट केवल जाँच चलाते हों और प्रकाशन या डिप्लॉयमेंट न करते हों। [भाषा टेम्पलेट के पैच](../examples/ci-cd-pull-request-tiers/README.md) देखें।
 
 ### 11. Secrets Detection
 
@@ -510,9 +580,16 @@ Developer Machine    →    CI/CD Pipeline    →    Release
 1. **एक template चुनें** ऊपर की table से अपनी भाषा से मेल खाता हुआ
 2. **इसे GitHub template के रूप में उपयोग करें** अपना नया repository बनाने के लिए
 3. **Secrets configure करें** यदि publishing के लिए आवश्यक हो (OIDC preferred)
-4. **Development शुरू करें** सभी सर्वोत्तम प्रथाओं के साथ पूर्व-कॉन्फ़िगर
+4. **Development शुरू करें** टेम्पलेट वर्कफ़्लो के साथ
 
 AI solvers automatically सभी configured checks के साथ respect करेंगे और iterate करेंगे, CI/CD enforcement के बिना repositories की तुलना में उच्च quality output produce करेंगे।
+
+### बहुभाषी रिपॉज़िटरी में Swift CI जोड़ें
+
+1. Swift टेम्पलेट के एक ही संस्करण से `swift/ci/` और `.github/workflows/swift-ci.yml` को अपनी रिपॉज़िटरी में उन्हीं पथों पर कॉपी करें।
+2. `.github/workflows/swift-checks.yml` जैसा कॉलर वर्कफ़्लो जोड़ें। उसे `contents: read` अनुमति दें और `./.github/workflows/swift-ci.yml` को `mode: embedded` और `pipeline-directory: swift/ci` के साथ कॉल करें। ट्रिगर अपनी डिफ़ॉल्ट ब्रांच और मर्ज कतार के अनुसार सेट करें। [Swift मोनोरेपो गाइड और कॉलर का उदाहरण](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. `package-directory` में `Package.swift` की डायरेक्टरी दें। अगर मैनिफ़ेस्ट रिपॉज़िटरी के रूट में है, तो `'.'` दें। `source-paths` में मैनिफ़ेस्ट, `Package.resolved` (अगर मौजूद है), सोर्स, टेस्ट और साझा टेस्ट डेटा के पथ लिखें। हर पंक्ति में एक पथ दें, जो रिपॉज़िटरी के रूट के सापेक्ष हो।
+4. मौजूदा वर्कफ़्लो, Swift की विशेष जाँचें और रिलीज़ नीति बनाए रखें। एम्बेडेड मोड में CI सिर्फ़ पढ़ने की अनुमति के साथ चलता है। जाँचें कि Swift में बदलाव से Linux और macOS की जाँचें चलती हैं और सिर्फ़ दूसरी भाषाओं में बदलाव होने पर Swift कंपाइल नहीं होता।
 
 ## Automatic CI/CD Remediation
 
@@ -552,6 +629,8 @@ command पता लगाई गई भाषाओं को templates से
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।
 

@@ -64,6 +64,23 @@ en
           text11 "Please resolve the merge conflicts."
           text12 "⚠️ Branch sync encountered an unfinished merge or conflicts:"
           text13 "Please resolve the merge state before finishing."
+      review-threads
+        feedback
+          header "🧵 Unresolved review threads on the pull request: {{count}} (listed whatever their age or author, review bots included):"
+          item "  - {{author}} on {{location}}{{outdated}}: \"{{excerpt}}\" ({{url}}, thread id: {{threadId}})"
+          outdated " (outdated: the code moved since, check whether the finding still applies)"
+          more "  - ...and {{count}} more unresolved thread(s) on the pull request."
+          instruction "Address every unresolved review thread. After the fix is pushed and verified, reply in the thread with what changed (commit SHA), then resolve the thread: {{command}} (replace THREAD_ID with the thread id above). A reply alone does not resolve a thread, and unresolved threads keep the pull request from being reported as ready to merge. If a finding is wrong or out of scope, reply with the reason and leave that thread unresolved for the reviewer."
+      review-bots
+        feedback
+          header "🤖 Review apps report unresolved findings for the head commit of the pull request: {{count}} summary(ies):"
+          item "  - {{login}}: \"{{excerpt}}\" ({{url}})"
+          instruction "Read each summary in full (its inline findings are listed as review threads), then address every finding: fix it, or reply with evidence why it does not apply. Push the fixes, so the review app reviews the new head commit, and wait for that review before finishing."
+      git-hooks-preflight
+        warning
+          header "⚠️ Git hooks in this repository cannot run in this environment:"
+          item "  - {{reason}}"
+          instruction "Commits will fail in the hook, or the hook's checks will be skipped. Run the checks the hooks would run (formatters, linters, tests named in {{configFiles}}) manually before each commit. If you then have to bypass the hooks (for example LEFTHOOK=0, HUSKY=0 or git commit --no-verify), say so in the pull request description together with the checks you ran instead. Never bypass them silently."
       agent-commander
         validateAgentCommanderConnection
           text1 "connection check"

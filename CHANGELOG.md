@@ -1,5 +1,149 @@
 # @link-assistant/hive-mind
 
+## 2.48.0
+
+### Minor Changes
+
+- 74ed2f4: Add independent Hive Mind Manager actions to preview and apply Bun global updates, audit and quarantine shared agent extensions using deployment policy, and stop verified idle vendor helpers.
+
+## 2.47.0
+
+### Minor Changes
+
+- 90a4ee3: Verify Telegram data-center reachability inside the deployed MTProxy network namespace and compare decoded photo content in the client probe. Review and roll back same-port proxy trials, inspect scoped legacy MSS and Docker resources, and compare packet evidence alongside application results.
+- e912ecd: Expose a typed Hive Mind Manager library for inspecting task records and previewing detached Docker record repair. The task CLI shares these operations and requires explicit apply to adopt a running container.
+- 0981883: Finish pull request monitoring as soon as readiness is reported. Check CI on the current head without scanning superseded commits, and show elapsed monitoring time on one line in Telegram.
+- 1e48af1: Add bounded per-task Docker disk reporting, detached and pressure-guarded cache cleanup, and verified stopped writable-layer preservation to hive-manager.
+
+## 2.46.0
+
+### Minor Changes
+
+- 260fde5: Import verified legacy session revisions into a private archive index after review. Support source-specific literal redactions and configurable session age, and report oversized transcripts skipped by archive exports.
+- 9ab281e: Route shared Telegram group commands to a single Hive Mind bot using Telegram's `/command@BotUsername` syntax. Identify peers with `/who` and fall back to addressed `/version` probes for older bots. Bare commands still work in groups with one detected Hive Mind bot.
+- 8d08370: Review and resume known Telegram alias failures and policy-approved later Docker attempts with a writable-layer space check. Reconcile historical incident reports from GitHub markers or the Control Center ledger and review closed issue routes against the installed release.
+
+## 2.45.1
+
+### Patch Changes
+
+- 1825819: Recommend the Kotlin pipeline template in `fix --ci-cd` and document it in the CI/CD guide and translations.
+- 3a57521: Recommend the Swift pipeline template in `fix --ci-cd` and document standalone and multi-language Swift adoption in the CI/CD guides.
+
+## 2.45.0
+
+### Minor Changes
+
+- 6f19ff0: Document commit and ready-for-review CI tiers, workspace-aware test selection, job sizing, file-size ratchets, and cancellation that preserves full checks.
+- 1996018: Add `hive-manager` for local and SSH deployment, recovery, maintenance and headless Claude, Codex and GitHub sign-in. The same Bash entry point runs standalone, ships in the npm package, and is available in the Hive Mind Docker images.
+
+## 2.44.0
+
+### Minor Changes
+
+- 33df1ac: Wait for automated PR review apps and act on their findings (#4081).
+
+  - New `--review-bots` option. It is an allowlist of review apps and defaults to the Codex connector, CodeRabbit, Copilot review, Gemini Code Assist, Sourcery, Qodo, Cursor and Greptile. Use `default,<login>` to add an app, or `none` to turn this off. Summaries and reviews from these apps that report findings (the Codex `codex-review-state` marker with `has_unresolved_findings: true`, or CodeRabbit's `Actionable comments posted: N`) are feedback for `--auto-restart-until-mergeable`. CI and deploy bots stay ignored.
+  - Before "Ready to merge", the loop waits while a review app is still reviewing the head commit (a 👀 reaction or an in-progress notice). The wait lasts up to `--review-bots-wait-minutes`, default 15.
+  - Findings restart the AI. If the AI leaves them unaddressed, "Ready to merge" becomes "Ready for review — blocked by review bot findings", which names each summary, and `--auto-merge` does not merge.
+  - Every backend's system prompt now tells the AI to wait for review apps after marking the PR ready or pushing, and to address every finding.
+
+## 2.43.5
+
+### Patch Changes
+
+- 5599f27: Fix `solve` sessions that stayed stuck for hours after their final log (#4091).
+
+  - Workflow runs on the HEAD commit that have not started are now bounded instead of blocking until the 24 h watch timeout. This covers runs held in a `concurrency` queue (`pending` with 0 jobs) and runs waiting for an approval (`waiting` / `action_required`). After `HIVE_MIND_STUCK_PENDING_RUN_MINUTES` one notice is posted on the PR. After `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES` monitoring stops with an explicit reason. These runs are never cancelled or re-run.
+  - `/solve` now prints `[HIVE-MIND SOLVE]` phase markers. Telegram shows the log upload and watch phases (blocker, elapsed time, deadline) instead of `⏳ Executing...`.
+  - Waits after the final log have a 30 s heartbeat and a deadline. Log sanitize and upload report their progress. A hung GitHub probe is skipped, and repeated hangs stop monitoring.
+  - While monitoring continues, the log comment no longer says the working session has ended. A `Monitoring Ended` comment reports the final decision.
+  - On `/stop`, the watch loop stops before the log upload and only the log tail since the last upload is attached. The notice now says "stopped by operator" and gives the last phase instead of `SIGKILL; cause unknown`.
+  - Watch-loop lines have ISO-8601 UTC timestamps, and the issue JSON is no longer printed on every check.
+
+## 2.43.4
+
+### Patch Changes
+
+- 1baeac2: `--auto-restart-until-mergeable` no longer reports "✅ Ready to merge" over open review findings, and the task image can run corepack-based git hooks again (issue #4082).
+
+  - Unresolved review threads are listed in the AI's feedback whatever their age or author, review bots included. Before, only comments newer than the last commit counted. The watch loop restarts the AI on each thread it has not handed over yet. Threads the AI was given but left unresolved hold "Ready to merge" back and are named in the comment. The prompt tells the AI to resolve each thread after a verified fix.
+  - Submitted reviews are read too: a bot review that requests changes, a human review, or a same-account comment without tool markers restarts the AI.
+  - Merge-order prerequisites declared in the pull request description or the latest session summary ("merge the companion PR first", "Depends on owner/repo#12") are checked on GitHub. While one is unmet, "Ready to merge" becomes "🟡 Ready for review — blocked by …", and auto-merge does not merge.
+  - After "Ready to merge" the loop keeps watching for late reviews for `--auto-restart-until-mergeable-review-window-minutes` (default 120; `0` exits at once). New options: `--auto-restart-on-unresolved-review-threads` and `--check-merge-prerequisites`, both on by default.
+  - The Docker images install a pinned `corepack`, which Node 26 no longer bundles. Solve also tells the AI when a repository's git hooks cannot run here (a missing corepack, pnpm, yarn, pre-commit, lefthook, …), so their checks are run by hand instead of being skipped silently.
+
+  Every prompt sent to an AI tool is now printed in full in the log, after all formatting, as a clearly marked block (PR #4083 review feedback on issue #4082).
+
+  - Claude, Codex, Agent, OpenCode, Gemini, Qwen, agent-commander, the task command and the /organize classifier log the exact user, system or combined prompt where it is sent. Each block shows its line and character count and how the prompt is delivered (argument, file, stdin or stream-json frame), and sits between `---BEGIN … PROMPT---` and `---END … PROMPT---` markers. This happens on every run, not only with `--dry-run` or `--verbose`.
+  - Live input frames written to the tool stdin mid-session (forwarded comments, status updates, queued frames) are printed as readable text in `LIVE INPUT PROMPT` blocks.
+  - The /organize classifier receives its repository context and issues as indented JSON instead of one long line. Chunk sizes are measured on that formatted text.
+
+  Also, for the CI dependency freshness gate: `links-notation` is updated to 0.31.7.
+
+## 2.43.3
+
+### Patch Changes
+
+- 8321025: `--auto-restart-until-mergeable` no longer posts `🛑 Automation stopped: the AI session failed` after `🚨 Solution Draft Failed` for the same failed session (issue #4087). The failure comment already holds the error, the models and the log, and says the session ended, so one failure now gives one comment.
+
+  - The `tool_failure` and `tool_failure_after_resume` stop comments are skipped when the `Solution Draft Failed` comment reached the pull request. This covers both the comment with the attached log and the `Log Upload Failed` variant, which has the same heading and error.
+  - The stop comment is still posted when no failure comment reached the pull request (`--attach-logs` is off, or nothing could be posted), so every failure is still reported once.
+  - The terminal log lines and the recorded loop failure are unchanged.
+
+## 2.43.2
+
+### Patch Changes
+
+- cbfc3a4: A Codex turn that degenerates, runs out of output tokens or runs too long no longer ends the run with nine hours of work left uncommitted. Account identifiers no longer reach published logs (issue #4079).
+
+  - **Degenerate output.** A run of 200 identical or filler lines (`.`, blank) in text the model writes stops the turn, and the session is resumed with a continuation prompt. This covers stdout items and the `codex.tool_result` arguments on stderr. Set `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT` to change the limit, or `0` to disable it.
+  - **`max_output_tokens`.** `Incomplete response returned, reason: max_output_tokens` now resumes the same Codex session from the current working tree instead of failing the run, up to `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` (3) times per run.
+  - **Long turns.** A single turn is split, and the session resumed, after `HIVE_MIND_CODEX_MAX_TURN_MINUTES` (240) or `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS` (100M; needs `--verbose`), up to `HIVE_MIND_CODEX_MAX_TURN_SPLITS` (20) times per run. A turn is never stopped while a command or file change is running.
+  - **Codex stderr.** A multi-line Codex telemetry record (for example, a tool call's arguments) now goes to the trace file with its header instead of into the log. Repeated lines collapse into `… previous line repeated N more times`.
+  - **Account identifiers.** `user.email`, `user.account_id` and similar values are redacted to `<redacted>` in Codex stderr, in the trace file and in every log sanitized for publishing.
+  - **Recovery branch.** On a continue run, work a failed run preserved on `recovery/<branch>` is restored to the working tree if the PR branch has not moved. Otherwise the session is told where the work is. The failure comment now names the recovery branch.
+
+## 2.43.1
+
+### Patch Changes
+
+- a49032b: A Claude failure no longer publishes a line of an SDK debug dump or of printed source as its reason, such as `CLAUDE execution failed with } ReadableStream { locked: false, state: 'readable', supportsBYOB: false }` (issue #4077).
+
+  - With `--verbose`, Claude Code runs with `ANTHROPIC_LOG=debug`. `@anthropic-ai/sdk` logs every streamed response as `response 200 <url> Headers {` … `} ReadableStream {…}`. This is the only SDK debug line without a `[log_<id>]` prefix. These lines and the `[log_<id>, request-id: …] post … succeeded …` summary lines are now recognised as debug output.
+  - A new shared guard, `isSourceFragmentErrorText`, is applied at the publishing boundary for every tool (`isMeaningfulErrorText`). It rejects the tail of an inspected object or code block (`}`, `]`, `)`), quoted header keys, inspected function values, stack frames and SDK debug-logger lines.
+  - When Claude is killed without a readable reason, the message now names the signal, e.g. `Claude command failed with exit code 137 (SIGKILL)`.
+  - `@sentry/node` and `@sentry/profiling-node` are updated to 11.13.0 for the dependency freshness gate.
+
+## 2.43.0
+
+### Minor Changes
+
+- b033632: New Telegram commands `/after` and `/enqueue`, and a `--respect-blockers` option for the solve commands (issue #4069).
+
+  - `/after` and `/enqueue` start exactly one task after another task has finished. They find the task to wait for the way `/stop`, `/log` and `/watch` do: a session UUID or an issue/pull request link, in the replied message or in the command. Everything else works as in `/solve`: `/after <task-link> [options]` as a reply, `/after <uuid|awaited-link> <task-link> [options]`, or `/after [options]` as a reply to run the same link again afterwards.
+  - `/after` starts the task only when the awaited task succeeds (a run without changes counts as a success). When the awaited task fails, is cancelled or is killed, the waiting task fails too, and so does any chain behind it. `/enqueue` starts the task once the awaited task finishes, whatever the outcome.
+  - A waiting task appears in `/queue` under "Waiting for other tasks". It can be stopped with `/stop` before it starts, and joins its tool queue as an ordinary queued task once it is released.
+  - `--respect-blockers` (experimental, off by default; `TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` turns it on for every solve command) reads the issue's GitHub relations the way `/hive` does (#2615). These are open "blocked by" issues, open sub-issues (a sub-issue blocks its parent) and the blockers of its ancestors. If every open blocker is already queued or running, the task waits for them as with `/after`. If a blocker is neither queued nor running, the task is not started. Pull requests, and issues whose relations cannot be read, start as before.
+  - A command with several links (#4067) now respects blockers by default (`TELEGRAM_BATCH_RESPECT_BLOCKERS`, or `--no-respect-blockers` for one command). The relations are read once, unblocked links start first, and each blocked link waits for the batch links that block it.
+
+## 2.42.0
+
+### Minor Changes
+
+- 632281f: `/solve`, `/claude`, `/codex` and the other solve aliases now start every GitHub issue or pull request link when the command replies to a message with several links, instead of refusing with `Found N GitHub links in the message` (issue #4067).
+
+  - Each valid link starts as its own task, as if the command had been sent once per link with the same options. Each "Starting…" or "Queued…" message replies to the same command message.
+  - Links start one at a time, with a random 10–15 second pause between two starts.
+  - Links that cannot be started (not an issue or pull request link, not found, already running or queued, rejected by the queue) get one summary after every valid link has started.
+  - A repository link in a list is not started (it would solve the whole repository); the summary says to send `/solve <repository-url>` alone for that.
+  - An error in the options is answered once, and nothing starts. `/stop` during a batch stops the links not yet started.
+  - Duplicated links start once. Captions and hidden (`text_link`) links of the replied message are read too.
+  - A command can also list several links itself: `/solve <url-1> <url-2> --model opus`.
+  - A reply to a message with a single link works as before.
+
+  Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile), and the `use-m` bootstrap pin to 8.17.2.
+
 ## 2.41.0
 
 ### Minor Changes

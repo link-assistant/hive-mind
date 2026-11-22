@@ -174,7 +174,12 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
   return workStartTime;
 }
 
-export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false }) {
+const terminalReadinessReasons = new Set(['mergeable', 'ready_for_review_blocked', 'ready_status_publish_failed', 'auto-merged', 'merged']);
+
+export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false, autoMergeResult = null }) {
+  // Issue #4106: the watcher already settled readiness for these outcomes.
+  if (terminalReadinessReasons.has(autoMergeResult?.reason)) return;
+
   // Post end work session comment and convert PR back to ready for review.
   //
   // Issue #2123: the ready conversion mirrors startWorkSession's draft conversion, so it must

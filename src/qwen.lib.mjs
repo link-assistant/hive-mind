@@ -42,6 +42,7 @@ import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { applyGeminiFamilyPricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -481,16 +482,7 @@ export const executeQwen = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   return await executeQwenCommand({
@@ -577,6 +569,16 @@ export const executeQwenCommand = async params => {
     // stale `formal-ai with --global` block in the operator profile cannot override it.
     const commandScript = `${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} --model "${mappedModel}" --output-format stream-json --yolo${resumeSession ? ` --resume "${resumeSession}"` : ''}${systemPrompt ? ` --append-system-prompt "$(cat "${systemPromptFile}")"` : ''} --prompt "$(cat "${promptFile}")")`;
+    // PR #4083 feedback: "$(cat file)" drops trailing newlines, so log the text exactly as qwen receives it.
+    const asArgument = text => String(text ?? '').replace(/\n+$/, '');
+    await logFinalPrompts({
+      log,
+      tool: 'qwen',
+      prompts: [
+        { kind: 'user', text: asArgument(prompt), delivery: `the --prompt argument, read from file ${promptFile}`, keepEmpty: true },
+        { kind: 'system', text: asArgument(systemPrompt), delivery: `the --append-system-prompt argument, read from file ${systemPromptFile}` },
+      ],
+    });
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;

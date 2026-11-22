@@ -16,9 +16,10 @@ import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
 import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
 import { createRouterConnectionRunner } from './router-command-stream.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
-  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log, env: () => ({ ...process.env, ...buildGeolocationEnv() }) });
+  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log, env: () => ({ ...process.env, ...buildClaudePromptCacheEnv(), ...buildGeolocationEnv() }) });
   const checkRouter = () => assertRouterTaskAuthentication({ tool: 'claude', env: { ...process.env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
   checkRouter();
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });

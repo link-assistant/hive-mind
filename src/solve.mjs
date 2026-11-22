@@ -378,7 +378,6 @@ const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
 });
 let phase = 'repository setup';
 try {
-  // Set up repository and clone using the new module If --working-directory points to existing repo, needsClone is false and we skip cloning
   const { forkedRepo } = await setupRepositoryAndClone({
     argv,
     owner,
@@ -395,7 +394,6 @@ try {
   });
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
   await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
-  // Verify default branch and status using the new module Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   phase = 'checkout validation';
   let cloneStatus = null;
   const defaultBranch = await verifyDefaultBranchAndStatus({
@@ -409,7 +407,6 @@ try {
     issueUrl,
     onCloneStatus: result => (cloneStatus = result), // issue #4063: a dirty fresh clone is reported to the AI, not fatal
   });
-  // Create or checkout branch using the new module
   phase = 'branch setup';
   branchName = await createOrCheckoutBranch({
     isContinueMode,

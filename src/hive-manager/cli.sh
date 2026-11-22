@@ -66,7 +66,9 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   doctor                Check host disk space and instance/runtime status
   diagnose [--since TIME | --task UUID [--attempt NUMBER]] [--resources] [--process PID]
                         Show host resources, container exit facts and optional journal evidence
-  disk                  Report Docker storage, images, volumes and build cache
+  disk [--budget SECONDS | --docker-summary]
+                        Report host storage and per-task Docker writable layers
+  cleanup --scoped      Preview or apply detached host and task cache cleanup
   backup [--output FILE|-]
                         Save a private archive of deployment state
   restore [--input FILE|-]
@@ -120,6 +122,7 @@ over_ssh() {
 maintenance_spec() {
   case "$1" in
     cleanup|hive-cleanup) bin=hive-cleanup; module=cleanup.mjs ;;
+    deploy-storage) bin=hive-manager; module=hive-manager/storage/main.mjs ;;
     configure-claude) bin=configure-claude; module=configure-claude.mjs ;;
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
@@ -179,6 +182,19 @@ run_maintenance() {
   # The package provides the same entry points for standalone use and older images.
   local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
   [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
+  if [[ $action == deploy-storage ]]; then
+    local subcommand=() storage_action=$1 socket=$2 name=$3 state_dir=$4
+    shift 4
+    case "$storage_action" in
+      disk) subcommand=(disk) ;;
+      scoped) subcommand=(cleanup --scoped) ;;
+      preserve) subcommand=(tasks preserve-layer) ;;
+      cleanup-preserved) subcommand=(tasks cleanup-preserved) ;;
+    esac
+    local deploy_flags=(--name "$name" --state-dir "$state_dir")
+    if [[ $socket ]]; then deploy_flags+=(--docker-socket "$socket"); fi
+    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager deploy "${deploy_flags[@]}" "${subcommand[@]}" "$@"
+  fi
   if [[ $action == task-* ]]; then
     exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks "${action#task-}" "$@"
   fi
@@ -260,6 +276,7 @@ task_backup_identity() {
 task_container_backup() (
   if [[ ${1-} == --help || ${1-} == -h ]]; then
     printf 'Usage: hive-manager tasks backup-container CONTAINER --output NEW_DIRECTORY [--execution UUID]\n'
+    printf 'Export a flattened filesystem. Preserve mounted data and task logs separately.\n'
     return
   fi
   local container=${1-} output='' execution='' identity stage digest
@@ -292,12 +309,13 @@ task_container_backup() (
   printf 'hive-manager-task-backup-v1\n%s\n%s\n' "$identity" "${digest%% *}" >"$stage/receipt.txt"
   mv -nT -- "$stage" "$output" || return
   [[ ! -e $stage ]] || fail "Backup output already exists: $output"
-  printf 'Verified task filesystem backup: %s\n' "$output"
+  printf 'Verified flattened task filesystem export: %s\n' "$output"
 )
 
 task_cleanup_backed_up() {
   if [[ ${1-} == --help || ${1-} == -h ]]; then
     printf 'Usage: hive-manager tasks cleanup-backed-up BACKUP_DIRECTORY [--apply SHA256]\n'
+    printf 'Verify a flattened filesystem export before removing the stopped container.\n'
     return
   fi
   local directory=${1-} approval=${3-} sum receipt output identity id name execution marker archive_digest extra
@@ -1653,6 +1671,23 @@ deploy() {
       require systemctl
       exec systemctl "$1" docker.service ;;
     proxy) proxy_deploy "$@"; return ;;
+    disk)
+      if [[ $# == 1 && $1 == --docker-summary ]]; then
+        require docker
+        if [[ $socket ]]; then exec docker --host "unix://$socket" system df -v; fi
+        exec docker system df -v
+      fi
+      run_maintenance deploy-storage disk "$socket" "$name" "$state_dir" "$@" ;;
+    cleanup)
+      if [[ ${1-} == --scoped ]]; then run_maintenance deploy-storage scoped "$socket" "$name" "$state_dir" "${@:2}"; fi
+      if [[ ${1-} == --help || ${1-} == -h ]]; then
+        printf 'Usage: hive-manager deploy cleanup [IN_INSTANCE_OPTIONS]\n'
+        printf '       hive-manager deploy cleanup --scoped [--dry-run | --status | --apply PREVIEW_ID]\n'
+        printf 'Run in-instance cleanup with --dry-run or run deploy cleanup --scoped --help.\n'
+        return
+      fi
+      require docker
+      inside hive-cleanup "$@" ;;
     auth)
       local auth_command=()
       auth_args "$@"
@@ -1665,7 +1700,7 @@ deploy() {
       if [[ ${1-} == -- ]]; then shift
       elif (( $# )); then fail "Pass the startup command after --"; fi
       apply_deployment "$@" ;;
-    prepare|rollback|recover|status|doctor|disk|start|stop|restart|remove)
+    prepare|rollback|recover|status|doctor|start|stop|restart|remove)
       (( $# == 0 )) || fail "Unexpected arguments for deploy $action"
       require docker
       case "$action" in
@@ -1674,7 +1709,6 @@ deploy() {
         recover) recover_deployment ;;
         status) deploy_status ;;
         doctor) doctor ;;
-        disk) exec docker system df -v ;;
         remove) lock_deployment; docker rm "$name" ;;
         *) lock_deployment; docker "$action" "$name" ;;
       esac ;;
@@ -1685,6 +1719,10 @@ deploy() {
       require docker
       inside "$@" ;;
     tasks)
+      case "${1-}" in
+        preserve-layer) run_maintenance deploy-storage preserve "$socket" "$name" "$state_dir" "${@:2}" ;;
+        cleanup-preserved) run_maintenance deploy-storage cleanup-preserved "$socket" "$name" "$state_dir" "${@:2}" ;;
+      esac
       case "${1-}" in report|check-browser|check-uploads|recover-failed|repair-records|recover-queue|backup-container|cleanup-backed-up) require docker; inside hive-manager tasks "$@" ;; esac
       local task_command=()
       task_args "$@"

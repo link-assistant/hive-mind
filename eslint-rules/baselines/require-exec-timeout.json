@@ -112,7 +112,7 @@
     "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
   },
   "src/solve.auto-merge.lib.mjs": {
-    "count": 3,
+    "count": 2,
     "reason": "git/gh work of the per-task solve process; this module is not in the Telegram bot's import closure."
   },
   "src/solve.auto-pr-compare-readiness.lib.mjs": {

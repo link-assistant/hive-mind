@@ -741,10 +741,8 @@ en
       waiting_for_ci_default_branch "⏳ Waiting for CI/CD on the default branch to finish..."
       issue_label "Issue"
     solve_progress
-      watching "⏳ Monitoring the pull request until it is mergeable"
-      blocker "Waiting for: {{blocker}}"
-      timing "Check #{{check}} · monitoring for {{elapsed}} · gives up at {{deadline}}"
-      updated "Status updated {{time}}"
+      watching "⏳ Monitoring"
+      elapsed "⏳ Monitoring for {{minutes}}m {{seconds}}s"
       uploading_log "📎 Uploading the session log..."
     work
       session

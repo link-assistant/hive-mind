@@ -284,12 +284,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum wall-clock hours the --auto-restart-until-mergeable/--auto-merge monitoring loop may run before stopping and reporting (default: 24, 0 = unlimited)',
     default: 24,
   },
-  // Issue #4082: review apps and humans often review after "Ready to merge";
-  // the loop keeps watching this long so their findings restart the AI.
+  // Issues #4082 and #4106: an optional window for feedback before readiness.
   'auto-restart-until-mergeable-review-window-minutes': {
     type: 'number',
-    description: 'Minutes the --auto-restart-until-mergeable loop keeps watching after "Ready to merge" for new reviews, review threads and comments, which restart the AI (default: 120, 0 = exit right away)',
-    default: 120,
+    description: 'Minutes to wait for new reviews, review threads and comments before reporting "Ready to merge" in --auto-restart-until-mergeable (default: 0, no extra wait)',
+    default: 0,
   },
   'auto-restart-on-unresolved-review-threads': {
     type: 'boolean',

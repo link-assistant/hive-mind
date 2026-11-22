@@ -147,8 +147,8 @@ test('case 6: the external-review-limit "Ready for review" dedup does not mistak
   assert.ok(!buildReadyForReviewBlockedComment({ holds: [{ title: 'Merge prerequisites', items: ['- x'] }], ciLine: '' }).includes(signature));
 });
 
-test('case 2: the review window keeps the loop watching after "Ready to merge", and restarts reopen it', () => {
-  assert.equal(DEFAULT_REVIEW_WINDOW_MINUTES, 120);
+test('the pre-readiness review window is opt-in and restarts reopen it', () => {
+  assert.equal(DEFAULT_REVIEW_WINDOW_MINUTES, 0);
   assert.equal(SOLVE_OPTION_DEFINITIONS['auto-restart-until-mergeable-review-window-minutes'].default, DEFAULT_REVIEW_WINDOW_MINUTES);
   assert.equal(SOLVE_OPTION_DEFINITIONS['auto-restart-on-unresolved-review-threads'].default, true);
   assert.equal(SOLVE_OPTION_DEFINITIONS['check-merge-prerequisites'].default, true);
@@ -224,8 +224,20 @@ test('case 6: the ready comment is posted once per head SHA, and the blocked one
       checkForExistingComment: async () => false,
     }),
     'failed',
-    'a failed post never stops the loop'
+    'a thrown command failure is not a published readiness status'
   );
+  resetReadyCommentState(state);
+  assert.equal(
+    await postReadyStatusComment({
+      ...deps,
+      state,
+      postTrackedComment: async () => ({ ok: false }),
+      checkForExistingComment: async () => false,
+    }),
+    'failed',
+    'a nonzero command result is not a published readiness status'
+  );
+  assert.equal(state.readyToMergeCommentPosted, false);
 
   assert.equal(buildReadyCiLine({ noCiConfigured: true }), '- No CI/CD checks are configured for this repository');
   assert.equal(buildReadyCiLine({ noCiTriggered: true, workflowRunConclusions: 'skipped: 2' }), '- CI workflows completed without executing (skipped: 2)');
@@ -239,7 +251,10 @@ test('cases 1–3: the watch loop wiring', () => {
   assert.ok(windowStart !== -1 && cooldown !== -1 && windowStart < cooldown, 'comments posted during the initial cooldown are seen (case 1)');
   assert.match(source, /blockers\.length === 0 && !hasNewComments && !hasNewReviewThreads && /, 'a fresh thread is never reported as ready');
   assert.match(source, /feedbackLines\.push\(\.\.\.reviewGate\.restartFeedback\(threadState\.all\)\);/);
-  assert.match(source, /const reviewWindow = reviewGate\.reviewWindow\(\);\s+if \(reviewWindow\) \{[\s\S]{0,600}?continue;/, 'the loop keeps watching inside the review window (case 2)');
+  const readyComment = source.indexOf('await postReadyStatusComment(');
+  const reviewWindow = source.indexOf('reviewGate.reviewWindow()');
+  assert.ok(reviewWindow !== -1 && reviewWindow < readyComment, 'the opt-in review window must precede the terminal status comment');
+  assert.match(source.slice(readyComment), /^await postReadyStatusComment\([^\n]+\);\s*if \(status === 'failed'\) \{\n[\s\S]*?\n\s*\}\s*return holds.length/, 'both outcomes of the final status publish terminate');
   assert.match(source, /trustAuthenticatedUserComments: true/, 'same-account comments without tool markers count (case 3)');
   assert.match(source, /await postReadyStatusComment\(\{ \$, owner, repo, prNumber, holds, ciLine, issueMergeBlockers, state: readyCommentState,/, 'the ready comment carries the holds (case 6)');
   assert.match(source, /resetReadyCommentState\(readyCommentState\);\s+reviewGate\.resetReviewWindow\(\);/, 'a new head SHA allows a new comment and a new review window');

@@ -1,13 +1,11 @@
 /**
  * @hive-mind-test-suite default
  *
- * Issue #4091 (criteria c, e, f and g):
+ * Issues #4091 (criteria c, e, f and g) and #4106:
  *
- *  - c: the Telegram `/solve` reply shows the watch phase (blocker, time since
- *    start, deadline), refreshed at least every 10 minutes; `⏳ Executing...` is
- *    shown only while the AI runs.
- *  - e: a log comment does not say "working session is ended" while monitoring
- *    continues; a `Monitoring Ended` decision comment closes that promise.
+ *  - c: the Telegram `/solve` reply shows elapsed monitoring time on one line.
+ *  - e: the log footer explains that monitoring continues. The terminal
+ *    watch marker is emitted without a separate GitHub comment.
  *  - f: `/stop` (CTRL+C, then SIGKILL after start-command's grace) during the
  *    watch loop: the loop parks before its next GitHub call, the interrupt
  *    handler uploads only the log tail and says "stopped by operator" with the
@@ -22,8 +20,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { SOLVE_PROGRESS_REFRESH_MS, describeSolveProgressForDiagnostics, emitSolveProgress, formatSolveProgressStatus, getLastSolveProgress, parseSolveProgressEvent, reportSolveProgress, resetSolveProgressForTests, solveProgressLogLine } from '../src/solve-progress.lib.mjs';
-import { AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, buildSessionEndFooter, markMonitoringEnded, monitoringFollowsSession, noteMonitoringPromisePublished, resetSessionFooterStateForTests, wasMonitoringPromisePublished } from '../src/tool-comments.lib.mjs';
-import { buildMonitoringEndedComment, createWatchProgress, finishWatch, runWatchWithProgress } from '../src/solve.watch-progress.lib.mjs';
+import { AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, buildSessionEndFooter, markMonitoringEnded, monitoringFollowsSession, resetSessionFooterStateForTests } from '../src/tool-comments.lib.mjs';
+import { createWatchProgress, finishWatch, runWatchWithProgress } from '../src/solve.watch-progress.lib.mjs';
 import { createInterruptWrapper } from '../src/solve.interrupt.lib.mjs';
 import { noteUploadedLogSize, prepareInterruptedLogUpload, resetUploadedLogSizesForTests } from '../src/log-upload-snapshot.lib.mjs';
 import { describeKillCause } from '../src/session-kill-diagnostics.lib.mjs';
@@ -40,13 +38,12 @@ const watchEvent = (overrides = {}) => ({ phase: 'watch', check: 135, blocker: '
 
 // ---------------------------------------------------------------- (c) Telegram status
 
-test('(c) the watch-phase status shows phase, blocker, time since start and deadline', () => {
-  const status = formatSolveProgressStatus(watchEvent(), { now: T0 + 65 * MINUTE });
-  assert.match(status, /Monitoring the pull request until it is mergeable/);
-  assert.match(status, /Waiting for: CI runs that have not started: 1 run held by a concurrency queue \(pending\) for 4h/);
-  assert.match(status, /Check #135 · monitoring for 1h 5m · gives up at 2026-11-19 04:15 UTC/);
-  assert.match(status, /Status updated 2026-11-19 03:00 UTC/);
-  assert.doesNotMatch(status, /Executing/);
+test('(c) watch status is one line with elapsed minutes and seconds for every locale', () => {
+  assert.equal(formatSolveProgressStatus(watchEvent(), { now: T0 + 65 * MINUTE + 28_000 }), '⏳ Monitoring for 65m 28s');
+  const localized = { en: '⏳ Monitoring for 54m 28s', hi: '⏳ 54 मिनट 28 सेकंड से निगरानी जारी है', ru: '⏳ Отслеживание 54 мин 28 с', zh: '⏳ 已监控 54 分 28 秒' };
+  for (const [locale, message] of Object.entries(localized)) {
+    assert.equal(formatSolveProgressStatus(watchEvent(), { locale, now: T0 + 54 * MINUTE + 28_000 }), message);
+  }
 });
 
 test('(c) "⏳ Executing..." only for the AI phase; the log upload has its own status', () => {
@@ -68,10 +65,10 @@ test('(c) the reply is refreshed at least every 10 minutes while the watch phase
   assert.ok(edits.length >= 7, `expected a refresh every ${SOLVE_PROGRESS_REFRESH_MS / MINUTE} min, got ${edits.length} edits`);
   const times = [...edits.map(edit => edit.at), T0 + 60 * MINUTE];
   for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] <= 10 * MINUTE, `gap of ${(times[i] - times[i - 1]) / MINUTE} min`);
-  assert.match(edits[0].text, /monitoring for 0s/);
-  assert.match(edits.at(-1).text, /monitoring for 1h 0m/);
+  assert.match(edits[0].text, /Monitoring for 0m 0s/);
+  assert.match(edits.at(-1).text, /Monitoring for 60m 0s/);
   assert.equal(sessionInfo.solveProgress.phase, 'watch');
-  assert.match(sessionInfo.solveProgress.header, /Waiting for: CI runs that have not started/);
+  assert.equal(sessionInfo.solveProgress.header, '⏳ Monitoring for 60m 0s');
 });
 
 test('(c) before any marker the reply is left alone; after an AI restart it goes back to "⏳ Executing..." once', async () => {
@@ -83,7 +80,7 @@ test('(c) before any marker the reply is left alone; after an AI restart it goes
   await report('AI output after the restart, no marker in the tail', T0 + MINUTE);
   await report('more AI output', T0 + 2 * MINUTE);
   assert.equal(edits.length, 2);
-  assert.match(edits[0], /Monitoring the pull request/);
+  assert.match(edits[0], /Monitoring for 0m 0s/);
   assert.match(edits[1], /⏳ Executing\.\.\./);
   // A finished marker leaves the reply to the completion message.
   assert.equal(await report(solveProgressLogLine({ phase: 'finished', reason: 'mergeable' }), T0 + 20 * MINUTE), null);
@@ -113,7 +110,7 @@ test('(e) the log comment footer does not end the working session while monitori
   const watching = buildSessionEndFooter({ monitoringContinues: true });
   assert.ok(!watching.includes(NOW_WORKING_SESSION_IS_ENDED_MARKER));
   assert.ok(watching.includes(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER));
-  assert.ok(watching.includes(`a final "${MONITORING_ENDED_MARKER}" comment will report the decision`));
+  assert.doesNotMatch(watching, /Monitoring Ended/);
   assert.ok(buildSessionEndFooter().includes(NOW_WORKING_SESSION_IS_ENDED_MARKER));
   assert.equal(monitoringFollowsSession({ autoRestartUntilMergeable: true }), true);
   assert.equal(monitoringFollowsSession({ autoMerge: true }), true);
@@ -124,35 +121,19 @@ test('(e) the log comment footer does not end the working session while monitori
   assert.match(src('github.lib.mjs'), /buildSessionEndFooter\(\{ monitoringContinues \}\)/);
 });
 
-test('(e) the end of monitoring posts a decision comment only when a log comment promised one', async () => {
+test('(e) a readiness decision or stop only emits the terminal marker', () => {
+  for (const result of [
+    { success: true, reason: 'mergeable' },
+    { success: false, reason: 'ci_not_started' },
+  ]) {
+    resetSessionFooterStateForTests();
+    const events = [];
+    const post = () => assert.fail('watch finalization called GitHub');
+    finishWatch({ result, watchStartedAt: T0, checks: 4, emit: event => events.push(event), post, promised: () => true, $: post, prNumber: 7 });
+    assert.deepEqual(events, [{ phase: 'finished', decision: result.success ? 'success' : 'stopped', reason: result.reason, check: 4, since: '2026-11-19T02:00:00.000Z' }]);
+    assert.equal(monitoringFollowsSession({ autoRestartUntilMergeable: true }), false);
+  }
   resetSessionFooterStateForTests();
-  const posts = [];
-  const events = [];
-  const logs = [];
-  const finish = () => finishWatch({ result: { success: false, reason: 'ci_not_started' }, watchStartedAt: T0, checks: 4, $: () => {}, owner: 'o', repo: 'r', prNumber: 7, log: async line => logs.push(line), emit: event => events.push(event), post: async args => (posts.push(args), { ok: true }), now: T0 + 15 * MINUTE });
-  assert.deepEqual(await finish(), { posted: false });
-  assert.equal(posts.length, 0);
-  assert.deepEqual(events[0], { phase: 'finished', decision: 'stopped', reason: 'ci_not_started', check: 4, since: '2026-11-19T02:00:00.000Z' });
-
-  resetSessionFooterStateForTests();
-  noteMonitoringPromisePublished();
-  assert.equal(wasMonitoringPromisePublished(), true);
-  assert.deepEqual(await finish(), { posted: true });
-  assert.equal(posts.length, 1);
-  assert.equal(posts[0].targetNumber, 7);
-  const body = posts[0].body;
-  assert.match(body, /## 🏁 Monitoring Ended/);
-  assert.match(body, /Monitoring of this pull request ended after 15m \(4 checks\)\./);
-  assert.match(body, /\*\*Decision:\*\* monitoring stopped: .+ \(reason code `ci_not_started`\)\./);
-  assert.ok(body.includes(NOW_WORKING_SESSION_IS_ENDED_MARKER), 'the decision comment is the one that ends the session');
-  assert.ok(logs.some(line => line.includes('Posted "Monitoring Ended" decision to #7: ci_not_started')));
-  assert.equal(monitoringFollowsSession({ autoRestartUntilMergeable: true }), false);
-  resetSessionFooterStateForTests();
-});
-
-test('(e) decision texts for a merged and a mergeable pull request', () => {
-  assert.match(buildMonitoringEndedComment({ result: { success: true, reason: 'mergeable' }, checks: 1 }), /\*\*Decision:\*\* the pull request is mergeable/);
-  assert.match(buildMonitoringEndedComment({ result: { success: true, reason: 'merged' }, checks: 2 }), /\(2 checks\)\.\n\n\*\*Decision:\*\* the pull request was merged\./);
 });
 
 // ---------------------------------------------------------------- (f) /stop
@@ -287,7 +268,7 @@ test('(g) the watch loop runs with timestamps on, restores them and always finis
   assert.deepEqual(seen, [true]);
   assert.equal(enabled, false);
   assert.equal(finished[0].checks, 5);
-  assert.equal(finished[0].prNumber, 7);
+  assert.deepEqual(finished[0].result, result);
 
   await assert.rejects(
     runWatchWithProgress({

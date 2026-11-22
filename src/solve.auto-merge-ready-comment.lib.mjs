@@ -24,8 +24,7 @@ export const createReadyCommentState = () => ({ readyToMergeCommentPosted: false
 export const resetReadyCommentState = state => Object.assign(state, createReadyCommentState());
 
 /**
- * Posts the ready status comment once per state, and never throws: a failed
- * post must not stop the watch loop.
+ * Posts the final ready status comment once per state and returns the outcome.
  *
  * @returns {Promise<'blocked'|'ready'|'skipped'|'failed'>}
  */
@@ -37,7 +36,10 @@ export const postReadyStatusComment = async ({ $, owner, repo, prNumber, holds =
       // posted again only when the holds change.
       if (holdsKey === state.blockedCommentKey) return 'skipped';
       const alreadyPosted = state.blockedCommentKey === null && (await checkForExistingComment(owner, repo, prNumber, READY_FOR_REVIEW_BLOCKED_SIGNATURE, verbose));
-      if (!alreadyPosted) await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildReadyForReviewBlockedComment({ holds, ciLine }) });
+      if (!alreadyPosted) {
+        const result = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: buildReadyForReviewBlockedComment({ holds, ciLine }) });
+        if (result?.ok === false) return 'failed';
+      }
       state.blockedCommentKey = holdsKey;
       return alreadyPosted ? 'skipped' : 'blocked';
     }
@@ -62,7 +64,8 @@ export const postReadyStatusComment = async ({ $, owner, repo, prNumber, holds =
     // Issue #2492: "uncommitted" is what was checked, and the comment states checked facts only.
     const body = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No uncommitted changes${issueLine}`;
     // Issue #1625: a tracked comment cannot count as an AI-authored comment.
-    await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
+    const result = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body });
+    if (result?.ok === false) return 'failed';
     state.readyToMergeCommentPosted = true;
     return 'ready';
   } catch {

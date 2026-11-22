@@ -40,7 +40,7 @@ const { reportError } = sentryLib;
 import * as githubMergeLib from './github-merge.lib.mjs';
 import { DEFAULT_REVIEW_BOTS, createReviewBotMatcher, isReviewBotFeedback } from './review-bots.lib.mjs'; // Issue #4081
 import { stripHtmlComments } from './merge-prerequisites.lib.mjs';
-const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
+const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
 import { describeWorkflowTriggers } from './github-merge-ci-signals.lib.mjs'; // Issue #3922
 
 // Issue #1952: Cross-reference cancelled check-runs against workflow-run conclusions so a
@@ -640,7 +640,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
               await log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
             }
             await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
-            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
+            return { blockers, ciStatus, mergeStatus: earlyMergeStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
           }
 
           // Issue #1690: Detect invalid workflow files (e.g. YAML/expression errors).
@@ -703,24 +703,6 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             await log(`[VERBOSE] /merge: ${workflowRuns.length} workflow run(s) registered for PR #${prNumber} HEAD ${commitUrl} — waiting for them to publish check-runs (race condition between workflow_run and check_runs APIs, typically ~30–120 s)`);
           }
 
-          // Also surface any active workflow runs on OLDER PR commits, so the user's view of
-          // the GitHub Actions tab (which shows yellow dots for every commit) reconciles
-          // with the log. These are NOT blockers — GitHub's concurrency group cancels them
-          // when a new commit is pushed — but listing them stops the user from worrying that
-          // the watcher is missing them.
-          const activeAcrossCommits = await getActivePRWorkflowRuns(owner, repo, prNumber, ciStatus.sha, verbose, getWorkflowRunsForSha);
-          if (verbose && activeAcrossCommits.otherActive > 0) {
-            await log(`[VERBOSE] /merge: ${activeAcrossCommits.otherActive} additional active workflow run(s) on older commits of PR #${prNumber} (these are not blockers — GitHub's concurrency group will cancel them):`);
-            for (const group of activeAcrossCommits.groups) {
-              if (group.isHead) continue;
-              const olderCommitUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${group.sha}`;
-              await log(`[VERBOSE] /merge:   on ${olderCommitUrl}:`);
-              for (const run of group.runs) {
-                await log(`[VERBOSE] /merge:     - ${formatRunLine(run)} — ${explainStatus(run.status, run.conclusion)}`);
-              }
-            }
-          }
-
           blockers.push({
             type: 'ci_pending',
             message: `Waiting for ${workflowRuns.length} workflow run(s) on HEAD ${commitUrl} to publish check-runs`,
@@ -749,7 +731,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
             }
-            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+            return { blockers, ciStatus, mergeStatus: earlyMergeStatus, noCiConfigured: false, noCiTriggered: true };
           }
 
           if (prTriggers.hasPRTriggers) {
@@ -788,7 +770,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
               if (verbose) {
                 await log(formatAligned('ℹ️', 'CI not triggered:', `No workflow runs after ${checkCount} consecutive checks — concluding CI was not triggered`, 2));
               }
-              return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+              return { blockers, ciStatus, mergeStatus: earlyMergeStatus, noCiConfigured: false, noCiTriggered: true };
             }
 
             if (verbose) {
@@ -820,7 +802,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, no PR/push triggers in workflow files) — CI was not triggered`);
             }
-            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+            return { blockers, ciStatus, mergeStatus: earlyMergeStatus, noCiConfigured: false, noCiTriggered: true };
           }
         }
       } else {
@@ -832,7 +814,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
         }
         // Return early with no CI blocker, mergeability already confirmed
-        return { blockers, ciStatus, noCiConfigured: true };
+        return { blockers, ciStatus, mergeStatus: earlyMergeStatus, noCiConfigured: true };
       }
     } else {
       // PR is not yet mergeable despite no checks - treat as pending race condition

@@ -126,6 +126,18 @@ test('retryOrConfirm preserves the session and waits before the retry', async ()
   assert.deepEqual(waits, [60000]);
 });
 
+test('an auth retry that reaches the run deadline stops with the deadline reason', async () => {
+  const budget = createTransientRetryBudget({ deadlineAtMs: 60000, now: () => 0 });
+  const logs = [];
+  const retry = createAuthFailureRetry({ tool: 'claude', budget, log: async (message, options) => logs.push({ message, options }), limits: LIMITS, fetchStatus: async () => ({ ok: false }) });
+
+  const decision = await retry.retryOrConfirm(reportedEvent(), { waitForRetryDelay: async () => assert.fail('retry waited past the run cutoff') });
+
+  assert.equal(decision.retry, false);
+  assert.equal(decision.subscriptionError.verification.retries, 0);
+  assert.ok(logs.some(({ message, options }) => message.includes('run deadline') && options?.level === 'error'));
+});
+
 test('buildAuthFailureClaim makes a bare Codex 401 verifiable but keeps explicit wordings terminal', () => {
   const claim = buildAuthFailureClaim({ tool: 'codex', message: 'unexpected status 401 Unauthorized', label: 'Codex authentication failed (401 Unauthorized)', apiErrorStatus: 401 });
   assert.equal(claim.verifiable, true);

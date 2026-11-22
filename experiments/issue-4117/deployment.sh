@@ -28,10 +28,12 @@ cc -static -Os -o "$fixture/codex" "$fixture/helper.c"
 printf '%s\n' '{"mcpServers":{"unwanted":{"command":"fixture"}},"projects":{"/tmp/task":{"mcpServers":{"task-local":{"command":"fixture"}}}}}' > "$fixture/claude.json"
 printf '%s\n' '{}' > "$fixture/policy.json"
 config_inode=$(stat -c %i "$fixture/claude.json")
-id=$(docker run --rm -d --name "$instance" --env HOME=/home/box \
+id=$(docker run --rm -d --name "$instance" --env HOME=/home/box --env START_APP_FOLDER=/home/box/task-registry \
   --mount "type=bind,source=$fixture,target=/fixture" \
-  --mount "type=bind,source=$fixture/claude.json,target=/home/box/.claude.json" alpine:3.23 \
+  --mount "type=bind,source=$fixture/claude.json,target=/home/box/.claude.json" node:24-alpine \
   sh -eu -c '
+    adduser -D -u 1001 box
+    mkdir -p "$START_APP_FOLDER"
     mkdir -p /home/box/.codex/hive-mind/task /home/box/.codex/plugins /etc/codex
     printf auth > /home/box/.codex/auth.json
     printf task > /home/box/.codex/hive-mind/task/config.toml
@@ -82,6 +84,13 @@ docker run --rm --privileged --pid=host --cgroupns=host \
       if ! foreground_alive "$1"; then break; fi
       sleep 0.2
     done
+    docker exec "$1" sh -ec '\''
+      printf "%s\n" "[{\"status\":\"executing\",\"command\":\"solve https://github.com/fixture/fixture/issues/1 --tool codex\"}]" > "$START_APP_FOLDER/executions.lino"
+      printf stale > "$START_APP_FOLDER/executions.decoded.js.json"
+    '\''
+    tool "$1" tool-services --tools codex --apply > /fixture/services-active-record.json
+    test "$(docker exec "$1" cat /home/box/task-registry/executions.decoded.js.json)" = stale
+    docker exec "$1" rm /home/box/task-registry/executions.lino /home/box/task-registry/executions.decoded.js.json
     task_id=$(docker run --rm -d --label start-command.uuid=fixture alpine:3.23 sleep 90)
     cleanup_task() { docker rm -f "$task_id" >/dev/null 2>&1 || true; }
     trap cleanup_task EXIT
@@ -110,6 +119,9 @@ assert protected["plans"][0]["blockers"]
 active = read("services-active-task")
 assert not active["signals"]
 assert "active or unclassified task" in active["plans"][0]["blockers"]
+record = read("services-active-record")
+assert not record["signals"], "Cleanup signalled a helper while a custom-store task was active"
+assert "active or unclassified task" in record["plans"][0]["blockers"]
 plan = read("services-preview")["plans"][0]
 assert len(plan["helpers"]) == 1 and not plan["blockers"]
 applied = read("services-apply")

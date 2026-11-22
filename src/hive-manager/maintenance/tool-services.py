@@ -2,7 +2,6 @@
 
 import argparse
 from contextlib import nullcontext
-from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,6 @@ import sys
 import time
 
 from lib.deployment import cgroup, deployment_root, docker, maintenance_lock, process_stat
-from lib.paths import at_path, info_at, read_config
 
 
 TOOLS = ('codex', 'claude')
@@ -21,6 +19,7 @@ TASK_LABEL = 'start-command.uuid'
 UUID = re.compile(r'^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$', re.I)
 TOOLS_IN_COMMAND = re.compile(r'(?:^|\s)--tool(?:=|\s+)(codex|claude|agent|gemini|qwen|opencode)(?=\s|$)')
 SOLVE = re.compile(r'(?:^|[ /])solve(?:\.mjs)?\s+https://github\.com/\S+')
+STORE_READER = Path(__file__).resolve().parents[1] / 'task/lib/read-execution-store.mjs'
 
 
 def classify(args, comm, executable):
@@ -97,51 +96,29 @@ def running_containers(call=docker):
         yield from json.loads(call('container', 'inspect', *ids[index:index + 100]))
 
 
-def current_records(directory, inside):
-    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        def read(name):
-            with at_path(fd, 'home/box/.start-command/' + name) as (parent, leaf):
-                info = info_at(parent, leaf) if parent is not None else None
-                return read_config(parent, leaf, info, set(), limit=16 * 1024 * 1024) if info else None
-
-        primary = 'executions.lino'
-        cached = 'executions.decoded.js.json'
-        for refresh in (False, True):
-            if refresh:
-                inside('$', '--list', '--running', '--output-format', 'json')
-            source = read(primary)
-            if source is None:
-                # A new deployment can have no store yet. Other store files
-                # without their source cannot establish that tasks are idle.
-                if read(cached) is None and read('executions.links') is None:
-                    return []
-                break
-            try:
-                copy = json.loads(read(cached) or b'{}')
-            except ValueError:
-                continue
-            if (isinstance(copy, dict) and copy.get('format') == 'start-command-decoded-store-js-1'
-                    and copy.get('sha256') == sha256(source).hexdigest()
-                    and isinstance(copy.get('records'), list) and source == read(primary)):
-                return copy['records']
-        raise ValueError('Cannot verify the current start-command execution store.')
-    finally:
-        os.close(fd)
+def current_records(root_id):
+    # Read the store as box, with its configured path and installed codec. The
+    # start-command list CLI can reconcile tasks and write a decoded cache.
+    script = STORE_READER.read_text(encoding='utf-8') + """
+const records = await readExecutionStore({ allowMissing: true });
+process.stdout.write(JSON.stringify(records.flatMap(record => {
+  if (!record || typeof record.status !== 'string') throw new Error('Invalid execution status.');
+  return record.status === 'executed' ? [] : [{ command: record.command }];
+})));
+"""
+    return json.loads(docker('exec', '--user', 'box', '-i', root_id,
+                             'node', '--max-old-space-size=192', '--input-type=module', '-', input=script))
 
 
-def scan_tasks(root, directory, nested):
+def scan_tasks(root, nested):
     active = set()
     root_id = root['Id']
 
     def inside(*args):
         return docker('exec', '--user', 'box', root_id, *args)
 
-    for record in current_records(directory, inside):
-        if not isinstance(record, dict) or not isinstance(record.get('status'), str):
-            raise ValueError('Cannot verify a running start-command execution.')
-        if record['status'] != 'executed':
-            active.add(task_tool(record.get('command')))
+    for record in current_records(root_id):
+        active.add(task_tool(record.get('command')))
     sources = [running_containers()]
     if nested:
         sources.append(running_containers(lambda *args: inside('docker', *args)))
@@ -161,7 +138,7 @@ def observe(name):
     with deployment_root(name) as (container, directory, identity, recheck):
         env = dict(item.split('=', 1) for item in container['Config'].get('Env') or [] if '=' in item)
         nested = bool(env.get('DOCKER_HOST')) or (directory / 'run/docker.sock').is_socket()
-        tasks = scan_tasks(container, directory, nested)
+        tasks = scan_tasks(container, nested)
         processes = {}
         for path in Path('/proc').iterdir():
             if path.name.isdecimal():

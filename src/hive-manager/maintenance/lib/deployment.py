@@ -10,10 +10,10 @@ import stat
 import subprocess
 
 
-def docker(*args):
+def docker(*args, input=None):
     try:
         return subprocess.check_output(
-            ['docker', *args], text=True, stderr=subprocess.DEVNULL, timeout=30
+            ['docker', *args], input=input, text=True, stderr=subprocess.DEVNULL, timeout=30
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise ValueError(f'Docker {args[0]} failed on the deployment host.') from error

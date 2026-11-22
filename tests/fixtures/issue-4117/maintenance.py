@@ -1,10 +1,10 @@
 import copy
-from hashlib import sha256
 import importlib.util
 import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -247,26 +247,33 @@ class ToolServices(unittest.TestCase):
                             sent.assert_not_called()
                         closed.assert_called_once_with(42)
 
-    def test_cache_must_match_current_task_store(self):
+    def test_preview_reads_custom_task_store_without_refreshing_stale_cache(self):
         with tempfile.TemporaryDirectory() as directory:
-            registry = Path(directory) / 'home/box/.start-command'
-            registry.mkdir(parents=True)
+            registry = Path(directory) / 'custom-registry'
+            registry.mkdir()
             store = registry / 'executions.lino'
-            store.write_text('an execution store fixture')
             cache = registry / 'executions.decoded.js.json'
-            cache.write_text(json.dumps({'format': 'start-command-decoded-store-js-1', 'sha256': 'stale', 'records': []}))
-            with self.assertRaises(ValueError):
-                services.current_records(directory, lambda *_args: '')
-            records = [{'status': 'executing', 'command': 'solve https://github.com/example/example/issues/1 --tool codex'}]
+            command = 'solve https://github.com/example/example/issues/1 --tool codex'
+            source = json.dumps([{'status': 'executing', 'command': command}, {'status': 'executed', 'command': 'finished'}])
+            stale = '{"format":"start-command-decoded-store-js-1","sha256":"stale","records":[]}'
+            store.write_text(source)
+            cache.write_text(stale)
 
-            def refresh(*_args):
-                cache.write_text(json.dumps({
-                    'format': 'start-command-decoded-store-js-1',
-                    'sha256': sha256(store.read_bytes()).hexdigest(),
-                    'records': records,
-                }))
+            def read_as_box(*args, input):
+                self.assertEqual(args[:5], ('exec', '--user', 'box', '-i', 'fixture'))
+                return subprocess.check_output(
+                    args[5:], text=True, input=input, env={**os.environ, 'START_APP_FOLDER': str(registry)}
+                )
 
-            self.assertEqual(services.current_records(directory, refresh), records)
+            with patch.object(services, 'docker', side_effect=read_as_box):
+                self.assertEqual(services.current_records('fixture'), [{'command': command}])
+                self.assertEqual(store.read_text(), source)
+                self.assertEqual(cache.read_text(), stale)
+                store.unlink()
+                with self.assertRaises(subprocess.CalledProcessError):
+                    services.current_records('fixture')
+                cache.unlink()
+                self.assertEqual(services.current_records('fixture'), [])
 
 
 if __name__ == '__main__':

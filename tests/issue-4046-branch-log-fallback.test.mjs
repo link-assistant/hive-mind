@@ -3,13 +3,14 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { TextDecoder } from 'node:util';
 import { attachLogToGitHub } from '../src/github.lib.mjs';
-import { publishLogToBranch, publishLogToPullRequestBranch } from '../src/log-upload-branch.lib.mjs';
+import { BRANCH_LOG_MAX_PART_BYTES, publishLogToBranch, publishLogToPullRequestBranch } from '../src/log-upload-branch.lib.mjs';
 import { buildLogUploadFailureComment, formatLogLinkLines } from '../src/log-upload-failure.lib.mjs';
 import { uploadLogWithGhUploadLog } from '../src/log-upload.lib.mjs';
 
@@ -27,7 +28,7 @@ const withLog = async (bytes, check) => {
   }
 };
 
-function fakeGitHub({ failAt = Infinity, lostAt = Infinity, visibility = 'private', headVisibility = visibility } = {}) {
+function fakeGitHub({ failAt = Infinity, lostAt = Infinity, visibility = 'private', headVisibility = visibility, consumePart } = {}) {
   const commits = [];
   const refs = new Map([
     ['main', baseOid],
@@ -52,7 +53,9 @@ function fakeGitHub({ failAt = Infinity, lostAt = Infinity, visibility = 'privat
         if (attempts === failAt) return missing;
         const bytes = Buffer.from(addition.contents, 'base64');
         const oid = (commits.length + 1).toString(16).padStart(40, '0');
-        commits.push({ oid, branch: branchName, repository: repositoryNameWithOwner, path: addition.path, bytes });
+        const isPart = addition.path.endsWith('.txt');
+        if (isPart) consumePart?.(bytes);
+        commits.push({ oid, branch: branchName, repository: repositoryNameWithOwner, path: addition.path, bytes: isPart && consumePart ? null : bytes });
         files.set(addition.path, createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'));
         refs.set(branchName, oid);
         return attempts === lostAt ? missing : ok(oid);
@@ -124,6 +127,39 @@ test('PR branch commits bounded, independently valid UTF-8 parts and an ordered 
     assert.match(comment, /fork\/repo branch issue-17-test/);
     for (const url of [result.indexUrl, ...result.parts.map(part => part.url)]) assert.ok(comment.includes(url));
     assert.equal(refs.get('main'), baseOid);
+  });
+});
+
+test('a log over 100 MiB reconstructs exactly with the production part limit', { timeout: 20_000 }, async () => {
+  const size = 101 * 1024 * 1024;
+  await withLog('session started\n', async logFile => {
+    // A sparse fixture keeps local disk use low and exercises the normal part size.
+    await fs.truncate(logFile, size);
+    const tail = await fs.open(logFile, 'r+');
+    try {
+      await tail.write('🎉\n', size - 5, 'utf8');
+    } finally {
+      await tail.close();
+    }
+
+    const expectedHash = createHash('sha256');
+    for await (const chunk of createReadStream(logFile)) expectedHash.update(chunk);
+    const publishedHash = createHash('sha256');
+    const { $, commits } = fakeGitHub({
+      consumePart: bytes => {
+        assert.ok(bytes.length <= BRANCH_LOG_MAX_PART_BYTES);
+        publishedHash.update(bytes);
+      },
+    });
+    const result = await publishLogToBranch({ ...issueOptions, $, logFile });
+    assert.equal(result.success, true, result.failureReason);
+    assert.equal(result.chunks, Math.ceil(size / BRANCH_LOG_MAX_PART_BYTES));
+    assert.equal(
+      result.parts.reduce((total, part) => total + part.bytes, 0),
+      size
+    );
+    assert.equal(publishedHash.digest('hex'), expectedHash.digest('hex'));
+    assert.equal(nameOf(commits.at(-1).path), 'README.md');
   });
 });
 

@@ -24,7 +24,8 @@ import { LOG_UPLOAD_FAILED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_
 
 const formatSize = bytes => (bytes >= 1024 * 1024 ? `${Math.round(bytes / 1024 / 1024)} MB` : `${Math.round(bytes / 1024)} KB`);
 const maxListedParts = 100;
-const formatDestination = ({ repository, branch, url }) => `Published on [${repository} branch ${branch.replace(/[[\]`]/g, '\\$&')}](${url}).\n`;
+const escapeLinkLabel = value => value.replace(/[\\[\]`_*]/g, '\\$&');
+const formatDestination = ({ repository, branch, url }) => `Published on [${escapeLinkLabel(`${repository} branch ${branch}`)}](${url}).\n`;
 
 /**
  * Markdown link lines for an uploaded log: one line, or one line per part when

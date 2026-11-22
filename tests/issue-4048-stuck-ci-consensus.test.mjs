@@ -232,6 +232,65 @@ test('case B: runs that have jobs, are young, or whose job count is unknown keep
   assert.equal((await checkCIConsensus({ ...base, getWorkflowRunJobsCount: async () => 0, now: Date.parse('2026-11-11T20:55:00Z') })).allAgree, false, 'too young');
 });
 
+// Issue #4060: reproduce the full 60-commit PR shape from the stalled poll.
+const supersededQueueShas = [...Array.from({ length: 56 }, (_, index) => String(index).padStart(40, '0')), ...ghostShas, HEAD_B];
+const supersededQueueDeps = {
+  ...caseBDeps,
+  now: Date.parse('2026-11-12T04:51:03Z'),
+  mergeStatus: { ...CLEAN, headSha: HEAD_B, isDraft: false },
+  getDetailedCIStatus: async () => ({ status: 'success', sha: HEAD_B, hasPending: false, hasQueued: false, checks: Array.from({ length: 78 }, () => ({ status: 'completed', conclusion: 'success' })) }),
+  getCommitShas: async () => supersededQueueShas,
+  getWorkflowRunsForSha: async (owner, repo, sha) => (sha === HEAD_B ? Array.from({ length: 12 }, (_, index) => ({ ...headRunsB[0], id: 9001 + index })) : caseBDeps.getWorkflowRunsForSha(owner, repo, sha)),
+};
+
+test('#4060: all 36 stale queued runs on three of 60 commits are ignored for a green, mergeable HEAD', async t => {
+  const log = t.mock.method(console, 'log', () => {});
+  const consensus = await checkCIConsensus({ ...supersededQueueDeps, verbose: true, ghostMinAgeMs: 30 * 60_000, getWorkflowRunJobsCount: async () => null });
+
+  assert.equal(consensus.allAgree, true);
+  assert.equal(consensus.mechanisms.workflowRunsAPI.total, 12);
+  const allCommits = consensus.mechanisms.allCommitsCI;
+  assert.equal(allCommits.totalCommits, 60);
+  assert.deepEqual(allCommits.pendingCommits, []);
+  assert.deepEqual(allCommits.ignoredGhostRuns, []);
+  assert.deepEqual(
+    allCommits.ignoredStaleQueuedRuns.map(run => run.id),
+    ghostRuns.map(run => run.id)
+  );
+  const output = log.mock.calls.map(call => call.arguments[0]).join('\n');
+  for (const run of ghostRuns) assert.ok(output.includes(run.html_url), `missing ignored run ${run.id} from verbose output`);
+});
+
+test('#4060: the fallback keeps waiting for newer attempts, in-progress runs, and unknown queue ages', async () => {
+  for (const overrides of [{ runStartedAt: new Date(supersededQueueDeps.now - 30 * 60_000 + 1).toISOString() }, { status: 'in_progress' }, { createdAt: null, runStartedAt: null }]) {
+    const consensus = await checkCIConsensus({
+      ...supersededQueueDeps,
+      getWorkflowRunsForSha: async (...args) => (await supersededQueueDeps.getWorkflowRunsForSha(...args)).map(run => (run.id === ghostRuns[0].id ? { ...run, ...overrides } : run)),
+    });
+    assert.equal(consensus.allAgree, false, JSON.stringify(overrides));
+    assert.deepEqual(consensus.mechanisms.allCommitsCI.pendingCommits, ['b12f92b', 'cc6008f', 'fd1065f']);
+  }
+});
+
+test('#4060: the fallback requires passing checks and a clean merge state for the current HEAD', async () => {
+  const otherSha = 'a'.repeat(40);
+  const blockers = {
+    'draft PR': { mergeStatus: { ...supersededQueueDeps.mergeStatus, isDraft: true } },
+    'blocked PR': { mergeStatus: { ...supersededQueueDeps.mergeStatus, mergeStateStatus: 'BLOCKED' } },
+    'different SHA from merge state': { mergeStatus: { ...supersededQueueDeps.mergeStatus, headSha: otherSha } },
+    'newer SHA in commit list': { getCommitShas: async () => [...supersededQueueShas, otherSha] },
+    'different SHA from head checks': { getDetailedCIStatus: async () => ({ status: 'success', sha: otherSha }) },
+    'missing head checks': { getDetailedCIStatus: async () => ({ status: 'no_checks', sha: HEAD_B }) },
+    'pending head checks': { getDetailedCIStatus: async () => ({ status: 'pending', sha: HEAD_B, hasPending: true }) },
+    'queued head workflow': { getWorkflowRunsForSha: async (owner, repo, sha) => (sha === HEAD_B ? [ghostRuns[0]] : supersededQueueDeps.getWorkflowRunsForSha(owner, repo, sha)) },
+  };
+  for (const [blocker, overrides] of Object.entries(blockers)) {
+    const consensus = await checkCIConsensus({ ...supersededQueueDeps, ...overrides });
+    assert.equal(consensus.allAgree, false, blocker);
+    assert.deepEqual(consensus.mechanisms.allCommitsCI.ignoredStaleQueuedRuns ?? [], []);
+  }
+});
+
 test('case B: ghost runs on HEAD are never ignored, only reported for recovery', async () => {
   const headGhosts = ghostRuns.slice(0, 2);
   const consensus = await checkCIConsensus({ ...caseBDeps, getWorkflowRunsForSha: async () => headGhosts, getWorkflowRunJobsCount: async () => 0, ghostMinAgeMs: 60_000 });

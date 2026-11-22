@@ -14,7 +14,7 @@ import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
-import { describeConsensusDisagreement, findGhostQueuedRuns, formatDuration, isAuthoritativeCleanMergeState, partitionOutOfBandChecks } from './github-ci-stuck-runs.lib.mjs'; // Issue #4048
+import { describeConsensusDisagreement, findGhostQueuedRuns, formatDuration, isAuthoritativeCleanMergeState, partitionOutOfBandChecks, queuedForMs } from './github-ci-stuck-runs.lib.mjs'; // Issue #4048
 const execRaw = promisify(execCallback);
 // Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
 // API responses (workflow runs can easily exceed that on busy repos).
@@ -28,6 +28,7 @@ const exec = (cmd, opts = {}) =>
 
 // Statuses we treat as "not yet finished".
 const ACTIVE_RUN_STATUSES = ['in_progress', 'queued', 'waiting', 'requested', 'pending'];
+const SUPERSEDED_QUEUE_GRACE_MS = 30 * 60_000;
 
 /**
  * Get ALL active workflow runs across the entire repository (no branch filter).
@@ -220,20 +221,25 @@ export async function getActivePRWorkflowRuns(owner, repo, prNumber, headSha, ve
  * @param {string} [options.headSha] - PR HEAD SHA (its runs are never treated as ghosts)
  * @param {number} [options.ghostMinAgeMs] - queued-with-no-jobs age that marks a ghost run
  * @param {Function} [options.getJobsCount] - async (runId) => number|null
+ * @param {boolean} [options.inspectStaleQueuedRuns] - identify whether all remaining runs are stale and superseded
  * @param {Function} [options.getCommitShas] - injectable getPRCommitShas (tests)
  * @param {number} [options.now]
- * @returns {Promise<{allComplete: boolean, totalCommits: number, pendingCommits: string[], details: Object[], ignoredGhostRuns: Object[]}>}
+ * @returns {Promise<{allComplete: boolean, totalCommits: number, pendingCommits: string[], details: Object[], ignoredGhostRuns: Object[], staleQueuedRuns: Object[]}>}
  */
 export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, options = {}) {
-  const { headSha = null, ghostMinAgeMs = null, getJobsCount = null, getCommitShas = getPRCommitShas, now = Date.now() } = options;
+  const { headSha = null, ghostMinAgeMs = null, getJobsCount = null, inspectStaleQueuedRuns = false, getCommitShas = getPRCommitShas, now = Date.now() } = options;
   const shas = await getCommitShas(owner, repo, prNumber, verbose);
-  if (shas.length === 0) return { allComplete: true, totalCommits: 0, pendingCommits: [], details: [], ignoredGhostRuns: [] };
+  // Confirm the commit list still ends at the HEAD whose checks were verified.
+  const canInspectStaleQueue = inspectStaleQueuedRuns && Boolean(headSha) && shas.at(-1) === headSha;
 
   const details = [];
   const pendingCommits = [];
   const ignoredGhostRuns = [];
+  const staleQueuedRuns = [];
+  let pendingRunCount = 0;
   for (const sha of shas) {
-    const runs = await getWorkflowRunsForSha(owner, repo, sha, false);
+    // A failed lookup cannot establish that stale queues are the only blocker.
+    const runs = await getWorkflowRunsForSha(owner, repo, sha, false, { throwOnError: canInspectStaleQueue });
     let inProgress = runs.filter(r => r.status !== 'completed');
     if (inProgress.length > 0 && sha !== headSha && Number.isFinite(ghostMinAgeMs) && typeof getJobsCount === 'function') {
       const ghosts = await findGhostQueuedRuns(inProgress, { minAgeMs: ghostMinAgeMs, getJobsCount, now });
@@ -243,6 +249,14 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
         for (const ghost of ghosts) ignoredGhostRuns.push({ ...ghost, sha });
       }
     }
+    if (canInspectStaleQueue && sha !== headSha) {
+      for (const run of inProgress) {
+        if (run.status !== 'queued') continue;
+        const age = queuedForMs(run, now);
+        if (age >= SUPERSEDED_QUEUE_GRACE_MS) staleQueuedRuns.push({ ...run, sha, queuedForMs: age });
+      }
+    }
+    pendingRunCount += inProgress.length;
     const complete = inProgress.length === 0;
     details.push({ sha: sha.substring(0, 7), total: runs.length, inProgress: inProgress.length, complete });
     if (!complete) pendingCommits.push(sha.substring(0, 7));
@@ -255,7 +269,7 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
     console.log(`[VERBOSE] pr-commits: ignoring ${ignoredGhostRuns.length} ghost run(s) on older commits (queued with no jobs for ${formatDuration(Math.min(...ignoredGhostRuns.map(run => run.queuedForMs)))}+): ${ignoredGhostRuns.map(run => `${run.sha.substring(0, 7)} ${run.name} ${run.html_url}`).join('; ')}`);
   }
 
-  return { allComplete: pendingCommits.length === 0, totalCommits: shas.length, pendingCommits, details, ignoredGhostRuns };
+  return { allComplete: pendingCommits.length === 0, totalCommits: shas.length, pendingCommits, details, ignoredGhostRuns, staleQueuedRuns: staleQueuedRuns.length === pendingRunCount ? staleQueuedRuns : [] };
 }
 
 /**
@@ -271,6 +285,8 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
  *    raw failure is stale and is ignored too, as long as nothing is pending.
  * HEAD workflow runs stuck in `queued` with no jobs are reported in
  * `mechanisms.workflowRunsAPI.ghostRuns` so the caller can recover them.
+ * Issue #4060: AllCommits can also bypass aged queues on superseded commits
+ * when HEAD is green and mergeable and those queues are the only blockers.
  *
  * @param {Object} params
  * @param {boolean} [params.checkOlderCommits] - also inspect workflow runs on superseded commits
@@ -307,12 +323,15 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
   const getJobsCount = canDetectGhosts ? runId => getWorkflowRunJobsCount(owner, repo, runId, false) : null;
   const headGhostRuns = !workflowsOK && canDetectGhosts ? await findGhostQueuedRuns(incompleteRuns, { minAgeMs: ghostMinAgeMs, getJobsCount, now }) : [];
 
-  let allCommitsOK = true;
   let allCommitsInfo = null;
   if (checkOlderCommits && checkRunsOK && workflowsOK && prNumber) {
-    allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, { headSha: sha, ghostMinAgeMs: canDetectGhosts ? ghostMinAgeMs : null, getJobsCount, getCommitShas, now });
-    allCommitsOK = allCommitsInfo.allComplete;
+    // Issue #4060: only bypass stale queues with passing checks and a clean merge state for this HEAD.
+    const inspectStaleQueuedRuns = !waitForAllRepoActionsFlag && ciStatus.status === 'success' && ciStatus.sha === sha && mergeStatus?.headSha === sha && isAuthoritativeCleanMergeState(mergeStatus) && !mergeStatus.isDraft;
+    allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha, { headSha: sha, ghostMinAgeMs: canDetectGhosts ? ghostMinAgeMs : null, getJobsCount, inspectStaleQueuedRuns, getCommitShas, now });
   }
+  const ignoredStaleQueuedRuns = allCommitsInfo?.staleQueuedRuns ?? [];
+  const allCommitsOK = !allCommitsInfo || allCommitsInfo.allComplete || ignoredStaleQueuedRuns.length > 0;
+  const pendingCommits = allCommitsOK ? [] : allCommitsInfo.pendingCommits;
 
   // When enabled, block on ANY active CI/CD run in the repository regardless of branch.
   // This ensures safety when CI/CD pipelines interact or depend on each other.
@@ -327,14 +346,17 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
   const mechanisms = {
     checkRunsAPI: { complete: checkRunsOK, status: headChanged ? 'head_changed' : ciStatus.status, note: checkRunsNote, relevantChecks, outOfBandChecks },
     workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: incompleteRuns.length, ghostRuns: headGhostRuns },
-    allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits, ignoredGhostRuns: allCommitsInfo.ignoredGhostRuns || [] } : { skipped: true },
+    allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits, ignoredGhostRuns: allCommitsInfo.ignoredGhostRuns, ignoredStaleQueuedRuns } : { skipped: true },
     repoActions: repoInfo ? { complete: repoOK, count: repoInfo.count } : { skipped: true },
   };
   const reasons = allAgree ? [] : describeConsensusDisagreement(mechanisms);
 
   if (verbose) {
     const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${repoInfo?.count ?? 0} active)` : 'skip';
-    const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${allCommitsInfo.pendingCommits.length > 0 ? `, ${allCommitsInfo.pendingCommits.length} pending` : ''}${allCommitsInfo.ignoredGhostRuns?.length ? `, ${allCommitsInfo.ignoredGhostRuns.length} ghost run(s) ignored` : ''})` : 'skip';
+    const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${pendingCommits.length > 0 ? `, ${pendingCommits.length} pending` : ''}${allCommitsInfo.ignoredGhostRuns.length ? `, ${allCommitsInfo.ignoredGhostRuns.length} ghost run(s) ignored` : ''}${ignoredStaleQueuedRuns.length ? `, ${ignoredStaleQueuedRuns.length} stale queued run(s) ignored` : ''})` : 'skip';
+    for (const run of ignoredStaleQueuedRuns) {
+      console.log(`[VERBOSE] consensus: ignoring ${run.name} (${run.id}) on superseded commit ${run.sha.substring(0, 7)}, queued for ${formatDuration(run.queuedForMs)} ${run.html_url || ''}`.trimEnd());
+    }
     console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}${checkRunsNote ? `; ${checkRunsNote}` : ''}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}${incompleteRuns.length ? `, ${incompleteRuns.length} not completed` : ''}${headGhostRuns.length ? `, ${headGhostRuns.length} ghost` : ''}), AllCommits=${commitsLabel}, RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
     for (const check of outOfBandChecks) console.log(`[VERBOSE] consensus:   out-of-band ${check.event} check ignored: ${check.name} [${check.conclusion || check.status}] ${check.html_url || ''}`);
   }

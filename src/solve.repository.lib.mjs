@@ -286,7 +286,7 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
 
     // Check write access before attempting to create files
     await log(`${formatAligned('', '', 'Checking repository write access...')}`);
-    const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, { useFork: false });
+    const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, { initializingEmptyRepository: true });
     if (!hasWriteAccess) {
       await log(`${formatAligned('❌', 'No access:', 'You do not have write access to this repository')}`);
       await log(`${formatAligned('', '', 'Cannot initialize empty repository without write access')}`);

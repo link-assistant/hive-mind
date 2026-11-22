@@ -52,6 +52,7 @@ import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 import { resolveDockerIsolationMountSources } from './docker-mount-namespace.lib.mjs';
 import { toolDataContainerEnv, toolDataPrivateMounts } from './tool-data-mounts.lib.mjs';
 import { nativeAuthDockerProjection } from './native-auth-docker.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 export { resolveDockerIsolationMountSources };
 export { checkDockerDiskSpace, parseDfAvailableKb } from './docker-disk-space.lib.mjs'; // Issue #3469
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
@@ -187,6 +188,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  if (normalizeTool(tool) === 'claude') {
+    for (const [name, value] of Object.entries(buildClaudePromptCacheEnv(env))) startArgs.push('-e', `${name}=${value}`);
+  }
   // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
   // comment said so. The image the container was created from - and the digest
   // it resolved to - travel with the task so its session comment can state them.

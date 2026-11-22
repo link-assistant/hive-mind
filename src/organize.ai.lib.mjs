@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 import { ORGANIZE_PLAN_SCHEMA } from './organize.prompts.lib.mjs';
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
@@ -32,6 +33,7 @@ export function buildOrganizationInvocation({ tool, model, think = null, codexRe
 
   switch (tool) {
     case 'claude': {
+      Object.assign(env, buildClaudePromptCacheEnv(env));
       const thinkingEnv = getClaudeEnv({ model, thinkLevel: think, thinkingBudget: getThinkingLevelToTokens()[think] });
       const effort = think ? thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL : null;
       delete env.MAX_THINKING_TOKENS;

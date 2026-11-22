@@ -209,6 +209,8 @@ These settings control Claude Code CLI behavior, including output limits and MCP
 
 **Note:** Claude models support different max output tokens: Opus 4.6 and later — including Opus 5 (the default `opus` alias) and Sonnet 5 (the default `sonnet` alias) — support 128K tokens, while Sonnet 4.5, Opus 4.5, and Haiku 4.5 support 64K tokens. The MCP timeouts (15 minutes by default) accommodate long-running Playwright operations. See [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) and [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) for details.
 
+Hive Mind defaults `CLAUDE_CODE_PROMPT_CACHE_TTL` (main conversation) and `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` (subagents and other background requests) to `1h`. Set either to `5m` to override that bucket, or set `FORCE_PROMPT_CACHING_5M=1` to override both. `hive-manager configure-claude` also initializes `promptCacheTtl` and `subagentPromptCacheTtl` in standalone Claude Code settings. Managed launches use the environment variables first. See the [prompt-cache case study](case-studies/issue-4124/README.md) for provider compatibility and cache-write costs.
+
 ### 6. File and Path Settings
 
 | Environment Variable           | Default       | Description              |

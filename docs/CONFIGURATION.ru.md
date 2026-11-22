@@ -207,6 +207,8 @@ Formal AI ничего не стоит хосту, который его не и
 
 **Примечание:** Модели Claude поддерживают разное максимальное количество токенов вывода: Opus 4.6 и новее — включая Opus 5 (псевдоним `opus` по умолчанию) и Sonnet 5 (псевдоним `sonnet` по умолчанию) — поддерживают 128K токенов, тогда как Sonnet 4.5, Opus 4.5 и Haiku 4.5 поддерживают 64K токенов. Таймауты MCP (по умолчанию 15 минут) учитывают длительные операции Playwright. Подробности см. в [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) и [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066).
 
+Hive Mind по умолчанию задаёт `1h` для `CLAUDE_CODE_PROMPT_CACHE_TTL` (основной диалог) и `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` (субагенты и другие фоновые запросы). Значение `5m` меняет время хранения для соответствующей группы, а `FORCE_PROMPT_CACHING_5M=1` меняет его для обеих. Команда `hive-manager configure-claude` также задаёт `promptCacheTtl` и `subagentPromptCacheTtl` в настройках самостоятельного запуска Claude Code. При запуске через Hive Mind приоритет имеют переменные окружения. Совместимость и стоимость записи описаны в [разборе кэширования](case-studies/issue-4124/README.md).
+
 ### 6. Файлы и пути
 
 | Переменная окружения           | По умолчанию  | Описание                         |

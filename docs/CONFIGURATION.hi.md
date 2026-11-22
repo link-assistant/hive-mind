@@ -207,6 +207,8 @@ Verification यह जाँचता है कि model को असल म�
 
 **नोट:** Claude models अलग-अलग max output tokens का समर्थन करते हैं: Opus 4.6 और बाद के — जिसमें Opus 5 (डिफ़ॉल्ट `opus` alias) और Sonnet 5 (डिफ़ॉल्ट `sonnet` alias) शामिल हैं — 128K tokens का समर्थन करते हैं, जबकि Sonnet 4.5, Opus 4.5 और Haiku 4.5 64K tokens का समर्थन करते हैं। MCP timeouts (डिफ़ॉल्ट रूप से 15 मिनट) लंबे समय तक चलने वाले Playwright ऑपरेशन को समायोजित करते हैं। विवरण के लिए [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) और [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) देखें।
 
+Hive Mind `CLAUDE_CODE_PROMPT_CACHE_TTL` (मुख्य वार्तालाप) और `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` (उप-एजेंट और अन्य पृष्ठभूमि अनुरोध) दोनों को डिफ़ॉल्ट रूप से `1h` पर सेट करता है। किसी एक श्रेणी के लिए उसका मान `5m` करें, या दोनों के लिए `FORCE_PROMPT_CACHING_5M=1` सेट करें। `hive-manager configure-claude` स्वतंत्र रूप से चलाए जाने वाले Claude Code की सेटिंग में `promptCacheTtl` और `subagentPromptCacheTtl` भी सेट करता है। Hive Mind से चलाने पर पर्यावरण वेरिएबल प्राथमिकता पाते हैं। प्रदाता संगतता और कैश लिखने की लागत [प्रॉम्प्ट कैश केस स्टडी](case-studies/issue-4124/README.md) में दी गई हैं।
+
 ### 6. फ़ाइल और पथ सेटिंग्स
 
 | Environment Variable           | डिफ़ॉल्ट        | विवरण                  |

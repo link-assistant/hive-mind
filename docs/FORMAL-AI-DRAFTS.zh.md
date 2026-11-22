@@ -1,6 +1,6 @@
 # Formal AI 草稿 (languages: [en](FORMAL-AI-DRAFTS.md) • zh • [hi](FORMAL-AI-DRAFTS.hi.md) • [ru](FORMAL-AI-DRAFTS.ru.md))
 
-本仓库中新开的每一个 issue，都会在几分钟内获得 Formal AI 的一次尝试，落在一条无人依赖的分支上。尝试错了不花什么代价；尝试对了就省下了第一个提交。失败的尝试同样不是浪费：它在公开处失败，并附着自己的会话证据，而这次失败正是下一次改进元算法所用的输入。
+本仓库中新开且符合条件的 issue 会在几分钟内获得 Formal AI 的一次尝试，落在一条无人依赖的分支上。尝试错了不花什么代价；尝试对了就省下了第一个提交。失败的尝试同样不是浪费：它在公开处失败，并附着自己的会话证据，而这次失败正是下一次改进元算法所用的输入。
 
 这是对 [issue #2233](https://github.com/link-assistant/hive-mind/issues/2233) 的回应。
 
@@ -16,10 +16,13 @@ solve <issue-url> \
   --development-log \
   --verbose \
   --attribution formal-ai \
+  --no-auto-continue \
   --no-auto-restart-until-mergeable \
   --no-auto-restart-on-uncommitted-changes \
   --log-dir /home/box/logs
 ```
+
+拉取镜像后，如果已有开放的 PR 使用 `issue-<number>-*` 分支，工作流会以 `issue-has-open-pull-request` 跳过尝试。如果在检查后才出现 PR，`--no-auto-continue` 会让草稿会话使用自己的分支。工作流会先验证 `solve` 报告创建的 PR，再添加 `formal-ai-draft` 标签、恢复草稿状态或触发检查。
 
 这正是 Hive Mind 自己的路径，因此这些草稿是一项持续且无法伪造的测量：`solve --model formal-ai` 在拥有 `solve` 的这个仓库的真实任务上，是否正在变好。
 

@@ -1,6 +1,6 @@
 # Open a Formal AI draft for every new issue (issue #2233).
 #
-# Every issue opened here gets one attempt from
+# Every eligible issue without an open solve pull request gets one attempt from
 # `solve --tool agent --model formal-ai --attach-logs --verbose` within minutes,
 # on a branch nobody depends on. A wrong attempt costs nothing; a right one
 # saves the first commit. The failure policy is deliberate and is documented in
@@ -193,7 +193,7 @@ jobs:
       # is exactly the failure mode worth reading. `!cancelled()` rather than
       # `always()`: see tests/ci-workflow-cancellation-2082.test.mjs.
       - name: Upload the session log
-        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' }}
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' && steps.attempt.outputs.should_run != 'false' }}
         uses: actions/upload-artifact@v7
         with:
           name: formal-ai-draft-session-${{ steps.decide.outputs.issue_number }}

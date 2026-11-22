@@ -1,6 +1,6 @@
 # Formal AI drafts (languages: en • [zh](FORMAL-AI-DRAFTS.zh.md) • [hi](FORMAL-AI-DRAFTS.hi.md) • [ru](FORMAL-AI-DRAFTS.ru.md))
 
-Every issue opened in this repository gets one attempt from Formal AI within minutes, on a branch nobody depends on. A wrong attempt costs nothing. A right one saves the first commit. A failed attempt is not waste either: it fails in public, with its session evidence attached, and that failure is the input the next improvement to the meta algorithm is made from.
+Eligible issues opened in this repository get one attempt from Formal AI within minutes, on a branch nobody depends on. A wrong attempt costs nothing. A right one saves the first commit. A failed attempt is not waste either: it fails in public, with its session evidence attached, and that failure is the input the next improvement to the meta algorithm is made from.
 
 This answers [issue #2233](https://github.com/link-assistant/hive-mind/issues/2233).
 
@@ -16,10 +16,13 @@ solve <issue-url> \
   --development-log \
   --verbose \
   --attribution formal-ai \
+  --no-auto-continue \
   --no-auto-restart-until-mergeable \
   --no-auto-restart-on-uncommitted-changes \
   --log-dir /home/box/logs
 ```
+
+After pulling the image, the workflow skips the attempt with `issue-has-open-pull-request` if an open PR has an `issue-<number>-*` head branch. If a PR appears after that check, `--no-auto-continue` keeps the draft session on its own branch. The workflow checks the PR that `solve` reports creating before applying the `formal-ai-draft` label, restoring draft status, or dispatching checks.
 
 That is Hive Mind's own path, so the drafts are a continuous, unfaked measurement of whether `solve --model formal-ai` is getting better at real tasks in the repository that owns `solve`.
 

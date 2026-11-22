@@ -100,7 +100,8 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * stays open and red until a later run succeeds": the later run is the next
  * attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
+// An open pull request can appear after the occupancy check. Never resume it.
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-continue', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -120,6 +121,7 @@ export const DRAFT_DECISION_CODES = Object.freeze({
   botAuthor: 'issue-author-is-a-bot',
   optOut: 'opt-out-label',
   alreadyDrafted: 'already-drafted',
+  occupied: 'issue-has-open-pull-request',
   missingIssue: 'no-issue-in-event',
 });
 
@@ -373,23 +375,24 @@ export function formatWorkflowAnnotation(level, title, message) {
   return `::${level} title=${escapeAnnotationProperty(title)}::${escapeAnnotationData(message)}`;
 }
 
-/**
- * Find the pull request a draft attempt opened for `issueNumber`.
- *
- * solve names its branch `issue-<number>-<uuid-suffix>`; matching on that
- * prefix is what lets the workflow put the pull request back into draft and
- * label it without the model having to report anything back. The `-` after the
- * number matters: without it, issue 22 would match the branch of issue 223.
- *
- * @param {Array<{number: number, headRefName: string, isDraft?: boolean}>} pullRequests
- * @param {number|string} issueNumber
- * @returns {object|null} the newest matching pull request
- */
-export function selectDraftPullRequest(pullRequests, issueNumber) {
-  const prefix = `issue-${String(issueNumber)}-`;
-  const matches = (Array.isArray(pullRequests) ? pullRequests : []).filter(pr => typeof pr?.headRefName === 'string' && pr.headRefName.startsWith(prefix));
-  if (matches.length === 0) return null;
-  return matches.reduce((newest, pr) => (Number(pr.number) > Number(newest.number) ? pr : newest));
+/** The trailing dash keeps issue 22 distinct from issue 223. */
+export function isIssuePullRequestHead(headRefName, issueNumber) {
+  return typeof headRefName === 'string' && headRefName.startsWith(`issue-${issueNumber}-`);
+}
+
+/** solve prints these two lines together after verifying its new PR and before launching the agent. */
+export function createdDraftPullRequestNumber(output, repository) {
+  const match = /^(?:\[[^\]\r\n]+\] )?✅ PR created: +#([1-9]\d*)\r?\n(?:\[[^\]\r\n]+\] )?📍 PR URL: +(https:\/\/github\.com\/\S+)\r?$/mu.exec(output);
+  if (!match) return null;
+  const [, number, url] = match;
+  return url.toLowerCase() === `https://github.com/${repository.toLowerCase()}/pull/${number}` ? Number(number) : null;
+}
+
+/** Verify solve's creation report against GitHub before mutating the PR or exposing its branch. */
+export function isAttemptPullRequest(pr, { number, issueNumber, startedAt, previousNumbers }) {
+  // GitHub's createdAt has second precision. The creation report identifies the exact PR within that second.
+  const startSecond = Math.floor(startedAt / 1000) * 1000;
+  return pr?.number === number && pr.state === 'OPEN' && typeof pr.isDraft === 'boolean' && isIssuePullRequestHead(pr.headRefName, issueNumber) && !previousNumbers.has(number) && Date.parse(pr.createdAt) >= startSecond;
 }
 
 /**

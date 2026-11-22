@@ -118,12 +118,13 @@ test('issue URL parsing and pull request selection', () => {
   assert.equal(
     selectPullRequest(
       [
+        { number: 4, headRefName: 'issue-1-def' },
         { number: 2, headRefName: 'issue-1-abc' },
-        { number: 3, headRefName: 'issue-10-abc' },
+        { number: 5, headRefName: 'issue-10-abc' },
       ],
       1
     ).number,
-    2
+    4
   );
 });
 

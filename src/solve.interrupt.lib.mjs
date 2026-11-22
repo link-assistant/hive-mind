@@ -5,6 +5,9 @@
  * uploads session logs if --attach-logs is enabled.
  */
 
+import { describeSolveProgressForDiagnostics, getLastSolveProgress } from './solve-progress.lib.mjs';
+import { prepareInterruptedLogUpload } from './log-upload-snapshot.lib.mjs';
+
 /**
  * Creates an interrupt wrapper function that auto-commits and uploads logs on CTRL+C.
  * @param {object} deps - Dependencies
@@ -18,7 +21,7 @@
  * @param {Function} deps.log - Logging function
  * @returns {Function} Async interrupt wrapper
  */
-export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log }) => {
+export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log, getLastProgress = getLastSolveProgress, prepareUpload = prepareInterruptedLogUpload }) => {
   return async () => {
     const ctx = cleanupContext;
     if (!ctx.tempDir || !ctx.argv) return;
@@ -37,6 +40,11 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
     await trace('handler entered');
 
     await log('\n⚠️  Session interrupted by user (CTRL+C)');
+    // Issue #4091: name what was interrupted. `/stop` arrives as this CTRL+C; the
+    // shutdown flag is already set, so the watch loop parks before its next
+    // GitHub call and the in-flight check is abandoned, not awaited.
+    const lastPhase = describeSolveProgressForDiagnostics(getLastProgress());
+    if (lastPhase) await log(`🛑 Stopped by operator (CTRL+C or /stop) during ${lastPhase}`);
 
     // Always auto-commit uncommitted changes on CTRL+C to preserve work
     if (ctx.branchName) {
@@ -81,8 +89,18 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
       await log('📎 Uploading interrupted session logs to Pull Request...');
       await trace('log-upload: start');
       try {
+        // Issue #4091: start-command SIGKILLs ~10 s after CTRL+C. Upload only the
+        // part not uploaded yet, capped, so the upload fits in that window.
+        let upload = { logFile: getLogFile(), tail: false };
+        try {
+          upload = await prepareUpload({ logFile: getLogFile() });
+          if (upload.tail) await log(`📎 Uploading ${upload.description}`);
+        } catch (tailError) {
+          await log(`⚠️  Could not prepare the log tail, uploading the whole log: ${tailError.message}`, { level: 'warning' });
+        }
         await attachLogToGitHub({
-          logFile: getLogFile(),
+          logFile: upload.logFile,
+          ...(upload.tail ? { customTitle: '🤖 Interrupted session log (tail since the last upload)' } : {}),
           targetType: 'pr',
           targetNumber: ctx.prNumber,
           owner: ctx.owner,
@@ -91,7 +109,7 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
           log,
           sanitizeLogContent,
           verbose: ctx.argv.verbose || false,
-          errorMessage: 'Session interrupted by user (CTRL+C)',
+          errorMessage: `Session interrupted by user (CTRL+C)${lastPhase ? ` — stopped by operator during ${lastPhase}` : ''}${upload.tail ? `. This comment holds ${upload.description}.` : ''}`,
           // Issue #1225: Pass model and tool info for PR comments
           requestedModel: ctx.argv.model,
           tool: ctx.argv.tool || 'claude',

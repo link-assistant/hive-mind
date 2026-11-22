@@ -70,7 +70,7 @@ async function captureErrors(fn) {
 function makeQueue(result) {
   resetSolveQueue();
   const edits = [];
-  const queue = new SolveQueue({ verbose: false, autoStart: false, executeCallback: async () => result });
+  const queue = new SolveQueue({ verbose: false, autoStart: false, executeCallback: async () => result, getToolProcessSnapshot: async () => [], getRunningIsolatedSessions: async () => ({}) });
   const item = queue.enqueue({
     url: 'https://github.com/link-assistant/hive-mind/issues/2154',
     args: '--model formal-ai',
@@ -139,6 +139,9 @@ await test('the queued task reports its UUID and the missing session in Telegram
   assert.ok(/Isolation: `docker`/.test(reply), 'the reply names the isolation backend');
   assert.ok(reply.includes('ghcr.io/link-assistant/formal-ai:0.339.1'), 'the reply keeps the underlying error');
   assert.ok(/not launched/i.test(reply) && reply.includes('--list'), 'the reply explains the absence from --list');
+  assert.ok(reply.includes('`/queue`'), 'the reply points to failed launch history');
+  const history = await queue.formatDetailedStatus({ locale: 'en' });
+  assert.ok(history.includes(`\`${SESSION}\``) && history.includes('formal-ai:0.339.1'), 'the history carries the same UUID and reason');
   assert.ok(reply.includes('Issue: https://github.com/link-assistant/hive-mind/issues/2154'), 'the reply keeps the info block');
   queue.stop();
 });

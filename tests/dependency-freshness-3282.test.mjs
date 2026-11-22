@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { collectDependencyRecords, imagePinRecord, lockfileLagRecords, parseDockerDependencyPins, parseGitHubActionPins, parseSourceImagePins, resolveContainerLatest } from '../scripts/dependency-freshness.lib.mjs';
+import { checkDependencyRecords, collectDependencyRecords, imagePinRecord, lockfileLagRecords, parseDockerDependencyPins, parseGitHubActionPins, parseSourceImagePins, resolveContainerLatest, resolveNpmLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 
@@ -30,6 +30,37 @@ test('another npm hoisting the same versions differently is not staleness', () =
   const before = lockfile({ 'node_modules/a': { version: '1.0.0' }, 'node_modules/b/node_modules/a': { version: '2.0.0' } });
   const after = lockfile({ 'node_modules/a': { version: '2.0.0' }, 'node_modules/c/node_modules/a': { version: '1.0.0' }, 'node_modules/local': { link: true, resolved: 'packages/local' } });
   assert.deepEqual(lockfileLagRecords(before, after), []);
+});
+
+test('the sanitizer manifest and lockfile use the Node floor without changing Docker pins', async () => {
+  const name = '@link-foundation/sensitive-data-sanitizer';
+  const releases = {
+    '1.0.0': { version: '1.0.0' },
+    '1.1.0': { version: '1.1.0', engines: { node: '>=24.0.0' } },
+    '1.2.0-beta.1': { version: '1.2.0-beta.1' },
+    '2.0.0': { version: '2.0.0', engines: { node: '>=26.13.1' } },
+  };
+  const fetchImpl = async url => ({ ok: true, json: async () => (url.endsWith('/latest') ? releases['2.0.0'] : { versions: releases }) });
+  const resolvedVersions = await checkDependencyRecords(
+    [
+      { kind: 'npm', name, current: '^1.0.0', location: 'package.json#dependencies', minimumNode: '24.0.0' },
+      { kind: 'npm', name, current: '1.1.0', location: `package-lock.json#${name}`, minimumNode: '24.0.0' },
+      { kind: 'npm', name, current: '1.1.0', location: 'Dockerfile:1' },
+    ],
+    { resolveNpmLatest: (packageName, record) => resolveNpmLatest(packageName, record, { fetchImpl }) }
+  );
+  assert.deepEqual(
+    resolvedVersions.current.map(({ location, latest }) => [location, latest]),
+    [[`package-lock.json#${name}`, '1.1.0']]
+  );
+  assert.deepEqual(
+    resolvedVersions.stale.map(({ location, latest }) => [location, latest]),
+    [
+      ['Dockerfile:1', '2.0.0'],
+      ['package.json#dependencies', '1.1.0'],
+    ]
+  );
+  assert.deepEqual(resolvedVersions.errors, []);
 });
 
 test('an image held in a Dockerfile ARG is checked where it is edited', () => {

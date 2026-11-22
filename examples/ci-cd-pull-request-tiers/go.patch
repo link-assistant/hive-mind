@@ -1,0 +1,96 @@
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index b1c99594103e30f1923009a9393a50adca24cdee..67667bcb169f5d2c60703a34f284b78ffe7a4e5c 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -5,5 +5,5 @@ on:
+     branches: [main]
+   pull_request:
+-    types: [opened, synchronize, reopened]
++    types: [synchronize, ready_for_review]
+   workflow_dispatch:
+     inputs:
+@@ -14,4 +14,5 @@ on:
+         default: 'instant'
+         options:
++          - checks
+           - instant
+           - changeset
+@@ -32,4 +33,8 @@ permissions:
+   contents: read
+
++concurrency:
++  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
++
+ jobs:
+   # === DETECT CHANGES - determines which jobs should run ===
+@@ -39,6 +44,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes-${{ github.run_id }}
++      cancel-in-progress: false
+     if: github.event_name != 'workflow_dispatch'
+     outputs:
+@@ -77,6 +82,6 @@ jobs:
+     timeout-minutes: 5
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && needs.detect-changes.outputs.any-code-changed == 'true'
+@@ -106,6 +111,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-lint-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes]
+     # Dispatch intentionally skips detection. A failed comparison always blocks lint.
+@@ -164,6 +169,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.os }}-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [detect-changes, changeset-check]
+     if: |
+@@ -178,5 +183,5 @@ jobs:
+       fail-fast: false
+       matrix:
+-        os: [ubuntu-24.04, macos-15, windows-2025]
++        os: ${{ fromJSON(github.event_name == 'pull_request' && github.event.action == 'synchronize' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "macos-15", "windows-2025"]') }}
+     steps:
+       - name: Checkout
+@@ -216,6 +221,6 @@ jobs:
+     timeout-minutes: 15
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-build
+-      cancel-in-progress: true
++      group: check-${{ github.workflow }}-${{ github.ref }}-build-${{ github.run_id }}
++      cancel-in-progress: false
+     needs: [lint, test]
+     # Check direct prerequisites explicitly since optional ancestor jobs may be skipped.
+@@ -446,5 +451,5 @@ jobs:
+   # rerun automatically by rerun-unacquired.yml) instead of a code failure.
+   pipeline-status:
+-    name: Pipeline Status
++    name: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'Pipeline Status (commit)' || 'Pipeline Status' }}
+     runs-on: ubuntu-24.04
+     timeout-minutes: 5
+diff --git a/scripts/workflow-policy.test.mjs b/scripts/workflow-policy.test.mjs
+index 5c9b9b87438de1cc9561941828415647a7eb3c4d..28b7c236a9a807346fcf8b1c940e502c702f0593 100644
+--- a/scripts/workflow-policy.test.mjs
++++ b/scripts/workflow-policy.test.mjs
+@@ -66,5 +66,5 @@ describe("release workflow policy", () => {
+
+   test("keeps cancellation away from release writers", () => {
+-    assert.doesNotMatch(workflow, /^concurrency:/m);
++    assert.ok(workflow.includes("cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}"));
+     for (const name of ["auto-release", "instant-release", "changeset-release"]) {
+       const job = jobBlock(workflow, name);

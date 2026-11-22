@@ -111,8 +111,8 @@ if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
     echo "⚠ Hive-mind failed to start (exit code: $EXIT_CODE)"
     echo ""
     echo "Common issues:"
-    echo "  - Claude CLI not authenticated: Run '\''claude'\'' or '\''code'\'' to authenticate"
-    echo "  - Missing API key: Set CLAUDE_API_KEY environment variable"
+    echo "  - Claude CLI authentication: Run hive-manager auth claude status as box"
+    echo "  - To sign in as box, run hive-manager auth claude or set ANTHROPIC_API_KEY"
     echo ""
     exit "$EXIT_CODE"
   fi
@@ -120,7 +120,7 @@ else
   echo ""
   # github-retry-ok: hint for the person configuring the container
   if ! gh auth status >/dev/null 2>&1; then
-    echo "⚠ GitHub not authenticated. Run: gh auth login"
+    echo "⚠ GitHub not authenticated. Run hive-manager auth github as box or set GITHUB_TOKEN"
   fi
   if [ -z "$GITHUB_URL" ]; then
     echo "⚠ GITHUB_URL not set. Set it in Coolify environment variables"

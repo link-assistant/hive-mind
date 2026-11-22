@@ -2,6 +2,7 @@ import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPo
 import path from 'path';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { createRequire } from 'module';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -57,7 +58,9 @@ export function buildStartAgentArgs(options) {
     args.push('--screen-name', screenName);
   }
   if (verbose) args.push('--verbose');
-  for (const [key, value] of Object.entries(buildGeolocationEnv(options))) args.push('--tool-env', `${key}=${value}`);
+  const toolEnv = buildGeolocationEnv(options);
+  if (tool === 'claude') Object.assign(toolEnv, buildClaudePromptCacheEnv());
+  for (const [key, value] of Object.entries(toolEnv)) args.push('--tool-env', `${key}=${value}`);
   if (tool === 'codex') {
     for (const arg of buildCodexGeolocationConfigArgs(options)) args.push('--tool-arg', arg);
   }

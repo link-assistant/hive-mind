@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.355.34
+ARG FORMAL_AI_VERSION=0.356.5
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -89,6 +89,8 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # DISABLE_COMPACT must never appear in this image (issue #2236)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_PROMPT_CACHE_TTL=1h \
+    CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h \
     CLAUDE_CODE_CLASSIFIER_SUMMARY=0 \
     CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES=0 \
     CLAUDE_CODE_ENABLE_NARRATION=0 \
@@ -173,7 +175,14 @@ RUN command -v jq >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install jq
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=26.13.1
-ARG HIVE_MIND_BUN_VERSION=1.4.4
+ARG HIVE_MIND_BUN_VERSION=1.4.5
+# Node >= 25 no longer bundles corepack, and the inherited copy is skipped
+# by the scan below, so without this `command -v corepack` finds nothing and every git
+# hook that runs the package manager through corepack (lefthook with
+# `packageManager: pnpm@…`) fails with `spawnSync corepack ENOENT` (issue #4082).
+# Corepack goes in before the inherited globals: its pnpm/yarn shims must not
+# replace a pnpm or yarn that the base installed explicitly.
+ARG HIVE_MIND_COREPACK_VERSION=0.36.0
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
@@ -188,6 +197,8 @@ RUN set -e && \
     nvm install "${HIVE_MIND_NODE_VERSION}" && \
     nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
     nvm use default && \
+    npm install -g "corepack@${HIVE_MIND_COREPACK_VERSION}" --no-fund --force && \
+    corepack --version && \
     if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
     for version_dir in "$NVM_DIR"/versions/node/*; do \
       [ -d "$version_dir" ] || continue; \
@@ -438,6 +449,8 @@ RUN if command -v claude >/dev/null 2>&1; then \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
+COPY --chmod=0755 src/hive-manager/cli.sh /usr/local/bin/hive-manager
+
 # Autonomous headless hive-mind runs never benefit from tools that wait for
 # human interaction (AskUserQuestion, EnterPlanMode) or that register local
 # session cron jobs (CronCreate/List/Delete) or create worktrees
@@ -454,9 +467,9 @@ RUN if command -v claude >/dev/null 2>&1; then \
 #
 # Every image requires the installed configuration command and verifies its result.
 RUN mkdir -p /home/box/.claude && \
-    command -v configure-claude >/dev/null && \
-    configure-claude --settings-path /home/box/.claude/settings.json && \
-    configure-claude --settings-path /home/box/.claude/settings.json --verify
+    command -v hive-manager >/dev/null && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json && \
+    hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
 
 # Required installed-package baseline: no provider access or development source.
 RUN --network=none node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"

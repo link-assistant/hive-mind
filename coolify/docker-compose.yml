@@ -3,7 +3,7 @@ version: '3.8'
 services:
   hive-mind:
     build:
-      context: .
+      context: ..
       dockerfile: coolify/Dockerfile
     image: hive-mind:production
     container_name: hive-mind-prod
@@ -12,6 +12,7 @@ services:
     environment:
       # GitHub Configuration
       - GITHUB_TOKEN
+      - GITHUB_URL=${GITHUB_URL:-}
       - GITHUB_ORGANIZATION
       - GH_TOKEN
 

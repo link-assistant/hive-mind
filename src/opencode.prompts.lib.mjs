@@ -13,6 +13,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getReviewBotsSubPrompt } from './review-bots.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -135,7 +136,7 @@ export const buildSystemPrompt = params => {
     value38: String(getArchitectureCareSubPrompt(argv)),
     value39: String(getUpdateAllDependenciesSubPrompt(argv)),
     value40: String(getReportDependenciesIssuesSubPrompt(argv)),
-    value41: String(getIssueCompletionSubPrompt(params)),
+    value41: String(getIssueCompletionSubPrompt(params) + getReviewBotsSubPrompt(params)), // Issue #4081: review apps
     value42: String(buildWorkLanguageDirective()),
   });
   return withGeolocationPolicy(systemPrompt, argv);

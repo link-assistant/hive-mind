@@ -7,6 +7,7 @@ import { describeCredentialSanitizationFailure, sanitizeForPublication } from '.
 import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 import { GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL, GH_UPLOAD_LOG_MAX_RECORD_BYTES, GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, LOG_UPLOAD_ISOLATED_RUN_BYTES, LOG_UPLOAD_MAX_PART_BYTES, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+import { DEFAULT_HEARTBEAT_MS, withWatchdog } from './wait-watchdog.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -277,6 +278,9 @@ const resolveUploadUrls = async (result, verbose) => {
 export const LOG_UPLOAD_RETRY_DELAYS_MS = Object.freeze([30_000, 120_000]);
 export const LOG_UPLOAD_PART_RETRY_DELAYS_MS = Object.freeze([15_000, 60_000]);
 export const LOG_UPLOAD_PART_SIZE_BYTES = 25 * 1024 * 1024;
+/** Issue #4091: one gh-upload-log attempt (or the sanitize pass) may take this long before it is given up. */
+export const LOG_UPLOAD_ATTEMPT_DEADLINE_MS = 45 * 60 * 1000;
+export const LOG_SANITIZE_DEADLINE_MS = 60 * 60 * 1000;
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -440,19 +444,40 @@ export const splitLogIntoLineAlignedParts = async ({ sourcePath, directory, base
   return named;
 };
 
+const MB = 1024 * 1024;
+/** "41.0 MB of 114.0 MB sanitized (36%)" */
+export const describeSanitizeProgress = (doneBytes, totalBytes) => {
+  const pct = totalBytes > 0 ? Math.min(100, Math.floor((doneBytes / totalBytes) * 100)) : 0;
+  return `${(doneBytes / MB).toFixed(1)} MB of ${(totalBytes / MB).toFixed(1)} MB sanitized (${pct}%)`;
+};
+
 /**
  * Run gh-upload-log until it reports a URL, waiting `delaysMs[i]` before retry i+1.
  * A gh-upload-log sanitizer refusal (issue #4042) is returned at once as `refused`.
  * @returns {Promise<{ok: boolean, parsed: Object|null, output: string, attempts: number, permanent?: boolean, refused?: string}>}
  */
-const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, label, verbose }) => {
+const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, label, verbose, watch = {} }) => {
   const maxAttempts = delaysMs.length + 1;
   let output = '';
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (verbose) {
       await log(`  📤 Running: ${formatGhUploadLogCommand(commandArgs)}`, { verbose: true });
     }
-    const uploadResult = await runUpload(commandArgs);
+    // Issue #4091: a heartbeat line every 30 s while gh-upload-log runs, and a
+    // deadline after which the upload is given up instead of waited for.
+    const watched = await withWatchdog(`uploading the ${label} (attempt ${attempt}/${maxAttempts})`, () => runUpload(commandArgs), {
+      log: line => log(line),
+      deadlineMs: watch.attemptDeadlineMs ?? LOG_UPLOAD_ATTEMPT_DEADLINE_MS,
+      heartbeatMs: watch.heartbeatMs ?? DEFAULT_HEARTBEAT_MS,
+      now: watch.now,
+      timers: watch.timers,
+      onTimeout: async () => ({ decision: 'give up this upload (the session continues without it)' }),
+    });
+    if (watched.timedOut) {
+      output = `gh-upload-log did not finish within ${formatDelay(watch.attemptDeadlineMs ?? LOG_UPLOAD_ATTEMPT_DEADLINE_MS)}`;
+      return { ok: false, parsed: null, output, attempts: attempt, permanent: true };
+    }
+    const uploadResult = watched.value;
     output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
     if (uploadResult.code === 0) {
       const parsed = parseGhUploadLogOutput(output);
@@ -492,7 +517,7 @@ const runUploadWithRetries = async ({ commandArgs, runUpload, sleep, delaysMs, l
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null, parts?: Object[], attempts?: number, failureReason?: string}>}
  *   `parts` is set when the log was published as several parts (issue #2301); `failureReason` when it was not published.
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES, publishToBranch = null }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand, sleep = defaultSleep, retryDelaysMs = LOG_UPLOAD_RETRY_DELAYS_MS, partRetryDelaysMs = LOG_UPLOAD_PART_RETRY_DELAYS_MS, partSizeBytes = LOG_UPLOAD_PART_SIZE_BYTES, publishToBranch = null, sanitize = sanitizeLogFileToFileBounded, watch = {} }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
   let privateTempDirectory = null;
 
@@ -520,11 +545,29 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     // log size. This is now the ONLY place `--attach-logs` sanitizes the log.
     // Large logs additionally run in a heap-capped worker, so a residual blow-up
     // costs one thread and one failed upload instead of the whole session.
-    const sanitizeStats = await sanitizeLogFileToFileBounded({
-      sourcePath: logFile,
-      destPath: privateLogFile,
-      onWorkerFallback: ({ error }) => log(`  ⚠️  Sanitize worker unavailable (${error?.message || error}); sanitizing in-process`, { verbose: true }),
-    });
+    // Issue #4091: sanitizing 113 MB took 34 minutes with no output at all. The
+    // heartbeat reports how much of the sanitized copy is written so far.
+    const sourceSize = (await fs.stat(logFile)).size;
+    const sanitizing = await withWatchdog(
+      'sanitizing the log',
+      () =>
+        sanitize({
+          sourcePath: logFile,
+          destPath: privateLogFile,
+          onWorkerFallback: ({ error }) => log(`  ⚠️  Sanitize worker unavailable (${error?.message || error}); sanitizing in-process`, { verbose: true }),
+        }),
+      {
+        log: line => log(line),
+        deadlineMs: watch.sanitizeDeadlineMs ?? LOG_SANITIZE_DEADLINE_MS,
+        heartbeatMs: watch.heartbeatMs ?? DEFAULT_HEARTBEAT_MS,
+        now: watch.now,
+        timers: watch.timers,
+        describe: async () => describeSanitizeProgress((await fs.stat(privateLogFile).catch(() => ({ size: 0 }))).size, sourceSize),
+        onTimeout: async () => ({ decision: 'give up this upload (the session continues without it)' }),
+      }
+    );
+    if (sanitizing.timedOut) throw new Error(`sanitizing the log did not finish within ${formatDelay(watch.sanitizeDeadlineMs ?? LOG_SANITIZE_DEADLINE_MS)}`);
+    const sanitizeStats = sanitizing.value || {};
     if (verbose) {
       await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}${sanitizeStats.worker ? ' (bounded worker)' : ''}`, { verbose: true });
     }
@@ -536,7 +579,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       verbose,
     });
 
-    const whole = await runUploadWithRetries({ commandArgs, runUpload, sleep, delaysMs: retryDelaysMs, label: 'log', verbose });
+    const whole = await runUploadWithRetries({ commandArgs, runUpload, sleep, delaysMs: retryDelaysMs, label: 'log', verbose, watch });
     result.attempts = whole.attempts;
     if (whole.ok) {
       Object.assign(result, whole.parsed);
@@ -569,7 +612,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       for (const [index, partPath] of partPaths.entries()) {
         const partLabel = `part ${index + 1} of ${partPaths.length}`;
         const partArgs = buildGhUploadLogArgs({ logFile: partPath, isPublic, description: sanitizedDescription ? `${sanitizedDescription} (${partLabel})` : partLabel, verbose });
-        const partUpload = await runUploadWithRetries({ commandArgs: partArgs, runUpload, sleep, delaysMs: partRetryDelaysMs, label: `log ${partLabel}`, verbose });
+        const partUpload = await runUploadWithRetries({ commandArgs: partArgs, runUpload, sleep, delaysMs: partRetryDelaysMs, label: `log ${partLabel}`, verbose, watch });
         result.attempts += partUpload.attempts;
         if (!partUpload.ok) {
           result.failureReason = summarizeUploadFailure(partUpload.output);

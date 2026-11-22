@@ -557,11 +557,12 @@ try {
     $,
   });
   // Initialize feedback lines: auto-merge feedback, prepared feedback, then uncommitted changes
-  // Issue #4063: the after-clone notice is passed separately (cloneStatusLines) because feedbackLines only reach the prompt in continue mode
-  const cloneStatusLines = cloneStatus?.promptLines || [];
+  // Issues #4063/#4082: the after-clone notice and the git hooks that cannot run here go in cloneStatusLines (feedbackLines only reach the prompt in continue mode)
+  const cloneStatusLines = [...(cloneStatus?.promptLines || []), ...(await (await import('./git-hooks-preflight.lib.mjs')).runGitHooksPreflight({ tempDir, log })).promptLines];
   let feedbackLines = null;
   if (autoMergeFeedbackLines?.length > 0) (feedbackLines ??= []).push(...autoMergeFeedbackLines);
   if (preparedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...preparedFeedbackLines);
+  if (isContinueMode) feedbackLines = await (await import('./recovery-branch-restore.lib.mjs')).withRestoredRecoveryBranchWork(feedbackLines, { tempDir, branchName, $, log }); // Issue #4079: before the uncommitted-changes check
   const uncommittedFeedbackLines = await checkUncommittedChanges({ tempDir, argv, log, $, afterCloneStatus: cloneStatus?.statusOutput });
   if (uncommittedFeedbackLines?.length > 0) (feedbackLines ??= []).push(...uncommittedFeedbackLines);
   // Check for fork actions
@@ -575,9 +576,9 @@ try {
   });
   // Execute tool command with all prompts and settings
   let toolResult;
-  // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
   await (await import('./session-changes.lib.mjs')).captureSessionChangeBaseline({ tempDir, $, log, logFile: getLogFile(), owner, repo, issueNumber, prNumber, model: argv.model }); // #3211: success requires progress by this run
-  beginWorkingSession();
+  beginWorkingSession(); // Issue #1823: Mark the start of the AI working session. While this is active and the --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM) is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  (await import('./solve-progress.lib.mjs')).emitSolveProgress({ phase: 'executing', since: new Date().toISOString() }); // Issue #4091: later phases (log upload, watch) replace "⏳ Executing..." in Telegram
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -959,11 +960,11 @@ try {
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
-        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        const { commitUncommittedChangesOnCriticalError, describePreservedWork } = await import('./critical-error-commit.lib.mjs');
         // Issue #2161: when the subscription is gone it is unknown whether/when it
         // will be restored, so the emergency commit is the only thing standing
         // between the operator and hours of lost work — name it as such.
-        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
+        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage }).then(preserved => preserved && { ...preserved, failureCommentNote: preserved.committed ? describePreservedWork(preserved) : null }); // Issue #4079: the failure comment names the recovery branch
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
@@ -1012,7 +1013,7 @@ try {
           // If not a usage limit case, fall back to generic failure format
           // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
           // steps too — whoever finds the run in the morning reads that, not the log.
-          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
+          errorMessage: limitReached ? undefined : [subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage, preservedWork?.failureCommentNote].filter(Boolean).join('\n\n'), // Issue #4079: name the recovery branch
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
@@ -1267,20 +1268,17 @@ try {
   // placeholder gone, a pull request that implemented nothing has an empty diff and the
   // loop restarts the AI instead of merging an empty change.
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
-  // Issue #2182: the AI working session is over at this point — everything below is
-  // monitoring and merging, not working. The pull request must therefore be back in
-  // "ready for review" BEFORE the auto-merge watch loop starts, because that loop can
-  // run for days and endWorkSession() (further down) is unreachable until it returns.
-  // In the reported run the PR was left in draft by an auto-restart iteration and
-  // `gh pr merge` answered "Pull Request is still a draft" 2692 times over 4d 12h.
+  // Issue #2182: restore "ready for review" before the auto-merge watch starts.
+  // A draft left by an auto-restart blocked every merge attempt until that watch stopped.
   if (prNumber) {
     const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
     await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'AI working session finished', reportError });
   }
 
   // Start auto-restart-until-mergeable mode if enabled This runs after the normal watch mode completes (if any) --auto-merge implies --auto-restart-until-mergeable
+  let autoMergeResult = null;
   if (argv.autoMerge || argv.autoRestartUntilMergeable) {
-    const autoMergeResult = await startAutoRestartUntilMergeable({
+    autoMergeResult = await startAutoRestartUntilMergeable({
       issueUrl,
       owner,
       repo,
@@ -1310,7 +1308,7 @@ try {
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
-  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
+  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached, autoMergeResult });
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Issue #2182: a failed session is still a finished session. Restore every pull request

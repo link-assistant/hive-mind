@@ -34,6 +34,12 @@ test('ignores quoted output and stale verdicts and preserves infrastructure evid
   assert.equal(evidence(`${dirty}\n❌ Error occurred\nError executing command: GitHub API unavailable\n❌ Error occurred`).signature, undefined);
   assert.equal(evidence(`[${timestamp}] [ERROR] ❌ Same CI failure repeated\r\n`).signature, 'same-ci-failure');
   assert.equal(evidence('❌ AI session failed (tool_failure)').signature, 'tool-failure');
+  const loopStop = '❌ The AI session failed and `--auto-restart` stopped (tool_failure).';
+  const detail = '   Incomplete response returned, reason: max_output_tokens';
+  const terminal = '❌ AI session failed (tool_failure)';
+  assert.equal(evidence([loopStop, detail, terminal].map(line => `[${timestamp}] [ERROR] ${line}`).join('\n')).signature, 'codex-max-output-tokens');
+  assert.equal(evidence(`${detail}\n${terminal}`).signature, 'tool-failure');
+  assert.equal(evidence(`${loopStop}\n${detail}`).signature, undefined);
   assert.equal(evidence('❌ Authentication error').signature, 'authentication');
   assert.equal(evidence('❌ AI session failed (tool_failure)', { oomKilled: true }).signature, undefined);
   assert.equal(evidence('Codex exited with exit code 137', { oomKilled: true }).signature, 'codex-oom');

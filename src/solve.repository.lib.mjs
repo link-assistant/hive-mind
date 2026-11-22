@@ -726,8 +726,8 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
               await log('     Option 1: Ask repository owner to add initial content');
               await log('              Even a simple README.md file would make the repository forkable');
               await log('');
-              await log('     Option 2: Work directly on the original repository (if you get write access)');
-              await log(`              Run: solve ${issueUrl || '<issue-url>'} --no-fork`);
+              await log('     Option 2: Initialize and work directly on the original repository if you have write access');
+              await log(`              Run: solve ${issueUrl || '<issue-url>'} --no-fork --auto-init-repository`);
               await log('');
 
               // Try to create a comment on the issue asking the maintainer to initialize the repository

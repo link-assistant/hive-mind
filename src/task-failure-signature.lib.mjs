@@ -2,6 +2,7 @@ const solverLogPrefix = /^\[\d{4}-\d{2}-\d{2}T[\d:.]+Z\] \[(?:INFO|ERROR|WARNING
 const dirtyCheckout = /^Repository has uncommitted changes after clone(?:$|:)/;
 export const emptyRepositoryFailure = /^(?:Repository setup failed - empty repository|Empty repository auto-initialization failed|Empty repository detected - use --auto-init-repository to initialize)$/i;
 const maxOutputTokens = 'Incomplete response returned, reason: max_output_tokens';
+const stoppedToolSession = /^❌ The AI session failed and (?:`--[\w-]+`|the automation) stopped \(tool_failure\)\.$/;
 const terminalSignatures = new Map([
   ['Auto-restart limit reached', 'auto-restart-limit'],
   ['No progress between sessions', 'no-progress'],
@@ -14,8 +15,11 @@ function solveFailureSignature(text) {
   let signature;
   let executionError;
   let outputLimitReported = false;
+  let expectToolFailureDetail = false;
   for (const raw of text.split('\n')) {
     const line = raw.replace(solverLogPrefix, '').trimEnd();
+    if (expectToolFailureDetail && line === `   ${maxOutputTokens}`) outputLimitReported = true;
+    expectToolFailureDetail = false;
     if (line.startsWith('Error executing command: ') || line.startsWith('Error: ')) {
       const message = line.replace(/^Error(?: executing command)?: /, '');
       executionError = dirtyCheckout.test(message) ? 'checkout-dirty' : emptyRepositoryFailure.test(message) ? 'repository-empty' : undefined;
@@ -37,6 +41,7 @@ function solveFailureSignature(text) {
     else if (verdict.startsWith('CODEX execution failed with This content was flagged for possible cybersecurity risk.')) signature = 'tool-content-policy';
     executionError = undefined;
     outputLimitReported = false;
+    expectToolFailureDetail = stoppedToolSession.test(line);
   }
   return signature;
 }

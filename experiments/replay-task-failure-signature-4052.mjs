@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import process from 'node:process';
+import { URL } from 'node:url';
 import { collectTaskEvidence } from '../src/hive-manager/index.mjs';
 
 const fixtures = JSON.parse(await readFile(new URL('../docs/case-studies/issue-4052/attempts.json', import.meta.url), 'utf8'));

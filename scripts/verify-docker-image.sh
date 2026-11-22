@@ -391,6 +391,8 @@ hive-manager deploy --help
 hive-manager auth --help
 hive-manager deploy auth --help
 hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
+test "${CLAUDE_CODE_PROMPT_CACHE_TTL:-}" = '1h'
+test "${CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL:-}" = '1h'
 
 echo "Checking the installed stock-runtime baseline..."
 node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"

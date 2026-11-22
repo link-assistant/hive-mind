@@ -207,6 +207,8 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 
 **注意：** Claude 模型支持不同的最大输出 token 数：Opus 4.6 及更高版本——包括 Opus 5（默认 `opus` 别名）和 Sonnet 5（默认 `sonnet` 别名）——支持 128K token，而 Sonnet 4.5、Opus 4.5 和 Haiku 4.5 支持 64K token。MCP 超时时间（默认 15 分钟）可容纳长时间运行的 Playwright 操作。详情请参阅 [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) 和 [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066)。
 
+Hive Mind 默认将 `CLAUDE_CODE_PROMPT_CACHE_TTL`（主对话）和 `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`（子代理及其他后台请求）设为 `1h`。可将任一变量设为 `5m` 以覆盖对应类别，也可设定 `FORCE_PROMPT_CACHING_5M=1` 以覆盖两者。`hive-manager configure-claude` 还会在独立运行 Claude Code 的设置中初始化 `promptCacheTtl` 和 `subagentPromptCacheTtl`。通过 Hive Mind 启动时，环境变量优先。供应商兼容性和缓存写入成本见[提示缓存案例研究](case-studies/issue-4124/README.md)。
+
 ### 6. 文件和路径设置
 
 | 环境变量                       | 默认值        | 描述             |

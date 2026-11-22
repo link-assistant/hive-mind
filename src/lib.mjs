@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import * as fsModule from 'node:fs';
+import path from 'node:path';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
-import { isPlaceholderErrorText, isOpaqueErrorText } from './error-text.lib.mjs'; // issue #2141/#3759: reject placeholders and opaque dumps
+import { isPlaceholderErrorText, isOpaqueErrorText, isSourceFragmentErrorText } from './error-text.lib.mjs'; // issue #2141/#3759/#4077: reject placeholders, opaque dumps and source/debug fragments
 import { isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
 import { retryGitHubOperation } from './github-operation-retry.lib.mjs'; // issue #3552: one retry loop for every GitHub operation
 
@@ -37,13 +39,6 @@ try {
   };
 }
 
-// Check if use is already defined (when imported from solve.mjs)
-// If not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  await ensureUseM();
-}
-
-const fsModule = await use('fs');
 const fs = fsModule.promises;
 
 // Global reference for log file (can be set by importing module)
@@ -88,8 +83,27 @@ export const getLogFile = () => {
  */
 export const getAbsoluteLogPath = async () => {
   if (!logFile) return null;
-  const path = await use('path');
   return path.resolve(logFile);
+};
+
+/**
+ * Issue #4091: the console (the session's stdout capture) had no timestamps, so
+ * a 5-hour watch loop left only `🔍 Check #N: 6:13:18 AM` to rebuild a timeline
+ * from. Once enabled (the watch loop does it), every non-empty console line
+ * written by `log()` starts with an ISO-8601 UTC timestamp, like the log file.
+ */
+let consoleTimestamps = false;
+export const setConsoleTimestamps = enabled => {
+  consoleTimestamps = Boolean(enabled);
+};
+export const isConsoleTimestampsEnabled = () => consoleTimestamps;
+export const withConsoleTimestamp = (message, { enabled = consoleTimestamps, now = new Date() } = {}) => {
+  if (!enabled) return message;
+  const stamp = `[${now.toISOString()}]`;
+  return String(message)
+    .split('\n')
+    .map(line => (line.trim() ? `${stamp} ${line}` : line))
+    .join('\n');
 };
 
 /**
@@ -150,21 +164,22 @@ export const log = async (message, options = {}) => {
   // Write to console based on level
   // Set guard flag to prevent stdio interceptor from double-logging (issue #1549)
   _writingFromLog = true;
+  const consoleMessage = withConsoleTimestamp(sanitizedMessage);
   try {
     switch (level) {
       case 'error':
-        console.error(sanitizedMessage);
+        console.error(consoleMessage);
         break;
       case 'warning':
       case 'warn':
-        console.warn(sanitizedMessage);
+        console.warn(consoleMessage);
         break;
       case 'info':
       default:
         // Mirrored child stderr goes to our stderr, so piping stdout to a
         // consumer keeps yielding only what the child wrote to stdout.
-        if (mirroredStream === 'stderr') console.error(sanitizedMessage);
-        else console.log(sanitizedMessage);
+        if (mirroredStream === 'stderr') console.error(consoleMessage);
+        else console.log(consoleMessage);
         break;
     }
   } finally {
@@ -808,6 +823,10 @@ export const isMeaningfulErrorText = value => {
   // Issue #2141: "[object Object]" has letters, but it is the *absence* of an
   // error message — a structured payload that was stringified by mistake.
   if (isPlaceholderErrorText(collapsed) || isOpaqueErrorText(collapsed)) return false;
+  // Issue #4077: "} ReadableStream { locked: false, … }" has letters, but it is
+  // the tail of an SDK debug dump, not a failure reason. The same goes for any
+  // printed source, inspected object, header dump or stack frame.
+  if (isSourceFragmentErrorText(value)) return false;
   // Require at least one Unicode letter or number; pure punctuation/brackets
   // (e.g. "}", "{", "[]", ",") are stream fragments, not real errors.
   return /[\p{L}\p{N}]/u.test(collapsed);
@@ -991,7 +1010,6 @@ export const displayFormattedError = async options => {
 
   // Always show the log file path if it exists - using absolute path
   if (logFile) {
-    const path = await use('path');
     const absoluteLogPath = path.resolve(logFile);
     await logFn(`  📁 Full log file: ${absoluteLogPath}`);
     await logFn('');
@@ -1016,10 +1034,9 @@ export const cleanupTempDirectories = async argv => {
     return;
   }
 
-  // Dynamic import for command-stream
+  const use = globalThis.use ?? (await ensureUseM());
   const { $ } = await use('command-stream');
   const { listCleanableTempEntries } = await import('./disk-guard.lib.mjs');
-  const path = await use('path');
 
   try {
     await log('\n🧹 Auto-cleanup enabled, removing temporary directories...');
@@ -1110,7 +1127,7 @@ export const logSolveStartup = async versionInfo => {
  * @returns {Promise<string>} Version string
  */
 export const getVersionInfo = async () => {
-  const path = await use('path');
+  const use = globalThis.use ?? (await ensureUseM());
   const $ = (await use('zx')).$;
   const { getGitVersionAsync } = await import('./git.lib.mjs');
 

@@ -282,6 +282,7 @@ export const mapModelToId = model => {
 // `agent.lib.mjs` -- tests/test-codex-support.mjs and
 // tests/test-issue-2186-agent-snapshot-leak.mjs among them -- do not move.
 import { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion } from './agent.version-gates.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export { MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, getAgentCliVersion, agentCliSupportsLiveInput, agentCliFailsClosedOnModelMismatch, agentCliPrunesOrphanSnapshots } from './agent.version-gates.lib.mjs';
 
@@ -476,16 +477,7 @@ export const executeAgent = async params => {
       await log('   Feedback info: Included', { verbose: true });
     }
 
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
 
   // Execute the Agent command
@@ -650,6 +642,7 @@ export const executeAgentCommand = async params => {
 
       const fullCommand = streamingInput ? `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${displayedAgentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${displayedAgentArgs})`;
 
+      await logFinalPrompts({ log, tool: 'agent', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: streamingInput ? 'the first stream-json frame on stdin' : `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
       const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
       if (preparedResult) return preparedResult;
 

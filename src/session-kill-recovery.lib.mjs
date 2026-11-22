@@ -78,6 +78,7 @@ export function killRecoveryHeadline(cause) {
  */
 export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, survived = false, oomEventOnly = false, deliberateStop = null, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
   const cause = diagnosis?.cause || null;
+  const stoppedByOperator = diagnosis?.stoppedByOperator === true;
   // Issue #2498: when solve stopped on its own (e.g. expired authentication),
   // the OOM event did not end the run — lead with the real reason instead of
   // a headline that reads as an OOM failure.
@@ -87,6 +88,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   else if (stopLine) title = '⚠️ Working session was killed after solve had already stopped on its own';
   else if (oomEventOnly) title = resumed ? '⚠️ Work session restarted after a failed run with a container OOM event' : '⚠️ Container OOM event during a failed work session';
   else if (resumed) title = '⚠️ Working session restarted after a kill — outcome pending';
+  // Issue #4091: `/stop` ends in a SIGKILL after start-command's grace period; say who stopped it.
+  else if (stoppedByOperator && !survived) title = '🛑 Working session stopped by operator (/stop)';
   // Issue #2498 (package-registry-manager#31): a session that exited 0 was
   // never killed or restarted, so "recovered from out of memory" read as if a
   // recovery had happened. Say what did happen instead.
@@ -102,6 +105,7 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
   if (exitCode !== null && exitCode !== undefined) facts.push(`- **Exit code:** ${exitCode}`);
   if (observedAt) facts.push(oomEventOnly || survived ? `- **OOM event observed at:** ${observedAt}` : `- **Detected at:** ${observedAt}`);
   if (sessionName) facts.push(`- **Working session:** \`${sessionName}\``);
+  if (diagnosis?.lastPhase) facts.push(`- **Last phase:** ${diagnosis.lastPhase}`);
   if (policy) facts.push(`- **On-kill policy:** \`${policy}\`${policy === ON_SESSION_KILL_RESUME ? ' (`--on-session-kill=resume`)' : ' (`--on-session-kill=report`)'}`);
   if (facts.length > 0) lines.push(...facts, '');
 
@@ -124,6 +128,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
     lines.push('The work session survived the container OOM event and completed. No recovery was needed and no replacement session was launched.', '');
   } else if (oomEventOnly) {
     lines.push('The work process survived the container OOM event but later exited with a failure. No replacement session was launched.', '');
+  } else if (stoppedByOperator) {
+    lines.push('An operator stopped this working session (CTRL+C, sent by `/stop`). It is not resumed automatically. Nothing below this comment was produced by it.', '');
   } else {
     lines.push('This working session did not continue. Nothing below this comment was produced by it.', '');
   }

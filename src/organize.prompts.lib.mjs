@@ -33,7 +33,11 @@ export const ORGANIZE_PLAN_SCHEMA = Object.freeze({
   },
 });
 
-const serializedLength = value => JSON.stringify(value).length;
+// PR #4083 feedback: the classifier and the log reader both get indented,
+// human-readable JSON instead of one long line. Chunk sizes are measured with
+// the same formatting, so maxCharacters still bounds the real prompt.
+const formatPromptJson = value => JSON.stringify(value, null, 2);
+const serializedLength = value => formatPromptJson(value).length;
 
 /** Split the complete open-issue set into bounded prompts without overlap. */
 export function chunkOrganizationIssues({ repository, issueTypes, labels, issues, maxIssues = 75, maxCharacters = 120_000 }) {
@@ -48,7 +52,7 @@ export function chunkOrganizationIssues({ repository, issueTypes, labels, issues
   let currentLength = baseLength;
 
   for (const issue of issues) {
-    const issueLength = serializedLength(issue) + 1;
+    const issueLength = serializedLength([issue]); // measured inside an array, with its indentation
     if (current.length > 0 && (current.length >= maxIssues || currentLength + issueLength > maxCharacters)) {
       chunks.push({ ...shared, issues: current });
       current = [];
@@ -80,6 +84,6 @@ export function buildOrganizationPrompts({ repository, issueTypes, labels, issue
 
   return {
     system: localizePromptConstant(ORGANIZE_SYSTEM_PROMPT),
-    user: ['<UNTRUSTED_OPERATOR_INSTRUCTIONS>', operatorInstructions || '(none)', '</UNTRUSTED_OPERATOR_INSTRUCTIONS>', '<UNTRUSTED_REPOSITORY_CONTEXT_AND_TAXONOMY>', JSON.stringify({ ...payload, issues: undefined }), '</UNTRUSTED_REPOSITORY_CONTEXT_AND_TAXONOMY>', '<UNTRUSTED_ISSUES>', JSON.stringify(payload.issues), '</UNTRUSTED_ISSUES>', promptText('prompt.templates.organize-prompts.buildOrganizationPrompts.text6')].join('\n'),
+    user: ['<UNTRUSTED_OPERATOR_INSTRUCTIONS>', operatorInstructions || '(none)', '</UNTRUSTED_OPERATOR_INSTRUCTIONS>', '<UNTRUSTED_REPOSITORY_CONTEXT_AND_TAXONOMY>', formatPromptJson({ ...payload, issues: undefined }), '</UNTRUSTED_REPOSITORY_CONTEXT_AND_TAXONOMY>', '<UNTRUSTED_ISSUES>', formatPromptJson(payload.issues), '</UNTRUSTED_ISSUES>', promptText('prompt.templates.organize-prompts.buildOrganizationPrompts.text6')].join('\n'),
   };
 }

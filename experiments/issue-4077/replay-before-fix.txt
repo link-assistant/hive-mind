@@ -1,0 +1,5 @@
+lines replayed: 137; lines captured as lastMessage: 30
+  captured:   "x-robots-tag": "none",
+  captured:   "cf-ray": "EXAMPLE-FRA",
+  captured: } ReadableStream { locked: false, state: 'readable', supportsBYOB: false }
+published: CLAUDE execution failed with } ReadableStream { locked: false, state: 'readable', supportsBYOB: false }

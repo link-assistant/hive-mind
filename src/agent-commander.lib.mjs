@@ -13,6 +13,7 @@ import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
@@ -23,6 +24,7 @@ import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputToken
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -71,7 +73,7 @@ const buildClaudeToolOptions = (argv = {}) => {
   options.verbose = !!argv.verbose;
   if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
 
-  const extraEnv = {};
+  const extraEnv = buildClaudePromptCacheEnv();
   if (argv.think !== undefined || argv.thinkingBudget !== undefined) {
     const thinkingBudget = argv.thinkingBudget ?? getThinkingLevelToTokens(argv.maxThinkingBudget)[argv.think];
     const thinkingEnv = getClaudeEnv({ model: argv.model || 'opus', thinkLevel: argv.think, thinkingBudget, maxBudget: argv.maxThinkingBudget });
@@ -411,6 +413,15 @@ export const executeWithAgentCommander = async params => {
     await log(`   User prompt characters: ${prompt.length}`, { verbose: true });
     await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
   }
+  // PR #4083 feedback: the exact prompts agent-commander hands to the tool, always in full.
+  await logFinalPrompts({
+    log,
+    tool: `${tool} (agent-commander)`,
+    prompts: [
+      { kind: 'user', text: controllerOptions.prompt, delivery: 'agent-commander', keepEmpty: true },
+      { kind: 'system', text: controllerOptions.systemPrompt, delivery: 'agent-commander' },
+    ],
+  });
 
   const controller = module.agent(controllerOptions);
   const dryRun = !!(argv.dryRun || argv.onlyPrepareCommand);

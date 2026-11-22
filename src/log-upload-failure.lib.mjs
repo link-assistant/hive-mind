@@ -21,7 +21,7 @@ import { isEphemeralContainer, resolveCiRunUrl } from './ci-run-url.lib.mjs';
 import { GH_UPLOAD_LOG_FIXED_VERSION, GH_UPLOAD_LOG_LONG_RUN_ISSUE_URL, GH_UPLOAD_LOG_REFUSAL_ISSUE_URL, detectGhUploadLogSanitizerRefusal } from './gh-upload-log-refusal.lib.mjs';
 import { detectExecutionContext } from './solve.resource-diagnostics.lib.mjs';
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
-import { LOG_UPLOAD_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { LOG_UPLOAD_FAILED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_LOG_MARKER, buildSessionEndFooter, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
 
 const formatSize = bytes => (bytes >= 1024 * 1024 ? `${Math.round(bytes / 1024 / 1024)} MB` : `${Math.round(bytes / 1024)} KB`);
 
@@ -134,7 +134,7 @@ export const formatLogLocationConsoleLines = (logFile, location = describeLogFil
  * @param {Object} [params.location] - Where `logFile` lives ({@link describeLogFileLocation}).
  * @returns {string}
  */
-export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation() }) => {
+export const buildLogUploadFailureComment = ({ errorMessage = null, failureReason = null, attempts = null, logSizeBytes, logFile, isPublic = true, failureAction = '', location = describeLogFileLocation(), sessionEndFooter = buildSessionEndFooter() }) => {
   const heading = errorMessage ? `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}\nThe automated solution draft encountered an error:\n\`\`\`\n${errorMessage}\n\`\`\`${failureAction || ''}\n\n### ⚠️ ${LOG_UPLOAD_FAILED_MARKER}` : `## ⚠️ ${SOLUTION_DRAFT_LOG_MARKER}: ${LOG_UPLOAD_FAILED_MARKER}`;
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
@@ -169,7 +169,7 @@ The complete ${errorMessage ? 'failure' : 'working session'} log (${formatSize(l
 ${formatLogLocationSection(logFile, location)}${publishHint}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${errorMessage ? buildSessionEndFooter() : sessionEndFooter}`;
 };
 
 /**

@@ -174,6 +174,7 @@ check_tool "Make"      make      --version
 
 check_tool "Node.js"   node      --version
 check_tool "NPM"       npm       --version
+check_tool "Corepack"  corepack  --version   # issue #4082: Node >= 25 ships without it
 check_tool "Opam"      opam      --version
 
 echo ""
@@ -383,19 +384,15 @@ else # shell-lint: allow-nonfatal — informational; no bun global package is re
 fi
 
 echo ""
-echo "Checking Hive-Mind configure-claude bin..."
-if command -v configure-claude >/dev/null 2>&1; then
-  configure-claude --help | head -n1 || true
-  echo "configure-claude is accessible"
-
-  echo ""
-  echo "Verifying quiet Claude Code baseline..."
-  configure-claude --settings-path /home/box/.claude/settings.json --verify
-  echo "Quiet Claude Code baseline: OK"
-else
-  echo "ERROR: configure-claude is missing from the installed package" >&2
-  exit 1
-fi
+echo "Checking Hive Mind deployment and maintenance commands..."
+test "$(hive-manager --version)" = "$(hive --version)"
+hive-manager --help
+hive-manager deploy --help
+hive-manager auth --help
+hive-manager deploy auth --help
+hive-manager configure-claude --settings-path /home/box/.claude/settings.json --verify
+test "${CLAUDE_CODE_PROMPT_CACHE_TTL:-}" = '1h'
+test "${CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL:-}" = '1h'
 
 echo "Checking the installed stock-runtime baseline..."
 node "$(dirname "$(readlink -f "$(command -v hive)")")/verify-agent-runtime.mjs"

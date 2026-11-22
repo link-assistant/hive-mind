@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 import { ORGANIZE_PLAN_SCHEMA } from './organize.prompts.lib.mjs';
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 
 export const ORGANIZE_TOOLS = Object.freeze(['claude', 'agent', 'codex', 'opencode', 'gemini', 'qwen']);
 
@@ -31,6 +33,7 @@ export function buildOrganizationInvocation({ tool, model, think = null, codexRe
 
   switch (tool) {
     case 'claude': {
+      Object.assign(env, buildClaudePromptCacheEnv(env));
       const thinkingEnv = getClaudeEnv({ model, thinkLevel: think, thinkingBudget: getThinkingLevelToTokens()[think] });
       const effort = think ? thinkingEnv.CLAUDE_CODE_EFFORT_LEVEL : null;
       delete env.MAX_THINKING_TOKENS;
@@ -167,8 +170,28 @@ export function parseOrganizationClassifierOutput(output) {
   return found;
 }
 
+/**
+ * PR #4083 feedback: describe the exact prompts one classifier invocation
+ * sends, so they can be printed in full. Codex, Gemini and OpenCode receive one
+ * combined message on stdin; the other tools receive the user prompt on stdin
+ * and the system prompt through a file or an argument.
+ */
+export function describeOrganizationPrompts({ tool, invocation, prompts, tempDir }) {
+  const systemFile = join(tempDir, 'system-prompt.txt');
+  if (['codex', 'gemini', 'opencode'].includes(tool)) {
+    const entries = [{ kind: 'combined', text: invocation.input, delivery: 'stdin' }];
+    if (tool === 'opencode') entries.push({ kind: 'system', text: prompts.system, delivery: `the opencode.json instructions file ${systemFile}` });
+    return entries;
+  }
+  const systemDelivery = tool === 'qwen' ? 'the --system-prompt argument' : `the system prompt file ${systemFile}`;
+  return [
+    { kind: 'user', text: invocation.input, delivery: 'stdin', keepEmpty: true },
+    { kind: 'system', text: prompts.system, delivery: systemDelivery },
+  ];
+}
+
 /** Run one classification chunk. This function has no GitHub client or token. */
-export async function runOrganizationClassifier({ prompts, tool = 'claude', model = null, think = null, run = runProcess }) {
+export async function runOrganizationClassifier({ prompts, tool = 'claude', model = null, think = null, run = runProcess, log = null }) {
   const normalizedTool = String(tool || 'claude').toLowerCase();
   if (!ORGANIZE_TOOLS.includes(normalizedTool)) throw new Error(`Unsupported organization tool "${normalizedTool}". Supported tools: ${ORGANIZE_TOOLS.join(', ')}`);
   const { resolveRuntimeDefaultModel, validateRuntimeModelName } = await import('./models/index.mjs');
@@ -186,6 +209,7 @@ export async function runOrganizationClassifier({ prompts, tool = 'claude', mode
     await writeFile(join(tempDir, 'gemini-deny-tools.toml'), '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n', { mode: 0o600 });
     const codexReasoningSettings = normalizedTool === 'codex' ? await resolveRuntimeCodexReasoningEffort({ model: mappedModel, think: ['ultra', 'max'].includes(think) ? 'xhigh' : think }, { maxEffort: 'xhigh' }) : null;
     const invocation = buildOrganizationInvocation({ tool: normalizedTool, model: mappedModel, think, codexReasoningSettings, systemPrompt: prompts.system, userPrompt: prompts.user, tempDir });
+    await logFinalPrompts({ log, tool: `${normalizedTool} (organize)`, prompts: describeOrganizationPrompts({ tool: normalizedTool, invocation, prompts, tempDir }) });
     const result = await run(invocation.command, invocation.args, { cwd: tempDir, env: invocation.env, input: invocation.input, maxBuffer: 64 * 1024 * 1024 });
     if (result.code !== 0) throw new Error(`Organization classifier (${normalizedTool}) exited with code ${result.code}`);
     let output = result.stdout;

@@ -1,0 +1,10 @@
+{
+  "body": "Our telegram bots should detect, if there multiple hive mind bots, all commands must start working only when bot's nickname prefixed by standard traditional in Telegram.\n\nSo it will be impossible to start executing the same task on both telegram bots, or get version/help/limits of both.\n\nIt should be automatic, and we keep everything as it worked + prefixed access when Hive Mind is alone in the chat, and if there multiple Hive Mind bots in the chat we should automatically switch to prefixed access only.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until each and every requirement fully addressed, and everything is totally done.",
+  "comments": [],
+  "createdAt": "2026-11-20T08:41:36Z",
+  "number": 4101,
+  "state": "OPEN",
+  "title": "Support multiple hive mind bots in a single chat",
+  "updatedAt": "2026-11-20T08:41:36Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/4101"
+}

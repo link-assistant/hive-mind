@@ -111,7 +111,23 @@ jobs:
   );
 }
 
-// --- Every job in this repository has a timeout ---------------------------
+// --- Every job has a timeout within its documented budget ----------------
+
+const defaultCeiling = 30;
+const timeoutExceptions = {
+  'e2e-hello-world-matrix.yml/hello-world': 120, // Real GitHub E2E with an external solver session.
+  'formal-ai-draft.yml/draft': 90, // One full working session.
+  'formal-ai-draft.yml/report-checks': 215, // Waits for the full dispatched pipeline.
+  'native-codex-auth-experiment.yml/native-file-authority': 90, // Cold build of pinned upstream Codex.
+  'native-codex-build.yml/build': 150, // Cold cross-platform builds of the npm runtime.
+  'release.yml/docker-pr-check': 45, // Multi-stage native image build on a cold cache.
+  'release.yml/release': 75, // npm variant visibility and GitHub Release publication.
+  'release.yml/instant-release': 75, // Same registry and publication work as automatic releases.
+  'release.yml/docker-publish': 60, // Cold runtime image build and push.
+  'release.yml/docker-publish-dind': 60, // Cold DinD image build and push.
+  'release.yml/docker-publish-instant': 60, // Cold runtime image build and push for manual releases.
+  'release.yml/docker-publish-dind-instant': 60, // Cold DinD image build and push for manual releases.
+};
 
 {
   const workflowDir = path.join(process.cwd(), '.github', 'workflows');
@@ -120,17 +136,30 @@ jobs:
   assert.ok(files.length > 0, 'workflow files are found — an empty glob would make this test vacuous');
 
   const offenders = [];
+  const overBudget = [];
+  const unusedExceptions = new Set(Object.keys(timeoutExceptions));
   let jobCount = 0;
   for (const file of files) {
     const yaml = readFileSync(path.join(workflowDir, file), 'utf8');
-    jobCount += findJobs(yaml).length;
+    const jobs = findJobs(yaml);
+    jobCount += jobs.length;
     for (const job of findJobsMissingTimeout(yaml)) {
       offenders.push(`${file}:${job.line} job "${job.name}"`);
+    }
+    for (const job of jobs.filter(job => !job.reusable && job.timeoutMinutes > defaultCeiling)) {
+      const key = `${file}/${job.name}`;
+      const ceiling = timeoutExceptions[key] ?? defaultCeiling;
+      unusedExceptions.delete(key);
+      if (job.timeoutMinutes > ceiling) {
+        overBudget.push(`${file}:${job.line} job "${job.name}" uses ${job.timeoutMinutes} minutes (ceiling ${ceiling})`);
+      }
     }
   }
 
   assert.ok(jobCount > 1, 'jobs are actually parsed — a parser that finds nothing would pass vacuously');
   assert.deepEqual(offenders, [], `every job must set timeout-minutes (see docs/CI-CD-BEST-PRACTICES.md).\nMissing on:\n  ${offenders.join('\n  ')}`);
+  assert.deepEqual(overBudget, [], `job timeout budgets exceeded:\n  ${overBudget.join('\n  ')}`);
+  assert.deepEqual([...unusedExceptions], [], 'remove timeout exceptions for jobs that meet the standard ceiling');
 }
 
 console.log('ci-workflow-timeouts-2082.test.mjs: all assertions passed');

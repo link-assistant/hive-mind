@@ -155,7 +155,7 @@ test('production launch refuses unverifiable mounts before invoking start-comman
   await fs.mkdir(bin);
   await fs.mkdir(path.join(value.root, '.codex'));
   await fs.writeFile(path.join(value.root, '.codex/auth.json'), 'synthetic-protected-state');
-  await fs.writeFile(path.join(bin, 'docker'), `#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(callsPath)},JSON.stringify(args)+'\\n');if(args[0]==='image')console.log('sha256:synthetic');else if(args[0]==='context')console.log(JSON.stringify('unix:///synthetic.sock'));else{console.error('private-docker-diagnostic-sentinel');process.exitCode=1;}`, { mode: 0o700 });
+  await fs.writeFile(path.join(bin, 'docker'), `#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(callsPath)},JSON.stringify(args)+'\\n');if(args[0]==='version')console.log('29.0.0');else if(args[0]==='image')console.log('sha256:synthetic');else if(args[0]==='context')console.log(JSON.stringify('unix:///synthetic.sock'));else{console.error('private-docker-diagnostic-sentinel');process.exitCode=1;}`, { mode: 0o700 });
   const oldUse = globalThis.use;
   const oldPath = process.env.PATH;
   const oldError = console.error;
@@ -173,13 +173,14 @@ test('production launch refuses unverifiable mounts before invoking start-comman
     console.error = (...args) => messages.push(args.join(' '));
     const result = await executeWithIsolation('solve', [], { backend: 'docker', homeDir: value.root, tool: 'codex', sessionId: 'synthetic-refused', env: { PATH: bin, HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'synthetic:1', HIVE_MIND_DOCKER_ISOLATION_PULL: 'never' } });
     assert.equal(result.success, false);
-    assert.match(result.error, /Task mount preparation failed/u);
+    assert.equal(result.error, `Task mount preparation failed. ${diagnostic}`);
     assert.equal(startCalls, 1, 'only the binary lookup runs; no task command is invoked');
     assert.equal(messages.join('').includes('private-docker-diagnostic-sentinel'), false);
     const calls = (await fs.readFile(callsPath, 'utf8'))
       .trim()
       .split('\n')
       .map(line => JSON.parse(line));
+    assert.deepEqual(calls[0], ['version', '--format', '{{.Server.Version}}']);
     assert.ok(
       calls.some(args => args[0] === 'run'),
       'the production path performs the backing probe'

@@ -67,6 +67,7 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
     // Issue #3215: a solve that finished without changes is listed as done, but not as a success.
     const noChanges = item.sessionOutcome?.noChanges === true;
     section += `${indent}  ${noChanges ? '⚠️' : emoji} ${formatQueueItemLink(item.url)}`;
+    if (withError && item.sessionName) section += ` (\`${item.sessionName.replace(/[\r\n`]/g, '')}\`)`;
     if (withError && item.error) section += ` — ${escapeTopLevelMarkdown(item.error)}`;
     else if (noChanges) section += ` — ${escapeTopLevelMarkdown(lt('queue_no_changes', {}, { locale }))}`;
     section += '\n';

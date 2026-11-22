@@ -18,6 +18,20 @@ hive-manager deploy --env-file ./telegram.env apply
 hive-manager deploy logs --follow --tail 60
 ```
 
+For `hive-telegram-bot --isolation docker` in the plain image, start Docker on the
+host and add `-v /var/run/docker.sock:/var/run/docker.sock` to the bot container.
+The bot user needs permission to access the socket. Run `docker version` as that
+user inside the bot container and confirm it reports a Server section. To use a
+nested daemon, run the [Docker-in-Docker image](#option-3-docker-in-docker-image)
+with its default entrypoint and pass `hive-telegram-bot --isolation docker` as the
+container command.
+
+Isolated tasks also need a Git identity. Set both `user.name` and `user.email` in
+a persisted Git config, and make it visible to the bot at `/home/box/.gitconfig`
+(for example, `-v /path/to/gitconfig:/home/box/.gitconfig:ro`). Keep the bot's
+credential and tool storage mounts on host binds or Docker volumes so the daemon
+can mount the same data into tasks.
+
 ### Option 2: Building Locally
 
 ```bash

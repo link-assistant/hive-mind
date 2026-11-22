@@ -38,3 +38,5 @@ node --test --test-concurrency=1 \
 ```
 
 The initial PR head had a Security PR run awaiting action with no jobs or downloadable log. A checks-only dispatch on the same SHA passed. This was a workflow admission result and supplied no evidence about Claude caching. [PR Security run](https://github.com/link-assistant/hive-mind/actions/runs/45008046583) · [Security checks-only run](https://github.com/link-assistant/hive-mind/actions/runs/45008058383)
+
+The first run with the implementation stopped before testing at the dependency freshness gate. Its log reports 29 stale declarations and lockfile entries shared with the base branch. The pins and lockfile were refreshed in a separate commit so the normal PR checks could run. [Dependency freshness job](https://github.com/link-assistant/hive-mind/actions/runs/45027447484/job/137223454216)

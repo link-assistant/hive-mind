@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { claudeBrowserActivity } from '../src/hive-manager/task/check-browser.mjs';
 import { classifyUpload } from '../src/hive-manager/task/check-uploads.mjs';
+import { createProbePhoto } from '../src/hive-manager/proxy/photo.mjs';
 import { readProxyMatrix, runProxyMatrix, runProxyProbe } from '../src/hive-manager/proxy/test.mjs';
 
 const script = fileURLToPath(new URL('../src/hive-manager/cli.sh', import.meta.url));
@@ -1018,9 +1019,8 @@ test('Telegram probe verifies only its own Saved Messages and cleans up on failu
       destroyed++;
     },
   };
-  const photo = Buffer.alloc(32);
-  Buffer.from('89504e470d0a1a0a', 'hex').copy(photo);
-  assert.deepEqual(await runProxyProbe(client, { media: true, photo }), { text: true, document: 32768, photo: 32, cleaned: true });
+  const photo = createProbePhoto();
+  assert.deepEqual(await runProxyProbe(client, { media: true, photo }), { text: true, document: 32768, photo: photo.length, cleaned: true });
   assert.deepEqual(deleted, [[1, 2, 3]]);
   assert.equal(messages.size, 0);
   await assert.rejects(runProxyProbe({ ...client, downloadMedia: () => Buffer.from('wrong') }, { media: true }), /differs from the probe document/);

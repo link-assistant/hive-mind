@@ -184,7 +184,7 @@ test('partial publication reports confirmed parts and leaves the complete index 
     assert.equal(result.publishedParts.length, 1);
     assert.equal(refs.get('main'), baseOid);
     const body = buildLogUploadFailureComment({ ...result, logSizeBytes: 80 * 4, logFile, errorMessage: 'execution stopped' });
-    assert.match(body, /published parts are incomplete/);
+    assert.match(body, /parts were published before the attachment failed/);
     assert.ok(body.includes(result.publishedParts[0].url));
     assert.ok(body.includes(result.destination.url));
     assert.ok(body.includes(result.destination.branch));
@@ -199,6 +199,9 @@ test('an index failure still reports all confirmed part links with no complete a
     assert.match(result.failureReason, /README.md/);
     assert.equal(commits.length, 2);
     assert.equal(result.publishedParts.length, 2);
+    const body = buildLogUploadFailureComment({ ...result, logSizeBytes: 128, logFile });
+    assert.match(body, /parts were published before the attachment failed/);
+    for (const part of result.publishedParts) assert.ok(body.includes(part.url));
   });
 });
 

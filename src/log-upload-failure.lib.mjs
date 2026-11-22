@@ -148,7 +148,7 @@ export const buildLogUploadFailureComment = ({ errorMessage = null, failureReaso
   const attemptText = attempts > 1 ? ` after ${attempts} attempts` : '';
   const reason = failureReason ? `\n\nLast upload error:\n\`\`\`\n${failureReason}\n\`\`\`` : '';
   const partial = publishedParts.length
-    ? `\n\nThe following published parts are incomplete.\n${destination?.url ? formatDestination(destination) : ''}${publishedParts
+    ? `\n\nThe following parts were published before the attachment failed.\n${destination?.url ? formatDestination(destination) : ''}${publishedParts
         .slice(0, maxListedParts)
         .map((part, index) => `- [${part.name || `Part ${index + 1}`}](${part.url})`)
         .join('\n')}${publishedParts.length > maxListedParts ? `\n${publishedParts.length} parts were published.${destination?.url ? ' See the linked directory for more branch files.' : ''}` : ''}`

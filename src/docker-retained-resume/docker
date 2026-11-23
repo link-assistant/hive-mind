@@ -1,0 +1,20 @@
+#!/bin/bash
+# start-command may choose a fresh launch if the container disappears after
+# Hive Mind's preflight. Only authorize docker start or snapshot-derived runs.
+export PATH="$HIVE_MIND_RESUME_ORIGINAL_PATH"
+case "$1" in
+  run|create)
+    previous=
+    for arg in "$@"; do
+      case "$previous:$arg" in
+        --label:start-command.snapshot-image=start-command-resume/*)
+          exec "$HIVE_MIND_RESUME_DOCKER_BIN" "$@"
+          ;;
+      esac
+      previous=$arg
+    done
+    echo "The retained Docker container is missing. Refusing to start with an empty filesystem." >&2
+    exit 1
+    ;;
+esac
+exec "$HIVE_MIND_RESUME_DOCKER_BIN" "$@"

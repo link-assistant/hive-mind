@@ -618,6 +618,33 @@ Shows:
 - Solve queue status
 ```
 
+#### Docker task controls
+
+```text
+/pause <session ID or GitHub issue/PR URL> [--reason <text>]
+/unpause <session ID or GitHub issue/PR URL>
+/stop <session ID or GitHub issue/PR URL>
+/resume <session ID or GitHub issue/PR URL>
+/status <session ID or GitHub issue/PR URL>
+/list
+```
+
+The requester or original chat owner can control the task in its group or in a
+direct message with the bot. Pass a container name, session UUID, execution
+UUID, or URL, or reply to the task message. `/list` and the commands without
+a target show your matching Docker tasks.
+
+`/pause` freezes the container and frees its CPU slot. The process, memory,
+and files stay in place. `/unpause` continues the same process. `/queue` and
+`/limits` show paused tasks separately, and the bot alerts you once after an
+hour of pause. The bot detects manual Docker pauses and unpauses, including
+after a bot restart.
+
+Use `/stop` to release RAM and keep the container's files. `/resume` restarts
+an exited task with its retained workspace and the latest recorded AI session.
+The execution UUID remains usable. Resume requires the retained container and
+currently excludes tasks using a router or Formal AI sidecar.
+
 #### `/terminal_watch` - Live Session Log
 
 ```

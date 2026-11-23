@@ -85,7 +85,7 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
         rejectReason = reason;
       } else if (strategy === 'dequeue-one-at-a-time') {
         oneAtATime = true;
-        if (totalProcessing > 0) {
+        if (totalProcessing > 0 || options.pausedCount > 0) {
           reasons.push(appendWaitingForCurrentCommand(reason, locale));
         }
       } else {
@@ -143,7 +143,7 @@ export async function checkSystemResources(queue, totalProcessing = 0, options =
         rejectReason = reason;
       } else if (strategy === 'dequeue-one-at-a-time') {
         oneAtATime = true;
-        if (totalProcessing > 0) {
+        if (totalProcessing > 0 || options.pausedCount > 0) {
           reasons.push(appendWaitingForCurrentCommand(reason, locale));
         }
       } else {

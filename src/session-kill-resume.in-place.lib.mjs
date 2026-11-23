@@ -174,7 +174,7 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {}, 
  * @param {boolean} [options.verbose]
  * @returns {Promise<{resumed: boolean, reason: string, sessionId: string|null, executionUuid: string|null, mode: string|null, snapshotImage: string|null, containerName?: string|null, originalRemoved?: boolean, containerFilesystemInheritedBytes: number|null, resourceLimitReapplyError: string|null}>}
  */
-export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify = async () => {}, snapshotGuard = {}, verbose = false } = {}) {
+export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, plan, runner, notify = async () => {}, snapshotGuard = {}, requireRetained = false, verbose = false } = {}) {
   const limited = hasSessionContainerResourceLimits(sessionInfo);
   let startCommandVersion = null;
   if (limited && typeof runner?.getStartCommandVersion === 'function') {
@@ -204,7 +204,7 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   // Match the launch path's exec form and quote each argv element. A display
   // string may contain Telegram syntax or shell substitutions (#2630).
   const command = plan?.command ? `exec ${buildShellCommand(plan.command.binary || sessionInfo?.command || 'solve', plan.command.args)}` : null;
-  const resume = () => runner.resumeIsolatedSession(decision.identifier, { command, verbose });
+  const resume = () => runner.resumeIsolatedSession(decision.identifier, { command, verbose, ...(requireRetained ? { requireRetained: true } : {}) });
   // Issue #2889: a replacement command makes `$ --resume` commit the whole
   // writable layer. Several commits after one host-wide kill filled the disk,
   // so snapshots run one at a time and only with enough free disk. Containers
@@ -218,7 +218,7 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   } else {
     // Legacy containers behind a fail-closed start gate shed their build
     // caches first, so the commit copies less.
-    const prune = canPruneStoppedContainer(launch) && typeof runner?.pruneStoppedContainerCaches === 'function' ? () => runner.pruneStoppedContainerCaches(decision.containerName, { launch, verbose }) : null;
+    const prune = !requireRetained && canPruneStoppedContainer(launch) && typeof runner?.pruneStoppedContainerCaches === 'function' ? () => runner.pruneStoppedContainerCaches(decision.containerName, { launch, verbose }) : null;
     guarded = await runGuardedSnapshotResume({ sessionName, sessionInfo, containerName: decision.containerName, runner, notify, attempt: plan?.attempt ?? null, prune, verbose, ...snapshotGuard }, resume);
   }
   if (guarded.skipped) return { ...miss(IN_PLACE_SKIP_REASONS.INSUFFICIENT_DISK), error: guarded.detail };
@@ -226,7 +226,7 @@ export async function resumeKilledSessionInPlace({ sessionName, sessionInfo, pla
   if (!result?.success) {
     const reason = result?.unsupported ? IN_PLACE_SKIP_REASONS.UNSUPPORTED : IN_PLACE_SKIP_REASONS.REFUSED;
     if (verbose) console.log(`[VERBOSE] In-place resume of ${sessionName} was not possible (${reason}): ${result?.error || 'no reason given'}`);
-    return miss(reason);
+    return requireRetained ? { ...miss(reason), error: result?.error } : miss(reason);
   }
 
   // `docker-snapshot` names the new container `<session>-resume-<attempt>`; the

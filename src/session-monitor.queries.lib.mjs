@@ -53,6 +53,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
     const normalizedUrl = normalizeSessionUrl(url);
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionInfo.retainedForResume && !sessionInfo.explicitResumePending) continue;
       // Issue #1586: Auto-expire non-isolation sessions after timeout
       if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
         continue;
@@ -95,11 +96,12 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
    * @returns {{ sessionName: string, sessionId: string|null, sessionInfo: Object,
    *   isolationBackend: string|null, stoppable: boolean }|null} Match or null
    */
-  function findStoppableSessionByUrl(url, verbose = false) {
+  function findStoppableSessionByUrl(url, verbose = false, { includeRetained = false } = {}) {
     if (!url) return null;
     const normalizedUrl = normalizeSessionUrl(url);
+    let retained = null;
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-      if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
+      if ((sessionInfo.retainedForResume && !includeRetained) || !sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
         continue;
       }
       // Issue #1586: skip expired non-isolation sessions — they are no longer running.
@@ -109,25 +111,27 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       // The UUID `$ --stop` expects is the start-command session id. For
       // isolation sessions it is tracked either as sessionInfo.sessionId or as
       // the (UUID-shaped) session key itself.
-      const candidateId = sessionInfo.sessionId || sessionName;
-      const sessionId = SESSION_UUID_RE.test(candidateId) ? candidateId : null;
+      const candidateId = sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName;
+      const sessionId = SESSION_UUID_RE.test(candidateId) || sessionInfo.isolationBackend === 'docker' ? candidateId : null;
       const stoppable = Boolean(sessionInfo.isolationBackend && sessionId);
       if (verbose) {
         const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation';
         console.log(`[VERBOSE] findStoppableSessionByUrl: matched ${sessionName} for ${url} (${mode}, stoppable=${stoppable})`);
       }
-      return {
+      const match = {
         sessionName,
         sessionId,
         sessionInfo,
         isolationBackend: sessionInfo.isolationBackend || null,
         stoppable,
       };
+      if (!sessionInfo.retainedForResume) return match;
+      if (!retained || new Date(sessionInfo.startTime) > new Date(retained.sessionInfo.startTime)) retained = match;
     }
     if (verbose) {
       console.log(`[VERBOSE] findStoppableSessionByUrl: no tracked session for ${url}`);
     }
-    return null;
+    return retained;
   }
   /**
    * Async active-session check for command handlers.
@@ -146,9 +150,12 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     if (!url) return { isActive: false, sessionName: null };
     const normalizedUrl = normalizeSessionUrl(url);
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionName === options.exceptSessionName) continue;
       if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
         continue;
       }
+      if (sessionInfo.explicitResumePending) return { isActive: true, sessionName, status: 'resuming' };
+      if (sessionInfo.retainedForResume) continue;
       if (!sessionInfo.isolationBackend) {
         if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
           return { isActive: true, sessionName, status: null };
@@ -188,17 +195,16 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const sessions = [];
     const byTool = {};
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-      if (!sessionInfo.isolationBackend) {
-        continue;
-      }
-      const state = await getIsolationSessionState(sessionName, sessionInfo, {
-        verbose,
-        statusProvider: options.statusProvider,
-      });
-      if (!state.running) {
-        sessionInfo.lastKnownStatus = state.status || null;
-        sessionInfo.lastKnownExitCode = state.exitCode ?? null;
-        continue;
+      if (!sessionInfo.isolationBackend) continue;
+      if (!sessionInfo.explicitResumePending) {
+        if (sessionInfo.retainedForResume) continue;
+        const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose, statusProvider: options.statusProvider });
+        if (!state.running) {
+          sessionInfo.lastKnownStatus = state.status || null;
+          sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+          continue;
+        }
+        if (state.status === 'paused') continue;
       }
       const tool = sessionInfo.tool || 'claude';
       sessions.push(sessionName);
@@ -230,11 +236,15 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     const items = [];
     const screenChecker = options.screenChecker || checkScreenSessionExists;
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      if (sessionInfo.retainedForResume && !sessionInfo.explicitResumePending) continue;
       let running;
       let status = null;
+      let pausedAt = null;
       let processIds = sessionInfo.processIds || {};
       let screenSessionName = sessionInfo.screenSessionName || sessionName;
-      if (sessionInfo.isolationBackend) {
+      if (sessionInfo.explicitResumePending) {
+        status = 'resuming';
+      } else if (sessionInfo.isolationBackend) {
         // Forward every injectable seam so the listing applies the same #1927
         // stale-`executing` reconciliation the monitor does — a session that
         // start-command still reports as `executing` but whose backend is gone (or
@@ -249,6 +259,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
         });
         running = state.running;
         status = state.status || null;
+        pausedAt = state.statusResult?.pausedAt || sessionInfo.pausedAt;
         processIds = state.statusResult?.processIds || processIds;
         screenSessionName = state.statusResult?.screenSessionName || state.statusResult?.sessionName || screenSessionName;
         if (!running) {
@@ -279,6 +290,7 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
         url: sessionInfo.url || null,
         tool: sessionInfo.tool || 'claude',
         status,
+        ...(status === 'paused' ? { pausedAt } : {}),
         startTime: sessionInfo.startTime || null,
         // Issue #2408: a recovery session restarts `startTime`; the queue shows
         // the whole work's active time and how often it had to be recovered.
@@ -305,7 +317,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     }
     return {
       total: activeSessions.size,
-      executing: activeSessions.size,
+      executing: sessions.filter(session => session.explicitResumePending || (!session.paused && !session.retainedForResume)).length,
+      paused: sessions.filter(session => session.paused).length,
       executed: 0,
       successful: 0,
       failed: 0,
@@ -326,13 +339,15 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
   function findTrackedSessionByIdentifier(identifiers) {
     const wanted = new Set([...(typeof identifiers === 'string' ? [identifiers] : identifiers || [])].filter(Boolean).map(value => String(value).toLowerCase()));
     if (wanted.size === 0) return null;
+    let related = null;
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
       // Issue #1586: an expired non-isolation session is no longer running.
       if (!sessionInfo?.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, false)) continue;
-      const names = [sessionName, sessionInfo?.sessionId, sessionInfo?.executionUuid, sessionInfo?.rootSessionName, sessionInfo?.killRecoveryOfSession];
+      const names = [sessionName, sessionInfo?.sessionId, sessionInfo?.executionUuid, sessionInfo?.dockerContainerName];
       if (names.some(name => name && wanted.has(String(name).toLowerCase()))) return { sessionName, sessionInfo };
+      if ([sessionInfo?.rootSessionName, sessionInfo?.killRecoveryOfSession].some(name => name && wanted.has(String(name).toLowerCase()))) related = { sessionName, sessionInfo };
     }
-    return null;
+    return related;
   }
 
   return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier };

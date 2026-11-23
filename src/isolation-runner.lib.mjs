@@ -12,7 +12,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 import crypto from 'crypto';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { lookup as lookupHost } from 'node:dns/promises';
 import os from 'node:os';
@@ -45,8 +46,9 @@ export { findStartCommandBinary };
 // and the `docker update` limits helper a snapshot resume re-asserts.
 export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
-import { killDockerContainer } from './docker-container-control.lib.mjs';
+import { inspectDockerContainerState, killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
+export { cancelDockerTaskStop, inspectDockerContainerState, markDockerTaskForStop, pauseDockerSession, unpauseDockerSession } from './docker-container-control.lib.mjs';
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 import { checkDockerDaemonReachability } from './docker-daemon-preflight.lib.mjs';
@@ -181,7 +183,9 @@ export async function buildDockerIsolationStartArgs(command, args = [], options 
   const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME, dialect: routerEndpoint.dialect }) : {};
   const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
-  const startArgs = ['--isolated', 'docker', '--image', image];
+  // The monitor owns the container's end-of-task cleanup policy. An explicit
+  // stop must retain the container even if the child exits gracefully.
+  const startArgs = ['--isolated', 'docker', '--image', image, '--keep-container'];
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
     startArgs.push('--privileged');
   }
@@ -859,24 +863,23 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
  * @param {boolean} [verbose] - Enable verbose logging
  * @returns {Promise<{success: boolean, output: string, error: string|null}>}
  */
-export async function removeDockerContainer(containerName, verbose = false) {
+export async function removeDockerContainer(containerName, verbose = false, { force = true } = {}) {
   if (!containerName) {
     return { success: false, output: '', error: 'missing container name' };
   }
+  if (force && (await inspectDockerContainerState(containerName, verbose)) === 'paused') return { success: false, output: '', error: 'Container is paused.' };
+  const args = ['rm', ...(force ? ['-f'] : []), '--', containerName];
   try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false, signal: AbortSignal.timeout(DOCKER_CLI_TIMEOUT_MS) })`docker rm -f ${containerName}`;
-    const stdout = result.stdout?.toString() || '';
-    const stderr = result.stderr?.toString() || '';
+    const { stdout, stderr } = await promisify(execFile)('docker', args, { timeout: DOCKER_CLI_TIMEOUT_MS });
     if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' succeeded`);
+      console.log(`[VERBOSE] isolation-runner: docker rm '${containerName}' succeeded`);
     }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {
     const stderr = error?.stderr?.toString?.() || '';
     const stdout = error?.stdout?.toString?.() || '';
     if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
+      console.log(`[VERBOSE] isolation-runner: docker rm '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
     }
     return {
       success: false,

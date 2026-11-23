@@ -47,7 +47,7 @@ function fixture(t) {
     return JSON.parse(result.stdout);
   };
 
-  // The fake implements read endpoints and records every attempted mutation.
+  // github-retry-ok: this fixture installs a fake gh that only reads and writes fixture files.
   write(
     'gh',
     `#!${process.execPath}

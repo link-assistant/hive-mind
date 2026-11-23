@@ -131,7 +131,7 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
     const key = (byExecution && identity) || normalizeQueueUrl(session.url) || identity;
     if (key && byKey.has(key)) continue; // already represented by an in-memory item
     // Issue #2408: a recovery session counts from when the work started.
-    const since = session.rootStartTime || session.startTime || session.startedAt || session.createdAt;
+    const since = session.pausedAt || session.rootStartTime || session.startTime || session.startedAt || session.createdAt;
     const startMs = since ? new Date(since).getTime() : null;
     byKey.set(key || session.sessionName, {
       url: session.url || `${tool} (${session.pid ? `PID ${session.pid}` : session.sessionName})`,
@@ -139,6 +139,7 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
       // the generic "processing" label rendered by formatQueueProcessingItems.
       queueStatus: null,
       waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+      ...(session.status === 'paused' ? { paused: true } : {}),
       recoveries: Number.isFinite(session.recoveries) ? session.recoveries : 0,
     });
   }
@@ -174,7 +175,7 @@ export function formatQueueExecutingItems({ items, max = Infinity, locale, label
   for (const item of items.slice(0, max)) {
     // Issue #2408: `🔁 N` marks work that was automatically recovered N times.
     const recovered = item.recoveries > 0 ? `, 🔁 ${item.recoveries}` : '';
-    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (${item.paused ? '⏸' : '▶️'} ${formatDuration(item.waitMs, { locale })}${recovered})\n`;
   }
   if (items.length > max) {
     out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
@@ -297,11 +298,12 @@ export function partitionQueueHistory({ completed = [], failed = [], executing =
  * @param {string|null} opts.locale - Locale for labels/durations.
  * @returns {string} The formatted block (with a trailing blank line).
  */
-export function formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale }) {
+export function formatQueueToolSection({ tool, executing, paused = [], pendingItems, completed, failed, labels, max, locale }) {
   let block = `*${tool}*\n`;
 
   // Processing list.
   block += formatQueueExecutingItems({ items: executing, locale, label: labels.processing });
+  block += formatQueueExecutingItems({ items: paused, locale, label: labels.paused });
 
   // Pending list + the shared waiting reason once (when all items agree on it).
   block += formatQueuePendingItems({ items: pendingItems, locale, label: labels.pending });

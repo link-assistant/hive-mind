@@ -24,6 +24,7 @@ import { wrapRunnerWithTransientRetry } from './github-operation-retry.lib.mjs';
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
+import { getProtectedTaskContainerNames } from './session-store.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -357,7 +358,7 @@ export function parseDockerPsJsonLines(output) {
       .toLowerCase();
     const status = String(data.Status || data.status || '').trim();
     const exitCode = parseDockerContainerExitCode(status);
-    const running = state === 'running' || /^Up\b/i.test(status);
+    const running = state === 'running' || state === 'paused' || /^Up\b/i.test(status);
 
     for (const name of splitDockerNames(data.Names || data.Name || data.names || data.name)) {
       if (!isDockerIsolationSessionName(name)) continue;
@@ -384,9 +385,11 @@ export function parseDockerPsJsonLines(output) {
  *
  * @returns {Array}
  */
-export function listDockerIsolationContainers() {
+export async function listDockerIsolationContainers() {
   const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
-  return out ? parseDockerPsJsonLines(out) : [];
+  if (!out) return [];
+  const protectedNames = await getProtectedTaskContainerNames();
+  return parseDockerPsJsonLines(out).map(container => ({ ...container, retainForResume: protectedNames.has(container.name) }));
 }
 
 function listStartCommandLogFiles(logRoot, maxFiles) {
@@ -884,9 +887,12 @@ export function removePath(targetPath) {
  * @param {string} containerName
  * @returns {boolean}
  */
-export function removeDockerContainer(containerName) {
+export async function removeDockerContainer(containerName) {
   if (!isDockerIsolationSessionName(containerName)) return false;
-  return tryExec('docker', ['rm', '-f', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
+  if ((await getProtectedTaskContainerNames()).has(containerName)) return false;
+  const state = tryExec('docker', ['inspect', '--format', '{{.State.Paused}}', containerName], { timeout: 30000 });
+  if (!state || state.trim() !== 'false') return false;
+  return tryExec('docker', ['rm', '--', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
 }
 
 /**
@@ -906,7 +912,11 @@ export function removeDockerContainer(containerName) {
  */
 export async function runSystemCleanup(options = {}) {
   const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
-  const plan = buildSystemCleanupPlan({ apt, journal, docker, npm, journalVacuumTime, useSudo });
+  const protectedNames = docker ? await getProtectedTaskContainerNames() : new Set();
+  const containerNames = protectedNames.size ? execFn('docker', ['ps', '-a', '--format', '{{.Names}}']) : '';
+  const protectedContainer = protectedNames.size > 0 && (containerNames == null || containerNames.split('\n').some(name => protectedNames.has(name)));
+  if (protectedContainer) await logFn('   Docker system prune skipped to preserve retained task files.');
+  const plan = buildSystemCleanupPlan({ apt, journal, docker: docker && !protectedContainer, npm, journalVacuumTime, useSudo });
   const results = [];
 
   if (dryRun) {

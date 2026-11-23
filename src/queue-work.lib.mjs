@@ -188,8 +188,10 @@ export function mergeToolWork({ jobs = [], sessionItems = [], processingItems = 
   for (const job of jobs) {
     if (!items.some(item => item.tool === job.tool && processMatchesSession(job, item))) items.push(job);
   }
-  const byTool = Object.fromEntries(tools.map(tool => [tool, items.filter(item => item.tool === tool).length]));
-  return { items, byTool, total: Object.values(byTool).reduce((sum, count) => sum + count, 0) };
+  const paused = items.filter(item => item.status === 'paused');
+  const running = items.filter(item => item.status !== 'paused');
+  const byTool = Object.fromEntries(tools.map(tool => [tool, running.filter(item => item.tool === tool).length]));
+  return { items: running, ...(paused.length ? { paused } : {}), byTool, total: Object.values(byTool).reduce((sum, count) => sum + count, 0) };
 }
 
 /** Shared by compact/detailed display and admission. Supports legacy injected counters. */
@@ -208,7 +210,7 @@ export async function getQueueWorkSnapshot(queue, tools) {
   }
   const isolatedByTool = {};
   for (const session of sessionItems) {
-    if (session.isolationBackend) isolatedByTool[session.tool || 'claude'] = (isolatedByTool[session.tool || 'claude'] || 0) + 1;
+    if (session.isolationBackend && session.status !== 'paused') isolatedByTool[session.tool || 'claude'] = (isolatedByTool[session.tool || 'claude'] || 0) + 1;
   }
   const processingItems = [...queue.processing.values(), ...queue.startReservations.values()];
   const merged = mergeToolWork({ jobs, sessionItems, processingItems, tools });

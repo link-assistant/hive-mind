@@ -308,6 +308,7 @@ en
         code "exit code {{code}}"
       pending "pending"
       processing "processing"
+      paused "paused"
       processes "{{count}} processes"
       status
         cancelled "cancelled"
@@ -391,6 +392,29 @@ en
     week "week"
     weekly "Weekly"
   telegram
+    task
+      control
+        usage "Usage: /{{command}} <session ID or GitHub URL>, or reply to a task message."
+        list "Your Docker tasks"
+        empty "No matching Docker tasks."
+        unauthorized "This task is unavailable in this chat or topic."
+        missing "No tracked task matches this target."
+        owner "Only the task requester or the original chat owner can control this task."
+        conflict "A task for this URL is already running or queued."
+        failed "/{{command}}: {{error}}"
+        already
+          paused "Task {{session}} is already paused. RAM remains allocated. Use /unpause to continue it or /stop to release RAM."
+        not
+          paused "Task {{session}} is running and is not paused."
+        paused "Paused {{session}}. Its CPU slot is free and RAM remains allocated. Use /unpause to continue the same process or /stop to release RAM."
+        unpaused "Unpaused {{session}}. The same process is running."
+        resumed "Resumed {{session}} with its retained files."
+      state
+        paused "⏸ Paused"
+        running "Running"
+        stopped "Stopped ({{state}})"
+      pause
+        alert "Task {{session}} has been paused for at least an hour. Use /unpause to continue it or /stop to release RAM."
     fetching
       limits "🔄 Fetching usage limits..."
     gathering
@@ -524,6 +548,7 @@ en
           💡 Use /queue to check the queue status.
         """
       session
+        paused "This URL already has a paused task: `{{session}}`. Use /unpause {{session}} to continue it."
         running """
           ❌ A working session is already running for this URL.
 
@@ -676,6 +701,8 @@ en
       stop
         start "*/stop* / */start* - Stop or resume accepting new tasks (owner only)"
         uuid "*/stop* `<uuid>` - Send CTRL+C to an isolated solve/hive session (owner only). Also works as a reply to a message containing the UUID."
+      pause
+        resume "*/pause* freezes a Docker task and frees its CPU slot. RAM stays allocated. */unpause* continues the same process. Use */stop* to release RAM and */resume* to restart a stopped task. */list* shows your tasks and */status* shows one task. Pass a session ID or URL, or reply to its message."
       log "*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`"
       terminal
         watch "*/terminal\\_watch* (alias: */watch*) - Live-update an isolation session log (chat owner or session requester). Usage: `/terminal_watch <uuid>`, `/watch <uuid>`, or reply with either command"

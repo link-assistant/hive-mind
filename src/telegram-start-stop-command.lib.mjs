@@ -459,15 +459,17 @@ export function registerStartStopCommands(bot, options) {
       reply_to_message_id: message.message_id,
     });
 
-    // Issue #2052: mark the stop as user-initiated BEFORE forwarding CTRL+C, so
-    // even a fast SIGKILL race still finds the flag when the completion message
-    // is formatted.
     const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || null;
-    await markSessionStopRequestedSafe(sessionId, requestedBy);
-
     let result;
     try {
-      result = await stopIsolatedSessionImpl(sessionId, VERBOSE);
+      const track = options.stopTrackedDockerSession && (await lookupTrackedSessionInfo(sessionId));
+      if (track?.isolationBackend === 'docker') {
+        result = await options.stopTrackedDockerSession(sessionId, { requestedBy, verbose: VERBOSE });
+      } else {
+        // Mark before the signal so completion can report an intentional stop.
+        await markSessionStopRequestedSafe(sessionId, requestedBy);
+        result = await stopIsolatedSessionImpl(sessionId, VERBOSE);
+      }
     } catch (error) {
       console.error('[ERROR] /stop: stopIsolatedSession threw:', error);
       result = { success: false, output: '', error: error?.message || String(error) };
@@ -475,6 +477,7 @@ export function registerStartStopCommands(bot, options) {
 
     const trimmedOutput = (result.output || '').toString().trim();
     const trimmedError = (result.error || '').toString().trim();
+    const warning = (result.warning || '').toString().trim();
     const lines = [];
     if (result.success) {
       lines.push(`✅ Stop request sent to session \`${sessionId}\`.`);
@@ -495,6 +498,7 @@ export function registerStartStopCommands(bot, options) {
         lines.push('```');
       }
     }
+    if (warning) lines.push('', '⚠️', '```', warning.slice(0, 1000), '```');
 
     try {
       await safeEditMessageText(ctx.telegram, ack.chat.id, ack.message_id, undefined, lines.join('\n'), { verbose: VERBOSE });
@@ -582,7 +586,12 @@ export function registerStartStopCommands(bot, options) {
     // delivered as replies (issues #524, #1780).
     const message = ctx.message;
     const repliedTo = message?.reply_to_message || null;
-    const target = extractStopTarget(message?.text || '', repliedTo);
+    let target = extractStopTarget(message?.text || '', repliedTo);
+    const name = getTelegramCommandArgumentsText(message?.text).trim();
+    if (target.source !== 'argument' && /^[a-z\d][a-z\d_.-]*$/i.test(name)) {
+      const info = await lookupTrackedSessionInfo(name);
+      if (info?.isolationBackend === 'docker') target = { kind: 'uuid', value: name, source: 'argument' };
+    }
 
     if (target.kind === 'uuid') {
       const sessionId = target.value;

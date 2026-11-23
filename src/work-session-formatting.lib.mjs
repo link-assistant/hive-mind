@@ -236,6 +236,14 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     } else {
       statusText = text(messageLocale, 'telegram.work_session_recovering', `Work session still in progress: recovering from exit code ${finalExitCode}`, { exitCode: finalExitCode ?? '' });
     }
+  } else if (stopRequestedByUser && (killed || statusResult?.status === 'stopped')) {
+    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
+    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
+    // The template already says "by user". Drop '*' in the name because
+    // Telegram cannot escape it inside a bold Markdown span.
+    const requestedBy = sessionInfo?.stopRequestedBy ? ` (${String(sessionInfo.stopRequestedBy).replace(/\*/g, '')})` : '';
+    statusEmojiOverride = '🛑';
+    statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (finalExitCode === null && !killed && (sessionInfo?.killRecoveryResumed || sessionInfo?.recoveryLifecycle)) {
     statusEmojiOverride = '⚠️';
     statusText = 'Work session ended; final outcome could not be confirmed';
@@ -254,16 +262,6 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     // Issue #2408: the work completed, but only because it was recovered.
     statusEmojiOverride = '⚠️';
     statusText = text(messageLocale, 'telegram.work_session_recovered', 'Work session finished successfully after automatic recovery');
-  } else if (killed && stopRequestedByUser) {
-    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
-    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
-    // Issue #3505: the template already says "by user", so the name is shown in
-    // parentheses ("stopped by user by @op" before, and an English "by" in every
-    // locale). It sits inside the bold status, where Telegram cannot escape a
-    // `*` (a first name may contain one), so that character is dropped.
-    const requestedBy = sessionInfo?.stopRequestedBy ? ` (${String(sessionInfo.stopRequestedBy).replace(/\*/g, '')})` : '';
-    statusEmojiOverride = '🛑';
-    statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if ((failed || killed) && pullRequestMerged) {
     // Issue #2117: the runner's exit code is still authoritative and must not
     // be hidden, but calling the entire session "failed" contradicts the

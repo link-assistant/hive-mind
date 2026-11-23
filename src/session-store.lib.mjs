@@ -58,6 +58,7 @@ import path from 'node:path';
 const PERSISTABLE_FIELDS = [
   'chatId',
   'messageId',
+  'messageThreadId',
   'startTime',
   'url',
   'command',
@@ -99,6 +100,20 @@ const PERSISTABLE_FIELDS = [
   'recoveryLifecycle',
   'stopRequestedByUser',
   'stopRequestedBy',
+  'paused',
+  'pausedAt',
+  'pausedBy',
+  'pauseReason',
+  'pauseCount',
+  'pauseAlertedAt',
+  'pauseCardState',
+  'retainedForResume',
+  'dockerContainerName',
+  'explicitResumePending',
+  'explicitResumeLogStartBytes',
+  'pauseState',
+  'pauseWorkingDirectory',
+  'pauseRequestedBy',
   'onSessionKill',
   'resolvedPullRequestUrl',
   'fixProgress',
@@ -242,14 +257,16 @@ export function createSessionStore(options = {}) {
   const tmpPath = `${snapshotPath}.tmp`;
 
   async function writeSnapshotMap(sessions) {
-    if (!(await ensureDir())) return;
+    if (!(await ensureDir())) return false;
     try {
       // Atomic replace: write tmp then rename so a crash mid-write never leaves
       // a half-written snapshot.
       await fsp.writeFile(tmpPath, snapshotPayload(sessions));
       await fsp.rename(tmpPath, snapshotPath);
+      return true;
     } catch (error) {
       log('error', `Could not write session snapshot: ${error.message}`);
+      return false;
     }
   }
 
@@ -261,48 +278,65 @@ export function createSessionStore(options = {}) {
   let writing = null;
   let exiting = false;
 
-  const applyUpdates = (sessions, updates) => updates.reduce((changed, update) => update(sessions) || changed, false);
+  const applyUpdates = (sessions, updates) => updates.reduce((changed, { update }) => update(sessions) || changed, false);
 
   async function writeSnapshots() {
     while (pendingUpdates.length > 0 && !exiting) {
       const count = pendingUpdates.length;
       const sessions = await readSnapshotMap();
-      if (applyUpdates(sessions, pendingUpdates.slice(0, count))) await writeSnapshotMap(sessions);
+      const batch = pendingUpdates.slice(0, count);
+      const written = !applyUpdates(sessions, batch) || (await writeSnapshotMap(sessions));
       if (exiting) return;
-      pendingUpdates.splice(0, count);
+      for (const { resolve } of pendingUpdates.splice(0, count)) resolve?.(written);
     }
   }
 
   function flushSnapshotSync() {
     exiting = true;
-    if (pendingUpdates.length === 0 || disabled) return;
+    const batch = pendingUpdates.splice(0, pendingUpdates.length);
+    if (batch.length === 0) return;
+    if (disabled) {
+      for (const { resolve } of batch) resolve?.(false);
+      return;
+    }
     let sessions = {};
     try {
       sessions = parseSnapshot(fsImpl.readFileSync(snapshotPath, 'utf8')); // hive-sync-ok: exit handler, the event loop is gone
     } catch {
       /* missing or corrupt: start from empty, as the asynchronous path does */
     }
-    if (!applyUpdates(sessions, pendingUpdates.splice(0, pendingUpdates.length))) return;
+    let written = true;
     try {
-      fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: exit handler, the event loop is gone
-      fsImpl.writeFileSync(tmpPath, snapshotPayload(sessions)); // hive-sync-ok: exit handler, the event loop is gone
-      fsImpl.renameSync(tmpPath, snapshotPath); // hive-sync-ok: exit handler, the event loop is gone
+      if (applyUpdates(sessions, batch)) {
+        fsImpl.mkdirSync(dir, { recursive: true }); // hive-sync-ok: exit handler, the event loop is gone
+        fsImpl.writeFileSync(tmpPath, snapshotPayload(sessions)); // hive-sync-ok: exit handler, the event loop is gone
+        fsImpl.renameSync(tmpPath, snapshotPath); // hive-sync-ok: exit handler, the event loop is gone
+      }
     } catch (error) {
+      written = false;
       log('error', `Could not write session snapshot: ${error.message}`);
     }
+    for (const { resolve } of batch) resolve?.(written);
   }
 
-  function updateSnapshot(update) {
-    pendingUpdates.push(update);
+  function updateSnapshot(update, confirm = false) {
+    let resolve;
+    const written = confirm
+      ? new Promise(callback => {
+          resolve = callback;
+        })
+      : undefined;
+    pendingUpdates.push({ update, resolve });
     if (exiting) {
       flushSnapshotSync(); // hive-sync-ok: only after the exit handler ran
-      return;
+      return written;
     }
     if (!updating) {
       updating = writeSnapshots().finally(() => {
         updating = null;
       });
     }
+    return written;
   }
 
   async function writeEvents() {
@@ -368,16 +402,18 @@ export function createSessionStore(options = {}) {
      * @param {string} sessionName
      * @param {object} sessionInfo
      */
-    persist(sessionName, sessionInfo) {
+    persist(sessionName, sessionInfo, { replaceSessionName, confirm = false } = {}) {
       if (!sessionName) return;
       const serialized = serializeSessionInfo(sessionInfo);
       serialized.persistedAt = toIso(now());
-      updateSnapshot(sessions => {
+      const written = updateSnapshot(sessions => {
+        if (replaceSessionName && replaceSessionName !== sessionName) delete sessions[replaceSessionName];
         sessions[sessionName] = serialized;
         return true;
-      });
+      }, confirm);
       appendEvent('track', sessionName, { sessionInfo: serialized });
       log('debug', `Persisted session ${sessionName}`, { command: serialized.command, url: serialized.url });
+      return written;
     },
 
     /**
@@ -425,4 +461,10 @@ export function createSessionStore(options = {}) {
       return out;
     },
   };
+}
+
+/** Stopped workspaces to keep for explicit resume, plus durable freezes. */
+export async function getProtectedTaskContainerNames(store = createSessionStore()) {
+  const sessions = await store.load();
+  return new Set(sessions.filter(({ sessionInfo }) => sessionInfo.isolationBackend === 'docker' && (sessionInfo.paused || sessionInfo.pauseState || sessionInfo.stopRequestedByUser || sessionInfo.retainedForResume || sessionInfo.explicitResumePending)).map(({ sessionName, sessionInfo }) => sessionInfo.dockerContainerName || sessionInfo.sessionId || sessionName));
 }

@@ -520,7 +520,7 @@ function normalizeDockerContainer(container) {
   const state = normalizeText(container?.state || container?.State);
   const statusText = String(container?.status ?? container?.Status ?? '').trim();
   const exitCode = normalizeExitCode(container?.exitCode ?? container?.ExitCode ?? parseDockerContainerExitCode(statusText));
-  const running = container?.running === true || state === 'running' || /^Up\b/i.test(statusText);
+  const running = container?.running === true || state === 'running' || state === 'paused' || /^Up\b/i.test(statusText);
   return {
     ...container,
     id: container?.id || container?.ID || null,
@@ -593,7 +593,11 @@ export function planDockerIsolationCleanup(options = {}) {
     let reason;
     let action = 'keep';
 
-    if (mode === 'none') {
+    if (container.state === 'paused') {
+      reason = 'paused-task';
+    } else if (container.retainForResume) {
+      reason = 'retained-task';
+    } else if (mode === 'none') {
       reason = 'disabled';
     } else if (outcome.running) {
       reason = 'active-container';
@@ -628,6 +632,8 @@ export function planDockerIsolationCleanup(options = {}) {
 export function describeDockerIsolationReason(reason) {
   const map = {
     disabled: 'docker-isolation cleanup disabled',
+    'paused-task': 'paused task',
+    'retained-task': 'task files kept for resume',
     'active-container': 'running docker-isolation task',
     'unknown-container-state': 'container state is not terminal',
     'successful-container': 'successful docker-isolation task container',

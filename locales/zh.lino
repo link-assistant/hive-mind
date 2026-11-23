@@ -308,6 +308,7 @@ zh
         code "退出码 {{code}}"
       pending "等待"
       processing "处理中"
+      paused "已暂停"
       processes "{{count}} 个进程"
       status
         cancelled "已取消"
@@ -391,6 +392,29 @@ zh
     week "周"
     weekly "每周"
   telegram
+    task
+      control
+        usage "用法：/{{command}} <会话 ID 或 GitHub URL>，也可以回复任务消息。"
+        list "你的 Docker 任务"
+        empty "没有匹配的 Docker 任务。"
+        unauthorized "此任务在当前聊天或话题中不可用。"
+        missing "找不到匹配的任务。"
+        owner "只有任务发起人或原聊天的所有者可以控制此任务。"
+        conflict "此 URL 已有任务正在运行或排队。"
+        failed "/{{command}}：{{error}}"
+        already
+          paused "任务 {{session}} 已暂停，仍占用 RAM。使用 /unpause 继续，或使用 /stop 释放 RAM。"
+        not
+          paused "任务 {{session}} 正在运行，未暂停。"
+        paused "已暂停 {{session}}。CPU 槽位已释放，RAM 仍被占用。使用 /unpause 继续同一进程，或使用 /stop 释放 RAM。"
+        unpaused "已解除 {{session}} 的暂停，同一进程正在运行。"
+        resumed "已使用保留的文件重启 {{session}}。"
+      state
+        paused "⏸ 已暂停"
+        running "运行中"
+        stopped "已停止（{{state}}）"
+      pause
+        alert "任务 {{session}} 已暂停至少一小时。使用 /unpause 继续，或使用 /stop 释放 RAM。"
     fetching
       limits "🔄 正在获取使用限额……"
     gathering
@@ -524,6 +548,7 @@ zh
           💡 使用 /queue 查看队列状态。
         """
       session
+        paused "此 URL 已有暂停的任务：`{{session}}`。使用 /unpause {{session}} 继续。"
         running """
           ❌ 该 URL 已有正在运行的工作会话。
 
@@ -676,6 +701,8 @@ zh
       stop
         start "*/stop* / */start* - 停止或恢复接收新任务（仅所有者）"
         uuid "*/stop* `<uuid>` - 向隔离的 solve/hive 会话发送 CTRL+C（仅所有者）。也可回复包含 UUID 的消息。"
+      pause
+        resume "*/pause* 冻结 Docker 任务并释放 CPU 槽位，RAM 仍被占用。*/unpause* 继续同一进程。使用 */stop* 释放 RAM，使用 */resume* 重启已停止的任务。*/list* 列出你的任务，*/status* 显示单个任务状态。可提供会话 ID 或 URL，也可回复任务消息。"
       log "*/log* - 获取隔离会话日志（仅所有者）。用法：`/log <uuid>` 或回复 `/log`"
       terminal
         watch "*/terminal\\_watch*（别名：*/watch*）- 实时更新隔离会话日志（聊天所有者或会话请求者）。用法：`/terminal_watch <uuid>`、`/watch <uuid>`，或用任一命令回复"

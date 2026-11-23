@@ -216,7 +216,7 @@ const { installTelegramContextSafety } = await import('./telegram-context-safety
 const { installTelegramCommandRouting, TELEGRAM_ROUTING_UPDATES } = await import('./telegram-command-routing.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, stopTrackedDockerSession, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
 const { createSessionStore, resolveBotStateDir } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
@@ -740,7 +740,8 @@ async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, s
     // Issue #1567: Prevent concurrent sessions on the same PR/issue
     const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
     if (activeSession.isActive && !isAwaitedTaskUrl(waitTargets, normalizedUrl)) {
-      return fail(t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale })); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
+      const messageKey = activeSession.status === 'paused' ? 'telegram.url_session_paused' : 'telegram.url_session_running';
+      return fail(t(messageKey, { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale })); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
     }
     const queueStats = solveQueue.getStats();
     const hasPendingQueueItems = queueStats.queued > 0;
@@ -954,9 +955,11 @@ bot.command(/^hive$/i, detachedHiveCommand);
 
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
+const { registerPauseResumeCommands } = await import('./telegram-pause-resume-command.lib.mjs');
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
-const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
+const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, stopTrackedDockerSession, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
+const taskControlHandlers = registerPauseResumeCommands(bot, { ...sharedCommandOpts, getSolveQueue, claimUrl: url => launchingUrls.claim(url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase()) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
@@ -1061,6 +1064,7 @@ const fallbackHandlers = {
   queue: handleSolveQueueCommand,
   models: detach(handleModelsCommand, { lane: modelsLane }),
   stop: detach(handleStopCommand),
+  ...taskControlHandlers,
 };
 bot.on('message', async (ctx, next) => {
   const text = ctx.message?.text;

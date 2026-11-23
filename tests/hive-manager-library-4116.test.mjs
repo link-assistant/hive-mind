@@ -177,6 +177,8 @@ else process.exitCode = 93;
   assert.deepEqual(preview(uuid), { mode: 'preview', outcomes: [] });
   writeFileSync(inventory, JSON.stringify({ [id]: container }));
   assert.deepEqual(preview(uuid.toUpperCase()), { mode: 'preview', outcomes: [{ uuid, container: 'task-resume-1', state: 'eligible' }] });
+  writeFileSync(join(cwd, 'start-command', 'package.json'), JSON.stringify({ name: 'start-command', version: '0.45.0' }));
+  assert.deepEqual(preview(uuid), { mode: 'preview', outcomes: [{ uuid, container: 'task-resume-1', state: 'eligible' }] });
   const applied = jsonOutput(cli(['repair-records', '--apply', uuid]));
   assert.deepEqual(applied, { mode: 'apply', outcomes: [{ uuid, container: 'task-resume-1', state: 'repaired' }] });
   assert.equal(JSON.parse(readFileSync(store, 'utf8'))[0].status, 'executing');

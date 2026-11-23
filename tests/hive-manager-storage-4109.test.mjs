@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { readCleanupStatus, scopedCleanup } from '../src/hive-manager/storage/cleanup.mjs';
+import { readCleanupStatus, reviewedInstanceCleanup, scopedCleanup } from '../src/hive-manager/storage/cleanup.mjs';
 import { snapshotUpper } from '../src/hive-manager/storage/lib/containerd.mjs';
 import { openTree, planFiles, removeApproved } from '../src/hive-manager/storage/lib/files.mjs';
 import { MemoryPressure, memoryGuard, output, run } from '../src/hive-manager/storage/lib/process.mjs';
@@ -207,6 +207,45 @@ test('scoped preview skips paused and stopped tasks and protects host bind sourc
   assert.equal(existsSync(eligible), false);
   assert.equal(readFileSync(hidden, 'utf8'), 'protected by paused task');
   assert.equal(existsSync(join(root, 'task.log')), true);
+});
+
+test('an instance-only preview excludes other scopes and approval binds the local endpoint and deployment incarnation', { skip: !linux }, async t => {
+  const { cwd, root, state, row } = fixture(t);
+  const instance = 'selected-instance';
+  const identity = `${id}/${process.pid}/now`;
+  const endpoint = 'unix:///run/docker.sock';
+  const path = join(cwd, 'task-output');
+  writeFileSync(path, 'task output to preserve');
+  const docker = async args => {
+    if (args[0] === 'info') return root;
+    assert.deepEqual(args.slice(0, 2), ['container', 'inspect']);
+    assert.ok([instance, id].includes(args.at(-1)));
+    return JSON.stringify(row(id, instance, 'running'));
+  };
+  const scopes = [];
+  const plan = await scopedCleanup({
+    docker,
+    directory: state,
+    stateDir: state,
+    instance,
+    check() {},
+    scan: async (_paths, _docker, container) => {
+      assert.equal(container, id);
+      return [path];
+    },
+    progress: scope => scopes.push(scope),
+  });
+  assert.equal(plan.scope, identity);
+  assert.deepEqual(plan.plans, [{ identity, files: [] }]);
+  assert.deepEqual(scopes, [{ name: instance, files: 0, bytes: 0 }]);
+  assert.equal(readFileSync(path, 'utf8'), 'task output to preserve');
+
+  chmodSync(state, 0o700);
+  writeFileSync(join(state, 'status.json'), JSON.stringify({ id: uuid, status: 'completed', mode: 'preview', scopes }));
+  writeFileSync(join(state, 'preview.json'), JSON.stringify({ id: uuid, endpoint, instance, stateDir: state, scope: identity }));
+  assert.deepEqual(await reviewedInstanceCleanup(state, endpoint, instance, `${state}/.`, uuid, identity), { id: uuid, scopes });
+  await assert.rejects(reviewedInstanceCleanup(state, 'unix:///tmp/another.sock', instance, state, uuid, identity), /latest completed/);
+  await assert.rejects(reviewedInstanceCleanup(state, endpoint, instance, state, uuid, `${id}/1/new`), /latest completed/);
 });
 
 test('layer cleaning unlinks only approved, unchanged files proven in the writable layer', { skip: !linux }, t => {

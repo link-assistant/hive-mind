@@ -56,6 +56,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   apply | update        Deploy or replace the instance, keeping a rollback
   rollback              Switch back to the previous container
   recover               Complete or undo an interrupted rollout
+  auto-fix              Preview, apply or check profile-scoped operations recovery
   status | logs         Show instance status or stream Docker logs
   start | stop | restart
                         Control the instance
@@ -127,6 +128,7 @@ maintenance_spec() {
   case "$1" in
     cleanup|hive-cleanup) bin=hive-cleanup; module=cleanup.mjs ;;
     deploy-storage) bin=hive-manager; module=hive-manager/storage/main.mjs ;;
+    deploy-auto-fix) bin=hive-manager; module=hive-manager/auto-fix/main.mjs ;;
     configure-claude) bin=configure-claude; module=configure-claude.mjs ;;
     screens|hive-screens) bin=hive-screens; module=hive-screens.mjs ;;
     models|hive-models) bin=hive-models; module=hive-models.mjs ;;
@@ -144,6 +146,7 @@ maintenance_spec() {
     task-recover-failed) bin=hive-manager; module=hive-manager/task/recover-failed.mjs ;;
     task-recover-queue) bin=hive-manager; module=hive-manager/task/recover-queue.mjs ;;
     task-repair-records) bin=hive-manager; module=hive-manager/task/repair-records.mjs ;;
+    task-lifecycle) bin=hive-manager; module=hive-manager/task/lifecycle.mjs ;;
     close-linked-issues) bin=close-linked-issues; module=close-linked-issues.mjs ;;
     *) return 1 ;;
   esac
@@ -187,6 +190,11 @@ run_maintenance() {
   # The package provides the same entry points for standalone use and older images.
   local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
   [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
+  if [[ $action == deploy-auto-fix ]]; then
+    local deploy_flags=(--name "$1" --state-dir "$2" --variant "$4")
+    if [[ $3 ]]; then deploy_flags+=(--docker-socket "$3"); fi
+    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager deploy "${deploy_flags[@]}" auto-fix "${@:5}"
+  fi
   if [[ $action == deploy-storage ]]; then
     local subcommand=() storage_action=$1 socket=$2 name=$3 state_dir=$4
     shift 4
@@ -1686,6 +1694,7 @@ deploy() {
     backup) backup_state "$@"; return ;;
     restore) restore_state "$@"; return ;;
     diagnose) require docker; diagnose "$@"; return ;;
+    auto-fix) run_maintenance deploy-auto-fix "$name" "$state_dir" "$socket" "$variant" "$@" ;;
     reboot)
       [[ $# == 1 && $1 == --confirm ]] || fail "Usage: deploy reboot --confirm"
       require systemctl
@@ -1804,7 +1813,7 @@ main() {
     tasks)
       shift
       case "${1-}" in
-        report|check-browser|check-uploads|recover-failed|repair-records|recover-queue) run_maintenance "task-$1" "${@:2}" ;;
+        report|check-browser|check-uploads|recover-failed|repair-records|recover-queue|lifecycle) run_maintenance "task-$1" "${@:2}" ;;
         backup-container) task_container_backup "${@:2}"; return ;;
         cleanup-backed-up) task_cleanup_backed_up "${@:2}"; return ;;
       esac

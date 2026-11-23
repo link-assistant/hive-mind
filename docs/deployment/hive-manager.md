@@ -134,6 +134,34 @@ Each package operation is available locally and inside a managed deployment. Use
 
 `deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for bounded host and task storage accounting and `deploy diagnose` for resource usage, exit status and OOM information. `deploy start`, `stop` and `restart` manage the selected container. On systemd hosts, `deploy docker-service status` checks the host daemon and `deploy docker-service start` starts it. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges. `audit-config --repair` applies Hive Mind's existing global agent settings repair and quarantines supported non-baseline additions.
 
+### Profile-scoped auto-fix
+
+Run `deploy auto-fix` on the Linux Docker daemon host with Node.js 24+ and a local Docker Unix socket. Use the same manager release on the host and in the existing deployment. The task checks run as the deployment's `box` user. Docker task recovery needs access to the task daemon and its storage from that instance. Record repair also needs the pinned start-command 0.44.0. Run apply and status as root with `flock`. The optional daemon startup needs systemd and the default system socket. Pass your deployment profile and any OpenSSH routing options as usual. The profile file is read on the selected host.
+
+The preview returns JSON and reads host uptime, bounded journal counts and Docker state. It checks host memory and available blocks and inodes on the host, deployment state, receipt and daemon filesystems. It inventories tasks from the saved execution store, including observed watchers and previously recorded attachments, and shows active Docker task containers with missing records. Watcher observation is a point-in-time process check. An unobserved watcher on an executing record calls for operator review. The lifecycle leaves existing task containers and watchers in place.
+
+Supply the policy for each run. By default, auto-fix only observes. The optional mutations run in this order:
+
+1. `--start-docker` allows an inactive systemd Docker service to start. `--start-instance` allows the existing stopped deployment container to start. Each startup is a separate approval when later phases cannot be inspected. Preview again after startup to review newly visible work.
+2. `--cleanup-preview UUID` authorizes the reviewed file list from the latest completed `deploy cleanup --scoped --instance-only --dry-run` for this profile and container incarnation. This scope considers only eligible APT archive cache files in the selected instance's writable layer. The scoped worker checks memory and rescans file identity before unlinking. Review the cleanup status and its preview file before including its UUID. Use root for the auto-fix preview with this option so it can read the private cleanup receipt.
+3. Repeat `--repair-record UUID` for exact detached resumes whose saved record can be repaired safely. Auto-fix rechecks the running container and skips a repair if it observes an existing watcher. Check `tasks status UUID` for the current attempt before approving repair.
+4. `--recover-limit COUNT` reviews up to 10 first retries for confirmed memory failures. Use `--recover-execution UUID --recover-attempt NUMBER [--max-resumes COUNT]` for a known Telegram alias failure or a later eligible attempt. Recovery skips active and paused families, bot-tracked tasks, watched failures, and superseded failures. It verifies the stopped container attribution and space for the snapshot before each launch. The receipt records acceptance of the resume and its attempt number. Use `deploy tasks status UUID` for the attempt's eventual exit.
+
+Use the same policy flags for preview and apply. Review `phases`, `blockers`, and `actions` before using the approval digest. A null approval means no mutation is currently proposed. A digest binds the deployment, boot, and reviewed mutations. Apply recomputes the plan and checks the instance and resources before each mutation. A blocked recovery candidate can coexist with a different eligible action. Check the full blockers list even if an apply completes.
+
+```sh
+hive-manager deploy --profile /etc/hive/staging.profile auto-fix --recover-limit 2
+sudo hive-manager deploy --profile /etc/hive/staging.profile auto-fix --recover-limit 2 --apply sha256:PLAN_SHA256
+sudo hive-manager deploy --profile /etc/hive/staging.profile auto-fix --status
+sudo hive-manager deploy --profile /etc/hive/staging.profile auto-fix --status --run RUN_UUID
+```
+
+Apply returns a run ID while the worker keeps running on the host. The worker holds an exclusive lock per instance name and writes private, durable receipts under `/var/lib/hive-manager/auto-fix/<name>/`. After an SSH disconnect, check status before submitting another apply. After a worker or host interruption, a `running` action in an `interrupted` receipt may have taken effect. An `uncertain` receipt means a mutation could not be confirmed. Compare the recorded Docker identity, cleanup job, task attempt and watcher against live state. After reconciling the interrupted run, generate a fresh preview and apply it with `--after-interruption RUN_UUID`. Completed actions stay in the original receipt. A repeated submission of the latest completed digest returns the existing receipt.
+
+For rollback, preserve a deployment backup before repair or cleanup if you need to restore state or cache contents. A started instance can be stopped explicitly after confirming that doing so will preserve active work. Review daemon changes separately on a shared host. Leave a repaired execution and its watcher together while it runs. Use the retained task container and attempt history to investigate a resumed task, and use the existing task pause or stop procedures if necessary. Cleanup removes the approved cache files. Restore a retained copy or repopulate the cache if needed.
+
+Keep host selection, deployment policy, schedules, and incident destinations in the caller. Incident publication uses its own reviewed `tasks report --incident` approval. JavaScript callers on the deployment host can import `previewAutoFix(options)`, `applyAutoFix(options, approval, { afterInterruption })`, and `getAutoFixStatus({ name }, { runId })` from `@link-assistant/hive-mind/hive-manager`.
+
 ### Scoped tool maintenance
 
 Each action previews by default and writes a JSON receipt to stdout. Save the receipt if a scheduler or an incident report needs it. Add `--apply` after the action once you have reviewed the plan.

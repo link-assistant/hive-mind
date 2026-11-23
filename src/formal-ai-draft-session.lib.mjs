@@ -5,7 +5,6 @@ export const draftSessionReceiptPath = logFile => `${logFile}.outcome.json`;
 
 /** Solve measures changes against the working session baseline before it publishes diagnostics. */
 export async function writeDraftSessionReceipt(logFile, { measured, noChanges, terminalState, evidence }) {
-  if (process.env.HIVE_MIND_FORMAL_AI_DRAFT !== '1' || !logFile) return;
   await writeFile(draftSessionReceiptPath(logFile), JSON.stringify({ schema: DRAFT_SESSION_SCHEMA, measured, noChanges, terminalState, evidence }), { mode: 0o644 });
 }
 

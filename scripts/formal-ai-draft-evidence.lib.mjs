@@ -105,16 +105,15 @@ export function publishDraftOutcome(outcome, setOutput, { final = false } = {}) 
 }
 
 /** Keep full logs in the artifact, through the same publication sanitizer as solve. */
-export async function stageDraftEvidence({ logDir, destination, outcome, sanitize }) {
+export async function stageDraftEvidence({ logDir, destination, outcome }) {
   await mkdir(destination, { recursive: true });
   await saveDraftOutcome(destination, outcome);
-  const { sanitizeLogFileToFileBounded } = sanitize ? {} : await import('../src/log-sanitize-worker.lib.mjs');
-  const publish = sanitize ?? sanitizeLogFileToFileBounded;
+  const { sanitizeLogFileToFileBounded } = await import('../src/log-sanitize-worker.lib.mjs');
   let sessionLogs = 0;
   for (const name of await listSessionLogs(logDir).catch(() => [])) {
     const destPath = join(destination, name);
     try {
-      await publish({ sourcePath: join(logDir, name), destPath });
+      await sanitizeLogFileToFileBounded({ sourcePath: join(logDir, name), destPath });
       if (name.startsWith('solve-')) sessionLogs++;
     } catch {
       await rm(destPath, { force: true });

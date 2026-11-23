@@ -192,21 +192,16 @@ test('the direct Formal AI workflow entry point publishes a consumable draft rec
 test('artifact staging only sends recognized logs through the sanitizer', async () => {
   const root = await mkdtemp(join(tmpdir(), 'draft-artifact-3910-'));
   try {
-    await writeFile(join(root, 'solve-a.log'), 'secret');
+    const fixtureCredential = '0123456789abcdef'.repeat(3);
+    await writeFile(join(root, 'solve-a.log'), `Authorization: Bearer ${fixtureCredential}\nretained session message\n`);
     await writeFile(join(root, 'attempt.stdout.log'), 'raw caller capture');
     await symlink(join(root, 'solve-a.log'), join(root, 'solve-b.log'));
     const destination = join(root, 'sanitized');
-    const count = await stageDraftEvidence({
-      logDir: root,
-      destination,
-      outcome: october,
-      sanitize: async ({ sourcePath, destPath }) => {
-        assert.equal(await readFile(sourcePath, 'utf8'), 'secret');
-        await writeFile(destPath, '[REDACTED]');
-      },
-    });
+    const count = await stageDraftEvidence({ logDir: root, destination, outcome: october });
     assert.equal(count, 1);
-    assert.equal(await readFile(join(destination, 'solve-a.log'), 'utf8'), '[REDACTED]');
+    const sanitized = await readFile(join(destination, 'solve-a.log'), 'utf8');
+    assert.ok(!sanitized.includes(fixtureCredential));
+    assert.match(sanitized, /retained session message/u);
     await assert.rejects(readFile(join(destination, 'solve-b.log')), { code: 'ENOENT' });
     await assert.rejects(readFile(join(destination, 'attempt.stdout.log')), { code: 'ENOENT' });
   } finally {

@@ -6,8 +6,8 @@ import { draftRunLinks, loadDraftOutcome, publishDraftOutcome, stageDraftEvidenc
 import { makeDraftOutcome, withActionsEvidence } from './formal-ai-draft-outcome.lib.mjs';
 
 const env = process.env;
-const logDir = env.FORMAL_AI_DRAFT_LOG_DIR || join(env.RUNNER_TEMP, 'formal-ai-draft-logs');
-const destination = env.FORMAL_AI_DRAFT_EVIDENCE_DIR || join(env.RUNNER_TEMP, 'formal-ai-draft-evidence');
+const logDir = env.FORMAL_AI_DRAFT_LOG_DIR || join(env.RUNNER_TEMP || '/tmp', 'formal-ai-draft-logs');
+const destination = env.FORMAL_AI_DRAFT_EVIDENCE_DIR || join(env.RUNNER_TEMP || '/tmp', 'formal-ai-draft-evidence');
 const setOutput = text => {
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, text);
 };

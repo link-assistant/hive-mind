@@ -24,7 +24,7 @@
  * @see docs/FORMAL-AI-DRAFTS.md
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -118,7 +118,15 @@ const links = dryRun ? null : await draftRunLinks(env);
 const target = issueUrlFor(issue);
 const imageOptions = { override: env.FORMAL_AI_DRAFT_IMAGE, version: JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version };
 let image = resolveDraftImages(imageOptions).image;
-const runtime = { workflowVersion: imageOptions.version, sourceSha: env.HIVE_MIND_SOURCE_SHA || env.GITHUB_SHA || null, imageDigest: null, binarySha256: null };
+const runtime = { workflowVersion: imageOptions.version, sourceSha: null, formalAiSourceSha: null, imageDigest: null, binarySha256: null };
+if (!dryRun) {
+  try {
+    runtime.sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: new URL('../', import.meta.url), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    // A launcher copied outside a checkout has no verified source revision.
+  }
+  if (/^[0-9a-f]{40}$/u.test(env.FORMAL_AI_DRAFT_SOURCE_SHA ?? '')) runtime.formalAiSourceSha = env.FORMAL_AI_DRAFT_SOURCE_SHA;
+}
 
 const record = async details => {
   const outcome = makeDraftOutcome({ target, runtime: { ...runtime, image }, links, ...details });

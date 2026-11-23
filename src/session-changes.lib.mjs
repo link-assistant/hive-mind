@@ -273,10 +273,13 @@ export const buildFinishedWithoutChangesComment = ({ reason, keepsDraft = true }
  */
 export const reportSessionWithoutChanges = async ({ owner, repo, prNumber, issueNumber = null, $, log = noopLog }) => {
   const outcome = await evaluateSessionChanges({ owner, repo, prNumber, issueNumber, $, log });
-  try {
-    await writeDraftSessionReceipt(baseline?.logFile, outcome);
-  } catch (error) {
-    await log(`⚠️  Could not write the Formal AI draft session receipt: ${error.code || 'unknown error'}`, { verbose: true });
+  if (process.env.HIVE_MIND_FORMAL_AI_DRAFT === '1' && baseline?.logFile) {
+    const terminalState = outcome.terminalState ?? (isFormalAiModel(baseline.model) ? extractFormalAiTerminalState(readRunLog()) : null);
+    try {
+      await writeDraftSessionReceipt(baseline.logFile, { ...outcome, terminalState });
+    } catch (error) {
+      await log(`⚠️  Could not write the Formal AI draft session receipt: ${error.code || 'unknown error'}`, { verbose: true });
+    }
   }
   if (!outcome.measured) {
     verdict = null;

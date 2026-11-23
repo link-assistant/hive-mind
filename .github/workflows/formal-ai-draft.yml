@@ -92,9 +92,6 @@ jobs:
           node-version: 24.x
       - name: Install automation dependencies
         run: npm ci --omit=dev --ignore-scripts
-
-      - name: Record the checked-out Hive Mind revision
-        run: echo "HIVE_MIND_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Report actual draft attempts over seven days
         env:
           GH_TOKEN: ${{ github.token }}

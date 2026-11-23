@@ -138,10 +138,16 @@ export async function previewProfileRecovery(policy) {
 
 export async function applyProfileRecovery(policy, { id, attempt, approval }) {
   return recoveryLock(async () => {
-    const entry = (await currentPlan({ ...policy, execution: id, attempt, limit: 1 })).find(({ task }) => task.uuid === id);
+    const selection = { ...policy, execution: id, attempt, limit: 1 };
+    const [entry] = await currentPlan(selection);
     if (!entry) return { id, attempt, state: 'changed' };
-    const { candidate, command } = await reviewCandidate(entry, true, await observedWatchers());
+    const { candidate, command } = await reviewCandidate(entry, true);
     if (!candidate.approval || candidate.approval !== approval) return { id, attempt, state: 'changed', snapshot: candidate.snapshot };
+    // Snapshot sizing can take time. Recheck the family and watcher just before resuming.
+    const [current] = await currentPlan(selection);
+    if (!current || !sameFailure(entry, current)) return { id, attempt, state: 'changed' };
+    const watchers = await observedWatchers();
+    if (watchers.has(current.container) || watchers.has(candidate.snapshot.containerId.slice(7))) return { id, attempt, state: 'changed' };
     try {
       await resumeCandidate(id, command);
       return { id, attempt, nextAttempt: candidate.nextAttempt, state: 'resumed' };

@@ -41,6 +41,7 @@ if (action === 'info') {
 } else if (action === 'container' && resource === 'inspect') {
   const row = records.find(task => task.options.sessionName === args.at(-1));
   if (!row) process.exit(1);
+  if (process.env.AUTO_FIX_TASK_ACTION === 'recover' && data.watchDuringSnapshot) writeFileSync(join(dir, 'new-watcher'), row.options.sessionName);
   print({ id: row.options.containerId, name: '/' + row.options.sessionName, state: 'exited', exitCode: row.exitCode, size: 1048576, labels: { 'start-command.uuid': row.uuid } });
 } else if (action === 'start' && host && args.at(-1) === 'f'.repeat(64) && data.instanceStatus === 'exited') {
   writeFileSync(join(dir, 'controls.json'), JSON.stringify({ ...data, instanceStatus: 'running' }));
@@ -52,7 +53,7 @@ if (action === 'info') {
     writeFileSync(join(dir, 'interruption'), JSON.stringify({ worker: process.ppid, child: process.pid }));
     setInterval(() => {}, 1000);
   } else {
-    const result = spawnSync(process.env.AUTO_FIX_MANAGER, ['tasks', 'lifecycle', taskAction, args.at(-1)], { encoding: 'utf8', timeout: 10000 });
+    const result = spawnSync(process.env.AUTO_FIX_MANAGER, ['tasks', 'lifecycle', taskAction, args.at(-1)], { encoding: 'utf8', timeout: 10000, env: { ...process.env, AUTO_FIX_TASK_ACTION: taskAction } });
     process.stdout.write(result.stdout ?? '');
     process.stderr.write(result.stderr ?? '');
     process.exitCode = result.status ?? 1;
@@ -79,7 +80,7 @@ function fixture(t) {
   const file = (name, content) => writeFileSync(join(bin, name), content, { mode: 0o700 });
   file('docker', '#!/usr/bin/env node\n' + dockerFixture);
   file('df', '#!/bin/sh\nprintf "Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/mock 99999999 9 %s 1%% /\\n" "$(cat "$AUTO_FIX_FIXTURE/free")"\n');
-  file('ps', '#!/bin/sh\nprintf "%s\\n" "docker wait active-task"\n');
+  file('ps', '#!/bin/sh\nprintf "%s\\n" "docker wait active-task"\nif [ -f "$AUTO_FIX_FIXTURE/new-watcher" ]; then printf "docker wait %s\\n" "$(cat "$AUTO_FIX_FIXTURE/new-watcher")"; fi\n');
   file('journalctl', '#!/bin/sh\nexit 0\n');
   file(
     'systemctl',
@@ -279,6 +280,22 @@ test('startup requires separate approvals and never starts a paused deployment',
   const paused = await previewAutoFix(startup);
   assert.equal(paused.approval, null);
   assert.match(paused.blockers[0].reason, /is paused/);
+});
+
+test('recovery preserves a watcher that appears while checking snapshot space', { timeout: 15000 }, async t => {
+  const { directory, options, root, receipts, update } = fixture(t);
+  const recovery = { ...options, recovery: { limit: 1 } };
+  update({ daemon: true, watchDuringSnapshot: true });
+  const plan = await previewAutoFix(recovery);
+  assert.equal(plan.actions[0].candidate.id, ids[2]);
+  const started = await launchAutoFix(autoFixPolicy(recovery), plan.approval, undefined, root);
+  const result = await until(
+    () => receiptStatus(receipts, started.id),
+    receipt => receipt.status !== 'running'
+  );
+  assert.equal(result.status, 'blocked');
+  assert.equal(readFileSync(join(directory, 'new-watcher'), 'utf8'), 'first-failure');
+  assert.equal(existsSync(join(directory, 'resumed')), false);
 });
 
 test('host preflight blocks mutations and defers recovery review while preserving task inventory', { timeout: 15000 }, async t => {

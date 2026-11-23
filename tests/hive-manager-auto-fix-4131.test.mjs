@@ -226,6 +226,7 @@ test('changed headroom invalidates approval before any recovery starts', { timeo
   const plan = await previewAutoFix(options);
   setFree(1024);
   const run = await launchAutoFix(autoFixPolicy(options), plan.approval, undefined, root);
+  assert.equal((await receiptStatus(receipts)).id, run.id);
   const blocked = await until(
     () => receiptStatus(receipts, run.id),
     receipt => receipt.status !== 'running'

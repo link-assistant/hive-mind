@@ -68,8 +68,10 @@ export async function launchAutoFix(policy, approval, afterInterruption, root = 
     exit = code ?? 1;
   });
   for (let attempt = 0; attempt < 50; attempt++) {
-    const receipt = loadReceipt(directory, id);
-    if (receipt) return receipt;
+    // The run file is durable before latest.json is published. Returning
+    // earlier lets a status query classify a new worker as interrupted.
+    const receipt = loadReceipt(directory);
+    if (receipt?.id === id) return receipt;
     if (exit !== undefined) break;
     await delay(100);
   }

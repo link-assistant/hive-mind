@@ -1,0 +1,317 @@
+[
+  {
+    "uuid": "908fc6cb-e373-473e-b46b-01f027ba2409",
+    "attempt": 1,
+    "startedAt": "2026-11-05T20:30:09.447Z",
+    "finishedAt": "2026-11-05T20:56:00.951Z",
+    "container": "10fc1e86-8d63-465a-9c14-67833fa154c4",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 2770587648,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052", "https://gist.github.com/konard/07368de655bce96e77d0bd4926a8cacd"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["2.0 MiB — uploaded; ends like Docker's own log"],
+    "target": "https://github.com/link-foundation/link-cli/pull/139",
+    "signature": "tool-content-policy",
+    "lines": ["❌ CODEX execution failed with This content was flagged for possible cybersecurity risk.", "Exit Code: 1"]
+  },
+  {
+    "uuid": "f5d4aecf-956a-4529-883d-d26a5818346d",
+    "attempt": 1,
+    "startedAt": "2026-11-10T08:20:14.248Z",
+    "finishedAt": "2026-11-10T08:43:10.484Z",
+    "container": "4e9b6a5d-3e2c-41e6-94d1-852bd42991d0",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 1877405696,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052", "https://gist.github.com/konard/1b6bf8b95d55f3f2916a77268e2676ed", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-6847173508", "https://gist.github.com/konard/d16c14ff40157d0e2150e30ebe0403b6"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["4.3 MiB — uploaded; ends like Docker's own log"],
+    "target": "https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/issues/1",
+    "signature": "no-progress",
+    "lines": ["❌ No progress between sessions", "Exit Code: 1"]
+  },
+  {
+    "uuid": "51694564-f6d6-4e6d-a0d9-616cc3904776",
+    "attempt": 1,
+    "startedAt": "2026-11-10T09:10:44.620Z",
+    "finishedAt": "2026-11-10T09:25:41.491Z",
+    "container": "2061f412-beec-44dc-a89b-7a05d8750443",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 2622013440,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052", "https://gist.github.com/konard/e3f0005c2431c3041033f65ab7498606", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-6847173508", "https://gist.github.com/konard/c71cfb16cc51d1b9affa51e1f34d7d2a"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.9 MiB — uploaded; ends like Docker's own log"],
+    "target": "https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/issues/1",
+    "signature": "auto-restart-limit",
+    "lines": ["❌ Auto-restart limit reached", "Exit Code: 1"]
+  },
+  {
+    "uuid": "1162d7cd-c579-4b26-bcef-9429b634f479",
+    "attempt": 1,
+    "startedAt": "2026-11-14T11:52:01.937Z",
+    "finishedAt": "2026-11-14T12:05:26.478Z",
+    "container": "e93983e5-3ced-4f68-96f5-dd2f5001b77c",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 1016893440,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/e876301bfd9363206f5477ed31745aa6", "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/27"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.1 MiB; 1 of the last 79 Docker log lines are not in it", "0.1 MiB — uploaded; 1 of the last 79 Docker log lines are not in it"],
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/27",
+    "signature": "checkout-dirty",
+    "lines": ["Error: Repository has uncommitted changes after clone", "❌ Error occurred", "❌ Error: solve exited with code 1", "Exit Code: 1"]
+  },
+  {
+    "uuid": "920067de-ca61-4b77-8065-4e7eb0d04cf4",
+    "attempt": 1,
+    "startedAt": "2026-11-14T12:59:21.360Z",
+    "finishedAt": "2026-11-14T13:00:11.712Z",
+    "container": "e1ac6213-c9c5-478a-9e08-8cbfdbd6d03b",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 792346624,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/4a44e99b3c465e678352aad2ef0915cd"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.0 MiB; 1 of the last 79 Docker log lines are not in it", "0.0 MiB — uploaded; 1 of the last 79 Docker log lines are not in it"],
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/28",
+    "signature": "checkout-dirty",
+    "lines": ["Error: Repository has uncommitted changes after clone", "❌ Error occurred", "Exit Code: 1"]
+  },
+  {
+    "uuid": "f5b42a6d-e2e1-480a-bc47-8cb209967f47",
+    "attempt": 1,
+    "startedAt": "2026-11-17T06:12:28.924Z",
+    "finishedAt": "2026-11-17T11:34:15.904Z",
+    "container": "4657bbc5-d19f-459e-bc5a-03612cbbf71b",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 2739875840,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/b9f53d748b4c89b9cd356f35901d2eea", "https://github.com/konard/voice-simulator/pull/142#issuecomment-6946870187"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["13.6 MiB; 2 of the last 54 Docker log lines are not in it", "13.6 MiB — uploaded; 2 of the last 54 Docker log lines are not in it"],
+    "target": "https://github.com/konard/voice-simulator/issues/62",
+    "signature": "auto-restart-limit",
+    "lines": ["❌ Auto-restart limit reached", "Exit Code: 1"]
+  },
+  {
+    "uuid": "65b5f118-015b-4268-8e0f-199adb9d04b2",
+    "attempt": 1,
+    "startedAt": "2026-11-17T09:37:50.637Z",
+    "finishedAt": "2026-11-17T18:26:12.796Z",
+    "container": "af902f45-a1a6-4b04-a173-d98140405919",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 3135369216,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/92aee7b480bcbc1c6e5fb22790084fa1", "https://github.com/konard/voice-simulator/pull/146#issuecomment-6957087059"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["21.1 MiB; ends like Docker's own log", "21.1 MiB — uploaded; ends like Docker's own log"],
+    "target": "https://github.com/konard/voice-simulator/issues/63",
+    "signature": "codex-max-output-tokens",
+    "lines": ["🩹 PR #146 was left in draft by a working session (Incomplete response returned, reason: max_output_tokens); restoring its pre-run state at run end (AI session failed (tool_failure))", "❌ AI session failed (tool_failure)", "Exit Code: 1"]
+  },
+  {
+    "uuid": "d6c0f225-3fed-4b20-8971-4ce122bd238b",
+    "attempt": 1,
+    "startedAt": "2026-11-17T15:38:13.830Z",
+    "finishedAt": "2026-11-18T01:40:27.650Z",
+    "container": "46ede32a-0fc8-4570-9337-d36cd8edc5ff",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 3135434752,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://github.com/link-foundation/code-quality/pull/2#issuecomment-6966403412"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["21.4 MiB; ends like Docker's own log"],
+    "target": "https://github.com/link-foundation/code-quality/issues/1",
+    "signature": "codex-max-output-tokens",
+    "lines": ["❌ CODEX execution failed with Incomplete response returned, reason: max_output_tokens", "Exit Code: 1"]
+  },
+  {
+    "uuid": "c2b74fba-deed-466a-b878-e01f7386d5a0",
+    "attempt": 1,
+    "startedAt": "2026-11-18T16:37:32.083Z",
+    "finishedAt": "2026-11-18T21:49:43.706Z",
+    "container": "ce516f27-e912-458f-bb0d-8621626bb9ab",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 3135586304,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/060229d866997f57e6ec197f6cad8062", "https://github.com/konard/voice-simulator/pull/149#issuecomment-6992636960"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["16.0 MiB; 2 of the last 60 Docker log lines are not in it", "16.0 MiB — uploaded; 2 of the last 60 Docker log lines are not in it"],
+    "target": "https://github.com/konard/voice-simulator/issues/65",
+    "signature": "auto-restart-limit",
+    "lines": ["❌ Auto-restart limit reached", "Exit Code: 1"]
+  },
+  {
+    "uuid": "703763e8-5e70-4f71-b801-b3ca53eb3f7c",
+    "attempt": 1,
+    "startedAt": "2026-11-19T23:55:55.264Z",
+    "finishedAt": "2026-11-19T23:56:56.263Z",
+    "container": "5fbca341-a48f-4a65-b5d7-d2cb5ff231d4",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 1325805568,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041", "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880", "https://gist.github.com/konard/887fc88eba8df1636a373eb5ab3f7c8e", "https://github.com/veb86/ANCAD_SQLite/issues/1#issuecomment-7025657404"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.0 MiB; ends like Docker's own log", "0.0 MiB — uploaded; ends like Docker's own log"],
+    "target": "https://github.com/veb86/ANCAD_SQLite/issues/1",
+    "signature": "repository-empty",
+    "lines": ["❌ Repository setup failed - empty repository", "Exit Code: 1"]
+  },
+  {
+    "uuid": "4fd8c5d0-08ef-4d32-aff2-160a9166d801",
+    "attempt": 1,
+    "startedAt": "2026-11-20T03:56:05.425Z",
+    "finishedAt": "2026-11-20T03:57:14.270Z",
+    "container": "50f27341-7f9f-4b8f-81d3-135dc1239337",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 1068695552,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059", "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7029947481"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.0 MiB; 1 of the last 79 Docker log lines are not in it"],
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+    "signature": "checkout-dirty",
+    "lines": ["Error: Repository has uncommitted changes after clone", "❌ Error occurred", "Exit Code: 1"]
+  },
+  {
+    "uuid": "887e38bb-0d06-4729-a8cd-b6c9790debbc",
+    "attempt": 1,
+    "startedAt": "2026-11-20T06:02:36.227Z",
+    "finishedAt": "2026-11-20T06:03:29.547Z",
+    "container": "b62c9c06-fe8e-4c71-b943-c394604845a6",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 811933696,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059", "https://github.com/veb86/ANCAD_SQLite/issues/1#issuecomment-7031878861"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.0 MiB; 1 of the last 79 Docker log lines are not in it"],
+    "target": "https://github.com/veb86/ANCAD_SQLite/issues/1",
+    "signature": "repository-empty",
+    "lines": ["❌ Repository setup failed - empty repository", "Exit Code: 1"]
+  },
+  {
+    "uuid": "df9e5a4d-468d-4cc7-8ec8-1176b9b03941",
+    "attempt": 1,
+    "startedAt": "2026-11-20T07:52:43.040Z",
+    "finishedAt": "2026-11-20T20:32:44.817Z",
+    "container": "ec971b8e-5d9f-4131-9b72-7afd26a98e38",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 3135369216,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059", "https://github.com/link-foundation/relative-meta-logic/pull/184#issuecomment-7049952766"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["19.2 MiB; 3 of the last 43 Docker log lines are not in it"],
+    "target": "https://github.com/link-foundation/relative-meta-logic/pull/184",
+    "signature": "auto-restart-limit",
+    "lines": ["❌ Auto-restart limit reached", "Exit Code: 1"]
+  },
+  {
+    "uuid": "bb6a4500-9d38-45a5-9015-9c1a2d5c103a",
+    "attempt": 1,
+    "startedAt": "2026-11-20T18:41:57.311Z",
+    "finishedAt": "2026-11-20T21:52:33.037Z",
+    "container": "50a8f80a-e96b-4e44-a879-df0a35e52629",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 3135479808,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059", "https://github.com/konard/voice-simulator/pull/162#issuecomment-7051498629"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["10.8 MiB; 2 of the last 55 Docker log lines are not in it"],
+    "target": "https://github.com/konard/voice-simulator/issues/75",
+    "signature": "no-progress",
+    "lines": ["❌ No progress between sessions", "Exit Code: 1"]
+  },
+  {
+    "uuid": "491f8751-01d7-4772-806c-6f1df1534ced",
+    "attempt": 1,
+    "startedAt": "2026-11-21T05:25:42.327Z",
+    "finishedAt": "2026-11-21T05:26:35.279Z",
+    "container": "15545f0b-3083-453d-8b29-4ce8ba422c7d",
+    "exitCode": 1,
+    "oomKilled": false,
+    "memory": {
+      "limitBytes": 3135369216,
+      "peakBytes": 965652480,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "sources": ["https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059", "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7057918904"],
+    "signaturesReported": ["failed"],
+    "logComparison": ["0.0 MiB; 1 of the last 79 Docker log lines are not in it"],
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+    "signature": "checkout-dirty",
+    "lines": ["Error: Repository has uncommitted changes after clone", "❌ Error occurred", "Exit Code: 1"]
+  }
+]

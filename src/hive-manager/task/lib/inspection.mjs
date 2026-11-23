@@ -1,4 +1,5 @@
 import { HiveManagerError } from '../../lib/error.mjs';
+import { classifyTaskFailure } from '../../../task-failure-signature.lib.mjs';
 import { readAttemptEvidence, summarizeTaskEvidence } from './evidence.mjs';
 
 export const taskUuidPattern = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
@@ -55,34 +56,45 @@ export function taskAttempts(task) {
   return attempts;
 }
 
-export async function attemptEvidence(task, attempts, attempt) {
+function readSelectedAttempt(task, attempts, attempt, maxBytes) {
   const next = attempts.get(attempt.number + 1);
   const offset = (value, fallback) => (Number.isSafeInteger(value) && value >= 0 ? value : fallback);
   const start = offset(attempt.logOffset, attempt.number === 1 ? 0 : null);
   const end = offset(next?.logOffset, attempt.number === latestAttempt(task) ? Infinity : null);
-  const excerpt = await readAttemptEvidence(task.logPath, start, end);
-  return summarizeTaskEvidence(excerpt, attempt);
+  return readAttemptEvidence(task.logPath, start, end, maxBytes);
 }
 
-function groupFailures(tasks, limit) {
-  const groups = new Map();
+export async function attemptEvidence(task, attempts, attempt) {
+  return summarizeTaskEvidence(await readSelectedAttempt(task, attempts, attempt), attempt);
+}
+
+function* failedAttempts(tasks) {
   for (const task of tasks) {
-    const backend = taskBackend(task);
-    for (const attempt of taskAttempts(task).values()) {
+    const attempts = taskAttempts(task);
+    for (const attempt of attempts.values()) {
       if (attempt.status !== 'executed' || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) continue;
-      const kind = failureKind(attempt);
-      const exitCode = attempt.exitCode;
-      const signature = `${backend}:${kind}:${exitCode}`;
-      const group = groups.get(signature) ?? { backend, kind, exitCode, count: 0, latest: null };
-      group.count++;
-      const finishedAt = timestamp(attempt.endTime ?? attempt.finishedAt);
-      if (!group.latest || (finishedAt !== 'Unknown' && (group.latest.finishedAt === 'Unknown' || finishedAt > group.latest.finishedAt))) {
-        group.latest = { id: task.uuid, attempt: attempt.number, finishedAt };
-      }
-      groups.set(signature, group);
+      yield { task, attempts, attempt };
     }
   }
-  return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
+function addFailureGroup(groups, task, attempt, signature) {
+  const backend = taskBackend(task);
+  const kind = failureKind(attempt);
+  const exitCode = attempt.exitCode;
+  const key = `${backend}:${kind}:${exitCode}:${signature ?? ''}`;
+  const group = groups.get(key) ?? { backend, kind, exitCode, count: 0, latest: null };
+  if (signature !== undefined) group.signature = signature;
+  group.count++;
+  const finishedAt = timestamp(attempt.endTime ?? attempt.finishedAt);
+  if (!group.latest || (finishedAt !== 'Unknown' && (group.latest.finishedAt === 'Unknown' || finishedAt > group.latest.finishedAt))) {
+    group.latest = { id: task.uuid, attempt: attempt.number, finishedAt };
+  }
+  groups.set(key, group);
+}
+
+function sortedGroups(groups, limit) {
+  return { groups: [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit) };
 }
 
 export function inspectTasks(tasks, { limit = 25 } = {}) {
@@ -114,7 +126,20 @@ export function inspectTasks(tasks, { limit = 25 } = {}) {
 
 export function groupTaskFailures(tasks, { limit = 25 } = {}) {
   validateReportLimit(limit);
-  return { groups: groupFailures(tasks, limit) };
+  const groups = new Map();
+  for (const { task, attempt } of failedAttempts(tasks)) addFailureGroup(groups, task, attempt);
+  return sortedGroups(groups, limit);
+}
+
+export async function groupTaskFailuresBySignature(tasks, { limit = 25 } = {}) {
+  validateReportLimit(limit);
+  const groups = new Map();
+  // Read one bounded log tail at a time. The result never contains log lines.
+  for (const { task, attempts, attempt } of failedAttempts(tasks)) {
+    const { text } = await readSelectedAttempt(task, attempts, attempt, 512 * 1024);
+    addFailureGroup(groups, task, attempt, classifyTaskFailure(attempt, text));
+  }
+  return sortedGroups(groups, limit);
 }
 
 export function inspectTaskWindow(tasks, selection) {

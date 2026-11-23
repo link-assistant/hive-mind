@@ -226,9 +226,11 @@ Run `tasks repair-records [UUID]` when a detached Docker resume is running and i
 
 `tasks report --group` counts recurring failures across recorded attempts, including failures from tasks that later succeeded. It groups by execution backend, failure classification and exit code. `tasks report --incident UUID --attempt NUMBER --destination OWNER/REPO` previews an incident for one confirmed failure. The default attempt is the latest. Add `--follow-up ISSUE_NUMBER` when the failure belongs on an existing open issue. Use `--publish REVIEW_DIGEST` after reviewing the JSON output to create the issue or post the approved comment. The report contains the execution ID, times, backend, exit status and classification. Upload an execution log separately with `tasks upload-log ID` if needed.
 
+`tasks report --group --by-signature` also groups by known solver outcomes, such as an empty repository, a dirty checkout, an exhausted restart budget or a Codex output limit. It reads up to 512 KiB from the end of each attempt and returns groups without a signature when a cause cannot be established from the available evidence.
+
 `tasks report --collect UUID [--attempt NUMBER]` inspects up to 4 MiB of the selected attempt's log. It reports short success runs, retry and reconnection counts, and repeated commands, MCP calls or messages. The result contains counts and classifications without raw log lines. Historical collection needs stored log offsets to distinguish one attempt from the next.
 
-For repeat failures, use `--routes /path/to/routes.json` in place of `--follow-up`. The file is read in the environment that runs the command, so put it inside the container when using `deploy tasks`. Copy the `backend`, `kind` and `exitCode` values from `tasks report --group` and add the issue number in the selected destination repository.
+For repeat failures, use `--routes /path/to/routes.json` in place of `--follow-up`. The file is read in the environment that runs the command, so put it inside the container when using `deploy tasks`. Copy the `backend`, `kind` and `exitCode` values from `tasks report --group` and add the issue number in the selected destination repository. To route to a cause-specific issue, also copy the optional `signature` from `tasks report --group --by-signature`.
 
 ```json
 [{ "backend": "docker", "kind": "Memory exhaustion", "exitCode": 137, "issue": 318 }]

@@ -31,9 +31,9 @@ import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { parseIntegerEnv } from '../src/env-config.lib.mjs';
-import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, createdDraftPullRequestNumber, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_DECISION_CODES, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, isAttemptPullRequest, isIssuePullRequestHead, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent } from './formal-ai-draft.lib.mjs';
 import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
-import { gh } from './github-actions.lib.mjs';
+import { gh, ghJson, ghList } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
 const decideOnly = flags.has('--decide');
@@ -79,12 +79,15 @@ const issueUrlFor = issue => issue?.html_url || issue?.url || `${serverUrl}/${re
 const { eventName, action, issue } = await resolveIssue();
 const decision = decideDraft({ eventName, action, issue, layer: env.AUTOMATION_LAYER || 'default' });
 
-console.log(`Formal AI draft: ${decision.run ? 'attempting' : 'skipping'} — ${decision.reason}`);
-// Read back by the scheduled health check, which flags a decision that repeats.
-console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, decision.code));
-setOutput(formatDecisionOutputs(decision));
-setOutput(`issue_number=${issue?.number ?? ''}\n`);
+const reportDecision = (outcome, { preliminary = false } = {}) => {
+  console.log(`Formal AI draft: ${outcome.run ? (preliminary ? 'eligible' : 'attempting') : 'skipping'} — ${outcome.reason}`);
+  // The health check reads the final decision. An eligible event can still be occupied at launch.
+  if (!preliminary) console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, outcome.code));
+  setOutput(formatDecisionOutputs(outcome));
+  setOutput(`issue_number=${issue?.number ?? ''}\n`);
+};
 
+if (decideOnly || dryRun || !decision.run) reportDecision(decision, { preliminary: decision.run });
 if (decideOnly || !decision.run) process.exit(0);
 
 // --- The attempt ----------------------------------------------------------
@@ -165,11 +168,43 @@ const dockerArgv = buildDockerArgv({
   extraMounts,
 });
 
-console.log(`\n$ docker ${dockerArgv.join(' ')}\n`);
-if (dryRun) process.exit(0);
+const dockerCommand = `\n$ docker ${dockerArgv.join(' ')}\n`;
+if (dryRun) {
+  console.log(dockerCommand);
+  process.exit(0);
+}
 
+// The image pull can take minutes, during which another solver may open a PR.
+let openBeforeAttempt;
+try {
+  openBeforeAttempt = await ghList(`repos/${repository}/pulls?state=open&per_page=100`);
+  if (openBeforeAttempt.some(pr => !Number.isSafeInteger(pr?.number) || typeof pr.head?.ref !== 'string')) throw new Error('Invalid pull request census');
+} catch (error) {
+  fail(`Could not list open pull requests for ${repository}: ${error.message}`);
+}
+const occupying = openBeforeAttempt.find(pr => isIssuePullRequestHead(pr.head.ref, issue.number));
+if (occupying) {
+  reportDecision({ run: false, code: DRAFT_DECISION_CODES.occupied, reason: `#${issue.number} already has open pull request #${occupying.number}` });
+  process.exit(0);
+}
+const previousNumbers = new Set(openBeforeAttempt.map(pr => pr.number));
+reportDecision(decision);
+console.log(dockerCommand);
+
+// Keep only the startup transcript where solve reports PR creation. Stream all stdout to the workflow log.
+const startupOutput = [];
+let startupBytesRemaining = 1024 * 1024;
+const startedAt = Date.now();
 const status = await new Promise((resolve, reject) => {
-  const child = spawn('docker', dockerArgv, { stdio: 'inherit' });
+  const child = spawn('docker', dockerArgv, { stdio: ['inherit', 'pipe', 'inherit'] });
+  child.stdout.pipe(process.stdout, { end: false });
+  const captureStartup = chunk => {
+    const captured = chunk.subarray(0, startupBytesRemaining);
+    startupOutput.push(captured);
+    startupBytesRemaining -= captured.length;
+    if (startupBytesRemaining === 0) child.stdout.off('data', captureStartup);
+  };
+  child.stdout.on('data', captureStartup);
   child.on('error', reject);
   child.on('close', code => resolve(code ?? 1));
 });
@@ -185,10 +220,10 @@ if (status !== 0) console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_AN
 // draft into a red *workflow* that hides why the draft is red.
 
 try {
-  const open = JSON.parse(await gh(['pr', 'list', '--repo', repository, '--state', 'open', '--limit', '100', '--json', 'number,headRefName,isDraft']));
-  const pullRequest = selectDraftPullRequest(open, issue.number);
-  if (!pullRequest) {
-    console.log(`No pull request was opened for issue #${issue.number}; the session log is the record of why.`);
+  const number = createdDraftPullRequestNumber(Buffer.concat(startupOutput).toString('utf8'), repository);
+  const pullRequest = number ? await ghJson(['pr', 'view', String(number), '--repo', repository, '--json', 'number,headRefName,isDraft,state,createdAt']) : null;
+  if (!isAttemptPullRequest(pullRequest, { number, issueNumber: issue.number, startedAt, previousNumbers })) {
+    console.log(`Could not verify a new draft pull request from this attempt on issue #${issue.number}. See the session log.`);
   } else {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
@@ -199,4 +234,4 @@ try {
   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);
 }
 
-process.exit(status);
+process.exitCode = status;

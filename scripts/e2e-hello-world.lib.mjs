@@ -20,7 +20,7 @@
 
 import { stripVTControlCharacters } from 'node:util';
 import { generatedEvidencePaths } from './e2e-generated-evidence.lib.mjs';
-import { selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { isIssuePullRequestHead } from './formal-ai-draft.lib.mjs';
 import { FORMAL_AI_KNOWN_ISSUES, splitE2eVerdict } from './e2e-matrix-harness.lib.mjs';
 
 /** The exact line the task asks the program to print. */
@@ -83,8 +83,12 @@ export function buildE2eSolveArgv({ issueUrl, tool, model, logDir, baseBranch } 
   return argv;
 }
 
-/** The pull request solve opened for the issue: its branch is `issue-<n>-…`. */
-export const selectPullRequest = selectDraftPullRequest;
+/** Find the newest pull request for the matrix row's dedicated test issue. */
+export function selectPullRequest(pullRequests, issueNumber) {
+  const matches = (Array.isArray(pullRequests) ? pullRequests : []).filter(pr => isIssuePullRequestHead(pr?.headRefName, issueNumber));
+  if (matches.length === 0) return null;
+  return matches.reduce((newest, pr) => (Number(pr.number) > Number(newest.number) ? pr : newest));
+}
 
 const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 

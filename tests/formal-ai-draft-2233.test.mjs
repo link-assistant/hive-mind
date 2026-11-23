@@ -26,7 +26,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { buildDockerArgv, buildGitIdentityEnv, buildSolveArgv, DRAFT_DECISION_CODES, DRAFT_GIT_IDENTITY, decideDraft, FORBIDDEN_DRAFT_SOLVE_FLAGS, FORMAL_AI_DRAFT_LABEL, FORMAL_AI_DRAFT_OPT_OUT_LABEL, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from '../scripts/formal-ai-draft.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildSolveArgv, DRAFT_DECISION_CODES, DRAFT_GIT_IDENTITY, decideDraft, FORBIDDEN_DRAFT_SOLVE_FLAGS, FORMAL_AI_DRAFT_LABEL, FORMAL_AI_DRAFT_OPT_OUT_LABEL, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent } from '../scripts/formal-ai-draft.lib.mjs';
 import { createYargsConfig } from '../src/solve.config.lib.mjs';
 import { resolveYargsFactory } from '../src/yargs-factory.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
@@ -51,6 +51,7 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
   assert.equal(argv.verbose, true, '#2233 done-when: `--attach-logs --verbose`');
   assert.equal(argv.attribution, 'formal-ai', 'the four trailers and the evidence bundle are the done-when condition, so attribution is forced rather than left on `auto` (#2230)');
   assert.equal(argv.logDir, '/home/box/logs', 'the session log lands where the workflow can upload it');
+  assert.equal(argv.autoContinue, false, 'the draft must start its own session if another PR appears after the occupancy check');
 
   assert.equal(argv.autoRestartUntilMergeable, false, 'the run must not loop watching CI: #2233 says a failed draft "stays open and red until a later run succeeds", and the later run is the next attempt, not this one restarting for up to 24 hours');
   assert.equal(argv.autoRestartOnUncommittedChanges, false, 'the run must not restart the model over uncommitted files: Formal AI leaves its own derivations in the clone, and #3248 drafts restarted five times over them');
@@ -151,18 +152,6 @@ const openedIssue = (overrides = {}) => ({ number: 2233, html_url: ISSUE_URL, la
 // --- Finding, and keeping, the draft --------------------------------------
 
 {
-  const open = [
-    { number: 10, headRefName: 'issue-22-aaaa', isDraft: false },
-    { number: 11, headRefName: 'issue-223-bbbb', isDraft: true },
-    { number: 12, headRefName: 'issue-223-cccc', isDraft: false },
-    { number: 13, headRefName: 'main', isDraft: false },
-  ];
-
-  assert.equal(selectDraftPullRequest(open, 223).number, 12, 'the newest pull request for the issue wins — a re-attempt supersedes the previous draft');
-  assert.equal(selectDraftPullRequest(open, 22).number, 10, 'issue 22 must not match the branch of issue 223');
-  assert.equal(selectDraftPullRequest(open, 999), null, 'no pull request is not an error: the session log is the record');
-  assert.equal(selectDraftPullRequest(null, 1), null);
-
   assert.deepEqual(keepPullRequestAsDraftArgs({ repository: 'o/r', number: 12 }), ['pr', 'ready', '12', '--undo', '--repo', 'o/r'], 'solve marks the pull request ready at session end (#2123/#2182); a Formal AI draft must go back to draft so it cannot be merged');
   assert.deepEqual(labelPullRequestArgs({ repository: 'o/r', number: 12 }), ['pr', 'edit', '12', '--add-label', FORMAL_AI_DRAFT_LABEL, '--repo', 'o/r']);
 }

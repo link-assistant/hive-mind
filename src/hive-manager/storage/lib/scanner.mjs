@@ -15,7 +15,7 @@ import { registerHooks } from 'node:module';
 import { createInterface } from 'node:readline';
 const stdin = createInterface({ input: process.stdin });
 const [line] = await once(stdin, 'line');
-const { modules, exclude, task, debug } = JSON.parse(line);
+const { modules, exclude, task, debug, aptArchivesOnly } = JSON.parse(line);
 const base = 'file:///__hive_manager_dss__/';
 const controller = new AbortController();
 stdin.once('close', () => controller.abort(new Error('Scanner supervisor disconnected')));
@@ -36,7 +36,9 @@ try {
   const { scan, LocalEnv } = await import(base + 'src/index.js');
   const env = new LocalEnv();
   if (task) env.kind = 'container';
-  const report = await scan({ env, exclude, docker: false, cacheDir: false, platformIndex: false, scanBudget: '45s', signal: controller.signal });
+  // Ask DSS for individual archive paths even when this instance runs as root.
+  const scope = aptArchivesOnly ? { only: ['apt-archives'], noNative: true } : {};
+  const report = await scan({ env, exclude, docker: false, cacheDir: false, platformIndex: false, scanBudget: '45s', signal: controller.signal, ...scope });
   const items = report.items.filter(item => item.tier === 'safe' && !item.parentId && !item.requiresConfirmation && !item.blockers.length && item.action?.type === 'remove');
   const diagnostics = debug ? report.items.slice(0, 20).map(({ rule, tier, action, blockers, bytes }) => ({ rule, tier, action: action?.type, blockers: blockers.length, bytes })) : undefined;
   console.log(JSON.stringify({ status: report.environments[0].scanStatus, errors: report.errors.length, paths: items.flatMap(item => item.action.paths ?? []), diagnostics }));
@@ -46,7 +48,7 @@ try {
 }
 `;
 
-export async function pinnedScanner(directory, check) {
+export async function pinnedScanner(directory, check, { aptArchivesOnly = false } = {}) {
   const archive = join(directory, 'dss.tgz');
   await output('curl', ['--disable', '--fail', '--silent', '--show-error', '--proto', '=https', '--max-filesize', '1048576', '--output', archive, `https://registry.npmjs.org/disk-space-saviour/-/disk-space-saviour-${dssRelease}.tgz`], { ms: 30_000, check });
   const digest = createHash('sha512').update(readFileSync(archive)).digest('base64');
@@ -64,10 +66,11 @@ export async function pinnedScanner(directory, check) {
     // how an arbitrary Docker mount path will be interpreted.
     if (exclude.some(path => !absolute(path) || path !== path.trim() || /[,*?[\]]/.test(path) || path.includes('\\'))) throw new Error('Cannot express a protected mount path to disk-space-saviour.');
     const debug = process.env.HIVE_MANAGER_STORAGE_DEBUG === '1';
-    const payload = JSON.stringify({ modules, exclude, task: Boolean(id), debug }) + '\n';
+    const payload = JSON.stringify({ modules, exclude, task: Boolean(id), debug, aptArchivesOnly }) + '\n';
     const args = ['--input-type=module', '-e', scanner];
     const options = { ms: 65_000, check, input: payload, keepInput: true };
-    const text = id ? await docker(['exec', '-i', '--env', 'NODE_OPTIONS=', id, 'timeout', '-s', 'KILL', '60', 'node', ...args], options) : await output(process.execPath, args, options);
+    const user = aptArchivesOnly ? ['--user', '0'] : [];
+    const text = id ? await docker(['exec', '-i', ...user, '--env', 'NODE_OPTIONS=', id, 'timeout', '-s', 'KILL', '60', 'node', ...args], options) : await output(process.execPath, args, options);
     const result = JSON.parse(text);
     if (debug) console.error(JSON.stringify({ status: result.status, errors: result.errors, items: result.diagnostics }));
     if (result.status !== 'complete' || result.errors) throw new Error('Disk-space-saviour scan was incomplete.');

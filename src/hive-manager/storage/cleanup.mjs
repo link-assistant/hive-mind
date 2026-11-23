@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { absolute, dockerRoot, executionId, inspect, inventory, localDocker, localDockerEndpoint, mountTable, overlaps, runtimeRoots, upperDirectory, within } from './lib/docker.mjs';
+import { absolute, dockerRoot, executionId, inspect, inventory, localDocker, localDockerEndpoint, mountTable, overlaps, runtimeRoots, upperDirectory } from './lib/docker.mjs';
 import { openTree, planFiles, removeApproved } from './lib/files.mjs';
 import { MemoryPressure, memoryGuard, run } from './lib/process.mjs';
 import { pinnedScanner } from './lib/scanner.mjs';
@@ -129,7 +129,7 @@ export async function scopedCleanup({ docker, directory, stateDir, approved, che
       const scanned = await scan(paths, docker, container);
       // A deployment-scoped run leaves task and bot state alone, including
       // state in the writable layer of adopted instances.
-      const candidates = instance ? scanned.filter(path => within(path, '/var/cache/apt/archives')) : scanned;
+      const candidates = instance ? scanned.filter(path => dirname(path) === '/var/cache/apt/archives' && path.endsWith('.deb')) : scanned;
       const current = await refresh();
       trees = await getTrees(current);
       const boundary = current.paths;
@@ -313,7 +313,7 @@ export async function cleanupWorker(directory, socket, instance, stateDir, id, a
     if ([root, ...runtimeRoots].some(path => overlaps(path, directory))) throw new Error('Scoped cleanup state overlaps protected runtime storage.');
     temp = mkdtempSync(join(directory, 'scanner-'));
     chmodSync(temp, 0o700);
-    const scan = await pinnedScanner(temp, check);
+    const scan = await pinnedScanner(temp, check, { aptArchivesOnly: instanceOnly });
     const result = await scopedCleanup({
       docker,
       directory,

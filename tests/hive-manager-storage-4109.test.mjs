@@ -210,12 +210,15 @@ test('scoped preview skips paused and stopped tasks and protects host bind sourc
 });
 
 test('an instance-only preview excludes other scopes and approval binds the local endpoint and deployment incarnation', { skip: !linux }, async t => {
-  const { cwd, root, state, row } = fixture(t);
+  const { cwd, root, state, upper, row } = fixture(t);
   const instance = 'selected-instance';
   const identity = `${id}/${process.pid}/now`;
   const endpoint = 'unix:///run/docker.sock';
   const path = join(cwd, 'task-output');
+  const archivePath = '/var/cache/apt/archives';
   writeFileSync(path, 'task output to preserve');
+  mkdirSync(join(upper, archivePath), { recursive: true });
+  writeFileSync(join(upper, archivePath, 'lock'), 'not a downloaded package');
   const docker = async args => {
     if (args[0] === 'info') return root;
     assert.deepEqual(args.slice(0, 2), ['container', 'inspect']);
@@ -231,7 +234,7 @@ test('an instance-only preview excludes other scopes and approval binds the loca
     check() {},
     scan: async (_paths, _docker, container) => {
       assert.equal(container, id);
-      return [path];
+      return [path, archivePath, join(archivePath, 'lock')];
     },
     progress: scope => scopes.push(scope),
   });

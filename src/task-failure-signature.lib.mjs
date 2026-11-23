@@ -1,5 +1,7 @@
 const solverLogPrefix = /^\[\d{4}-\d{2}-\d{2}T[\d:.]+Z\] \[(?:INFO|ERROR|WARNING|WARN)\] /;
-const dirtyCheckout = /^Repository has uncommitted changes after clone(?:$|:)/;
+const dockerLogPrefix = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z /;
+const dirtyCheckout = /^Repository has uncommitted changes after clone(?:$|:| \(.+\)$)/;
+const restartLimit = /^Auto-restart limit reached after \d+ iterations? - the blocker was never resolved\.$/;
 export const emptyRepositoryFailure = /^(?:Repository setup failed - empty repository|Empty repository auto-initialization failed|Empty repository detected - use --auto-init-repository to initialize)$/i;
 const maxOutputTokens = 'Incomplete response returned, reason: max_output_tokens';
 const stoppedToolSession = /^❌ The AI session failed and (?:`--[\w-]+`|the automation) stopped \(tool_failure\)\.$/;
@@ -17,7 +19,7 @@ function solveFailureSignature(text) {
   let outputLimitReported = false;
   let expectToolFailureDetail = false;
   for (const raw of text.split('\n')) {
-    const line = raw.replace(solverLogPrefix, '').trimEnd();
+    const line = raw.replace(dockerLogPrefix, '').replace(solverLogPrefix, '').trimEnd();
     if (expectToolFailureDetail && line === `   ${maxOutputTokens}`) outputLimitReported = true;
     expectToolFailureDetail = false;
     if (line.startsWith('Error executing command: ') || line.startsWith('Error: ')) {
@@ -34,7 +36,8 @@ function solveFailureSignature(text) {
     // task wraps the child solve invocation. Its exit line adds no cause.
     if (/^Error: solve exited with code \d+$/.test(verdict)) continue;
     signature = terminalSignatures.get(verdict);
-    if (emptyRepositoryFailure.test(verdict)) signature = 'repository-empty';
+    if (restartLimit.test(verdict)) signature = 'auto-restart-limit';
+    else if (emptyRepositoryFailure.test(verdict)) signature = 'repository-empty';
     else if (verdict === 'Error occurred') signature = executionError;
     else if (verdict === 'AI session failed (tool_failure)') signature = outputLimitReported ? 'codex-max-output-tokens' : 'tool-failure';
     else if (verdict === `CODEX execution failed with ${maxOutputTokens}`) signature = 'codex-max-output-tokens';

@@ -1,0 +1,126 @@
+[
+  {
+    "uuid": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+    "attempt": 1,
+    "sessionName": "76b2f8a1-aed2-490a-8fa9-c2724ce58252",
+    "startedAt": "2026-11-21T15:39:50.198Z",
+    "finishedAt": "2026-11-21T22:35:36.730Z",
+    "wrapperFooterAt": "2026-11-21T22:35:37.672Z",
+    "target": "https://github.com/konard/voice-simulator/pull/162",
+    "terminalSource": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7070288560",
+    "exitCode": 1,
+    "reportedSignature": "failed",
+    "signature": "auto-restart-limit",
+    "oomKilled": false,
+    "memoryMaxBytes": 3135369216,
+    "memoryPeakBytes": 3135373312,
+    "oom": 0,
+    "oomKill": 0,
+    "hostExitEvidence": "No attributed exit-time OOM or daemon restart in the report",
+    "missingComparedWithDockerTail": 2,
+    "dockerTailLinesCompared": 61,
+    "recoveryAttemptRecorded": false,
+    "worktree": {
+      "uncommittedFiles": 0,
+      "unpushedCommits": 0
+    },
+    "hostOnly": {
+      "wrapperLog": "/tmp/start-command/logs/isolation/docker/8a60f429-365b-4b2f-8c8a-5c4cde14115a.log",
+      "solverLog": "/home/box/solve-2026-11-21T15-40-15-770Z.log"
+    },
+    "lines": ["🩹 PR #162 was left in draft by a working session (auto-restart limit 5/5 reached); restoring its pre-run state at run end (Auto-restart limit reached)", "❌ Auto-restart limit reached"]
+  },
+  {
+    "uuid": "c7444479-c56c-4528-893b-37162b50277f",
+    "attempt": 1,
+    "sessionName": "94339f28-5dee-4285-bbf9-f05d5077bfd0",
+    "startedAt": "2026-11-22T00:43:48.914Z",
+    "finishedAt": "2026-11-22T00:44:41.132Z",
+    "wrapperFooterAt": "2026-11-22T00:44:41.701Z",
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+    "terminalSource": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7071750912",
+    "exitCode": 1,
+    "reportedSignature": "failed",
+    "signature": "checkout-dirty",
+    "oomKilled": false,
+    "memoryMaxBytes": 3135369216,
+    "memoryPeakBytes": 968097792,
+    "oom": 0,
+    "oomKill": 0,
+    "hostExitEvidence": "No attributed exit-time OOM or daemon restart in the report",
+    "missingComparedWithDockerTail": 1,
+    "dockerTailLinesCompared": 79,
+    "recoveryAttemptRecorded": false,
+    "worktree": {
+      "uncommittedFiles": 1,
+      "unpushedCommits": 0
+    },
+    "hostOnly": {
+      "wrapperLog": "/tmp/start-command/logs/isolation/docker/c7444479-c56c-4528-893b-37162b50277f.log",
+      "solverLog": "/home/box/solve-2026-11-22T00-44-10-929Z.log"
+    },
+    "lines": ["[2026-11-22T00:44:38.318Z] [INFO] Error: Repository has uncommitted changes after clone", "❌ Error occurred"]
+  },
+  {
+    "uuid": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+    "attempt": 1,
+    "sessionName": "01e6aab2-4208-4c4a-b2cc-cb2bc1ac4c83",
+    "startedAt": "2026-11-22T07:48:06.145Z",
+    "finishedAt": "2026-11-22T14:00:55.334Z",
+    "wrapperFooterAt": "2026-11-22T14:00:56.775Z",
+    "target": "https://github.com/konard/voice-simulator/pull/162",
+    "terminalSource": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7080225394",
+    "exitCode": 1,
+    "reportedSignature": "failed",
+    "signature": "auto-restart-limit",
+    "oomKilled": false,
+    "memoryMaxBytes": 3135369216,
+    "memoryPeakBytes": 3135385600,
+    "oom": 0,
+    "oomKill": 0,
+    "hostExitEvidence": "No attributed exit-time OOM or daemon restart in the report",
+    "missingComparedWithDockerTail": 2,
+    "dockerTailLinesCompared": 55,
+    "recoveryAttemptRecorded": false,
+    "worktree": {
+      "uncommittedFiles": 0,
+      "unpushedCommits": 0
+    },
+    "hostOnly": {
+      "wrapperLog": "/tmp/start-command/logs/isolation/docker/65d2823c-1532-42ed-91ee-ebb4b418d54e.log",
+      "solverLog": "/home/box/solve-2026-11-22T07-48-31-021Z.log"
+    },
+    "lines": ["🩹 PR #162 was left in draft by a working session (auto-restart limit 5/5 reached); restoring its pre-run state at run end (Auto-restart limit reached)", "❌ Auto-restart limit reached"]
+  },
+  {
+    "uuid": "e272e5e3-5915-433a-86ad-035fd99149e1",
+    "attempt": 1,
+    "sessionName": "fa5217e1-dde3-47b2-8b93-bf08fa3ae4de",
+    "startedAt": "2026-11-23T03:04:16.201Z",
+    "finishedAt": "2026-11-23T03:05:13.284Z",
+    "wrapperFooterAt": "2026-11-23T03:05:13.978Z",
+    "target": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+    "terminalSource": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7090448712",
+    "exitCode": 1,
+    "reportedSignature": "failed",
+    "signature": "checkout-dirty",
+    "oomKilled": false,
+    "memoryMaxBytes": 3135369216,
+    "memoryPeakBytes": 766627840,
+    "oom": 0,
+    "oomKill": 0,
+    "hostExitEvidence": "No attributed exit-time OOM or daemon restart in the report",
+    "missingComparedWithDockerTail": 1,
+    "dockerTailLinesCompared": 79,
+    "recoveryAttemptRecorded": false,
+    "worktree": {
+      "uncommittedFiles": 1,
+      "unpushedCommits": 0
+    },
+    "hostOnly": {
+      "wrapperLog": "/tmp/start-command/logs/isolation/docker/e272e5e3-5915-433a-86ad-035fd99149e1.log",
+      "solverLog": "/home/box/solve-2026-11-23T03-04-35-180Z.log"
+    },
+    "lines": ["[2026-11-23T03:05:10.426Z] [INFO] Error: Repository has uncommitted changes after clone", "❌ Error occurred"]
+  }
+]

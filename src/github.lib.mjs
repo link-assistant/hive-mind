@@ -151,7 +151,7 @@ export const checkGitHubPermissions = async () => {
 };
 /** Check if user has write permissions to repo. Fails early if --fork not used. */
 export const checkRepositoryWritePermission = async (owner, repo, options = {}) => {
-  const { useFork = false, issueUrl = '' } = options;
+  const { useFork = false, issueUrl = '', initializingEmptyRepository = false } = options;
   // Skip check if fork mode is enabled - user will work in their own fork
   if (useFork) {
     await log('✅ Repository access check: Skipped (fork mode enabled)', { verbose: true });
@@ -188,6 +188,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       await log('✅ Repository write access: Confirmed');
       return true;
     }
+    if (initializingEmptyRepository) return false;
     // No write access - provide helpful error message
     await log('');
     await log('❌ NO WRITE ACCESS TO REPOSITORY', { level: 'error' });

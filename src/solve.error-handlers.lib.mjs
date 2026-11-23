@@ -13,6 +13,7 @@ import { reportError } from './sentry.lib.mjs';
 import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } from './router-auth-guard.lib.mjs';
+import { emptyRepositoryFailure } from './task-failure-signature.lib.mjs';
 
 export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
 
@@ -268,7 +269,7 @@ export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueN
  * Handles execution errors in the main catch block
  */
 export const handleMainExecutionError = async options => {
-  const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
+  const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, phase, $ } = options;
   if (await exitOnRouterAuthViolation(error, options)) return;
 
   // Special handling for authentication errors
@@ -287,9 +288,11 @@ export const handleMainExecutionError = async options => {
     return;
   }
 
+  const reason = cleanErrorMessage(error);
   if (!error?.hiveMindUserFacingLogged) {
-    await log('Error executing command:', cleanErrorMessage(error));
+    await log(`Error executing command: ${reason}`, { level: 'error' });
   }
+  if (phase) await log(`Solve failure phase: ${phase}`, { verbose: true });
   await log(`Stack trace: ${error.stack}`, { verbose: true });
   await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -310,5 +313,5 @@ export const handleMainExecutionError = async options => {
     $,
   });
 
-  await safeExit(1, 'Error occurred');
+  await safeExit(1, emptyRepositoryFailure.test(reason) ? reason : 'Error occurred');
 };

@@ -13,6 +13,7 @@ import { summarizeTaskEvidence } from '../src/hive-manager/task/lib/evidence.mjs
 import { buildPrePullRequestFailureActionSection } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 
 const attempts = JSON.parse(await readFile(new URL('../docs/case-studies/issue-4052/attempts.json', import.meta.url), 'utf8'));
+const followUpAttempts = JSON.parse(await readFile(new URL('../docs/case-studies/issue-4136/attempts.json', import.meta.url), 'utf8'));
 const evidence = (text, attempt = {}) => summarizeTaskEvidence({ available: true, text }, { exitCode: 1, ...attempt });
 const timestamp = '2026-11-20T06:03:29.547Z';
 
@@ -20,6 +21,14 @@ test('classifies all 15 incident attempts from reviewed terminal evidence', () =
   assert.equal(attempts.length, 15);
   assert.equal(new Set(attempts.map(entry => entry.uuid)).size, 15);
   for (const entry of attempts) {
+    assert.equal(evidence(entry.lines.join('\n'), entry).signature, entry.signature, entry.uuid);
+  }
+});
+
+test('separates the four issue #4136 attempts by their terminal cause', () => {
+  assert.equal(followUpAttempts.length, 4);
+  assert.equal(new Set(followUpAttempts.map(entry => entry.uuid)).size, 4);
+  for (const entry of followUpAttempts) {
     assert.equal(evidence(entry.lines.join('\n'), entry).signature, entry.signature, entry.uuid);
   }
 });
@@ -43,6 +52,20 @@ test('ignores quoted output and stale verdicts and preserves infrastructure evid
   assert.equal(evidence('❌ Authentication error').signature, 'authentication');
   assert.equal(evidence('❌ AI session failed (tool_failure)', { oomKilled: true }).signature, undefined);
   assert.equal(evidence('Codex exited with exit code 137', { oomKilled: true }).signature, 'codex-oom');
+});
+
+test('recognizes dirty clones and exhausted restart budgets in stored Docker tails', () => {
+  const dirty = 'Error executing command: Repository has uncommitted changes after clone (M mvnw.cmd)';
+  const exhausted = '❌ Auto-restart limit reached after 5 iterations - the blocker was never resolved.';
+  assert.equal(evidence(`${dirty}\n❌ Error occurred`).signature, 'checkout-dirty');
+  assert.equal(evidence(exhausted).signature, 'auto-restart-limit');
+  assert.equal(evidence('❌ Auto-restart limit reached after 1 iteration - the blocker was never resolved.').signature, 'auto-restart-limit');
+
+  const dockerLog = lines => lines.map(line => `2026-11-23T03:05:10.440620932Z ${line}`).join('\n');
+  assert.equal(evidence(dockerLog([dirty, '❌ Error occurred', '❌ Error: solve exited with code 1'])).signature, 'checkout-dirty');
+  assert.equal(evidence(dockerLog([`[${timestamp}] [ERROR] ${exhausted}`])).signature, 'auto-restart-limit');
+  assert.equal(evidence(dockerLog([`[${timestamp}] [STDOUT] ${exhausted}`])).signature, undefined);
+  assert.equal(evidence(`${exhausted}\n❌ Error occurred`).signature, undefined);
 });
 
 test('groups evidence inside each attempt interval and keeps the existing metadata groups', async t => {

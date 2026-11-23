@@ -755,6 +755,8 @@ const runWatchLoop = async (params, watch) => {
             formatAligned,
             blocker: restartReason,
             subsystem: 'auto-restart-until-mergeable',
+            ciBlocker: !billingBlocker ? ciBlocker : null,
+            ciHeadSha: ciStatus?.sha,
           });
           return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
         }

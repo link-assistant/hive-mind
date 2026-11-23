@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { retryLimits } from './config.lib.mjs';
+import { parseIntegerEnv } from './env-config.lib.mjs';
 import { resolveDefaultFallbackModel, resolveModelId } from './models/index.mjs';
 import { detectSubscriptionError, isEdgeBlockedResponse, isTransientAuthError } from './subscription-error.lib.mjs';
 
@@ -285,19 +286,20 @@ export const formatRetryDuration = ms => {
 // ~3.5 hours. The budget below turns "how long do we keep trying" into the primary knob: retries
 // continue while the *next* backoff still fits inside `budgetMs` (default 12 h), measured from
 // the first retry of a continuous outage. Provider progress resets the window; productive
-// task execution must not spend the outage budget. Retry counts remain runaway backstops.
+// task execution must not spend the outage budget. The caller's absolute run deadline, when
+// supplied, applies across outages. Retry counts remain runaway backstops.
 //
 // Usage inside a tool's retry loop (the budget object lives outside `executeWithRetry` so it
 // survives the recursive calls):
 //   const budget = createTransientRetryBudget();
 //   const decision = budget.evaluate({ retryCount, maxRetries, initialDelayMs, maxDelayMs, minDelayMs });
 //   if (decision.allowed) { budget.grant(); ...wait decision.delayMs... } else { fail(decision) }
-export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErrorRetryBudgetMs, now = () => Date.now() } = {}) => {
+export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErrorRetryBudgetMs, deadlineAtMs = parseIntegerEnv('HIVE_MIND_DEADLINE_AT_MS', null), now = () => Date.now() } = {}) => {
   let startedAt = null;
   let retriesGranted = 0;
   let recoveries = 0;
-  const elapsedMs = () => (startedAt === null ? 0 : Math.max(0, now() - startedAt));
-  const remainingMs = () => (budgetMs > 0 ? Math.max(0, budgetMs - elapsedMs()) : Infinity);
+  const elapsedMs = (time = now()) => (startedAt === null ? 0 : Math.max(0, time - startedAt));
+  const remainingMs = (time = now()) => (budgetMs > 0 ? Math.max(0, budgetMs - elapsedMs(time)) : Infinity);
   return {
     budgetMs,
     elapsedMs,
@@ -324,15 +326,19 @@ export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErr
     },
     evaluate({ retryCount = 0, maxRetries = retryLimits.maxTransientErrorRetries, initialDelayMs, maxDelayMs, minDelayMs = 0 } = {}) {
       const delayMs = getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs, minDelayMs });
-      const base = { delayMs, elapsedMs: elapsedMs(), remainingMs: remainingMs(), budgetMs, retryCount, maxRetries };
+      const time = now();
+      const base = { delayMs, elapsedMs: elapsedMs(time), remainingMs: remainingMs(time), budgetMs, retryCount, maxRetries };
       if (retryCount >= maxRetries) return { ...base, allowed: false, reason: 'count' };
+      // A wait ending at the deadline also leaves no time for the next attempt.
+      if (deadlineAtMs !== null && delayMs >= deadlineAtMs - time) return { ...base, allowed: false, reason: 'deadline', deadlineRemainingMs: Math.max(0, deadlineAtMs - time) };
       // Never start a wait that would run past the budget window.
-      if (budgetMs > 0 && delayMs > remainingMs()) return { ...base, allowed: false, reason: 'budget' };
+      if (delayMs > base.remainingMs) return { ...base, allowed: false, reason: 'budget' };
       return { ...base, allowed: true, reason: null };
     },
     // One-line explanation for the "giving up" log, e.g.
     // "retry budget of 12h exhausted after 26 retries over 11h 45m".
     describeExhaustion(decision) {
+      if (decision?.reason === 'deadline') return `${formatRetryDuration(decision.delayMs)} retry delay would reach or pass the run deadline (${formatRetryDuration(decision.deadlineRemainingMs)} left)`;
       const spent = formatRetryDuration(decision?.elapsedMs ?? elapsedMs());
       if (decision?.reason === 'count') return `retry limit of ${decision.maxRetries} attempts reached after ${spent} (budget ${formatRetryDuration(budgetMs)})`;
       return `retry budget of ${formatRetryDuration(budgetMs)} exhausted after ${decision?.retryCount ?? retriesGranted} retries over ${spent}`;

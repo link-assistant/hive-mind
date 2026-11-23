@@ -117,6 +117,10 @@ jobs:
       checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
 
     steps:
+      # Match the 90-minute job ceiling and reserve time to record a failed attempt.
+      - name: Record the draft retry deadline
+        run: echo "HIVE_MIND_DEADLINE_AT_MS=$((($(date +%s) + 90 * 60 - 30) * 1000))" >> "$GITHUB_ENV"
+
       # A caller runs Hive Mind's draft scripts, so it checks out this
       # repository rather than its own.
       - name: Checkout repository

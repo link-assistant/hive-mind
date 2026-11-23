@@ -27,8 +27,10 @@
 import { spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import { parseIntegerEnv } from '../src/env-config.lib.mjs';
 import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, createdDraftPullRequestNumber, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_DECISION_CODES, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, isAttemptPullRequest, isIssuePullRequestHead, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent } from './formal-ai-draft.lib.mjs';
 import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
 import { gh, ghJson, ghList } from './github-actions.lib.mjs';
@@ -89,6 +91,11 @@ if (decideOnly || dryRun || !decision.run) reportDecision(decision, { preliminar
 if (decideOnly || !decision.run) process.exit(0);
 
 // --- The attempt ----------------------------------------------------------
+
+// The direct caller's attempt has 20 minutes including image pulls. Leave 30
+// seconds for failure reporting and accept the caller's absolute deadline when supplied.
+const defaultDeadlineAtMs = Math.floor(performance.timeOrigin) + (20 * 60 - 30) * 1000;
+const deadlineAtMs = parseIntegerEnv('HIVE_MIND_DEADLINE_AT_MS', defaultDeadlineAtMs, { scope: 'formal-ai-draft' });
 
 const hostLogDir = env.FORMAL_AI_DRAFT_LOG_DIR || `${env.RUNNER_TEMP || '/tmp'}/formal-ai-draft-logs`;
 const containerLogDir = '/home/box/logs';
@@ -153,8 +160,8 @@ if (!dryRun) {
 
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),
-  forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT'],
-  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env) },
+  forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT', 'HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 'HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS', 'HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS'],
+  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env), HIVE_MIND_DEADLINE_AT_MS: String(deadlineAtMs) },
   image,
   hostLogDir,
   containerLogDir,

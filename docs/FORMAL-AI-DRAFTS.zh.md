@@ -51,6 +51,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 - 脚本显式拉取 `konard/hive-mind:<version>`，遇到镜像仓库超时会在 15 秒、30 秒、1 分钟和 2 分钟后重试，因此容器运行的 hive-mind 与旁边的脚本是同一版本。尚未发布的标签（版本已在 `main` 上提升但发布尚未完成）会回退到 `konard/hive-mind:latest` 并给出警告。`image` 输入或 `FORMAL_AI_DRAFT_IMAGE` 变量按原样使用。
 - 会话启动的 Formal AI 服务器会在其自己的主目录下获得 `FORMAL_AI_CACHE_DIR`。Formal AI 仍会在克隆中写入 `data/cache/derivations/`，因此该目录与 `.formal-ai/` 一样，被排除在未提交更改检查之外，也不会被保存到 `recovery/<branch>` 分支：那是工具的状态，不是用户的工作。
 - 容器以 `--rm` 启动，因此失败评论从不指向容器内的路径，而是链接到工作流运行，其产物中保存着会话日志。
+- 工作流将草稿作业的重试截止时间传入容器，并预留 30 秒处理失败。直接调用 `scripts/formal-ai-draft.mjs` 时，可用 `HIVE_MIND_DEADLINE_AT_MS` 传入调用方的绝对 Unix 截止时间（毫秒）。对于 20 分钟的尝试，脚本默认从进程启动起计时 19 分 30 秒，镜像拉取也计入其中。脚本将截止时间及 `HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS`、`HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS` 和 `HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS` 的覆盖值传给 `solve`。
 
 ### pull request 上的检查
 

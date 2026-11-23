@@ -6,13 +6,13 @@ export const DRAFT_STEP = 'Open the Formal AI draft';
 /** Issues opened since `since` that the draft workflow would attempt. */
 export const eligibleIssues = (issues, since) => issues.filter(issue => issue.created_at >= since && decideDraft({ action: 'opened', issue: { ...issue, labels: (issue.labels || []).filter(label => label.name !== 'formal-ai-draft') } }).run);
 
-/** A run counts only when its model step actually started; a green run with a skipped step is not an attempt. */
-export const isExecutedAttempt = (run, jobs) => ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
+/** Occupancy is decided inside the attempt step, before the model starts. */
+export const isExecutedAttempt = (run, jobs, decisionCode) => decisionCode !== DRAFT_DECISION_CODES.occupied && ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
 
-export function evaluateDraftHealth({ eligible, attempts }) {
+export function evaluateDraftHealth({ eligible, attempts, occupied = 0 }) {
   return {
-    healthy: !(eligible > 0 && attempts === 0),
-    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts.`,
+    healthy: !(eligible > occupied && attempts === 0),
+    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts${occupied ? `, ${occupied} skipped with an open pull request` : ''}.`,
   };
 }
 
@@ -25,7 +25,7 @@ export function evaluateDraftHealth({ eligible, attempts }) {
 export const REPEATED_FAILURE_THRESHOLD = 5;
 
 /** Decisions that are the policy working, not a fault: they neither count nor break a streak. */
-const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted]);
+const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted, DRAFT_DECISION_CODES.occupied]);
 const NO_RECORDED_ERROR = 'failure with no recorded first error';
 const DECISION_PREFIX = 'decision_code ';
 

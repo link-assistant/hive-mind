@@ -64,15 +64,19 @@ function readSelectedAttempt(task, attempts, attempt, maxBytes) {
   return readAttemptEvidence(task.logPath, start, end, maxBytes);
 }
 
-export async function attemptEvidence(task, attempts, attempt) {
-  return summarizeTaskEvidence(await readSelectedAttempt(task, attempts, attempt), attempt);
+export async function attemptEvidence(task, attempts, attempt, maxBytes) {
+  return summarizeTaskEvidence(await readSelectedAttempt(task, attempts, attempt, maxBytes), attempt);
+}
+
+export function isFailedAttempt(attempt) {
+  return attempt?.status === 'executed' && Number.isSafeInteger(attempt.exitCode) && attempt.exitCode > 0;
 }
 
 function* failedAttempts(tasks) {
   for (const task of tasks) {
     const attempts = taskAttempts(task);
     for (const attempt of attempts.values()) {
-      if (attempt.status !== 'executed' || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) continue;
+      if (!isFailedAttempt(attempt)) continue;
       yield { task, attempts, attempt };
     }
   }

@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/h
 curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh | bash -s -- deploy --help
 ```
 
-For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and local backup. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Install Node.js and Hive Mind to run package maintenance commands on the host, or use `deploy` to run them inside the image. When a standalone maintenance command is missing locally and npm is available, the manager uses `npm exec` with the published package. Set `HIVE_MANAGER_PACKAGE_VERSION` to pin that fallback.
+For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and basic `deploy backup`. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Packaged maintenance on the host requires Node.js and a Hive Mind installation or npm. See [Pinning the CLI, host package, and image](#pinning-the-cli-host-package-and-image).
 
 ## JavaScript library
 
@@ -78,7 +78,7 @@ state-dir=./state
 env-file=./telegram.env
 ```
 
-Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. There is no manager installation required on a deployment host reached through SSH. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
+Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. Bash operations such as basic `deploy backup` can run on a target without a Hive Mind installation. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
 
 ```bash
 hive-manager --host hive-production deploy --profile ./hive/production.conf update
@@ -87,6 +87,22 @@ hive-manager --host hive-production --tty deploy --tty exec -- bash
 ```
 
 Set `ProxyJump` on the destination alias, configure `ProxyCommand` for an SSH transport proxy, or use an already connected VPN. Use `--ssh-config`, `--ssh-port`, and repeated `--ssh-option` for OpenSSH options supplied on the command line. Pass `--tty` on both sides of `deploy` for interactive remote Docker exec. Omit both for pipes and file transfers. See [OpenSSH client configuration](https://man.openbsd.org/ssh_config).
+
+### Pinning the CLI, host package, and image
+
+Install the operator CLI from an exact npm release or save the script from that release's Git tag. The operator's CLI supplies the Bash program for every SSH invocation. For packaged maintenance on the host, set `HIVE_MANAGER_PACKAGE_VERSION` to an exact version such as `2.48.0`. The manager carries that value in the SSH command, so OpenSSH environment forwarding requires no configuration. The executing host uses an installed `@link-assistant/hive-mind` only if its package manifest matches the pin and the command's module is present. Otherwise, Node-based maintenance requests that version through npm and verifies it before executing the module. The host's Python actions require a matching installed package. These include `deploy global-tools`, `deploy tool-services`, reviewed backups and bundle restores. With no pin configured, the manager prefers the installed implementation and uses the npm `latest` tag for fallback. Values such as npm dist-tags resolve through npm and can change over time.
+
+After installing the desired release on the operator machine and the target, verify both installations and the effective host dispatch. `HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1` reports the selected package name and version and whether it came from an installation or npm. It travels across SSH with the pin and writes to stderr, keeping command output on stdout available to scripts.
+
+```bash
+release=2.48.0 # Example host package version
+hive-manager --version
+ssh hive-production hive-manager --version
+HIVE_MANAGER_PACKAGE_VERSION="$release" HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1 \
+  hive-manager --host hive-production deploy disk --help
+```
+
+Select the deployment image independently with `image=` in the profile or `--image`. Use a release tag or digest. Published release images ship the manager wrapper and install the corresponding Hive Mind package. Commands that run inside the container, such as `deploy tasks report`, use its installed tools. The host pin applies to maintenance on the host. Inspect the deployed package separately with `hive-manager --host hive-production deploy exec -- hive-manager --version`.
 
 ## Headless sign-in
 

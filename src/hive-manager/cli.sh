@@ -45,6 +45,9 @@ SSH options (before COMMAND):
   --ssh-option OPTION  Pass an OpenSSH option (-o), repeatable
   --ssh-port PORT      SSH port (-p)
   --tty                Request a terminal for interactive remote commands
+
+HIVE_MANAGER_PACKAGE_VERSION     Select the host maintenance package, including over SSH.
+HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1  Report host package selection on stderr.
 Run hive-manager deploy --help for deployment options.
 HELP
 }
@@ -122,7 +125,15 @@ shell_quote() {
 over_ssh() {
   require ssh
   [[ $host =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.@:+-]*$ || $host =~ ^:[a-fA-F0-9:]+$ ]] || fail "Invalid SSH destination: $host"
-  local remote='exec bash -c' word
+  local remote='exec' word
+  if [[ $package_version || ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} ]]; then
+    remote+=' env'
+    if [[ $package_version ]]; then remote+=" $(shell_quote "HIVE_MANAGER_PACKAGE_VERSION=$package_version")"; fi
+    if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} ]]; then
+      remote+=" $(shell_quote "HIVE_MANAGER_PACKAGE_DIAGNOSTICS=$HIVE_MANAGER_PACKAGE_DIAGNOSTICS")"
+    fi
+  fi
+  remote+=' bash -c'
   for word in "$BASH_EXECUTION_STRING" hive-manager "$@"; do
     remote+=" $(shell_quote "$word")"
   done
@@ -174,64 +185,106 @@ package_source() {
   [[ -f $source_dir/../package.json && -f $source_dir/hive.mjs ]] || return 1
   cd -- "$source_dir" && pwd -P
 }
+package_release() {
+  command -v node >/dev/null || return 1
+  node -e '
+    const { name, version } = require(process.argv[1]);
+    if (name !== process.argv[2] || typeof version !== "string" || !/^\d+\.\d+\.\d+(?:[+-][\w.+-]+)?$/.test(version)) process.exit(1);
+    console.log(version);
+  ' "$1/../package.json" "$package_name" 2>/dev/null
+}
+
+package_diagnostic() {
+  if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+    printf 'hive-manager: %s\n' "$*" >&2
+  fi
+}
+
+check_package_version() {
+  [[ ! $package_version || $package_version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.+-]*$ ]] || fail "Invalid Hive Mind package version"
+}
+
+find_maintenance() {
+  local source=$1 expected=$2 module=$3 entry path version previous=''
+  shift 3
+  for entry in "$@"; do
+    [[ $entry ]] && path=$(package_source "$entry") && [[ $path != "$previous" && -f $path/$module ]] || continue
+    previous=$path
+    if [[ $expected || $source == npm || ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+      if version=$(package_release "$path"); then
+        if [[ $expected && $version != "$expected" ]]; then
+          package_diagnostic "skipping $source package $package_name@$version (requested $package_version)"
+          continue
+        fi
+        package_diagnostic "$source package $package_name@$version"
+      else
+        package_diagnostic "could not verify $source package at $path"
+        [[ ! $expected && $source != npm ]] || continue
+      fi
+    fi
+    printf '%s\n' "$path"
+    return
+  done
+  return 1
+}
+
+run_package_module() {
+  local path=$1 module=$2
+  shift 2
+  require node
+  exec node --import "$path/hive-manager/lib/terminal.mjs" "$path/$module" "$@"
+}
+
+run_npm_maintenance() {
+  local module=$1 path
+  shift
+  # npm resolves dist-tags and partial versions. Recheck an exact version before
+  # using a bin from npm's PATH, which may also contain an installed Hive Mind.
+  path=$(find_maintenance npm "$package_pin" "$module" "$(type -P hive)") ||
+    fail "npm did not provide $package_name@${package_version:-latest} with $module"
+  run_package_module "$path" "$module" "$@"
+}
+
 run_maintenance() {
-  local bin module source_path action=$1
+  local bin module path bin_path=''
   maintenance_spec "$1" || fail "Unknown maintenance command: $1"
   shift
-  if source_path=$(package_source) && [[ -f $source_path/$module ]]; then
-    require node
-    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
+  check_package_version
+  if path=$(find_maintenance installed "${package_pin:-$package_version}" "$module" "$0"); then
+    run_package_module "$path" "$module" "$@"
   fi
-  if [[ $bin != hive-manager ]] && command -v "$bin" >/dev/null; then
-    exec "$bin" "$@"
+  if [[ $bin != hive-manager ]]; then bin_path=$(type -P "$bin") || bin_path=''; fi
+  if [[ ! $package_version && $bin_path ]]; then
+    if [[ ${HIVE_MANAGER_PACKAGE_DIAGNOSTICS:-} == 1 ]]; then
+      find_maintenance installed '' "$module" "$bin_path" >/dev/null || package_diagnostic "using $bin_path (package version unavailable)"
+    fi
+    exec "$bin_path" "$@"
   fi
-  if [[ $bin == hive-manager ]] && source_path=$(package_source "$(command -v hive)") && [[ -f $source_path/$module ]]; then
-    require node
-    exec node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/$module" "$@"
+  if path=$(find_maintenance installed "${package_pin:-$package_version}" "$module" "$(type -P hive)" "$bin_path"); then
+    run_package_module "$path" "$module" "$@"
   fi
   require node
   require npm
-  # The package provides the same entry points for standalone use and older images.
-  local version=${HIVE_MANAGER_PACKAGE_VERSION:-latest}
-  [[ $version =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || fail "Invalid Hive Mind package version"
-  if [[ $action == deploy-storage ]]; then
-    local subcommand=() storage_action=$1 socket=$2 name=$3 state_dir=$4
-    shift 4
-    case "$storage_action" in
-      disk) subcommand=(disk) ;;
-      scoped) subcommand=(cleanup --scoped) ;;
-      preserve) subcommand=(tasks preserve-layer) ;;
-      cleanup-preserved) subcommand=(tasks cleanup-preserved) ;;
-    esac
-    local deploy_flags=(--name "$name" --state-dir "$state_dir")
-    if [[ $socket ]]; then deploy_flags+=(--docker-socket "$socket"); fi
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager deploy "${deploy_flags[@]}" "${subcommand[@]}" "$@"
-  fi
-  if [[ $action == task-* ]]; then
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager tasks "${action#task-}" "$@"
-  fi
-  if [[ $bin == hive-manager ]]; then
-    exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- hive-manager "$action" "$@"
-  fi
-  exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
+  package_diagnostic "requesting $package_name@${package_version:-latest} via npm"
+  exec npm exec --yes --package "$package_name@${package_version:-latest}" -- \
+    bash -c "$BASH_EXECUTION_STRING" hive-manager:npm "$module" "$@"
 }
 
 run_host_python() {
   local module=$1 source_path entry
   shift
-  if source_path=$(package_source) || source_path=$(package_source "$(command -v hive)"); then
+  check_package_version
+  if source_path=$(find_maintenance installed "${package_pin:-$package_version}" "hive-manager/$module" "$0" "$(type -P hive)"); then
     entry=$source_path/hive-manager/$module
-    if [[ -f $entry ]]; then
-      require python3
-      exec python3 -I -B -c '
+    require python3
+    exec python3 -I -B -c '
 import os, runpy, sys
 sys.argv.pop(0)
 sys.path.insert(0, os.path.dirname(sys.argv[0]))
 runpy.run_path(sys.argv[0], run_name="__main__")
 ' "$entry" "$@"
-    fi
   fi
-  fail "Install a Hive Mind package with $module on the target Linux host"
+  fail "Install $package_name${package_version:+@$package_version} with $module on the target Linux host"
 }
 
 run_host_maintenance() {
@@ -1852,6 +1905,16 @@ main() {
   esac
 }
 
-main "$@"
+package_name=@link-assistant/hive-mind
+package_version=${HIVE_MANAGER_PACKAGE_VERSION:-}
+package_pin=''
+if [[ $package_version =~ ^v?([0-9]+\.[0-9]+\.[0-9]+([+-][a-zA-Z0-9.+-]+)?)$ ]]; then
+  package_pin=${BASH_REMATCH[1]}
+fi
+if [[ $0 == hive-manager:npm ]]; then
+  run_npm_maintenance "$@"
+else
+  main "$@"
+fi
 HIVE_MANAGER_PROGRAM
 )" "${BASH_SOURCE[0]:-hive-manager}" "$@"

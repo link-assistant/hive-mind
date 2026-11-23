@@ -19,7 +19,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.356.0
+ARG FORMAL_AI_VERSION=0.356.9
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.100-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -89,6 +89,8 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # DISABLE_COMPACT must never appear in this image (issue #2236)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_PROMPT_CACHE_TTL=1h \
+    CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h \
     CLAUDE_CODE_CLASSIFIER_SUMMARY=0 \
     CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES=0 \
     CLAUDE_CODE_ENABLE_NARRATION=0 \

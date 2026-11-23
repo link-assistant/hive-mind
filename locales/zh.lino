@@ -768,10 +768,8 @@ zh
       waiting_for_ci_default_branch "⏳ 正在等待默认分支上的 CI/CD 完成..."
       issue_label "Issue"
     solve_progress
-      watching "⏳ 正在监控 pull request，直到可以合并"
-      blocker "等待：{{blocker}}"
-      timing "第 {{check}} 次检查 · 已监控 {{elapsed}} · 将于 {{deadline}} 停止"
-      updated "状态更新于 {{time}}"
+      watching "⏳ 正在监控"
+      elapsed "⏳ 已监控 {{minutes}} 分 {{seconds}} 秒"
       uploading_log "📎 正在上传会话日志..."
     work
       session
@@ -790,6 +788,7 @@ zh
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+        launch_failure_listed "工作会话未启动。使用 `/queue` 查看最近的启动失败。`--list` 显示由 start-command 记录的执行。"
         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
         recovering_from_kill "工作会话仍在进行：正在从强制终止中恢复{{causeSuffix}}"
         recovered "工作会话在自动恢复后成功完成"

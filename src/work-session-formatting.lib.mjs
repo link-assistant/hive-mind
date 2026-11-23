@@ -127,19 +127,21 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', exe
  * @param {string} [params.infoBlock]
  * @param {string} [params.error] - Runner error text
  * @param {string|null} [params.locale]
+ * @param {boolean} [params.listedInQueue] - Whether the failure is recorded in Telegram's queue history
  * @returns {string} Markdown reply
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2154
  * @telegram-markdown
  */
-export function formatFailedLaunchMessage({ commandName = 'command', sessionName = null, isolationBackend = null, infoBlock = '', error = '', locale = null } = {}) {
+export function formatFailedLaunchMessage({ commandName = 'command', sessionName = null, isolationBackend = null, infoBlock = '', error = '', locale = null, listedInQueue = false } = {}) {
   const header = text(locale, 'telegram.error_executing_command', `❌ Error executing ${commandName} command`, { commandName });
   const sessionLabel = text(locale, 'telegram.session_label', 'Session');
   const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
   const sessionLine = sessionName ? `\n📊 ${sessionLabel}: \`${sessionName}\`` : '';
   const isolationLine = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
   const body = String(error ?? '').trim() || 'unknown error';
-  const notLaunched = sessionName ? `\n\n${text(locale, 'telegram.work_session_not_launched', 'The work session was not launched, so it has no log and is not listed by `--list`.')}` : '';
+  const launchNote = listedInQueue ? text(locale, 'telegram.work_session_launch_failure_listed', 'The work session was not launched. See `/queue` for recent failures. `--list` shows executions recorded by start-command.') : text(locale, 'telegram.work_session_not_launched', 'The work session was not launched, so it has no log and is not listed by `--list`.');
+  const notLaunched = sessionName ? `\n\n${launchNote}` : '';
   const details = infoBlock ? `\n\n${infoBlock}` : '';
   return `${header}:${sessionLine}${isolationLine}\n\n\`\`\`\n${body}\n\`\`\`${notLaunched}${details}`;
 }

@@ -768,10 +768,8 @@ ru
       waiting_for_ci_default_branch "⏳ Ожидание завершения CI/CD в ветке по умолчанию..."
       issue_label "Задача"
     solve_progress
-      watching "⏳ Отслеживание pull request до готовности к слиянию"
-      blocker "Ожидание: {{blocker}}"
-      timing "Проверка #{{check}} · отслеживание {{elapsed}} · остановка в {{deadline}}"
-      updated "Статус обновлён {{time}}"
+      watching "⏳ Отслеживание"
+      elapsed "⏳ Отслеживание {{minutes}} мин {{seconds}} с"
       uploading_log "📎 Загрузка журнала сессии..."
     work
       session
@@ -790,6 +788,7 @@ ru
         killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
         stopped "Рабочий сеанс остановлен пользователем{{requestedBy}}{{exitSuffix}}"
         not_launched "Рабочий сеанс не был запущен, поэтому у него нет журнала и он не отображается в `--list`."
+        launch_failure_listed "Рабочий сеанс не был запущен. Последние сбои запуска видны в `/queue`. Команда `--list` показывает запуски, зарегистрированные в start-command."
         recovering "Рабочий сеанс ещё выполняется: восстановление после кода выхода {{exitCode}}"
         recovering_from_kill "Рабочий сеанс ещё выполняется: восстановление после принудительной остановки{{causeSuffix}}"
         recovered "Рабочий сеанс успешно завершён после автоматического восстановления"

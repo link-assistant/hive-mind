@@ -4,11 +4,14 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify, parseArgs } from 'node:util';
-import { readAttemptEvidence, summarizeTaskEvidence } from './lib/evidence.mjs';
+import { collectTaskEvidence, groupTaskFailures, inspectTasks, inspectTaskWindow } from '../index.mjs';
+import { attemptEvidence, failureKind, latestAttempt, selectTask, taskAttempts, taskBackend, timestamp, validateReportLimit, validateTaskUuid } from './lib/inspection.mjs';
 import { findReport, readIssue, reconcileReport } from './lib/issue-history.mjs';
 import { resolveBotStateDir } from '../../session-store.lib.mjs';
 import { withStateLock } from '../../state-lock.lib.mjs';
 import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
+
+export { latestAttempt, taskAttempts } from './lib/inspection.mjs';
 
 const execFileAsync = promisify(execFile);
 const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
@@ -24,76 +27,10 @@ Use --routes to select a follow-up from a JSON file keyed by the failure group.
 Use --reconcile to check past reports and review closed issues without publishing.
 `;
 
-function timestamp(value) {
-  const milliseconds = Date.parse(value);
-  return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : 'Unknown';
-}
-
-function failureKind({ exitCode, oomKilled, memoryExhausted }) {
-  if (oomKilled === true || memoryExhausted === true) return 'Memory exhaustion';
-  if (exitCode === 127) return 'Command unavailable (exit 127)';
-  if (exitCode >= 128) return 'Signal-range exit code';
-  return 'Nonzero exit code';
-}
-
-function taskBackend(task) {
-  const backend = task.options?.isolated;
-  return ['docker', 'screen', 'tmux', 'ssh'].includes(backend) ? backend : 'local';
-}
-
-export function latestAttempt(task) {
-  return task.attempt?.number ?? (Number(task.options?.resumeCount) || 0) + (Number(task.options?.recoveryAttempts) || 0) + 1;
-}
-
-export function taskAttempts(task) {
-  const number = latestAttempt(task);
-  const history = Array.isArray(task.attemptHistory) ? task.attemptHistory : [];
-  const attempts = new Map(history.filter(attempt => Number.isSafeInteger(attempt?.number) && attempt.number > 0).map(attempt => [attempt.number, attempt]));
-  attempts.set(number, { ...task, number, startedAt: task.attempt?.startedAt ?? task.startTime, logOffset: task.attempt?.logOffset });
-  return attempts;
-}
-
-async function attemptEvidence(task, attempts, attempt) {
-  const next = attempts.get(attempt.number + 1);
-  const offset = (value, fallback) => (Number.isSafeInteger(value) && value >= 0 ? value : fallback);
-  const start = offset(attempt.logOffset, attempt.number === 1 ? 0 : null);
-  const end = offset(next?.logOffset, attempt.number === latestAttempt(task) ? Infinity : null);
-  const excerpt = await readAttemptEvidence(task.logPath, start, end);
-  return summarizeTaskEvidence(excerpt, attempt);
-}
-
 function requestedAttempt(value) {
-  const attempt = value === undefined ? null : Number(value);
-  if (attempt !== null && (!/^\d+$/.test(value) || !Number.isSafeInteger(attempt) || attempt < 1)) throw new Error('Use a positive attempt number.');
+  const attempt = value === undefined ? undefined : Number(value);
+  if (attempt !== undefined && (!/^\d+$/.test(value) || !Number.isSafeInteger(attempt) || attempt < 1)) throw new Error('Use a positive attempt number.');
   return attempt;
-}
-
-async function selectedTask(id) {
-  if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)) throw new Error('Use the complete execution UUID.');
-  const task = (await listTrackedTasks()).find(entry => entry.uuid === id.toLowerCase());
-  if (!task) throw new Error('No tracked execution matches that UUID.');
-  return task;
-}
-
-function groupFailures(tasks, limit) {
-  const groups = new Map();
-  for (const task of tasks) {
-    const backend = taskBackend(task);
-    for (const attempt of taskAttempts(task).values()) {
-      if (attempt.status !== 'executed' || !Number.isSafeInteger(attempt.exitCode) || attempt.exitCode <= 0) continue;
-      const kind = failureKind(attempt);
-      const exitCode = attempt.exitCode;
-      const signature = `${backend}:${kind}:${exitCode}`;
-      const group = groups.get(signature) ?? { backend, kind, exitCode, count: 0, latest: null };
-      group.count++;
-      const finishedAt = timestamp(attempt.endTime ?? attempt.finishedAt);
-      if (!group.latest || (finishedAt !== 'Unknown' && (group.latest.finishedAt === 'Unknown' || finishedAt > group.latest.finishedAt))) {
-        group.latest = { id: task.uuid, attempt: attempt.number, finishedAt };
-      }
-      groups.set(signature, group);
-    }
-  }
-  return [...groups.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
 async function routedIssue(file, backend, attempt, selectedSignature) {
@@ -215,23 +152,18 @@ async function report() {
   const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes, values['host-signature'], values.reconcile, values['legacy-ledger'], values['installed-version']].some(value => value !== undefined);
   if (values.collect !== undefined) {
     if (values.group || values.window !== undefined || values.incident !== undefined || hasPublicationOptions) throw new Error('Collect evidence for one task separately from the other report modes.');
-    const task = await selectedTask(values.collect);
-    const attempts = taskAttempts(task);
-    const attempt = attempts.get(requestedAttempt(values.attempt) ?? latestAttempt(task));
-    if (!attempt) throw new Error('No recorded attempt has the selected number.');
-    const evidence = await attemptEvidence(task, attempts, attempt);
-    process.stdout.write(`${JSON.stringify({ id: task.uuid, attempt: attempt.number, status: attempt.status, exitCode: attempt.exitCode ?? null, startedAt: timestamp(attempt.startedAt), finishedAt: timestamp(attempt.endTime ?? attempt.finishedAt), evidence }, null, 2)}\n`);
+    validateTaskUuid(values.collect);
+    const tasks = await listTrackedTasks();
+    const result = await collectTaskEvidence(tasks, { uuid: values.collect, attempt: requestedAttempt(values.attempt) });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
   if (values.window !== undefined) {
     if (values.group || values.incident !== undefined || hasPublicationOptions) throw new Error('Select the task window separately from grouping and incident publication.');
     const attempt = requestedAttempt(values.attempt);
-    const task = await selectedTask(values.window);
-    const entry = taskAttempts(task).get(attempt ?? latestAttempt(task));
-    const started = timestamp(entry?.startedAt);
-    const ended = timestamp(entry?.endTime ?? entry?.finishedAt);
-    if (started === 'Unknown' || (ended === 'Unknown' && entry?.status !== 'executing') || (ended !== 'Unknown' && ended < started)) throw new Error('The selected attempt has no usable time window.');
-    process.stdout.write(`${started}\t${ended === 'Unknown' ? 'now' : ended}\n`);
+    validateTaskUuid(values.window);
+    const { startedAt, finishedAt } = inspectTaskWindow(await listTrackedTasks(), { uuid: values.window, attempt });
+    process.stdout.write(`${startedAt}\t${finishedAt ?? 'now'}\n`);
     return;
   }
   if (values.incident !== undefined) {
@@ -247,7 +179,8 @@ async function report() {
     if (!values.reconcile && (values['legacy-ledger'] !== undefined || values['installed-version'] !== undefined)) throw new Error('Use --legacy-ledger and --installed-version with --reconcile.');
     const installedVersion = values['installed-version']?.replace(/^v/, '');
     if (installedVersion !== undefined && !/^\d+\.\d+\.\d+(?:-[a-z\d.-]+)?(?:\+[a-z\d.-]+)?$/i.test(installedVersion)) throw new Error('Specify the installed Hive Mind release version.');
-    const task = await selectedTask(values.incident);
+    validateTaskUuid(values.incident);
+    const task = selectTask(await listTrackedTasks(), values.incident);
     const preview = await incidentPreview(task, attempt, destination, explicitFollowUp, values.routes, values['host-signature']);
     if (values.reconcile) {
       const { followUp, title, body } = preview;
@@ -265,37 +198,11 @@ async function report() {
     return;
   }
   if (values.attempt !== undefined || hasPublicationOptions) throw new Error('The attempt and publication options require --incident UUID.');
-  const limit = Number(values.limit);
-  if (!/^\d+$/.test(values.limit) || limit < 1 || limit > 1000) throw new Error('Report limit must be between 1 and 1000.');
+  const limit = /^\d+$/.test(values.limit) ? Number(values.limit) : NaN;
+  validateReportLimit(limit);
   const tasks = await listTrackedTasks();
-  if (values.group) {
-    process.stdout.write(`${JSON.stringify({ groups: groupFailures(tasks, limit) }, null, 2)}\n`);
-    return;
-  }
-
-  const counts = { running: 0, paused: 0, succeeded: 0, failed: 0, unknown: 0 };
-  const failures = [];
-  for (const task of tasks) {
-    if (task.status === 'executing') {
-      counts[task.paused === true ? 'paused' : 'running']++;
-    } else if (task.status === 'executed' && task.exitCode === 0) {
-      counts.succeeded++;
-    } else if (task.status === 'failed' || (task.status === 'executed' && Number.isInteger(task.exitCode))) {
-      counts.failed++;
-      if (failures.length < limit) {
-        failures.push({
-          id: task.uuid,
-          exitCode: task.exitCode ?? null,
-          finishedAt: task.endTime ?? null,
-          memoryExhausted: task.memoryExhausted === true || task.oomKilled === true,
-          reason: task.exitReason ?? null,
-        });
-      }
-    } else {
-      counts.unknown++;
-    }
-  }
-  process.stdout.write(`${JSON.stringify({ counts, failures }, null, 2)}\n`);
+  const result = values.group ? groupTaskFailures(tasks, { limit }) : inspectTasks(tasks, { limit });
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

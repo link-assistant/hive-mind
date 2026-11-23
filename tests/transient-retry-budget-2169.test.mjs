@@ -274,6 +274,24 @@ await test('budgetMs = 0 disables the budget (count cap only)', () => {
   assert.equal(unlimited.budget.describeProgress(), 'budget disabled');
 });
 
+await test('the run deadline remains in force across outage recovery', () => {
+  const delayMs = 3 * 60 * 1000;
+  let clock = 1000;
+  const budget = createTransientRetryBudget({ budgetMs: 0, deadlineAtMs: clock + delayMs + 1, now: () => clock });
+  const retry = { initialDelayMs: delayMs, minDelayMs: delayMs };
+  assert.equal(budget.evaluate(retry).allowed, true);
+  budget.grant();
+
+  clock += 1;
+  budget.recordProgress();
+  const atDeadline = budget.evaluate(retry);
+  assert.equal(atDeadline.reason, 'deadline');
+  assert.match(budget.describeExhaustion(atDeadline), /3 min retry delay.*run deadline/);
+
+  clock += delayMs + 1;
+  assert.equal(budget.evaluate({ initialDelayMs: 0 }).reason, 'deadline');
+});
+
 await test('exhaustion is reported with the elapsed window, not just a retry count', () => {
   const { budget, decision } = simulateOutage();
   const description = budget.describeExhaustion(decision);

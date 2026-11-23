@@ -1,0 +1,56 @@
+{
+  "capturedAt": "2026-11-21T17:21:36Z",
+  "repository": "TopHunter-AI/thai",
+  "pullRequest": 811,
+  "prState": {
+    "headRefOid": "a3209e0cc17a1fd4bc89c842cfe286318428410f",
+    "isDraft": false,
+    "mergeStateStatus": "UNKNOWN",
+    "mergeable": "UNKNOWN",
+    "mergedAt": "2026-11-20T17:20:54Z",
+    "state": "MERGED",
+    "statusCheckRollup": [
+      {
+        "result": "SKIPPED",
+        "count": 7
+      },
+      {
+        "result": "SUCCESS",
+        "count": 31
+      }
+    ]
+  },
+  "prChecksCli": [
+    {
+      "bucket": "pass",
+      "count": 29
+    },
+    {
+      "bucket": "skipping",
+      "count": 4
+    }
+  ],
+  "restHeadCheckRuns": [
+    {
+      "result": "skipped",
+      "count": 7
+    },
+    {
+      "result": "success",
+      "count": 31
+    }
+  ],
+  "restLegacyStatuses": {
+    "state": "pending",
+    "total_count": 0,
+    "contexts": []
+  },
+  "restHeadWorkflowRuns": [
+    {
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "count": 5
+    }
+  ]
+}

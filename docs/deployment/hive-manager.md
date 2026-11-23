@@ -12,6 +12,36 @@ curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/h
 
 For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and local backup. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Install Node.js and Hive Mind to run package maintenance commands on the host, or use `deploy` to run them inside the image. When a standalone maintenance command is missing locally and npm is available, the manager uses `npm exec` with the published package. Set `HIVE_MANAGER_PACKAGE_VERSION` to pin that fallback.
 
+## JavaScript library
+
+Install `@link-assistant/hive-mind` in your project and import the public `@link-assistant/hive-mind/hive-manager` entry point from Node.js 24 or later. The package includes TypeScript declarations. Importing the entry point runs no commands, writes no files, and produces no output.
+
+```js
+import { HiveManagerError, previewTaskRecordRepair } from '@link-assistant/hive-mind/hive-manager';
+
+try {
+  const preview = await previewTaskRecordRepair({
+    uuids: ['40950000-1111-4000-8000-000000000001'],
+  });
+  console.log(preview.outcomes);
+} catch (error) {
+  if (!(error instanceof HiveManagerError)) throw error;
+  console.error(error.code, error.message);
+}
+```
+
+| Function                                        | Data and result                                                                                                                                                                                       | CLI equivalent                   |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `inspectTasks(tasks, { limit })`                | Counts tasks by state and summarizes recent failures from an array of start-command execution records.                                                                                                | `tasks report [--limit NUMBER]`  |
+| `groupTaskFailures(tasks, { limit })`           | Groups failed attempts by backend, failure kind and exit code. Both report functions default to 25 results and accept limits from 1 to 1000.                                                          | `tasks report --group`           |
+| `inspectTaskWindow(tasks, { uuid, attempt })`   | Returns `startedAt` and `finishedAt` in UTC. A running attempt has a `null` finish time.                                                                                                              | `tasks report --window UUID`     |
+| `collectTaskEvidence(tasks, { uuid, attempt })` | Returns a bounded attempt log summary. Omit `attempt` in either selection function to use the latest attempt.                                                                                         | `tasks report --collect UUID`    |
+| `previewTaskRecordRepair({ uuids, appFolder })` | Reads the start-command store and inspects running Docker snapshots. Returns `eligible` with a container name or `ambiguous` per matching UUID. No eligible snapshot yields no outcome for that UUID. | `tasks repair-records [UUID...]` |
+
+Pass the `executions` array from start-command's JSON task list or an existing snapshot to the inspection functions. `collectTaskEvidence` reads the `logPath` provided by the selected record. Give it trusted records from your task host. Record repair preview requires the start-command 0.44.0 executable (`$`) and Docker on `PATH`. `appFolder` defaults to `START_APP_FOLDER` or `~/.start-command`. An empty or omitted `uuids` array considers all records.
+
+Use the `HiveManagerError.code` property to handle invalid selections (`INVALID_INPUT`, `TASK_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `TASK_WINDOW_UNAVAILABLE`) and repair dependencies or read failures (`START_COMMAND_UNAVAILABLE`, `TASK_RECORDS_UNAVAILABLE`, `DOCKER_INSPECTION_FAILED`). An ambiguous match is a preview outcome. Only `tasks repair-records --apply` adopts a snapshot and attaches a watcher, after rechecking eligibility. Operators continue to own deployment profiles, schedules, incident routes and secrets. Deployment apply, adoption and publication approval use their existing CLI flags.
+
 ## First deployment
 
 Prepare the persistent state and start the setup container. Run each sign-in separately so it can use your terminal.
@@ -102,11 +132,79 @@ Each package operation is available locally and inside a managed deployment. Use
 | Reconcile linked issues   | `hive-manager close-linked-issues --help` | `hive-manager deploy close-linked-issues --help` |
 | Inspect task records      | `hive-manager tasks list --running`       | `hive-manager deploy tasks list --running`       |
 
-`deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for Docker storage details and `deploy diagnose` for resource usage, exit status and OOM information. `deploy start`, `stop` and `restart` manage the selected container. On systemd hosts, `deploy docker-service status` checks the host daemon and `deploy docker-service start` starts it. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges. `audit-config --repair` applies Hive Mind's existing global agent settings repair and quarantines supported non-baseline additions.
+`deploy status` summarizes the selected instance, `deploy logs` accepts Docker log options, and `deploy doctor` checks free space, Docker, and the package runtime. Use `deploy disk` for bounded host and task storage accounting and `deploy diagnose` for resource usage, exit status and OOM information. `deploy start`, `stop` and `restart` manage the selected container. On systemd hosts, `deploy docker-service status` checks the host daemon and `deploy docker-service start` starts it. `deploy reboot --confirm` requests a systemd reboot of the host and requires host privileges. `audit-config --repair` applies Hive Mind's existing global agent settings repair and quarantines supported non-baseline additions.
+
+### Scoped tool maintenance
+
+Each action previews by default and writes a JSON receipt to stdout. Save the receipt if a scheduler or an incident report needs it. Add `--apply` after the action once you have reviewed the plan.
+
+```bash
+hive-manager deploy --profile PROFILE update-dependencies gh-upload-log
+hive-manager deploy --profile PROFILE update-dependencies --apply gh-upload-log
+hive-manager deploy --profile PROFILE update-dependencies --all
+```
+
+The dependency command runs Bun in the selected deployment as `box`. It uses `BUN_INSTALL_GLOBAL_DIR` when set, or the global install directory under `BUN_INSTALL` or `~/.bun`. The preview shows Bun's proposed versions. Apply backs up the original `package.json`, `bun.lock` and `bun.lockb` when present under `~/.hive-mind/state/tool-maintenance/dependency-backups/` before invoking Bun. The receipt includes the backup path, before and after versions and file checksums, and Bun output. A failed update retains its backup. To roll it back, restore the saved manifest and lockfile format in the original Bun global directory, remove any lockfile generated in the failed update whose original checksum was null, and reinstall from the restored manifest and lockfile. Keep this directory on the deployment's persistent state mount.
+
+Run the other two actions as root on the Linux Docker host using an installed Hive Mind Manager and Python 3.11 or later. For SSH, select an authorized root destination with `--host`. `tool-services` also requires Linux pidfd support.
+
+```bash
+hive-manager deploy --profile PROFILE global-tools --policy /etc/hive-mind/stage-tools.json
+hive-manager deploy --profile PROFILE global-tools --policy /etc/hive-mind/stage-tools.json --apply
+hive-manager deploy --profile PROFILE tool-services --tools codex,claude
+hive-manager deploy --profile PROFILE tool-services --tools codex,claude --apply
+```
+
+Store the allowlist on the Docker host. A deployment profile can supply `tool-policy=stage-tools.json` relative to that profile. Each of the `codexMcp` and `claudeMcp` objects maps an approved name to its exact registration in that tool's format. For instance, this file approves Playwright for both tools using the published Control Center arguments.
+
+```json
+{
+  "codexMcp": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--headless", "--no-sandbox", "--timeout-action=600000", "--viewport-size", "1920x1080"]
+    }
+  },
+  "claudeMcp": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated", "--headless", "--no-sandbox", "--timeout-action=600000", "--viewport-size", "1920x1080"]
+    }
+  }
+}
+```
+
+Use `{}` for an empty allowlist. A deployment running the Hive Mind task-launch policy must also satisfy that policy before admitting tasks. On a shared host, align the policy across deployments for the shared root and system layers. The audit covers the bot user, bot root and host root homes, and managed Codex and Claude configuration on the host and in the deployment. It preserves stock Codex system skills, credentials, session history, task-scoped settings and managed permission constraints. Apply records original configurations and moved extensions in root-only quarantine under `/var/lib/hive-manager/tool-maintenance/quarantine/`. Single-file bind-mounted configs are rewritten in place. An audit exits nonzero on drift or an unsafe configuration. An apply exits nonzero if violations remain.
+
+Service cleanup selects the deployment's known managed Codex app-server, its updater, and orphaned Claude browser helpers. Add `--include-host` to consider eligible helpers in the host scope as well. The receipt lists blockers such as active or unclassified tasks, foreground tool processes, controlling terminals, owners and worker children. It reads the current start-command store without reconciling tasks or refreshing its cache. Each signal checks the current deployment identity, task state and process incarnation. Apply stops the updater first, sends SIGTERM to eligible helpers, and rechecks before escalating to SIGKILL if necessary.
+
+Control Center schedulers can switch their focused dependency, global-tool and service maintenance calls to these commands once the deployment and its host package run the supporting release. Compare each JSON preview with the existing runbook on staging, then verify the backups, preserved scopes and service blockers before switching callers. A pinned image rollout restores the image's pinned dependencies. The [queue work classifier](../../tests/queue-work-accounting-4021.test.mjs) discounts idle daemons for queue admission.
 
 `tasks status ID` reports one execution. `tasks report` tallies execution states and lists recent failures with exit and memory evidence in JSON. Use `tasks attach ID --read-only` to follow a live task, `tasks resume ID` to restart the stored execution, or `tasks resume-all` to reconcile running records and watchers. `tasks cleanup-dry-run [ID]` previews stale record or task container cleanup and `tasks cleanup [ID]` performs it. `tasks alias` and `tasks rename` manage task names. `tasks upload-log ID` invokes the sanitized upload workflow. The installed [start-command](https://github.com/link-foundation/start) version determines which actions and arguments are supported.
 
-To preserve a failed Docker task before removing its container, run `tasks backup-container CONTAINER --output NEW_DIRECTORY`, then preview removal with `tasks cleanup-backed-up NEW_DIRECTORY`. Supply `--apply SHA256` with the preview’s approval digest to remove the exact stopped container after rechecking the backup checksum and container identity. For an older container without task labels, add `--execution UUID` to the backup command. The manager checks that the stored Docker task recorded the same container, session and exit code. With `deploy tasks`, choose a directory on a persistent mount with enough free space. The private backup contains the container’s filesystem, which you can inspect with `tar -tzf NEW_DIRECTORY/filesystem.tar.gz`. Back up mounted data separately. [Docker export](https://docs.docker.com/reference/cli/docker/container/export/)
+To preserve a failed Docker task before removing its container, run `tasks backup-container CONTAINER --output NEW_DIRECTORY`, then preview removal with `tasks cleanup-backed-up NEW_DIRECTORY`. Supply `--apply SHA256` with the preview’s approval digest to remove the exact stopped container after rechecking the backup checksum and container identity. For an older container without task labels, add `--execution UUID` to the backup command. The manager checks that the stored Docker task recorded the same container, session and exit code. With `deploy tasks`, choose a directory on a persistent mount with enough free space. The private backup is a flattened Docker filesystem export. Inspect it with `tar -tzf NEW_DIRECTORY/filesystem.tar.gz`. Preserve mounted data and task logs separately. [Docker export](https://docs.docker.com/reference/cli/docker/container/export/)
+
+### Host storage reporting and cleanup
+
+`hive-manager deploy disk` reports filesystem capacity and inodes, Docker images and volumes, selected daemon metadata and host directories, and individual writable layers and Docker logs. It includes paused and stopped tasks. Pass `--name` and the deployment profile before `disk` to match Docker containers to the bot's saved start-command records and issue or pull request URLs. The report reads the execution store directly, with a 16 MiB read limit. Use `--budget SECONDS` to set the total measurement budget (60 seconds by default, up to 180). The JSON lists unavailable measurements as `null` and explains them in `issues`. Run on the Linux daemon host with read access to its storage for layer and volume measurements. Use `disk --docker-summary` for Docker's separate verbose storage walk.
+
+Run scoped cleanup as root on the Linux daemon host. It uses Node.js 24+, a local Docker Unix socket and `flock`. A task needs Node.js 24+, a verified overlay writable layer, and a verifiable cgroup v2 freezer for removal. The worker verifies the pinned disk-space-saviour archive before scanning and does one scope at a time.
+
+```sh
+hive-manager deploy cleanup --scoped --dry-run
+hive-manager deploy cleanup --scoped --status
+hive-manager deploy cleanup --scoped --apply PREVIEW_ID
+hive-manager deploy cleanup --scoped --status
+```
+
+The default is a preview. Review the completed status and the recorded `previewFile` before applying. Apply rescans and considers only approved files that still match the preview. It skips paused and stopped tasks, mounted data, Docker and containerd storage, active files detected by the scanner, and files that only exist in the image. It leaves directory ownership intact. The host worker holds a lock and records status under `/var/lib/hive-manager/scoped-cleanup`. Reconnect and check `--status` after an SSH interruption. A pressure stop, interrupted worker, or partial apply requires a fresh preview. Limits include 1,536 MiB of available host memory, 2,560 MiB maximum Docker daemon RSS, and 256 MiB of headroom in a bounded worker or daemon cgroup. Inspect each scope's outcome in the status before relying on its estimates.
+
+### Failed task preservation
+
+For stopped overlay task containers on the daemon host, use `hive-manager deploy tasks preserve-layer CONTAINER --output NEW_DIRECTORY` as root. Supply `--execution UUID` for an older unlabelled container. The private receipt covers the native writable-layer tar with numeric owners, modes, ACLs and extended attributes, original container facts, the matching start-command record and task log, and retained Docker stdout and stderr. Save mounted data independently using the mount inventory in `container.json`. Keep the original image if you need to interpret the layer over its base filesystem. A layer archive can contain whiteouts and overlay metadata. It needs an overlay-aware restore procedure.
+
+Run `hive-manager deploy tasks cleanup-preserved NEW_DIRECTORY` to verify the stored files and check the live container identity. Pass `--apply SHA256` with the preview's approval digest to remove only that stopped container. Use `tasks backup-container` when you need a flattened filesystem export.
 
 `tasks recover-failed` previews first retries for detached Docker tasks with confirmed memory exhaustion. It skips active or paused families, tasks still tracked by the Telegram bot, operator stops recorded by start-command, and failures superseded by newer successes. Let the bot reconcile after a restart and use `tasks status UUID` to check the latest attempt before applying a plan.
 
@@ -214,49 +312,82 @@ The backup is a private archive of the state directory. Keep configuration insid
 
 ## Telegram MTProto proxy
 
-The classic proxy can run independently of the bot. `apply` creates or starts it, `update` replaces it, and `remove` keeps its data and secret. An existing proxy can be adopted by matching `--proxy-name` and importing its 32-digit hex secret from a private `--secret-file`. Use `link` only when you need to share the secret-bearing link.
+The proxy can run independently of the bot. Use `apply` to create or start a managed classic proxy. Use `deploy --adopt proxy --proxy-name NAME apply` to recreate a legacy classic proxy with the manager ownership label. When the legacy container has a classic `/data` bind mount, the manager reads its key. You can also supply a private `--secret-file`. A supplied key must agree with the mounted key and any saved manager key. The legacy container and its configuration stay available for rollback.
 
 ```bash
 hive-manager --host hive-production deploy proxy --port 8443 apply
-hive-manager --host hive-production deploy proxy --port 8443 status
 hive-manager --host hive-production deploy proxy --port 8443 verify
 hive-manager deploy proxy --port 8443 --public-host proxy.example.net connect
-hive-manager --host hive-production deploy proxy --port 8443 --public-host proxy.example.net link
 ```
 
-`verify` checks Docker status and outbound TCP reachability from the proxy host to Telegram data centers. `connect` checks the TCP route from the process running the command. `snapshot` records the running configuration, including the published ports, workers, and a hash of the secret. Use `compare` with a baseline file on the deployment host or pass `-` to read it over SSH.
+`verify` checks running status, the selected binding and TCP connectivity to each Telegram data center from the selected container's network namespace. Run it on the Linux Docker host with permission to enter Docker namespaces. A connection failure is reported as `unreachable`. A missing namespace, inaccessible namespace or nonlocal Docker endpoint is reported as `unavailable`. Both cause verification to fail. `connect` checks public TCP reachability from the caller.
+
+Use `snapshot` to record the image, restart policy, workers, published bindings and a SHA-256 hash of the supplied or persisted key. Add `--check-egress` and `--check-mss` to include namespace connectivity and installed IPv4 TCPMSS rules. With `--secret-file`, snapshot and compare can read the legacy key in place. The path is on the Docker host. `compare` accepts a baseline on the target or `-` for stdin over SSH.
 
 ```bash
-hive-manager --host hive-production deploy proxy snapshot > proxy.baseline
-hive-manager --host hive-production deploy proxy compare - < proxy.baseline
+proxy=(hive-manager --host hive-production deploy proxy --port 8443 --proxy-name mtproxy-classic-8443)
+observations=(--secret-file /root/.hive-mtproxy-classic-8443/secret --check-egress --check-mss)
+"${proxy[@]}" "${observations[@]}" snapshot > proxy.baseline
+"${proxy[@]}" "${observations[@]}" compare - < proxy.baseline
 ```
 
-Run `proxy-test` on the affected client network with a pre-authorized Telegram StringSession and private API credentials. The probe uses the session's Saved Messages, verifies a text round trip, and deletes its test messages. `--media` adds a byte-for-byte document round trip. `--photo FILE` adds a JPEG or PNG upload and download. Use `--direct` to run the same checks against Telegram without the proxy.
+Run `proxy-test` on the affected client network with a pre-authorized Telegram StringSession and private API credentials. It verifies a text round trip in Saved Messages and deletes its test messages. `--media` adds a byte-for-byte document round trip. `--roundtrip-photo` uploads a deterministic 128 × 128 test image. `--photo FILE` accepts a selected JPEG or PNG of at most 256 KiB. Both options compare decoded dimensions and pixels with a tolerance for recompression. Use `--direct` to run the same checks without a proxy.
 
 ```bash
 hive-manager proxy-test --credentials ./telegram-api.json --session-file ./telegram.session \
   --proxy-host proxy.example.net --proxy-port 8443 --secret-file ./mtproxy.secret \
-  --media --photo ./probe.png
+  --media --roundtrip-photo
 ```
 
-For comparison on the same network, pass `--matrix routes.json` instead of the single-route options. The manager runs the selected tests sequentially for every profile and reports each result. Start proxy candidates ahead of time on distinct ports, and store each secret in a file next to the matrix. The matrix can include an existing FakeTLS proxy with its hexadecimal secret.
+### Compare routes on the same client network
+
+`--matrix routes.json` runs the selected tests sequentially against existing routes. Store secret files relative to the matrix, including the hexadecimal FakeTLS key if applicable. When multiple candidates share a port, run one matrix entry at a time with `--route NAME` after activating the matching candidate.
 
 ```json
 [
   { "name": "direct", "direct": true },
-  { "name": "baseline", "host": "proxy.example.net", "port": 443, "secretFile": "baseline.secret" },
+  { "name": "baseline", "host": "proxy.example.net", "port": 8443, "secretFile": "baseline.secret" },
   { "name": "candidate", "host": "proxy.example.net", "port": 8443, "secretFile": "candidate.secret" }
 ]
 ```
 
-If packet-level evidence is needed, stream a bounded `capture` from a host where the account can run `tcpdump`. Collect the client and server files on their external interfaces during the same probe window. `proxy-pcap` reads classic pcap files, summarizes unfragmented TCP traffic matching the published port and compares bytes observed on both sides. Repeat counts and gaps are diagnostic indicators. Capture loss and interface offloading can affect the measurements.
+Run the baseline client probe first. For a managed classic configuration change, `proxy update` activates the new image and/or worker setting and retains the predecessor. For other configurations, such as FakeTLS, create a stopped candidate with `docker create`, `--restart unless-stopped`, and the same selected host port mapped to TCP 443, using its own reviewed configuration. Review the two container IDs, image IDs and bindings before applying the plan. Use the same target, deployment name, state directory, port and proxy name throughout the rollout.
+
+```bash
+rollout=(hive-manager --host hive-production deploy --adopt proxy --port 8443 --proxy-name mtproxy-classic-8443)
+trial=(--candidate staged-faketls)
+"${rollout[@]}" "${trial[@]}" trial-plan > trial.plan
+cat trial.plan
+"${rollout[@]}" "${trial[@]}" trial - < trial.plan
+```
+
+Run the candidate client probe with the same account, client network and media options. Save each `proxy-test` JSON result. Use the same route name across reports if you want numeric deltas for that route. To restore the predecessor, run `"${rollout[@]}" rollback`. Rollback restores its original running or stopped state and returns a staged candidate to its original name for another run. If activation is interrupted, use the same rollback command to restore the recorded predecessor. After the selected candidate passes the live text, document and photo checks, run `"${rollout[@]}" accept` to remove the retained predecessor. Keep the local data directories and image if needed for subsequent trials.
+
+### Capture and compare TCP and application results
+
+Collect bounded classic pcap files on both external interfaces during the same probe window. `proxy-pcap` reports payload bytes, retransmitted segments and bytes, duplicate ACKs, resets and per-direction ACK gaps. Its comparable flow count shows where both payload and peer ACKs were observed. Interface offloading and capture loss can affect the measurements. Attach the `proxy-test` JSON with `--probe` to record the application outcome alongside the packet counts. `--compare` compares two saved reports or two standalone probe results.
 
 ```bash
 ( umask 077; hive-manager --host hive-production deploy proxy --port 8443 --interface eth0 --seconds 15 --client-ip 192.0.2.12 capture > server.pcap )
-hive-manager proxy-pcap --port 8443 client.pcap server.pcap
+hive-manager proxy-pcap --port 8443 --probe candidate-probe.json client.pcap server.pcap > candidate.json
+hive-manager proxy-pcap --compare baseline.json candidate.json
 ```
 
-For an IPv4 path where measurements identify an MSS problem, `proxy --port 8443 --mss 1200 mss-unit` generates an optional systemd unit for review and installation on an iptables-based Docker host. Its rules match Docker DNAT by the original published port, in both directions.
+### Stop or remove legacy proxy resources
+
+Run `proxy inventory` for recognized unowned containers, including `mtproxy`, `mtproxy-classic`, `mtproxy-classic-old`, `mtproxy-classic-PORT` and `mtproxy-classic-PORT-old`. Add `--legacy-mss` on the Docker host with systemd and iptables access to inspect the original `mtproxy-mss.service` and the rules installed by its script. Selecting the MSS hook includes the whole unit and the rules attributed to its configured ports and MSS. Review all resources in the plan before applying.
+
+```bash
+cleanup=(hive-manager --host hive-production deploy proxy)
+"${cleanup[@]}" --legacy-mss inventory
+"${cleanup[@]}" --select mtproxy --select mtproxy-classic-8443-old --legacy-mss cleanup-plan stop > cleanup.json
+cat cleanup.json
+hive-manager --host hive-production deploy --adopt proxy cleanup - < cleanup.json
+```
+
+Use `cleanup-plan stop` to retain the selected containers and disable the legacy MSS hook while keeping its files. Use `cleanup-plan remove` to remove those containers and the selected hook files. Both actions preserve the Docker images, configuration and keys. Apply rejects stale plans and verifies the resulting Docker and MSS state. Generate a fresh plan after any partial failure. A temporary stop can be resumed by starting the preserved containers and re-enabling the reviewed MSS service if needed.
+
+For a manager-owned IPv4 clamp, `proxy --port 8443 --mss 1200 mss-unit` generates a systemd unit. Its rules match Docker DNAT by the original published port in both directions.
 
 ## Compose and Helm
 

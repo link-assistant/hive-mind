@@ -13,6 +13,7 @@ import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { getClaudeEnv, getThinkingLevelToTokens } from './config.lib.mjs';
 import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { applyClaudePricingTierToEnv, buildCodexPricingTierConfigArgs, resolveClaudeModelForContext, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
@@ -72,7 +73,7 @@ const buildClaudeToolOptions = (argv = {}) => {
   options.verbose = !!argv.verbose;
   if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
 
-  const extraEnv = {};
+  const extraEnv = buildClaudePromptCacheEnv();
   if (argv.think !== undefined || argv.thinkingBudget !== undefined) {
     const thinkingBudget = argv.thinkingBudget ?? getThinkingLevelToTokens(argv.maxThinkingBudget)[argv.think];
     const thinkingEnv = getClaudeEnv({ model: argv.model || 'opus', thinkLevel: argv.think, thinkingBudget, maxBudget: argv.maxThinkingBudget });

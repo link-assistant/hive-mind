@@ -12,9 +12,7 @@
  *    "check":87,"since":"…","deadline":"…","at":"…"}
  *
  * and the monitor turns the latest one into the reply header. The header is
- * redrawn at least every SOLVE_PROGRESS_REFRESH_MS even when nothing changes,
- * and it shows when `solve` printed the marker, so a frozen status means a
- * frozen process.
+ * redrawn every SOLVE_PROGRESS_REFRESH_MS to update the elapsed time.
  *
  * The kill diagnostics read the same marker to say what the session was doing
  * when it was stopped.
@@ -24,8 +22,6 @@
 import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
-import { escapeMarkdown } from './telegram-markdown.lib.mjs';
-import { formatDurationShort } from './fix-progress.lib.mjs';
 import { t } from './i18n.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
@@ -96,32 +92,15 @@ export function parseSolveProgressEvent(logText) {
   return null;
 }
 
-/** "2026-11-19 03:10 UTC", or '' for an invalid time. */
-export function formatUtcMinute(value) {
-  const time = new Date(value ?? NaN);
-  if (!Number.isFinite(time.getTime())) return '';
-  return `${time.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-}
-
-/**
- * The reply header for a `/solve` progress event: phase, blocker, time since
- * the phase started, deadline and the time the marker was printed.
- * @telegram-markdown
- */
+/** The single-line reply header for a `/solve` progress event. @telegram-markdown */
 export function formatSolveProgressStatus(event, { locale = null, now = Date.now() } = {}) {
   if (!event) return null;
   if (event.phase === 'uploading-log') return text(locale, 'telegram.solve_progress.uploading_log', '📎 Uploading the session log...');
   if (event.phase !== 'watch') return text(locale, 'telegram.work_session_executing', '⏳ Executing...');
-  const lines = [text(locale, 'telegram.solve_progress.watching', '⏳ Monitoring the pull request until it is mergeable')];
-  const blocker = [event.blockerLabel || event.blocker, event.detail].filter(Boolean).join(': ');
-  if (blocker) lines.push(text(locale, 'telegram.solve_progress.blocker', 'Waiting for: {{blocker}}', { blocker: escapeMarkdown(blocker) }));
   const since = new Date(event.since ?? NaN).getTime();
-  const elapsed = Number.isFinite(since) ? formatDurationShort(Math.max(0, now - since)) : '?';
-  const deadline = formatUtcMinute(event.deadline) || '—';
-  lines.push(text(locale, 'telegram.solve_progress.timing', 'Check #{{check}} · monitoring for {{elapsed}} · gives up at {{deadline}}', { check: escapeMarkdown(String(event.check ?? '?')), elapsed, deadline }));
-  const at = formatUtcMinute(event.at);
-  if (at) lines.push(text(locale, 'telegram.solve_progress.updated', 'Status updated {{time}}', { time: at }));
-  return lines.join('\n');
+  if (!Number.isFinite(since)) return text(locale, 'telegram.solve_progress.watching', '⏳ Monitoring');
+  const elapsedSeconds = Math.floor(Math.max(0, now - since) / 1000);
+  return text(locale, 'telegram.solve_progress.elapsed', '⏳ Monitoring for {{minutes}}m {{seconds}}s', { minutes: Math.floor(elapsedSeconds / 60), seconds: elapsedSeconds % 60 });
 }
 
 /** The full Telegram reply text for a running `/solve` session. @telegram-markdown */
@@ -132,7 +111,7 @@ export function formatSolveProgressMessage({ event, sessionName, sessionInfo = {
 }
 
 /** Identity of what the reply shows, without the ticking clocks; plus a refresh bucket. */
-const progressKey = (event, now) => JSON.stringify([event.phase, event.blocker || null, event.detail || null, event.deadline || null, Math.floor(now / SOLVE_PROGRESS_REFRESH_MS)]);
+const progressKey = (event, now) => JSON.stringify([event.phase, event.since || null, event.phase === 'watch' ? Math.floor(now / SOLVE_PROGRESS_REFRESH_MS) : null]);
 
 /**
  * Mirror the latest `/solve` progress marker into the Telegram reply.

@@ -140,7 +140,7 @@ export const describeConsensusDisagreement = mechanisms => {
   const checkRuns = mechanisms?.checkRunsAPI;
   if (checkRuns && !checkRuns.complete) {
     const names = (checkRuns.relevantChecks || []).slice(0, 3).map(check => `${check.name} (${check.conclusion || check.status})`);
-    reasons.push(`CheckRuns: ${checkRuns.status}${names.length ? ` — ${names.join(', ')}` : ''}`);
+    reasons.push(`CheckRuns: ${checkRuns.note || checkRuns.status}${names.length ? ` — ${names.join(', ')}` : ''}`);
   }
   const workflowRuns = mechanisms?.workflowRunsAPI;
   if (workflowRuns && !workflowRuns.complete) {

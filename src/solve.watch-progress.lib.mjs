@@ -10,18 +10,13 @@
  *    a probe that does not answer within its deadline is logged with what it
  *    was waiting for and the check is skipped; several stalled checks in a row
  *    end monitoring with an explicit decision instead of hanging.
- *  - `finishWatch` emits the `finished` marker and, when an earlier log comment
- *    said "monitoring continues", posts the `Monitoring Ended` decision comment.
- *
- * Kept free of `use-m`/`command-stream` imports: `$` and the comment poster are
- * passed in, so tests drive it without GitHub.
+ *  - `finishWatch` emits the terminal progress marker. The watch loop
+ *    publishes the disposition on GitHub.
  */
 
 import { emitSolveProgress } from './solve-progress.lib.mjs';
 import { withWatchdog } from './wait-watchdog.lib.mjs';
-import { describeStopReason } from './automation-stop-reporting.lib.mjs';
-import { MONITORING_ENDED_MARKER, buildSessionEndFooter, markMonitoringEnded, postTrackedComment, wasMonitoringPromisePublished } from './tool-comments.lib.mjs';
-import { formatDuration } from './github-ci-stuck-runs.lib.mjs';
+import { markMonitoringEnded } from './tool-comments.lib.mjs';
 
 /** One GitHub probe of a check may take this long before the check is skipped. */
 export const WATCH_CHECK_DEADLINE_MS = 10 * 60 * 1000;
@@ -122,48 +117,17 @@ export const createWatchStallGuard = ({ log, deadlineMs = WATCH_CHECK_DEADLINE_M
   };
 };
 
-const DECISIONS = {
-  merged: 'the pull request was merged.',
-  'auto-merged': 'the pull request was merged automatically.',
-  mergeable: 'the pull request is mergeable; it is ready to be merged (see the "Ready to merge" comment).',
-  ready_for_review_blocked: 'the pull request is ready for review, but the merge is held back (see the "Ready for review" comment).',
-};
-
-/** Pure: the comment that closes the "monitoring continues" promise of the log comment. */
-export const buildMonitoringEndedComment = ({ result = null, watchStartedAt = null, checks = 0, now = Date.now() } = {}) => {
-  const reason = result?.reason || 'unknown';
-  const decision = DECISIONS[reason] || `monitoring stopped: ${describeStopReason(reason).title} (reason code \`${reason}\`).`;
-  const duration = Number.isFinite(watchStartedAt) ? ` after ${formatDuration(Math.max(0, now - watchStartedAt))}` : '';
-  const lines = [`## 🏁 ${MONITORING_ENDED_MARKER}`, '', `Monitoring of this pull request ended${duration} (${checks} check${checks === 1 ? '' : 's'}).`, '', `**Decision:** ${decision}`];
-  if (!DECISIONS[reason]) lines.push('', 'The comment above explains the stop and what to do next. Re-run the command to monitor this pull request again.');
-  lines.push('', '---', buildSessionEndFooter());
-  return lines.join('\n');
-};
-
-/**
- * End of the watch loop: `finished` marker, then the decision comment when a
- * log comment promised one. Never throws.
- */
-export const finishWatch = async ({ result, watchStartedAt, checks = 0, $, owner, repo, prNumber, log, emit = emitSolveProgress, post = postTrackedComment, promised = wasMonitoringPromisePublished, now = Date.now() } = {}) => {
+/** Mark monitoring as finished for the Telegram monitor and later log uploads. */
+export const finishWatch = ({ result, watchStartedAt, checks = 0, emit = emitSolveProgress } = {}) => {
   markMonitoringEnded();
-  const reason = result?.reason || 'unknown';
-  emit({ phase: 'finished', decision: result?.success ? 'success' : 'stopped', reason, check: checks, since: iso(watchStartedAt) });
-  if (!promised() || !$ || !prNumber) return { posted: false };
-  try {
-    const posted = await post({ $, owner, repo, targetNumber: prNumber, body: buildMonitoringEndedComment({ result, watchStartedAt, checks, now }) });
-    if (typeof log === 'function') await log(posted?.ok === false ? `   ⚠️  Could not post the "${MONITORING_ENDED_MARKER}" comment` : `   💬 Posted "${MONITORING_ENDED_MARKER}" decision to #${prNumber}: ${reason}`);
-    return { posted: posted?.ok !== false };
-  } catch (error) {
-    if (typeof log === 'function') await log(`   ⚠️  Could not post the "${MONITORING_ENDED_MARKER}" comment: ${error?.message || error}`);
-    return { posted: false };
-  }
+  emit({ phase: 'finished', decision: result?.success ? 'success' : 'stopped', reason: result?.reason || 'unknown', check: checks, since: iso(watchStartedAt) });
 };
 
 /**
  * Run the watch loop with ISO-8601 UTC timestamps on its console lines (the AI
  * restarts inside it turn them off while the AI runs), then finish it.
  */
-export const runWatchWithProgress = async ({ params, run, lib, $, log, finish = finishWatch }) => {
+export const runWatchWithProgress = async ({ params, run, lib, finish = finishWatch }) => {
   const watch = { startedAt: Date.now(), checks: 0 };
   const timestamps = lib.isConsoleTimestampsEnabled();
   lib.setConsoleTimestamps(true);
@@ -172,9 +136,9 @@ export const runWatchWithProgress = async ({ params, run, lib, $, log, finish = 
     result = await run(params, watch);
   } finally {
     lib.setConsoleTimestamps(timestamps);
-    await finish({ result: result || { success: false, reason: 'watch_error' }, watchStartedAt: watch.startedAt, checks: watch.checks, $, owner: params.owner, repo: params.repo, prNumber: params.prNumber, log });
+    await finish({ result: result || { success: false, reason: 'watch_error' }, watchStartedAt: watch.startedAt, checks: watch.checks });
   }
   return result;
 };
 
-export default { runWatchWithProgress, WATCH_CHECK_DEADLINE_MS, WATCH_STALLED_CHECKS_LIMIT, describeWatchBlocker, createWatchProgress, createWatchStallGuard, buildMonitoringEndedComment, finishWatch };
+export default { runWatchWithProgress, WATCH_CHECK_DEADLINE_MS, WATCH_STALLED_CHECKS_LIMIT, describeWatchBlocker, createWatchProgress, createWatchStallGuard, finishWatch };

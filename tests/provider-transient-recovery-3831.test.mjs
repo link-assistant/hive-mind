@@ -196,6 +196,28 @@ for (const tool of ['codex', 'qwen']) {
   });
 }
 
+for (const failurePath of ['throw', 'event']) {
+  test(`agent: ECONNRESET ${failurePath} near the run deadline stops before waiting`, { timeout: 10000 }, async t => {
+    const previousDeadline = process.env.HIVE_MIND_DEADLINE_AT_MS;
+    t.after(() => {
+      if (previousDeadline === undefined) delete process.env.HIVE_MIND_DEADLINE_AT_MS;
+      else process.env.HIVE_MIND_DEADLINE_AT_MS = previousDeadline;
+    });
+    process.env.HIVE_MIND_DEADLINE_AT_MS = '50';
+    const { start, failure } = adapters.agent;
+    const reset = 'read ECONNRESET';
+    const errorEvents = failurePath === 'event' ? failure(reset) : [];
+    const attempts = [{ events: [...start, ...errorEvents] }, { events: [...start, { advance: 48 }, ...errorEvents] }, { events: [...start, ...adapters.agent.success], code: 0 }];
+    const { result, argv, calls, waits, logs } = await replay(t, 'agent', attempts, { throwAt: failurePath === 'throw' ? [0, 1] : null, throwMessage: reset });
+
+    assert.equal(result.success, false);
+    assert.equal(argv.resume, 'session-3831');
+    assert.equal(calls.length, 2);
+    assert.deepEqual(waits, [1]);
+    assert.ok(logs.some(({ message, options }) => message.includes('run deadline') && options?.level === 'error'));
+  });
+}
+
 for (const [tool, { start, success }] of Object.entries(adapters)) {
   test(`${tool}: transport exception resumes the observed session`, { timeout: 10000 }, async t => {
     const { result, argv, calls } = await replay(t, tool, [{ events: start }, { events: [...start, ...success], code: 0 }], { throwAt: 0 });

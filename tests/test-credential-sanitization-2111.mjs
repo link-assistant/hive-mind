@@ -35,9 +35,11 @@ for (const executablePath of Object.values(packageManifest.bin)) {
   const executableSource = await readFile(new URL(`../${executablePath.replace(/^\.\//, '')}`, import.meta.url), 'utf8');
   if (executablePath === './src/hive-manager/cli.sh') {
     assert.match(executableSource, /^#!\/usr\/bin\/env bash\n/);
-    const maintenanceLaunches = [...executableSource.matchAll(/exec node ([^\n]*"\$source_path\/\$module"[^\n]*)/g)];
-    assert.equal(maintenanceLaunches.length, 2);
-    for (const [, command] of maintenanceLaunches) assert.match(command, /^--import "\$source_path\/hive-manager\/lib\/terminal\.mjs" /);
+    const maintenanceLaunches = [...executableSource.matchAll(/^[ \t]*exec node ([^\n]*\/\$module"[^\n]*)$/gm)];
+    assert.ok(maintenanceLaunches.length > 0, 'hive-manager must launch a maintenance module');
+    for (const [, command] of maintenanceLaunches) {
+      assert.match(command, /^--import "(\$\w+)\/hive-manager\/lib\/terminal\.mjs" "\1\/\$module" "\$@"$/);
+    }
     const preload = await readFile(new URL('../src/hive-manager/lib/terminal.mjs', import.meta.url), 'utf8');
     assert.match(preload, /setupStdioLogInterceptor\(\)/);
   } else {

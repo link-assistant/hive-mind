@@ -49,8 +49,9 @@ exec "$@"`
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name, version }));
     copyFileSync(cli, join(manager, 'cli.sh'));
     executable(join(source, 'hive.mjs'), 'printf "unexpected hive invocation\\n"; exit 98');
-    writeFileSync(join(manager, 'lib', 'terminal.mjs'), '');
+    writeFileSync(join(manager, 'lib', 'terminal.mjs'), 'globalThis.fixtureTerminalPreloaded = true;\n');
     const module = `import { readFileSync } from 'node:fs';
+if (!globalThis.fixtureTerminalPreloaded) throw new Error('Missing terminal preload');
 console.log(JSON.stringify({ version: ${JSON.stringify(version)}, args: process.argv.slice(2), input: readFileSync(0, 'utf8') }));
 process.exitCode = 17;`;
     if (storage) writeFileSync(join(manager, 'storage', 'main.mjs'), module);

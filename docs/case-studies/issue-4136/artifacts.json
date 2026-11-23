@@ -464,6 +464,22 @@
       "bytes": 5594,
       "newlines": 1,
       "sha256": "550bc1037afccd0f3575b902206d90e8a47cb08d0e82a4719a7baaf9dd8adc2f"
+    },
+    {
+      "name": "First Voice execution runtime job log",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44955618441/job/137003465585",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "bytes": 785545,
+      "newlines": 5889,
+      "sha256": "cc7bc6d0ed4351cc50006c9a1f04e4e00eb28cd925849e5b517ca2c08f36b854"
+    },
+    {
+      "name": "First Voice execution heavy job log",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44942169457/job/136961560704",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "bytes": 216832,
+      "newlines": 2173,
+      "sha256": "58b2d84590aafdf8c477465d0a30e26f63400d99e59cf6477e83c88674ceae38"
     }
   ],
   "unavailable": [

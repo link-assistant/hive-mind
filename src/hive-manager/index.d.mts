@@ -42,10 +42,13 @@ export interface TaskFailureGroups {
     backend: 'docker' | 'screen' | 'tmux' | 'ssh' | 'local';
     kind: string;
     exitCode: number;
+    signature?: TaskFailureSignature;
     count: number;
     latest: { id: string; attempt: number; finishedAt: string } | null;
   }[];
 }
+
+export type TaskFailureSignature = 'alias-127' | 'codex-no-rollout' | 'stream-close-timeout' | 'codex-oom' | 'repository-empty' | 'repository-permission' | 'checkout-dirty' | 'auto-restart-limit' | 'no-progress' | 'same-ci-failure' | 'authentication' | 'codex-max-output-tokens' | 'tool-content-policy' | 'tool-failure';
 
 export interface TaskSelection {
   uuid: string;
@@ -67,7 +70,7 @@ export interface TaskEvidence {
   finishedAt: string;
   evidence: {
     available: boolean;
-    signature?: 'alias-127' | 'codex-no-rollout' | 'stream-close-timeout' | 'codex-oom';
+    signature?: TaskFailureSignature;
     bounded?: boolean;
     turns?: number;
     noChanges?: boolean;
@@ -94,6 +97,8 @@ export interface TaskRecordRepairPreview {
 
 export function inspectTasks(tasks: readonly TaskRecord[], options?: TaskReportOptions): TaskReport;
 export function groupTaskFailures(tasks: readonly TaskRecord[], options?: TaskReportOptions): TaskFailureGroups;
+export function groupTaskFailuresBySignature(tasks: readonly TaskRecord[], options?: TaskReportOptions): Promise<TaskFailureGroups>;
+export function classifyTaskFailure(attempt: TaskAttemptRecord, text?: string): TaskFailureSignature | undefined;
 export function inspectTaskWindow(tasks: readonly TaskRecord[], selection: TaskSelection): TaskWindow;
 export function collectTaskEvidence(tasks: readonly TaskRecord[], selection: TaskSelection): Promise<TaskEvidence>;
 export function previewTaskRecordRepair(options?: TaskRecordRepairOptions): Promise<TaskRecordRepairPreview>;

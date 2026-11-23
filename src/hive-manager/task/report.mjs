@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify, parseArgs } from 'node:util';
-import { collectTaskEvidence, groupTaskFailures, inspectTasks, inspectTaskWindow } from '../index.mjs';
+import { collectTaskEvidence, groupTaskFailures, groupTaskFailuresBySignature, inspectTasks, inspectTaskWindow } from '../index.mjs';
 import { attemptEvidence, failureKind, latestAttempt, selectTask, taskAttempts, taskBackend, timestamp, validateReportLimit, validateTaskUuid } from './lib/inspection.mjs';
 import { findReport, readIssue, reconcileReport } from './lib/issue-history.mjs';
 import { resolveBotStateDir } from '../../session-store.lib.mjs';
@@ -14,13 +14,14 @@ import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
 export { latestAttempt, taskAttempts } from './lib/inspection.mjs';
 
 const execFileAsync = promisify(execFile);
-const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group]
+const usage = `Usage: hive-manager tasks report [--limit NUMBER] [--group [--by-signature]]
        hive-manager tasks report --collect UUID [--attempt NUMBER]
        hive-manager tasks report --window UUID [--attempt NUMBER]
        hive-manager tasks report --incident UUID [--attempt NUMBER] [--host-signature NAME] [--destination OWNER/REPO [--follow-up ISSUE | --routes FILE] [--publish SHA256]]
        hive-manager tasks report --incident UUID --destination OWNER/REPO --reconcile [--attempt NUMBER] [--legacy-ledger FILE] [--follow-up ISSUE | --routes FILE] [--installed-version VERSION]
 Summarize tracked tasks and recent failures without command lines or logs.
 Use --group to count repeat failures by backend and exit evidence across recorded attempts.
+Add --by-signature to distinguish known causes using bounded attempt logs.
 Use --collect to find retry loops and suspicious exits in a bounded excerpt of one task attempt's log.
 An incident preview describes one failure. Approve its digest to open an issue or comment on an existing issue.
 Use --routes to select a follow-up from a JSON file keyed by the failure group.
@@ -144,11 +145,12 @@ export async function listTrackedTasks(timeout = 120_000) {
 }
 
 async function report() {
-  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, window: { type: 'string' }, collect: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, 'host-signature': { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' }, reconcile: { type: 'boolean' }, 'legacy-ledger': { type: 'string' }, 'installed-version': { type: 'string' } } });
+  const { values } = parseArgs({ options: { help: { type: 'boolean', short: 'h' }, limit: { type: 'string', default: '25' }, group: { type: 'boolean' }, 'by-signature': { type: 'boolean' }, window: { type: 'string' }, collect: { type: 'string' }, incident: { type: 'string' }, attempt: { type: 'string' }, 'host-signature': { type: 'string' }, destination: { type: 'string' }, 'follow-up': { type: 'string' }, routes: { type: 'string' }, publish: { type: 'string' }, reconcile: { type: 'boolean' }, 'legacy-ledger': { type: 'string' }, 'installed-version': { type: 'string' } } });
   if (values.help) {
     process.stdout.write(usage);
     return;
   }
+  if (values['by-signature'] && !values.group) throw new Error('Use --by-signature with --group.');
   const hasPublicationOptions = [values.destination, values.publish, values['follow-up'], values.routes, values['host-signature'], values.reconcile, values['legacy-ledger'], values['installed-version']].some(value => value !== undefined);
   if (values.collect !== undefined) {
     if (values.group || values.window !== undefined || values.incident !== undefined || hasPublicationOptions) throw new Error('Collect evidence for one task separately from the other report modes.');
@@ -201,7 +203,7 @@ async function report() {
   const limit = /^\d+$/.test(values.limit) ? Number(values.limit) : NaN;
   validateReportLimit(limit);
   const tasks = await listTrackedTasks();
-  const result = values.group ? groupTaskFailures(tasks, { limit }) : inspectTasks(tasks, { limit });
+  const result = values['by-signature'] ? await groupTaskFailuresBySignature(tasks, { limit }) : values.group ? groupTaskFailures(tasks, { limit }) : inspectTasks(tasks, { limit });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 

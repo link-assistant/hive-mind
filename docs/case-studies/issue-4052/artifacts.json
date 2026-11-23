@@ -1,0 +1,212 @@
+[
+  {
+    "source": "https://github.com/link-assistant/hive-mind/issues/4052",
+    "bytes": 40442,
+    "sha256": "e5d83b58e2eeb2e884dd93a540905aeb1bb9d30ff23f4da76adbc0b08fe93c54",
+    "newlines": 438,
+    "kind": "issue-body-snapshot"
+  },
+  {
+    "source": "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-6847173508",
+    "bytes": 25683,
+    "sha256": "02af0a7aefa65cf1ba740fd6a89c052acdb57f11d25ad6dac7a3f36935ef18f7",
+    "newlines": 287,
+    "kind": "issue-comment-body-snapshot"
+  },
+  {
+    "source": "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027094041",
+    "bytes": 74555,
+    "sha256": "b30e9d84dbbc446907dd15d7c617a4fdd689eeafc063fa28c25919d3f5d372d9",
+    "newlines": 948,
+    "kind": "issue-comment-body-snapshot"
+  },
+  {
+    "source": "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7027430880",
+    "bytes": 75142,
+    "sha256": "f4c482c10b3937a01c0a42840ea31ef0285836cef299f1eb759f598d2ad14867",
+    "newlines": 949,
+    "kind": "issue-comment-body-snapshot"
+  },
+  {
+    "source": "https://github.com/link-assistant/hive-mind/issues/4052#issuecomment-7058676059",
+    "bytes": 52089,
+    "sha256": "c4061e40d1c10fde6b9defa8ae3f8cb5b05e9db2911b8779ddda89c4bd349b0d",
+    "newlines": 676,
+    "kind": "issue-comment-body-snapshot"
+  },
+  {
+    "source": "https://gist.github.com/konard/060229d866997f57e6ec197f6cad8062",
+    "bytes": 16682911,
+    "sha256": "1c7a4594ae32e0a8e2264edc82303af5fbc5616cd3e573a130eff0e712a22c6d",
+    "newlines": 70636,
+    "kind": "gist-log",
+    "acquisition": "gh gist clone -- --depth=1",
+    "artifact": "tmp-start-sanitized-6BtdC7-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/07368de655bce96e77d0bd4926a8cacd",
+    "bytes": 2114546,
+    "sha256": "24c78cd9b330fc0aff02889460a5df6fd84917685c609b6bebbdcb013f30c5cb",
+    "newlines": 7108,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-PUIcFh-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/1b6bf8b95d55f3f2916a77268e2676ed",
+    "bytes": 4461960,
+    "sha256": "fa999381415d0a8a620e8136844276fe89e0fa844808e2894f3349549f5d5d06",
+    "newlines": 29525,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-tE3flV-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/4a44e99b3c465e678352aad2ef0915cd",
+    "bytes": 39401,
+    "sha256": "353cba62fd721b9178e3a334becadc58ebfdd90d97aa01ad508da6b7cce59f76",
+    "newlines": 282,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-SBudtE-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/887fc88eba8df1636a373eb5ab3f7c8e",
+    "bytes": 18131,
+    "sha256": "237f45637a3b1ded05c2c91ec02755ca3a2ea8729dfc112324a4a2c4218728b1",
+    "newlines": 267,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-VnGjfx-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/92aee7b480bcbc1c6e5fb22790084fa1",
+    "bytes": 21989706,
+    "sha256": "9385029455bf6442783429a295126afae1ef5afe440d97cae14cacd15ec10358",
+    "newlines": 71354,
+    "kind": "gist-log",
+    "acquisition": "gh gist clone -- --depth=1",
+    "artifact": "tmp-hive-mind-log-upload-POghRj-sanitized.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/b9f53d748b4c89b9cd356f35901d2eea",
+    "bytes": 14059736,
+    "sha256": "74ac0cafe36fcd20d7a32d5d98ce2aad8941c81c44a5600c6b2d0cad608041dd",
+    "newlines": 38831,
+    "kind": "gist-log",
+    "acquisition": "gh gist clone -- --depth=1",
+    "artifact": "tmp-start-sanitized-u0kpb6-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/c71cfb16cc51d1b9affa51e1f34d7d2a",
+    "bytes": 928682,
+    "sha256": "1bb313aa0921fba5bdbfeccb5931266dd93206bfb7b1a909fbc96acdea63e7db",
+    "newlines": 3153,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-nejnXv-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/d16c14ff40157d0e2150e30ebe0403b6",
+    "bytes": 4461960,
+    "sha256": "fa999381415d0a8a620e8136844276fe89e0fa844808e2894f3349549f5d5d06",
+    "newlines": 29525,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-iNZvtl-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/e3f0005c2431c3041033f65ab7498606",
+    "bytes": 928682,
+    "sha256": "1bb313aa0921fba5bdbfeccb5931266dd93206bfb7b1a909fbc96acdea63e7db",
+    "newlines": 3153,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-a2hqKf-execution.log.txt"
+  },
+  {
+    "source": "https://gist.github.com/konard/e876301bfd9363206f5477ed31745aa6",
+    "bytes": 60886,
+    "sha256": "6bf1b037e7eb6b669bd1388b4d24593b29658ea43472c68b081c30be13b1df67",
+    "newlines": 418,
+    "kind": "gist-log",
+    "acquisition": "gh gist view",
+    "artifact": "tmp-start-sanitized-R3jdQH-execution.log.txt"
+  },
+  {
+    "source": "https://github.com/konard/private-logs/blob/main/tmp-hive-mind-log-upload-hbJF3D/51ce9e15b9980f7c/sanitized.log.txt",
+    "bytes": 31629734,
+    "sha256": "51ce9e15b9980f7cd079ebc0edaadd54c101a3219bc93e7743f5c5afe7e8b3e1",
+    "newlines": 654634,
+    "kind": "operator-bot-log",
+    "access": "restricted",
+    "gitBlob": "f0f2f1eeb420389840e4ffdaa6bf9992448b51b5"
+  },
+  {
+    "source": "https://github.com/konard/private-logs/blob/main/tmp-hive-mind-log-upload-A2ua5q/b286101abac815b6/sanitized.log.txt",
+    "bytes": 31430645,
+    "sha256": "b286101abac815b6c93111b319eb953a130863de6cc307da835ed32060909fda",
+    "newlines": 636863,
+    "kind": "operator-bot-log",
+    "access": "restricted",
+    "gitBlob": "4dbb8701a1ed0ca8061a1d97f71135571f8ebbbc"
+  },
+  {
+    "source": "https://github.com/konard/private-logs/blob/main/tmp-hive-mind-log-upload-8YT5uR/fa68ae8febf55983/sanitized.log.txt",
+    "bytes": 31429421,
+    "sha256": "fa68ae8febf55983250cfad84c4dadc91ff390d69750e0bb6bf61723cab61a91",
+    "newlines": 636723,
+    "kind": "operator-bot-log",
+    "access": "restricted",
+    "gitBlob": "0da2ea96f00233838600c2486ebd647293b44bec"
+  },
+  {
+    "source": "https://github.com/link-foundation/code-quality/blob/e0e2e03d8e78fee2119e6d272ebee4aef2505682/dev/log/issues/1/pulls/2/sessions/01a1ea2a-c8cb-7382-a01f-9113c3295ca3/solve.log",
+    "bytes": 28467981,
+    "sha256": "c2d6d1f8334dfdfb72c81ad373e9be8a8d8a7272d1adc626561f68e8958e1f66",
+    "newlines": 169155,
+    "kind": "archived-solve-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/actions/jobs/129714894560/logs",
+    "bytes": 16837,
+    "sha256": "d1f410e114331cb235ae956290f993928d5b3d4054b67cbc0badf3e87910876f",
+    "newlines": 199,
+    "kind": "ci-job-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/actions/jobs/129714922036/logs",
+    "bytes": 17788,
+    "sha256": "38bc6694db5e75ceb73f0675c88112f0648d3ecf6ab25ae91c5d4156fc2e5cef",
+    "newlines": 215,
+    "kind": "ci-job-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/voice-simulator/actions/jobs/133970494033/logs",
+    "bytes": 444102,
+    "sha256": "a075c65542432eb9f10ee360e924170893f34268b5dfe9ae40415cd9b1ff5c0d",
+    "newlines": 4730,
+    "kind": "ci-job-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/voice-simulator/actions/jobs/133970494190/logs",
+    "bytes": 697829,
+    "sha256": "a2db740bf2f71c666381def6a9dfb698cbf0bbe0141c4c9ef50570415a205e7c",
+    "newlines": 4260,
+    "kind": "ci-job-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/voice-simulator/actions/jobs/135128173589/logs",
+    "bytes": 797546,
+    "sha256": "5d391f6a747778c545d09aae8a380ce7bfe073a9f9d11c1a5d0fb331bf3a8d9c",
+    "newlines": 5076,
+    "kind": "ci-job-log"
+  },
+  {
+    "source": "https://api.github.com/repos/konard/voice-simulator/actions/jobs/135128173566/logs",
+    "bytes": 608063,
+    "sha256": "1fe427b033cca373361b2836f31e81790f47e7d946b79b48c2072fc7819ce160",
+    "newlines": 5549,
+    "kind": "ci-job-log"
+  }
+]

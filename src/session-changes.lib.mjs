@@ -47,6 +47,7 @@
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 
 import { isAiToolScratchPath, isSolverBookkeepingFile } from './ai-tool-scratch.lib.mjs';
+import { writeDraftSessionReceipt } from './formal-ai-draft-session.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { ensurePullRequestIsReady, getInitialDraftState, markPullRequestLeftInDraft } from './pr-draft-state.lib.mjs';
 import { describeObservedToolCallLoop, getObservedToolCallLoopHistory } from './repeated-tool-call-breaker.lib.mjs';
@@ -272,6 +273,14 @@ export const buildFinishedWithoutChangesComment = ({ reason, keepsDraft = true }
  */
 export const reportSessionWithoutChanges = async ({ owner, repo, prNumber, issueNumber = null, $, log = noopLog }) => {
   const outcome = await evaluateSessionChanges({ owner, repo, prNumber, issueNumber, $, log });
+  if (process.env.HIVE_MIND_FORMAL_AI_DRAFT === '1' && baseline?.logFile) {
+    const terminalState = outcome.terminalState ?? (isFormalAiModel(baseline.model) ? extractFormalAiTerminalState(readRunLog()) : null);
+    try {
+      await writeDraftSessionReceipt(baseline.logFile, { ...outcome, terminalState });
+    } catch (error) {
+      await log(`⚠️  Could not write the Formal AI draft session receipt: ${error.code || 'unknown error'}`, { verbose: true });
+    }
+  }
   if (!outcome.measured) {
     verdict = null;
     return reportSessionEffectUnverified({ owner, repo, prNumber, reason: outcome.reason, $, log });

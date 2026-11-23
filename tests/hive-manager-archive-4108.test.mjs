@@ -218,7 +218,7 @@ test('literal redactions protect staged, converted and reviewed files and requir
   assert.equal(git('-C', remote, 'show', `main:${source}/${review.digest.slice(7)}/${archive}`), sanitized.trim());
 });
 
-test('archive omits an oversized individual record and honors minimum age', { timeout: 30000 }, t => {
+test('archive reports an oversized individual record beyond the session limit and honors minimum age', { timeout: 30000 }, t => {
   const { codex, stage, ok, manifest, cwd } = fixture(t);
   codex('current', 'recent', 2);
   const oversized = codex('oversized', 'metadata');
@@ -228,7 +228,7 @@ test('archive omits an oversized individual record and honors minimum age', { ti
   const defaultAge = ok([...stage, '--output', 'default-age']);
   assert.match(defaultAge.stderr, /Omitted 1 session.*individual JSONL record exceeds 40 MiB/);
   assert.deepEqual(manifest('default-age').sessions, []);
-  const smallerAge = ok([...stage, '--output', 'custom-age', '--min-age', '1']);
+  const smallerAge = ok([...stage, '--output', 'custom-age', '--min-age', '1', '--limit', '1']);
   assert.match(smallerAge.stderr, /Omitted 1 session.*individual JSONL record exceeds 40 MiB/);
   assert.equal(manifest('custom-age').sessions.length, 1);
   assert.deepEqual(manifest('custom-age').omissions, { 'oversized-record': { claude: 0, codex: 1 } });

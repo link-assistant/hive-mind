@@ -148,13 +148,13 @@ async function openStableSource(file, info) {
   }
 }
 
-async function sourceDigest(file, info, transcript = false) {
+async function inspectSource(file, info, { transcript = false, digest = true } = {}) {
   const source = await openStableSource(file, info);
   try {
-    const hash = createHash('sha256');
+    const hash = digest ? createHash('sha256') : null;
     let recordBytes = 0;
     for await (const data of source.createReadStream({ autoClose: false, end: Math.max(info.size - 1, 0) })) {
-      hash.update(data);
+      hash?.update(data);
       if (!transcript || info.size <= transcriptPartBytes) continue;
       for (let offset = 0; offset < data.length;) {
         const end = data.indexOf(10, offset) + 1;
@@ -165,7 +165,7 @@ async function sourceDigest(file, info, transcript = false) {
       }
     }
     checkSnapshot(await source.stat(), info);
-    return hash.digest('hex');
+    return hash?.digest('hex');
   } finally {
     await source.close();
   }
@@ -194,17 +194,28 @@ async function planToolResults(session, id, cutoff) {
   return attachments.sort((a, b) => a.archive.localeCompare(b.archive));
 }
 
-async function* discover({ root, tool, repository, checkoutCache, cutoff }, hasRoom) {
+async function* discover({ root, tool, repository, checkoutCache, cutoff, omit }, hasRoom) {
   for await (const file of archiveFiles(root, /\.jsonl$/)) {
-    if (!hasRoom(tool)) return;
     const path = relative(root, file);
     const parts = path.split(sep);
     if (parts.includes('tool-results')) continue;
     const info = await lstat(file);
     if (!info.isFile() || info.mtimeMs > cutoff) continue;
+    const room = hasRoom(tool);
+    if (!room && info.size <= transcriptPartBytes) continue;
     const parent = tool === 'claude' && parts.length >= 4 && parts[2] === 'subagents' ? join(root, parts[0], `${parts[1]}.jsonl`) : undefined;
     if ((await attributedRepository(file, tool, checkoutCache, parent)) !== repository) continue;
-    yield { file, info, tool, path, parts };
+    if (room) {
+      yield { file, info, tool, path, parts };
+    } else {
+      // Keep reporting oversized records after the session limit is reached.
+      try {
+        await inspectSource(file, info, { transcript: true, digest: false });
+      } catch (error) {
+        if (!(error instanceof ArchiveLimitError)) throw error;
+        omit(error.reason, tool);
+      }
+    }
   }
 }
 
@@ -214,13 +225,13 @@ async function describeRevision(candidate, { lino, toolResults, cutoff, redactio
   const archive = `${tool}-${id}.jsonl`;
   const includeResults = tool === 'claude' && toolResults;
   const attachments = includeResults ? await planToolResults(file, id, cutoff) : [];
-  const digest = await sourceDigest(file, info, true);
+  const digest = await inspectSource(file, info, { transcript: true });
   const chunked = info.size > transcriptPartBytes;
   const revisionHash = createHash('sha256').update(`hive-manager export v1\0${lino}\0${includeResults}\0${digest}`);
   if (chunked) revisionHash.update(`\0numbered records v1\0${transcriptPartBytes}`);
   let attachmentBytes = 0;
   for (const attachment of attachments) {
-    attachment.digest = await sourceDigest(attachment.file, attachment.info);
+    attachment.digest = await inspectSource(attachment.file, attachment.info);
     revisionHash.update(`\0${attachment.archive}\0${attachment.digest}`);
     attachmentBytes += attachment.info.size;
   }
@@ -342,7 +353,7 @@ async function archive() {
     omissions[reason] ??= { claude: 0, codex: 0 };
     omissions[reason][tool]++;
   };
-  const shared = { repository, checkoutCache: new Map(), cutoff };
+  const shared = { repository, checkoutCache: new Map(), cutoff, omit };
   const options = { lino: values.lino, toolResults: values['tool-results'], cutoff, redactions };
   const candidates = async function* (hasRoom) {
     if (values.only !== 'codex') yield* discover({ ...shared, root: resolve(values['claude-dir']), tool: 'claude' }, hasRoom);

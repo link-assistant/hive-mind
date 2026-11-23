@@ -420,6 +420,7 @@ const runWatchLoop = async (params, watch) => {
             repo,
             prNumber,
             sha: checkedHeadSha,
+            // Only CI for the current HEAD gates readiness in PR-scoped monitoring.
             checkOlderCommits: false,
             waitForAllRepoActionsFlag,
             verbose: argv.verbose,

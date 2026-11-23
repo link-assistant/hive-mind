@@ -33,6 +33,7 @@ Usage: hive-manager [--host HOST] [SSH options] COMMAND [ARGS]
   archive-session       Sanitize a session file and write it to stdout
   archive-sessions      Stage sanitized sessions associated with a public repository
   archive-publish       Publish a reviewed session archive to GitHub
+  archive-overview      Render a source inventory from local archive manifests
   proxy-test            Verify Telegram text and media on a client network
   proxy-pcap            Summarize and compare bounded proxy packet captures
   close-linked-issues   Reconcile issues linked from merged pull requests
@@ -86,7 +87,7 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   compose ARGS          Run Docker Compose on the target (supports -f, --env-file)
   helm ARGS             Run Helm on the target (uses its kubeconfig)
   cleanup | configure-claude | audit-config | screens | models | tasks
-  archive-session | archive-sessions | archive-publish | proxy-test | proxy-pcap | close-linked-issues
+  archive-session | archive-sessions | archive-publish | archive-overview | proxy-test | proxy-pcap | close-linked-issues
                         Run a maintenance command inside the instance
 
 Options (before ACTION):
@@ -137,6 +138,7 @@ maintenance_spec() {
     archive-session) bin=hive-manager; module=hive-manager/archive/session.mjs ;;
     archive-sessions) bin=hive-manager; module=hive-manager/archive/sessions.mjs ;;
     archive-publish) bin=hive-manager; module=hive-manager/archive/publish.mjs ;;
+    archive-overview) bin=hive-manager; module=hive-manager/archive/overview.mjs ;;
     proxy-test) bin=hive-manager; module=hive-manager/proxy/test.mjs ;;
     proxy-pcap) bin=hive-manager; module=hive-manager/proxy/pcap.mjs ;;
     proxy-legacy) bin=hive-manager; module=hive-manager/proxy/legacy.mjs ;;

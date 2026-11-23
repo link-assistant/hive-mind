@@ -13,8 +13,12 @@
  *   health: the attempt records its decision and first error as annotations.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { buildDockerArgv, buildRunContextEnv, buildSolveArgv, DRAFT_SOLVE_FLAGS, FORMAL_AI_BINARY_CONTAINER_PATH, draftFailureReason, firstErrorLine, formatWorkflowAnnotation } from '../scripts/formal-ai-draft.lib.mjs';
 import { classifyPullFailure, HIVE_MIND_IMAGE_REPOSITORY, pullDraftImage, pullImageWithRetry, resolveDraftImages } from '../scripts/formal-ai-draft-image.lib.mjs';
@@ -216,6 +220,29 @@ test('the container is told it is removed on exit and which run holds its log', 
     GITHUB_ACTIONS: 'true',
   });
   assert.deepEqual(buildRunContextEnv({}), { HIVE_MIND_EPHEMERAL_CONTAINER: '1' });
+});
+
+test('the draft launcher forwards the caller deadline or computes one from the attempt start', { timeout: 10_000 }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'formal-ai-draft-deadline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const event = join(dir, 'event.json');
+  writeFileSync(event, JSON.stringify({ action: 'opened', issue: { number: 3248, html_url: ISSUE_URL, labels: [], user: { login: 'someone', type: 'User' } } }));
+  const script = fileURLToPath(new URL('../scripts/formal-ai-draft.mjs', import.meta.url));
+  const env = { PATH: process.env.PATH, GITHUB_EVENT_NAME: 'issues', GITHUB_EVENT_PATH: event, GITHUB_REPOSITORY: 'link-assistant/hive-mind', FORMAL_AI_DRAFT_LOG_DIR: join(dir, 'logs') };
+  const launch = overrides => {
+    const result = spawnSync(process.execPath, [script, '--dry-run'], { encoding: 'utf8', env: { ...env, ...overrides } });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const dockerCommand = result.stdout.split('\n').find(line => line.startsWith('$ docker '));
+    assert.ok(dockerCommand, result.stdout);
+    assert.match(dockerCommand, /-e HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS -e HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS -e HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS /);
+    return Number(dockerCommand.match(/-e HIVE_MIND_DEADLINE_AT_MS=(\d+) /)?.[1]);
+  };
+
+  const beforeLaunch = Date.now();
+  const calculated = launch({});
+  const retryWindowMs = (20 * 60 - 30) * 1000;
+  assert.ok(calculated >= beforeLaunch + retryWindowMs && calculated <= Date.now() + retryWindowMs);
+  assert.equal(launch({ HIVE_MIND_DEADLINE_AT_MS: String(beforeLaunch) }), beforeLaunch);
 });
 
 // --- 8. A caller-built Formal AI binary --------------------------------------

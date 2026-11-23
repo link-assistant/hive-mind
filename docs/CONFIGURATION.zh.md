@@ -55,6 +55,8 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 | `HIVE_MIND_RETRY_BACKOFF_DELAY_MS`   | 1000   | 重试的退避延迟（毫秒）                                 |
 | `HIVE_MIND_RESULT_STREAM_CLOSE_MS`   | 30000  | 结果事件后等待流关闭的超时时间（毫秒），超时后强制终止 |
 
+如果外部进程为 `solve` 设置了硬性时限，请将 `HIVE_MIND_DEADLINE_AT_MS` 设为绝对 Unix 时间戳（毫秒）。如果等待会达到或超过截止时间，`solve` 会跳过此次瞬时错误重试。整体运行时限仍由外部进程强制执行。
+
 ### 2. 自动继续设置
 
 | 环境变量                            | 默认值 | 描述                             |

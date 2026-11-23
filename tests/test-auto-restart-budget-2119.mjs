@@ -162,13 +162,10 @@ const cleanFailure = await failOnAutoRestartBudgetExhausted({
 assert.equal(cleanFailure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'still a failure with a clean tree');
 assert.equal(cleanFailure.committed, false, 'nothing to commit on a clean tree');
 assert.ok(!clean$.calls.some(c => c.includes('gh api')), 'no comment is posted without a PR number');
-assert.ok(
-  exhaustionLog.some(({ message, options }) => options?.verbose === true && message.includes(failedHead)),
-  'verbose diagnostics identify the CI snapshot'
-);
-assert.ok(
-  exhaustionLog.some(({ message, options }) => options?.verbose === true && message.includes('Telephone recognition') && message.includes(checkUrl)),
-  'verbose diagnostics identify the failed check and job'
+assert.deepEqual(
+  exhaustionLog.filter(({ message, options }) => options?.verbose === true && message.startsWith('[VERBOSE] ')).map(({ message }) => message),
+  [`[VERBOSE] Restart limit CI snapshot for ${failedHead} (1/1 evidence lines)`, `[VERBOSE] Failing check: Telephone recognition — ${checkUrl}`],
+  'verbose diagnostics identify the CI snapshot and the failed job'
 );
 assert.ok(
   exhaustionLog.every(({ message }) => !message.includes('raw provider output')),

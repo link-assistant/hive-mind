@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Codex prompts module
@@ -13,6 +14,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getReviewBotsSubPrompt } from './review-bots.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -22,7 +24,7 @@ import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -73,6 +75,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
+  // Issue #4063: repository notices found right after the clone (e.g. uncommitted changes) go to the AI in every run, new or continued
+  if (cloneStatusLines?.length > 0) promptLines.push(...cloneStatusLines);
+
   const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
   if (issueResearchPrompt) {
     promptLines.push(issueResearchPrompt, '');
@@ -114,7 +119,7 @@ export const buildSystemPrompt = params => {
     ciExamples = promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text4', { owner: String(owner), repo: String(repo), workspaceTmpDir: String(workspaceTmpDir), branchName: String(branchName), prNumber: String(prNumber), issueNumber: String(issueNumber) });
   }
 
-  return promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text15', {
+  const systemPrompt = promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text15', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     workspaceInstructions: String(workspaceInstructions),
     value3: String(argv && argv.promptIssueReporting ? promptText('prompt.system.templates.codex-prompts.buildSystemPrompt.text5', { owner: String(owner), repo: String(repo) }) : ''),
@@ -139,9 +144,10 @@ export const buildSystemPrompt = params => {
     value46: String(getUpdateAllDependenciesSubPrompt(argv)),
     value47: String(getReportDependenciesIssuesSubPrompt(argv)),
     value48: String(getHandoffSubPrompt(argv)),
-    value49: String(getIssueCompletionSubPrompt(params)),
+    value49: String(getIssueCompletionSubPrompt(params) + getReviewBotsSubPrompt(params)), // Issue #4081: review apps
     value50: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 // Export all functions as default object too

@@ -14,24 +14,19 @@
 निम्नलिखित निर्देश Ubuntu 24.04 server पर legacy bare-metal installation का वर्णन करते हैं। यह दृष्टिकोण केवल संदर्भ के लिए रखा गया है।
 
 > **नोट:** Issue #1639 के अनुसार, `ubuntu-24-server-install.sh` script को repository से हटा दिया गया है।
-> Docker image अब base image के रूप में `konard/box` (एक विशिष्ट संस्करण पर pinned) का उपयोग करता है, जो सभी development tools प्रदान करता है।
+> Docker image अब base image के रूप में `ghcr.io/link-foundation/box` (एक विशिष्ट संस्करण पर pinned) का उपयोग करता है, जो सभी development tools प्रदान करता है।
 > ऐतिहासिक संदर्भ के लिए, Ubuntu 24.04 पर पूरी Hive Mind toolchain install करने वाली script का अंतिम संस्करण यहां संरक्षित है:
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
 >
-> `konard/box` image एक universal base image है और इसमें Hive Mind-specific tools शामिल नहीं हैं, इसलिए यह legacy Hive Mind script bare-metal installation path के लिए एकमात्र शेष स्रोत के रूप में रखी गई है।
+> `ghcr.io/link-foundation/box` image एक universal base image है और इसमें Hive Mind-specific tools शामिल नहीं हैं, इसलिए यह legacy Hive Mind script bare-metal installation path के लिए एकमात्र शेष स्रोत के रूप में रखी गई है।
 
 ## चरण
 
 1. ताज़े Ubuntu 24.04 के साथ VPS/VDS server reset/install करें
 2. `root` user में Login करें।
-3. पहले Box install करें (सभी development tools प्रदान करता है)
+3. संग्रहीत Hive Mind bare-metal इंस्टॉलर चलाएँ
 
    ```bash
-   # विकल्प 1: Docker का उपयोग करें (अनुशंसित)
-   docker pull konard/box:2.3.2
-   docker run -it konard/box:2.3.2
-
-   # विकल्प 2: Legacy Hive Mind bare-metal install script का उपयोग करें (इसे रखने वाले अंतिम commit पर pinned: 4f027b32)
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
@@ -43,21 +38,24 @@
    su - box
    ```
 
-5. **महत्वपूर्ण:** Installation पूर्ण होने के AFTER GitHub CLI के साथ authenticate करें
+5. Hive Mind चलाने वाले उपयोगकर्ता से साइन इन करें। ब्राउज़र में GitHub का डिवाइस पेज खोलें और टर्मिनल में दिखाया गया कोड दर्ज करें।
 
    ```bash
-   gh-setup-git-identity
+   hive-manager auth github
    ```
 
-   नोट: अपने GitHub account के साथ authenticate करने के लिए prompts का पालन करें। यह gh tool के काम करने के लिए आवश्यक है, और सिस्टम इस GitHub account का उपयोग करके सभी actions करेगा। Docker वातावरण में build timeouts से बचने के लिए यह चरण installation script पूर्ण होने के बाद किया जाना चाहिए।
-
-6. Claude Code CLI, OpenCode AI CLI, और @link-assistant/agent पिछले script के साथ preinstalled हैं। अब आपको यह सुनिश्चित करना होगा कि claude authorized है। claude command execute करें, और local claude को authorize करने के लिए सभी चरणों का पालन करें
+6. Claude Code में साइन इन करें। ब्राउज़र का प्राधिकरण कोड चल रही कमांड में पेस्ट करें।
 
    ```bash
-   claude
+   hive-manager auth claude
    ```
 
-   नोट: opencode और agent दोनों default रूप से मुफ्त model के साथ आते हैं (opencode के लिए Big Pickle, agent के लिए Nemotron 3 Super) - इसलिए इन tools के लिए कोई authorization आवश्यक नहीं है।
+   यदि पुराने इंस्टॉलर ने मैनेजर नहीं दिया है, तो सीधे प्रदाता की कमांड चलाएँ।
+
+   ```bash
+   env GH_BROWSER=true gh-setup-git-identity --web --skip-ssh-key
+   claude auth login
+   ```
 
 7. Hive Mind telegram bot launch करें:
 
@@ -66,8 +64,9 @@
    ```
    screen -R bot # bot के लिए नया screen दर्ज करें
 
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+   umask 077
+   cat > bot.lenv <<'LENV'
+     TELEGRAM_BOT_TOKEN: YOUR_TELEGRAM_BOT_TOKEN
      TELEGRAM_ALLOWED_CHATS:
        -1002975819706
        -1002861722681
@@ -83,7 +82,9 @@
        --verbose
        --no-tool-check
      TELEGRAM_BOT_VERBOSE: true
-   "
+   LENV
+   chmod 600 bot.lenv
+   hive-telegram-bot --configuration-file bot.lenv
 
    # screen से detach करने के लिए CTRL + A + D दबाएं
    ```
@@ -93,7 +94,10 @@
    ```
    screen -R bot # bot के लिए नया screen दर्ज करें
 
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+   read -rsp "Telegram bot token: " TELEGRAM_BOT_TOKEN
+   echo
+   export TELEGRAM_BOT_TOKEN
+   hive-telegram-bot --allowed-chats "(
      -1002975819706
      -1002861722681
    )" --hive-overrides "(
@@ -116,18 +120,11 @@
 
 ## Codex sign-in
 
-1. SSH के साथ tunnel खुले रखते हुए Hive Mind installed अपने VPS instance से connect करें
+जिस मशीन पर Codex चलाना है, वहाँ नीचे दी गई मैनेजर कमांड चलाएँ। दूसरी मशीन से `hive-manager --host deploy@your-server auth codex` चलाएँ। दिखाया गया डिवाइस प्राधिकरण URL खोलें और ब्राउज़र में कोड दर्ज करें। फिर लॉगिन स्थिति जाँचें।
 
 ```bash
-ssh -L 1455:localhost:1455 root@123.123.123.123
+hive-manager auth codex
+hive-manager auth codex status
 ```
 
-2. Codex login oAuth server शुरू करें:
-
-```bash
-codex login
-```
-
-1455 port पर oAuth callback server शुरू हो जाएगा, और oAuth का link print होगा, link copy करें।
-
-3. उस machine पर अपने browser का उपयोग करें जहां से आपने tunnel शुरू किया, वहां `codex login` command से link paste करें, और अपने browser का उपयोग करके वहां जाएं। एक बार localhost:1455 पर redirect होने पर आप successful login page देखेंगे, और `codex login` में आप `Successfully logged in` देखेंगे। उसके बाद `codex login` command पूर्ण हो जाएगा, और आप verify करने के लिए हमेशा की तरह `codex` command का उपयोग कर सकते हैं। यह `solve` और `hive` commands में `--tool codex` के साथ भी काम करना चाहिए।
+मैनेजर के बिना `codex login --device-auth` और `codex login status` सीधे चलाएँ। [Codex साइन-इन गाइड](deployment/hive-manager.md#headless-sign-in) देखें।

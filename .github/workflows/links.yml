@@ -9,6 +9,7 @@ on:
       - '**.html'
       - '.lycheeignore'
       - 'scripts/check-web-archive.mjs'
+      - 'scripts/install-lychee.sh'
       - 'scripts/recheck-broken-links.mjs'
       - '.github/workflows/links.yml'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - '**.html'
       - '.lycheeignore'
       - 'scripts/check-web-archive.mjs'
+      - 'scripts/install-lychee.sh'
       - 'scripts/recheck-broken-links.mjs'
       - '.github/workflows/links.yml'
   workflow_dispatch:
@@ -44,8 +46,8 @@ jobs:
   link-checker:
     name: Check Links
     runs-on: ubuntu-24.04
-    # Typical run: <1min with lychee cache. 10min prevents slow
-    # external hosts or Wayback Machine probes from hanging the workflow.
+    # Typical run: about a minute with a warm lychee cache. 10min prevents
+    # slow external hosts or Wayback Machine probes from hanging the workflow.
     timeout-minutes: 10
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-link-checker
@@ -54,46 +56,97 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # `--cache` alone writes .lycheecache into a workspace that is thrown
+      # away, so every run re-checked every link (issue #4025). Results stay
+      # valid for a day (`--max-cache-age 1d`); a new key per run saves the
+      # updated cache, and the restore prefix picks up the newest one. Only
+      # successes are cached (`--cache-exclude-status '400..'`), so a broken
+      # link is asked again on every run.
+      - name: Restore lychee cache
+        uses: actions/cache@v6
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: lychee-
+
+      - name: Install lychee
+        # Not lycheeverse/lychee-action: it downloads lychee with one
+        # `curl -sfLO` and no retry, so a single transient release-CDN error
+        # failed this job on main with no broken link (issue #4025, run
+        # 42570340566, curl exit 22). The installer retries and verifies the
+        # published SHA-256.
+        env:
+          LYCHEE_VERSION: v0.24.2
+        run: scripts/install-lychee.sh
 
       - name: Check links with lychee
         id: lychee
-        uses: lycheeverse/lychee-action@v2
-        with:
-          # Check all Markdown and HTML files.
-          #
-          # Exclusions (kept in sync with EXCLUDED_PREFIXES in
-          # tests/doc-links-2198.test.mjs, which enforces the same list):
-          #   docs/case-studies      - research notes copied from other repos;
-          #                            they reference files and issues that
-          #                            only exist there.
-          #   dev/log                - per-issue evidence archives, same story.
-          #   experiments/.../corpus - fixture text captured verbatim from
-          #                            third-party output.
-          #   tests/fixtures         - the captured lychee report there holds
-          #                            deliberately broken links used as
-          #                            parser test input.
-          args: >-
-            --verbose
-            --no-progress
-            --cache
-            --max-cache-age 1d
-            --max-retries 3
-            --timeout 30
-            --exclude-path docs/case-studies
-            --exclude-path dev/log
-            --exclude-path experiments/issue-2102/corpus
-            --exclude-path tests/fixtures
-            './**/*.md'
-            './**/*.html'
-          # Don't fail the workflow immediately - we want to check the web
-          # archive first, so the report can suggest replacements.
-          fail: false
-          # Output file for broken links report (used by check-web-archive.mjs)
-          output: lychee/out.md
-          # Write a job summary
-          jobSummary: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Check all Markdown and HTML files.
+        #
+        # Exclusions (kept in sync with EXCLUDED_PREFIXES in
+        # tests/doc-links-2198.test.mjs, which enforces the same list):
+        #   docs/case-studies      - research notes copied from other repos;
+        #                            they reference files and issues that
+        #                            only exist there.
+        #   dev/log                - per-issue evidence archives, same story.
+        #   experiments/.../corpus - fixture text captured verbatim from
+        #                            third-party output.
+        #   tests/fixtures         - the captured lychee report there holds
+        #                            deliberately broken links used as
+        #                            parser test input.
+        #
+        # Broken links don't fail this step: the Web Archive is checked first
+        # so the report can suggest replacements, and "Fail if broken links
+        # were found" fails the job. lychee's own failures (bad arguments,
+        # crash, no report, no links found) fail here, so they can never
+        # pass as "no broken links".
+        run: |
+          mkdir -p lychee
+          set +e
+          lychee --mode task --format markdown --output lychee/out.md \
+            --verbose \
+            --no-progress \
+            --cache \
+            --max-cache-age 1d \
+            --cache-exclude-status '400..' \
+            --max-retries 3 \
+            --timeout 30 \
+            --exclude-path docs/case-studies \
+            --exclude-path dev/log \
+            --exclude-path experiments/issue-2102/corpus \
+            --exclude-path tests/fixtures \
+            './**/*.md' \
+            './**/*.html'
+          exit_code=$?
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          if ! grep -q '^# Summary' lychee/out.md 2>/dev/null; then
+            echo "::error title=lychee failed::lychee exited with code $exit_code without writing a report; see the output above."
+            exit 1
+          fi
+          cat lychee/out.md
+          cat lychee/out.md >> "$GITHUB_STEP_SUMMARY"
+          if grep -Eq 'Total\s+\|\s+0\s*\|' lychee/out.md; then
+            echo "::error title=No links checked::lychee found no links; the input globs or exclusions are wrong."
+            exit 1
+          fi
+          if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 2 ]; then
+            echo "::error title=lychee failed::lychee exited with code $exit_code (2 means broken links); see the output above."
+            exit 1
+          fi
+
+      - name: Upload lychee report
+        if: ${{ !cancelled() && hashFiles('lychee/out.md') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lychee-report
+          path: lychee/out.md
+          retention-days: 14
 
       - name: Re-check links that failed transiently
         # A 429, a 5xx or a connection failure is "not now", not "broken":
@@ -140,5 +193,27 @@ jobs:
           echo "     b. Remove the link if the content is no longer relevant."
           echo "     c. Add the URL to .lycheeignore if it is a known false positive."
           echo ""
-          echo "Report location: lychee/out.md (available as a workflow artifact if configured)."
+          echo "Report: the lychee-report artifact of this run, and the job summary."
           exit 1
+
+  # GitHub reports a job killed by timeout-minutes as cancelled, which leaves
+  # the run grey instead of red. Fail on any failure, and on any cancellation
+  # that a newer commit on the same ref does not explain (issue #4025; the
+  # jobs above cancel superseded runs on every ref, main included).
+  pipeline-status:
+    name: Links Status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - link-checker
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Fail the run when a job failed or timed out
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REF: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+        run: bash scripts/check-pipeline-status.sh

@@ -50,6 +50,9 @@ function assertEqual(actual, expected, name) {
 }
 
 const ISSUE_URL = 'https://github.com/link-assistant/hive-mind/issues/1780';
+// Match the URL as a pattern, not a substring check on a host (CodeQL
+// js/incomplete-url-substring-sanitization, issue #4025).
+const ISSUE_URL_PATTERN = new RegExp(RegExp.escape(ISSUE_URL));
 const PR_URL = 'https://github.com/link-assistant/hive-mind/pull/1781';
 const UUID = '4d934f71-4cdb-4b8c-b474-582116d12c12';
 const OTHER_UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -179,7 +182,7 @@ function makeStubQueue({ items = [], processing = [] } = {}) {
   await bot.handlers.stop(ctx);
   assert(queue.cancelCalls.length === 1 && queue.cancelCalls[0] === 'q-1', '/stop <url> cancels matching queued item via queue.cancel(id)', { calls: queue.cancelCalls });
   assert(
-    ctx.replies.some(r => r.text.includes('Removed queued task') && r.text.includes(ISSUE_URL)),
+    ctx.replies.some(r => r.text.includes('Removed queued task') && ISSUE_URL_PATTERN.test(r.text)),
     'replies with "Removed queued task" message including URL',
     { replies: ctx.replies.map(r => r.text) }
   );

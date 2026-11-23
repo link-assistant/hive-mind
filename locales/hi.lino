@@ -183,6 +183,8 @@ hi
   time
     current "वर्तमान समय: {{time}}"
   limits
+    stored
+      metadata "संग्रहीत मेटाडेटा"
     additional
       codex
         limits "अतिरिक्त Codex सीमाएँ"
@@ -289,6 +291,10 @@ hi
     resource
       limit
         exceeded "संसाधन सीमा पार हो गई"
+    retry
+      reason
+        network "नेटवर्क त्रुटि"
+        timeout "अनुरोध का समय समाप्त हो गया"
     solve
       queue
         status "Solve कतार स्थिति"
@@ -334,6 +340,9 @@ hi
         steps "क्या करें"
         preserved "रुकने से पहले बिना कमिट किए बदलाव स्वतः कमिट कर दिए गए।"
         resume "पहुँच बहाल होने पर फिर से शुरू करें"
+        retried "पुनः प्रयास"
+        status "स्थिति पृष्ठ"
+        rechecked "यह उपयोग सीमा नहीं है। रन रुकने से पहले त्रुटि को पुनः प्रयासों से दोबारा जाँचा गया; यदि स्थिति पृष्ठ पर कोई घटना दिखती है तो उसके हल होने के बाद फिर से शुरू करें, अन्यथा फिर से लॉग इन करें।"
       detail
         ends
           label "{{time}} को समाप्त होगी"
@@ -370,6 +379,8 @@ hi
         chat "प्रति चैट संदेश, 1 मिनट"
         group "प्रति समूह संदेश, 1 मिनट"
         other "अन्य API अनुरोध, 1 सेकंड"
+    temporarily
+      unavailable "{{provider}} सीमाएँ अस्थायी रूप से अनुपलब्ध हैं ({{reason}})। अगली /limits कॉल पर इन्हें फिर से प्राप्त किया जाएगा।"
     trial
       ends
         label "ट्रायल समाप्त होगा {{time}}"
@@ -418,6 +429,51 @@ hi
       """
       queued "📋 solve command queue में जोड़ी गई ({{tool}} queue position #{{position}})"
       waiting "⏳ प्रतीक्षा में ({{tool}} queue #{{position}})"
+      after
+        queue
+          title "अन्य कार्यों की प्रतीक्षा में ({{count}})"
+        queued "⏳ solve command अन्य कार्यों के बाद queue में जोड़ी गई"
+        waiting
+          success "{{tasks}} सफलतापूर्वक पूरा होने पर शुरू होगा; वह कार्य विफल होने पर शुरू नहीं होगा।"
+          finish "{{tasks}} पूरा होने पर शुरू होगा, परिणाम चाहे जो हो।"
+          blockers "अपने GitHub blockers {{tasks}} की प्रतीक्षा करता है: {{description}}"
+        released "▶️ प्रतीक्षित कार्य पूरे हुए ({{tasks}}); कार्य queue में जोड़ा गया।"
+        dependency
+          failed "एक प्रतीक्षित कार्य सफल नहीं हुआ: {{task}}"
+        blockers
+          not
+            queued "इसे {{blockers}} block करता है, जो न queue में है न चल रहा है ({{description}})। पहले blockers को queue करें, या command को `--respect-blockers` के बिना भेजें।"
+        usage """
+          ❌ बताएं कि किस कार्य की प्रतीक्षा करनी है।
+
+          कार्य के संदेश का उत्तर दें: `/after <github-url>`
+          या कार्य बताएं: `/after <uuid|github-url> <github-url> [options]`
+
+          `/after` नया कार्य केवल तभी शुरू करता है जब प्रतीक्षित कार्य सफल हो; `/enqueue` परिणाम चाहे जो हो शुरू करता है। नया लिंक न होने पर प्रतीक्षित लिंक फिर से चलता है।
+        """
+        many
+          tasks "❌ /after और /enqueue एक कार्य के बाद एक कार्य शुरू करते हैं। बहुत अधिक कार्य: {{links}}"
+        invalid
+          link "❌ यह issue या pull request लिंक नहीं है: {{links}}"
+        unknown
+          target "❌ {{task}} के लिए कोई queued या चल रहा कार्य नहीं मिला। कार्य के संदेश का उत्तर दें, या उसका session UUID या लिंक बताएं।"
+        no
+          task
+            link "❌ कार्य {{task}} का फिर से शुरू करने के लिए कोई लिंक नहीं है। इसके बाद शुरू करने के लिए issue या pull request लिंक जोड़ें।"
+        target
+          failed "❌ शुरू नहीं हुआ: {{task}} पहले ही {{detail}}, और /after केवल सफल कार्य के बाद शुरू करता है। फिर भी शुरू करने के लिए /enqueue का उपयोग करें।"
+          finished "ℹ️ {{task}} पहले ही {{detail}}; अभी शुरू कर रहे हैं।"
+      batch
+        summary """
+          📋 {{total}} में से {{started}} links शुरू हुए। शुरू नहीं हुए ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "यह link शुरू होने से पहले chat रोक दी गई"
+        repository "links की सूची से repository links शुरू नहीं होते; पूरी repository हल करने के लिए `/solve <repository-url>` अलग से भेजें"
+        launch
+          failed "शुरू करना विफल रहा: {{error}}"
       invalid
         url
           help """
@@ -572,7 +628,10 @@ hi
         example "उदाहरण: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
-        reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
+        reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`। कई issue/PR लिंक होने पर हर लिंक अलग कार्य के रूप में शुरू होता है।"
+        after "*/after* `<task> <github-url>` - किसी अन्य कार्य के सफल होने के बाद कार्य शुरू करें; वह विफल हो तो यह शुरू नहीं होगा। */enqueue* परिणाम चाहे जो हो यही करता है। प्रतीक्षित कार्य session UUID, लिंक या उत्तर दिया गया संदेश है; नया लिंक न होने पर उसका लिंक फिर से चलता है।"
+        respect
+          blockers "`--respect-blockers` (प्रयोगात्मक) - issue के GitHub blockers और खुले sub-issues queue में हों तो उनकी प्रतीक्षा करें; कोई न queue में हो न चल रहा हो तो शुरू न करें। लिंक की सूची में यह default है (`--no-respect-blockers` इसे बंद करता है)।"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
         queue "`/queue` - solve queue status दिखाएँ"
       locked
@@ -604,6 +663,7 @@ hi
       models "*/models* - उपलब्ध models दिखाएँ, जो इस installation और सभी live sources से मिलाकर बनाई गई हैं। उपयोग: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - उपयोग सीमाएँ दिखाएँ"
       version "*/version* - bot और runtime versions दिखाएँ"
+      who "*/who* - बॉट की पहचान और उसका मौजूदा Hive Mind संस्करण दिखाएँ"
       language "*/language* `[en|ru|zh|hi]` - अपनी पसंदीदा reply language सेट या दिखाएँ (in-memory, per-user)"
       accept
         invites "`/accept_invites` - सभी pending GitHub invitations स्वीकार करें"
@@ -623,7 +683,8 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        addressing "कई Hive Mind बॉट वाले ग्रुप में `/command@BotUsername` इस्तेमाल करें।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model
@@ -679,6 +740,10 @@ hi
       waiting_for_ci "⏳ {{branch}} ब्रांच पर CI/CD पूरा होने की प्रतीक्षा..."
       waiting_for_ci_default_branch "⏳ डिफ़ॉल्ट ब्रांच पर CI/CD पूरा होने की प्रतीक्षा..."
       issue_label "Issue"
+    solve_progress
+      watching "⏳ निगरानी जारी है"
+      elapsed "⏳ {{minutes}} मिनट {{seconds}} सेकंड से निगरानी जारी है"
+      uploading_log "📎 सत्र लॉग अपलोड हो रहा है..."
     work
       session
         starting "🔄 शुरू हो रहा है..."
@@ -696,6 +761,7 @@ hi
         killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
         stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
         not_launched "कार्य सत्र शुरू ही नहीं हुआ, इसलिए उसका कोई log नहीं है और वह `--list` में नहीं दिखता।"
+        launch_failure_listed "कार्य सत्र शुरू नहीं हुआ। हाल की विफलताओं के लिए `/queue` देखें। `--list` में start-command में दर्ज निष्पादन दिखते हैं।"
         recovering "कार्य सत्र अभी जारी है: exit code {{exitCode}} के बाद पुनर्प्राप्ति हो रही है"
         recovering_from_kill "कार्य सत्र अभी जारी है: जबरन रोके जाने के बाद पुनर्प्राप्ति हो रही है{{causeSuffix}}"
         recovered "स्वचालित पुनर्प्राप्ति के बाद कार्य सत्र सफलतापूर्वक पूरा हुआ"

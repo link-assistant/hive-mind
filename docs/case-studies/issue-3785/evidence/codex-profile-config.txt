@@ -1,0 +1,18 @@
+Pinned Codex 0.164.0 profile-v2 discovery, synthetic state only
+
+Before: all fourteen initial profile regressions fail against the base-only audit.
+The actual native CLI discovers an MCP registration from work.config.toml beside
+clean config.toml; the old production audit incorrectly admits it.
+
+After: 193 surrounding audit/runtime cases pass (plus 56 internal legacy audit
+assertions), including two added directory-bound/concurrent-insertion cases.
+The actual offline native CLI still discovers the fixture registration and
+production read-only admission rejects it without modifying its bytes.
+
+Command: node experiments/issue-3785/probe-codex-profile-config.mjs
+Local logs: /tmp/issue-3785-profile-{before,regressions,native-after}.log
+Source: openai/codex rust-v0.164.0,
+codex-rs/config/src/loader/mod.rs profile-v2 selection.
+
+Limit: this is a specific admission repair, not full canonical storage or a
+complete native discovery/lifecycle attestation.

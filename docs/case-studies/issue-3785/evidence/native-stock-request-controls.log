@@ -1,0 +1,23 @@
+Exact stock Codex 0.164.0: cached G0 negative control
+CHECK: api-key both live clients made their initial G0 model request.
+CHECK: api-key both live clients completed replacement requests.
+CHECK: api-key both live clients completed logout requests.
+PASS: api-key actual model requests reproduce stale native authorization after logout in two live CLI processes.
+CHECK: chatgpt both live clients made their initial G0 model request.
+CHECK: chatgpt both live clients completed replacement requests.
+CHECK: chatgpt both live clients completed logout requests.
+PASS: chatgpt actual model requests reproduce stale native authorization after logout in two live CLI processes.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.
+
+Previously built repaired native CLI: positive controls unchanged
+CHECK: api-key both live clients made their initial G0 model request.
+CHECK: api-key both live clients completed replacement requests.
+CHECK: api-key both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: api-key both live clients completed logout requests.
+PASS: api-key actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+CHECK: chatgpt both live clients made their initial G0 model request.
+CHECK: chatgpt both live clients completed replacement requests.
+CHECK: chatgpt both live clients completed malformed, unsafe and repaired-authority requests.
+CHECK: chatgpt both live clients completed logout requests.
+PASS: chatgpt actual model requests observe replacement, refuse logout and observe recreation in two live CLI processes.
+PASS: fixture forwarded zero external tunnels; blocked 3 declared background origins.

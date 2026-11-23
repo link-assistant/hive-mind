@@ -1,0 +1,12 @@
+name: Assemble verified native Codex runtimes
+description: Admit both platform artifacts from this workflow run before image or npm consumption.
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: native-codex-runtime-*
+        path: ${{ runner.temp }}/native-codex-downloads
+    - name: Verify platform provenance and every packaged native byte
+      shell: bash
+      run: python3 scripts/build-native-codex.py assemble "$RUNNER_TEMP/native-codex-downloads" "$GITHUB_WORKSPACE/src/native-codex/runtime"

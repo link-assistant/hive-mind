@@ -25,13 +25,15 @@
  */
 
 import { spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_FAILURE_ANNOTATION_TITLE, FORMAL_AI_BINARY_CONTAINER_PATH, firstErrorLine, formatDecisionOutputs, formatWorkflowAnnotation, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { parseIntegerEnv } from '../src/env-config.lib.mjs';
+import { buildDockerArgv, buildGitIdentityEnv, buildRunContextEnv, buildSolveArgv, createdDraftPullRequestNumber, decideDraft, DRAFT_DECISION_ANNOTATION_TITLE, DRAFT_DECISION_CODES, DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage, FORMAL_AI_BINARY_CONTAINER_PATH, formatDecisionOutputs, formatWorkflowAnnotation, isAttemptPullRequest, isIssuePullRequestHead, keepPullRequestAsDraftArgs, labelDraftPullRequest, readIssueEvent } from './formal-ai-draft.lib.mjs';
 import { pullDraftImage, resolveDraftImages } from './formal-ai-draft-image.lib.mjs';
-import { gh } from './github-actions.lib.mjs';
+import { gh, ghJson, ghList } from './github-actions.lib.mjs';
 
 const flags = new Set(process.argv.slice(2));
 const decideOnly = flags.has('--decide');
@@ -77,15 +79,23 @@ const issueUrlFor = issue => issue?.html_url || issue?.url || `${serverUrl}/${re
 const { eventName, action, issue } = await resolveIssue();
 const decision = decideDraft({ eventName, action, issue, layer: env.AUTOMATION_LAYER || 'default' });
 
-console.log(`Formal AI draft: ${decision.run ? 'attempting' : 'skipping'} — ${decision.reason}`);
-// Read back by the scheduled health check, which flags a decision that repeats.
-console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, decision.code));
-setOutput(formatDecisionOutputs(decision));
-setOutput(`issue_number=${issue?.number ?? ''}\n`);
+const reportDecision = (outcome, { preliminary = false } = {}) => {
+  console.log(`Formal AI draft: ${outcome.run ? (preliminary ? 'eligible' : 'attempting') : 'skipping'} — ${outcome.reason}`);
+  // The health check reads the final decision. An eligible event can still be occupied at launch.
+  if (!preliminary) console.log(formatWorkflowAnnotation('notice', DRAFT_DECISION_ANNOTATION_TITLE, outcome.code));
+  setOutput(formatDecisionOutputs(outcome));
+  setOutput(`issue_number=${issue?.number ?? ''}\n`);
+};
 
+if (decideOnly || dryRun || !decision.run) reportDecision(decision, { preliminary: decision.run });
 if (decideOnly || !decision.run) process.exit(0);
 
 // --- The attempt ----------------------------------------------------------
+
+// The direct caller's attempt has 20 minutes including image pulls. Leave 30
+// seconds for failure reporting and accept the caller's absolute deadline when supplied.
+const defaultDeadlineAtMs = Math.floor(performance.timeOrigin) + (20 * 60 - 30) * 1000;
+const deadlineAtMs = parseIntegerEnv('HIVE_MIND_DEADLINE_AT_MS', defaultDeadlineAtMs, { scope: 'formal-ai-draft' });
 
 const hostLogDir = env.FORMAL_AI_DRAFT_LOG_DIR || `${env.RUNNER_TEMP || '/tmp'}/formal-ai-draft-logs`;
 const containerLogDir = '/home/box/logs';
@@ -96,8 +106,18 @@ mkdirSync(hostLogDir, { recursive: true });
 // failure looks like the model's rather than the mount's.
 chmodSync(hostLogDir, 0o777);
 
+// A draft that fails before solve starts (an image that is not published, a
+// missing binary artifact) used to leave the log directory empty, so the upload
+// step warned "No files were found" and the artifact held no record of why
+// (issue #4050, run 43274283479). The failure itself is now that record.
+const DRAFT_FAILURE_LOG = 'formal-ai-draft-failure.log';
 const fail = message => {
   console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, message));
+  try {
+    appendFileSync(join(hostLogDir, DRAFT_FAILURE_LOG), `${new Date().toISOString()} ${message}\n`);
+  } catch (error) {
+    console.log(`Could not record the failure in ${hostLogDir}: ${error.message}`);
+  }
   process.exit(1);
 };
 
@@ -140,38 +160,57 @@ if (!dryRun) {
 
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),
-  forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT'],
-  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env) },
+  forwardEnv: ['GH_TOKEN', 'FORMAL_AI_INSTALL_GRANT', 'HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 'HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS', 'HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS'],
+  setEnv: { ...buildGitIdentityEnv(), ...buildRunContextEnv(env), HIVE_MIND_DEADLINE_AT_MS: String(deadlineAtMs) },
   image,
   hostLogDir,
   containerLogDir,
   extraMounts,
 });
 
-console.log(`\n$ docker ${dockerArgv.join(' ')}\n`);
-if (dryRun) process.exit(0);
+const dockerCommand = `\n$ docker ${dockerArgv.join(' ')}\n`;
+if (dryRun) {
+  console.log(dockerCommand);
+  process.exit(0);
+}
 
+// The image pull can take minutes, during which another solver may open a PR.
+let openBeforeAttempt;
+try {
+  openBeforeAttempt = await ghList(`repos/${repository}/pulls?state=open&per_page=100`);
+  if (openBeforeAttempt.some(pr => !Number.isSafeInteger(pr?.number) || typeof pr.head?.ref !== 'string')) throw new Error('Invalid pull request census');
+} catch (error) {
+  fail(`Could not list open pull requests for ${repository}: ${error.message}`);
+}
+const occupying = openBeforeAttempt.find(pr => isIssuePullRequestHead(pr.head.ref, issue.number));
+if (occupying) {
+  reportDecision({ run: false, code: DRAFT_DECISION_CODES.occupied, reason: `#${issue.number} already has open pull request #${occupying.number}` });
+  process.exit(0);
+}
+const previousNumbers = new Set(openBeforeAttempt.map(pr => pr.number));
+reportDecision(decision);
+console.log(dockerCommand);
+
+// Keep only the startup transcript where solve reports PR creation. Stream all stdout to the workflow log.
+const startupOutput = [];
+let startupBytesRemaining = 1024 * 1024;
+const startedAt = Date.now();
 const status = await new Promise((resolve, reject) => {
-  const child = spawn('docker', dockerArgv, { stdio: 'inherit' });
+  const child = spawn('docker', dockerArgv, { stdio: ['inherit', 'pipe', 'inherit'] });
+  child.stdout.pipe(process.stdout, { end: false });
+  const captureStartup = chunk => {
+    const captured = chunk.subarray(0, startupBytesRemaining);
+    startupOutput.push(captured);
+    startupBytesRemaining -= captured.length;
+    if (startupBytesRemaining === 0) child.stdout.off('data', captureStartup);
+  };
+  child.stdout.on('data', captureStartup);
   child.on('error', reject);
   child.on('close', code => resolve(code ?? 1));
 });
 
-/** The first error of the newest session log, so the run's summary says why it is red. */
-const reportFirstError = () => {
-  let text = '';
-  try {
-    const logs = readdirSync(hostLogDir)
-      .filter(name => name.endsWith('.log'))
-      .map(name => join(hostLogDir, name))
-      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-    if (logs.length) text = readFileSync(logs[0], 'utf8');
-  } catch {
-    // No log is itself the finding; the fallback message says so.
-  }
-  console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, firstErrorLine(text) || `docker run exited ${status} without a session log error`));
-};
-if (status !== 0) reportFirstError();
+// Why the session log says the run is red, so the run's summary says it too (#4065: solve-*.log, not the newest *.log).
+if (status !== 0) console.log(formatWorkflowAnnotation('error', DRAFT_FAILURE_ANNOTATION_TITLE, draftFailureMessage({ logDir: hostLogDir, status })));
 
 // --- The failure policy ---------------------------------------------------
 //
@@ -181,10 +220,10 @@ if (status !== 0) reportFirstError();
 // draft into a red *workflow* that hides why the draft is red.
 
 try {
-  const open = JSON.parse(await gh(['pr', 'list', '--repo', repository, '--state', 'open', '--limit', '100', '--json', 'number,headRefName,isDraft']));
-  const pullRequest = selectDraftPullRequest(open, issue.number);
-  if (!pullRequest) {
-    console.log(`No pull request was opened for issue #${issue.number}; the session log is the record of why.`);
+  const number = createdDraftPullRequestNumber(Buffer.concat(startupOutput).toString('utf8'), repository);
+  const pullRequest = number ? await ghJson(['pr', 'view', String(number), '--repo', repository, '--json', 'number,headRefName,isDraft,state,createdAt']) : null;
+  if (!isAttemptPullRequest(pullRequest, { number, issueNumber: issue.number, startedAt, previousNumbers })) {
+    console.log(`Could not verify a new draft pull request from this attempt on issue #${issue.number}. See the session log.`);
   } else {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
@@ -195,4 +234,4 @@ try {
   console.log(`Could not finalize the draft's state (${error.message}); the pull request itself is unaffected.`);
 }
 
-process.exit(status);
+process.exitCode = status;

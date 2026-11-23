@@ -25,7 +25,7 @@ export function requirementFeedback(comments) {
       if (!nonempty(comment?.body)) return false;
       // Quoting an automation phrase in a user's request must not erase it. Status comments solve.mjs
       // posts after the report ("Ready to merge", "Auto-restart", "Auto-merge blocked") are not feedback.
-      const bookkeeping = isToolStatusComment(comment.body) || (isToolGeneratedComment(comment.body) && /^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|AI work session|automatically extracted)/i.test(comment.body));
+      const bookkeeping = isToolStatusComment(comment.body) || (isToolGeneratedComment(comment.body) && /^## /u.test(comment.body) && /(?:by hive-mind|Now working session is ended|monitoring of this pull request continues|Monitoring Ended|AI work session|automatically extracted)/i.test(comment.body));
       return !bookkeeping;
     })
     .map(comment => ({ id: comment.id, body: comment.body }))

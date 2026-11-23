@@ -1,0 +1,53 @@
+Native Gemini 0.65.0 Git service reuse experiment
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Production installation remains unfinished.
+
+The real terminal creates a separate GitService over the Storage initialized by
+native configuration startup. The original adapter binds one service only and
+refuses the initialized private repository for that new service. No terminal
+checkpoint is saved even though the actual file-edit approval prompt is shown.
+
+Focused strict before control on the frozen object-graph stage:
+  scenario same-storage-service
+  AssertionError [ERR_ASSERTION]: Got unwanted rejection:
+  A native UI GitService must reuse its already initialized private repository.
+
+The service stage admits an existing repository only when its previous binding,
+project, temporary path, canonical root and sealed native configuration remain
+current. Separate service instances share that seal while retaining their own
+checked project/storage binding. Repeated native initialize validates and reuses
+the admitted repository without rewriting configuration or resetting history.
+
+After controls, local Node 26.12.1:
+  PASS: all 24 Git scenarios / 28 bounded native processes.
+  PASS: second GitService using the exact same native Storage.
+  PASS: second GitService using independently initialized Storage for the same
+        private repository.
+  PASS: both services observe the new canonical third generation and restore
+        both prior generations.
+  PASS: an injected private filter is refused even by a new native UI service;
+        no filter witness executes and canonical identities/bytes stay intact.
+  PASS: all original peers/concurrent writers, lifetime, generation, project,
+        selector and unsafe-object controls.
+  PASS: twelve checked fresh-source stages reproduce fourteen tested files;
+        every --check leaves the package unchanged.
+
+Exact derived files:
+  chunk-DKZARV6U.js
+    a88db8a10a742aa697d71f2e33b9061d2082f6e9b4330b3d9bbefa54fa9616f3
+  hive-gemini-git-history.mjs
+    83e535c8d162480a737306aac0f4caf7288d0c790e3473e2ba5dcfaf8b0bbb35
+  hive-gemini-git-configuration.mjs
+    3be27b9f5d2aba8b4456397fea5b418cea13a8ed6f5d7a6816191091052272b1
+
+Existing process/object/audit bounds are unchanged. This stage does not establish
+terminal/ACP metadata persistence, failure admission at edit approval, prior
+private-state migration, power-loss recovery or production default authority.
+
+CI observation for preceding pushed 40db3a6e3c0:
+  Native Gemini run 41150101913: all four jobs SUCCESS, including Git,
+  tracker, the independent history regressions and credential reads.
+  This CI result predates the service reuse change; new-head verification remains
+  required after committing and pushing that change.

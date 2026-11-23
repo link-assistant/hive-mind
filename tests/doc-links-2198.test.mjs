@@ -107,16 +107,23 @@ const workflowPath = join(repoRoot, '.github/workflows/links.yml');
 assert.ok(existsSync(workflowPath), '.github/workflows/links.yml exists');
 const workflow = readFileSync(workflowPath, 'utf8').replaceAll('\r\n', '\n');
 
-assert.match(workflow, /uses: lycheeverse\/lychee-action@/, 'the links workflow runs lychee');
+// Issue #4025: lychee-action downloads lychee with a single unretried curl,
+// so one CDN hiccup failed the job with no broken link. The workflow installs
+// lychee itself, with retries and a checksum, and runs it directly.
+assert.match(workflow, /run: scripts\/install-lychee\.sh/, 'the links workflow installs lychee with retries');
+assert.match(workflow, /LYCHEE_VERSION: v\d+\.\d+\.\d+/, 'the lychee version is pinned');
+assert.doesNotMatch(workflow, /uses: lycheeverse\/lychee-action@/, 'the unretried lychee-action download is not used');
+assert.match(workflow, /\n {10}lychee --mode task --format markdown --output lychee\/out\.md/, 'the links workflow runs lychee');
 assert.match(workflow, /^permissions:\n {2}contents: read$/m, 'the links workflow defaults to least privilege');
 assert.match(workflow, /GIT_CONFIG_KEY_0:\s*init\.defaultBranch/, "the links workflow suppresses Git's obsolete default-branch warning");
 assert.match(workflow, /timeout-minutes:/, 'the links job is bounded so a hanging host cannot report as cancelled');
 
-// lychee is told to keep going so the Wayback lookup can run; the explicit
-// failure step is what makes the job fail. Without it `fail: false` would
-// turn every broken link into a silent pass — the exact false negative this
-// whole file exists to prevent.
-assert.match(workflow, /fail: false/, 'lychee defers failure to the reporting step');
+// The lychee step records broken links (exit code 2) instead of failing, so the
+// Wayback lookup can run; the explicit failure step is what makes the job
+// fail. Without it every broken link would be a silent pass — the exact false
+// negative this whole file exists to prevent. The behaviour of the lychee step
+// itself is exercised in tests/links-workflow-lychee-4025.test.mjs.
+assert.match(workflow, /echo "exit_code=\$exit_code" >> "\$GITHUB_OUTPUT"/, 'lychee defers broken-link failure to the reporting step');
 assert.match(workflow, /exit 1/, 'the links workflow still fails when links are broken');
 assert.match(workflow, /scripts\/check-web-archive\.mjs/, 'broken links are checked against the Wayback Machine');
 

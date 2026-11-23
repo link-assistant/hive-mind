@@ -3,6 +3,14 @@ version: 2
 # Keep supported ecosystems in one reviewable update. The release workflow's
 # dependency-freshness job covers use-m pins and setup-action inputs that
 # Dependabot cannot update by itself.
+#
+# No docker-compose entry: every compose service builds a Dockerfile listed
+# under docker, so it matched nothing and warned daily (issue #4055). Add it
+# back when a service pulls a registry image; the freshness test enforces this.
+#
+# An open group pull request blocks every newer group update
+# (dependabot/dependabot-core#16791); the Dependabot Health workflow fails
+# when one stays open too long.
 multi-ecosystem-groups:
   all-dependencies:
     schedule:
@@ -30,15 +38,6 @@ updates:
       - /
       - /coolify
       - /experiments/solve-dockerize
-    patterns: ['*']
-    multi-ecosystem-group: all-dependencies
-    cooldown:
-      exclude: ['*']
-
-  - package-ecosystem: docker-compose
-    directories:
-      - /
-      - /coolify
     patterns: ['*']
     multi-ecosystem-group: all-dependencies
     cooldown:

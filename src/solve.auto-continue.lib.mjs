@@ -51,7 +51,7 @@ import { autoContinue, limitReset } from './config.lib.mjs';
 import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
-const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { interruptibleSleep, parkIfShuttingDown } = await import('./interruptible-sleep.lib.mjs');
 
 // Issue #1886: cumulative Anthropic cost carried across cross-process resumes
 const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
@@ -137,6 +137,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // Wait until reset time
     await interruptibleSleep(waitMs);
     clearInterval(countdownTimer);
+    // Issue #4048: never resume a session while the interrupt handler is shutting down.
+    await parkIfShuttingDown(log, reason => `🛑 ${reason} received — not resuming the session`);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';
     await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);
@@ -627,6 +629,8 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     }
   }
 
+  // Keep the heads of active PRs out of the existing-branch fallback.
+  const activePrBranches = new Set();
   try {
     // Get all candidate PRs for this issue. Issue #1895: this includes PRs
     // targeting a non-default base branch (found by head-branch name), which
@@ -695,14 +699,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 issueNumber,
               };
             } else {
+              activePrBranches.add(pr.headRefName);
               await log(`  PR #${pr.number}: CLAUDE.md/.gitkeep exists, age ${ageHours}h < 24h - skipping`);
             }
           }
         }
-
-        await log('⏭️  No suitable PRs found (missing CLAUDE.md/.gitkeep or older than 24h) - creating new PR as usual');
-      } else {
-        await log(`📝 No existing PRs found for issue #${issueNumber} - creating new PR`);
       }
     }
   } catch (prSearchError) {
@@ -717,15 +718,13 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     await log('   Continuing with normal flow...');
   }
 
-  // If no suitable PR was found but we have existing branches, use the first one
-  if (existingBranches.length > 0) {
-    // Sort branches by name (newest hash suffix last) and use the most recent one
-    const sortedBranches = existingBranches.sort();
-    const selectedBranch = sortedBranches[sortedBranches.length - 1];
+  const reusableBranches = existingBranches.filter(branch => !activePrBranches.has(branch));
+  if (reusableBranches.length > 0) {
+    const selectedBranch = reusableBranches.sort().at(-1);
 
     const repoType = argv.fork ? 'fork' : 'main repo';
     await log(`✅ Using existing branch from ${repoType}: ${selectedBranch}`);
-    await log(`   Found ${existingBranches.length} matching branch(es), selected most recent`);
+    await log(`   Found ${reusableBranches.length} eligible matching branch(es)`);
 
     // Check if there's a PR for this branch (including merged/closed PRs)
     try {
@@ -779,5 +778,6 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     };
   }
 
+  await log(`📝 No reusable PR or branch found for issue #${issueNumber} - creating new PR`);
   return { isContinueMode: false, issueNumber };
 };

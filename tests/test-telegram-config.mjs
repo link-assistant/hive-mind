@@ -123,5 +123,10 @@ await test('container CPU penalty is on by default and configurable (issue #2801
   assert.equal(configured.containerCpuPenaltyReleaseWindow, '20m');
 });
 
+await test('private configuration file works through CLI and environment', () => {
+  assert.equal(parseArgs(['--configuration-file', '/tmp/bot.lenv']).configurationFile, '/tmp/bot.lenv');
+  assert.equal(parseArgs([], { HIVE_MIND_CONFIGURATION_FILE: '/tmp/env.lenv' }).configurationFile, '/tmp/env.lenv');
+});
+
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);
 process.exit(failed > 0 ? 1 : 0);

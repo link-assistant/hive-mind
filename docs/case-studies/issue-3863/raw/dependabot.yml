@@ -1,0 +1,126 @@
+# Dependabot version updates (issue #10) -
+# https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Every action is pinned to a commit hash with its release in a comment
+# (`uses: owner/repo@<sha> # vX.Y.Z`); Dependabot rewrites both together,
+# so each update is a reviewable pull request that runs the same required
+# checks as a contributor's. Updates wait seven days after a release
+# (cooldown), so a compromised release that is pulled quickly never lands.
+#
+# None of the pip, pre-commit or github-actions updates touches src/, tests/
+# or scripts/, so these pull requests need no changelog fragment. The Python
+# packages and the pre-commit hooks share one weekly pull request (a
+# multi-ecosystem group): the hooks pin the same ruff, mypy and pillow as the
+# dev extra (tests/test_project_metadata.py), so updating one without the
+# other would fail the tests.
+#
+# The scripts/*-requirements.{in,txt} locks (UniMedVL, infrastructure and
+# isolated Azure CLI) are updated by uv, which reruns `uv pip compile` with
+# each lock's --python-version, in one weekly pull request: they are not code to
+# scripts/detect_code_changes.py, so alone it needs no fragment, and that pull
+# request runs the UniMedVL jobs of model-tests.yml (tests/test_unimedvl_*.py
+# on the CPU, the server on the GPU runner). Since issue #21 nothing else
+# pins torch or transformers: scripts/unimedvl_server.py serves upstream's
+# flash-attn and transformers 4.x imports from the installed packages. pip
+# excludes those files, or it would open a second pull request for them.
+# uv updates a group's members one at a time (dependabot-core#16390), so the
+# .in names packages released with torch or transformers without a version.
+version: 2
+multi-ecosystem-groups:
+  python:
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: deps
+
+updates:
+  - package-ecosystem: npm
+    directory: /.github/tools
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      secretlint:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
+
+  # pyproject.toml (package and extras) and docs/requirements.txt.
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /docs
+    exclude-paths:
+      - scripts/*-requirements.*
+    # Raise each floor to the new release (the default only widens a range
+    # that already admits it), so the dev extra's ruff and mypy move with the
+    # hook revisions and every floor stays the latest release.
+    versioning-strategy: increase
+    patterns:
+      - '*'
+    multi-ecosystem-group: python
+    cooldown:
+      default-days: 7
+
+  # All scripts/*-requirements.in files and their `uv pip compile` locks.
+  - package-ecosystem: uv
+    directory: /scripts
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      unimedvl:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: deps
+
+  # .pre-commit-config.yaml hook revisions.
+  - package-ecosystem: pre-commit
+    directory: /
+    patterns:
+      - '*'
+    multi-ecosystem-group: python
+    cooldown:
+      default-days: 7
+
+  # Every deployable Terraform root has its own provider lock.
+  - package-ecosystem: terraform
+    directories:
+      - /infra/terraform/aws/k8s
+      - /infra/terraform/aws/vm
+      - /infra/terraform/azure/k8s
+      - /infra/terraform/azure/vm
+      - /infra/terraform/gcp/k8s
+      - /infra/terraform/gcp/vm
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      terraform:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: deps

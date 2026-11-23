@@ -55,7 +55,8 @@ assert.match(pkg.scripts['check:secrets'], /secretlint .*--secretlintignore \.se
 // sanitizer calls secretlint's API at runtime in published builds. That is
 // exactly why the linter going unused was easy to miss: the packages were
 // always installed, so their presence proved nothing about CI coverage.
-for (const dep of ['secretlint', '@secretlint/secretlint-rule-preset-recommend']) {
+// Secretlint v14: the recommended preset is built into @secretlint/core.
+for (const dep of ['secretlint', '@secretlint/core']) {
   assert.ok(pkg.dependencies[dep], `${dep} is a declared runtime dependency`);
 }
 

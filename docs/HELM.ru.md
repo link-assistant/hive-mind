@@ -136,8 +136,9 @@ command:
     echo "$GITHUB_TOKEN" | gh auth login --with-token
 
     # Запуск telegram-бота
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
+    umask 077
+    configuration_file=$(mktemp)
+    cat > "$configuration_file" <<'LENV'
       TELEGRAM_ALLOWED_CHATS:
         -1002975819706
       TELEGRAM_HIVE_OVERRIDES:
@@ -146,10 +147,15 @@ command:
         --attach-logs
         --verbose
       TELEGRAM_BOT_VERBOSE: true
-    "
+    LENV
+    hive-telegram-bot --configuration-file "$configuration_file"
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  - name: TELEGRAM_BOT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hive-telegram-bot
+        key: token
 ```
 
 ### Автоматическое масштабирование
@@ -271,7 +277,7 @@ command:
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:
@@ -403,13 +409,16 @@ kubectl describe pvc hive-mind
 **Решения:**
 
 1. Проверьте наличие секретов: `kubectl get secrets`
-2. Проверьте содержимое секрета: `kubectl describe secret hive-github-token`
-3. Выполните аутентификацию вручную внутри пода:
+2. Проверьте ожидаемые ключи секрета командой `kubectl describe secret hive-github-token`.
+3. Запустите менеджер внутри пода. Откройте ссылку провайдера в браузере на своей машине и следуйте инструкциям.
+
    ```bash
-   kubectl exec -it deployment/hive-mind -- /bin/bash
-   gh auth login
-   claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth github
+   kubectl exec -i deployment/hive-mind -- hive-manager auth claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth codex
    ```
+
+   [Ручные команды входа](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 #### Нехватка памяти
 

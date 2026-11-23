@@ -136,8 +136,9 @@ command:
     echo "$GITHUB_TOKEN" | gh auth login --with-token
 
     # Start the telegram bot
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
+    umask 077
+    configuration_file=$(mktemp)
+    cat > "$configuration_file" <<'LENV'
       TELEGRAM_ALLOWED_CHATS:
         -1002975819706
       TELEGRAM_HIVE_OVERRIDES:
@@ -146,10 +147,15 @@ command:
         --attach-logs
         --verbose
       TELEGRAM_BOT_VERBOSE: true
-    "
+    LENV
+    hive-telegram-bot --configuration-file "$configuration_file"
 
 env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+  - name: TELEGRAM_BOT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: hive-telegram-bot
+        key: token
 ```
 
 ### Autoscaling
@@ -271,7 +277,7 @@ command:
   - -c
   - |
     echo "$GITHUB_TOKEN" | gh auth login --with-token
-    hive-telegram-bot --token "$TELEGRAM_BOT_TOKEN" --verbose
+    hive-telegram-bot --verbose
 
 podAntiAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:
@@ -403,13 +409,16 @@ kubectl describe pvc hive-mind
 **समाधान:**
 
 1. Verify करें कि secrets मौजूद हैं: `kubectl get secrets`
-2. Secret contents जांचें: `kubectl describe secret hive-github-token`
-3. Pod के अंदर manually authenticate करें:
+2. इस कमांड से अपेक्षित secret keys जाँचें `kubectl describe secret hive-github-token`.
+3. पॉड के अंदर मैनेजर चलाएँ। अपने ब्राउज़र में प्रदाता का URL खोलें और निर्देशों का पालन करें।
+
    ```bash
-   kubectl exec -it deployment/hive-mind -- /bin/bash
-   gh auth login
-   claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth github
+   kubectl exec -i deployment/hive-mind -- hive-manager auth claude
+   kubectl exec -i deployment/hive-mind -- hive-manager auth codex
    ```
+
+   [मैनुअल साइन-इन कमांड](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container)
 
 #### Out of Memory
 

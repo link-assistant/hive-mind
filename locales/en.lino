@@ -183,6 +183,8 @@ en
   time
     current "Current time: {{time}}"
   limits
+    stored
+      metadata "stored metadata"
     additional
       codex
         limits "Additional Codex limits"
@@ -289,6 +291,10 @@ en
     resource
       limit
         exceeded "Resource limit exceeded"
+    retry
+      reason
+        network "network error"
+        timeout "request timed out"
     solve
       queue
         status "Solve Queue Status"
@@ -334,6 +340,9 @@ en
         steps "What to do"
         preserved "Uncommitted work was auto-committed before stopping."
         resume "Resume after access is restored"
+        retried "Retried"
+        status "Status page"
+        rechecked "This is not a usage limit. The error was re-checked with retries before the run stopped; if the status page reports an incident, resume after it is resolved, otherwise re-login."
       detail
         ends
           label "ends {{time}}"
@@ -370,6 +379,8 @@ en
         chat "messages per chat, 1m"
         group "messages per group, 1m"
         other "other API requests, 1s"
+    temporarily
+      unavailable "{{provider}} limits are temporarily unavailable ({{reason}}). They will be retried on the next /limits call."
     trial
       ends
         label "Trial ends {{time}}"
@@ -418,6 +429,51 @@ en
       """
       queued "📋 Solve command queued ({{tool}} queue position #{{position}})"
       waiting "⏳ Waiting ({{tool}} queue #{{position}})"
+      after
+        queue
+          title "Waiting for other tasks ({{count}})"
+        queued "⏳ Solve command queued after other tasks"
+        waiting
+          success "Starts when {{tasks}} finishes successfully; it is not started if that task fails."
+          finish "Starts when {{tasks}} finishes, whatever the result."
+          blockers "Waits for its GitHub blockers {{tasks}}: {{description}}"
+        released "▶️ The awaited tasks are done ({{tasks}}); the task is queued."
+        dependency
+          failed "an awaited task did not succeed: {{task}}"
+        blockers
+          not
+            queued "it is blocked by {{blockers}}, which is neither queued nor running ({{description}}). Queue the blockers first, or send the command without `--respect-blockers`."
+        usage """
+          ❌ Tell me which task to wait for.
+
+          Reply to the task's message: `/after <github-url>`
+          Or name the task: `/after <uuid|github-url> <github-url> [options]`
+
+          `/after` starts the new task only if the awaited one succeeds; `/enqueue` starts it whatever the result. Without a new link, the awaited link runs again.
+        """
+        many
+          tasks "❌ /after and /enqueue start one task after one other task. Too many tasks: {{links}}"
+        invalid
+          link "❌ Not an issue or pull request link: {{links}}"
+        unknown
+          target "❌ No queued or running task found for {{task}}. Reply to the task's message, or name its session UUID or link."
+        no
+          task
+            link "❌ The task {{task}} has no link to start again. Add the issue or pull request link to start after it."
+        target
+          failed "❌ Not started: {{task}} already {{detail}}, and /after starts a task only after a successful one. Use /enqueue to start it anyway."
+          finished "ℹ️ {{task}} already {{detail}}; starting now."
+      batch
+        summary """
+          📋 {{started}} of {{total}} links started. Not started ({{notStarted}}):
+
+          {{items}}
+        """
+        chat
+          stopped "the chat was stopped before this link was started"
+        repository "repository links are not started from a list of links; send `/solve <repository-url>` alone to solve a whole repository"
+        launch
+          failed "the start failed: {{error}}"
       invalid
         url
           help """
@@ -572,7 +628,10 @@ en
         example "Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
-        reply "Or reply to a message with a GitHub link: `/solve`"
+        reply "Or reply to a message with a GitHub link: `/solve`. With several issue/PR links, each one starts as its own task."
+        after "*/after* `<task> <github-url>` - Start a task after another one succeeds; if that one fails, this one is not started. */enqueue* does the same whatever the result. The awaited task is a session UUID or link, or the replied message; without a new link its link runs again."
+        respect
+          blockers "`--respect-blockers` (experimental) - Wait for the issue's GitHub blockers and open sub-issues when they are queued; refuse to start while one is neither queued nor running. A list of links does this by default (`--no-respect-blockers` turns it off)."
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
         queue "`/queue` - Show solve queue status"
       locked
@@ -604,6 +663,7 @@ en
       models "*/models* - List available models, merged from this installation and every live source. Usage: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - Show usage limits"
       version "*/version* - Show bot and runtime versions"
+      who "*/who* - Identify the bot and show its running Hive Mind version"
       language "*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)"
       accept
         invites "`/accept_invites` - Accept all pending GitHub invitations"
@@ -623,7 +683,8 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        addressing "Use `/command@BotUsername` in groups with multiple Hive Mind bots."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /after, /enqueue, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model
@@ -679,6 +740,10 @@ en
       waiting_for_ci "⏳ Waiting for CI/CD on {{branch}} branch to finish..."
       waiting_for_ci_default_branch "⏳ Waiting for CI/CD on the default branch to finish..."
       issue_label "Issue"
+    solve_progress
+      watching "⏳ Monitoring"
+      elapsed "⏳ Monitoring for {{minutes}}m {{seconds}}s"
+      uploading_log "📎 Uploading the session log..."
     work
       session
         starting "🔄 Starting..."
@@ -696,6 +761,7 @@ en
         killed "Work session {{reason}}{{exitSuffix}}"
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
         not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
+        launch_failure_listed "The work session was not launched. See `/queue` for recent failures. `--list` shows executions recorded by start-command."
         recovering "Work session still in progress: recovering from exit code {{exitCode}}"
         recovering_from_kill "Work session still in progress: recovering from a kill{{causeSuffix}}"
         recovered "Work session finished successfully after automatic recovery"

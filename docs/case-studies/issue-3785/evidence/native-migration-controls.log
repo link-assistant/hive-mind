@@ -1,0 +1,8 @@
+native-migration-before.log
+REPRODUCED: actual native migration creates its recovery journal in a disposable configuration; killing the owner and deleting that scope loses the journal while canonical history survives.
+
+native-migration-after-metadata-negative.log
+REPRODUCED: canonical native journal survives owner disposal and a peer completes migration, but fresh resume still fails because pre-repair SQLite metadata retains the deleted owner alias.
+
+native-migration-without-projection.log
+REPRODUCED: actual native migration creates its recovery journal in a disposable configuration; killing the owner and deleting that scope loses the journal while canonical history survives.

@@ -1,6 +1,6 @@
 # Formal AI 草稿 (languages: [en](FORMAL-AI-DRAFTS.md) • zh • [hi](FORMAL-AI-DRAFTS.hi.md) • [ru](FORMAL-AI-DRAFTS.ru.md))
 
-本仓库中新开的每一个 issue，都会在几分钟内获得 Formal AI 的一次尝试，落在一条无人依赖的分支上。尝试错了不花什么代价；尝试对了就省下了第一个提交。失败的尝试同样不是浪费：它在公开处失败，并附着自己的会话证据，而这次失败正是下一次改进元算法所用的输入。
+本仓库中新开且符合条件的 issue 会在几分钟内获得 Formal AI 的一次尝试，落在一条无人依赖的分支上。尝试错了不花什么代价；尝试对了就省下了第一个提交。失败的尝试同样不是浪费：它在公开处失败，并附着自己的会话证据，而这次失败正是下一次改进元算法所用的输入。
 
 这是对 [issue #2233](https://github.com/link-assistant/hive-mind/issues/2233) 的回应。
 
@@ -16,10 +16,13 @@ solve <issue-url> \
   --development-log \
   --verbose \
   --attribution formal-ai \
+  --no-auto-continue \
   --no-auto-restart-until-mergeable \
   --no-auto-restart-on-uncommitted-changes \
   --log-dir /home/box/logs
 ```
+
+拉取镜像后，如果已有开放的 PR 使用 `issue-<number>-*` 分支，工作流会以 `issue-has-open-pull-request` 跳过尝试。如果在检查后才出现 PR，`--no-auto-continue` 会让草稿会话使用自己的分支。工作流会先验证 `solve` 报告创建的 PR，再添加 `formal-ai-draft` 标签、恢复草稿状态或触发检查。
 
 这正是 Hive Mind 自己的路径，因此这些草稿是一项持续且无法伪造的测量：`solve --model formal-ai` 在拥有 `solve` 的这个仓库的真实任务上，是否正在变好。
 
@@ -48,6 +51,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 - 脚本显式拉取 `konard/hive-mind:<version>`，遇到镜像仓库超时会在 15 秒、30 秒、1 分钟和 2 分钟后重试，因此容器运行的 hive-mind 与旁边的脚本是同一版本。尚未发布的标签（版本已在 `main` 上提升但发布尚未完成）会回退到 `konard/hive-mind:latest` 并给出警告。`image` 输入或 `FORMAL_AI_DRAFT_IMAGE` 变量按原样使用。
 - 会话启动的 Formal AI 服务器会在其自己的主目录下获得 `FORMAL_AI_CACHE_DIR`。Formal AI 仍会在克隆中写入 `data/cache/derivations/`，因此该目录与 `.formal-ai/` 一样，被排除在未提交更改检查之外，也不会被保存到 `recovery/<branch>` 分支：那是工具的状态，不是用户的工作。
 - 容器以 `--rm` 启动，因此失败评论从不指向容器内的路径，而是链接到工作流运行，其产物中保存着会话日志。
+- 工作流将草稿作业的重试截止时间传入容器，并预留 30 秒处理失败。直接调用 `scripts/formal-ai-draft.mjs` 时，可用 `HIVE_MIND_DEADLINE_AT_MS` 传入调用方的绝对 Unix 截止时间（毫秒）。对于 20 分钟的尝试，脚本默认从进程启动起计时 19 分 30 秒，镜像拉取也计入其中。脚本将截止时间及 `HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS`、`HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS` 和 `HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS` 的覆盖值传给 `solve`。
 
 ### pull request 上的检查
 
@@ -107,7 +111,7 @@ jobs:
 ## 如何读一个失败的草稿
 
 1. 会话日志由 `--attach-logs` 附加到 pull request 上。
-2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。
+2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。它们读取自 solve 自己的 `solve-*.log`，因此调用方写入同一目录的其他 `*.log` 不会遮盖它们（[#4065](https://github.com/link-assistant/hive-mind/issues/4065)）。
 3. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
 
 ## 当 formal-ai 发布其 composite action 之后

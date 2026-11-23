@@ -44,6 +44,8 @@
  */
 
 import { resolveCiRunUrl } from '../src/ci-run-url.lib.mjs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 /** Applied to a draft this workflow opened, so the drafts can be listed and closed as a batch. */
 export const FORMAL_AI_DRAFT_LABEL = 'formal-ai-draft';
@@ -98,7 +100,8 @@ export const DRAFT_GIT_IDENTITY = Object.freeze({
  * stays open and red until a later run succeeds": the later run is the next
  * attempt, not this one looping.
  */
-export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
+// An open pull request can appear after the occupancy check. Never resume it.
+export const DRAFT_SOLVE_FLAGS = Object.freeze(['--tool', 'agent', '--model', 'formal-ai', '--attach-logs', '--development-log', '--verbose', '--attribution', 'formal-ai', '--no-auto-continue', '--no-auto-restart-until-mergeable', '--no-auto-restart-on-uncommitted-changes']);
 
 /**
  * Flags that must never appear in a draft run.
@@ -118,6 +121,7 @@ export const DRAFT_DECISION_CODES = Object.freeze({
   botAuthor: 'issue-author-is-a-bot',
   optOut: 'opt-out-label',
   alreadyDrafted: 'already-drafted',
+  occupied: 'issue-has-open-pull-request',
   missingIssue: 'no-issue-in-event',
 });
 
@@ -279,6 +283,82 @@ export function firstErrorLine(text) {
   return errorLine ? message(errorLine) : null;
 }
 
+/** solve's last word on a run that changed nothing (src/solve.finalize.lib.mjs). */
+const FINISHED_WITHOUT_CHANGES = /^⚠️\s+Finished without changes: (.+)$/u;
+
+/**
+ * Why a draft run is red, for the `Formal AI draft failed` annotation and the
+ * health check that reads it back.
+ *
+ * Issue #4025: every red draft since #3211 exited 5 ("finished without
+ * changes"), yet the annotation said "Failed to fetch authenticated GitHub
+ * username ... HTTP 403". That ❌ line is gh-upload-log failing to create a
+ * gist with the workflow token, an error solve recovers from by saving the
+ * log on the pull request branch. When solve reports it finished without
+ * changes, that line and its reason are the outcome; otherwise the first
+ * error is.
+ *
+ * @param {string} text session log contents
+ * @returns {string|null}
+ */
+export function draftFailureReason(text) {
+  for (const line of String(text || '').split('\n')) {
+    const match = FINISHED_WITHOUT_CHANGES.exec(line.replace(LOG_LINE_PREFIX, '').trim());
+    if (match) return `Finished without changes: ${match[1].trim()}`;
+  }
+  return firstErrorLine(text);
+}
+
+/** solve's own run log name (src/solve.validation.lib.mjs: `solve-<timestamp>.log`). */
+const SOLVE_LOG_NAME = /^solve-.*\.log$/u;
+
+/**
+ * The session log a red draft is explained from, among the files in the log
+ * directory.
+ *
+ * Issue #4065: the newest `*.log` used to win, but the caller owns that
+ * directory. formal-ai's command capture files (`attempt.log`,
+ * `attempt.stdout.log`) were rewritten on every output chunk, so they were
+ * always newer than `solve-*.log`, and the "Finished without changes" line was
+ * never read. solve's own log is picked by name, newest first; any other
+ * `*.log` is only a fallback when no `solve-*.log` exists (for example the
+ * `formal-ai-draft-failure.log` written before solve starts).
+ *
+ * @param {Array<{name: string, mtimeMs: number}>} entries
+ * @returns {string|null} the chosen file name
+ */
+export function selectSessionLog(entries) {
+  const logs = (entries || []).filter(entry => entry.name.endsWith('.log'));
+  const solveLogs = logs.filter(entry => SOLVE_LOG_NAME.test(entry.name));
+  const [newest] = (solveLogs.length ? solveLogs : logs).slice().sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return newest ? newest.name : null;
+}
+
+/**
+ * The message of the `Formal AI draft failed` annotation for a run that exited
+ * `status`, read from the session log in `logDir`.
+ *
+ * @param {Object} params
+ * @param {string} params.logDir host log directory
+ * @param {number} params.status docker run exit status
+ * @param {Object} [params.fileSystem] `{ readdirSync, statSync, readFileSync }`
+ * @returns {string}
+ */
+export function draftFailureMessage({ logDir, status, fileSystem = { readdirSync, statSync, readFileSync } }) {
+  let text = '';
+  try {
+    const entries = fileSystem
+      .readdirSync(logDir)
+      .filter(name => name.endsWith('.log'))
+      .map(name => ({ name, mtimeMs: fileSystem.statSync(join(logDir, name)).mtimeMs }));
+    const name = selectSessionLog(entries);
+    if (name) text = fileSystem.readFileSync(join(logDir, name), 'utf8');
+  } catch {
+    // No log is itself the finding; the fallback message says so.
+  }
+  return draftFailureReason(text) || `docker run exited ${status} without a session log error`;
+}
+
 const escapeAnnotationData = value => String(value).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 const escapeAnnotationProperty = value => escapeAnnotationData(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
 
@@ -295,23 +375,24 @@ export function formatWorkflowAnnotation(level, title, message) {
   return `::${level} title=${escapeAnnotationProperty(title)}::${escapeAnnotationData(message)}`;
 }
 
-/**
- * Find the pull request a draft attempt opened for `issueNumber`.
- *
- * solve names its branch `issue-<number>-<uuid-suffix>`; matching on that
- * prefix is what lets the workflow put the pull request back into draft and
- * label it without the model having to report anything back. The `-` after the
- * number matters: without it, issue 22 would match the branch of issue 223.
- *
- * @param {Array<{number: number, headRefName: string, isDraft?: boolean}>} pullRequests
- * @param {number|string} issueNumber
- * @returns {object|null} the newest matching pull request
- */
-export function selectDraftPullRequest(pullRequests, issueNumber) {
-  const prefix = `issue-${String(issueNumber)}-`;
-  const matches = (Array.isArray(pullRequests) ? pullRequests : []).filter(pr => typeof pr?.headRefName === 'string' && pr.headRefName.startsWith(prefix));
-  if (matches.length === 0) return null;
-  return matches.reduce((newest, pr) => (Number(pr.number) > Number(newest.number) ? pr : newest));
+/** The trailing dash keeps issue 22 distinct from issue 223. */
+export function isIssuePullRequestHead(headRefName, issueNumber) {
+  return typeof headRefName === 'string' && headRefName.startsWith(`issue-${issueNumber}-`);
+}
+
+/** solve prints these two lines together after verifying its new PR and before launching the agent. */
+export function createdDraftPullRequestNumber(output, repository) {
+  const match = /^(?:\[[^\]\r\n]+\] )?✅ PR created: +#([1-9]\d*)\r?\n(?:\[[^\]\r\n]+\] )?📍 PR URL: +(https:\/\/github\.com\/\S+)\r?$/mu.exec(output);
+  if (!match) return null;
+  const [, number, url] = match;
+  return url.toLowerCase() === `https://github.com/${repository.toLowerCase()}/pull/${number}` ? Number(number) : null;
+}
+
+/** Verify solve's creation report against GitHub before mutating the PR or exposing its branch. */
+export function isAttemptPullRequest(pr, { number, issueNumber, startedAt, previousNumbers }) {
+  // GitHub's createdAt has second precision. The creation report identifies the exact PR within that second.
+  const startSecond = Math.floor(startedAt / 1000) * 1000;
+  return pr?.number === number && pr.state === 'OPEN' && typeof pr.isDraft === 'boolean' && isIssuePullRequestHead(pr.headRefName, issueNumber) && !previousNumbers.has(number) && Date.parse(pr.createdAt) >= startSecond;
 }
 
 /**

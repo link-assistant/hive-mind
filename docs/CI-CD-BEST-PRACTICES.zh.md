@@ -15,18 +15,20 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 
 ## 推荐的 CI/CD 模板
 
-我们为多种语言提供开箱即用的模板，预先配置了所有最佳实践：
+这些语言模板包含 CI/CD 工作流。
 
-| 语言                  | 模板仓库                                                                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
-| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
-| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
-| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
-| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)       |
-| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+| 语言                  | 模板仓库                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)                   |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)               |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template)           |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)                   |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template)           |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)               |
+| C/C++                 | [cpp-ai-driven-development-pipeline-template](https://github.com/link-foundation/cpp-ai-driven-development-pipeline-template)                 |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)                 |
+| Swift                 | [swift-ai-driven-development-pipeline-template](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template)             |
+| Kotlin                | [kotlin-ai-driven-development-pipeline-template](https://github.com/link-foundation/kotlin-ai-driven-development-pipeline-template/tree/main) |
 
 > **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
 
@@ -93,6 +95,44 @@ docker-pr-check:
 - CI/CD 工作流文件（`.github/workflows/*.yml`）
 - `Dockerfile` 和相关基础设施文件
 
+#### 提交检查与待审查检查
+
+- **提交层（`synchronize`）** 对发生变更的软件包运行代码检查、类型检查和快速单元测试，草稿 PR 也运行。关键路径以 5–10 分钟为目标。
+- **待审查层（`ready_for_review`）** 运行耗时的单元测试、集成测试和端到端测试。先以草稿方式打开 PR，需要完整检查时再将其标记为可供审查。
+
+省略 `opened`、`reopened` 和 `edited`。新提交后如需重跑完整检查，可将 PR 转回草稿再标记为可供审查，或手动触发检查。在 `main` 上保留完整的发布验证，并为手动运行提供独立的仅检查模式。
+
+```yaml
+on:
+  pull_request:
+    types: [synchronize, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+```
+
+待审查运行验证触发它的修订版本。如果合并前必须完成完整验证，则应要求当前修订版本通过完整检查，单次提交层检查通过不足以满足要求。手动运行时须选定目标 PR 的修订版本或合并结果。
+
+#### 根据工作区依赖图选择单体仓库的测试
+
+让规划任务读取工作区清单（例如各软件包的 `package.json`），将变更的路径映射到所属软件包。
+
+- 软件包自身发生变化时，运行该包的单元测试。
+- 选择集成测试时，从每个变更的软件包沿依赖图反向遍历。测试变更的包及其所有传递依赖方，即使图中有环，每个包也只访问一次。
+- 遇到无法归类的路径、无法确定依赖图或无法确定差异时，运行全部套件。将锁文件、工作区配置和共享测试设置等公共输入明确归为影响所有包的变更。
+
+规划任务输出 JSON 任务矩阵，空选择输出 `[]`。用输出控制任务是否运行以及如何分片。例如，`test-db` 可包含 `[{ "package": "api", "shard": "1/2" }, { "package": "api", "shard": "2/2" }]`。
+
+```yaml
+test-db:
+  needs: [plan]
+  if: ${{ !cancelled() && needs.plan.outputs.test-db != '[]' && (github.event_name != 'pull_request' || github.event.action == 'ready_for_review') }}
+  strategy:
+    matrix:
+      include: ${{ fromJSON(needs.plan.outputs.test-db) }}
+  # ...
+```
+
 ### 2. 文件大小限制
 
 **每个代码文件强制执行最多 1000-1500 行的限制。**
@@ -127,6 +167,12 @@ done
 }
 ```
 
+#### 通过只能收紧的基线引入行数限制
+
+对于已有仓库，在提交的 JSON 中只记录超过上限的受跟踪文件，键为路径，值为行数，例如 `{ "src/legacy.mjs": 1830 }`。每条记录的行数就是该文件的上限。拒绝超限的新文件，以及超过自身基线上限的增长。使用 `--update` 将上限降低到当前行数，并移除已删除或已符合常规上限的条目。缩减文件与更新基线应一起提交。审查基线变更时与目标分支比较，防止提高上限或新增条目绕过检查。
+
+新文件从第一天起遵守常规限制，已有大文件可以分多个 PR 拆分。参见[可运行示例](../examples/ci-cd-pull-request-tiers/README.md)。
+
 ### 3. 自动化代码格式化
 
 一致的格式消除了风格争论并减少了 diff 噪音：
@@ -141,6 +187,8 @@ done
 | Java                  | Spotless (Google Java Format) |
 | C/C++                 | clang-format                  |
 | PHP                   | PHP CS Fixer                  |
+| Swift                 | `swift format`                |
+| Kotlin                | ktlint                        |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
 
@@ -148,16 +196,18 @@ done
 
 在代码到达审查之前捕获 bug 并强制执行模式：
 
-| 语言                  | 工具                                  |
-| --------------------- | ------------------------------------- |
-| JavaScript/TypeScript | ESLint（严格规则）                    |
-| Rust                  | Clippy（pedantic + nursery）          |
-| Python                | Ruff + mypy                           |
-| Go                    | go vet + staticcheck                  |
-| C#                    | .NET 分析器（警告视为错误）           |
-| Java                  | SpotBugs（最大力度）                  |
-| C/C++                 | clang-tidy + cppcheck（警告视为错误） |
-| PHP                   | PHPStan（最高级别）                   |
+| 语言                  | 工具                                          |
+| --------------------- | --------------------------------------------- |
+| JavaScript/TypeScript | ESLint（严格规则）                            |
+| Rust                  | Clippy（pedantic + nursery）                  |
+| Python                | Ruff + mypy                                   |
+| Go                    | go vet + staticcheck                          |
+| C#                    | .NET 分析器（警告视为错误）                   |
+| Java                  | SpotBugs（最大力度）                          |
+| C/C++                 | clang-tidy + cppcheck（警告视为错误）         |
+| PHP                   | PHPStan（最高级别）                           |
+| Swift                 | 将编译器警告视为错误（`-warnings-as-errors`） |
+| Kotlin                | Detekt                                        |
 
 ### 5. 快速失败任务排序
 
@@ -185,6 +235,12 @@ test-suites:
     needs.check-file-line-limits.result == 'success'
 ```
 
+#### 控制任务时长并优先启动耗时最长的工作
+
+规模较大的任务以 5–30 分钟为目标。让快速检查保持简短，并根据实测用时拆分长测试套件，例如使用 `--shard i/n`。显式设置 `timeout-minutes`，并在工作流测试中检查 30 分钟上限，为有文档说明的例外指定任务名称和数值上限。对可复用工作流，检查被调用工作流内的任务。
+
+在一个任务内，用数量受限的执行进程将独立工作按实测用时降序启动。先启动最长的工作，再用短工作填充空闲位置。并行度应符合运行器的 CPU、内存和服务容量。按依赖顺序处理有依赖关系的工作，并传递故障。
+
 ### 6. 基于 Changeset 的版本控制
 
 所有模板使用 changeset 系统，该系统：
@@ -194,14 +250,16 @@ test-suites:
 - **生成变更日志** - 发布说明自动编译
 - **支持语义化版本** - patch/minor/major 升级是明确的
 
-| 语言                  | 工具                     |
-| --------------------- | ------------------------ |
-| JavaScript/TypeScript | @changesets/cli          |
-| Rust                  | changelog.d + 自定义脚本 |
-| Python                | Scriv                    |
-| PHP                   | changelog.d + 自定义脚本 |
-| C/C++                 | changelog.d + 自定义脚本 |
-| Go、C#、Java          | 自定义 changeset 工作流  |
+| 语言                  | 工具                                    |
+| --------------------- | --------------------------------------- |
+| JavaScript/TypeScript | @changesets/cli                         |
+| Rust                  | changelog.d + 自定义脚本                |
+| Python                | Scriv                                   |
+| PHP                   | changelog.d + 自定义脚本                |
+| C/C++                 | changelog.d + 自定义脚本                |
+| Swift                 | 每个 PR 的 changeset + SwiftPM Git 标签 |
+| Kotlin                | Gradle changeset                        |
+| Go、C#、Java          | 自定义 changeset 工作流                 |
 
 **免除仅文档 PR 的 changeset 要求：**
 
@@ -282,8 +340,8 @@ jobs:
     # 加入任务标识（以及适用的 matrix 值），使无关检查保持并行，
     # 同时让新运行仅替换对应的过时检查。
     concurrency:
-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: true
+      group: check-${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'synchronize' && github.event.action || github.run_id }}-lint
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
     # ...
 
   deploy:
@@ -297,10 +355,10 @@ jobs:
     # ...
 ```
 
-- **只读任务：** 在拉取请求和 `main` 上都取消已被取代的检查，以减少 runner 负载。为每个任务使用不同后缀；加入相关 matrix 值，使不同的 matrix 项仍可并行运行。
+- **只读任务：** 取消已被取代的提交层检查以降低运行器负载。保留待审查 PR 和 `main` 各修订版本的完整检查。为每个任务使用不同后缀；加入相关 matrix 值，使不同的 matrix 项仍可并行运行。
 - **依赖写入任务：** 使用 `needs` 并要求前置检查成功。前置任务被取消后，其写入任务不得启动。
 - **活动写入任务：** 为所有发布、部署、打标签、生成内容推送及其他写入任务使用同一个仓库级分组，并设置 `cancel-in-progress: false`。已启动的写入任务会完成，下一个写入任务在队列中等待，即使它来自另一个工作流文件。
-- **工作流范围：** 当工作流包含写入任务时，不要在工作流级别设置可取消的并发控制；否则也会中断已启动的写入任务。
+- **工作流范围：** 只有在事件无法发布、部署或修改仓库状态时，才允许取消整个工作流。取消工作流也会中断正在运行的写入任务。
 
 默认情况下，一个并发分组最多保留一个运行中任务和一个待处理任务；新的待处理写入任务会替换旧的待处理任务。如果队列中的每次写入都必须执行，请在写入任务的并发配置中加入 `queue: max`（最多可等待 100 个任务）。`queue: max` 不能与 `cancel-in-progress: true` 同时使用；执行顺序依据任务开始等待的时间，而非工作流触发顺序，因此写入任务应保持幂等。
 
@@ -334,6 +392,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 - **rebase 之后，重新计算此前推导出的一切。** 基于过时分支尖端选定的版本号、changelog 条目或标签，可能已被赢得队列的那个写入任务占用。请重新读取状态，而不是重放原有计划。
 - **只有推送真正落地后才报告成功。** 在推送确认之前就设置 `version_committed=true` 的步骤，会让下游发布任务基于一个只存在于该 runner 上的提交继续工作。
 - **限制重试次数，并在日志中写明原因。** 少量重试配合短暂延迟足以覆盖排队；而针对确实受保护的分支进行无限循环，只会把快速失败拖成漫长失败。
+
+#### 新提交到来时保留完整检查
+
+按工作流和 PR 对提交检查分组，只取消被替代的 `synchronize` 运行。待审查运行和手动运行使用每次运行独有的键，在排队时也能得到保留。推送按 SHA 分组，使 `main` 的每个修订版本都保留自己的检查。
+
+```yaml
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ github.event.action || 'run' }}-${{ (github.event_name == 'pull_request' && github.event.action == 'synchronize' && 'latest') || (github.event_name == 'push' && github.sha) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+```
+
+如果在任务级别配置并发，请在键中保留任务和矩阵标识。发布和部署任务继续使用共享且不可取消的组。只有当允许被取消的事件仅运行检查、不发布也不部署时，才可在工作流级别设置取消。参见[语言模板补丁](../examples/ci-cd-pull-request-tiers/README.md)。
 
 ### 11. 密钥检测
 
@@ -456,6 +526,7 @@ release:
 - **优先使用 trusted publishing。** 会过期的凭据就是一次等着日历日期到来的发布中断。npm（`id-token: write` + `--provenance`）和 Docker Hub（`DOCKERHUB_OIDC_CONNECTIONID`，不写 `password:`）都支持 OIDC。动手之前先检查 `ACTIONS_ID_TOKEN_REQUEST_URL`——只有在授予了 `id-token: write` 时 runner 才会注入它，这样配置只做了一半时，失败信息说的是权限，而不是 token 请求。
 - **匿名地、单独地验证发布结果。** 永远不要让发布依赖于推送的成败（一个失败的镜像不该抹掉一个好的发布），但事后一定要在不带任何凭据的情况下检查：你发布的东西能不能被拉取。带认证的检查测量的是发布者的视角；读者既拿不到那次登录，也得不到善意的假设。
 - **报告 `unknown`，而不是猜测。** 超时或返回 HTTP 429 的 registry 并没有说凭据坏了，而一次什么都没能验证的运行也不是通过。要说清楚发生的是哪一种："0 项已验证，3 项未知"是可以行动的，"没有失败"不是。
+- **上传之前先测量 tarball。** npm 以 `E413 Payload Too Large` 拒绝了 `@link-assistant/hive-mind` 2.40.0 和 2.40.1（2.40.1 的 tarball 为 249,862,346 字节），而此时所有构建都已通过；这里已知被接受的最大 tarball 是 165,142,849 字节。对实际归档设置低于该值的门禁（`npm pack --dry-run --json | node scripts/check-npm-tarball-size.mjs --stdin`），并列出其中最大的文件。E413 是确定性的，所以第一次就失败，而不是重试。把平台相关的二进制文件作为按平台拆分、由 `optionalDependencies` 固定版本的包发布，就像 `@openai/codex` 那样（#4050，`src/native-codex/PACKAGES.md`）。
 
 ### 17. 区分坏掉的 pipeline 和变化了的世界
 
@@ -477,6 +548,10 @@ on:
 - **把日志写到上传步骤查找的位置。** 找不到任何文件的 artifact 步骤会警告 `No files were found with the provided path` 并通过；而那个过早失败的运行——正是 artifact 存在的意义所在——不会留下任何证据。让缺失的日志在测试中大声失败，而不是在生产中悄无声息。
 - **说明任务为什么被跳过。** 因上游失败而跳过的下游 workflow 是正确的，但一个静默地什么也没做的绿色运行会被理解为“已测试”。用 `::notice::` 注解输出原因，让它显示在运行摘要中（issue #2923）。
 - **一个结果，一条消息。** 日志先说 “recovered and completed successfully”，随后又针对同一个错误说 “❌ Agent reported error”，会把读者引向错误的方向。先计算最终结论，然后只记录真实的内容。
+- **绿色的机器人运行也可能卡住。** 只要存在一个打开的分组 pull request，即使它已被更新的主版本取代，Dependabot 也会记录 `Deferring creation of a new pull request` 并以绿色结束（dependabot/dependabot-core#16791）。Pull request #2285 打开了 52 天，积累了 37 条 “Dependabot is rebasing this PR” 横幅，而每天的运行都通过。检查结果而不是退出状态：当机器人 pull request 超过 14 天或带有超过 2 条 rebase 横幅时，Dependabot Health workflow 会失败（issue #4055）。
+- **只配置存在的东西。** 对于所有镜像都在本地构建的 compose 文件，Dependabot 的 `docker-compose` 条目匹配不到任何依赖，每次运行都会警告 `groups where no dependencies match`。从仓库本身推导 ecosystem 列表并为其编写测试（issue #4055）。
+- **按含义而不是按文本归类重复失败。** 按精确消息给失败分组的健康检查会把 `Could not pull …:2.40.0` 和 `…:2.40.1` 算作两个故障，于是十二次相同的失败永远达不到阈值五。比较之前先去掉版本、id、哈希和路径（issue #4055）。
+- **有界地等待异步释放。** 异步数据库连接池在 `close()` 返回之后才在工作线程上关闭连接。紧接着需要“没有打开的句柄”的步骤必须带退避和截止时间轮询，并指出它在等待哪个持有者，而不是第一次检查就失败（issue #4055）。
 
 ## 质量强制策略
 
@@ -506,6 +581,13 @@ on:
 4. **开始开发**，所有最佳实践均已预先配置
 
 AI 求解器将自动尊重所有已配置的检查并与之迭代，产生比没有 CI/CD 强制的仓库更高质量的输出。
+
+### 在多语言仓库中添加 Swift CI
+
+1. 从 Swift 模板的同一个版本复制 `swift/ci/` 和 `.github/workflows/swift-ci.yml` 到仓库中的相同路径。
+2. 添加调用工作流，例如 `.github/workflows/swift-checks.yml`。授予 `contents: read` 权限，调用 `./.github/workflows/swift-ci.yml`，并设置 `mode: embedded` 和 `pipeline-directory: swift/ci`。根据仓库的默认分支和合并队列调整触发条件。[Swift 单体仓库指南和调用示例](https://github.com/link-foundation/swift-ai-driven-development-pipeline-template/blob/main/docs/monorepo.md)
+3. 将 `package-directory` 设置为 `Package.swift` 所在的目录。清单位于仓库根目录时使用 `'.'`。在 `source-paths` 中为清单、`Package.resolved`（如果存在）、源代码、测试和共享测试数据逐行指定相对于仓库根目录的路径。
+4. 保留现有工作流、Swift 专用检查和发布策略。嵌入模式以只读方式运行 CI。确认 Swift 变更会触发 Linux 和 macOS 检查，仅涉及其他语言的变更会跳过 Swift 编译。
 
 ## 自动 CI/CD 修复
 
@@ -545,6 +627,8 @@ fix https://github.com/owner/repo --ci-cd
 | Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
 | C/C++, CMake          | `link-foundation/cpp-ai-driven-development-pipeline-template`    |
 | PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+| Swift                 | `link-foundation/swift-ai-driven-development-pipeline-template`  |
+| Kotlin                | `link-foundation/kotlin-ai-driven-development-pipeline-template` |
 
 没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。
 
@@ -568,3 +652,9 @@ fix owner/repo --ci-cd --no-wait-for-ci
 - [代码架构原则](https://github.com/link-foundation/code-architecture-principles)
 - [贡献指南](./CONTRIBUTING.md)
 - [最佳实践](./BEST-PRACTICES.md)
+
+真实的 GitHub Hello World 端到端（E2E）运行会创建议题、拉取请求和测试分支。默认情况下，请保持 `ENABLE_REAL_GITHUB_E2E` 未设置：定时运行和 `workflow_run` 只有在可选仓库变量 `ENABLE_REAL_GITHUB_E2E=true` 启用后才会执行，手动触发仍然可用。默认单元测试重放已捕获的 Agent、Claude 和 Codex 输出，并验证与具体运行绑定的证据。真实运行仍须实际清理测试资源；受保护分支会使运行保持失败。捕获数据的回归测试通过并不代表完整满足 #1483 或已完成跨客户端交付验收。
+
+拉取请求默认运行必要的源码、依赖和捕获证据回归检查。`docker-pr-check` 中的实际 Docker 镜像构建和容器集成需要可选仓库变量 `ENABLE_DOCKER_PR_BUILDS=true`；相应脚本及断言仍予保留。默认分支的 Docker 发布仍在 npm 发布后构建实际发行镜像。可选的 PR 构建只提供额外覆盖，不能替代默认分支的生产发布验证。
+
+拉取请求事件和在实际功能分支上的显式手动触发使用 `pull-request` 源码测试配置。它通过同一个共享测试运行器运行与默认分支相同的完整默认单元测试套件，并带有 `--continue-on-failure`，使一次运行即可列出所有失败的文件。Issue #4025 取代了仅含 13 个文件的 `pr-essential` 子集：其余约 690 个默认测试只在合并后运行，main 在一周内两次变红（运行 41801786544 和 42570340658），原因是拉取请求从未执行过的回归，而遇错即停只显示第一个失败。`pr-essential` 标记保留用于快速本地循环（`node scripts/run-tests.mjs --suite pr-essential`），而不是合并门槛。不会引入 PR 编号输入或检出目标覆盖。GitHub 集成测试及其凭据解析仅在默认分支的 `default` 模式且 `ENABLE_REAL_GITHUB_E2E=true` 时运行。

@@ -1,0 +1,55 @@
+Native Codex SQLite file admission, 2026-10-31 UTC
+
+Pinned upstream: openai/codex 6aaac694803004a63c6f393d153c96d22521a6b9
+Actual before executable: preserved 6c422b57 development CLI.
+The probe uses only synthetic SQLite data and initialize/thread/list metadata;
+it does not read live credentials or request model inference.
+
+Reproduction:
+  python3 experiments/issue-3785/probe-codex-native-sqlite-binding.py /absolute/codex
+The healthy baseline writes only canonical databases. The strict assertion then
+fails: "An aliased native database must refuse explicitly before SQLite opens."
+Both --expect-follow and --alias hardlink --expect-follow pass: the actual CLI
+follows the selected state_5.sqlite alias and applies native _sqlx_migrations to
+the outside database. The unrelated sentinel row and outside inode survive.
+Logs: /tmp/issue-3785-recovery/codex-sqlite-{symlink,hardlink}-before.log
+  /tmp/issue-3785-recovery/codex-sqlite-binding-strict-before.log
+
+Root cause: native SqliteConnectOptions.filename(path) opens pathname-selected
+databases. Checking the configured directory does not admit existing database
+files or journals. SQLite provides SQLITE_OPEN_NOFOLLOW, but the pinned SQLx
+options do not expose it. Even that flag alone does not establish operation
+leases or reject hardlinks. Primary sources:
+  https://www.sqlite.org/c3ref/open.html
+  https://github.com/launchbadge/sqlx/blob/v0.9.0/sqlx-sqlite/src/options/mod.rs
+The source locations are codex-rs/state/src/sqlite.rs:420 and :473.
+
+Four new strict filesystem tests fail against the earlier configuration guard.
+After the admission repair, all eleven standalone native tests pass. They cover
+all seven native database names and their -wal/-shm/-journal companions,
+symlinks, hardlinks, directory/socket types and independent group/world writers.
+Healthy existing 0644 files remain usable beneath the required private 0700
+directory. Admission uses held non-following, nonblocking descriptors, checks
+ownership/link count/permissions/identity, rechecks the root and never reads,
+repairs or deletes database contents. Missing files remain native-created state.
+Logs: /tmp/issue-3785-recovery/codex-sqlite-binding-unit-{before,after}.log
+
+A fresh pinned checkout prepares the exact 34-file release inventory:
+  6b622ba7eccbbead2700ff977e840cb73b517dc1d3802039852ae55fd47244d8
+Recipe SHA256:
+  86b41f6145768e81d6b6cd2321d385cd0a2423565f1b3ed29ecfa2cd1b7845a5
+Preparation: /tmp/issue-3785-recovery/codex-sqlite-binding-preparation.log
+All nineteen build/artifact tests and seventeen related Node tests pass after
+updating both the recipe and its complete tracked source inventory. Synthetic
+packaging fixtures establish only admission behavior and are never executed.
+
+The experimental workflow requires strict before failure and actual after
+refusal for both aliases. Both optimized platform jobs and both actual installed
+command probes require the same refusals without changing outside evidence.
+These added compiled after controls have not run yet. The active 6282876d CI
+uses the earlier guard and cannot verify this later file-admission addition.
+
+This is startup file admission. Per-operation database/sidecar leases, safe
+native creation, replacement during a running request, recovery/cleanup writers,
+persisted authority identity, default selection and the complete six-tool
+lifecycle remain unfinished. A3/A9 are not complete.

@@ -46,6 +46,7 @@ const { buildUncommittedChangesFeedback } = await import('./uncommitted-changes-
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
 import { captureSessionOutcome, noteSessionInput, takeRepeatedSessionFeedback } from './session-progress.lib.mjs';
+import { emitSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -191,7 +192,23 @@ export const getUncommittedChangesDetails = async tempDir => {
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
  */
+/**
+ * Issue #4091: an AI restart from the watch loop is the only time the Telegram
+ * status says `⏳ Executing...` again, and the AI's own mirrored output keeps
+ * its untimestamped console form (the watch loop timestamps its lines).
+ */
 export const executeToolIteration = async params => {
+  const timestamps = lib.isConsoleTimestampsEnabled?.() === true;
+  lib.setConsoleTimestamps?.(false);
+  emitSolveProgress({ phase: 'executing', since: new Date().toISOString() });
+  try {
+    return await executeToolIterationNow(params);
+  } finally {
+    lib.setConsoleTimestamps?.(timestamps);
+  }
+};
+
+const executeToolIterationNow = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, argv } = params;
   // Issue #2313: after two identical sessions with the same input, the next input
   // must differ; and the input is recorded so "no progress" is only concluded

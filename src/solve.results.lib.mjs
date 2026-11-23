@@ -50,6 +50,14 @@ const { autoContinueWhenLimitResets } = autoContinue;
 // 1. Interactive resume: Short command that opens interactive mode
 // 2. Autonomous resume: Full command with all flags to run autonomously
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+/**
+ * Issue #3922: --auto-restart-until-mergeable never merges, but this line said "Auto-merge mode
+ * enabled - will attempt to merge" a second before the monitor announced "(will NOT auto-merge)".
+ * @param {{autoMerge?: boolean, autoRestartUntilMergeable?: boolean}} argv
+ * @returns {string}
+ */
+export const describePostSessionMergeWait = argv => (argv?.autoMerge ? '\n🔄 Auto-merge mode enabled - will merge the pull request once CI passes and it is mergeable' : '\n🔄 Auto-restart-until-mergeable mode enabled - will keep the pull request mergeable and will NOT merge it (--auto-merge merges)');
+
 export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
@@ -879,9 +887,7 @@ Fixes ${issueRef}
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
         const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
-        if (shouldWaitForAutoMerge) {
-          await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
-        }
+        if (shouldWaitForAutoMerge) await log(describePostSessionMergeWait(argv));
         if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
           if (noChanges) await safeExit(getSolveNoChangesExitCode(), 'Finished without changes', { skipPreExit: true, warning: true });
           await safeExit(0, 'Process completed successfully');

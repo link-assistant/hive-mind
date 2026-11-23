@@ -322,7 +322,8 @@ assert(logReadIndex > sizeCheckIndex, 'the only whole-log read happens after the
 assert(githubSrc.split("fs.readFile(logFile, 'utf8')").length - 1 === 1, 'attachLogToGitHub reads the log at most once, on the inline-comment branch only');
 assert(!githubSrc.includes('writeSanitizedPublicationFile(tempLogFile'), 'the pre-upload sanitized copy (the second full pass) is gone');
 assert(/uploadLogWithGhUploadLog\(\{\s*\n?\s*logFile,/.test(githubSrc), 'the raw log path is handed to the uploader, which streams the sanitize itself');
-assert(uploadSrc.includes('sanitizeLogFileToFileBounded({'), 'uploadLogWithGhUploadLog sanitizes by streaming, in a heap-capped worker for large logs');
+// Issue #4091: the sanitizer is injectable (`sanitize = sanitizeLogFileToFileBounded`) so tests can stall it.
+assert(uploadSrc.includes('sanitizeLogFileToFileBounded({') || uploadSrc.includes('sanitize = sanitizeLogFileToFileBounded'), 'uploadLogWithGhUploadLog sanitizes by streaming, in a heap-capped worker for large logs');
 assert(!/const\s+\w*[Ll]ogContent\s*=\s*await\s+fs\.readFile/.test(uploadSrc), 'uploadLogWithGhUploadLog no longer reads the log into a string');
 
 // ---------------------------------------------------------------------------

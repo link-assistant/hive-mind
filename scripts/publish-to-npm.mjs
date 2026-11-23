@@ -31,7 +31,7 @@
 
 import { readFileSync, appendFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { detectPublishFailure, isNonRetryableFailure, isVersionConflict, buildAuthFailureGuidance } from './publish-failure-classifier.mjs';
+import { detectPublishFailure, isNonRetryableFailure, isVersionConflict, describeNonRetryableFailure } from './publish-failure-classifier.mjs';
 
 export const PACKAGE_NAME = '@link-assistant/hive-mind';
 const DEFAULT_MAX_RETRIES = 3;
@@ -258,8 +258,12 @@ export async function publishWithRetry({ runner, version, maxRetries = DEFAULT_M
     logger.error(`Publish attempt ${attempt} failed: ${analysis.reason}`);
 
     if (analysis.nonRetryable) {
-      logger.error(buildAuthFailureGuidance(PACKAGE_NAME));
-      return { ok: false, attempt, reason: analysis.reason, nonRetryable: true };
+      const { title, guidance } = describeNonRetryableFailure(analysis.output, PACKAGE_NAME);
+      // An annotation puts the cause on the run summary; before issue #4050 the
+      // only visible error was "Process completed with exit code 1".
+      logger.error(`::error title=${title}::${PACKAGE_NAME}@${version} was not published; see the "Publish to npm" step log for the guidance.`);
+      logger.error(guidance);
+      return { ok: false, attempt, reason: `${analysis.reason} (${title})`, nonRetryable: true };
     }
 
     if (attempt < maxRetries) {

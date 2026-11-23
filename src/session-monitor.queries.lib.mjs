@@ -24,7 +24,7 @@ import { getNonIsolationSessionProgress } from './start-screen-exit-marker.lib.m
  * @param {(sessionName: string, sessionInfo: object, verbose?: boolean) => boolean} deps.isNonIsolationSessionActive
  * @param {(sessionName: string, sessionInfo: object, options?: object) => Promise<object>} deps.getIsolationSessionState
  * @param {(sessionName: string) => Promise<boolean>} deps.checkScreenSessionExists
- * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function}}
+ * @returns {{hasActiveSessionForUrl: Function, findStoppableSessionByUrl: Function, hasActiveSessionForUrlAsync: Function, getRunningTrackedIsolationSessions: Function, getRunningSessionItems: Function, getSessionStats: Function, findTrackedSessionByIdentifier: Function}}
  */
 export function createSessionRegistryQueries({ activeSessions, normalizeSessionUrl, isNonIsolationSessionActive, getIsolationSessionState, checkScreenSessionExists }) {
   /**
@@ -232,6 +232,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     for (const [sessionName, sessionInfo] of activeSessions.entries()) {
       let running;
       let status = null;
+      let processIds = sessionInfo.processIds || {};
+      let screenSessionName = sessionInfo.screenSessionName || sessionName;
       if (sessionInfo.isolationBackend) {
         // Forward every injectable seam so the listing applies the same #1927
         // stale-`executing` reconciliation the monitor does — a session that
@@ -247,6 +249,8 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
         });
         running = state.running;
         status = state.status || null;
+        processIds = state.statusResult?.processIds || processIds;
+        screenSessionName = state.statusResult?.screenSessionName || state.statusResult?.sessionName || screenSessionName;
         if (!running) {
           sessionInfo.lastKnownStatus = state.status || null;
           sessionInfo.lastKnownExitCode = state.exitCode ?? null;
@@ -268,6 +272,10 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
       }
       items.push({
         sessionName,
+        sessionId: sessionInfo.sessionId || null,
+        executionUuid: sessionInfo.executionUuid || null,
+        processIds,
+        screenSessionName,
         url: sessionInfo.url || null,
         tool: sessionInfo.tool || 'claude',
         status,
@@ -306,5 +314,26 @@ export function createSessionRegistryQueries({ activeSessions, normalizeSessionU
     };
   }
 
-  return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats };
+  /**
+   * Issue #4069: find a tracked session by any identifier the chat shows for it:
+   * the tracking key, the start-command session UUID, the execution UUID, or the
+   * root session of a kill-recovery chain (the chat keeps showing the root
+   * session, #2301). `/after <uuid>` and `/enqueue <uuid>` wait for it.
+   *
+   * @param {string|string[]|Set<string>} identifiers
+   * @returns {{ sessionName: string, sessionInfo: Object }|null}
+   */
+  function findTrackedSessionByIdentifier(identifiers) {
+    const wanted = new Set([...(typeof identifiers === 'string' ? [identifiers] : identifiers || [])].filter(Boolean).map(value => String(value).toLowerCase()));
+    if (wanted.size === 0) return null;
+    for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+      // Issue #1586: an expired non-isolation session is no longer running.
+      if (!sessionInfo?.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, false)) continue;
+      const names = [sessionName, sessionInfo?.sessionId, sessionInfo?.executionUuid, sessionInfo?.rootSessionName, sessionInfo?.killRecoveryOfSession];
+      if (names.some(name => name && wanted.has(String(name).toLowerCase()))) return { sessionName, sessionInfo };
+    }
+    return null;
+  }
+
+  return { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForUrlAsync, getRunningTrackedIsolationSessions, getRunningSessionItems, getSessionStats, findTrackedSessionByIdentifier };
 }

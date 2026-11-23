@@ -10,6 +10,7 @@
 
 import { formatReclaimableSpaceLines } from './reclaimable-space.lib.mjs';
 import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
+import { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } from './router-auth-guard.lib.mjs';
 
 /**
  * Run the startup checks, exiting through `safeExit` when one fails.
@@ -58,7 +59,15 @@ export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceFor
   }
 
   // Validate the selected AI tool connection before starting monitoring with the same model that will be used
-  const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection, log });
+  let isToolConnected;
+  try {
+    isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, useRouter: argv.useRouter === true, validateClaudeConnection, log });
+  } catch (error) {
+    if (!error?.routerAuthViolation) throw error;
+    await log(`❌ ${formatRouterAuthViolation(error.routerAuthViolation)}`, { level: 'error' });
+    await safeExit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router authentication admission refused', { skipPreExit: true });
+    return { skipped: false, stopped: 'router_auth_violation' };
+  }
   if (!isToolConnected) {
     await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
     await safeExit(1, 'Error occurred');

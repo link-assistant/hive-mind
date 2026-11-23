@@ -10,19 +10,20 @@ import { CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS, CLAUDE_MEMORY_DISABLE_ENV, CLAUDE
 // Issue #2236: the classifier/recap/narration/suggestion/tool-summary calls are
 // governed by the same kind of policy module, for the same reason.
 import { CLAUDE_AUXILIARY_DISABLE_ENV } from './auxiliary-model-calls-policy.lib.mjs';
+import { CLAUDE_CLOUD_DISABLE_ENV, CLAUDE_CLOUD_DISABLE_SETTINGS } from './claude-cloud-policy.lib.mjs';
+import { agentConfigAuditScopes } from './agent-config-audit-paths.lib.mjs';
+import { buildClaudePromptCacheEnv, CLAUDE_PROMPT_CACHE_DEFAULTS, isClaudePromptCacheTtl } from './claude-prompt-cache.lib.mjs';
 
 export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
   ...CLAUDE_MEMORY_DISABLE_ENV,
   ...CLAUDE_AUXILIARY_DISABLE_ENV,
+  ...CLAUDE_CLOUD_DISABLE_ENV,
   CLAUDE_CODE_DISABLE_CRON: '1',
   CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
   CLAUDE_CODE_DISABLE_FAST_MODE: '1',
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1',
   CLAUDE_CODE_DISABLE_MOUSE: '1',
-  // Issue #2190: Claude Code auto-installs the official plugin marketplace on first
-  // start; hive-mind's global configuration must stay minimal (no plugins/skills).
-  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
   CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0',
   CLAUDE_CODE_ENABLE_TASKS: '1',
   CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4',
@@ -32,6 +33,7 @@ export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
 
 export const REQUIRED_CLAUDE_QUIET_SETTINGS = Object.freeze({
   ...CLAUDE_MEMORY_DISABLE_SETTINGS,
+  ...CLAUDE_CLOUD_DISABLE_SETTINGS,
   spinnerTipsEnabled: false,
   awaySummaryEnabled: false,
   feedbackSurveyRate: 0,
@@ -56,10 +58,11 @@ export const REQUIRED_CLAUDE_QUIET_PERMISSIONS = Object.freeze({
 export const buildClaudeQuietEnv = (baseEnv = process.env) => ({
   ...baseEnv,
   ...REQUIRED_CLAUDE_QUIET_ENV,
+  ...buildClaudePromptCacheEnv(baseEnv),
 });
 
-export const formatClaudeQuietConfigSummary = () => {
-  const settings = Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)
+export const formatClaudeQuietConfigSummary = (cacheSettings = CLAUDE_PROMPT_CACHE_DEFAULTS) => {
+  const settings = Object.entries({ ...REQUIRED_CLAUDE_QUIET_SETTINGS, ...cacheSettings })
     .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
     .join(', ');
   const attribution = `attribution=${JSON.stringify(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)}`;
@@ -87,8 +90,14 @@ export function resolveClaudeLanguageSetting(locale) {
   return LOCALE_TO_CLAUDE_LANGUAGE[locale] || null;
 }
 
+export const resolveClaudeSettingsPath = (settingsPath, { homeDir = os.homedir(), env = process.env } = {}) => {
+  if (settingsPath) return settingsPath;
+  const scopes = agentConfigAuditScopes({ tool: 'claude', homeDir, env });
+  return path.join(scopes.at(-1).configDir, 'settings.json');
+};
+
 export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage = null } = {}) => {
-  const resolvedPath = settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
+  const resolvedPath = resolveClaudeSettingsPath(settingsPath);
   let settings;
   try {
     const content = await fs.readFile(resolvedPath, 'utf-8');
@@ -107,6 +116,14 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage 
       settings[key] = value;
       updatedSettingsKeys.push(key);
     }
+  }
+  const cacheSettings = {};
+  for (const [key, defaultValue] of Object.entries(CLAUDE_PROMPT_CACHE_DEFAULTS)) {
+    if (!isClaudePromptCacheTtl(settings[key])) {
+      settings[key] = defaultValue;
+      updatedSettingsKeys.push(key);
+    }
+    cacheSettings[key] = settings[key];
   }
 
   const existingAttribution = isPlainObject(settings.attribution) ? settings.attribution : {};
@@ -163,7 +180,7 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage 
       await fs.writeFile(resolvedPath, JSON.stringify(settings, null, 2));
     }
     if (log) {
-      await log(`🧭 Claude Code quiet config ${changed ? 'updated' : 'verified'} at ${resolvedPath}: ${formatClaudeQuietConfigSummary()}`);
+      await log(`🧭 Claude Code quiet config ${changed ? 'updated' : 'verified'} at ${resolvedPath}: ${formatClaudeQuietConfigSummary(cacheSettings)}`);
     }
   } catch (err) {
     if (log) await log(`⚠️  Could not write ${resolvedPath}: ${err.message}`, { verbose: true });
@@ -176,7 +193,7 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage 
     updatedEnvKeys,
     updatedAttributionKeys,
     updatedPermissionsKeys,
-    settings: { ...REQUIRED_CLAUDE_QUIET_SETTINGS },
+    settings: { ...REQUIRED_CLAUDE_QUIET_SETTINGS, ...cacheSettings },
     attribution: { ...REQUIRED_CLAUDE_QUIET_ATTRIBUTION },
     permissions: { ...REQUIRED_CLAUDE_QUIET_PERMISSIONS },
     env: { ...REQUIRED_CLAUDE_QUIET_ENV },

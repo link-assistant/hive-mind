@@ -1,0 +1,29 @@
+Native experiment verification, 2026-10-31 UTC
+
+Head: 484591c54293ba1acbcfc93eae9aa75b48663bc9
+Both runs were created at 2026-10-31T06:55:20Z, after that head was pushed.
+
+Gemini: https://github.com/link-assistant/hive-mind/actions/runs/41178521238
+Completed successfully. Preserved complete runner log: 3,922 lines, reviewed
+in three chunks of at most 1,500 lines. Six downloaded artifact collections
+contain 2,761 files / 2,497 bounded review chunks and 200 network diagnostics.
+There are no runner errors, unexpected positive-control assertions or unexpected
+network errors. Eighty files contain intentional before/regression assertions;
+the two strict tracker before controls have their expected AssertionError.
+
+Codex: https://github.com/link-assistant/hive-mind/actions/runs/41178521285
+Completed successfully. Preserved complete runner log: 1,785 lines, reviewed
+in two bounded chunks. Downloaded authentication/build, transaction and history
+diagnostics contain 109 files / 110 bounded review chunks. Four files contain
+strict expected before assertions. No positive-control assertion or runner
+error was found. The large unchanged development CLI was already preserved
+from the preceding exact-source run; it is not the optimized release payload.
+
+Review tool: experiments/issue-3785/review_native_gemini_ci.py
+Runner logs: ci-logs/native-{gemini,codex}-411785212{38,85}.log
+Machine-readable full reviews and downloaded diagnostic files are retained
+under /tmp/issue-3785-recovery/{gemini,codex}-484591c5-*.
+
+These runs validate the existing native experiments. The first optimized x64
+and arm64 release builds are still running. Installed-command activation,
+default canonical selection and the six-tool lifecycle remain unverified.

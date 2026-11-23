@@ -1,0 +1,39 @@
+Exact SHA e51270e05e8807b13144160bc96925b4e779628e.
+Gemini run 41165252934 created 2026-10-31T03:38:35Z, after its commit.
+https://github.com/link-assistant/hive-mind/actions/runs/41165252934
+
+All six jobs pass, including the four intentionally earlier storage stages
+that failed suite selection at e375e9df5070. The stage-specific suite repair
+therefore resolves those exact failures without removing their original checks.
+
+Full workflow log ci-logs/native-gemini-41165252934.log: 3,806 lines,
+reviewed in three chunks of at most 1,500 lines. No error annotations.
+Expected before controls retain their strict failures; all after controls pass.
+
+ACP artifact 13029412025: native-gemini-acp-restore-experiment, 318,776 bytes.
+SHA-256 e5a3041cb82dd92dd7f25b506590d582949842c4dad0f028f3883a135c0da7af.
+Downloaded all 445 files to:
+  /tmp/issue-3785-recovery/gemini-e512-acp-artifacts
+All 72 control logs inspected: 17 expected strict before failures and no
+unexpected tracebacks. All 66 native network logs have errors [].
+
+Both actual native headless engines pass the complete child-edit restore cycle:
+  gemini-acp-child-restore-legacy-control.log: five PASS, seven model requests.
+  gemini-acp-child-restore-agent-control.log: five PASS, seven model requests.
+Real generalist delegation, write_file and completion leave a canonical pre-edit
+checkpoint. After whole private-home disposal, fresh ACP parent restoration
+recovers the edited file, companion and pre-edit model history without inference.
+After disposing that second home, a third CLI resumes the restored parent.
+Complete preceding parent/child audit prefixes remain retained throughout.
+
+Unselected child behavior and unsafe permissions/symlink/parent replacement
+refuse as required in both engines. Twenty-four exact source stages still
+reconstruct seventeen identical files; retained evidence, streaming refusal,
+legitimate peer summaries and delayed/interrupted admission pass. Surrounding
+metadata 54, shell 28 and authentication 41/30/11 assertions remain passing.
+
+This verifies Gemini at this SHA, not every workflow or the full issue.
+The Codex workflow is canceled by the following push; complete exact-head CI
+remains required. Actual concurrent-child coverage is pushed at 8f9ca8867a.
+Native plan preservation is being developed separately. Production installation,
+direct child continuation and the complete six-tool lifecycle remain unfinished.

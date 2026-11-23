@@ -17,12 +17,15 @@ export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
+import { getQueueWorkSnapshot, readToolProcessSnapshot } from './queue-work.lib.mjs';
 import { classifySessionOutcome, formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { isTelegramMessageNotModifiedError, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { isTelegramRateLimitError, TELEGRAM_PRIORITY_LOW, withTelegramRequestPriority } from './telegram-rate-limit.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
+import { SolveDependencyTracker } from './telegram-solve-dependencies.lib.mjs';
+import { installSolveQueueDependencyMethods } from './telegram-solve-queue.dependencies.lib.mjs';
 // Issue #2175: throttling decisions live in their own module to keep this file under the 1350-line warning threshold.
 import { checkApiLimits as checkApiLimitsImpl, checkSystemResources as checkSystemResourcesImpl, getLocale } from './telegram-solve-queue.throttling.lib.mjs';
 export const QueueItemStatus = {
@@ -33,6 +36,11 @@ export const QueueItemStatus = {
   FAILED: 'failed',
   CANCELLED: 'cancelled',
 };
+// Issue #4069: loaded on the first waiting task; `isSessionActive` must be synchronous.
+let sessionMonitorModule = null;
+function loadSessionMonitorModule() {
+  return import('./session-monitor.lib.mjs').then(module => (sessionMonitorModule = module)).catch(error => console.error(`[solve_queue] Could not load the session monitor: ${error?.message || error}`));
+}
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
 }
@@ -166,7 +174,8 @@ export class SolveQueue {
     this.executeCallback = options.executeCallback || null;
     this.messageUpdateCallback = options.messageUpdateCallback || null;
     this.getRunningProcessesFn = options.getRunningProcesses || getRunningProcesses;
-    this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
+    this.getToolProcessSnapshotFn = options.getToolProcessSnapshot || (options.getRunningProcesses ? null : readToolProcessSnapshot);
+    this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || null;
     // Source of currently-executing detached sessions (with issue/PR URLs) used to list executing tasks in the detailed status (issue #1837).
     this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
     this.autoStart = options.autoStart !== false;
@@ -179,6 +188,7 @@ export class SolveQueue {
       gemini: [],
     };
     this.processing = new Map();
+    this.startReservations = new Map();
     this.completed = [];
     this.failed = [];
     this.isRunning = true;
@@ -202,7 +212,35 @@ export class SolveQueue {
       totalCancelled: 0,
       throttleReasons: {},
     };
+    // Issue #4069: items that start only after other tasks (`/after`, `/enqueue`, blockers) wait here, outside the tool queues.
+    this.isSessionActiveFn = options.isSessionActive || null;
+    this.dependencies = new SolveDependencyTracker({ isSessionActive: names => this.isSessionActive(names), onRelease: (entry, summary) => this.releaseWaitingItem(entry, summary), onFail: (entry, reason) => this.failWaitingItem(entry, reason), log: message => this.log(message) });
     this.log('SolveQueue initialized with separate tool queues');
+  }
+  /** Whether a tracked session matches any of `names` (issue #4069). Reads the session monitor unless one was injected. */
+  isSessionActive(names) {
+    if (this.isSessionActiveFn) return this.isSessionActiveFn(names);
+    return Boolean(sessionMonitorModule?.findTrackedSessionByIdentifier?.([...names]));
+  }
+  /**
+   * Add a task that starts only after other tasks (issue #4069). The item waits
+   * outside the tool queues and joins its tool queue once every awaited task has
+   * finished (`finish` mode) or succeeded (`success` mode).
+   * @param {Object} options - Queue item options, as for `enqueue`
+   * @param {{targets: object[], mode: string}} dependency
+   * @returns {SolveQueueItem}
+   */
+  enqueueAfter(options, { targets, mode }) {
+    const item = new SolveQueueItem(options);
+    item.setWaiting(options.waitingReason || null);
+    item.dependencyMode = mode;
+    this.dependencies.add(item, { targets, mode });
+    this.log(`Waiting for dependencies: ${item.toString()} to ${item.tool} queue`);
+    this.stats.totalEnqueued++;
+    this.stats.totalWaitedForTasks = (this.stats.totalWaitedForTasks || 0) + 1;
+    this.dependencies.start();
+    if (!this.isSessionActiveFn && !sessionMonitorModule) loadSessionMonitorModule();
+    return item;
   }
   /**
    * Get the queue array for a specific tool, creating it if needed
@@ -291,7 +329,8 @@ export class SolveQueue {
         return item;
       }
     }
-    return null;
+    // Issue #4069: items that wait for other tasks are queued too.
+    return this.dependencies.findByUrl(url, canonicalizeQueueUrl);
   }
   /**
    * Cancel a queued item by ID
@@ -309,8 +348,18 @@ export class SolveQueue {
         item.setCancelled();
         this.stats.totalCancelled++;
         this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
+        this.rememberCancelled(item);
         return true;
       }
+    }
+    // Issue #4069: an item waiting for other tasks; whatever waits for it moves on.
+    const entry = this.dependencies.remove(id);
+    if (entry) {
+      entry.item.setCancelled();
+      this.stats.totalCancelled++;
+      this.log(`Cancelled waiting item: ${entry.item.toString()}`);
+      this.rememberCancelled(entry.item);
+      return true;
     }
     if (this.processing.has(id)) {
       this.log(`Cannot cancel processing item: ${id}`);
@@ -333,6 +382,7 @@ export class SolveQueue {
     return {
       queued: totalQueued,
       queuedByTool,
+      waitingForTasks: this.dependencies.size,
       processing: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
@@ -436,6 +486,7 @@ export class SolveQueue {
       await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
     }
     while (this.failed.length > 100) this.failed.shift();
+    await this.reconcileDependencies();
   }
   /**
    * Find first queue item that can start based on its tool's limits (legacy compatibility)
@@ -475,6 +526,10 @@ export class SolveQueue {
         });
       }
     }
+    // Issue #4069: items that wait for other tasks are pending too.
+    for (const item of this.dependencies.list()) {
+      pending.push({ id: item.id, url: item.url, requester: item.requester, waitTime: item.getWaitTime(), createdAt: item.createdAt, status: item.status, waitingReason: item.waitingReason, tool: item.tool, waitingForTasks: true });
+    }
     // Sort by createdAt to show oldest first (global order)
     pending.sort((a, b) => a.createdAt - b.createdAt);
     return {
@@ -490,40 +545,14 @@ export class SolveQueue {
     };
   }
   /**
-   * Get external processing counts from both process scanning and tracked
-   * isolated sessions. The displayed/accounted value is the maximum of the two
-   * sources so screen-isolated sessions remain visible even when the AI CLI
-   * process is not directly observable, while regular non-isolated runs still
-   * use pgrep as before.
+   * Count distinct work across local CLI trees, live tracked executions and
+   * in-flight queue items. Idle vendor services do not represent work.
    *
    * @param {string[]} tools - Tool queues to count
    * @returns {Promise<{byTool: Object, processByTool: Object, isolatedByTool: Object, total: number, isolatedTotal: number, processTotal: number}>}
    */
   async getExternalProcessingSnapshot(tools = Object.keys(this.queues)) {
-    const uniqueTools = [...new Set(tools)];
-    const isolated = await this.getRunningIsolatedSessionsFn(this.verbose);
-    const isolatedByTool = isolated.byTool || {};
-    const processByTool = {};
-    const byTool = {};
-    await Promise.all(
-      uniqueTools.map(async tool => {
-        const result = await this.getRunningProcessesFn(tool, this.verbose);
-        const processCount = result?.count || 0;
-        const isolatedCount = isolatedByTool[tool] || 0;
-        processByTool[tool] = processCount;
-        byTool[tool] = Math.max(processCount, isolatedCount);
-      })
-    );
-    const processTotal = Object.values(processByTool).reduce((sum, count) => sum + count, 0);
-    const isolatedTotal = isolated.count || Object.values(isolatedByTool).reduce((sum, count) => sum + count, 0);
-    return {
-      byTool,
-      processByTool,
-      isolatedByTool,
-      total: Math.max(processTotal, isolatedTotal),
-      isolatedTotal,
-      processTotal,
-    };
+    return getQueueWorkSnapshot(this, [...new Set(tools)]);
   }
   /**
    * Check if a new command can start.
@@ -558,9 +587,7 @@ export class SolveQueue {
         this.recordThrottle('min_interval');
       }
     }
-    // Check running tool processes (this is a metric, not a blocking reason by itself).
-    // For screen-isolated sessions, use the maximum of `$ --status` executing
-    // counts and pgrep counts so detached sessions remain visible.
+    // One deduplicated work snapshot drives all admission checks and display.
     const externalProcessing = await this.getExternalProcessingSnapshot([...Object.keys(this.queues), tool]);
     const claudeProcessCount = externalProcessing.byTool.claude || 0;
     const codexProcessCount = externalProcessing.byTool.codex || 0;
@@ -573,15 +600,15 @@ export class SolveQueue {
     const hasRunningGemini = geminiProcessCount > 0;
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
-    const totalProcessing = this.processing.size + externalProcessing.total;
+    const totalProcessing = externalProcessing.total;
     // Calculate Claude-specific processing count for Claude API limits
     // Only counts Claude items in queue + external claude processes
     // Non-Claude items don't count against Claude's one-at-a-time limit
     // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const claudeProcessingCount = this.getProcessingCountByTool('claude');
-    const codexProcessingCount = this.getProcessingCountByTool('codex');
-    const qwenProcessingCount = this.getProcessingCountByTool('qwen');
-    const geminiProcessingCount = this.getProcessingCountByTool('gemini');
+    const claudeProcessingCount = claudeProcessCount;
+    const codexProcessingCount = codexProcessCount;
+    const qwenProcessingCount = qwenProcessCount;
+    const geminiProcessingCount = geminiProcessCount;
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
       this.recordThrottle('claude_running');
@@ -616,8 +643,8 @@ export class SolveQueue {
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
     const hasRunningToolProcess = (externalProcessing.byTool[tool] || 0) > 0;
-    const toolProcessingCount = this.getProcessingCountByTool(tool);
-    const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool, { locale });
+    const toolProcessingCount = externalProcessing.byTool[tool] || 0;
+    const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool, { locale, totalToolProcessing: toolProcessingCount });
     if (limitCheck.rejected) {
       rejected = true;
       rejectReason = limitCheck.rejectReason;
@@ -800,13 +827,22 @@ export class SolveQueue {
       for (const startable of startableItems) {
         const { tool } = startable;
         const toolQueue = this.getToolQueue(tool);
+        const candidate = toolQueue[0];
+        if (!candidate) continue;
+        // Share the direct-start lock: selection can race another admission
+        // while process/session discovery is awaiting I/O.
+        const reservation = await this.reserveStartSlot({ tool, locale: candidate.locale, url: candidate.url });
+        if (!reservation.startReserved) continue;
         // Remove the first item from this tool's queue
         const item = toolQueue.shift();
-        if (!item) continue;
+        if (!item) {
+          reservation.releaseStartReservation();
+          continue;
+        }
         // Update status to Starting
         item.setStarting();
         this.processing.set(item.id, item);
-        this.recordStart(tool);
+        reservation.releaseStartReservation();
         this.stats.totalStarted++;
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
@@ -892,8 +928,11 @@ export class SolveQueue {
    * @param {string|null} [event.supersededBy] - Recovery session that continues this work.
    * @returns {SolveQueueItem|null} The updated item, or null when none matched.
    */
-  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null } = {}) {
+  recordSessionCompletion({ sessionName = null, rootSessionName = null, url = null, tool = null, command = null, exitCode = null, status = null, supersededBy = null, killRecoveryOfSession = null } = {}) {
     const describe = `session ${sessionName}${rootSessionName && rootSessionName !== sessionName ? ` (root ${rootSessionName})` : ''} exit=${exitCode ?? 'null'} status=${status || 'null'}`;
+    // Issue #4069: tasks waiting for this one move on once the outcome is recorded below.
+    this.dependencies.handleSessionCompletion({ sessionName, rootSessionName, killRecoveryOfSession, exitCode, status, command, supersededBy });
+    if (this.dependencies.size > 0) setImmediate(() => this.reconcileDependencies());
     if (supersededBy) {
       this.log(`Session completion ignored for ${describe}: continued by recovery session ${supersededBy}`);
       return null;
@@ -925,6 +964,16 @@ export class SolveQueue {
     this.log(`Session outcome recorded for ${item.toString()}: ${failed ? 'failed' : noChanges ? 'finished without changes' : 'succeeded'} (${describe})`);
     return item;
   }
+  /** Keep a direct launch refusal in the same bounded history as queued failures. */
+  recordLaunchFailure({ sessionName, url, tool, error }) {
+    const item = new SolveQueueItem({ url, tool });
+    item.sessionName = sessionName;
+    item.setFailed(error);
+    this.failed.push(item);
+    while (this.failed.length > 100) this.failed.shift();
+    this.stats.totalFailed++;
+    this.reconcileDependencies();
+  }
   /**
    * Execute a queue item
    * @param {SolveQueueItem} item
@@ -952,7 +1001,7 @@ export class SolveQueue {
         const launchFailed = Boolean(result) && result.success === false;
         if (launchFailed) {
           item.setFailed(result.error || result.output || 'the launch was refused before the container started');
-          item.sessionName = sessionName;
+          item.sessionName = sessionName === 'unknown' ? null : sessionName;
           item.messageInfo = null; // terminal status — stop tracking the message
           this.stats.totalFailed++;
           console.error(`[solve_queue] Item ${item.id} was not launched (session ${sessionName}): ${item.error}`);
@@ -987,6 +1036,7 @@ export class SolveQueue {
                   infoBlock: item.infoBlock,
                   error: result.error || result.output,
                   locale: item.locale,
+                  listedInQueue: true,
                 });
                 await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, buildQueueItemTelegramOptions(item, this.verbose));
               }
@@ -1028,6 +1078,8 @@ export class SolveQueue {
       // Limit history size
       while (this.completed.length > 100) this.completed.shift();
       while (this.failed.length > 100) this.failed.shift();
+      // Issue #4069: a failed launch fails the tasks that wait for it.
+      if (item.status === QueueItemStatus.FAILED) this.reconcileDependencies();
     }
   }
   /**
@@ -1044,6 +1096,7 @@ export class SolveQueue {
   stop() {
     this.log('Stopping queue...');
     this.isRunning = false;
+    this.dependencies.stop();
   }
   /**
    * Clear the limit cache
@@ -1056,8 +1109,8 @@ export class SolveQueue {
    * Format queue status for display in /limits command
    * Shows per-tool queue breakdown with processing counts.
    *
-   * Processing count = max(actual AI CLI processes via pgrep, tracked
-   * `$ --status` executing screen-isolated sessions), not queue state.
+   * Processing counts combine live executions and classified CLI jobs by task
+   * identity, including queue items being launched.
    *
    * Output format:
    * ```
@@ -1101,7 +1154,8 @@ export class SolveQueue {
     // Currently-executing detached sessions (with issue/PR URLs). These are the
     // real running tasks; the queue's own `processing` Map is emptied once a task
     // is dispatched, so without this the executing items are never listed (#1837).
-    const runningSessionItems = await this.getRunningSessionItemsFn(this.verbose);
+    const work = await this.getExternalProcessingSnapshot();
+    const runningSessionItems = work.items;
     // Section labels: each per-tool sub-list uses a capitalized heading.
     const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
     const labels = {
@@ -1123,10 +1177,9 @@ export class SolveQueue {
     for (const tool of tools) {
       const toolQueue = this.queues[tool] || [];
       const pending = toolQueue.length;
-      // Executing tasks: merge the in-memory processing Map with tracked
-      // detached sessions, deduped by URL, so they list even after dispatch
-      // (issue #1837).
-      const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
+      // The snapshot already merged queue launches, tracked executions and
+      // foreground task trees. Preserve those identities in the detailed list.
+      const executing = collectExecutingItems({ sessionItems: runningSessionItems, tool, byExecution: true });
       // Issue #2823: a launch is not a completion. A task that is still
       // executing is listed only under Processing, and a session that failed
       // after launch is listed under Failed.
@@ -1143,6 +1196,7 @@ export class SolveQueue {
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
       message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
     }
+    message += this.formatWaitingForTasksSection({ locale }); // #4069: tasks that wait for other tasks
     // Issue #2823: the summary counts what the lists above show. It used to
     // print the number of successful *launches* as "Completed" and never
     // counted sessions that failed after launch.
@@ -1150,6 +1204,8 @@ export class SolveQueue {
     return message;
   }
 }
+// Issue #4069: release/fail/lookup methods for items that wait for other tasks.
+installSolveQueueDependencyMethods(SolveQueue);
 /**
  * Global queue instance (singleton)
  */

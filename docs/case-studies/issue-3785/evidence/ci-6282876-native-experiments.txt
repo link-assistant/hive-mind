@@ -1,0 +1,54 @@
+CI at 6282876d2d319bb28a7cece8674e11d45942f365, 2026-10-31 UTC
+
+All eight workflows were created at 08:46:30 UTC for this exact commit.
+Final API results: six success, one failure, one cancelled.
+
+Gemini 41185961492 succeeds in all six jobs. Preserve and review its complete
+3918-line runner log in three chunks and all six artifacts: 2761 files in
+2497 chunks, including 200 network logs. There are 80 expected before-assertion
+files, two expected before network errors, and zero unexpected positive-control,
+network or runner failures. These are adapter controls, not default six-tool
+production acceptance.
+Runner: ci-logs/native-gemini-41185961492.log
+Review: /tmp/issue-3785-recovery/gemini-6282876-review.json
+https://github.com/link-assistant/hive-mind/actions/runs/41185961492
+
+Codex 41185961487 fails native-file-authority after actual CLI compilation;
+native-history and refresh-intent-modules succeed. Review all 1724 runner lines
+in two chunks and 83 diagnostic files in 84 chunks. Five before-assertion files
+are expected. The positive native-sqlite-configuration-after.log assertion is
+unexpected; runner line 844 identifies that control. Preserve the exact compiled
+CLI and reproduce swallowed storage-admission errors locally. The existing
+native strict-config flag prevents fallback, motivating the pinned repair.
+This failure is not a passing native SQLite result.
+Runner: ci-logs/native-codex-41185961487.log
+Review: /tmp/issue-3785-recovery/codex-6282876-review.json
+Details: evidence/codex-sqlite-fallback.txt
+https://github.com/link-assistant/hive-mind/actions/runs/41185961487
+
+Checks 41185961597 was deliberately cancelled after preserving that actual
+compiled failure: both optimized builds use the same obsolete fallback source.
+Both compiles stop at 09:33:41 UTC. Their completion, packaged controls, assembly,
+installation and image checks have not passed. Earlier available jobs succeed,
+including all 748 selected default test files at runner line 23207.
+
+The CLI full-log download reports a missing log for the never-started assembly
+job. Preserve the complete Actions logs ZIP through the authenticated API
+instead, concatenate its fifteen complete job logs, and review all 71217 lines
+in 48 bounded chunks. The four error annotations are the two compiler
+cancellations (38786/39147) and explicit pipeline cancellation failure (367/368).
+Review the remaining two feedback artifact files; no unexpected assertions.
+Compiler stderr was redirected to runner-local files and cancellation skips
+their artifact step, so those partial compiler files are unavailable. No
+optimized compiler output or successful runtime is claimed by this run.
+Runner: ci-logs/checks-cancelled-41185961597.log
+Runner SHA256:
+198db8a9450df1c9dcac758dc463039b54186f307d13c49f7c5eb0975d7a2c93
+Review: /tmp/issue-3785-recovery/checks-cancelled-6282876-review.json
+https://github.com/link-assistant/hive-mind/actions/runs/41185961597
+
+Other final workflow statuses from the API are success: Workflows 41185961468,
+Links 41185961470, Qwen 41185961489, Claude 41185961500 and Security 41185961465.
+Claude's passing reproduction still demonstrates its upstream owner-death bug.
+Fresh CI for the SQLite file admission, automatic strict policy and additional
+limits generation/storage repairs remains required. The PR stays draft.

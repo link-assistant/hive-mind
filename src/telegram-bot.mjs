@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { loadTelegramConfiguration, moveTelegramSecretsOffArgv } from './telegram-private-configuration.lib.mjs';
+moveTelegramSecretsOffArgv();
+
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { maskToken, setupStdioLogInterceptor } from './lib.mjs';
 
@@ -31,23 +34,31 @@ const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // issue #2085
 const { validateCommandOverrides } = await import('./telegram-overrides-validation.lib.mjs'); // issue #2198
-const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
-
-// Configuration priority: CLI option > --configuration LINO > .lenv > .env
-if (config.configuration) {
-  await loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
-}
+// Configuration priority: token option > inline LINO > explicit file > .lenv > .env.
+const config = await loadTelegramConfiguration({
+  parse: () => createTelegramYargsConfig(yargs(hideBin(process.argv))).parse(),
+  loadConfiguration: configuration => loadLenvConfig({ configuration, override: true, quiet: true }),
+});
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 const SHOW_LIMITS_ENABLED = config.showLimits === true;
+const SOLVE_RESPECT_BLOCKERS = config.solveRespectBlockers === true; // #4069: experimental, off by default
+const BATCH_RESPECT_BLOCKERS = config.batchRespectBlockers !== false; // #4069: on by default
 // Issues #3354 to #3359: the merge queue, the merged-PR sweeper and solve children follow these switches.
 const { applyIssueClosingEnvironment } = await import('./post-merge-issue-closing.lib.mjs');
 const { startMergedPullRequestSweeper, sweepScope } = await import('./merged-pr-sweeper.lib.mjs');
 applyIssueClosingEnvironment(config);
 if (!BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
+  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --configuration-file or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
+}
+
+// Root configuration must pass the same audited-surface policy as its workers.
+// Parser-only dry runs do not inspect or mutate operator state.
+if (!config.dryRun) {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ env: process.env, autoRepair: isAgentConfigAutoRepairEnabled(), requireClean: true, log: async message => console.log(message), verbose: VERBOSE });
 }
 
 // Resolve final config values (CLI option > environment variable)
@@ -56,6 +67,7 @@ const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowed
 // Parse allowed topics (chatId:topicId pairs in Links Notation)
 const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
 const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
+const telegramPeerBots = lino.parseLinks(config.peerBots);
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
   ? lino
@@ -176,33 +188,40 @@ const { injectLanguageIfMissing, validateRuntimeModelInArgs } = await import('./
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
+const { describeLimitsFailure } = await import('./limits-unavailable.lib.mjs'); // #4053
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { getVersion } = await import('./version.lib.mjs');
 const { escapeMarkdown, escapeMarkdownKeepingCodeSpans, escapeMarkdownV2, cleanNonPrintableChars } = await import('./telegram-markdown.lib.mjs');
 const { revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { AFTER_COMMAND_NAMES, getDependencyCommandMode, isAwaitedTaskUrl, parseDependencyCommand, planSolveLaunchWait, resolveDependencyLaunch } = await import('./telegram-after-command.lib.mjs'); // #4069
+const { createDefaultRelationsFetcher, extractRespectBlockersFlag, planBlockerWait, prepareBatchBlockers } = await import('./telegram-solve-blockers.lib.mjs'); // #4069
+const fetchIssueRelations = createDefaultRelationsFetcher({ log: async line => VERBOSE && console.log(`[VERBOSE] ${line}`) });
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { preflightRepositoryTarget, redirectRepositoryArgsToSingleIssue } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { repositoryModeSelectionFromArgv } = await import('./solve.repository-mode.lib.mjs');
 const { validateTelegramGitHubUrl } = await import('./telegram-url-validation.lib.mjs');
+const { describeInvalidBatchLink, planSolveTargets, runSolveBatch, SOLVE_REJECT_SCOPE } = await import('./telegram-solve-batch.lib.mjs'); // #4067
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, mentionsGitHubHost } = await import('./telegram-message-filters.lib.mjs');
 const { safeEditMessageText, safeReply, safeSendMessage } = await import('./telegram-safe-reply.lib.mjs');
 const { createUpdateErrorHandler } = await import('./telegram-update-error.lib.mjs');
 const { createKeyClaims, createSerialLane, detachHandler, getBackgroundTaskStats } = await import('./telegram-background-task.lib.mjs');
 const { DEFAULT_HANDLER_WARN_THRESHOLD_MS, installHandlerWatchdog } = await import('./telegram-handler-watchdog.lib.mjs');
 const TELEGRAM_HANDLER_TIMEOUT_MS = 60_000;
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
+const { installTelegramCommandRouting, TELEGRAM_ROUTING_UPDATES } = await import('./telegram-command-routing.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { addSessionCompletionListener, trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, findTrackedSessionByIdentifier, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
 const { createBotLogger } = await import('./bot-logger.lib.mjs');
-const { createSessionStore } = await import('./session-store.lib.mjs');
+const { createSessionStore, resolveBotStateDir } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
-const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
+const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage, buildSolveWaitingForTasksMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
 const { startRouterMaintenance } = await import('./router-maintenance.lib.mjs');
 // Initialize Sentry for error tracking
@@ -236,6 +255,7 @@ const launchingUrls = createKeyClaims(); // /solve URLs between the duplicate ch
 installTelegramContextSafety(bot, { verbose: VERBOSE });
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
+installTelegramCommandRouting(bot, { stateDir: resolveBotStateDir(), configuredPeers: telegramPeerBots, verbose: VERBOSE, identity: { getVersion, startedAt: BOT_START_TIME }, onError: handleUpdateError });
 
 // Issue #1927: durable, timestamped bot log + durable session store. The logger
 // preserves the previous run's log under a timestamped backup (never overwriting
@@ -297,7 +317,8 @@ async function validateGitHubUrl(args, options = {}) {
   return validateTelegramGitHubUrl(rawUrl, { allowedTypes, commandName, locale });
 }
 
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const recordLaunchFailure = failure => getSolveQueue({ verbose: VERBOSE }).recordLaunchFailure(failure);
+const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, recordLaunchFailure, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -390,8 +411,9 @@ bot.command(
     // Get all limits using shared cache (3min for API, 2min for system)
     const limits = await getAllCachedLimits(VERBOSE);
     // Format message with usage limits and queue status (issues #1343, #1267)
-    const claudeError = limits.claude.success ? null : limits.claude.error;
-    const codexError = limits.codex.success ? null : limits.codex.error;
+    // Issue #4053: HTTP 5xx/timeouts say "temporarily unavailable, retried on the next /limits call".
+    const claudeError = describeLimitsFailure(limits.claude, { locale: userLocale });
+    const codexError = describeLimitsFailure(limits.codex, { locale: userLocale });
     const solveQueue = getSolveQueue({ verbose: VERBOSE });
     const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
     const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;
@@ -533,54 +555,63 @@ async function handleSolveCommand(ctx) {
   if (solveSL.handled) return;
   const solveShowLimits = solveSL.showLimits;
   userArgs = solveSL.args;
-  // Check if this is a reply to a message and user didn't provide URL as first argument
-  // In that case, try to extract GitHub URL from the replied message
-  // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
+  // Issue #4069: --respect-blockers is a bot option too; it never reaches solve.
+  const respectFlag = extractRespectBlockersFlag(userArgs);
+  userArgs = respectFlag.args;
+  // Issue #1325: a reply without a URL in the arguments takes the link from the replied message.
+  // Issue #4067: several links (there or in the command) start one by one, as separate commands.
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
-
-  // Check if yargs sees a command URL. If not, try to extract it from the replied message.
+  const linkDeps = { parseGitHubUrl, cleanNonPrintableChars, mentionsGitHubHost };
+  const dependencyMode = getDependencyCommandMode(solveCommandName);
+  if (dependencyMode) {
+    // Issue #4069: /after and /enqueue start one task after the task they name or reply to.
+    const parsed = parseDependencyCommand({ userArgs, replyMessage: isReply ? message.reply_to_message : null, deps: linkDeps });
+    const launch = resolveDependencyLaunch({ parsed, mode: dependencyMode, solveQueue: getSolveQueue({ verbose: VERBOSE }), findSessionById: findTrackedSessionByIdentifier, findSessionByUrl: url => findStoppableSessionByUrl(url, VERBOSE), tr: (key, params) => t(key, params, { locale: solveLocale }), escape: escapeMarkdown });
+    VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay}: ${parsed.ok ? `${parsed.target.kind} ${parsed.target.value} -> ${launch.action}` : parsed.error}`);
+    if (launch.action === 'reply') return void (await safeReply(ctx, launch.text, { reply_to_message_id: ctx.message.message_id }));
+    if (launch.notice) await safeReply(ctx, launch.notice, { reply_to_message_id: ctx.message.message_id });
+    return void (await launchSolveTarget(ctx, launch.userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName: 'solve', dependsOn: launch.dependsOn, respectBlockers: respectFlag.respectBlockers ?? SOLVE_RESPECT_BLOCKERS }));
+  }
   const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
   const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
   const commandHasUrl = mentionsGitHubHost(commandUrlText) || /^https?:\/\//.test(commandUrlText);
-  if (isReply && !commandHasUrl) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
-      console.log('[VERBOSE] User args:', userArgs);
-    }
-
-    const replyText = message.reply_to_message.text || '';
-    const extraction = _extractGitHubUrl(replyText, { parseGitHubUrl, cleanNonPrintableChars });
-    if (extraction.error) {
-      // Multiple links found
-      if (VERBOSE) {
-        console.log('[VERBOSE] Multiple GitHub URLs found in replied message');
-      }
-      await safeReply(ctx, `❌ ${escapeMarkdown(extraction.error)}`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
-      return;
-    } else if (extraction.url) {
-      // Single link found - prepend it to existing user args (issue #1325)
-      if (VERBOSE) {
-        console.log('[VERBOSE] Extracted URL from reply:', extraction.url);
-      }
-      // Prepend the extracted URL to user's options (e.g., ['--model', 'opus'] -> ['url', '--model', 'opus'])
-      userArgs = [extraction.url, ...userArgs];
-    } else {
-      // No link found
-      if (VERBOSE) {
-        console.log('[VERBOSE] No GitHub URL found in replied message');
-      }
-      await safeReply(ctx, t('telegram.no_github_link_in_reply', {}, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
+  const targets = planSolveTargets({ userArgs, commandHasUrl, replyMessage: isReply ? message.reply_to_message : null, deps: linkDeps });
+  VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} targets: ${targets.mode}${targets.urls ? ` (${targets.urls.length} links, ${targets.invalidLinks.length} invalid)` : ''}`);
+  if (targets.mode === 'no-link') {
+    await safeReply(ctx, t('telegram.no_github_link_in_reply', {}, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+    return;
   }
+  const launchOptions = { solveToolAlias, solveLocale, solveShowLimits, solveCommandName };
+  if (targets.mode === 'single') return void (await launchSolveTarget(ctx, targets.userArgs, { ...launchOptions, respectBlockers: respectFlag.respectBlockers ?? SOLVE_RESPECT_BLOCKERS }));
+  // Issue #4069: unblocked issues start first; the others wait for their blockers in the batch.
+  const respectBlockers = respectFlag.respectBlockers ?? BATCH_RESPECT_BLOCKERS;
+  const { urls: batchUrls, relations } = respectBlockers ? await prepareBatchBlockers({ urls: targets.urls, fetchRelations: fetchIssueRelations, log: line => VERBOSE && console.log(`[VERBOSE] ${line}`) }) : targets;
+  await runSolveBatch({
+    ...targets,
+    urls: batchUrls,
+    locale: solveLocale,
+    launch: (args, reject) => launchSolveTarget(ctx, args, { ...launchOptions, reject, respectBlockers, relations }),
+    reply: text => safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id }),
+    validateLink: link => describeInvalidBatchLink(link, { parseGitHubUrl, validateUrl: url => validateTelegramGitHubUrl(url, { locale: solveLocale }), locale: solveLocale }),
+    isStopped: () => isChatStopped(chatId),
+    log: line => VERBOSE && console.log(`[VERBOSE] ${line}`),
+  });
+}
 
+// One link of /solve: validate, then start or queue it. `reject` (issue #4067)
+// collects errors for the batch summary instead of replying to each one.
+// Issue #4069: `dependsOn` (/after, /enqueue) and `respectBlockers` may make it wait for other tasks.
+async function launchSolveTarget(ctx, userArgs, { solveToolAlias, solveLocale, solveShowLimits, solveCommandName, dependsOn = null, respectBlockers = false, relations = null, reject = null }) {
+  const fail = async (text, scope = SOLVE_REJECT_SCOPE.TARGET, summary = null) => {
+    if (reject) return reject(text, { scope, summary });
+    await safeReply(ctx, text, { reply_to_message_id: ctx.message.message_id });
+    return { started: false };
+  };
+  const OPTIONS = SOLVE_REJECT_SCOPE.OPTIONS;
   userArgs = applySolveToolAlias(userArgs, solveToolAlias);
   const { malformed, errors: malformedErrors } = detectMalformedFlags(userArgs);
   if (malformed.length > 0) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(`❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, OPTIONS);
   }
 
   // Issue #2212: a repository URL is accepted too — solve then collects every open
@@ -593,8 +624,7 @@ async function handleSolveCommand(ctx) {
       errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: solveLocale })}`; // telegram-markdown-ok: shown in a code span; validateTelegramGitHubUrl percent-encodes backticks
     }
     errorMsg += `\n\n${t('telegram.solve_invalid_url_help', {}, { locale: solveLocale })}`;
-    await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(errorMsg);
   }
   // Issue #2194: the link needed repair, so show what we understood before we act on it.
   if (validation.recoveryNotice) await safeReply(ctx, validation.recoveryNotice, { reply_to_message_id: ctx.message.message_id });
@@ -604,15 +634,13 @@ async function handleSolveCommand(ctx) {
   if (validation.parsed?.canonical && userArgs[0] && cleanNonPrintableChars(userArgs[0]) === validation.normalizedUrl) userArgs[0] = validation.parsed.canonical;
   const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs); // issue #1534
   if (solvePerCommandIsolation && !isValidPerCommandIsolation(solvePerCommandIsolation)) {
-    await safeReply(ctx, t('telegram.invalid_isolation', { value: escapeMarkdown(solvePerCommandIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(t('telegram.invalid_isolation', { value: escapeMarkdown(solvePerCommandIsolation) }, { locale: solveLocale }), OPTIONS);
   }
   const mergedSolveArgs = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
   const { backend: solveOverrideIsolation, filteredArgs: isolationFilteredArgs } = extractIsolationFromArgs(mergedSolveArgs);
   let args = isolationFilteredArgs;
   if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
-    await safeReply(ctx, t('telegram.invalid_locked_isolation', { value: escapeMarkdown(solveOverrideIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(t('telegram.invalid_locked_isolation', { value: escapeMarkdown(solveOverrideIsolation) }, { locale: solveLocale }), OPTIONS);
   }
   const effectiveSolveIsolation = solveOverrideIsolation || solvePerCommandIsolation;
 
@@ -628,29 +656,23 @@ async function handleSolveCommand(ctx) {
   // Validate model name with helpful error message (before yargs validation)
   const modelError = await validateRuntimeModelInArgs(args, solveTool);
   if (modelError) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(`❌ ${escapeMarkdown(modelError)}`, OPTIONS);
   }
   // Issue #1482: Validate --base-branch early to reject URLs and invalid branch names
   const branchError = validateBranchInArgs(args);
   if (branchError) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(branchError)}`, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(`❌ ${escapeMarkdown(branchError)}`, OPTIONS);
   }
   const { malformed: mergedMalformed, errors: mergedMalformedErrors } = detectMalformedFlags(args);
   if (mergedMalformed.length > 0) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(mergedMalformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(`❌ ${escapeMarkdown(mergedMalformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, OPTIONS);
   }
   // Validate merged arguments using solve's yargs config
   let parsedSolveArgs;
   try {
     parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: solveLocale }), {
-      reply_to_message_id: ctx.message.message_id,
-    });
-    return;
+    return fail(t('telegram.invalid_options', { message: escapeMarkdownKeepingCodeSpans(error.message || String(error)) }, { locale: solveLocale }), OPTIONS);
   }
   // Issue #1552 + #1694: Validate GitHub entity existence before queueing/executing.
   // Honor the parsed --auto-accept-invite (now default-on per #1694), so --no-auto-accept-invite
@@ -666,13 +688,12 @@ async function handleSolveCommand(ctx) {
   // so the invite hint is suppressed on the default-on path where the literal flag is absent.
   const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, baseBranch: parsedSolveArgs?.baseBranch, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite });
   if (!entityCheck.valid) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(`❌ ${escapeMarkdown(entityCheck.error)}`);
   }
   // Issue #2266: answer an empty repository directly. The CLI repeats the
   // check for direct use and races; preflight errors fall through to it.
   const repositoryPreflight = await preflightRepositoryTarget({ ctx, parsed: validation.parsed, locale: solveLocale, selection: repositoryModeSelectionFromArgv(parsedSolveArgs), onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
-  if (repositoryPreflight.repliedNoWork) return;
+  if (repositoryPreflight.repliedNoWork) return { started: false };
   // Issue #3108: a repository with a single open issue is solved as that issue.
   const singleIssueRedirect = repositoryPreflight.singleIssue && redirectRepositoryArgsToSingleIssue({ args, parsed: validation.parsed, singleIssue: repositoryPreflight.singleIssue });
   if (singleIssueRedirect) {
@@ -697,34 +718,37 @@ async function handleSolveCommand(ctx) {
     lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',
   });
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  // Check for duplicate URL in queue (issue #1080)
-  const existingItem = solveQueue.findByUrl(normalizedUrl);
+  const tr = (key, params) => t(key, params, { locale: solveLocale });
+  const findSessionByUrl = url => findStoppableSessionByUrl(url, VERBOSE);
+  const waitPlan = await planSolveLaunchWait({ dependsOn, respectBlockers, tr, escape: escapeMarkdown, planBlockers: () => planBlockerWait({ url: normalizedUrl, relations, fetchRelations: fetchIssueRelations, solveQueue, findSessionById: findTrackedSessionByIdentifier, findSessionByUrl, log: line => VERBOSE && console.log(`[VERBOSE] ${line}`) }) });
+  if (waitPlan.action === 'reject') return fail(t('telegram.solve_rejected', { infoBlock, reason: waitPlan.reason }, { locale: solveLocale }), SOLVE_REJECT_SCOPE.TARGET, `🚫 ${waitPlan.reason}`); // telegram-markdown-ok: planSolveLaunchWait escapes the links
+  const waitTargets = waitPlan.action === 'wait' ? waitPlan.targets : [];
+  // Check for duplicate URL in queue (issue #1080); the task this one waits for is not a duplicate (#4069)
+  const existingItem = solveQueue.findLaunchConflict(normalizedUrl, waitTargets);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await safeReply(ctx, t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id }); // telegram-markdown-ok: status is a QueueItemStatus value (queued, waiting, starting, ...)
-    return;
+    return fail(t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale })); // telegram-markdown-ok: status is a QueueItemStatus value (queued, waiting, starting, ...)
   }
   // The launch below runs in the background, so a second command for the same
   // URL can arrive before the session is tracked; the claim covers that window.
   const releaseLaunchClaim = launchingUrls.claim(normalizedUrl);
   if (!releaseLaunchClaim) {
-    await safeReply(ctx, t('telegram.url_status_active', { statusText: 'being processed', url: escapeMarkdown(normalizedUrl), status: 'starting' }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-    return;
+    return fail(t('telegram.url_status_active', { statusText: 'being processed', url: escapeMarkdown(normalizedUrl), status: 'starting' }, { locale: solveLocale }));
   }
+  let releaseStartReservation;
   try {
     // Issue #1567: Prevent concurrent sessions on the same PR/issue
     const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
-    if (activeSession.isActive) {
-      await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id }); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
-      return;
+    if (activeSession.isActive && !isAwaitedTaskUrl(waitTargets, normalizedUrl)) {
+      return fail(t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale })); // telegram-markdown-ok: telegram.url_session_running shows the session name in a code span
     }
     const queueStats = solveQueue.getStats();
     const hasPendingQueueItems = queueStats.queued > 0;
-    const check = hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale }); // Skip Claude limits for agent (#1159)
+    const check = waitTargets.length > 0 ? {} : hasPendingQueueItems ? await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }) : await solveQueue.reserveStartSlot({ tool: solveTool, locale: solveLocale, url: normalizedUrl }); // Skip Claude limits for agent (#1159)
+    releaseStartReservation = check.releaseStartReservation;
     // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
     if (check.rejected) {
-      await safeReply(ctx, t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
-      return;
+      return fail(t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), SOLVE_REJECT_SCOPE.TARGET, `🚫 ${escapeMarkdown(check.rejectReason || 'Unknown')}`);
     }
 
     // Issue #1688: parsed URL context lets the completion message look up linked PRs.
@@ -736,16 +760,19 @@ async function handleSolveCommand(ctx) {
     // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
     let solveLimitsAtStart = null;
     if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
-    if (check.canStart && check.startReserved) {
+    if (waitTargets.length === 0 && check.canStart && check.startReserved) {
       const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
+      solveQueue.log(`Starting directly: ${normalizedUrl}`);
       await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
     } else {
       if (!solveQueue.executeCallback) {
         const _t = (s, i) => trackSession(s, i, VERBOSE);
         solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
       }
-      const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
-      const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
+      const itemOptions = { url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale };
+      const waits = waitTargets.length > 0; // #4069: kept out of the tool queue until the awaited tasks are done
+      const queueItem = waits ? solveQueue.enqueueAfter({ ...itemOptions, waitingReason: waitPlan.waitingText }, { targets: waitTargets, mode: waitPlan.mode }) : solveQueue.enqueue(itemOptions);
+      const queueMessage = waits ? buildSolveWaitingForTasksMessage({ locale: solveLocale, infoBlock, waitingText: waitPlan.waitingText }) : buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
       const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
       queueItem.messageInfo = {
         chatId: queuedMessage.chat.id,
@@ -753,14 +780,16 @@ async function handleSolveCommand(ctx) {
         messageThreadId: queuedMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null,
       };
     }
+    return { started: true };
   } finally {
+    releaseStartReservation?.();
     releaseLaunchClaim();
   }
 }
 
 const detachedSolveCommand = detach(handleSolveCommand);
 bot.command(
-  SOLVE_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
+  [...SOLVE_COMMAND_NAMES, ...AFTER_COMMAND_NAMES].map(command => new RegExp(`^${command}$`, 'i')), // #4069: /after, /enqueue
   detachedSolveCommand
 );
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
@@ -1022,7 +1051,7 @@ const detachedTaskCommand = detach(handleTaskCommand);
 const detachedFixCommand = detach(handleFixCommand);
 const detachedOrganizeCommand = detach(handleOrganizeCommand);
 const fallbackHandlers = {
-  ...Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, detachedSolveCommand])),
+  ...Object.fromEntries([...SOLVE_COMMAND_NAMES, ...AFTER_COMMAND_NAMES].map(command => [command, detachedSolveCommand])),
   ...Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, detachedTaskCommand])),
   ...Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, detachedFixCommand])),
   ...Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, detachedOrganizeCommand])),
@@ -1063,7 +1092,7 @@ bot.catch(handleUpdateError);
 let isShuttingDown = false;
 
 console.log('🤖 SwarmMindBot is starting...');
-console.log('Bot token:', BOT_TOKEN.substring(0, 10) + '...');
+console.log('Bot token:', maskToken(BOT_TOKEN));
 if (allowedChats && allowedChats.length > 0) {
   console.log('Allowed chats (lino):', lino.format(allowedChats));
 } else {
@@ -1092,7 +1121,8 @@ let launchAnnouncementShown = false;
 
 // Issue #2823: a launched /solve task is not a completed one. Tell the queue
 // how each tracked session ended so /queue lists it as Completed or Failed.
-addSessionCompletionListener(event => getSolveQueue({ verbose: VERBOSE }).recordSessionCompletion(event));
+const sessionCompletionQueue = getSolveQueue({ verbose: VERBOSE });
+addSessionCompletionListener(event => sessionCompletionQueue.recordSessionCompletion(event));
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
   // Issue #2134: the monitor needs the isolation runner to start a recovery
@@ -1204,7 +1234,7 @@ startSessionMonitoringOnce();
 launchBotWithRetry(
   bot,
   {
-    allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+    allowedUpdates: TELEGRAM_ROUTING_UPDATES,
     dropPendingUpdates: true, // Drop pending updates sent before bot started
   },
   {

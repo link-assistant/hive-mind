@@ -36,13 +36,15 @@ export function selectDispatchedRuns(runs, { sha, workflows }) {
   });
 }
 
-const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'stale']);
+// Issue #4029: only these conclusions count as passing. Anything else,
+// including a conclusion GitHub adds later or a completed run without one, is a
+// failure, so the mirrored check fails closed instead of turning green.
+const PASSING_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
 
 const stateFor = run => {
   if (run.status !== 'completed') return 'pending';
   if (run.conclusion === 'cancelled') return 'error';
-  if (FAILED_CONCLUSIONS.has(run.conclusion)) return 'failure';
-  return 'success';
+  return PASSING_CONCLUSIONS.has(run.conclusion) ? 'success' : 'failure';
 };
 
 /**
@@ -64,6 +66,22 @@ export function commitStatusForRun({ workflow, run }) {
  */
 export function missingRunStatus(workflow, description) {
   return { state: 'error', context: contextFor(workflow), description: truncate(description) };
+}
+
+/**
+ * The status for a run still unfinished when the reporter stops following it.
+ *
+ * Issue #4029: the reporter used to leave such a run `pending` "until the next
+ * report", but nothing reports again, so the draft head kept a pending check
+ * forever (release run 42614946918 succeeded at 109 minutes, after the
+ * 80-minute deadline, and cdeb7d0 still shows `pending`). `error` says the
+ * result is unknown, names the elapsed time and links the run.
+ *
+ * @param {{workflow: string, run: object}} entry
+ * @param {number} minutes how long the reporter followed the run
+ */
+export function unfinishedRunStatus({ workflow, run }, minutes) {
+  return { state: 'error', context: contextFor(workflow), description: truncate(`${run.name || workflow}: still ${run.status} after ${minutes} min; open the run for its result`), target_url: run.html_url };
 }
 
 /** True once every workflow has a run and every run has completed. */

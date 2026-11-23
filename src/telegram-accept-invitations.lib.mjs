@@ -36,8 +36,8 @@ const exec = (cmd, opts) =>
  * @param {string} text - The text to escape
  * @returns {string} The escaped text
  */
-function escapeMarkdown(text) {
-  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+export function escapeMarkdown(text) {
+  return String(text).replace(/[\\_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 /**
@@ -53,11 +53,11 @@ function escapeMarkdown(text) {
  * @param {boolean} state.isComplete - Whether processing is complete
  * @returns {string} Formatted message
  */
-function buildProgressMessage(state) {
+export function buildProgressMessage(state) {
   const { acceptedRepos, acceptedOrgs, errors, totalRepos, totalOrgs, processedRepos, processedOrgs, isComplete } = state;
 
   // Calculate totals
-  const totalInvitations = totalRepos + totalOrgs;
+  const totalInvitations = totalRepos + totalOrgs; // telegram-markdown-ok: numeric sum, not message text
   const processedTotal = processedRepos + processedOrgs;
   const acceptedTotal = acceptedRepos.length + acceptedOrgs.length;
 

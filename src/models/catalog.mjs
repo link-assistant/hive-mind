@@ -155,6 +155,7 @@ export const agentModels = {
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   'kilo/nemotron-3-super-free': 'kilo/nemotron-3-super-free', // Issue #2625: provider entry from src/agent-model-overlay.lib.mjs
+  'kilo/nemotron-3.5-lightning-free': 'kilo/nemotron-3.5-lightning-free', // Explicit current free control; distinct from the retired Super alias
   // Deprecated free models (kept for backward compatibility)
   'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)

@@ -39,6 +39,53 @@ const truncateErrorText = (text, maxLength) => {
 // dump. Such a line is still binary noise, not a human-readable failure reason.
 export const isOpaqueErrorText = value => typeof value === 'string' && /^[A-Za-z0-9+/_=-]{120,}(?:$|(?=\[log_[0-9a-f]+[,\]]))/i.test(value.trim());
 
+// Issue #4077: `@anthropic-ai/sdk` (internal/parse.ts) logs every streamed
+// response under ANTHROPIC_LOG=debug as `debug('response', status, url, headers, body)`.
+// That is the only SDK debug line without a `[log_<id>]` prefix; console
+// inspection prints it as `response 200 <url> Headers {` … `} ReadableStream {…}`.
+export const SDK_STREAM_RESPONSE_DEBUG_LINE = /^response \d{3}\s.*\bHeaders\s*\{/;
+// `[log_345fb5] sending request {` and `[log_345fb5, request-id: "req_…"] post … succeeded …`.
+export const SDK_DEBUG_LOGGER_LINE = /^\[log_[0-9a-f]+(?:,[^\]]*)?\]\s/i;
+
+const SOURCE_FRAGMENT_PATTERNS = [
+  // A closing bracket starts the tail of a printed object or a code block:
+  // `} ReadableStream {…}`, `}, {`, `]);`, `} catch (error) {`, `} from './x.mjs'`.
+  /^[}\])]/,
+  SDK_STREAM_RESPONSE_DEBUG_LINE,
+  SDK_DEBUG_LOGGER_LINE,
+  // A quoted object key: `"content-type": "text/event-stream",` (a header dump line).
+  /^["'][^"'\s]+["']\s*:\s/,
+  // An inspected property whose value is a function or a nested placeholder:
+  // `toReadableStream: [Function: toReadableStream],`, `messages: [Array ...],`.
+  /^[\w$]+\s*:\s*\[(?:(?:Async)?(?:Generator)?Function\b|Object \.\.\.\]|Array \.\.\.\]|Circular\b|Getter\b|Symbol\()/,
+  // A stack frame: `at foo (file:///app/x.mjs:12:3)`, `at async file:///x.mjs:1:2`.
+  /^at\s+(?:async\s+)?\S.*:\d+:\d+\)?$/,
+];
+
+/**
+ * Issue #4077: a line of printed source, an inspected object or a debug-logger
+ * dump is not an error message, even though it contains letters. The last
+ * stdout line before a SIGKILL was `} ReadableStream { locked: false, … }`
+ * (the tail of an SDK debug dump) and was published as
+ * `CLAUDE execution failed with } ReadableStream { … }`.
+ *
+ * The test runs on the first non-empty line, trimmed. A real failure reason
+ * never starts with a closing bracket, a quoted object key, an inspected
+ * function value, a stack frame or a debug-logger prefix.
+ *
+ * @param {unknown} value
+ * @returns {boolean} true when the text is a source/debug fragment
+ */
+export const isSourceFragmentErrorText = value => {
+  if (typeof value !== 'string') return false;
+  const firstLine = value
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(Boolean);
+  if (!firstLine) return false;
+  return SOURCE_FRAGMENT_PATTERNS.some(pattern => pattern.test(firstLine));
+};
+
 const safeJsonStringify = value => {
   const seen = new WeakSet();
   try {

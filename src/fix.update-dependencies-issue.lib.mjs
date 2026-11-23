@@ -15,20 +15,34 @@
 import { UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TYPE, buildUpdateDependenciesIssueBody, buildUpdateDependenciesIssueTitle, mapRepositoryToEcosystems } from './fix.update-dependencies.lib.mjs';
 import { detectLanguages, getDefaultBranch, getLatestCommit, getRepositoryFiles, runCommand } from './fix.github.lib.mjs';
 import { createOrReuseTaskIssue } from './task.issue-creation.lib.mjs';
-import { mergeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
+import { getVersion } from './version.lib.mjs';
+import { DEPENDABOT_WAIT_TIMEOUT_MS, mergeDependabotPullRequests } from './fix.dependabot-merge.lib.mjs';
+
+// Issue #4061: the body names the hive-mind version, so an issue written by an
+// outdated deployment is recognisable. A failure to read it never blocks /fix.
+async function readToolVersion() {
+  try {
+    return (await getVersion()) || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * `mergeDependabotPrs` (default on) merges the open Dependabot pull requests
  * first; with `dryRun` they are only listed. A caller that already merged them
- * can pass the result as `dependabot` instead.
+ * can pass the result as `dependabot` instead. `dependabotWaitTimeoutMs`
+ * bounds the wait for Dependabot rebases and required checks (issue #4061).
  */
-export async function prepareUpdateDependenciesIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null, reportDependenciesIssues = true, mergeDependabotPrs = true, dryRun = false, verbose = false, dependabot = null }) {
+export async function prepareUpdateDependenciesIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null, reportDependenciesIssues = true, mergeDependabotPrs = true, dependabotWaitTimeoutMs = DEPENDABOT_WAIT_TIMEOUT_MS, dryRun = false, verbose = false, dependabot = null }) {
   // Issue #3413: merge before reading the default branch, so the latest commit
   // and the manifest inventory already include Dependabot's updates.
-  const dependabotResult = dependabot || (mergeDependabotPrs ? await mergeDependabotPullRequests({ repository, run, warn, log, dryRun, verbose }) : { enabled: false, dryRun: Boolean(dryRun), method: null, listingError: null, pullRequests: [] });
+  const dependabotResult = dependabot || (mergeDependabotPrs ? await mergeDependabotPullRequests({ repository, run, warn, log, dryRun, verbose, waitTimeoutMs: dependabotWaitTimeoutMs }) : { enabled: false, dryRun: Boolean(dryRun), method: null, listingError: null, pullRequests: [] });
   const [languages, defaultBranch] = await Promise.all([detectLanguages(repository, run, warn), getDefaultBranch(repository, run, warn)]);
   const commit = await getLatestCommit(repository, defaultBranch, run, warn);
   const { files, truncated } = await getRepositoryFiles(repository, defaultBranch, run, warn);
+
+  const toolVersion = await readToolVersion();
 
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   if (typeof log === 'function') {
@@ -45,12 +59,12 @@ export async function prepareUpdateDependenciesIssue({ repository, run = runComm
     ecosystems: detected,
     dependabot: dependabotResult,
     title: buildUpdateDependenciesIssueTitle(),
-    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated, reportDependenciesIssues, dependabot: dependabotResult }),
+    body: buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files, filesTruncated: truncated, reportDependenciesIssues, dependabot: dependabotResult, toolVersion }),
   };
 }
 
-export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true, mergeDependabotPrs = true, verbose = false }) {
-  const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log, reportDependenciesIssues, mergeDependabotPrs, verbose }));
+export async function createUpdateDependenciesIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message), reportDependenciesIssues = true, mergeDependabotPrs = true, dependabotWaitTimeoutMs = DEPENDABOT_WAIT_TIMEOUT_MS, verbose = false }) {
+  const issueDraft = prepared || (await prepareUpdateDependenciesIssue({ repository, run, warn, log, reportDependenciesIssues, mergeDependabotPrs, dependabotWaitTimeoutMs, verbose }));
   // Issue #3684: a repeated run refreshes the open issue of an earlier run.
   const issue = await createOrReuseTaskIssue({
     repository,

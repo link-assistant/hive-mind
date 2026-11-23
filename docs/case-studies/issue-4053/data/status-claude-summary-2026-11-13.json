@@ -1,0 +1,144 @@
+{
+  "page": { "id": "tymt9n04zgry", "name": "Claude", "url": "https://status.claude.com", "time_zone": "Etc/UTC", "updated_at": "2026-11-13T10:23:20.427Z" },
+  "components": [
+    { "id": "rwppv331jlwc", "name": "claude.ai", "status": "major_outage", "created_at": "2023-07-11T17:52:24.275Z", "updated_at": "2026-11-13T09:58:58.125Z", "position": 1, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "w14q5j51spbm", "name": "Claude Platform on AWS", "status": "operational", "created_at": "2026-11-09T18:33:14.695Z", "updated_at": "2026-11-09T18:33:14.695Z", "position": 1, "description": "https://platform.claude.com/docs/en/build-with-claude/claude-platform-on-aws", "showcase": true, "start_date": "2026-11-09", "group_id": "60k546tlxqz7", "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "0qbwn08sd68x", "name": "Claude Console (platform.claude.com)", "status": "partial_outage", "created_at": "2023-07-11T17:52:49.982Z", "updated_at": "2026-11-13T09:58:58.154Z", "position": 2, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "69zh8pryjjgp", "name": "Claude in Microsoft Foundry", "status": "operational", "created_at": "2026-11-09T18:33:58.603Z", "updated_at": "2026-11-09T18:33:58.603Z", "position": 2, "description": "https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry", "showcase": true, "start_date": "2026-11-09", "group_id": "60k546tlxqz7", "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "k8w3r06qmzrp", "name": "Claude API (api.anthropic.com)", "status": "operational", "created_at": "2023-07-11T17:53:10.880Z", "updated_at": "2026-11-08T08:54:43.585Z", "position": 3, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "csth13wtqbd6", "name": "Claude Models on Google Cloud (Anthropic managed)", "status": "operational", "created_at": "2026-11-09T18:34:46.597Z", "updated_at": "2026-11-09T18:34:46.597Z", "position": 3, "description": "https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/anthropic-managed", "showcase": true, "start_date": "2026-11-09", "group_id": "60k546tlxqz7", "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "yyzkbfz2thpt", "name": "Claude Code", "status": "partial_outage", "created_at": "2025-05-22T21:35:29.822Z", "updated_at": "2026-11-13T09:58:58.192Z", "position": 4, "description": null, "showcase": true, "start_date": "2025-02-06", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "bpp5gb3hpjcl", "name": "Claude Cowork", "status": "degraded_performance", "created_at": "2026-04-01T17:39:47.692Z", "updated_at": "2026-11-12T22:24:27.949Z", "position": 5, "description": null, "showcase": true, "start_date": "2026-04-01", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "0scnb50nvy53", "name": "Claude for Government", "status": "operational", "created_at": "2026-02-17T23:24:51.249Z", "updated_at": "2026-06-30T14:45:50.487Z", "position": 6, "description": null, "showcase": true, "start_date": "2026-02-17", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+    { "id": "60k546tlxqz7", "name": "Claude on Cloud Platforms", "status": "operational", "created_at": "2026-11-09T18:33:14.270Z", "updated_at": "2026-11-09T18:33:14.270Z", "position": 7, "description": null, "showcase": false, "start_date": null, "group_id": null, "page_id": "tymt9n04zgry", "group": true, "only_show_if_degraded": false, "components": ["w14q5j51spbm", "69zh8pryjjgp", "csth13wtqbd6"] }
+  ],
+  "incidents": [
+    {
+      "id": "nn11wk485zfn",
+      "name": "Elevated errors on claude.ai, Claude Code, and platform.claude.com",
+      "status": "investigating",
+      "created_at": "2026-11-13T09:58:58.057Z",
+      "updated_at": "2026-11-13T09:58:58.258Z",
+      "monitoring_at": null,
+      "resolved_at": null,
+      "impact": "major",
+      "shortlink": "https://stspg.io/6kqyd0c5b1gr",
+      "started_at": "2026-11-13T09:58:58.049Z",
+      "page_id": "tymt9n04zgry",
+      "incident_updates": [
+        {
+          "id": "xwvxxzv27gw0",
+          "status": "investigating",
+          "body": "We are investigating an issue with users authenticating to Claude.ai and Claude Code. We will provide an update as soon as possible.",
+          "incident_id": "nn11wk485zfn",
+          "created_at": "2026-11-13T09:58:58.256Z",
+          "updated_at": "2026-11-13T09:58:58.256Z",
+          "display_at": "2026-11-13T09:58:58.256Z",
+          "affected_components": [
+            { "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "degraded_performance", "new_status": "major_outage" },
+            { "code": "0qbwn08sd68x", "name": "Claude Console (platform.claude.com)", "old_status": "operational", "new_status": "partial_outage" },
+            { "code": "yyzkbfz2thpt", "name": "Claude Code", "old_status": "operational", "new_status": "partial_outage" },
+            { "code": "bpp5gb3hpjcl", "name": "Claude Cowork", "old_status": "degraded_performance", "new_status": "degraded_performance" }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        }
+      ],
+      "components": [
+        { "id": "rwppv331jlwc", "name": "claude.ai", "status": "major_outage", "created_at": "2023-07-11T17:52:24.275Z", "updated_at": "2026-11-13T09:58:58.125Z", "position": 1, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+        { "id": "0qbwn08sd68x", "name": "Claude Console (platform.claude.com)", "status": "partial_outage", "created_at": "2023-07-11T17:52:49.982Z", "updated_at": "2026-11-13T09:58:58.154Z", "position": 2, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+        { "id": "yyzkbfz2thpt", "name": "Claude Code", "status": "partial_outage", "created_at": "2025-05-22T21:35:29.822Z", "updated_at": "2026-11-13T09:58:58.192Z", "position": 4, "description": null, "showcase": true, "start_date": "2025-02-06", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+        { "id": "bpp5gb3hpjcl", "name": "Claude Cowork", "status": "degraded_performance", "created_at": "2026-04-01T17:39:47.692Z", "updated_at": "2026-11-12T22:24:27.949Z", "position": 5, "description": null, "showcase": true, "start_date": "2026-04-01", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false }
+      ],
+      "reminder_intervals": null
+    },
+    {
+      "id": "sqn3fg1l96dl",
+      "name": "Elevated errors affecting the Microsoft 365 connector",
+      "status": "identified",
+      "created_at": "2026-11-12T17:52:44.934Z",
+      "updated_at": "2026-11-12T23:54:26.992Z",
+      "monitoring_at": null,
+      "resolved_at": null,
+      "impact": "major",
+      "shortlink": "https://stspg.io/m0rbx38nmy1c",
+      "started_at": "2026-11-12T17:52:44.926Z",
+      "page_id": "tymt9n04zgry",
+      "incident_updates": [
+        {
+          "id": "dz5mt91668p1",
+          "status": "identified",
+          "body": "This issue is caused by a Microsoft 365 service incident, and mail, calendar and search tools in the Microsoft 365 connector are still failing for most requests. Claude for Outlook remains affected. You can follow Microsoft's progress at https://status.cloud.microsoft. We will update this post when service is restored.",
+          "incident_id": "sqn3fg1l96dl",
+          "created_at": "2026-11-12T22:23:58.309Z",
+          "updated_at": "2026-11-12T22:23:58.309Z",
+          "display_at": "2026-11-12T22:23:58.309Z",
+          "affected_components": [
+            { "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "partial_outage", "new_status": "degraded_performance" },
+            { "code": "bpp5gb3hpjcl", "name": "Claude Cowork", "old_status": "partial_outage", "new_status": "degraded_performance" }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        },
+        {
+          "id": "11466g495qtb",
+          "status": "identified",
+          "body": "We are continuing to work with our upstream provider, who is restarting affected servers. Mail, calendar and search tools in the Microsoft 365 connector are still failing for most requests, and Claude for Outlook remains affected. We will provide another update as soon as we have more information.",
+          "incident_id": "sqn3fg1l96dl",
+          "created_at": "2026-11-12T21:18:24.190Z",
+          "updated_at": "2026-11-12T21:18:24.190Z",
+          "display_at": "2026-11-12T21:18:24.190Z",
+          "affected_components": [
+            { "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "partial_outage", "new_status": "partial_outage" },
+            { "code": "bpp5gb3hpjcl", "name": "Claude Cowork", "old_status": "partial_outage", "new_status": "partial_outage" }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        },
+        {
+          "id": "ztjnr8s5q82x",
+          "status": "identified",
+          "body": "We are continuing to work with our upstream provider on this issue. Mail, calendar and search tools in the Microsoft 365 connector are still failing for most requests. Claude for Outlook is also affected: mail and calendar actions may fail, and some users may not be able to open the add-in. We will provide another update within the hour.",
+          "incident_id": "sqn3fg1l96dl",
+          "created_at": "2026-11-12T20:28:28.214Z",
+          "updated_at": "2026-11-12T20:28:28.214Z",
+          "display_at": "2026-11-12T20:28:28.214Z",
+          "affected_components": [
+            { "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "partial_outage", "new_status": "partial_outage" },
+            { "code": "bpp5gb3hpjcl", "name": "Claude Cowork", "old_status": "partial_outage", "new_status": "partial_outage" }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        },
+        {
+          "id": "3175zg4x0lch",
+          "status": "identified",
+          "body": "We have identified an issue with an upstream provider affecting the Microsoft 365 connector. Mail, calendar and search tools are failing for most requests, and new connections to the connector may not complete. We are in contact with them and will provide an update as soon as possible.",
+          "incident_id": "sqn3fg1l96dl",
+          "created_at": "2026-11-12T18:34:20.058Z",
+          "updated_at": "2026-11-12T18:34:20.058Z",
+          "display_at": "2026-11-12T18:34:20.058Z",
+          "affected_components": [
+            { "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "partial_outage", "new_status": "partial_outage" },
+            { "code": "bpp5gb3hpjcl", "name": "Claude Cowork", "old_status": "operational", "new_status": "partial_outage" }
+          ],
+          "deliver_notifications": true,
+          "custom_tweet": null,
+          "tweet_id": null
+        },
+        { "id": "y9jr557n4093", "status": "investigating", "body": "We are investigating elevated errors and slow responses affecting the Microsoft 365 connector. Requests to mail, SharePoint, Teams chat and calendar through the connector may fail, and new connections to the connector may not complete. We will provide an update as soon as possible.", "incident_id": "sqn3fg1l96dl", "created_at": "2026-11-12T17:52:45.043Z", "updated_at": "2026-11-12T17:52:45.043Z", "display_at": "2026-11-12T17:52:45.043Z", "affected_components": [{ "code": "rwppv331jlwc", "name": "claude.ai", "old_status": "operational", "new_status": "partial_outage" }], "deliver_notifications": true, "custom_tweet": null, "tweet_id": null }
+      ],
+      "components": [
+        { "id": "rwppv331jlwc", "name": "claude.ai", "status": "major_outage", "created_at": "2023-07-11T17:52:24.275Z", "updated_at": "2026-11-13T09:58:58.125Z", "position": 1, "description": null, "showcase": true, "start_date": "2023-07-11", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false },
+        { "id": "bpp5gb3hpjcl", "name": "Claude Cowork", "status": "degraded_performance", "created_at": "2026-04-01T17:39:47.692Z", "updated_at": "2026-11-12T22:24:27.949Z", "position": 5, "description": null, "showcase": true, "start_date": "2026-04-01", "group_id": null, "page_id": "tymt9n04zgry", "group": false, "only_show_if_degraded": false }
+      ],
+      "reminder_intervals": "[]"
+    }
+  ],
+  "scheduled_maintenances": [],
+  "status": { "indicator": "major", "description": "Partial System Outage" }
+}

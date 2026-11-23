@@ -97,6 +97,7 @@ test('merge args pin the head commit and add --admin only on retry', () => {
   assert.ok(shouldRetryWithAdmin('GraphQL: Required status check "CSharp" is failing'));
   assert.ok(shouldRetryWithAdmin('X Pull request is not mergeable: the base branch policy prohibits the merge.'));
   assert.ok(!shouldRetryWithAdmin('Pull request has merge conflicts'));
+  assert.ok(!shouldRetryWithAdmin('X Pull request link-foundation/links-notation#343 is not mergeable: the merge commit cannot be cleanly created.'), 'a conflict, worded without "conflict" (issue #3863)');
   assert.ok(!shouldRetryWithAdmin('GraphQL: Could not resolve to a PullRequest'));
 });
 
@@ -141,7 +142,7 @@ test('every open Dependabot pull request is merged without waiting for CI/CD (li
   assert.match(summarizeDependabotPullRequests(result), /4 of 4 open pull request\(s\) merged without waiting for CI\/CD/);
 });
 
-test('a merge blocked by branch rules is retried with --admin; conflicts and drafts are left open', async () => {
+test('a merge blocked by branch rules is retried with --admin; conflicts go to Dependabot and drafts are left open', async () => {
   const prs = [dependabotPr(1, 'Blocked by required checks'), dependabotPr(2, 'Ruleset without bypass'), dependabotPr(3, 'Conflicting', { mergeable: 'CONFLICTING' }), dependabotPr(4, 'Draft', { isDraft: true })];
   const gh = fakeGh({
     prs,
@@ -151,14 +152,15 @@ test('a merge blocked by branch rules is retried with --admin; conflicts and dra
       return { code: 1, stdout: '', stderr: 'GraphQL: Repository rule violations found\n\nRequired status check "CSharp" is expected.\n' };
     },
   });
-  const result = await mergeDependabotPullRequests({ repository, run: gh.run, warn: () => {} });
+  const result = await mergeDependabotPullRequests({ repository, run: gh.run, warn: () => {}, recreateTimeoutMs: 0 });
   const byNumber = Object.fromEntries(result.pullRequests.map(entry => [entry.number, entry]));
   assert.equal(byNumber[1].outcome, 'merged');
   assert.equal(byNumber[1].admin, true);
   assert.equal(byNumber[2].outcome, 'failed');
   assert.match(byNumber[2].error, /Repository rule violations/);
-  assert.equal(byNumber[3].outcome, 'skipped');
+  assert.equal(byNumber[3].outcome, 'recreate-requested', 'not superseded: Dependabot is asked to recreate it (issue #3863)');
   assert.equal(byNumber[4].outcome, 'skipped');
+  assert.ok(gh.calls.some(call => call.join(' ') === `gh pr comment 3 --repo ${repository.fullName} --body @dependabot recreate`));
   assert.deepEqual(
     gh.merges().map(call => call.slice(3).join(' ')),
     ['1 --repo link-foundation/links-notation --merge --match-head-commit sha1', '1 --repo link-foundation/links-notation --merge --match-head-commit sha1 --admin', '2 --repo link-foundation/links-notation --merge --match-head-commit sha2', '2 --repo link-foundation/links-notation --merge --match-head-commit sha2 --admin']
@@ -168,7 +170,7 @@ test('a merge blocked by branch rules is retried with --admin; conflicts and dra
   assert.match(section, /\[#1\]\(.*\/pull\/1\) Blocked by required checks.*merged with `--admin`/);
   assert.match(section, /could not be merged automatically/);
   assert.match(section, /\[#2\].*merge failed: GraphQL: Repository rule violations found/);
-  assert.match(section, /\[#3\].*skipped: merge conflict/);
+  assert.match(section, /\[#3\].*Dependabot was asked to recreate it/);
   assert.match(section, /Apply each of these updates/);
 });
 
@@ -196,7 +198,7 @@ test('nothing open, or merging disabled, adds no section', async () => {
   assert.equal(buildDependabotPullRequestsSection(result), '');
   assert.equal(buildDependabotPullRequestsSection({ enabled: false, pullRequests: [] }), '');
   assert.equal(buildDependabotPullRequestsSection(null), '');
-  assert.doesNotMatch(buildUpdateDependenciesIssueBody({ repository, languages: {}, files: [] }), /Dependabot pull requests merged/);
+  assert.doesNotMatch(buildUpdateDependenciesIssueBody({ repository, languages: {}, files: [] }), /Dependabot pull requests (merged|handled)/);
 });
 
 test('the generated issue merges first, then leads with the note to fix every error', async () => {
@@ -208,7 +210,7 @@ test('the generated issue merges first, then leads with the note to fix every er
   assert.ok(firstMerge >= 0 && firstMerge < firstContextRead && firstContextRead < create, 'merged before the context is read and the issue is created');
 
   const body = gh.calls[create].body;
-  assert.ok(body.startsWith('### Dependabot pull requests merged before this issue was created'), body.slice(0, 200));
+  assert.ok(body.startsWith('### Open Dependabot pull requests handled before this issue was created'), body.slice(0, 200));
   for (const number of [343, 344, 346, 347]) assert.match(body, new RegExp(`\\[#${number}\\]\\(${repository.url}/pull/${number}\\)`));
   assert.match(body, /without waiting for CI\/CD/);
   assert.match(body, /\*\*Fix every error these merges introduced\.\*\*/);
@@ -221,7 +223,7 @@ test('the opt-out skips the merge and the note', async () => {
   const gh = fakeGh();
   const prepared = await prepareUpdateDependenciesIssue({ repository, run: gh.run, warn: () => {}, mergeDependabotPrs: false });
   assert.equal(gh.calls.filter(call => call[1] === 'pr').length, 0);
-  assert.doesNotMatch(prepared.body, /Dependabot pull requests merged/);
+  assert.doesNotMatch(prepared.body, /Dependabot pull requests (merged|handled)/);
   assert.match(summarizeDependabotPullRequests(prepared.dependabot), /merging disabled/);
 });
 

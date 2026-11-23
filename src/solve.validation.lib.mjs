@@ -339,7 +339,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'opencode') {
       // Validate OpenCode connection
       const opencodeLib = await import('./opencode.lib.mjs');
-      isToolConnected = await opencodeLib.validateOpenCodeConnection(model);
+      isToolConnected = await opencodeLib.validateOpenCodeConnection(model, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
         return false;
@@ -347,7 +347,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'gemini') {
       // Validate Gemini connection
       const geminiLib = await import('./gemini.lib.mjs');
-      isToolConnected = await geminiLib.validateGeminiConnection(model);
+      isToolConnected = await geminiLib.validateGeminiConnection(model, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Gemini CLI connection', { level: 'error' });
         return false;
@@ -355,7 +355,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
-      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose);
+      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;
@@ -364,6 +364,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
       // Validate Agent connection
       const agentLib = await import('./agent.lib.mjs');
       isToolConnected = await agentLib.validateAgentConnection(model, {
+        useRouter: argv.useRouter === true,
         requireLiveInput: !!(argv.autoInputUntilMergeable || argv.acceptIncommingCommentsAsInput),
       });
       if (!isToolConnected) {
@@ -373,7 +374,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'qwen') {
       // Validate Qwen Code connection
       const qwenLib = await import('./qwen.lib.mjs');
-      isToolConnected = await qwenLib.validateQwenConnection(model);
+      isToolConnected = await qwenLib.validateQwenConnection(model, undefined, { useRouter: argv.useRouter === true });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
         return false;

@@ -76,7 +76,7 @@ test('a rule that cannot be detected beforehand is still classified from the DEL
 
 test('an unreadable rules API falls back to attempting the DELETE', async () => {
   const { result, calls } = await scenario({ rules: null, rulesError: 'HTTP 403: Resource not accessible by integration' });
-  assert.deepEqual(result, { owned: result.owned, errors: [], retainedBranches: [] });
+  assert.deepEqual(result, { owned: result.owned, errors: [], retainedBranches: [], incomplete: false });
   assert.equal(calls.filter(call => call.method === 'DELETE').length, 3);
 });
 

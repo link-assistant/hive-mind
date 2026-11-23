@@ -1,0 +1,33 @@
+Router guard diagnostic failure handling, 2026-10-31 UTC
+
+Six strict controls use separate finite Node children with 32 MiB heaps,
+five-second child deadlines, 64 KiB output bounds and ten-second test deadlines.
+Two cover throwing/rejected initial arm diagnostics. Four combine synchronous
+or asynchronous stop-handler failure with throwing or rejected diagnostics.
+All use synthetic credentials and no native AI CLI or provider connection.
+
+Immediately before repair, all six fail at 0db1b5d09: initial diagnostics throw
+from guard line 322; handler failure diagnostics reject from line 312 and leave
+an unhandled rejection. Complete before log SHA256:
+2dd585c77309bae019d90d3928036ab16af11bd0573a28bfbef023ab9affbc7e
+
+Diagnostics now catch synchronous exceptions and handle rejected promises
+without awaiting a logger. Stop-handler calls run inside the handled promise
+chain so synchronous exceptions take the same path as rejected callbacks.
+The first violation stays sticky and the handler is invoked exactly once.
+After: all six pass without unhandled child rejections. After log SHA256:
+2aec0eafea23d35a799a289437fe40b2e8ac019926cfe6e2bfa00d313b51c1fa
+
+All 699 affected tests pass across 25 sequential files (two suites), including
+native credential stores, primary/four-adapter command lifetime, admission,
+connection checks, provider retries, Formal AI parity and existing timeout/
+result-close controls. Focused log (1,251 lines) SHA256:
+77f7194d9ca3bc031149c55936a6c0bdbd8e3b7775f584ce6fc3ac4bcb0bc24a
+Repository ESLint (zero warnings), all 42 GitHub retry-shell checks, Secretlint,
+duplication, file limits and changed-file formatting pass. The new wrapper
+joins the combined complete default suite before the next authorized push.
+
+Limits: a retained refusal does not prove successful native cancellation after
+a broken kill implementation. Connection-probe lifetime, full native request
+authority, durable Router audit/restart, complete six-tool canonical storage
+and migration remain unfinished. Keep the PR draft and inventory open.

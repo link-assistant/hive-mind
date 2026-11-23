@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Qwen prompts module
@@ -12,6 +13,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getReviewBotsSubPrompt } from './review-bots.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -21,7 +23,7 @@ import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, tool = 'qwen' } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, tool = 'qwen' } = params;
 
   const promptLines = [];
 
@@ -63,6 +65,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
+  // Issue #4063: repository notices found right after the clone (e.g. uncommitted changes) go to the AI in every run, new or continued
+  if (cloneStatusLines?.length > 0) promptLines.push(...cloneStatusLines);
+
   const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
   if (issueResearchPrompt) {
     promptLines.push(issueResearchPrompt, '');
@@ -99,7 +104,7 @@ export const buildSystemPrompt = params => {
     ciExamples = promptText('prompt.system.templates.qwen-prompts.buildSystemPrompt.text4', { owner: String(owner), repo: String(repo), workspaceTmpDir: String(workspaceTmpDir), branchName: String(branchName), prNumber: String(prNumber), issueNumber: String(issueNumber) });
   }
 
-  return promptText('prompt.system.templates.qwen-prompts.buildSystemPrompt.text9', {
+  const systemPrompt = promptText('prompt.system.templates.qwen-prompts.buildSystemPrompt.text9', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     value2: String(getExperimentsExamplesSubPrompt(argv)),
     workspaceInstructions: String(workspaceInstructions),
@@ -117,9 +122,10 @@ export const buildSystemPrompt = params => {
     value38: String(getArchitectureCareSubPrompt(argv)),
     value39: String(getUpdateAllDependenciesSubPrompt(argv)),
     value40: String(getReportDependenciesIssuesSubPrompt(argv)),
-    value41: String(getIssueCompletionSubPrompt(params)),
+    value41: String(getIssueCompletionSubPrompt(params) + getReviewBotsSubPrompt(params)), // Issue #4081: review apps
     value42: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 export default {

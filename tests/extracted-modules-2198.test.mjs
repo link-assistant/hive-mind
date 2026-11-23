@@ -1,5 +1,5 @@
 /**
- * @hive-mind-test-suite default
+ * @hive-mind-test-suite default,pr-essential
  *
  * Issue #2198: the "Checks and release" run ended with two CI warnings —
  *

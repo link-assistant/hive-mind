@@ -1,3 +1,4 @@
+import { withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText, localizePromptConstant } from './prompt-text.lib.mjs';
 /**
  * Claude prompts module
@@ -14,6 +15,7 @@ import { primaryModelNames } from './models/index.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { getIssueCompletionSubPrompt, ISSUE_COMPLETION_GOAL } from './issue-completion.prompts.lib.mjs';
+import { getReviewBotsSubPrompt } from './review-bots.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
@@ -23,7 +25,7 @@ import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, cloneStatusLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
 
   if (argv?.minimalRestartContext && argv.resume) {
     const lines = feedbackLines && feedbackLines.length > 0 ? feedbackLines : [promptText('prompt.templates.claude-prompts.buildUserPrompt.text1')];
@@ -85,6 +87,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
+  // Issue #4063: repository notices found right after the clone (e.g. uncommitted changes) go to the AI in every run, new or continued
+  if (cloneStatusLines?.length > 0) promptLines.push(...cloneStatusLines);
+
   const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
   if (issueResearchPrompt) {
     promptLines.push(issueResearchPrompt, '');
@@ -131,7 +136,7 @@ export const buildSystemPrompt = params => {
   }
 
   // Use backticks for jq commands to avoid quote escaping issues
-  return promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text17', {
+  const systemPrompt = promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text17', {
     RESOURCE_AWARE_SOLVER_IDENTITY: String(localizePromptConstant(RESOURCE_AWARE_SOLVER_IDENTITY)),
     workspaceInstructions: String(workspaceInstructions),
     value3: String(argv && argv.promptIssueReporting ? promptText('prompt.system.templates.claude-prompts.buildSystemPrompt.text7', { owner: String(owner), repo: String(repo) }) : ''),
@@ -156,9 +161,10 @@ export const buildSystemPrompt = params => {
     value46: String(getUpdateAllDependenciesSubPrompt(argv)),
     value47: String(getReportDependenciesIssuesSubPrompt(argv)),
     value48: String(getHandoffSubPrompt(argv)),
-    value49: String(getIssueCompletionSubPrompt(params)),
+    value49: String(getIssueCompletionSubPrompt(params) + getReviewBotsSubPrompt(params)), // Issue #4081: review apps
     value50: String(buildWorkLanguageDirective()),
   });
+  return withGeolocationPolicy(systemPrompt, argv);
 };
 
 // Export all functions as default object too

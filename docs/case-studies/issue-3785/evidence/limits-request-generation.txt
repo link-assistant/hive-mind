@@ -1,0 +1,33 @@
+Pending limits credential generations, 2026-10-31 UTC
+
+Before: all 17 initial regressions fail. Pending Claude/Codex success, auth
+failure and rate-limit responses survive logout or atomic login replacement.
+An older completion overwrites a newer valid cache entry. Selected Codex
+storage changes during a request also bypass the initial admission.
+Log: /tmp/issue-3785-recovery/limits-request-generation-before.log
+
+After the shared-cache repair, all twelve additional direct-reader regressions
+still fail: Claude usage/profile and Codex usage publish a successful previous
+account response after logout or replacement during headers or body reading.
+Log: /tmp/issue-3785-recovery/limits-request-generation-direct-before.log
+
+The repair captures a bounded file generation before bearer reading and checks
+it before dispatch and after the complete response. Shared-cache publication
+rechecks the generation and selected Codex storage before writing any result.
+Retired work cannot overwrite a newer cache entry. Completed rate-limit errors
+also belong to their credential generation. Each coalesced caller checks its
+own storage admission. File generation checks compare the held descriptor with
+the public path after hashing; bytes and digests stay internal.
+
+All 32 new regressions pass, alongside eight related test files: Node reports
+96 passing tests/file targets, zero failures. Legacy display and Telegram test
+files contain additional passing internal assertions. HTTP is mocked; native
+filesystem replacement, deletion, permissions and conflicting private auth
+files are real. Every credential is synthetic and no upstream account is used.
+Log: /tmp/issue-3785-recovery/limits-request-generation-related-after.log
+Test: tests/issue-3785-limits-request-generation.test.mjs
+
+This closes the demonstrated local response/cache races. Default canonical
+selection, native coordinated refresh, daemon-backed root identity, production
+credential-copy removal and the complete six-tool lifecycle remain unfinished.
+These checks do not establish an operation lease across network dispatch.

@@ -27,20 +27,26 @@
 const FREE_COST = Object.freeze({ input: 0, output: 0, cache_read: 0, cache_write: 0 });
 
 /** Full Agent model id (`provider/model`) -> the provider entry Agent needs. */
-export const AGENT_PROVIDER_MODEL_OVERLAYS = Object.freeze({
-  'kilo/nemotron-3-super-free': Object.freeze({
-    id: 'nvidia/nemotron-3-super-120b-a12b:free',
-    name: 'Nemotron 3 Super (Free)',
-    release_date: '2026-03-11',
+const freeTextModel = (id, name, context, output, releaseDate) =>
+  Object.freeze({
+    id,
+    name,
+    release_date: releaseDate,
     attachment: false,
     reasoning: true,
     temperature: true,
     tool_call: true,
     cost: FREE_COST,
-    limit: Object.freeze({ context: 262144, output: 32768 }),
+    limit: Object.freeze({ context, output }),
     modalities: Object.freeze({ input: Object.freeze(['text']), output: Object.freeze(['text']) }),
     options: Object.freeze({}),
-  }),
+  });
+
+export const AGENT_PROVIDER_MODEL_OVERLAYS = Object.freeze({
+  // Preserve the historical alias identity; never silently select a paid model.
+  'kilo/nemotron-3-super-free': freeTextModel('nvidia/nemotron-3-super-120b-a12b:free', 'Nemotron 3 Super (Free)', 262144, 32768, '2026-03-11'),
+  // Public Kilo catalogue, 2026-11-04: exact free id, tool support and limits.
+  'kilo/nemotron-3.5-lightning-free': freeTextModel('nvidia/nemotron-3.5-lightning:free', 'NVIDIA: Nemotron 3.5 Lightning (free)', 1000000, 65536, '2026-08-11'),
 });
 
 const parseConfigObject = content => {

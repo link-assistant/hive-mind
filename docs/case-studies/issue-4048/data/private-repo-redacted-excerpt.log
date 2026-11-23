@@ -1,0 +1,116 @@
+# Redacted excerpt of the private-repo session log (issue #4048, case A).
+# Repository, PR/issue numbers, run IDs, commit SHA, workflow name and product content are replaced;
+# only Hive Mind output relevant to the hang is kept. Lines are verbatim otherwise.
+
+## Monitoring start and check #1
+
+🔄 AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE 
+   Monitoring PR:          #N
+   Mode:                   Auto-restart-until-mergeable (will NOT auto-merge)
+   Checking interval:      120 seconds (minimum: 120s)
+   Initial cooldown:       120 seconds
+   Max restart iterations: 5
+   Max limit resumes:      5
+   Watch timeout:          24 hour(s)
+   Wait for all repo actions: No (PR-scoped CI only)
+   Stop conditions:        PR merged, PR closed, or becomes mergeable
+   Restart triggers:       New non-bot comments, issue title/description edits, CI failures, merge conflicts
+
+Press Ctrl+C to stop watching manually
+
+⏳ Initial cooldown:         Waiting 120s before first check...
+✅ Cooldown complete:        Starting monitoring loop
+
+🔍 Check #1:                 4:34:15 PM
+[VERBOSE] /merge: PR #N detailed CI status: failure
+[VERBOSE] /merge:   Total: 10, Passed: 9, Failed: 1, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 2 workflow runs for PR #N at SHA <head-sha>
+[VERBOSE] /merge: PR #N mergeable: true, state: CLEAN, isDraft: false
+[VERBOSE] /merge: PR #N is CLEAN/MERGEABLE according to GitHub; ignoring 1 stale CI failure/cancellation blocker(s) from the raw check-run rollup
+  🔍 Multi-mechanism CI consensus check: Waiting 10s then verifying...
+[VERBOSE] /merge: PR #N detailed CI status: failure
+[VERBOSE] /merge:   Total: 10, Passed: 9, Failed: 1, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 2 workflow run(s) for https://github.com/owner/private-repo/commit/<head-sha>
+[VERBOSE] /merge:   - Manual evals [completed/failure]: https://github.com/owner/private-repo/actions/runs/<run-id>
+[VERBOSE] /merge:   - CI [completed/success]: https://github.com/owner/private-repo/actions/runs/<run-id>
+[VERBOSE] consensus: CheckRuns=false(failure), WorkflowRuns=true(2), AllCommits=skip, RepoActions=skip → DISAGREE
+  🔄 CI mechanisms DISAGREE: CheckRuns=failure, WorkflowRuns=0 in-progress, AllCommits=skipped, RepoActions=skipped
+  ⏳ Continuing to monitor... Mechanisms must agree before declaring mergeable
+  ⏱️ Next check in:          120 seconds...
+
+🔍 Check #2:                 4:36:42 PM
+[VERBOSE] /merge: PR #N detailed CI status: failure
+[VERBOSE] /merge:   Total: 10, Passed: 9, Failed: 1, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 2 workflow runs for PR #N at SHA <head-sha>
+[VERBOSE] /merge: PR #N mergeable: true, state: CLEAN, isDraft: false
+
+## (checks #2..#296 are identical: 'CI mechanisms DISAGREE: CheckRuns=failure ...')
+
+## Last check, /stop, and the container post-mortem
+[VERBOSE] /merge: PR #N mergeable: true, state: CLEAN, isDraft: false
+[VERBOSE] /merge: PR #N is CLEAN/MERGEABLE according to GitHub; ignoring 1 stale CI failure/cancellation blocker(s) from the raw check-run rollup
+  🔍 Multi-mechanism CI consensus check: Waiting 10s then verifying...
+[VERBOSE] /merge: PR #N detailed CI status: failure
+[VERBOSE] /merge:   Total: 10, Passed: 9, Failed: 1, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 2 workflow run(s) for https://github.com/owner/private-repo/commit/<head-sha>
+[VERBOSE] /merge:   - Manual evals [completed/failure]: https://github.com/owner/private-repo/actions/runs/<run-id>
+[VERBOSE] /merge:   - CI [completed/success]: https://github.com/owner/private-repo/actions/runs/<run-id>
+[VERBOSE] consensus: CheckRuns=false(failure), WorkflowRuns=true(2), AllCommits=skip, RepoActions=skip → DISAGREE
+  🔄 CI mechanisms DISAGREE: CheckRuns=failure, WorkflowRuns=0 in-progress, AllCommits=skipped, RepoActions=skipped
+  ⏳ Continuing to monitor... Mechanisms must agree before declaring mergeable
+  ⏱️ Next check in:          120 seconds...
+
+[interrupt] +0ms handler entered
+
+⚠️  Session interrupted by user (CTRL+C)
+[interrupt] +35ms auto-commit: start
+
+🔍 Checking for uncommitted changes...
+✅ No uncommitted changes found
+[interrupt] +181ms auto-commit: done
+[interrupt] +185ms draft-restore: start
+[interrupt] +190ms draft-restore: done
+📎 Uploading interrupted session logs to Pull Request...
+[interrupt] +196ms log-upload: start
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+📈 Resource usage (log upload start, 4MB log):
+   CPU load: 2.21 1.47 1.43 (6 CPUs)
+   Memory: 8.4 GB available / 11.7 GB total (3.2 GB used)
+   Process RSS: 129 MB, V8 heap: 56 MB used of 1.6 GB limit (3.5%)
+   Disk (/): 90.2 GB available / 192.7 GB total (53.2% used)
+   Container memory (cgroup v2): 539 MB used of 2.9 GB limit, peak 2.9 GB; processes killed by the OOM killer so far: 0
+📈 [RESOURCES] phase=log_upload_start ts=2026-11-12T04%3A53%3A00.830Z load1=2.21 load5=1.47 load15=1.43 cpuCount=6 memTotalBytes=12541489152 memAvailableBytes=9057763328 memUsedBytes=3483725824 processRssBytes=134811648 processHeapUsedBytes=58743216 processHeapTotalBytes=64229376 processExternalBytes=6512811 processHeapLimitBytes=1668546560 processHeapUsedPercent=3.5206219237897685 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=96818548736 diskUsedBytes=110064955392 diskUsedPercent=53.19710281543889 mem=8.4%20GB%20available%20%2F%2011.7%20GB%20total heap=56%20MB%20used%20of%201.6%20GB%20limit%20(3.5%25) disk=90.2%20GB%20available%20%2F%20192.7%20GB%20total cgroupVersion=2 cgroupMemLimitBytes=3135369216 cgroupMemCurrentBytes=564830208 cgroupMemPeakBytes=3136110592 cgroupOomEvents=0 cgroupOomKills=0
+  🤖 Using result JSON modelUsage (1 models): claude-opus-5-5
+  🤖 Model info fetched for comment
+  ⏭️  Log is 4MB — skipping inline comment construction, the log goes straight to gh-upload-log
+  📁 Log file too large for inline comment (4MB), using gh-upload-log
+  📎 Uploading log using gh-upload-log...
+  🔍 Repository visibility: private, log upload will be private
+🔍 Check #297:               4:53:00 AM
+  🧼 Streamed sanitize: 4303931 bytes in 5 block(s)
+  📤 Running: gh-upload-log /tmp/hive-mind-log-upload-v9SOwu/sanitized.log --private --description "Solution draft log for https://github.com/owner/private-repo/pull/N" --verbose
+[use-m] use('child_process') joined an in-flight load (alias child_process-v-latest)
+[VERBOSE] /merge: PR #N detailed CI status: failure
+[VERBOSE] /merge:   Total: 10, Passed: 9, Failed: 1, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 2 workflow runs for PR #N at SHA <head-sha>
+Exit evidence: unavailable (no attributed exit-time OOM or daemon restart evidence)
+
+=== Container post-mortem ===
+Container:  <container-id>
+Exit Code:  137 (SIGKILL - 128+9)
+OOMKilled:  false
+StartedAt:  2026-11-11T14:47:36.341029493Z
+FinishedAt: 2026-11-12T04:53:10.784423861Z
+Lifetime:   50734.443s
+Error:      (none)
+Memory:     memory.max=3135369216 memory.peak=3136110592 oom=0 oom_kill=0
+
+Container kept for investigation: <container-id>
+Reason: exitCode=137 oomKilled=false
+Re-enter while running: $ --attach <container-id>
+Continue the stored command: $ --resume <container-id>
+Run another command (legacy containers snapshot the filesystem into a new container): $ --resume <container-id> -- <command>
+Remove when done: docker rm -f <container-id>
+
+==================================================
+Finished: 2026-11-12 04:53:13.639

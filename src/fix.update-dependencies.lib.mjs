@@ -573,10 +573,11 @@ function shortSha(sha) {
  * block so it stays available without displacing the instructions. When open
  * Dependabot pull requests were merged first (issue #3413), a section listing
  * them and asking for every error they introduced to be fixed leads the body.
+ * `toolVersion` (issue #4061) names the hive-mind release that collected it.
  */
 export { buildLanguagesSection };
 
-export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true, dependabot = null }) {
+export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, commit, languages, files = [], filesTruncated = false, omittedOptions = UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, reportDependenciesIssues = true, dependabot = null, toolVersion = null }) {
   const { detected } = mapRepositoryToEcosystems({ languages, files });
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
@@ -602,6 +603,11 @@ export function buildUpdateDependenciesIssueBody({ repository, defaultBranch, co
     promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text30', { value1: String(detected.length) }),
     promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text31', { value1: String(detected.reduce((sum, entry) => sum + entry.manifests.length, 0)) }),
   ];
+  // Issue #4061: record which hive-mind release wrote the issue, so a body
+  // produced by an outdated deployment can be told apart from a current one.
+  if (toolVersion) {
+    sections.push(promptText('prompt.templates.fix-update-dependencies.buildUpdateDependenciesIssueBody.text34', { value1: String(toolVersion) }));
+  }
 
   // Issue #3413: the Dependabot pull requests merged before this issue was
   // created come first, because fixing what they broke is part of the task.

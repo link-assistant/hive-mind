@@ -13,6 +13,7 @@ import { createBranchFixture, cleanupBranchFixture, fixtureBranch } from './task
 import { verifyGeneratedWorkflow } from './e2e-workflow.lib.mjs';
 import { detectWorkflowPushRejection, splitE2eVerdict, stagedWorkflowExecution, stagedWorkflowTarget, workflowDirectoryForLayer, workflowPushRejectionResult } from './e2e-matrix-harness.lib.mjs';
 import { gh, ghApi, ghJson, ghList } from './github-actions.lib.mjs';
+import { collectGeneratedEvidence } from './e2e-generated-evidence.lib.mjs';
 
 const env = process.env;
 env.FORMAL_AI_INSTALL_GRANT ||= 'workspace';
@@ -103,6 +104,7 @@ try {
   const solveLog = existsSync(solveLogPath) ? readFileSync(solveLogPath, 'utf8') : '';
   pullRequest = selectPullRequest(await ghJson(['pr', 'list', '--repo', repository, '--state', 'all', '--limit', '100', '--json', 'number,headRefName,isDraft,state,title,body,url,headRefOid,baseRefName']), issueNumber);
   let files = [];
+  let generatedEvidence = null;
   let execution = { mode: 'none', checks: [], workflowLog: '' };
   const comments = [];
   if (pullRequest) {
@@ -113,6 +115,7 @@ try {
     }
     const changes = await ghList(`repos/${repository}/pulls/${pullRequest.number}/files?per_page=100`);
     files = changes.map(file => file.filename);
+    generatedEvidence = await collectGeneratedEvidence({ changes, issueNumber, pullRequest, tool, model, version: typeof evidence.formalAiVersion === 'string' ? evidence.formalAiVersion.replace(/^formal-ai /, '') : null, readBlob: sha => ghApi(`repos/${repository}/git/blobs/${sha}`), readTree: sha => ghApi(`repos/${repository}/git/trees/${sha}?recursive=1`) });
     const workflows = files.filter(file => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(file));
     const staged = workflowDir === '.github/workflows/' ? [] : files.filter(file => file.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(file.slice(workflowDir.length)));
     // act runs each workflow from a clone of the head branch; a staged workflow is copied into place first.
@@ -147,7 +150,7 @@ try {
   // A workflow a later push did deliver is not missing (#3332).
   const rejection = detectWorkflowPushRejection(solveLog, { files: pullRequest ? files : null });
   harness.push(rejection ? workflowPushRejectionResult(rejection, { layer: evidence.layer }) : { name: 'workflow push accepted', ok: true, reason: 'no unrecovered workflow push rejection in solve.log' });
-  const evaluation = evaluateE2eRun({ pullRequest, files, checks: execution.checks, workflowLog: execution.workflowLog, comments, workflowDir });
+  const evaluation = evaluateE2eRun({ pullRequest, files, checks: execution.checks, workflowLog: execution.workflowLog, comments, workflowDir, generatedEvidence });
   if (baseBranch && pullRequest?.baseRefName !== baseBranch) evaluation.results.push({ name: 'isolated base branch', ok: false, reason: `Expected ${baseBranch}, received ${pullRequest?.baseRefName}` });
   if (session.code !== 0) evaluation.results.push({ name: 'solve completed', ok: false, reason: `solve exited ${session.code}` });
   evaluation.passed = evaluation.results.every(result => result.ok);

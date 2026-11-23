@@ -1,0 +1,38 @@
+Docker selected native authority admission, 2026-10-31 UTC
+
+Root cause: Docker auth/history mount construction and host preparation ignored
+explicit native adapter selectors. A root process could use canonical generation
+G1 while its Docker task mounted conventional generation G0 instead. The native
+selector was also omitted from the child environment. No projection existed.
+
+Before repair, nineteen regression cases fail and three controls pass. Eighteen
+cover each of six Codex, two Gemini and one Qwen auth/history selectors, including
+explicit empty values. One uses two actual private synthetic credential files
+with distinct generations and confirms the competing conventional authority.
+Log: /tmp/issue-3785-recovery/docker-selected-storage-before.log
+
+Repair: refuse unsupported selected native storage before any host preparation
+or mount probes and in the launch argument builder. Preserve explicit Router
+selection and vendor withholding. Keep the launch diagnostic structural, without
+selected path values or credential contents. Unselected conventional behavior
+and selectors belonging to another tool remain unchanged.
+
+Reproduce and verify:
+  env -u NODE_OPTIONS node --max-old-space-size=128 --test \
+    tests/issue-3785-docker-selected-storage.test.mjs
+All 22 new tests pass. The eighteen selector cases exercise all three production
+boundaries and assert zero filesystem operations before preparation refusal.
+The actual-files case preserves both distinct credential generations.
+
+Related verification: all 84 Node test targets pass across thirteen files,
+including Claude history preparation, Agent/OpenCode XDG data, daemon backing
+identity, packaged mount gates, legacy Docker mounting and Router isolation.
+Legacy file targets also contain 280 passing internal assertions.
+Logs: /tmp/issue-3785-recovery/docker-selected-storage-{after,related,mount-controls}.log
+
+The complete 750-file default suite passed on pushed a3ca1a1a8 before this repair.
+The complete 751-file default suite also passes after this repair, with
+NODE_OPTIONS removed, unchanged production/test source during the run and zero
+cgroup OOM events. Log: /tmp/issue-3785-recovery/docker-selected-storage-default-suite.log. This refusal does not implement the missing projections,
+default canonical selection, migration, replacement-safe unselected credentials
+or the full six-tool authentication/history lifecycle. Those criteria remain open.

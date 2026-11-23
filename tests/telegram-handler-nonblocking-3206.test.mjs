@@ -7,8 +7,8 @@
  * The real src/telegram-bot.mjs runs in a child process. The preload in
  * tests/fixtures/issue-3206/telegraf-harness.mjs replaces Telegraf with a fake
  * that polls exactly like Telegraf 4 (one batch at a time, `Promise.all`), and
- * the PATH starts with fake `docker`, `gh`, `pgrep` and `$` binaries: `docker pull`
- * hangs, everything else fails fast. No network and no real docker is used.
+ * the PATH starts with fake `docker`, `gh`, `pgrep` and `$` binaries. `docker`
+ * answers the daemon probes and hangs on `pull`. No network or real Docker is used.
  *
  * The `/help` update becomes available as soon as the `docker pull` starts; its
  * reply must follow within one second. A repeated `/codex` for the same URL in
@@ -49,6 +49,7 @@ function prepareSandbox() {
     join(bin, 'docker'),
     `echo "docker $*" >> "${join(dir, 'calls.log')}"
 case "$1" in
+  version) echo '28.0.0'; exit 0;;
   pull) touch "${pullStarted}"; i=0; while [ -e "${alive}" ] && [ $i -lt 300 ]; do sleep 0.1; i=$((i+1)); done; exit 1;;
   info) echo '{}'; exit 0;;
   *) exit 1;;
@@ -78,7 +79,7 @@ function commandUpdate(id, text) {
 function cleanEnv(overrides) {
   const env = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY)/.test(key)) continue;
+    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY|CODEX_|CLAUDE_|ANTHROPIC_|OPENAI_|XDG_)/.test(key)) continue;
     env[key] = value;
   }
   return { ...env, ...overrides };
@@ -92,11 +93,13 @@ function runBot({ sandbox, batches, watch, deadlineMs }) {
   return new Promise(resolve => {
     const events = [];
     let output = '';
-    const child = spawn(process.execPath, ['--import', join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs'), join(root, 'src/telegram-bot.mjs'), '--token', '3206:test-token', '--isolation', 'docker'], {
+    const child = spawn(process.execPath, ['--import', join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs'), join(root, 'src/telegram-bot.mjs'), '--isolation', 'docker'], {
       cwd: sandbox.home,
       env: cleanEnv({
         HOME: sandbox.home,
         PATH: `${sandbox.bin}:${process.env.PATH}`,
+        // Keep the harness IPC channel by using the private input path.
+        TELEGRAM_BOT_TOKEN: '3206:test-token',
         HIVE_HARNESS_BATCHES: JSON.stringify(batches),
         // Host load must not route the command into the queue.
         HIVE_MIND_CPU_THRESHOLD: '1000',

@@ -1,0 +1,35 @@
+✖ a Router dialect without a route for the selected tool rejects before native fallback (15.560163ms)
+✖ task routing uses the selected image dialect from the launch environment (5.297291ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 244.82339
+
+✖ failing tests:
+
+test at tests/issue-3785-router-admission.test.mjs:21:1
+✖ a Router dialect without a route for the selected tool rejects before native fallback (15.560163ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:22:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Router.*route/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-router-admission.test.mjs:25:1
+✖ task routing uses the selected image dialect from the launch environment (5.297291ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'startsWith')
+      at file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:27:38
+      at Array.some (<anonymous>)
+      at TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-router-admission.test.mjs:27:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

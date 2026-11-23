@@ -16,6 +16,8 @@ import { publishLogToPullRequestBranch } from './log-upload-branch.lib.mjs';
 import { getActiveDevelopmentLogRepositoryPath } from './development-log.finalize.lib.mjs';
 import { forgetLogUploadFailureReports, formatLogLinkLines, formatLogLocationConsoleLines, postLogUploadFailureComment } from './log-upload-failure.lib.mjs'; // Issue #2301, #2400
 import { recordLogAttached, rememberLogUsage, withLatestLogUsage } from './log-attach-state.lib.mjs'; // Issue #2563
+import { noteUploadedLogSize, statLogSize } from './log-upload-snapshot.lib.mjs'; // Issue #4091
+import { emitSolveProgress, getLastSolveProgress } from './solve-progress.lib.mjs'; // Issue #4091
 // Issue #2189: bracket the log-upload phase with resource samples. The incident
 // log's last sample was `after_agent`, ten minutes before the heap OOM, so the
 // phase that actually died left no telemetry at all.
@@ -36,7 +38,7 @@ import { repositoryWriteAccess } from './github-write-access.lib.mjs';
 import { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl } from './github-url-parser.lib.mjs';
 export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrlType, normalizeGitHubUrl, parseGitHubUrl };
 // Issue #1625: Named marker constants (single source of truth) + in-memory tracking for tool-posted comments. See tool-comments.lib.mjs for design.
-import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
+import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile, buildSessionEndFooter, monitoringFollowsSession } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 // Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
@@ -149,7 +151,7 @@ export const checkGitHubPermissions = async () => {
 };
 /** Check if user has write permissions to repo. Fails early if --fork not used. */
 export const checkRepositoryWritePermission = async (owner, repo, options = {}) => {
-  const { useFork = false, issueUrl = '' } = options;
+  const { useFork = false, issueUrl = '', initializingEmptyRepository = false } = options;
   // Skip check if fork mode is enabled - user will work in their own fork
   if (useFork) {
     await log('✅ Repository access check: Skipped (fork mode enabled)', { verbose: true });
@@ -186,6 +188,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       await log('✅ Repository write access: Confirmed');
       return true;
     }
+    if (initializingEmptyRepository) return false;
     // No write access - provide helpful error message
     await log('');
     await log('❌ NO WRITE ACCESS TO REPOSITORY', { level: 'error' });
@@ -380,7 +383,7 @@ export const buildUsageLimitSummary = ({ toolName, limitResetTime, sessionId, re
  * @param {number} params.logSizeBytes - Size of the log on disk, for the summary line
  * @returns {string} Markdown comment body
  */
-function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction }) {
+function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction, sessionEndFooter = buildSessionEndFooter() }) {
   let logComment;
   // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
   if (isUsageLimit) {
@@ -433,7 +436,7 @@ ${logContent}
 </details>
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
   } else {
     const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
     // Determine title based on session type (Issue #1152) Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so the filter in checkForAiCreatedComments matches every variant with a single substring check against the centralized marker constant.
@@ -462,10 +465,20 @@ ${logContent}
 </details>
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
   }
   return logComment;
 }
+/**
+ * Issue #4087: what the most recent {@link attachLogToGitHub} call left on its
+ * target. `failureCommentPosted` is true when a "Solution Draft Failed" comment
+ * for the session error reached it: either the log comment itself, or the
+ * "Log Upload Failed" comment, which carries the same heading and error. The
+ * auto-restart loop then does not repeat that error in a stop comment.
+ */
+let lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+export const getLastLogAttachOutcome = () => ({ ...lastLogAttachOutcome });
+
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 /**
  * Attach the session log to a pull request or issue.
@@ -479,7 +492,15 @@ ${logContent}
 export async function attachLogToGitHub(options) {
   // Issue #2563: every upload renders cost estimation, context and tokens usage and models used, also when its caller has no usage data.
   rememberLogUsage(options);
-  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options));
+  lastLogAttachOutcome = { attached: false, failureCommentPosted: false };
+  const outcome = { uploadFailureCommentPosted: false };
+  // Issue #4091: the size this upload covers (an interrupt uploads only what came after it), and a phase marker for the Telegram status.
+  const coveredBytes = options?.logFile ? await statLogSize(options.logFile) : null;
+  const progress = getLastSolveProgress();
+  if (progress && progress.phase !== 'finished') emitSolveProgress({ phase: 'uploading-log', since: new Date().toISOString() });
+  const attached = await attachLogToGitHubOnce(withLatestLogUsage(options), outcome);
+  if (attached === true && coveredBytes != null) noteUploadedLogSize(options.logFile, coveredBytes);
+  lastLogAttachOutcome = { attached: attached === true, failureCommentPosted: Boolean(options?.errorMessage) && !options?.isUsageLimit && (attached === true || outcome.uploadFailureCommentPosted) };
   global.latestLogAttachFailed = attached !== true;
   // Issue #2400: once the log is attached, a later failure is news again.
   if (attached === true) forgetLogUploadFailureReports(options);
@@ -487,7 +508,7 @@ export async function attachLogToGitHub(options) {
   return attached;
 }
 
-async function attachLogToGitHubOnce(options) {
+async function attachLogToGitHubOnce(options, outcome = {}) {
   const fs = (await use('fs')).promises;
   const {
     logFile,
@@ -524,13 +545,20 @@ async function attachLogToGitHubOnce(options) {
     recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
     uploadRetryDelaysMs = null, // Issue #2301: override the upload retry backoff (tests)
   } = options;
+  // Issue #4091: a pull request that is still monitored afterwards is not told the working session ended.
+  const monitoringContinues = targetType === 'pr' && !errorMessage && !isUsageLimit && (options.monitoringContinues ?? monitoringFollowsSession(argv));
+  const sessionEndFooter = buildSessionEndFooter({ monitoringContinues });
   // Issue #2318: a free model's comment carries one cost figure, the $0.00 of the cost estimation section.
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls, { freeModel: isFreeModelPricing(pricingInfo) }) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   let uploadPhaseEntered = false;
   // Issue #2301: every path that leaves the pull request without the log says so there, instead of posting nothing.
   const failureReport = { logSizeBytes: 0, isPublic: false, attempts: null, failureAction: '' };
-  const reportUploadFailure = failureReason => postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, ...failureReport });
+  const reportUploadFailure = async failureReason => {
+    const posted = await postLogUploadFailureComment({ $, owner, repo, targetNumber, targetType, log, errorMessage, failureReason, logFile, sessionEndFooter, ...failureReport });
+    if (posted === true) outcome.uploadFailureCommentPosted = true; // Issue #4087
+    return posted;
+  };
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -654,7 +682,7 @@ async function attachLogToGitHubOnce(options) {
         await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
       }
       logContent = escapeCodeBlocksInLog(logContent);
-      logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction });
+      logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction, sessionEndFooter });
       if (leadingSection) logComment = `${leadingSection}\n\n${logComment}`;
     } else if (verbose) {
       await log(`  ⏭️  Log is ${formatLogSizeForHumans(logStats.size)} — skipping inline comment construction, the log goes straight to gh-upload-log`, { verbose: true });
@@ -761,7 +789,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 ${logLinks('View complete solution draft log')}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
@@ -785,7 +813,7 @@ ${sessionNote}
 ${logLinks('View complete solution draft log')}
 
 ---
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+${sessionEndFooter}`;
           }
           if (leadingSection) logUploadComment = `${leadingSection}\n\n${logUploadComment}`;
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;

@@ -253,10 +253,12 @@ async function main() {
   console.log('=== Web Archive Fallback Check ===\n');
   console.log(`Reading lychee output from: ${lycheeOutput}\n`);
 
+  // This step only runs after lychee reported broken links, so a missing
+  // report is an error, never "everything archived" (issue #4025).
   if (!existsSync(lycheeOutput)) {
-    console.log('No lychee output file found. Skipping web archive check.');
-    setOutput('all_archived', 'true');
-    process.exit(0);
+    console.log(`::error title=Web Archive check::No lychee report at ${lycheeOutput}; cannot tell which links are broken.`);
+    setOutput('all_archived', 'false');
+    process.exit(1);
   }
 
   const content = readFileSync(lycheeOutput, 'utf-8');

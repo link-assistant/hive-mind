@@ -1,0 +1,8 @@
+codex-cli 0.164.0
+Reading API key from stdin...
+API key saved. Authentication is checked when you send a request.
+REPRODUCED: real Codex logout cannot remove the file-mounted credential.
+Successfully logged out
+Reading API key from stdin...
+API key saved. Authentication is checked when you send a request.
+CONTROL PASSED: real Codex can delete and recreate directory-mounted credentials.

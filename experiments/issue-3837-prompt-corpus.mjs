@@ -1,8 +1,13 @@
 /** Deterministic production prompt corpus for a behavior-preserving catalog migration. */
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { fileURLToPath, URL } from 'node:url';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+import console from 'node:console';
 import './issue-3837-installed-dependencies.mjs';
 import { initI18n } from '../src/i18n.lib.mjs';
+import { promptText } from '../src/prompt-text.lib.mjs';
 
 await initI18n('en');
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -16,7 +21,14 @@ for (const backend of ['agent', 'claude', 'codex', 'gemini', 'opencode', 'qwen']
     ['all-options', all],
   ]) {
     for (const kind of ['System', 'User']) {
-      const output = builders[`build${kind}Prompt`](params).replaceAll(root, '/REPO/').replaceAll(process.execPath, '/NODE');
+      let output = builders[`build${kind}Prompt`](params);
+      if (kind === 'System' && process.argv.includes('--without-geolocation-policy')) {
+        // Issue #4023 intentionally appends this policy; retain the historical corpus for everything before it.
+        const suffix = `\n\n${promptText('prompt.system.geolocation.private')}`;
+        assert.ok(output.endsWith(suffix), `${backend}: missing location policy suffix`);
+        output = output.slice(0, -suffix.length);
+      }
+      output = output.replaceAll(root, '/REPO/').replaceAll(process.execPath, '/NODE');
       corpus.push({ backend, profile, kind, bytes: Buffer.byteLength(output), sha256: createHash('sha256').update(output).digest('hex') });
     }
   }

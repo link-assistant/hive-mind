@@ -12,14 +12,13 @@
  */
 
 import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 
-import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION, REQUIRED_CLAUDE_QUIET_PERMISSIONS, ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
+import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION, REQUIRED_CLAUDE_QUIET_PERMISSIONS, ensureClaudeQuietConfig, resolveClaudeSettingsPath } from './claude-quiet-config.lib.mjs';
+import { CLAUDE_PROMPT_CACHE_DEFAULTS, isClaudePromptCacheTtl } from './claude-prompt-cache.lib.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { buildDisallowedToolsList, ensureDisallowedToolsInSettings } from './useless-tools.lib.mjs';
 
-export const resolveSettingsPath = settingsPath => settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
+export const resolveSettingsPath = resolveClaudeSettingsPath;
 
 export const createConfigureClaudeYargsConfig = yargsInstance =>
   yargsInstance
@@ -104,6 +103,9 @@ export const verifyConfigureClaude = async ({ settingsPath } = {}) => {
   const current = settings || {};
   for (const [key, value] of Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)) {
     if (current[key] !== value) missing.settings.push(key);
+  }
+  for (const key of Object.keys(CLAUDE_PROMPT_CACHE_DEFAULTS)) {
+    if (!isClaudePromptCacheTtl(current[key])) missing.settings.push(key);
   }
   const envSection = isPlainObject(current.env) ? current.env : {};
   for (const [key, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ENV)) {

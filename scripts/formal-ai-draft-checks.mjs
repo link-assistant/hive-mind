@@ -5,13 +5,14 @@
  *
  * Env: GITHUB_REPOSITORY, GH_TOKEN, CHECKS_REF (the head branch),
  * CHECKS_WORKFLOWS (the dispatched workflow files),
- * CHECKS_DEADLINE_MINUTES (how long to wait, default 80).
+ * CHECKS_DEADLINE_MINUTES (how long to follow the runs, default 200; a run
+ * still unfinished then gets an `error` status, never a pending one).
  *
  * @see scripts/formal-ai-draft-checks.lib.mjs
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { allRunsCompleted, commitStatusForRun, missingRunStatus, selectDispatchedRuns, statusKey } from './formal-ai-draft-checks.lib.mjs';
+import { allRunsCompleted, commitStatusForRun, missingRunStatus, selectDispatchedRuns, statusKey, unfinishedRunStatus } from './formal-ai-draft-checks.lib.mjs';
 import { ghApi } from './github-actions.lib.mjs';
 
 const env = process.env;
@@ -19,7 +20,8 @@ const repository = env.GITHUB_REPOSITORY;
 const ref = (env.CHECKS_REF || '').trim();
 if (!ref) throw new Error('formal-ai-draft-checks needs CHECKS_REF, the draft head branch');
 const workflows = (env.CHECKS_WORKFLOWS || 'release.yml security.yml links.yml workflows.yml').split(/[\s,]+/).filter(Boolean);
-const deadline = Date.now() + Number(env.CHECKS_DEADLINE_MINUTES || 80) * 60_000;
+const deadlineMinutes = Number(env.CHECKS_DEADLINE_MINUTES || 200);
+const deadline = Date.now() + deadlineMinutes * 60_000;
 const POLL_MS = 30_000;
 
 const { sha } = await ghApi(`repos/${repository}/commits/${encodeURIComponent(ref)}`);
@@ -44,5 +46,5 @@ for (;;) {
 
 for (const { workflow, run } of selected) {
   if (!run) await post(missingRunStatus(workflow, `No dispatched ${workflow} run appeared for this commit`));
-  else if (run.status !== 'completed') console.log(`${workflow} is still ${run.status}; its status stays pending until the next report: ${run.html_url}`);
+  else if (run.status !== 'completed') await post(unfinishedRunStatus({ workflow, run }, deadlineMinutes));
 }

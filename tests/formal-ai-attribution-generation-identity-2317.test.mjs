@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 
 /**
  * Regression test for issue #2317: the Formal AI attribution guard rejected a

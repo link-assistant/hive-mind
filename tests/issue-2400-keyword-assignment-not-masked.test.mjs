@@ -44,6 +44,7 @@ const masked = [
   ['token: s3cr3t-value-0123456789', 's3cr3t-value-0123456789'],
   ['api_key = falsehood-is-not-a-keyword', 'falsehood-is-not-a-keyword'],
   ['SECRET=awaitingApproval42xyz', 'awaitingApproval42xyz'],
+  ['token=new-secret-0123456789', 'new-secret-0123456789'],
 ];
 
 for (const [line, secret] of masked) {

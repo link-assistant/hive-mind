@@ -1,0 +1,35 @@
+Actual native Gemini 0.65.0 terminal resume with a live session writer
+
+Issue: https://github.com/link-assistant/hive-mind/issues/3785
+PR: https://github.com/link-assistant/hive-mind/pull/3786
+Local runtime: Node 26.12.1; fresh Node 24 CI is still required.
+
+The actual headless CLI completes a healthy write_file edit and native
+conversation. Dispose its complete private home, load the same session through
+a fresh actual ACP, submit a healthy prompt, and keep that native process alive.
+Start the actual terminal with a third private home, --resume and an automatic
+initial prompt for the actively owned session.
+
+Twenty-one-stage combined source, with no additional source repair:
+  PASS: actual headless edit and canonical conversation.
+  PASS: actual ACP resumes original model history and retains its writer claim.
+  PASS: the actual terminal displays canonical history refusal and makes no
+        further provider request, while the real owner process remains alive.
+  PASS: an actual typed prompt after refusal remains disabled, without another
+        provider request.
+  PASS: project contents, acknowledged prompt/checkpoint metadata, and prior
+        conversation audit retain their exact bytes during the refusal.
+  PASS: stop and reap the real owner process group; a fourth fresh native CLI
+        resumes with original model history and retained prior audit bytes.
+
+The preceding nineteen-stage package also passes the ownership conflict and
+subsequent recovery control; in that run the refused terminal exits before
+accepting interactive input. This is added lifecycle coverage, not a newly
+reproduced defect or proof that delayed/interrupted resume is complete.
+
+The actual CLI, chat, recorder, terminal, ACP, session claim and provider dispatch
+run without native module exports or SDK methods instrumented. Credentials and
+provider responses are synthetic over a loopback-only verified TLS provider.
+Data/heap, stack, phase, request and diagnostic bounds are finite; child process
+groups are stopped and reaped. Production installation, every native writer,
+interrupted publication and physical power-loss verification remain unfinished.

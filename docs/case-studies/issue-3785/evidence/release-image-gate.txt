@@ -1,0 +1,30 @@
+Actual workflow-condition regression, 2026-10-26 UTC.
+Before (4c96f7954):
+✖ packaged image checks run on main before source and test-only releases (8.199995ms)
+✖ manual main release cannot skip image checks when change detection is empty (2.889773ms)
+✔ PR image selection and docs-only main pushes retain their existing behavior (16.245393ms)
+✖ release refuses skipped, cancelled and failed packaged checks (6.94093ms)
+✖ instant-release refuses skipped, cancelled and failed packaged checks (3.99917ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 225.587728
+
+After:
+✔ packaged image checks run on main before source and test-only releases (8.545459ms)
+✔ manual main release cannot skip image checks when change detection is empty (3.942263ms)
+✔ PR image selection and docs-only main pushes retain their existing behavior (7.598806ms)
+✔ release refuses skipped, cancelled and failed packaged checks (17.715772ms)
+✔ instant-release refuses skipped, cancelled and failed packaged checks (22.244689ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 245.819619

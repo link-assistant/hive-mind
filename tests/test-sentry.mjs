@@ -70,7 +70,8 @@ runTest('Sentry packages in package.json', () => {
 runTest('hive.mjs supports --sentry flag', () => {
   try {
     // Capture both stdout and stderr since yargs might output to stderr
-    const output = execSync(`node ${join(projectRoot, 'src', 'hive.mjs')} --help 2>&1`, {
+    const output = execSync('node "$SCRIPT_PATH" --help 2>&1', {
+      env: { ...process.env, SCRIPT_PATH: join(projectRoot, 'src', 'hive.mjs') },
       encoding: 'utf8',
       cwd: projectRoot,
       stdio: 'pipe',
@@ -89,7 +90,8 @@ runTest('hive.mjs supports --sentry flag', () => {
 runTest('solve.mjs supports --sentry flag', () => {
   try {
     // Capture both stdout and stderr since yargs might output to stderr
-    const output = execSync(`node ${join(projectRoot, 'src', 'solve.mjs')} --help 2>&1`, {
+    const output = execSync('node "$SCRIPT_PATH" --help 2>&1', {
+      env: { ...process.env, SCRIPT_PATH: join(projectRoot, 'src', 'solve.mjs') },
       encoding: 'utf8',
       cwd: projectRoot,
       stdio: 'pipe',

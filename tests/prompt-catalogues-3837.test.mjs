@@ -1,3 +1,4 @@
+// @hive-mind-test-suite default,pr-essential
 /** @hive-mind-test-suite default */
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
@@ -101,16 +102,15 @@ test('work locale changes rendered prompts independently of the UI, with English
   await initI18n('en');
 });
 
-test('catalog extraction preserves the complete English backend corpus', { timeout: 10000 }, async () => {
+test('catalog extraction preserves the English backend corpus alongside the location policy', { timeout: 10000 }, async () => {
   const { execFileSync } = await import('node:child_process');
   const expected = JSON.parse(await readFile(new URL('../docs/case-studies/issue-3837/data/prompt-corpus-before.json', import.meta.url), 'utf8'));
-  const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=96', new URL('../experiments/issue-3837-prompt-corpus.mjs', import.meta.url).pathname], { encoding: 'utf8' }));
+  const actual = JSON.parse(execFileSync(process.execPath, ['--max-old-space-size=96', new URL('../experiments/issue-3837-prompt-corpus.mjs', import.meta.url).pathname, '--without-geolocation-policy'], { encoding: 'utf8' }));
   assert.deepEqual(actual, expected);
 });
 
-test('every literal prompt reference resolves from the merged English catalog', { timeout: 10000 }, async () => {
+async function assertLiteralPromptReferences(catalog) {
   const { readdir } = await import('node:fs/promises');
-  const catalog = await loadTranslations('en');
   let references = 0;
   for (const file of await readdir(new URL('../src/', import.meta.url))) {
     if (!file.endsWith('.mjs')) continue;
@@ -121,6 +121,28 @@ test('every literal prompt reference resolves from the merged English catalog', 
     }
   }
   assert.ok(references > 200, 'cover core and auxiliary prompt paths');
+}
+
+test('every literal prompt reference resolves from the merged English catalog', { timeout: 10000 }, async () => {
+  await assertLiteralPromptReferences(await loadTranslations('en'));
+});
+
+test('the E2E candidate image stages every catalogue used by literal prompt references', { timeout: 10000 }, async () => {
+  const { cp, mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const { loadLocaleTree } = await import('../src/locale-catalogs.lib.mjs');
+  const dockerfile = await readFile(new URL('../Dockerfile.e2e', import.meta.url), 'utf8');
+  assert.equal(dockerfile.split('\n').filter(line => line === 'COPY --chown=box:box locales /opt/hive-e2e/locales').length, 1, 'The candidate solve source must carry its complete runtime locale tree');
+  const staged = await mkdtemp(path.join(tmpdir(), 'hive-e2e-catalogues-'));
+  try {
+    const directory = path.join(staged, 'opt/hive-e2e/locales');
+    await cp(new URL('../locales/', import.meta.url), directory, { recursive: true });
+    const catalogues = await loadLocaleTree(directory, { compatibilityAliases: ['collapseTail', 'parentLabel'] });
+    await assertLiteralPromptReferences(catalogues.en);
+  } finally {
+    await rm(staged, { recursive: true, force: true });
+  }
 });
 
 test('live feedback, finalization and intervention templates are catalogued without changing English output', { timeout: 10000 }, async () => {

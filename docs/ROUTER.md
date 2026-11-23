@@ -61,7 +61,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_SIDECAR=0`              | Never start or stop a sidecar (for operators who manage the router themselves)                                                  |
 | `HIVE_MIND_ROUTER_IMAGE`                  | Override the router image                                                                                                       |
 | `HIVE_MIND_ROUTER_ROUTES`                 | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)                       |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | Extra `docker run` arguments for the sidecar                                                                                    |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | Resource limits for the sidecar; supported options are listed below                                                             |
 | `CODEX_CLIENT_VERSION`                    | Codex client version the router claims to the ChatGPT backend; unset means the router's own recent default                      |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`           | Supply the token signing secret instead of generating one                                                                       |
 | `HIVE_MIND_ROUTER_GH_HOST`                | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router)                   |
@@ -71,8 +71,19 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_GIT_HOOKS_DIR`                 | Host directory holding the generated `pre-push` guard (default `~/.hive-mind/git-hooks`)                                        |
 | `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | Let a routed task force-push or delete remote refs anyway                                                                       |
 | `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | Network the bound sidecar is connected to afterwards for upstream access (default `bridge`; an `--internal` network is refused) |
-| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | Do not stop the task when a credential other than the router token appears inside the container (debugging the guard only)      |
-| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, minimum `100`)                              |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, range `100`–`1000`)                         |
+
+Only these extra arguments are supported: `--memory`, `--memory-reservation`,
+`--memory-swap`, `--shm-size`, `--pids-limit`, `--cpu-shares`, `--cpu-period`,
+`--cpu-quota`, `--cpus`, and `--cpuset-cpus`. Use positive values and specify each
+option once, for example `--cpus=1.5 --memory 512m --pids-limit=128`. Options that
+change environment variables, mounts, networking, or the entrypoint refuse
+admission. Before issuing a task token, Hive Mind inspects both new and reused
+sidecars and requires `DATA_DIR=/data/router`,
+`AUDIT_LOG=/data/router/audit.jsonl`, and the writable named volume
+`hive-mind-router-data` at `/data/router`, without overlapping mounts. This
+configuration check does not establish complete conversation storage or audit
+contents; the external-router storage contract remains unverified.
 
 ### The signing secret
 
@@ -161,10 +172,26 @@ Layer 2 is a speed bump, not a cage: an agent that reads this page can get past 
 
 ## One credential, and only the router's (issue #2190)
 
-A routed task has exactly one credential: the `la_sk_…` token the router issued for it. Two mechanisms keep it that way.
+A routed task receives the `la_sk_…` token the router issued for it. Token revocation and the Claude/Codex file guard protect this authentication path.
 
 - **Revocation on exit.** Hive Mind runs `docker wait` on the task container in the background and revokes the token the instant the container stops, whatever the reason — normal completion, a crash, `docker kill`, or the host killing the process. The 24 h / 5000-request limits on the token exist only for the case where the `solve` process itself dies before it can revoke.
-- **Auth guard.** While the CLI runs, Hive Mind re-reads the credential surfaces inside the container once per second: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` and `settings.local.json`, `~/.codex/auth.json` and `config.toml`, the repository's own `.codex/config.toml`, `gh`'s `hosts.yml`, `~/.git-credentials` and `.netrc`. The first check runs before the CLI is allowed to do anything. If any of them turns into a credential that is not the router token — an OAuth login, an API key, a `model_provider` or `base_url` that points anywhere except the router — the task is stopped at once with exit code **77** and a `Security violation (issue #2190)` message that names the file. This is treated as a security violation, not a recoverable error: a task that switched credentials would be talking to the vendor with something the router never saw and never logged. `HIVE_MIND_ROUTER_AUTH_GUARD=0` disables the guard for debugging the guard itself.
+- **Auth guard.** While the CLI runs, Hive Mind re-reads the credential surfaces inside the container once per second: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` and `settings.local.json`, `~/.codex/auth.json` and `config.toml`, the repository's own `.codex/config.toml`, `gh`'s `hosts.yml`, `~/.git-credentials` and `.netrc`. Claude and Codex check these files before creating the native command, including on resume and during connection validation. If any of them turns into a credential that is not the router token — an OAuth login, an API key, a `model_provider` or `base_url` that points anywhere except the router — the task is stopped at once with exit code **77** and a `Security violation (issue #2190)` message that names the file. This is treated as a security violation, not a recoverable error: a task that switched credentials would be talking to the vendor with something the router never saw and never logged. Router selection requires a task token and enables this guard regardless of `HIVE_MIND_ROUTER_AUTH_GUARD`. Unreadable credential paths, malformed settings and invalid provider TOML are refused. Files must be regular, without symbolic links and at most 1 MiB; Codex provider checks recognize quoted and dotted TOML keys.
+
+Routed Codex commands skip shell login profiles so they cannot replace the admitted environment. The file guard checks admission and polls for persistent changes. It does not establish complete six-tool authority or cover credentials held only in memory.
+
+Admission also derives the expected native API credential and endpoint from the declared Router task token, origin and route dialect. Missing or changed values are refused without printing their contents. The task environment forwards the selected dialect to nested launches. These checks do not mediate credentials held inside a native CLI.
+
+Agent, OpenCode, Gemini and Qwen also check their final launch environment before new commands, resumes and connection probes. They monitor the listed shared credential files while consuming output and preserve security refusals through stream or output-processing errors, without ordinary retry. Routed Qwen commands skip shell login profiles. Shared connection dispatch and Hive startup carry explicit Router selection through admission, including Formal AI availability checks; startup refusals retain exit 77. Additional tool-specific credential stores, native in-memory authority and durable Router audit remain unfinished.
+
+Agent, OpenCode, Gemini and Qwen arm this file monitoring immediately after command creation, before input attachment or logging. A detected violation remains a security refusal if its file disappears before error handling. An abandoned command is cancelled before monitoring closes, including when logging fails before output consumption. These controls cover bounded process-group cleanup; they do not establish complete native request mediation.
+
+Claude and Codex use the same retained monitoring before input attachment or command logging. Explicit Router selection reaches the actual native environment. Failed attempts cancel the command before ordinary retry; Claude also stops live-input polling and its attempt timers. Bounded Claude process-group and polling controls cover logging failures, while native request authority and the wider Router lifecycle remain unfinished.
+
+The file guard also refuses Agent/OpenCode `auth.json` under conventional or selected XDG data roots, and Gemini/Qwen `oauth_creds.json` under conventional or selected native configuration/authentication roots. It resolves relative roots against the native working directory and expands Qwen’s `~` selector. OpenCode’s inline `OPENCODE_AUTH_CONTENT` registry is refused. Existing bounded file inspection and retained polling cover these stores; provider settings, other environment selectors and in-memory native credentials still need complete request mediation.
+
+Router guard diagnostics are best effort: throwing or rejected loggers cannot disable monitoring or create unhandled rejections. Synchronous or asynchronous stop-handler failures retain the original violation and do not trigger a second stop attempt. This preserves the security decision; successful cancellation still depends on the native stop operation.
+
+All six tools also monitor running version and connection-validation commands. Each probe receives its admitted native environment, including explicit Router selection and Agent/Codex overlays. A violation stops the probe and remains a security refusal if the file disappears, preventing ordinary version fallback, Claude pipe fallback or retry. Ordinary validation preserves its native credential stores.
 
 ## Coverage gaps
 

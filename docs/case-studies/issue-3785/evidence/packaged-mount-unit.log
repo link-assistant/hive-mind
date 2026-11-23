@@ -1,0 +1,10 @@
+✔ the image gate waits for both tasks and cleans them up after success (813.278997ms)
+✔ the image gate waits for both tasks and cleans them up after a peer failure (652.691691ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1480.63771

@@ -62,6 +62,12 @@ export const BILLING_LIMIT_MARKER = 'GitHub Actions Billing Limit';
 // solve.auto-merge.lib.mjs — cancelled/stale CI needs manual review
 export const CANCELLED_CI_REVIEW_MARKER = 'Cancelled CI/CD Requires Review';
 
+// solve.auto-merge-stuck-ci.lib.mjs — Issue #4048: CI signals have disagreed
+// for a long time (out-of-band failures, runs stuck in queued after a GitHub
+// incident). Posted once per HEAD commit so a human sees why the pull request
+// is not announced as ready to merge.
+export const CI_WAIT_STUCK_MARKER = 'CI wait is stuck';
+
 // automation-stop-reporting.lib.mjs — Issue #2144: every automation stop is
 // announced on GitHub with the exact reason. Before this, watch mode and
 // auto-restart-until-mergeable exited silently on terminal states and tool
@@ -151,7 +157,7 @@ export const LOG_UPLOAD_FAILED_MARKER = 'Log Upload Failed';
  */
 export const TOOL_GENERATED_COMMENT_MARKERS = [RECOVERY_LIFECYCLE_MARKER, AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, LOG_UPLOAD_FAILED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, NO_CHANGES_PRODUCED_MARKER, FINISHED_WITHOUT_CHANGES_MARKER];
 // The list above is at the print width; later markers are appended here.
-TOOL_GENERATED_COMMENT_MARKERS.push(SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER, INTERACTIVE_MODE_COMMENT_MARKER);
+TOOL_GENERATED_COMMENT_MARKERS.push(CI_WAIT_STUCK_MARKER, SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_PUSH_REJECTED_MARKER, CLOSING_REFERENCES_LEFT_OUT_MARKER, INTERACTIVE_MODE_COMMENT_MARKER);
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -159,6 +165,31 @@ TOOL_GENERATED_COMMENT_MARKERS.push(SESSION_EFFECT_UNVERIFIED_MARKER, WORKFLOW_P
  * duplicate-search window to the current session only (Issue #1584).
  */
 export const SESSION_ENDING_MARKERS = [NOW_WORKING_SESSION_IS_ENDED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER];
+
+/** Session footer markers also open a new deduplication window. */
+export const AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER = 'This AI session has ended. Monitoring of this pull request continues';
+const LEGACY_MONITORING_CONTINUES_MARKER = 'This AI session has ended; monitoring of this pull request continues';
+const MONITORING_ENDED_MARKER = 'Monitoring Ended';
+SESSION_ENDING_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, LEGACY_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+TOOL_GENERATED_COMMENT_MARKERS.push(AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER, LEGACY_MONITORING_CONTINUES_MARKER, MONITORING_ENDED_MARKER);
+
+let monitoringEnded = false;
+
+/** Whether monitoring of the pull request follows the AI session that is reporting now. */
+export const monitoringFollowsSession = argv => !monitoringEnded && Boolean(argv?.autoMerge || argv?.autoRestartUntilMergeable);
+
+/** The watch loop (or its preflight) finished: later log comments end the working session. */
+export const markMonitoringEnded = () => {
+  monitoringEnded = true;
+};
+
+/** Tests only. */
+export const resetSessionFooterStateForTests = () => {
+  monitoringEnded = false;
+};
+
+/** The italic closing line of a log comment. */
+export const buildSessionEndFooter = ({ monitoringContinues = false } = {}) => (monitoringContinues ? `*${AI_SESSION_ENDED_MONITORING_CONTINUES_MARKER}. Feel free to review and add feedback while checks are running.*` : `*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`);
 
 /**
  * Determine whether a GitHub comment body matches any known tool-generated

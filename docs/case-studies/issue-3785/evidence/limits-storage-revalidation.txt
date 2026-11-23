@@ -1,0 +1,34 @@
+Limits storage admission across credential hashing, 2026-10-31 UTC
+
+All thirteen regressions fail against the preceding cache module c3b537eb1.
+Twelve change canonical root permissions or inject private auth.json while the
+real credential-version reader holds the unchanged canonical auth descriptor.
+Cached success/auth/rate-limit responses survive, a cache miss still dispatches,
+and direct/cached completed responses are published after storage became unsafe.
+The thirteenth atomically replaces credentials while a coalesced caller admits
+its own storage: the new credentials are safe, but the response belongs to G0.
+
+The regression pauses at the actual filesystem open rather than using sleeps.
+It mutates real synthetic filesystem state, retaining ordinary native admission.
+Each test has a five-second deadline. HTTP is mocked; no account is contacted.
+
+Reproduce without modifying the working source or another running test process:
+  git show c3b537eb1:src/usage-limits-cache.lib.mjs > /tmp/limits-cache-before.mjs
+  env -u NODE_OPTIONS node --max-old-space-size=128 \
+    experiments/issue-3785/replay-limits-cache-source.mjs /tmp/limits-cache-before.mjs
+Expected before result: zero pass, thirteen fail.
+Log: /tmp/issue-3785-recovery/limits-storage-revalidation-replay-before.log
+
+After the repair, selected storage is admitted again after initial hashing,
+before using either cache entries or dispatching. Completed direct, primary and
+coalesced responses compare the captured generation with a new bounded digest,
+with selected-storage checks on both sides of that asynchronous digest.
+
+All thirteen new regressions and all 109 related Node tests/file targets pass
+across ten test files. Legacy display/Telegram files have additional internal
+assertions. Test: tests/issue-3785-limits-storage-revalidation.test.mjs
+Log: /tmp/issue-3785-recovery/limits-storage-revalidation-related-after.log
+
+This establishes the tested admission boundaries, not an operation lease.
+Default canonical authority, production credential copies, native refresh and
+the remaining six-tool authentication/history lifecycle are still unfinished.

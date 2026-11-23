@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 
 export const AUTH_PROVIDERS = Object.freeze(['gh', 'claude', 'codex']);
 
@@ -7,8 +8,6 @@ const AUTH_PROVIDER_SET = new Set(AUTH_PROVIDERS);
 const AUTH_USAGE = 'Usage: /auth --status <gh|claude|codex> or /auth --login <gh|claude|codex>';
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-const TOKEN_RE = /\b(?:gh[opsu]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/g;
-const TOKEN_FIELD_RE = /\b(token|access_token|refresh_token|api[_-]?key|authorization)\s*[:=]\s*["']?[^"'\s,}]+/gi;
 
 function trimOutput(text, max = 3500) {
   const value = String(text || '').trim();
@@ -83,11 +82,15 @@ export function buildAuthCommand(action, provider) {
   throw new Error(`Unsupported auth command: ${action} ${provider}`);
 }
 
+/**
+ * Strip terminal escapes and mask credentials in `gh`/`claude`/`codex` auth
+ * output before it is sent to Telegram. Issues #3739/#3740: the credential
+ * rules are the shared @link-foundation/sensitive-data-sanitizer engine (the
+ * same as every other publication path, including the values of credential
+ * environment variables); device codes and login URLs stay readable.
+ */
 export function redactAuthOutput(output) {
-  return String(output || '')
-    .replace(ANSI_RE, '')
-    .replace(TOKEN_RE, '[REDACTED_TOKEN]')
-    .replace(TOKEN_FIELD_RE, (_, name) => `${name}: [REDACTED_TOKEN]`);
+  return sanitizeCredentialText(String(output || '').replace(ANSI_RE, ''));
 }
 
 function collectAuthOutput(result) {

@@ -48,8 +48,11 @@ const makeFake$ = (statusOutput = '') => {
 };
 
 // Posting the recovery comment also asks the publication sanitizer for active
-// credentials. Mock that command source as well as the injected recovery `$`;
-// otherwise this unit test silently runs a live `gh auth status` network probe.
+// credentials. Mock the command-stream source as well as the injected recovery
+// `$`, so no command of this unit test reaches a real shell through it. Since
+// issue #3740 the active token comes from the sanitizer library's
+// `gh auth token` (local config or keyring, no network request), and the
+// `gh auth status` network probe is gone.
 const originalUse = globalThis.use;
 const credentialProbe$ = makeFake$();
 globalThis.use = async name => {
@@ -117,10 +120,7 @@ assert.equal(failure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'the run reports
 assert.equal(failure.iterationsUsed, 5, 'the failure reports the run-wide iteration count');
 assert.equal(failure.committed, true, 'fail recovery auto-commits the uncommitted work');
 assert.equal(failure.pushed, true, 'fail recovery pushes it so the result is visible');
-assert.ok(
-  credentialProbe$.calls.some(command => command.includes('gh auth status')),
-  'credential discovery uses the mock instead of a live network probe'
-);
+assert.ok(!credentialProbe$.calls.some(command => command.includes('gh auth status')), 'credential discovery no longer runs the gh auth status network probe (issue #3740)');
 assert.ok(
   dirty$.calls.some(c => c.includes('git commit')),
   'a real commit was made'

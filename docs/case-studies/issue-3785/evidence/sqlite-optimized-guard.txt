@@ -1,0 +1,70 @@
+Optimized native SQLite guard component verification, 2026-10-31
+
+Pinned Codex source: 6aaac694803004a63c6f393d153c96d22521a6b9
+Pinned bundled SQLite: 3.51.3 (libsqlite3-sys 0.37.0)
+sqlite3.c sha256: 9512509b1bccb7461f79bea8aad6280ae4699e925fa4804381b71f59e7efb0c5
+
+Root cause: optimized fortified libc marks write as warn_unused_result.
+(void)write still triggers -Werror=unused-result. Assigning the result to
+a local and explicitly discarding that result compiles without retrying
+unavailable diagnostics. Refusal still uses nonblocking stderr and _exit(78).
+
+C guard and fixture flags: -std=c11 -Wall -Wextra -Werror -O2 -g0
+-D_FORTIFY_SOURCE=2. The large SQLite amalgamation stays at -O0 with
+SQLITE_ENABLE_FILESTAT and SQLITE_THREADSAFE=1. Compiler and test data/stack
+limits remain finite; this is not an optimized full-native acceptance result.
+The actual SQLx fixture rebuild retains its bounded unoptimized dev profile.
+
+sqlite-vfs-optimized-compile.log
+Before: standalone optimized C compile fails at diagnostic writes (source lines 58 and 63).
+sha256: 38f89af48ced86b9645a647a38d19d6917d7734538b56ffa25d55e2bd5929aa0
+lines: 8
+
+sqlite-vfs-fortified-strict-before.log
+Before: strengthened component compile fails before any runtime control.
+sha256: 4a22cff3a3de8fefdf38943ea5e909993750787fc8b342d8402d3a5f8315a17c
+lines: 15
+
+sqlite-vfs-optimized-compile-after.log
+After: optimized fortified C compile succeeds.
+sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+lines: 0
+
+sqlite-vfs-fortified-after-all.log
+After: 1,031 optimized-guard component controls pass, including exact unsafe bytes and concurrent/recovery peers.
+sha256: f65f38b2b0313328f39cf08b48d8cfc27c1a5b15ea3f66ed9b69d927d816313e
+lines: 1031
+
+sqlite-vfs-fortified-diagnostics-after.log
+After: four full/missing stderr controls and healthy recovery pass.
+sha256: 42c1808fac86f97ba6773f63100fa7ba609539fcb409571d4773040dcfdd1cb0
+lines: 5
+
+sqlite-vfs-fortified-sqlx-build-fixed.log
+After: bounded actual SQLx control rebuilds the changed C adapter.
+sha256: c5cf385d60a6d319a19acf9b4652356d34ab1db8642a7dc7d8cbacf027cfadeb
+lines: 2
+
+sqlite-vfs-fortified-sqlx-after.log
+After: all 40 actual SQLx controls pass.
+sha256: 7fbc939076e6cfd1583dbbf4945dc9f2c49e29105b01ae11ae4369f27ab1db28
+lines: 40
+
+sqlite-vfs-fortified-benchmark.log
+Three alternating ordinary/selected component benchmark pairs complete.
+sha256: deb456a0ac9ee88f9a278ce3822d2204cb38067735984c52fb91bf7dc5559722
+lines: 6
+
+Selected benchmark ranges: startup 36.8–43.5 ms, 1,000 queries
+1,142–1,199 ms, 100 transactional writes 27.7–29.8 ms. Ordinary 1,000
+queries take 4.9–5.4 ms. Guard overhead remains material. These local mixed
+optimization component measurements do not establish full CLI performance.
+
+Updated experimental inventory: 45 changed/new prepared source files
+sourceInventorySha256: 3cec1b0a4531286ded0bbba58bf1025bebe395088bf970979134107ff294c2ba
+
+The production recipe and inventory remain unchanged. The running native
+workflow at 7d09cacbe predates both this fix and the selected startup-fallback
+policy. Full development, optimized x64/ARM64, installed package and final-image
+after controls remain pending. Atomic external rename exclusion and fresh-
+process rollback protection remain open acceptance requirements.

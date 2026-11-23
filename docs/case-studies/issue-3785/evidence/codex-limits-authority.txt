@@ -1,0 +1,46 @@
+Selected native Codex limits authority, 2026-10-31 UTC
+
+Before: all 12 initial regression assertions fail. CODEX_AUTH_HOME was ignored,
+and a healthy private-home credential was used even with missing or damaged
+canonical storage.
+Log: /tmp/issue-3785-recovery/codex-limits-authority-before.log
+
+Two additional strict regressions reproduce bearer dispatch to an endpoint
+from private configuration, and cached success after canonical directory
+permissions become unsafe.
+Log: /tmp/issue-3785-recovery/codex-limits-admission-cache-before.log
+
+A further regression reproduces acceptance of an independent private auth.json
+despite healthy selected canonical credentials. The native adapter refuses
+that conflict; the limits reader must make the same authority decision.
+Log: /tmp/issue-3785-recovery/codex-limits-private-authority-before.log
+
+After: selected credentials and private configuration have distinct roots.
+Reads hold the canonical directory descriptor, reject aliases, linked files,
+unsafe ownership/permissions, oversized data and invalid JSON/UTF-8, and check
+both opened and public identities after the bounded read. Replacing either
+the directory or file during reading refuses the detached generation. A second
+private credential authority refuses. No private credential fallback occurs.
+Both usage and stored-subscription caches repeat storage admission. Canonical
+bearer dispatch uses the official usage endpoint independently of private
+configuration; the trusted explicit API test override remains available.
+
+All 45 assertions across native-selected, legacy limits and selected Router
+regressions pass. Native filesystem operations are real; HTTP is mocked and
+all credentials are synthetic. No live account or upstream service is used.
+Log: /tmp/issue-3785-recovery/codex-limits-authority-final.log
+
+This verifies explicit CODEX_AUTH_HOME selection. Production default selection,
+daemon-backed root identity admission, credential migration and removal of
+production copies are still unfinished. This evidence does not close A12/A2.
+
+A later selected-private-path control reproduces seven empty/relative/root/
+non-normalized/control-character configuration paths being admitted. Three
+additional strict controls reproduce an explicitly empty CODEX_HOME being
+replaced with an operator-home fallback in limits and Formal AI seeding/writing.
+All ten fail before repair. Shared admission now validates absolute normalized
+configuration selectors, and selected callers preserve empty values for refusal.
+All 106 related limits, Router, preflight and Formal AI assertions pass.
+Before: /tmp/issue-3785-recovery/codex-private-selector-before.log
+After: /tmp/issue-3785-recovery/codex-private-selector-after.log
+This remains selected-mode admission; the broader open criteria above remain.

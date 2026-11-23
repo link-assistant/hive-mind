@@ -139,7 +139,7 @@ const startArgs = await buildDockerIsolationStartArgs('solve', ['https://example
   tool: 'claude',
   env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind:latest' },
   homeDir: '/home/box',
-  existsSync: () => false,
+  existsSync: target => ['/home/box/.claude/projects', '/home/box/.claude/sessions'].includes(target),
   installGuard: () => null,
   imageProvenance: { image: 'konard/hive-mind:latest', digest: DIGEST },
 });
@@ -148,7 +148,7 @@ assert.ok(envFlags.includes(`${TASK_IMAGE_ENV.image}=konard/hive-mind:latest`), 
 assert.ok(envFlags.includes(`${TASK_IMAGE_ENV.digest}=${DIGEST}`), 'and which digest');
 assert.equal(startArgs.includes('--pull'), false, 'issue #1879 stands: the refresh is a host-side `docker pull`, not a start-command flag');
 
-const startArgsWithout = await buildDockerIsolationStartArgs('solve', ['x'], { sessionId: 's', tool: 'claude', env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind:latest' }, homeDir: '/home/box', existsSync: () => false, installGuard: () => null });
+const startArgsWithout = await buildDockerIsolationStartArgs('solve', ['x'], { sessionId: 's', tool: 'claude', env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'konard/hive-mind:latest' }, homeDir: '/home/box', existsSync: target => ['/home/box/.claude/projects', '/home/box/.claude/sessions'].includes(target), installGuard: () => null });
 assert.ok(
   startArgsWithout.filter((value, index) => startArgsWithout[index - 1] === '-e').some(entry => entry.startsWith(`${TASK_IMAGE_ENV.image}=`)),
   'even without a resolved digest the image name is published'

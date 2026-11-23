@@ -6,13 +6,13 @@ export const DRAFT_STEP = 'Open the Formal AI draft';
 /** Issues opened since `since` that the draft workflow would attempt. */
 export const eligibleIssues = (issues, since) => issues.filter(issue => issue.created_at >= since && decideDraft({ action: 'opened', issue: { ...issue, labels: (issue.labels || []).filter(label => label.name !== 'formal-ai-draft') } }).run);
 
-/** A run counts only when its model step actually started; a green run with a skipped step is not an attempt. */
-export const isExecutedAttempt = (run, jobs) => ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
+/** Occupancy is decided inside the attempt step, before the model starts. */
+export const isExecutedAttempt = (run, jobs, decisionCode) => decisionCode !== DRAFT_DECISION_CODES.occupied && ['issues', 'workflow_dispatch'].includes(run.event) && jobs.some(job => job.steps?.some(step => step.name === DRAFT_STEP && step.started_at && step.conclusion !== 'skipped'));
 
-export function evaluateDraftHealth({ eligible, attempts }) {
+export function evaluateDraftHealth({ eligible, attempts, occupied = 0 }) {
   return {
-    healthy: !(eligible > 0 && attempts === 0),
-    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts.`,
+    healthy: !(eligible > occupied && attempts === 0),
+    report: `Formal AI draft health (7 days): ${eligible} eligible issues, ${attempts} executed attempts${occupied ? `, ${occupied} skipped with an open pull request` : ''}.`,
   };
 }
 
@@ -25,16 +25,22 @@ export function evaluateDraftHealth({ eligible, attempts }) {
 export const REPEATED_FAILURE_THRESHOLD = 5;
 
 /** Decisions that are the policy working, not a fault: they neither count nor break a streak. */
-const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted]);
+const POLICY_SKIPS = new Set([DRAFT_DECISION_CODES.notOpened, DRAFT_DECISION_CODES.pullRequest, DRAFT_DECISION_CODES.botAuthor, DRAFT_DECISION_CODES.optOut, DRAFT_DECISION_CODES.alreadyDrafted, DRAFT_DECISION_CODES.occupied]);
 const NO_RECORDED_ERROR = 'failure with no recorded first error';
 const DECISION_PREFIX = 'decision_code ';
 
-/** An error message without the parts that differ per run (ids, paths, durations), so repeats compare equal. */
+/**
+ * An error message without the parts that differ per run (ids, paths, durations,
+ * release versions), so repeats compare equal. Issue #4055: twelve drafts in a
+ * row failed with `[DRAFT_IMAGE_UNAVAILABLE] Could not pull …:2.40.0` and then
+ * `…:2.40.1`; the version split them into two streaks below the threshold.
+ */
 export const normalizeErrorKey = message =>
   String(message || '')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '…')
     .replace(/\b0x[0-9a-f]+\b/gi, '…')
     .replace(/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{12,}\b/gi, '…')
+    .replace(/\bv?\d+(?:\.\d+){1,3}(?:-[0-9a-z]+(?:\.[0-9a-z]+)*)?\b/gi, '…')
     .replace(/\d{4,}/g, '…')
     .replace(/\s+/g, ' ')
     .trim()
@@ -82,10 +88,12 @@ export function findRepeatedFailure(outcomes, { threshold = REPEATED_FAILURE_THR
   return key !== undefined && runs.length >= threshold ? { key, count: runs.length, runs } : null;
 }
 
-/** The text to look for in open issues: the decision code, or the longest literal part of the error. */
+/** The text to look for in open issues: the decision code, the `[ERROR_CODE]` an error starts with, or the longest literal part of the error. */
 export const trackingIssueSearchPhrase = key => {
   if (key.startsWith(DECISION_PREFIX)) return key.slice(DECISION_PREFIX.length);
   if (key === NO_RECORDED_ERROR) return null;
+  const code = /^\[([A-Z][A-Z0-9_]+)\]/.exec(key)?.[1];
+  if (code) return code;
   return (
     key
       .split('…')

@@ -1,0 +1,57 @@
+Actual native Gemini CLI 0.65.0, reconstructed twenty-four-stage package.
+Manager 91ce4040ae4296cfa2b82238f2b9a2291bbbf86086a85c1c9b341d08272eae28.
+History helper 4072ef64f7258b229a63a64fb3834c28c4f54477482eaeca44cbbb409a5e1cbd.
+This verifies existing native paths without another source patch.
+
+Command:
+  probe-gemini-native-cli.py PACKAGE --history --history-subagent
+    --history-subagent-concurrent --history-subagent-engine legacy|agent
+    [--private-history] --diagnostics LOG
+
+The actual native parent receives two invoke_agent calls, each delegating to
+its real generalist with a distinct prompt and wait_for_previous=false.
+The bounded loopback TLS provider waits until BOTH actual child model requests
+arrive before returning either child response. A finite five-second barrier
+fails if the requests do not overlap. No native CLI/SDK/scheduler or transport
+function is replaced. Each child invokes its real write_file on a different
+file, checks the actual tool result, and returns its own complete_task result.
+The parent's subsequent actual request must contain both results.
+
+Selected canonical history must retain:
+  - Three separate complete conversations: parent and both actual children.
+  - Each child's own prompt, write_file call/result and completion, without
+    mixing the other child's prompt into its conversation.
+  - Two distinct acknowledged canonical pre-edit checkpoints, identifying
+    both real files, retained Git commits and original parent model history.
+  - No private transcript or checkpoint metadata copy.
+
+Delete the complete original private home. A fresh actual CLI discovers the
+parent, using its existing native one-request summary path. Both full child
+audits remain byte-identical; the parent audit retains its complete prefix.
+A fresh parent resume sends both child results and the original parent prompt
+to the actual provider. Both project edits and all three full preceding audit
+prefixes remain retained.
+
+Results:
+  Legacy selected: three PASS assertions, eight actual model requests.
+  Agent-session selected: three PASS assertions, eight actual model requests.
+  Each includes six actual initial streams, one native summary, one resumed
+  stream. Each unselected private control: two PASS, six actual streams,
+  separate private histories and no canonical history writes.
+  All four network traces have errors [].
+
+Local diagnostics and their bounded native/network companions:
+  /tmp/issue-3785-recovery/gemini-concurrent-legacy-private-control.log
+  /tmp/issue-3785-recovery/gemini-concurrent-legacy-selected-control.log
+  /tmp/issue-3785-recovery/gemini-concurrent-agent-private-control.log
+  /tmp/issue-3785-recovery/gemini-concurrent-agent-selected-control.log
+All native groups finish or are stopped and reaped before fixture cleanup.
+Existing 45-second phase, output/input/request, heap/data/stack bounds apply.
+Fresh-source CI requires all four controls and retains their diagnostics.
+
+Limits:
+  This verifies two concurrent native generalists in one real parent session,
+  distinct files and fresh parent recovery. It does not establish direct child
+  continuation, shared-file conflict semantics, every agent definition, task/
+  plan memory, interrupted publication or power loss. Full production/all-six
+  acceptance remains unfinished; exact-head CI for this new coverage is required.

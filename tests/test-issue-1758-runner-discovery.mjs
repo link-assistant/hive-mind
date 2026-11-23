@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite default,pr-essential
 /**
  * Regression tests for the folder-based test discovery introduced in #1758.
  *
@@ -15,7 +16,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -124,6 +125,103 @@ try {
   const ghTests = listTests(work, 'github-integration');
   assert(ghTests.includes('tests/test-other-suite.mjs'), 'github-integration suite finds matching test');
   assert(!ghTests.includes('tests/test-plain.mjs'), 'plain test is not selected for github-integration suite');
+
+  // The reviewed PR profile is metadata owned by each existing test file.
+  // Exercise the actual selection CLI against only these files plus the old
+  // synthetic cases; no selected test body is executed by --list.
+  const profileFiles = ['tests/e2e-hello-world-matrix-2319.test.mjs', 'tests/agent-default-free-model-2625.test.mjs', 'tests/test-issue-2187-current-dependency-pins.mjs', 'tests/test-docker-release-order.mjs', 'tests/prompt-catalogues-3837.test.mjs', 'tests/formal-ai-tool-parity-3279.test.mjs', 'tests/formal-ai-attribution-generation-identity-2317.test.mjs', 'tests/formal-ai-draft-3248.test.mjs', 'tests/formal-ai-draft-checks-3248.test.mjs', 'tests/formal-ai-no-change-ready-3330.test.mjs', 'tests/test-issue-1758-runner-discovery.mjs', 'tests/test-test-runner-1698.test.mjs', 'tests/extracted-modules-2198.test.mjs'];
+  assert(profileFiles.length <= 32 && new Set(profileFiles).size === profileFiles.length, 'the reviewed PR profile is bounded and has no duplicate paths');
+  for (const file of profileFiles) cpSync(join(repoRoot, file), join(work, file));
+  const essentialTests = listTests(work, 'pr-essential');
+  const expectedEssential = [...profileFiles].sort();
+  assert(JSON.stringify(essentialTests) === JSON.stringify(expectedEssential), 'the real named selector returns exactly the reviewed PR files');
+  const fullAfterProfile = listTests(work, 'default');
+  assert(
+    expectedEssential.every(file => fullAfterProfile.includes(file)),
+    'every PR-essential test remains in the full default suite'
+  );
+  assert(JSON.stringify(fullAfterProfile.filter(file => !expectedEssential.includes(file))) === JSON.stringify(defaultTests), 'all pre-existing default fixture members remain selected');
+
+  const releaseWorkflow = readFileSync(join(repoRoot, '.github/workflows/release.yml'), 'utf8');
+  const jobStart = releaseWorkflow.indexOf('  test-suites:\n');
+  const nextJob = /\n {2}[A-Za-z0-9_-]+:\n/.exec(releaseWorkflow.slice(jobStart + 1));
+  assert(jobStart >= 0, 'the source test job exists');
+  const jobSource = releaseWorkflow.slice(jobStart, nextJob ? jobStart + 1 + nextJob.index : undefined);
+  const stepSource = name => {
+    const header = '      - name: ' + name + '\n';
+    const start = jobSource.indexOf(header);
+    if (start < 0) throw new Error('Missing workflow step: ' + name);
+    const end = jobSource.indexOf('\n      - ', start + header.length);
+    return jobSource.slice(start, end < 0 ? undefined : end);
+  };
+  const selectorStep = stepSource('Run selected source test suite');
+  assert(selectorStep.includes('id: test-profile') && selectorStep.includes('run: node scripts/source-test-profile.mjs'), 'workflow executes the actual cohesive profile owner');
+  assert(!selectorStep.includes('REQUESTED_PR') && !selectorStep.includes('inputs'), 'profile selection adds no PR-number source-admission shortcut');
+  const { selectSourceTestProfile, sourceTestCommand, runSourceTestSuite } = await import('../scripts/source-test-profile.mjs');
+  const outputPath = join(work, 'profile-output'),
+    envPath = join(work, 'profile-env'),
+    eventPath = join(work, 'profile-event.json');
+  const contexts = [
+    ['pull_request', 'refs/pull/17/merge', 'main', 'pull-request'],
+    ['workflow_dispatch', 'refs/heads/feature/example', 'main', 'pull-request'],
+    ['push', 'refs/heads/main', 'main', 'default'],
+    ['workflow_dispatch', 'refs/heads/main', 'main', 'default'],
+    ['push', 'refs/heads/trunk', 'trunk', 'default'],
+    ['workflow_dispatch', 'refs/heads/trunk', 'trunk', 'default'],
+    ['pull_request_target', 'refs/heads/main', 'main', 'default'],
+    ['workflow_dispatch', 'refs/tags/v1.0.0', 'main', 'default'],
+    [undefined, undefined, 'main', 'default'],
+  ];
+  for (const [eventName, currentRef, defaultBranch, expected] of contexts) {
+    rmSync(outputPath, { force: true });
+    rmSync(envPath, { force: true });
+    writeFileSync(eventPath, JSON.stringify({ repository: { default_branch: defaultBranch }, inputs: { 'pull-request': '17' } }));
+    const env = { GITHUB_EVENT_NAME: eventName, GITHUB_REF: currentRef, GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath, GITHUB_ENV: envPath };
+    let calls = 0;
+    const status = runSourceTestSuite(env, (command, args, options) => {
+      calls++;
+      assert(readFileSync(outputPath, 'utf8') === 'suite=' + expected + '\n' && readFileSync(envPath, 'utf8') === 'TEST_SUITE=' + expected + '\n', 'selection is written before spawning the child');
+      const actual = sourceTestCommand(expected);
+      assert(command === actual.command && JSON.stringify(args) === JSON.stringify(actual.args) && options.stdio === 'inherit' && options.env.TEST_SUITE === expected, 'profile invokes only its fixed shared entrypoint');
+      return { status: 0, signal: null };
+    });
+    assert(status === 0 && calls === 1 && selectSourceTestProfile({ eventName, currentRef, defaultBranch }) === expected, 'actual profile owner chooses ' + expected + ' for ' + eventName + ' ' + currentRef);
+  }
+  for (const defaultBranch of [undefined, null, '', 'bad branch', 'main\n']) {
+    let failed = false;
+    try {
+      selectSourceTestProfile({ eventName: 'pull_request', defaultBranch });
+    } catch {
+      failed = true;
+    }
+    assert(failed, 'missing or invalid repository default branch fails closed');
+  }
+  let invalidSuite = false;
+  try {
+    sourceTestCommand('foreign');
+  } catch {
+    invalidSuite = true;
+  }
+  assert(invalidSuite, 'no arbitrary suite or command is admitted');
+  const env = { GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath, GITHUB_ENV: envPath };
+  for (const result of [{ error: new Error('spawn failed') }, { status: null, signal: 'SIGTERM' }, { status: null, signal: null }]) {
+    let failed = false;
+    try {
+      runSourceTestSuite(env, () => result);
+    } catch {
+      failed = true;
+    }
+    assert(failed, 'spawn errors, signals and null status cannot report success');
+  }
+  assert(runSourceTestSuite(env, () => ({ status: 7, signal: null })) === 7, 'a nonzero child exit propagates');
+  const gate = "steps.test-profile.outputs.suite == 'default' && vars.ENABLE_REAL_GITHUB_E2E == 'true'";
+  for (const name of ['Resolve GitHub credentials', 'Run GitHub integration test suite', 'Upload integration evidence']) assert(stepSource(name).includes(gate), 'real integration remains full-branch and explicitly opt-in: ' + name);
+  const runSource = stepSource('Run selected source test suite');
+  assert(runSource.includes('node scripts/source-test-profile.mjs') && sourceTestCommand('default').command === 'npm' && sourceTestCommand('default').args[0] === 'test', 'both lanes retain the existing shared test entrypoints');
+  // Issue #4025: a pull request runs the same unit suite as main, and neither
+  // lane stops at the first failing file.
+  assert(JSON.stringify(sourceTestCommand('pull-request').args) === JSON.stringify(['scripts/run-tests.mjs', '--suite', 'default', '--continue-on-failure']), 'pull requests run the full default suite');
+  assert(sourceTestCommand('default').args.includes('--continue-on-failure'), 'main reports every failing file');
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

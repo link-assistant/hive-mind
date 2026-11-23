@@ -75,11 +75,27 @@ function commandUpdate(id, text, chat = GROUP) {
 function cleanEnv(overrides) {
   const env = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY)/.test(key)) continue;
+    if (/^(TELEGRAM_|HIVE_MIND_|GH_|GITHUB_|SENTRY|CODEX_|CLAUDE_|ANTHROPIC_|OPENAI_|XDG_)/.test(key)) continue;
     env[key] = value;
   }
   return { ...env, ...overrides };
 }
+
+test('the bot harness excludes inherited tool homes and provider credentials', () => {
+  const keys = ['CODEX_HOME', 'CLAUDE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY'];
+  const before = keys.map(key => process.env[key]);
+  try {
+    for (const key of keys) process.env[key] = 'synthetic-private-parent';
+    const env = cleanEnv({ HOME: '/synthetic-disposable-home' });
+    assert.equal(env.HOME, '/synthetic-disposable-home');
+    for (const key of keys) assert.equal(env[key], undefined, `${key} must not escape the parent`);
+  } finally {
+    for (const [index, key] of keys.entries()) {
+      if (before[index] === undefined) delete process.env[key];
+      else process.env[key] = before[index];
+    }
+  }
+});
 
 /** Run the bot with one batch of commands and collect the harness and monitor events. */
 function runBot(sandbox) {
@@ -88,11 +104,13 @@ function runBot(sandbox) {
     let output = '';
     const harness = join(root, 'tests/fixtures/issue-3206/telegraf-harness.mjs');
     const monitor = join(root, 'tests/fixtures/issue-3278/loop-monitor.mjs');
-    const child = spawn(process.execPath, ['--import', harness, '--import', monitor, join(root, 'src/telegram-bot.mjs'), '--token', '3278:test-token', '--isolation', 'docker'], {
+    const child = spawn(process.execPath, ['--import', harness, '--import', monitor, join(root, 'src/telegram-bot.mjs'), '--isolation', 'docker'], {
       cwd: sandbox.home,
       env: cleanEnv({
         HOME: sandbox.home,
         PATH: `${sandbox.bin}:${process.env.PATH}`,
+        // Private environment input avoids execve, which closes the IPC fd.
+        TELEGRAM_BOT_TOKEN: '3278:test-token',
         // The tester owns the chat, so owner-only commands do their real work.
         HIVE_HARNESS_MEMBER_STATUS: 'creator',
         HIVE_HARNESS_BATCHES: JSON.stringify([{ atMs: 100, updates: [...COMMANDS.map((text, index) => commandUpdate(index + 1, text)), commandUpdate(COMMANDS.length + 1, '/auth --status claude', PRIVATE)] }]),

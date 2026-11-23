@@ -10,3 +10,4 @@ docs/case-studies/issue-2395/raw/*.log.txt.gz -diff
 docs/case-studies/issue-3015/data/*.log.txt.gz -diff
 docs/case-studies/issue-3570/raw/*.log.txt.gz -diff
 docs/case-studies/issue-3684/logs/*.log.gz -diff
+dev/log/issues/4050/pulls/4051/ci-logs/*.log.gz -diff

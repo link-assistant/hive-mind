@@ -28,9 +28,13 @@ function runTest(name, testFn) {
   }
 }
 
+// Paths go to the shell through the environment, not string interpolation,
+// so a checkout path with spaces or shell characters cannot change the command.
+const commandEnv = { ...process.env, SOLVE_PATH: solvePath };
+
 function execCommand(command) {
   try {
-    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+    return execSync(command, { encoding: 'utf8', stdio: 'pipe', env: commandEnv });
   } catch (error) {
     // For commands that exit with non-zero, we still want the output
     return error.stdout || error.stderr || error.message;
@@ -39,7 +43,7 @@ function execCommand(command) {
 
 // Test 1: Check if solve.mjs exists and is executable
 runTest('solve.mjs exists', () => {
-  const output = execCommand(`ls -la ${solvePath}`);
+  const output = execCommand(`ls -la "$SOLVE_PATH"`);
   if (!output.includes('solve.mjs')) {
     throw new Error('solve.mjs not found');
   }
@@ -47,7 +51,7 @@ runTest('solve.mjs exists', () => {
 
 // Test 2: Check usage output when no arguments provided
 runTest('solve.mjs usage without args', () => {
-  const output = execCommand(`${solvePath} 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" 2>&1`);
 
   // Check that it shows usage information
   if (!output.includes('Usage:') && !output.includes('usage:')) {
@@ -61,7 +65,7 @@ runTest('solve.mjs usage without args', () => {
 
 // Test 3: Check --version output
 runTest('solve.mjs --version', () => {
-  const output = execCommand(`${solvePath} --version 2>&1`).trim();
+  const output = execCommand(`"$SOLVE_PATH" --version 2>&1`).trim();
   // Version should be either x.y.z or x.y.z.commitSha format. `git rev-parse --short`
   // starts at 7 characters and grows with the number of objects in the repository.
   if (!output.match(/^\d+\.\d+\.\d+(\.[a-f0-9]{7,40})?$/)) {
@@ -76,7 +80,7 @@ runTest('solve.mjs --version', () => {
 
 // Test 4: Check --help functionality (Issue #162)
 runTest('solve.mjs --help', () => {
-  const output = execCommand(`${solvePath} --help 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --help 2>&1`);
 
   // Should show help without errors
   if (!output.includes('Usage: solve.mjs <issue-url> [options]')) {
@@ -94,7 +98,7 @@ runTest('solve.mjs --help', () => {
 
 // Test 5: Check -h functionality (Issue #162)
 runTest('solve.mjs -h', () => {
-  const output = execCommand(`${solvePath} -h 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" -h 2>&1`);
 
   // Should show help without errors
   if (!output.includes('Usage: solve.mjs <issue-url> [options]')) {
@@ -112,7 +116,7 @@ runTest('solve.mjs -h', () => {
 
 // Test 6: Check that it requires a GitHub URL
 runTest('solve.mjs requires GitHub URL', () => {
-  const output = execCommand(`${solvePath} 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" 2>&1`);
   if (!output.toLowerCase().includes('github') && !output.toLowerCase().includes('url')) {
     throw new Error('Should indicate that GitHub URL is required');
   }
@@ -120,7 +124,7 @@ runTest('solve.mjs requires GitHub URL', () => {
 
 // Test 7: Check that it validates URL format
 runTest('solve.mjs validates URL format', () => {
-  const output = execCommand(`${solvePath} not-a-url 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" not-a-url 2>&1`);
   if (!output.toLowerCase().includes('invalid') && !output.toLowerCase().includes('url')) {
     throw new Error('Should indicate invalid URL format');
   }
@@ -129,7 +133,7 @@ runTest('solve.mjs validates URL format', () => {
 // Test 8: Skip model options test (no standard help)
 runTest('solve.mjs basic validation', () => {
   // Just verify the script can be executed
-  const output = execCommand(`${solvePath} 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" 2>&1`);
   if (!output) {
     throw new Error('No output from solve.mjs');
   }
@@ -137,7 +141,7 @@ runTest('solve.mjs basic validation', () => {
 
 // Test 9: Node.js syntax check
 runTest('solve.mjs syntax check', () => {
-  const output = execCommand(`node -c ${solvePath} 2>&1`);
+  const output = execCommand(`node -c "$SOLVE_PATH" 2>&1`);
   // If there's a syntax error, node -c will output it
   if (output && output.includes('SyntaxError')) {
     throw new Error(`Syntax error in solve.mjs: ${output}`);
@@ -147,7 +151,7 @@ runTest('solve.mjs syntax check', () => {
 // Test 10: Check imports work (basic module loading)
 runTest('solve.mjs module imports', () => {
   // This will fail if there are import errors
-  const output = execCommand(`${solvePath} --version 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --version 2>&1`);
   if (output.includes('Cannot find module') || output.includes('MODULE_NOT_FOUND')) {
     throw new Error(`Module import error: ${output}`);
   }
@@ -155,7 +159,7 @@ runTest('solve.mjs module imports', () => {
 
 // Test 11: Check that runtime switching options have been removed
 runTest('solve.mjs no runtime switching', () => {
-  const output = execCommand(`${solvePath} 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" 2>&1`);
 
   // Verify runtime switching options have been removed (they're now in claude-runtime.mjs)
   if (output.includes('--force-claude-bun-run') || output.includes('--force-claude-nodejs-run')) {
@@ -166,7 +170,7 @@ runTest('solve.mjs no runtime switching', () => {
 // Test 12: Validate that script loads without errors
 runTest('solve.mjs loads successfully', () => {
   // Just verify no critical errors on load
-  const output = execCommand(`${solvePath} --version 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --version 2>&1`);
   if (output.includes('Error:') || output.includes('Cannot find')) {
     throw new Error('Script loading error');
   }
@@ -174,7 +178,7 @@ runTest('solve.mjs loads successfully', () => {
 
 // Test 13: Check --skip-tool-connection-check flag is available
 runTest('solve.mjs --skip-tool-connection-check flag', () => {
-  const output = execCommand(`${solvePath} --help 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --help 2>&1`);
   if (!output.includes('skip-tool-connection-check')) {
     throw new Error('--skip-tool-connection-check option not found in help output');
   }
@@ -185,7 +189,7 @@ runTest('solve.mjs --skip-tool-connection-check flag', () => {
 
 // Test 14: Check --auto-close-pull-request-on-fail flag is available
 runTest('solve.mjs --auto-close-pull-request-on-fail flag', () => {
-  const output = execCommand(`${solvePath} --help 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --help 2>&1`);
   if (!output.includes('auto-close-pull-request-on-fail')) {
     throw new Error('--auto-close-pull-request-on-fail option not found in help output');
   }
@@ -197,7 +201,7 @@ runTest('solve.mjs --auto-close-pull-request-on-fail flag', () => {
 
 // Test 15: Check --attach-logs flag is available
 runTest('solve.mjs --attach-logs flag', () => {
-  const output = execCommand(`${solvePath} --help 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" --help 2>&1`);
   if (!output.includes('attach-logs')) {
     throw new Error('--attach-logs option not found in help output');
   }
@@ -212,7 +216,7 @@ runTest('solve.mjs raw command logging', () => {
   const tempLogFile = `/tmp/test-solve-log-${Date.now()}.log`;
 
   // Run solve.mjs with a mock issue URL and capture output
-  const output = execCommand(`LOG_FILE=${tempLogFile} ${solvePath} https://github.com/test/test/issues/1 --dry-run 2>&1`);
+  const output = execCommand(`LOG_FILE=${tempLogFile} "$SOLVE_PATH" https://github.com/test/test/issues/1 --dry-run 2>&1`);
 
   // Check that raw command is logged to console output
   if (!output.includes('Raw command executed:')) {
@@ -235,7 +239,7 @@ runTest('solve.mjs raw command logging', () => {
 // Test 17: Check version logging at startup (Issue #260)
 runTest('solve.mjs version logging at startup', () => {
   // Run solve.mjs with an invalid URL to trigger early exit but still see initial logs
-  const output = execCommand(`${solvePath} invalid-url 2>&1`);
+  const output = execCommand(`"$SOLVE_PATH" invalid-url 2>&1`);
 
   // Check if version is logged at the beginning
   const versionLineRegex = /🚀 solve v\d+\.\d+\.\d+(\.[a-f0-9]{7,40})?/;

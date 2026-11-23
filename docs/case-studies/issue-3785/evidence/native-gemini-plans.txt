@@ -1,0 +1,72 @@
+Disposable native Gemini CLI 0.65.0: canonical implementation plans.
+Production launchers and images remain unchanged; issue acceptance stays open.
+
+Reproduction precedes the repair. With the selected stage-24 history adapter,
+actual Plan Mode executes write_file and acknowledges its complete UTF-8 plan
+through the next real provider request. Deleting the whole private home deletes
+that plan, although the selected canonical conversation remains. The strict
+assertion fails: Actual native plans must survive private-home disposal in
+canonical history. The provider records two model requests and errors [].
+  /tmp/issue-3785-recovery/gemini-plan-disposal-before-control.log
+
+The twenty-fifth checked stage redirects native Storage plan directories into
+the selected project/session namespace, keeps checked 0700 directories and 0600
+documents, and records every full generation in the existing prompt journal.
+Actual StandardFileSystemService reads/writes validate file data against that
+journal through descriptor-backed checks, namespace locks and revision checks.
+Native read_file also validates its admitted plan before reading/formatting.
+First publication uses the existing checked publication protocol with a narrow
+plan-file allowlist; replacement retains earlier complete journal generations.
+
+Plan Mode's native write policy hard-codes the private .gemini/tmp layout.
+The repaired Config registers a literal current canonical directory rule for
+write_file/replace at the same native default priority, restricted to Plan Mode
+and simple Markdown filenames. Session changes replace the rule. Source files,
+traversal, sibling directories and non-Markdown targets remain denied; higher
+priority administrative denial still wins. Native tool path validation remains.
+Selected canonical storage takes precedence over private custom plan paths;
+unselected custom configuration keeps its original native behavior.
+
+Actual CLI controls (no native exports, SDK or transport instrumentation):
+  --history --history-plan: three PASS, five actual model requests.
+  --history --history-plan --private-history: two PASS, two model requests.
+  --history-plan-attack missing|content-change|symlink|unsafe-mode:
+    two PASS and three model requests each. After the initial acknowledged plan,
+    the fresh resumed native read refuses before another model request or plan
+    delivery, retaining protected data, substituted bytes and prior audit.
+Every network diagnostic records errors []. The healthy resumed control reads
+the entire original plan after whole private-home disposal, then actual replace
+acknowledges a second complete generation with both journal contents retained.
+
+Native storage controls cover retained generations, private-home disposal,
+independent peers, concurrent different-document and same-document writers,
+project/session separation, missing unacknowledged documents, restricted policy,
+private behavior and fourteen unsafe read/write cases. Concurrent writers retain
+all six acknowledged documents or all six complete generations of one document.
+The complete suite passes 29 assertions across 23 bounded scenarios. A strict
+reserved-name control fails before rejecting publication metadata prefixes.
+The suite uses actual native Storage and StandardFileSystemService methods,
+bounded 25-second processes, 256 MiB Node heaps and finite barriers. All child
+groups are reaped. Final diagnostics are saved under gemini-plan-final-storage*
+and gemini-plan-final-v2-* in /tmp/issue-3785-recovery.
+
+Fresh reconstruction applies all twenty-five pinned stages, checks applicability
+without mutation, and compares all seventeen native files byte for byte:
+  manager 80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+  history 316d864e6ba63b15c6685b7da7f86f831652eedfbc0c1c62ed01edc619a31688
+  publication 1f61f99308e939d86592866271a032709bf4fe20a4b389f5c4870c2a2e4aa422
+See gemini-plan-final-source.log and the tracked native experiment instructions.
+
+Final reconstructed-package regressions pass history 69, restore metadata 54
+and shell history 28. Both concurrent-child engines pass three assertions/eight
+requests each; child restore passes five/seven; ACP and third-terminal restore
+pass three/five each. All network diagnostics have errors []. Python parsing,
+formatting, actionlint/ShellCheck, secret scanning and file limits pass locally.
+Fresh exact-head CI is still required for this plan stage.
+
+Remaining limits: journal/file publication interruption and physical power loss,
+fresh-process rollback authority, alternate/sandboxed filesystem writers,
+Unicode/nested filenames in Plan Mode policy, every agent/task/memory path,
+production integration and the complete lifecycle matrix remain unfinished.
+Journal/file disagreement refuses; this stage does not provide automatic
+recovery of an interrupted two-artifact update or claim broad completion.

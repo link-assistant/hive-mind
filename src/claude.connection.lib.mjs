@@ -1,3 +1,4 @@
+import { buildGeolocationEnv, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
@@ -8,11 +9,19 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { createTransientRetryBudget, waitWithCountdown } from './tool-retry.lib.mjs';
+import { buildAuthFailureClaim, createAuthFailureRetry } from './auth-failure-retry.lib.mjs'; // Issue #4053
 import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
 import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
+import { assertAdmittedClaudeAuth } from './claude-canonical-auth.lib.mjs';
+import { assertRouterTaskAuthentication } from './router-auth-guard.lib.mjs';
+import { createRouterConnectionRunner } from './router-command-stream.lib.mjs';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 
 export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'claude', useRouter, log, env: () => ({ ...process.env, ...buildClaudePromptCacheEnv(), ...buildGeolocationEnv() }) });
+  const checkRouter = () => assertRouterTaskAuthentication({ tool: 'claude', env: { ...process.env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+  checkRouter();
   const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
   // Issue #2130: "run claude login" is wrong advice for a Formal-AI-served model.
   const authRemedyLines = buildAuthRemedyLines({ model, vendorRemedy: 'Please run: claude login' });
@@ -22,6 +31,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
   const maxRetries = retryLimits.maxTransientErrorRetries;
   let retryCount = 0;
   const transientRetryBudget = createTransientRetryBudget();
+  const authFailureRetry = createAuthFailureRetry({ tool: 'claude', budget: transientRetryBudget, log }); // Issue #4053
   // Returns true when a retry was performed (caller should recurse), false when the budget is spent.
   const retryAfterOverload = async context => {
     const retryDecision = transientRetryBudget.evaluate({
@@ -44,6 +54,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
     return true;
   };
   const attemptValidation = async () => {
+    await assertAdmittedClaudeAuth();
     try {
       if (retryCount === 0) {
         await log('🔍 Validating Claude CLI connection...');
@@ -51,7 +62,8 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
         await log(`🔄 Retry attempt ${retryCount} for Claude CLI validation (${transientRetryBudget.describeProgress()})...`);
       }
       try {
-        const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
+        checkRouter();
+        const versionResult = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
           detectedClaudeVersion = version; // issue #1146
@@ -60,17 +72,21 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
           }
         }
       } catch (versionError) {
+        if (versionError.routerAuthViolation) throw versionError;
         if (retryCount === 0) {
           await log(`⚠️  Claude CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
       }
       let result;
       try {
-        result = await $`printf hi | claude --model ${mappedModel} -p`;
+        checkRouter();
+        result = await runConnection`printf hi | claude --model ${mappedModel} -p --append-system-prompt ${withGeolocationPolicy('')}`;
       } catch (pipeError) {
+        if (pipeError.routerAuthViolation) throw pipeError;
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
-          result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })}`;
+          checkRouter();
+          result = await runConnection`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p ${promptText('prompt.templates.connection.greeting', {}, { locale: 'en' })} --append-system-prompt ${withGeolocationPolicy('')}`;
         } catch (timeoutError) {
           if (timeoutError.code === 124) {
             await log(`❌ Claude CLI timed out after ${Math.floor(timeouts.claudeCli / 1000)} seconds`, {
@@ -114,6 +130,13 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       }
       const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
+        // Issue #4053: a generic 401/403 (e.g. a Cloudflare challenge page during a provider
+        // incident) is re-checked before validation fails; explicit wordings stay terminal.
+        const failureText = `${stdout}\n${stderr}`.trim();
+        if (/failed to authenticate|api error:?\s*40[13]\b/i.test(failureText)) {
+          const authRetry = await authFailureRetry.retryOrConfirm(buildAuthFailureClaim({ tool: 'claude', message: failureText.substring(0, 2000), label: 'Claude CLI authentication failed during validation' }), { waitForRetryDelay: waitWithCountdown });
+          if (authRetry.retry) return await attemptValidation();
+        }
         if (jsonError) {
           await log(`❌ Claude CLI authentication failed: ${jsonError.type} - ${jsonError.message}`, {
             level: 'error',
@@ -141,6 +164,7 @@ export const validateClaudeConnection = async (model = 'haiku', { useRouter = fa
       await log('✅ Claude CLI connection validated successfully');
       return true;
     } catch (error) {
+      if (error.routerAuthViolation) throw error;
       const errorStr = error.message || error.toString();
       if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('API Error: 529') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded'))) {
         if (await retryAfterOverload('during validation')) return await attemptValidation();

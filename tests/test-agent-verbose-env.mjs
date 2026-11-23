@@ -41,7 +41,9 @@ console.log('  ✅ PASSED: Env vars are conditional on argv.verbose\n');
 
 // Test 5: Verify the pattern matches how claude.lib.mjs handles verbose for Claude tool
 console.log('Test 5: Pattern consistency with claude.lib.mjs verbose handling');
-assert.ok(agentLibSource.includes('const agentEnv = { ...process.env }'), 'Should spread process.env into agentEnv (same pattern as claudeEnv in claude.lib.mjs)');
+// Issue #4025: match the inheritance, not the whole line, so additions such as
+// `...buildGeolocationEnv(argv)` (issue #4023) do not break this check.
+assert.match(agentLibSource, /const agentEnv = \{ \.\.\.process\.env[,\s}]/, 'Should spread process.env into agentEnv first (same pattern as claudeEnv in claude.lib.mjs)');
 console.log('  ✅ PASSED: Environment inheritance pattern is consistent\n');
 
 // Test 6: Verify --verbose flag is still passed as CLI argument (belt-and-suspenders)

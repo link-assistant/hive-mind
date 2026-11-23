@@ -1,0 +1,46 @@
+✔ Retry-After is parsed from seconds and HTTP dates (1.764701ms)
+✔ a Claude 429 is cached instead of re-asked every queue cycle (28.557457ms)
+✔ a Retry-After longer than the usage TTL is honoured (4.737847ms)
+✔ concurrent callers share one usage request (the 429 pairs two seconds apart) (7.252669ms)
+✔ a Codex 401 is cached until the auth file changes (6.798201ms)
+✔ other failures (network, 5xx) are not cached (4.002806ms)
+✔ the real fetchers classify their failures (4.516283ms)
+✔ Claude authentication error has its own section without subscription metadata (5.864128ms)
+✔ both providers have separate sections when neither has authentication (0.920497ms)
+✔ authenticated Claude entitlement overrides a stale locally stored Max plan (30.107589ms)
+✔ Claude live Max entitlement and paid expiry are retained when supplied (10.949113ms)
+✔ missing Claude authentication does not invent a cancelled subscription (8.256301ms)
+✔ stored Codex claims are identified as metadata even when their expiry is in the future (7.890668ms)
+✔ a successful usage cache is invalidated when credentials rotate (5.724076ms)
+✔ equal-mtime atomic credential replacement invalidates an authentication error (7.114121ms)
+✔ different credential authorities never share a usage cache entry (19.898486ms)
+✔ limits paths follow effective tool homes and never fall back to another home (1.589756ms)
+✔ logout immediately invalidates cached Codex subscription claims (5.204868ms)
+✔ verbose limits diagnostics omit credential suffixes, account ids and response bodies (14.937342ms)
+✔ malformed provider JSON and credential JSON cannot escape through errors or diagnostics (7.734156ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"useRouter":true,"env":{}} (3.316207ms)
+✔ selected Router without a task token rejects before inspecting vendor mounts: {"env":{"HIVE_MIND_USE_ROUTER":"1"}} (0.541851ms)
+✔ invalid selected Router endpoint rejects without exposing its value (0.671482ms)
+✔ a Router dialect without a route for the selected tool rejects before native fallback (0.611882ms)
+✔ task routing uses the selected image dialect from the launch environment (2.560766ms)
+✔ unusable Router route rejects before minting a task lease: {"tool":"gemini","env":{}} (1.102947ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_ROUTES":"invalid-private-sentinel"}} (0.588468ms)
+✔ unusable Router route rejects before minting a task lease: {"env":{"HIVE_MIND_ROUTER_URL":"file:///private-sentinel"}} (0.194583ms)
+✔ the launch dialect follows the lease through container attachment (1.113417ms)
+✔ Codex container wiring uses the launch dialect rather than the global default (1.165143ms)
+✔ explicit Router limits use its provider-neutral API and shared metadata result (84.569295ms)
+✔ an unsupported Router usage API reports selected authority failure without a local fallback (47.508387ms)
+✔ missing Router token fails before sending any usage request (4.245009ms)
+✔ Router Codex maps a weekly primary window and preserves additional metered limits (10.615781ms)
+✔ Router Claude uses the same authority for usage, entitlement and paid expiration (8.858194ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":2,"subscriptions":[]} (9.848009ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"unverified","windows":[]}]} (7.866152ms)
+✔ Router unavailable or unsupported data fails closed: {"schema_version":1,"subscriptions":[{"provider":"openai","state":"available"}]} (9.179453ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1393.089646

@@ -1,6 +1,7 @@
 import { getTrackedToolCommentIds, isFailureAlreadyReportedOnTarget, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection, buildGitHubServerPushFailureActionSection } from './solve.branch-divergence.lib.mjs';
+import { emptyRepositoryFailure } from './task-failure-signature.lib.mjs';
 
 export { FORK_DIVERGENCE_RESOLUTION_OPTION };
 
@@ -32,12 +33,19 @@ const extractUrlAfter = (reason, label) => {
 
 const isPushRejectionFailure = reason => {
   const normalizedReason = String(reason || '').toLowerCase();
-  return normalizedReason.includes('push rejected for ') || (normalizedReason.includes('failed to push') && normalizedReason.includes('github.com'));
+  return normalizedReason.includes('push rejected for ') || (normalizedReason.includes('failed to push') && /\bgithub\.com\b/.test(normalizedReason));
 };
 
 export function buildPrePullRequestFailureActionSection(reason = '') {
   const normalizedReason = String(reason || '').toLowerCase();
   const isForkOrRecoveryFailure = normalizedReason.includes('fork') || normalizedReason.includes('auto-recovery') || normalizedReason.includes('repository setup');
+
+  if (emptyRepositoryFailure.test(normalizedReason)) {
+    return `### What you can do
+- Ask someone with write access to create the first commit, for example by adding a README on GitHub.
+- If you have write access, run the solver with \`--auto-init-repository\` to create the first commit.
+- Rerun the solver once the repository contains a commit.`;
+  }
 
   if (isForkReplacementBlockedReason(reason)) {
     const details = extractForkReplacementBlockedDetails(reason);

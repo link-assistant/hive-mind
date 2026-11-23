@@ -16,7 +16,7 @@
 
 # Telegram Bot Configuration
 
-TELEGRAM_BOT_TOKEN: your_bot_token_here
+TELEGRAM_BOT_TOKEN: YOUR_TELEGRAM_BOT_TOKEN
 
 # Optional: Allowed chat IDs in lino notation (Links Notation)
 # If not set, all chats are allowed
@@ -24,6 +24,11 @@ TELEGRAM_ALLOWED_CHATS: (
   123456789
   987654321
 )
+
+# Optional: Known Hive Mind peers as (chat ID, bot ID) Links Notation pairs
+# TELEGRAM_HIVE_MIND_PEER_BOTS: (
+#   (-1001234567890 987654321)
+# )
 
 # Optional: Override options for /solve command in lino notation
 # These options will be locked and override any user-provided values

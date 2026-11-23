@@ -59,10 +59,11 @@ test('a timed-out version probe kills its shell descendants', { timeout: 10_000,
       // Wait for that observable state, rather than treating a dying task as a leak.
       for (let attempt = 0; attempt < 20; attempt++) {
         state = await fs.readFile(`/proc/${pid}/stat`, 'utf8').catch(() => '');
-        if (!state || /\) Z /.test(state)) break;
+        // `X`: reaped and being released (#4055).
+        if (!state || /\) [ZX] /.test(state)) break;
         await delay(10);
       }
-      assert.ok(!state || /\) Z /.test(state), `version probe left process ${pid} running: ${state}`);
+      assert.ok(!state || /\) [ZX] /.test(state), `version probe left process ${pid} running: ${state}`);
     } finally {
       pid ??= Number(await fs.readFile(pidFile, 'utf8').catch(() => '0'));
       if (pid) {

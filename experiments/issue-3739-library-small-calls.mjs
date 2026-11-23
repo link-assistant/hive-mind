@@ -1,0 +1,20 @@
+// Steady-state cost of many small sanitize calls (one per log line).
+import { createSyncSanitizer, sanitize } from '@link-foundation/sensitive-data-sanitizer';
+import { sanitizeCredentialText } from '../src/credential-sanitization-core.lib.mjs';
+const s = createSyncSanitizer({ credentialsOnly: true, transformation: { mode: 'hive-mask' } });
+const lines = ['[INFO] Running gh pr view 3741 --repo link-assistant/hive-mind', '   Checking CI status for commit 6aefa65ed4759711ecd1f6fcff951378465625ab', 'token=abcdefghijklmnopqrstuvwxyz123456 used'];
+for (let i = 0; i < 50; i++) for (const l of lines) s.sanitize(l);
+const N = 2000;
+let a = performance.now();
+for (let i = 0; i < N; i++) s.sanitize(lines[i % 3]);
+let b = performance.now();
+console.log('library per call ms', ((b - a) / N).toFixed(3));
+a = performance.now();
+for (let i = 0; i < N; i++) sanitize(lines[i % 3], { credentialsOnly: true, transformation: { mode: 'hive-mask' }, knownSecrets: ['abcdefghijklmnopqrstuvwxyz000'] });
+b = performance.now();
+console.log('library sanitize() with knownSecrets per call ms', ((b - a) / N).toFixed(3));
+a = performance.now();
+for (let i = 0; i < N; i++) sanitizeCredentialText(lines[i % 3]);
+b = performance.now();
+console.log('core per call ms', ((b - a) / N).toFixed(3));
+console.log(lines.map(l => s.sanitize(l).text));

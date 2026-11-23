@@ -1,0 +1,67 @@
+Native Codex installed-command activation, 2026-10-31 UTC
+
+Reproducer:
+  node --test tests/issue-3785-native-codex-command.test.mjs
+  Before gate repair: the new installed-runtime assertion failed after the
+  version-only synthetic launcher executed. The error was an ordinary CLI
+  version mismatch, rather than pre-execution native package refusal.
+  Log: /tmp/issue-3785-recovery/codex-command-admission-before.log
+
+After repair: 68 focused assertions pass across installed-command, runtime,
+Gemini command selection, effective config, catalog, private environment,
+descendant cleanup and stock baseline suites. Synthetic ELF-shaped packaging
+fixtures are admitted statically and never executed. Actual request authority
+is reserved for the compiled package probes and image verification in CI.
+Log: /tmp/issue-3785-recovery/codex-command-admission-after.log
+
+Activation requires the pinned upstream npm package metadata and selected bin
+symlink, installs this npm package's byte-verified platform generation, checks
+the original link again, and atomically selects the new generation. Repeating
+installation preserves the selected bin inode. Invalid metadata, ordinary
+executable collisions, changed native bytes, missing bundle and relative PATH
+selection refuse without running the provider or replacing existing state.
+The upstream launcher, auth, configuration and history are not edited.
+
+Both images install the native command after the final global Bun transaction,
+with networking disabled. Production runtime admission audits selected config
+roots and verifies the native Codex bytes before executing any CLI. Its stock
+baseline and process cleanup remain independently tested with isolated mocks.
+
+The actual installed npm CI probe now installs @openai/codex@0.164.0 alongside
+Hive Mind. It checks selected-bin publication, idempotence and upstream launcher
+preservation, then runs the complete authentication and provider controls
+through that selected command on both native architectures. This new probe
+and both changed images still require their first compiled CI verification.
+The same actual installed-bin probe additionally exercises native compression
+and peer resume after private configuration disposal, safe/unsafe TUI history,
+stale identity publication, and refresh-owner death with malformed-state repair.
+Those new optimized installed-command controls have not yet run.
+The new image-evidence invalidation assertion first fails on the Python
+compression probe: the change detector recognized only native MJS probes.
+It now includes native Python probes and their process/network helpers.
+All four release controls pass after the fix; changed-file ESLint, Prettier
+and actionlint also pass. The assertion uses the production change classifier.
+Logs: /tmp/issue-3785-recovery/codex-installed-history-invalidation-{before,after}.log
+
+Default canonical selection and removal of production auth copying remain
+unfinished. This command-installation foundation alone does not close O3/A2.
+
+Repository verification checkpoint:
+  NODE_OPTIONS=--max-old-space-size=160 npm test -- --continue-on-failure
+  completed all 744 discovered files: 743 passed. The remaining bounded-worker
+  test had three assertions fail because that global Node option overrides the
+  worker's own 48 MiB heap limit. No implementation change was made for this
+  invocation problem. Repeating that finite-input test without NODE_OPTIONS
+  passes all 40 assertions, including the expected worker OOM and parent survival.
+  The newly added limits-authority file was discovered after this full run
+  started; its 18 assertions pass separately in the 45-assertion limits run.
+  Full-run log: /tmp/issue-3785-recovery/codex-command-default-suite-final.log
+  Worker-control log: /tmp/issue-3785-recovery/codex-command-worker-control.log
+  Node's documented option precedence:
+  https://nodejs.org/api/worker_threads.html#new-workerfilename-options
+
+Full repository ESLint and the shared GitHub shell-retry check pass.
+Log: /tmp/issue-3785-recovery/codex-command-repository-lint.log
+Repository duplication check passes at 10.04% against its 12% threshold,
+and the complete secretlint scan passes.
+Logs: /tmp/issue-3785-recovery/codex-command-repository-{duplication,secrets}.log

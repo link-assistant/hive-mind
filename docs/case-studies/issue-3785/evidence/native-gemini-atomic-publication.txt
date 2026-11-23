@@ -1,0 +1,68 @@
+Disposable native Gemini CLI 0.65.0 atomic publication proof experiment.
+Scope: A9 partial evidence; production launchers/images are unchanged.
+
+Strict whole-CLI before controls, both first and replacement:
+  gemini-plan-partial-before-control.log
+  gemini-plan-partial-replacement-before-control.log
+A finite explicitly armed Linux interposer writes half the native plan intent
+publication proof with the real write/fsync, records its marker, then SIGKILLs.
+Delete the complete private home. Fresh actual native resume refuses with:
+  Fresh complete native CLI must recover the interrupted plan and resume its canonical session.
+  Gemini canonical conversation history is unavailable or unsafe.
+The retained first proof is 82 bytes and is genuinely malformed JSON. The prior
+full plan/generation survives replacement; the interrupted write has no ack.
+
+Stage 27 atomically links the completed proof from a checked temporary descriptor.
+A two-link proof is admissible only with its exact checked temporary alias.
+Revalidate schema/data/target before removing it and full proof bytes/identity
+again after removing it. Unsafe or substituted evidence remains refused.
+
+Independent local native API controls pass:
+  gemini-atomic-proof-recovery-control.log: 28 assertions, fourteen kill/recover cases.
+  gemini-atomic-proof-{attack}-control.log: 26 assertions, thirteen unsafe cases.
+  gemini-atomic-proof-live-{inode,content}-control.log: one assertion each.
+Every owner is killed/reaped, every fresh peer uses a different private home,
+and unsafe controls preserve full canonical/protected fingerprints.
+An initial registry fixture expected a basename; the actual native registry uses
+the SHA-256 of the complete workspace path. Correct the fixture to that exact
+native format and repeat all fourteen controls successfully.
+
+Complete actual CLI partial-write recovery passes for both first and replacement:
+  gemini-plan-partial-after-control.log
+  gemini-plan-partial-replacement-after-control.log
+Fresh resume, actual write_file retry and read_file deliver every complete UTF-8
+plan line, preserve full generations and preceding audits. Each case passes two
+assertions. The final expanded CI driver also verifies the incomplete orphan's
+bytes/inode are retained and no active proof/intent remains after successful retry.
+
+Exact source pins (SHA-256):
+  chunk-DKZARV6U.js
+    80152a26cf924992ac283a92e1b9b2252326cf6a417edc1c4b147088ca154733
+  hive-gemini-history.mjs
+    d522f9e84bffe3d7c9323596f3aa8914bd2ce74e73ff2be3233e6aff6b8729da
+  hive-gemini-publication.mjs
+    3b2b4dbc2296e6da81d314879e466f100f211579ebee13a63a74d9129bae28d8
+The patch checks exact preceding source and every context before mutation.
+
+Expanded local driver: gemini-atomic-proof-ci-v2-* and
+gemini-atomic-proof-ci-v3-*. All steps pass after correcting regression hooks
+that treated an unlinked temporary descriptor pathname as a live path. Preserve
+both original failures; use fstat for directory classification and derive the
+visible journal only in the explicitly pinned stage-27 live-replacement control.
+The original stage's live control still passes. Earlier generic controls cover
+15 recovery cases, 20 unsafe cases and live replacement. Plan publication passes
+59 assertions; storage 30; whole-CLI synchronized recovery 12; partial-write
+retries four; ordinary selected/private behavior five. All 12 network logs have
+errors []. Incomplete orphan bytes/inode remain unchanged after both retries.
+
+Fresh reconstruction applies 27 checked history stages and produces 17 identical
+native files; applicability checks mutate no source. The reconstructed package
+passes fresh whole-CLI partial-write retry (2), ACP restore/reopen (3), terminal
+automatic startup/reopen (4), both concurrent-child engines (3 each), and both
+child-edit restore cycles (5 each). History passes 69, checkpoint metadata 54,
+and shell history 28. The earlier stage-26 plan descriptor fixture passes its
+replacement/after-journal recovery (2). All seven surrounding network logs have
+errors []. See gemini-atomic-proof-final-*-control.log and the preserved review
+JSON. Exact pushed-head CI remains required. Power loss, orphan cleanup,
+remaining writers, durable rollback admission and complete production lifecycle
+remain unfinished.

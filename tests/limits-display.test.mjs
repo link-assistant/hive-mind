@@ -654,7 +654,7 @@ test('formatUsageMessage renders trial details in the Claude subscription headin
   assert.ok(!message.includes('Trial ends in'), 'Should not render a separate Trial ends line');
 });
 
-test('formatUsageMessage renders active status in the Claude subscription heading', () => {
+test('formatUsageMessage omits the bare active status from the Claude subscription heading (issue #4053)', () => {
   const usage = {
     currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
     allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
@@ -667,7 +667,9 @@ test('formatUsageMessage renders active status in the Claude subscription headin
       // No endsAt, no trialEndsAt — the paid-plan case where Anthropic does not publish renewal date.
     },
   });
-  assert.ok(message.includes('Claude Max subscription (active)'), 'Should render active status in Claude subscription heading');
+  // Issue #4053: a bare "active" status is not a verified fact, so the heading shows only the plan.
+  assert.ok(message.includes('Claude Max subscription\n') || /Claude Max subscription(?! \()/.test(message), 'Should render the Claude subscription heading without a status');
+  assert.ok(!message.includes('(active)'), 'Should not render the misleading (active) status');
   assert.ok(!message.includes('Subscription: active'), 'Should not render a separate Subscription: active line');
   assert.ok(!message.includes('Subscription ends'), 'Should not render Subscription ends line without endsAt');
   assert.ok(!message.includes('Trial ends'), 'Should not render Trial ends line without trialEndsAt');
@@ -723,7 +725,7 @@ test('formatUsageMessage splits subscription and Codex sections into separate co
     },
   });
 
-  assert.ok(message.includes('Claude Max subscription (active)'), 'Should include Claude heading outside code block');
+  assert.ok(message.includes('Claude Max subscription') && !message.includes('(active)'), 'Should include Claude heading outside code block without (active)');
   assert.ok(message.includes('ChatGPT Pro subscription'), 'Should include ChatGPT heading outside code block');
   assert.ok(message.includes('\nQueues\n\n```\ncodex (pending: 0, processing: 0)\n```'), 'Should render queues as a titled code block in split layout');
   assert.ok(!message.includes('Current week (Sonnet only)\nN/A'), 'Should omit unused Sonnet-only weekly section');
@@ -1102,7 +1104,7 @@ test('formatUsageMessage with extraSections includes extra content inside code b
   assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with extraSections');
 });
 
-test('formatUsageMessage with claudeError and extraSections includes extra content inside code block', () => {
+test('formatUsageMessage separates Claude errors and queue status into their own code blocks', () => {
   const errorMessage = 'Claude authentication expired.';
   const queueStatus = 'Queues\nclaude (pending: 0, processing: 0)\nagent (pending: 0, processing: 0)\n';
 
@@ -1121,9 +1123,9 @@ test('formatUsageMessage with claudeError and extraSections includes extra conte
   const closingFenceIndex = message.lastIndexOf('```');
   assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence with claudeError');
 
-  // Still only one code block
+  // Metrics, the Claude error and the queue each have a separate code block.
   const fenceCount = (message.match(/```/g) || []).length;
-  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with claudeError and extraSections');
+  assert.equal(fenceCount, 6, 'Message should contain three independently fenced sections');
 });
 
 test('formatUsageMessage with empty extraSections works as before', () => {

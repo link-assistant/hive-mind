@@ -786,6 +786,12 @@ en
                  - Fill every requirement with status "done" only after verifying it, and record concrete test results, files, or other reviewable evidence. Add every prose requirement the template could not extract. Mark requirements you cannot complete as "blocked" with the evidence of the blocker. Include the complete JSON report between its supplied {{REQUIREMENTS_START}} and {{REQUIREMENTS_END}} markers in the pull request description. Preserve those markers on later edits. Refresh the template after any new commit or requirement feedback.
                  - The merge guard requires a report for exactly the required issues, the current commit, and current issue/review feedback. It rejects missing criteria, empty evidence, pending or blocked statuses, missing links, and unreadable verification data. Never fabricate evidence to pass this check.
             """
+        review-bots-prompts
+          getReviewBotsSubPrompt
+            text1 """
+
+                 - When you mark the pull request ready or push to it, wait up to {{minutes}} minutes for review apps such as {{bots}} (👀 means reviewing; 👍 or "has_unresolved_findings":false means no findings), then address every finding: fix it and resolve the thread, or reply with evidence.
+            """
         opencode-prompts
           buildSystemPrompt
             text3 """

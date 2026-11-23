@@ -94,7 +94,9 @@ export const pinFormalAiCodexHome = async ({ toolInvocation, capabilityPreflight
   } catch (error) {
     throw notConfigured(`could not read the generated Codex config ${path.join(formalCodexHome, 'config.toml')} (${error.message})`);
   }
-  const safeFormalConfig = setTomlTableBoolean({ config: formalConfig, table: 'features', key: 'remote_plugin', value: false });
+  const remoteSafeConfig = setTomlTableBoolean({ config: formalConfig, table: 'features', key: 'remote_plugin', value: false });
+  // Issue #3785: plugins stay off unless the verified scope selected some.
+  const safeFormalConfig = setTomlTableBoolean({ config: remoteSafeConfig, table: 'features', key: 'plugins', value: (capabilityPreflight.plugins?.length || 0) > 0 });
   await fsImpl.writeFile(path.join(scopedCodexHome, 'config.toml'), safeFormalConfig);
   toolInvocation.env.CODEX_HOME = scopedCodexHome;
   await log(`   🧭 Formal AI config copied from ${formalCodexHome}`, { verbose: true });

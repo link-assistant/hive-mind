@@ -1,0 +1,19 @@
+{"adminVisible":true,"stockCount":5,"stockNames":["imagegen","openai-docs","review-agent","skill-creator","skill-installer"],"privateStockPaths":true,"stockEnabled":true,"noStockPlugins":true,"requestedCwd":true,"noErrors":true}
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: the installed runtime gate admitted extra native admin skills alongside pristine stock
+
+true !== false
+
+    at file:///tmp/gh-issue-solver-1792986793513/experiments/issue-3785/probe-native-skill-catalog.mjs:65:10 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.12.1

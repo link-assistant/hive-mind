@@ -1,6 +1,6 @@
 # Open a Formal AI draft for every new issue (issue #2233).
 #
-# Every issue opened here gets one attempt from
+# Every eligible issue without an open solve pull request gets one attempt from
 # `solve --tool agent --model formal-ai --attach-logs --verbose` within minutes,
 # on a branch nobody depends on. A wrong attempt costs nothing; a right one
 # saves the first commit. The failure policy is deliberate and is documented in
@@ -64,6 +64,11 @@ on:
 permissions:
   contents: read
 
+# Quiets the `git init` "Using 'master'" hint from checkout (issue #4029).
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 jobs:
   health:
     # A caller's own schedule does not check this repository's drafts.
@@ -112,6 +117,10 @@ jobs:
       checks_dispatched: ${{ steps.dispatch.outcome == 'success' && steps.gh.outputs.triggers-workflows != 'true' }}
 
     steps:
+      # Match the 90-minute job ceiling and reserve time to record a failed attempt.
+      - name: Record the draft retry deadline
+        run: echo "HIVE_MIND_DEADLINE_AT_MS=$((($(date +%s) + 90 * 60 - 30) * 1000))" >> "$GITHUB_ENV"
+
       # A caller runs Hive Mind's draft scripts, so it checks out this
       # repository rather than its own.
       - name: Checkout repository
@@ -188,7 +197,7 @@ jobs:
       # is exactly the failure mode worth reading. `!cancelled()` rather than
       # `always()`: see tests/ci-workflow-cancellation-2082.test.mjs.
       - name: Upload the session log
-        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' }}
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' && steps.attempt.outputs.should_run != 'false' }}
         uses: actions/upload-artifact@v7
         with:
           name: formal-ai-draft-session-${{ steps.decide.outputs.issue_number }}
@@ -204,7 +213,9 @@ jobs:
     needs: draft
     if: ${{ !cancelled() && needs.draft.outputs.checks_dispatched == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # Dispatched release runs take up to ~140 min (issue #4029,
+    # dev/log/issues/4029/pulls/4030/release-dispatch-durations.txt).
+    timeout-minutes: 215
     permissions:
       contents: read
       actions: read
@@ -222,5 +233,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHECKS_REF: ${{ needs.draft.outputs.head_branch }}
-          CHECKS_DEADLINE_MINUTES: '80'
+          CHECKS_DEADLINE_MINUTES: '200'
         run: node scripts/formal-ai-draft-checks.mjs

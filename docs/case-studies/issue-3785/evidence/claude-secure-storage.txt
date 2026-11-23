@@ -1,0 +1,11 @@
+Synthetic-only pinned Linux Claude 2.1.310 probe, 2026-10-26 UTC.
+
+PASS: independent secure-storage root supplies native status metadata.
+PASS: native logout removes selected credentials and preserves private/default stores.
+PASS: explicitly empty selector pins HOME/.claude despite relocated configuration.
+
+Before resolver change: 3 failures / 18 tests.
+After resolver change: 18 passed / 18 tests.
+Focused limits/cache/display/Router/Telegram selection: 35 node tests passed;
+legacy display and Telegram files additionally report 71 and 39 internal assertions.
+No fresh entitlement, login, refresh, Docker projection or full lifecycle claim.

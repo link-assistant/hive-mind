@@ -1,0 +1,51 @@
+✅ every --tool choice has an auxiliary-call policy entry
+✅ every policy tool either has a knob or is recorded as already compliant
+✅ the five Claude auxiliary gates are pinned to 0, not merely unset
+✅ the quiet config and the spawned CLI both carry the auxiliary gates
+✅ Claude compaction is never switched off
+✅ a fresh settings file comes out with the auxiliary gates off and compaction untouched
+✅ every image baseline carries the auxiliary gates and no compaction switch
+✅ Codex auxiliary features are pinned off as -c overrides
+✅ --no-auxiliary-model-calls-disabled leaves the Codex command line untouched
+✅ the Codex compaction features are never in the disable list
+✅ both Codex launch paths append the auxiliary overrides
+✅ Gemini and Qwen get the knobs each of them actually has
+✅ no compaction setting is ever written for gemini or qwen
+✅ a missing settings file is created with the policy in it
+✅ an operator's own settings — including their compaction threshold — survive
+✅ an already-compliant settings file is left byte-identical
+✅ an unwritable settings file degrades to a warning, never a throw
+✅ a tool with no Gemini-family settings file is a no-op, not a stray write
+✅ gemini and qwen apply the policy before launching the CLI
+✅ the OpenCode title and summary agents are disabled and compaction is not
+✅ opencode.lib writes the agent block into the per-task config
+✅ the policy is on unless explicitly turned off
+✅ solve exposes --auxiliary-model-calls-disabled, defaulting to true
+✅ every tool description mentions something concrete
+
+🔕 24 issue-2236 assertions passed
+✔ tests/test-issue-2236-auxiliary-model-calls-policy.mjs (2676.565748ms)
+✅ incident: relaunch keeps --think high, --auto-merge, --no-tool-check, --disable-report-issue, --language en
+✅ incident: relaunch re-parses to the same think/autoMerge/toolCheck/disableReportIssue/language
+✅ incident: every original option survives a chain of relaunches with identical parsed values
+✅ state/controlled options are excluded in every spelling (aliases, camelCase, =value, --no-*)
+✅ manual resume keeps --verbose/--fork/--attach-logs/--auto-continue but drops state options
+✅ positionals are dropped, unknown options are kept verbatim, `--` ends option parsing
+✅ every solve option (all spellings) is forwarded unless it is caller-controlled
+✅ state options are a subset of both exclusion lists and exist in solve definitions
+✅ buildSolveResumeCommand appends preserved options, quoting only when needed
+✅ buildSolveResumeCommand without extraArgs is unchanged
+✅ hive does not register or forward the internal --previous-anthropic-cost
+✅ auto-resume relaunch replays preserved options and no longer drops --model sonnet
+✅ every buildSolveResumeCommand call passes the preserved options
+
+13 passed, 0 failed
+✔ tests/test-issue-3190-option-forwarding.mjs (2480.818842ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2699.538759

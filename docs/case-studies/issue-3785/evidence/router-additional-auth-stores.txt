@@ -1,0 +1,48 @@
+Additional native Router credential stores, 2026-10-31 UTC
+
+Source contracts inspected locally: Agent 0.27.0 Global.Path.data/auth.json,
+OpenCode 1.19.4 data/auth.json and native OPENCODE_AUTH_CONTENT handling,
+Gemini 0.65.0 GEMINI_CLI_HOME/.gemini/oauth_creds.json, and Qwen 0.26.1
+QWEN_HOME/oauth_creds.json. Agent's xdg-basedir dependency and OpenCode's
+embedded native helpers honor relative XDG_DATA_HOME; Qwen resolvePath expands
+~ and both slash styles. Relative selectors resolve from the native command cwd.
+Selected GEMINI_AUTH_HOME/QWEN_AUTH_HOME belong to the reserved native
+experiments; production activation is not established by these controls.
+
+Before, all 60 forbidden-file controls fail across 15 default/selected roots,
+as do four runtime-removal controls and the OpenCode inline registry control.
+Nineteen clean/unselected controls pass. The 84-control before log SHA256:
+42b35930d3ed4365ca82a5277260ea9b57fa070518af1c1f29287eff0f34b170
+
+The actual production adapters independently reproduce 40 additional failures:
+16 prelaunch new/resume env/argv refusals, 16 native-store polling refusals
+while a synthetic command waits, and eight connection refusals before version
+or paid probe creation. All existing 194 controls pass unchanged. The complete
+234-control before log SHA256:
+64fd13aeab2ffb0d73e2e492f93aa92b0ee7fb2584f3118e65021d4f5bac8714
+
+The guard now includes native files under conventional and selected data,
+configuration and authentication roots, retains the first runtime decision,
+and refuses the native inline registry. Existing bounded file reading rejects
+directories, final symbolic links and invalid UTF-8 without disclosing content.
+Absent stores and ordinary unselected runs retain their prior behavior.
+
+After, all 318 direct controls pass. Log SHA256:
+61fb9bb53c60105ab66ac90ed28274669bd9218bc145180f58d280164dc3f886
+All 693 affected controls pass in 24 sequential files (two suites), including
+all primary/four-adapter lifetime, existing timeout/result-close, admission,
+connection, provider retry and Formal AI parity tests. Focused log SHA256:
+3e6081ece1646a65240b2c869ba004c741cbe44bdeffdab60d462718cf4df01a
+
+Repository ESLint (zero warnings), all 42 GitHub retry-shell controls, Secretlint,
+duplication (10.02%), file limits and changed-file formatting pass.
+The new wrapper joins the combined full default suite after the independent
+guard diagnostic repair. The preceding complete 760-file suite passed before
+these later independent changes; it does not admit this final source snapshot.
+
+Limits: these controls use isolated synthetic files and mocked native commands.
+They establish the identified path contracts, admission and retained monitoring;
+they never make provider requests. Complete provider/configuration selectors,
+all alternate environment authority, in-memory credentials, durable Router
+audit/lifecycle, six-tool canonical storage and migration remain unfinished.
+Keep the PR draft and the complete issue inventory open.

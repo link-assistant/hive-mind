@@ -223,9 +223,11 @@ export const captureSessionOutcome = async ({ tempDir, toolResult = null, $: com
   let gitStatus = '';
   let head = '';
   try {
-    const statusResult = await command({ cwd: tempDir })`git status --porcelain 2>&1`;
+    // Issue #3922: internal probes; mirrored, a bare `<sha>` line reached the log and masking it
+    // hid the same SHA in every commit link of the log.
+    const statusResult = await command({ cwd: tempDir, mirror: false })`git status --porcelain 2>&1`;
     if (statusResult?.code === 0) gitStatus = filterAiToolScratchFromStatus(statusResult.stdout.toString().trim());
-    const headResult = await command({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
+    const headResult = await command({ cwd: tempDir, mirror: false })`git rev-parse HEAD 2>&1`;
     if (headResult?.code === 0) head = headResult.stdout.toString().trim();
   } catch (error) {
     // An unreadable working tree means an unusable fingerprint. Recording one
@@ -247,7 +249,7 @@ export const describeVerdict = verdict => {
 const readHead = async ({ tempDir, command }) => {
   if (!tempDir || typeof command !== 'function') return null;
   try {
-    const result = await command({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
+    const result = await command({ cwd: tempDir, mirror: false })`git rev-parse HEAD 2>&1`;
     return result?.code === 0 ? result.stdout.toString().trim() || null : null;
   } catch {
     return null;

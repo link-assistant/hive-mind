@@ -33,6 +33,15 @@ en
         buildCodexMemoryBudgetPrompt
           text1 " Current use is {{value1}}; available headroom is {{value2}}."
           text2 "Execution resource budget: the container memory limit is {{value1}} ({{value2}} bytes), shared by the agent and all build/test subprocesses.{{current}} Host free memory does not override this limit. Run memory-heavy commands sequentially, use CARGO_BUILD_JOBS=1 / cargo -j 1 for Rust builds, and prefer focused test targets. A single compiler can still exceed the budget: measure memory, reduce compiler/debug settings where appropriate, and stop repeating a build that is killed; use an adequately provisioned CI runner for remaining validation."
+      codex-turn-guard
+        buildCodexContinuationPrompt
+          intro "Continue the unfinished work from the current working tree."
+          maxOutputTokens "Your previous response was cut off at the model's output token limit (max_output_tokens), so the tool call or message it was writing was lost and did not run."
+          degenerateOutput "Your previous response was stopped because it degenerated into {{count}} repeated or empty lines ({{line}}) instead of a usable tool call or message; nothing from it ran."
+          turnTime "The previous turn was ended automatically after {{minutes}} minutes, between tool calls, to keep each turn bounded. This was not a user decision, and no completed work was lost."
+          turnTokens "The previous turn was ended automatically after it had sent {{tokens}} input tokens, between tool calls, to keep each turn bounded. This was not a user decision, and no completed work was lost."
+          shorterSteps "Keep each response short: write large content to files in several smaller steps instead of one long tool call, and keep reasoning concise."
+          next "Check git status, git diff and git log to see what is already done, then finish every remaining issue and pull-request requirement."
       claude-print-turn
         buildIncompleteTurnContinuationPrompt
           text1 " (partial output: {{value1}})"

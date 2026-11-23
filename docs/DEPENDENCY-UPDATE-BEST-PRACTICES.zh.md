@@ -139,6 +139,8 @@ govulncheck ./...                                  # Go
 
 `--package-lock-only` 很重要：它审计的是**已提交的**锁文件，因此结果就是使用者会得到的结果，无法靠只发生在这台 runner 上的版本解析把它变绿。请把等价的任务放到定时计划中运行，因为只有定时运行才能发现在代码停止变动之后才发布的公告。相关的 workflow 任务写法参见 [CI/CD 最佳实践](./CI-CD-BEST-PRACTICES.zh.md)。
 
+当某个安全公告根本没有修复版本时，不要降低 `--audit-level`，也不要删除该任务。在例外文件中记录公告、包名、确切的受影响版本范围以及它在此处不适用的原因，并让检查在公告的范围发生变化（已发布修复）或不再被报告（例外已过时）时再次失败。本仓库通过 `scripts/check-npm-audit.mjs` 和 `scripts/npm-audit-exceptions.json` 实现这一点。
+
 ### 10. 把阻塞问题反馈给上游
 
 当更新被某个依赖的 bug 阻塞时，请到该项目的 GitHub 上提 issue，附带可复现示例、这里采用的变通方案，以及以代码形式给出的修复建议——然后在工作中链接这份反馈，而不是悄悄把版本退回去。带链接的版本锁定是一个被跟踪的决定；没有链接的版本锁定是永久的。
@@ -209,7 +211,7 @@ fix owner/repo --update-all-dependencies --dry-run
 fix owner/repo --update-all-dependencies --no-solve
 ```
 
-issue 以 **Dependabot pull requests merged before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。仍然无法合并的 pull request（冲突、草稿、无法绕过的 ruleset）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新；更新落地后 Dependabot 会自行关闭它们。`--dry-run` 只列出将被合并的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
+issue 以 **Open Dependabot pull requests handled before this issue was created** 一节开头：列出每个已合并的 pull request 及其合并时未通过的检查，并以粗体要求修复这些合并引入的所有构建、测试、lint、安全和弃用错误，直到默认分支的 CI/CD 重新变绿——且不得回退这些更新。合并使用仓库允许的第一种合并方式（merge commit、squash、rebase），用 `--match-head-commit` 锁定被检查的提交；如果只是分支规则（必需检查、必需评审、分支落后）阻止合并，则用 `--admin` 重试一次。GitHub 尚未计算出的可合并状态（`UNKNOWN`）会先重新读取。每个 pull request 都会先与基础分支比较：如果基础分支已经把它升级的每个依赖（包括 `global.json` 中的 .NET SDK 和 Rust 工具链）固定在相同或更新的版本，就以"已被取代"关闭，并在评论中列出这些版本，即使 GitHub 报告它可以合并（[issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)）。与基础分支冲突的 pull request（"the merge commit cannot be cleanly created"）绝不会用 `--admin` 重试，而是请 Dependabot 重建它（`@dependabot recreate`）。如果要求分支保持最新的 ruleset 即使在 `--admin` 下也拒绝合并（"Repository rule violations found"），会列出该 ruleset 及其必需检查，请 Dependabot 变基该 pull request（`@dependabot rebase`），并在必需检查通过后合并。Dependabot 有三分钟推送重建或变基后的提交，整个等待受 `--dependabot-wait-timeout <分钟>` 限制（默认 30；`0` 表示不等待）。当 Dependabot 的配置不再覆盖其文件时，它不会自行关闭这类 pull request（[issue #3863](https://github.com/link-assistant/hive-mind/issues/3863)）。仍然无法合并的 pull request（草稿、未通过的必需检查、在等待时间内未完成的重建或变基）保持打开并列在 issue 中，由求解器在其 pull request 中应用这些更新。`--dry-run` 只列出将被合并、关闭或重建的内容，`--no-merge-dependabot-prs` 关闭此步骤。`/task --update-all-dependencies` 遵循相同规则：
 
 ```bash
 fix owner/repo --update-all-dependencies --no-merge-dependabot-prs

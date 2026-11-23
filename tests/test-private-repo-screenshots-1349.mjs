@@ -60,7 +60,7 @@ for (const [name, mod] of Object.entries(modules)) {
     assert.ok(prompt.includes('Visual UI work and screenshots'), 'Should include screenshot section header');
     assert.ok(prompt.includes('github.com/test-owner/test-repo/blob/test-branch'), 'Should include github.com/blob/ URL with correct owner/repo/branch');
     assert.ok(prompt.includes('?raw=true'), 'Should include ?raw=true suffix');
-    assert.ok(!prompt.includes('raw.githubusercontent.com'), 'Should NOT use raw.githubusercontent.com (broken for private repos)');
+    assert.ok(!/raw\.githubusercontent\.com/.test(prompt), 'Should NOT use raw.githubusercontent.com (broken for private repos)');
   });
 
   test(`[${name}] No vision model → no screenshot section`, () => {
@@ -90,7 +90,7 @@ for (const name of Object.keys(modules)) {
       'Should render github.com/blob/ URL format with screenshotRepoPath'
     );
     assert.ok(content.includes('?raw=true'), 'Should include ?raw=true suffix');
-    assert.ok(!content.includes('raw.githubusercontent.com'), 'Should NOT use raw.githubusercontent.com');
+    assert.ok(!/raw\.githubusercontent\.com/.test(content), 'Should NOT use raw.githubusercontent.com');
   });
 
   test(`${name}.prompts.lib.mjs: does NOT have repoIsPrivate parameter (simplified approach)`, () => {

@@ -1,0 +1,114 @@
+{
+  "edits": [
+    {
+      "at": 0,
+      "remove": [],
+      "insert": ["import { nativeGeminiHistorySelected } from \"./hive-gemini-history.mjs\";\n", "import { processRestorableToolCalls } from \"./chunk-DKZARV6U.js\";\n", "import { registerNativeGeminiRestorableWriter, prepareNativeGeminiRestorableEdit, assertNativeGeminiRestorableAdmission } from \"./hive-gemini-restorable-admission.mjs\";\n", "import { readNativeGeminiRestorableHistory } from \"./hive-gemini-restorable-history.mjs\";\n", "import { claimNativeGeminiConversation, rewriteNativeGeminiConversation } from \"./hive-gemini-history.mjs\";\n"]
+    },
+    {
+      "at": 8206,
+      "remove": [],
+      "insert": ["    }).option(\"list-archived-sessions\", {\n", "      type: \"boolean\",\n", "      description: \"List canonical archived sessions for the current project and exit.\"\n"]
+    },
+    {
+      "at": 11634,
+      "remove": [],
+      "insert": ["      registerNativeGeminiRestorableWriter(config, async (request) => {\n", "        const git = await config.getGitService();\n", "        if (!git) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "        const client = { getHistory: () => geminiClient.getChat().agentHistory.get().map((turn) => turn.content) };\n", "        const result = await processRestorableToolCalls([request], git, client, []);\n", "        if (result.errors.length || result.checkpointsToWrite.size !== 1) {\n", "          throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "        }\n", "      });\n"]
+    },
+    {
+      "at": 12140,
+      "remove": [],
+      "insert": ["      registerNativeGeminiRestorableWriter(config, async (request) => {\n", "        const git = await config.getGitService();\n", "        if (!git) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "        const client = { getHistory: () => geminiClient.getChat().agentHistory.get().map((turn) => turn.content) };\n", "        const result = await processRestorableToolCalls([request], git, client, []);\n", "        if (result.errors.length || result.checkpointsToWrite.size !== 1) {\n", "          throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "        }\n", "      });\n"]
+    },
+    {
+      "at": 14560,
+      "remove": ["        data = await fs11.readFile(filePath, \"utf-8\");\n"],
+      "insert": ["        const canonical = readNativeGeminiRestorableHistory(config.storage, getToolCallDataSchema());\n", "        if (canonical !== undefined && !canonical.has(selectedFile)) return { name: this.name, data: `File not found: ${selectedFile}` };\n", "        data = canonical === undefined ? await fs11.readFile(filePath, \"utf-8\") : canonical.get(selectedFile).content;\n"]
+    },
+    {
+      "at": 14585,
+      "remove": [],
+      "insert": ["        if (nativeGeminiHistorySelected() && result.type === \"load_history\") {\n", "          if (typeof context.restoreHistory !== \"function\") {\n", "            throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "          }\n", "          context.restoreHistory(result.clientHistory);\n", "        }\n"]
+    },
+    {
+      "at": 14620,
+      "remove": ["      try {\n", "        await fs11.mkdir(checkpointDir, { recursive: true });\n", "      } catch {\n"],
+      "insert": ["      const canonical = readNativeGeminiRestorableHistory(config.storage, getToolCallDataSchema());\n", "      if (canonical === undefined) {\n", "        try {\n", "          await fs11.mkdir(checkpointDir, { recursive: true });\n", "        } catch {\n", "        }\n"]
+    },
+    {
+      "at": 14624,
+      "remove": ["      const files = await fs11.readdir(checkpointDir);\n"],
+      "insert": ["      const files = canonical === undefined ? await fs11.readdir(checkpointDir) : [...canonical.keys()];\n"]
+    },
+    {
+      "at": 14632,
+      "remove": ["        const data = await fs11.readFile(filePath, \"utf-8\");\n"],
+      "insert": ["        const data = canonical === undefined ? await fs11.readFile(filePath, \"utf-8\") : canonical.get(file).content;\n"]
+    },
+    {
+      "at": 14637,
+      "remove": [],
+      "insert": ["        if (canonical !== undefined) {\n", "          const checkpoint = canonical.get(`${info.checkpoint}.json`);\n", "          return `- **${info.checkpoint}**: ${checkpoint.data.toolCall.name}`;\n", "        }\n"]
+    },
+    {
+      "at": 15111,
+      "remove": [],
+      "insert": ["    registerNativeGeminiRestorableWriter(this.context.config, async (request) => {\n", "      const git = await this.context.config.getGitService();\n", "      if (!git) throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      // getHistory() coalesces the session context with the first user turn.\n", "      // The native session loader excludes a turn beginning with that context.\n", "      // Preserve the actual turn boundaries before native checkpoint encoding.\n", "      const client = { getHistory: () => this.chat.agentHistory.get().map((turn) => turn.content) };\n", "      const result = await processRestorableToolCalls([request], git, client, []);\n", "      if (result.errors.length || result.checkpointsToWrite.size !== 1) {\n", "        throw new Error(\"Gemini canonical conversation history is unavailable or unsafe.\");\n", "      }\n", "    });\n"]
+    },
+    {
+      "at": 15541,
+      "remove": [],
+      "insert": ["      restoreHistory: (history) => this.chat.setHistory(history),\n"]
+    },
+    {
+      "at": 15600,
+      "remove": [],
+      "insert": ["      await prepareNativeGeminiRestorableEdit(this.context.config, {\n", "        callId, name: fc.name, args, isClientInitiated: false, prompt_id: promptId\n", "      });\n"]
+    },
+    {
+      "at": 15707,
+      "remove": [],
+      "insert": ["      assertNativeGeminiRestorableAdmission(this.context.config);\n"]
+    },
+    {
+      "at": 16919,
+      "remove": ["async function listSessions(config) {\n", "  await generateSummary(config);\n"],
+      "insert": ["async function listSessions(config, archived = false) {\n", "  if (!archived) await generateSummary(config);\n"]
+    },
+    {
+      "at": 16922,
+      "remove": ["  const sessions = await sessionSelector.listSessions();\n"],
+      "insert": ["  const sessions = archived ? await sessionSelector.listArchivedSessions() : await sessionSelector.listSessions();\n"]
+    },
+    {
+      "at": 16924,
+      "remove": ["    writeToStdout(\"No previous sessions found for this project.\");\n"],
+      "insert": ["    writeToStdout(archived ? \"No archived sessions found for this project.\" : \"No previous sessions found for this project.\");\n"]
+    },
+    {
+      "at": 16929,
+      "remove": ["Available sessions for this project (${sessions.length}):\n"],
+      "insert": ["Available ${archived ? \"archived sessions\" : \"sessions\"} for this project (${sessions.length}):\n"]
+    },
+    {
+      "at": 17348,
+      "remove": ["      const sessionData = await loadConversationRecord(sessionFileArg);\n"],
+      "insert": ["      const sessionData = await loadConversationRecord(sessionFileArg, { importSource: true });\n"]
+    },
+    {
+      "at": 17368,
+      "remove": ["      const chatsDir = path16.join(storage.getProjectTempDir(), \"chats\");\n"],
+      "insert": ["      const chatsDir = storage.getProjectChatsDir();\n"]
+    },
+    {
+      "at": 17380,
+      "remove": ["      await fsPromises.mkdir(chatsDir, { recursive: true });\n", "      await fsPromises.writeFile(\n", "        newSessionPath,\n", "        lines.join(\"\\n\") + \"\\n\",\n", "        \"utf-8\"\n", "      );\n"],
+      "insert": ["      claimNativeGeminiConversation(newSessionPath);\n", "      if (!rewriteNativeGeminiConversation(newSessionPath, lines.join(\"\\n\") + \"\\n\")) {\n", "        await fsPromises.mkdir(chatsDir, { recursive: true });\n", "        await fsPromises.writeFile(newSessionPath, lines.join(\"\\n\") + \"\\n\", \"utf-8\");\n", "      }\n"]
+    },
+    {
+      "at": 17670,
+      "remove": [],
+      "insert": ["    if (argv.listArchivedSessions) {\n", "      await listSessions(config, true);\n", "      await runExitCleanup();\n", "      process.exit(ExitCodes.SUCCESS);\n", "    }\n"]
+    }
+  ]
+}

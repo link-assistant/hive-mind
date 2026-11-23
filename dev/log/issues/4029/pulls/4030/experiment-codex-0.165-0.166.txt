@@ -1,0 +1,12 @@
+# experiments/issue-4029/codex-stock-skills-drift.sh <v> 0.163.0, filtered to steps 2-3 (sed -n '1p;/^2\./,/^3\./p'):
+# 0.165.0 and 0.166.0 keep the pinned 0.164.0 stock skills; 0.167.0 (experiment-codex-stock-skills-drift.txt) is the first that differs.
+pinned=0.164.0 newer=0.165.0 previous=0.163.0
+2. start newer codex 0.165.0 (what P3 'first native start with the updated binaries' does)
+  marker: a49d0ab9dc3eb676
+  audit: matches the pinned baseline
+3. start pinned codex 0.164.0 again (restores the verified stock runtime)
+pinned=0.164.0 newer=0.166.0 previous=0.163.0
+2. start newer codex 0.166.0 (what P3 'first native start with the updated binaries' does)
+  marker: a49d0ab9dc3eb676
+  audit: matches the pinned baseline
+3. start pinned codex 0.164.0 again (restores the verified stock runtime)

@@ -1,0 +1,6 @@
+Dependabot health: 1 open Dependabot pull request(s), 1 stuck.
+1 Dependabot pull request(s) block newer updates:
+- #2285 Bump the "all-dependencies" group with 1 update across multiple ecosystems: open for 52 days (limit 14); 37 unfinished "Dependabot is rebasing this PR" banners (https://github.com/link-assistant/hive-mind/pull/2285)
+Dependabot defers every new group update to an open group pull request and never adds newer updates to it (dependabot/dependabot-core#16791).
+Merge it if it is still current, otherwise close it; the next scheduled run opens a fresh one.
+::error title=Stuck Dependabot pull request::#2285 open for 52 days (limit 14); 37 unfinished "Dependabot is rebasing this PR" banners

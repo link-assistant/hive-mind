@@ -1,3 +1,4 @@
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 // CLI configuration module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
 
@@ -31,6 +32,7 @@ export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hid
 // and excluded from this map since functions cannot be cleanly shared as data
 // (a `coerce` normalizer such as --speed's is fine: it is only read by yargs).
 export const SOLVE_OPTION_DEFINITIONS = {
+  'share-geolocation': SHARE_GEOLOCATION_OPTION,
   resume: {
     type: 'string',
     description: 'Resume from a previous session ID (when limit was reached)',
@@ -236,6 +238,19 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Explicitly fail on absence of new comments in auto-continue or continue mode',
     default: false,
   },
+  // Issue #4063: a fresh clone can already be "dirty" (e.g. a CRLF file marked
+  // `text eol=crlf`). That used to stop every run on such a repository.
+  'uncommitted-changes-after-clone': {
+    type: 'string',
+    description: "What to do when the working tree has uncommitted changes right after the clone: 'warn-ai' (default) continues and tells only the AI in its prompt, so it can fix the cause (details are logged with --verbose); 'warn-user' continues and logs a warning; 'warn-ai-and-user' does both; 'ignore' continues silently; 'fail' stops the run.",
+    choices: ['warn-ai', 'warn-user', 'warn-ai-and-user', 'ignore', 'fail'],
+    default: 'warn-ai',
+  },
+  'neutralize-checkout-conversion-artifacts': {
+    type: 'boolean',
+    description: 'Keep files that a fresh clone reports as modified although their bytes equal the commit (committed content that does not match .gitattributes, e.g. CRLF marked `text eol=crlf`) out of git status and the pull request, by unsetting their content conversion in the clone-local .git/info/attributes (default: true; use --no-neutralize-checkout-conversion-artifacts to disable).',
+    default: true,
+  },
   'auto-commit-uncommitted-changes': {
     type: 'boolean',
     description: 'Automatically commit and push uncommitted changes made by Claude (disabled by default)',
@@ -268,6 +283,34 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum wall-clock hours the --auto-restart-until-mergeable/--auto-merge monitoring loop may run before stopping and reporting (default: 24, 0 = unlimited)',
     default: 24,
+  },
+  // Issues #4082 and #4106: an optional window for feedback before readiness.
+  'auto-restart-until-mergeable-review-window-minutes': {
+    type: 'number',
+    description: 'Minutes to wait for new reviews, review threads and comments before reporting "Ready to merge" in --auto-restart-until-mergeable (default: 0, no extra wait)',
+    default: 0,
+  },
+  'auto-restart-on-unresolved-review-threads': {
+    type: 'boolean',
+    description: 'In --auto-restart-until-mergeable, restart the AI on unresolved pull request review threads (review bots included) and hold "Ready to merge" back while threads it was given stay unresolved (default: true)',
+    default: true,
+  },
+  'check-merge-prerequisites': {
+    type: 'boolean',
+    description: 'Before "Ready to merge", check merge-order prerequisites declared in the PR description or session summary ("Depends on #12", "merge the companion PR first") and post "Ready for review — blocked by …" while they are unmet (default: true)',
+    default: true,
+  },
+  // Issue #4081: review apps (Codex connector, CodeRabbit, …) review the PR
+  // minutes after it is marked ready or pushed; their findings are feedback.
+  'review-bots': {
+    type: 'string',
+    description: 'Comma-separated logins of automated PR review apps whose findings count as feedback and are waited for before "Ready to merge" ("default" = chatgpt-codex-connector[bot], coderabbitai[bot], copilot-pull-request-reviewer[bot], gemini-code-assist[bot], sourcery-ai[bot], qodo-merge-pro[bot], cursor[bot], greptile-apps[bot]; "default,my-reviewer[bot]" adds one; "none" disables). CI and deploy bots stay ignored',
+    default: 'default',
+  },
+  'review-bots-wait-minutes': {
+    type: 'number',
+    description: 'In --auto-restart-until-mergeable/--auto-merge, maximum minutes to wait for a review app that is still reviewing the head commit before posting "Ready to merge" or merging; the AI prompt asks it to wait as long (default: 15, 0 = do not wait)',
+    default: 15,
   },
   'resume-on-auto-restart': {
     type: 'boolean',
@@ -712,7 +755,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'agent-config-auto-repair': {
     type: 'boolean',
-    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn.',
+    description: 'Automatically repair audited global Claude/Codex configuration before a task starts (enabled by default). Unrepaired findings stop execution. Use --no-agent-config-auto-repair to inspect without changing configuration; a contaminated configuration still blocks tasks.',
     default: true,
   },
   'auto-gh-configuration-repair': {

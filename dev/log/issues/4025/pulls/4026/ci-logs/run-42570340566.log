@@ -1,0 +1,317 @@
+Check Links	UNKNOWN STEP	﻿2026-11-09T05:59:02.9197623Z Current runner version: '2.338.2'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9226325Z ##[group]Runner Image Provisioner
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9227767Z Hosted Compute Agent
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9228824Z Version: 20261028.624
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9230417Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9232005Z Build Date: 2026-10-28T21:51:42Z
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9233288Z Worker ID: {5f14eb9d-dac9-46b7-a6a8-12813ee05c57}
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9234881Z Region: northcentralus
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9235967Z Cloud: Azure
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9237018Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9239322Z ##[group]Operating System
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9240397Z Ubuntu
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9241447Z 24.04.5
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9242463Z LTS
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9243060Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9243688Z ##[group]Runner Image
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9244319Z Image: ubuntu-24.04
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9245005Z Version: 20261101.360.1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9246256Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9247969Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261101.360
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9248960Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9250182Z ##[group]GITHUB_TOKEN Permissions
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9252692Z Contents: read
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9253481Z Metadata: read
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9254053Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9256233Z Secret source: Actions
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9257375Z Cache mode: write
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9258191Z Prepare workflow directory
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9661270Z Prepare all required actions
+Check Links	UNKNOWN STEP	2026-11-09T05:59:02.9709134Z Getting action download info
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.2357844Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.3747688Z Download action repository 'lycheeverse/lychee-action@v2' (SHA:e7477775783ea5526144ba13e8db5eec57747ce8)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.6795720Z Complete job name: Check Links
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7663145Z ##[group]Run actions/checkout@v7
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7664075Z with:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7664557Z   repository: link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7668704Z   token: ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7669160Z   ssh-strict: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7669618Z   ssh-user: git
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7670432Z   persist-credentials: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7671000Z   clean: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7671545Z   sparse-checkout-cone-mode: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7672421Z   fetch-depth: 1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7672876Z   fetch-tags: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7673340Z   show-progress: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7673805Z   lfs: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7674229Z   submodules: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7674682Z   set-safe-directory: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7675198Z   allow-unsafe-pr-checkout: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7676072Z env:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7676504Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7677008Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7677617Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:03.7678105Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1028422Z Syncing repository: link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1031505Z ##[group]Getting Git version info
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1032910Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1034608Z [command]/usr/bin/git version
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1172547Z git version 2.56.0
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1207611Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1221460Z Temporarily overriding HOME='/home/runner/work/_temp/89b98076-758d-4c94-abb0-91488734d4f1' before making global git config changes
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1223666Z Adding repository directory to the temporary git global config as a safe directory
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1225449Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1291591Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1296029Z ##[group]Determining repository object format
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1297907Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1299412Z ##[group]Initializing the repository
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1303668Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1464782Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1475993Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1533231Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1534436Z ##[group]Disabling automatic garbage collection
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1536527Z [command]/usr/bin/git config --local gc.auto 0
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1578630Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1579858Z ##[group]Setting up auth
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1580708Z Removing SSH command configuration
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1586146Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.1628570Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2102027Z Removing HTTP extra header
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2108070Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2156275Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2409770Z Removing includeIf entries pointing to credentials config files
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2416077Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2467390Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2731477Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2790041Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2840069Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2889781Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2939987Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2988242Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2989086Z ##[group]Fetching the repository
+Check Links	UNKNOWN STEP	2026-11-09T05:59:04.2996830Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa:refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3361056Z From https://github.com/link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3362731Z  * [new ref]         c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa -> origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3371088Z [command]/usr/bin/git branch --list --remote origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3424643Z   origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3436369Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3479873Z c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3487953Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3489243Z ##[group]Determining the checkout info
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3490701Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3499011Z [command]/usr/bin/git sparse-checkout disable
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3579504Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3629714Z ##[group]Checking out the ref
+Check Links	UNKNOWN STEP	2026-11-09T05:59:19.3635567Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.6558087Z Updating files:  22% (2188/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.7400253Z Updating files:  23% (2196/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.7785418Z Updating files:  24% (2292/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.8095198Z Updating files:  25% (2387/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.8353305Z Updating files:  26% (2483/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.9160553Z Updating files:  27% (2578/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.9575435Z Updating files:  28% (2674/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:20.9786935Z Updating files:  29% (2769/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.0665107Z Updating files:  30% (2865/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.1816510Z Updating files:  31% (2960/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.2454558Z Updating files:  32% (3056/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.3817635Z Updating files:  33% (3151/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.4423881Z Updating files:  33% (3229/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.4857816Z Updating files:  34% (3246/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.5812086Z Updating files:  35% (3342/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.6277873Z Updating files:  36% (3437/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.6724018Z Updating files:  37% (3533/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.7455430Z Updating files:  38% (3628/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.8110955Z Updating files:  39% (3724/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.8430341Z Updating files:  40% (3819/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.8709077Z Updating files:  41% (3915/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.9163334Z Updating files:  42% (4010/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:21.9333232Z Updating files:  43% (4106/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.0387902Z Updating files:  44% (4201/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.0675855Z Updating files:  45% (4297/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.1496146Z Updating files:  46% (4392/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.1615407Z Updating files:  47% (4488/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.1945271Z Updating files:  48% (4583/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.2209426Z Updating files:  49% (4679/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.2439922Z Updating files:  50% (4774/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.2537497Z Updating files:  51% (4869/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.3567889Z Updating files:  52% (4965/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.3859423Z Updating files:  53% (5060/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.4180738Z Updating files:  53% (5101/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.5237160Z Updating files:  54% (5156/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.5449138Z Updating files:  55% (5251/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.5753692Z Updating files:  56% (5347/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.6598160Z Updating files:  57% (5442/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.6701491Z Updating files:  58% (5538/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.6940023Z Updating files:  59% (5633/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.7555703Z Updating files:  60% (5729/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.7630693Z Updating files:  61% (5824/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.7688666Z Updating files:  62% (5920/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.7957749Z Updating files:  63% (6015/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:22.9329155Z Updating files:  64% (6111/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.0295622Z Updating files:  65% (6206/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.0757693Z Updating files:  66% (6302/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.1082783Z Updating files:  67% (6397/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.1215017Z Updating files:  68% (6492/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.2252531Z Updating files:  69% (6588/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.2451153Z Updating files:  70% (6683/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.4439976Z Updating files:  71% (6779/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5063694Z Updating files:  71% (6795/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5548749Z Updating files:  72% (6874/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5798089Z Updating files:  73% (6970/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5848392Z Updating files:  74% (7065/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5903468Z Updating files:  75% (7161/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.5952031Z Updating files:  76% (7256/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6014113Z Updating files:  77% (7352/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6488878Z Updating files:  78% (7447/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6538902Z Updating files:  79% (7543/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6606393Z Updating files:  80% (7638/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6655427Z Updating files:  81% (7734/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6709287Z Updating files:  82% (7829/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6758974Z Updating files:  83% (7925/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6810074Z Updating files:  84% (8020/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6875513Z Updating files:  85% (8115/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.6949645Z Updating files:  86% (8211/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7027196Z Updating files:  87% (8306/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7155111Z Updating files:  88% (8402/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7247768Z Updating files:  89% (8497/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7340664Z Updating files:  90% (8593/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7434598Z Updating files:  91% (8688/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7503926Z Updating files:  92% (8784/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7576318Z Updating files:  93% (8879/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7648841Z Updating files:  94% (8975/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7727041Z Updating files:  95% (9070/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7797681Z Updating files:  96% (9166/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.7868810Z Updating files:  97% (9261/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.8067522Z Updating files:  98% (9357/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.8068491Z Updating files:  99% (9452/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.8082951Z Updating files: 100% (9547/9547)
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.8083532Z Updating files: 100% (9547/9547), done.
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.9886814Z Reset branch 'main'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:23.9893187Z branch 'main' set up to track 'origin/main'.
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0107865Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0179124Z [command]/usr/bin/git log -1 --format=%H
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0225600Z c6e68bc4f8dbd5b87a99ad8797f056e5ba4820aa
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0563403Z ##[group]Run lycheeverse/lychee-action@v2
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0563738Z with:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0564686Z   args: --verbose --no-progress --cache --max-cache-age 1d --max-retries 3 --timeout 30 --exclude-path docs/case-studies --exclude-path dev/log --exclude-path experiments/issue-2102/corpus --exclude-path tests/fixtures './**/*.md' './**/*.html'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0565643Z   fail: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0565843Z   output: lychee/out.md
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0566065Z   jobSummary: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0566263Z   debug: false
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0566466Z   failIfEmpty: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0566701Z   format: markdown
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0566907Z   lycheeVersion: v0.24.2
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0567132Z   checkbox: true
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0569857Z   token: ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0570071Z   workingDirectory: .
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0570288Z env:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0570483Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0570713Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0571021Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0573995Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0574212Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0634832Z ##[start-action display=Set up environment;id=lychee.__run]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0675394Z ##[group]Run # Install into $RUNNER_TEMP (not $HOME) so the install path is stable
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0676042Z ^[[36;1m# Install into $RUNNER_TEMP (not $HOME) so the install path is stable^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0676581Z ^[[36;1m# across composite steps. On some runners $HOME is overridden per step^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0677090Z ^[[36;1m# (e.g. actions/checkout temporarily sets it), which made the PATH^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0677589Z ^[[36;1m# entry from one step and the install in another step diverge.^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0678007Z ^[[36;1mecho "$RUNNER_TEMP/lychee/bin" >> "$GITHUB_PATH"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0678363Z ^[[36;1mmkdir -p "$RUNNER_TEMP/lychee/bin"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0703463Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0703994Z env:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0704235Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0704483Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0704765Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0707620Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0707851Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0812892Z ##[end-action id=lychee.__run;outcome=success;conclusion=success;duration_ms=17]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0818280Z ##[start-action display=Download and extract lychee in temp directory;id=lychee.lychee-setup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0849101Z ##[group]Run # Create a temporary directory for downloads and extraction
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0849815Z ^[[36;1m# Create a temporary directory for downloads and extraction^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0850220Z ^[[36;1mTEMP_DIR="${RUNNER_TEMP}/lychee-download"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0850580Z ^[[36;1mrm -rf "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0850902Z ^[[36;1mcd "${TEMP_DIR}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0851129Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0851343Z ^[[36;1mARCH=$(uname -m)^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0851660Z ^[[36;1m# Determine filename and download URL based on version^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0852368Z ^[[36;1mif [[ "${LYCHEE_VERSION}" =~ ^v0\.0|^v0\.1[0-5]\. ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0852836Z ^[[36;1m  FILENAME="lychee-${LYCHEE_VERSION}-${ARCH}-unknown-linux-gnu.tar.gz"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0853514Z ^[[36;1m  DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0854048Z ^[[36;1melse^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0854521Z ^[[36;1m  FILENAME="lychee-${ARCH}-unknown-linux-gnu.tar.gz"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0855020Z ^[[36;1m  if [[ "${LYCHEE_VERSION}" == 'nightly' ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0855557Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/nightly/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0856094Z ^[[36;1m  elif [[ "${LYCHEE_VERSION}" == 'latest' ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0856841Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/latest/download/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0857336Z ^[[36;1m  else^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0857810Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0858338Z ^[[36;1m  fi^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0858529Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0858712Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0858937Z ^[[36;1mecho "Downloading from: ${DOWNLOAD_URL}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0859247Z ^[[36;1mcurl -sfLO "${DOWNLOAD_URL}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0859500Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0859702Z ^[[36;1mecho "Extracting ${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0859984Z ^[[36;1mtar -xvzf "${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0860236Z ^[[36;1mrm -rv "${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0860463Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0860733Z ^[[36;1m# Detect if lychee binary is in a subfolder within the tar.gz^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0861117Z ^[[36;1mif ! [[ -f "${TEMP_DIR}/lychee" ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0861523Z ^[[36;1m  TEMP_DIR="$(echo "${TEMP_DIR}"/lychee-*)"  # need `echo` to evaluate glob^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0862225Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0862456Z ^[[36;1mif ! [[ -f "${TEMP_DIR}/lychee" ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0862946Z ^[[36;1m  echo "Cannot find lychee binary in $TEMP_DIR. Did the archive structure change?" >&2^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0863381Z ^[[36;1m  exit 1^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0863575Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0863762Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0864007Z ^[[36;1m# Output temp directory for use in later steps^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0864526Z ^[[36;1mecho "temp_dir=${TEMP_DIR}" >> $GITHUB_OUTPUT^[[0m
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0890673Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0891029Z env:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0891229Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0891465Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0892022Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0895438Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0895691Z   LYCHEE_VERSION: v0.24.2
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0895919Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:24.0987434Z Downloading from: https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1699699Z ##[error]Process completed with exit code 22.
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1713893Z ##[end-action id=lychee.lychee-setup;outcome=failure;conclusion=failure;duration_ms=11089]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1719079Z ##[start-action display=Install lychee;id=lychee.__run_2]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1723980Z ##[end-action id=lychee.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1753351Z ##[start-action display=Run Lychee;id=lychee.run-lychee]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1756126Z ##[end-action id=lychee.run-lychee;outcome=skipped;conclusion=skipped;duration_ms=0]
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.1994193Z Post job cleanup.
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.2945402Z [command]/usr/bin/git version
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.2999928Z git version 2.56.0
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3047657Z Temporarily overriding HOME='/home/runner/work/_temp/8efbff63-92c4-41af-8468-76a987ab6a94' before making global git config changes
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3049384Z Adding repository directory to the temporary git global config as a safe directory
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3055015Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3099185Z Removing SSH command configuration
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3108688Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3158694Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3532881Z Removing HTTP extra header
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3538564Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3592730Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3985588Z Removing includeIf entries pointing to credentials config files
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.3996627Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4064516Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4065578Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4066377Z includeif.gitdir:/github/workspace/.git.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4067127Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4068976Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4117723Z /home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4138055Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-4b845025\-0f86\-46a2\-af0f\-70216dcd4962\.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4200033Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4242575Z /home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4253979Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-4b845025\-0f86\-46a2\-af0f\-70216dcd4962\.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4303914Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4342784Z /github/runner_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4352426Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-4b845025\-0f86\-46a2\-af0f\-70216dcd4962\.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4402393Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4439872Z /github/runner_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4450444Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-4b845025\-0f86\-46a2\-af0f\-70216dcd4962\.config
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4502609Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4781598Z Removing credentials config '/home/runner/work/_temp/git-credentials-4b845025-0f86-46a2-af0f-70216dcd4962.config'
+Check Links	UNKNOWN STEP	2026-11-09T05:59:35.4957065Z Cleaning up orphan processes

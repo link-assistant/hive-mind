@@ -1,0 +1,51 @@
+Claude/Codex Router command lifetime, 2026-10-31 UTC
+
+Root causes: Claude started monitoring after stdin attachment and logging;
+Codex could lose a detected refusal when logging threw before output iteration.
+Both abandoned native commands on ordinary logging failures, and argv-only
+selection was added to the guard copy rather than the actual native environment.
+Claude additionally leaked live-input polling and attempt timers on exceptions.
+
+Thirty-two isolated production-adapter controls cover both tools, new/resumed
+execution, env/argv selection, persistent/removed violations, ordinary failures
+and healthy success. Before: 28 fail, four healthy env-selected cases pass.
+Before log SHA256:
+b77392c6bc11037648fbea3db133b21756f68f994157c923d39aa2e70570e42c
+Two actual command-stream Claude stdin controls start finite 32 MiB Node
+parent/child processes before output. Both fail before repair: the group survives,
+one polling interval remains, and the security refusal is missing where expected.
+The probe owns and clears all timers and kills/reaps its fixtures even on failure.
+Real-process before log SHA256:
+1593fef19d074212bfddd4a3bddde027835c4023246b7d7ca7a8ca1b1be44ea6
+
+After: all 34 pass. Shared retained monitoring arms before stdin/logging and
+cancels abandoned commands before ordinary error recovery or retry. Its first
+violation remains authoritative after file removal or consumer exceptions.
+Explicit Router selection reaches the actual native environment. Claude clears
+polling, startup/activity timers and result-close state on exceptional exits,
+while preserving the existing process-group timeout and result handling.
+After log SHA256:
+8d24b7ead5fdf9460e53bd9098c360ebe21b827c93904293dfef0b2fcaaa4333
+
+All 569 affected default-suite tests pass (23 sequential files; two suites),
+including native/connection admission, four-adapter lifetime, provider retries,
+Formal AI parity, existing timeout, process-exit and result-close controls.
+Focused log: 1,121 lines, SHA256:
+eeed0d062fd28bbee4fe90be386445565f1a5985bd616e710fd757107b5d6086
+The exploratory broader selection also ran the pre-existing needs-triage file
+test-activity-timeout-1510.mjs: two static assertions search for direct kill
+calls, while both the preceding 98ec45bde source and current source use the
+process-group helper instead. Those two assertions fail unchanged on the
+preceding source. The affected default-suite run excludes that marked orphan;
+no default test was removed or disabled by this change.
+
+Repository ESLint (zero warnings), all 42 GitHub retry-shell files, Secretlint,
+duplication (10.02%), file limits and changed-file formatting pass.
+The preceding 760-file full default suite passes; the two new wrappers are also
+included in the combined full-suite verification scheduled after the remaining
+independent guard/store repairs. This is not a final full-issue admission.
+
+Limits: the real process proof covers bounded Claude stdin startup; Codex
+commands are mocks. Diagnostic logger failures, all native credential stores,
+request authority, durable Router audit/restart and complete six-tool canonical
+storage/migration remain unfinished. Keep the PR draft and issue inventory open.

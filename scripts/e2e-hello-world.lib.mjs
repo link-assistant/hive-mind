@@ -19,7 +19,8 @@
  */
 
 import { stripVTControlCharacters } from 'node:util';
-import { selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
+import { generatedEvidencePaths } from './e2e-generated-evidence.lib.mjs';
+import { isIssuePullRequestHead } from './formal-ai-draft.lib.mjs';
 import { FORMAL_AI_KNOWN_ISSUES, splitE2eVerdict } from './e2e-matrix-harness.lib.mjs';
 
 /** The exact line the task asks the program to print. */
@@ -33,7 +34,7 @@ export const AUTOMATION_STOPPED_MARKER = 'Automation stopped';
  * control — the same command with a model that is not special in any way. A
  * difference between the two is, by construction, a model-specific path.
  */
-export const E2E_MATRIX = Object.freeze([Object.freeze({ tool: 'claude', model: 'formal-ai' }), Object.freeze({ tool: 'agent', model: 'formal-ai' }), Object.freeze({ tool: 'codex', model: 'formal-ai' }), Object.freeze({ tool: 'agent', model: 'nemotron-3-super-free' })]);
+export const E2E_MATRIX = Object.freeze([Object.freeze({ tool: 'claude', model: 'formal-ai' }), Object.freeze({ tool: 'agent', model: 'formal-ai' }), Object.freeze({ tool: 'codex', model: 'formal-ai' }), Object.freeze({ tool: 'agent', model: 'kilo/nemotron-3.5-lightning-free' })]);
 
 /**
  * The flags of the #2320 command, minus the operator-only ones.
@@ -82,8 +83,12 @@ export function buildE2eSolveArgv({ issueUrl, tool, model, logDir, baseBranch } 
   return argv;
 }
 
-/** The pull request solve opened for the issue: its branch is `issue-<n>-…`. */
-export const selectPullRequest = selectDraftPullRequest;
+/** Find the newest pull request for the matrix row's dedicated test issue. */
+export function selectPullRequest(pullRequests, issueNumber) {
+  const matches = (Array.isArray(pullRequests) ? pullRequests : []).filter(pr => isIssuePullRequestHead(pr?.headRefName, issueNumber));
+  if (matches.length === 0) return null;
+  return matches.reduce((newest, pr) => (Number(pr.number) > Number(newest.number) ? pr : newest));
+}
 
 const WORKFLOW_FILE = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 
@@ -108,8 +113,9 @@ const ARTEFACT_FILE = /(^|\/)(target|build|bin|obj|out|node_modules|__pycache__)
  * @param {{workflowDir?: string}} [options]
  * @returns {{ok: boolean, reason: string}}
  */
-export function checkDiffShape(files, { workflowDir = '.github/workflows/' } = {}) {
-  const paths = (Array.isArray(files) ? files : []).map(String);
+export function checkDiffShape(files, { workflowDir = '.github/workflows/', generatedEvidence = null } = {}) {
+  const ignored = new Set(generatedEvidencePaths(generatedEvidence, files));
+  const paths = (Array.isArray(files) ? files : []).map(String).filter(path => !ignored.has(path));
   const isWorkflow = path => WORKFLOW_FILE.test(path) || (path.startsWith(workflowDir) && /^[^/]+\.ya?ml$/.test(path.slice(workflowDir.length)));
   const workflows = paths.filter(isWorkflow);
   const placeholders = paths.filter(path => PLACEHOLDER_FILES.has(path.split('/').pop()));
@@ -139,7 +145,16 @@ export function logPrintsHelloWorld(logText) {
     .split(/\r?\n/)
     .map(line => {
       try {
-        return JSON.parse(line).msg || line;
+        const value = stripVTControlCharacters(line)
+          .replace(/^\[[^\]]+\]\s*\|\s?/, '')
+          .split('\t')
+          .pop()
+          .replace(/^\uFEFF?\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/, '');
+        const record = JSON.parse(value);
+        if (record.raw_output !== true || record.stage !== 'Main' || record.dryrun !== false || typeof record.jobID !== 'string' || !record.jobID || typeof record.step !== 'string' || !record.step || !Array.isArray(record.stepID) || record.stepID.length !== 1 || typeof record.stepID[0] !== 'string' || !/^\d+$/.test(record.stepID[0]) || typeof record.msg !== 'string') return '';
+        // act frames each raw output chunk with a final newline. Preserve all
+        // other whitespace; diagnostic records are never program output.
+        return record.msg.replace(/\r?\n$/, '');
       } catch {
         return line;
       }
@@ -195,10 +210,10 @@ export function checkBodyFinalized(body) {
  * @param {string} [evidence.workflowDir] where the task asked for the workflow (#3332)
  * @returns {{passed: boolean, results: Array<{name: string, ok: boolean, reason: string}>}}
  */
-export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], workflowLog = '', comments = [], workflowDir } = {}) {
+export function evaluateE2eRun({ pullRequest = null, files = [], checks = [], workflowLog = '', comments = [], workflowDir, generatedEvidence = null } = {}) {
   if (!pullRequest) return { passed: false, results: [{ name: 'pull request opened', ok: false, reason: 'solve opened no pull request for the issue' }] };
 
-  const diff = checkDiffShape(files, { workflowDir });
+  const diff = checkDiffShape(files, { workflowDir, generatedEvidence });
   const checkSummary = summariseChecks(checks);
   const body = checkBodyFinalized(pullRequest.body);
   const stopped = (Array.isArray(comments) ? comments : []).filter(comment => String(comment ?? '').includes(AUTOMATION_STOPPED_MARKER));

@@ -135,9 +135,7 @@ Simplified the one-at-a-time check to use the pre-calculated `totalProcessing`:
 // This ensures uniform checking across all threshold conditions
 // See: https://github.com/link-assistant/hive-mind/issues/1133
 if (check.oneAtATime && check.totalProcessing > 0) {
-  const processInfo = check.claudeProcesses > 0
-    ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)`
-    : '';
+  const processInfo = check.claudeProcesses > 0 ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)` : '';
   this.log(`One-at-a-time mode: waiting for current command to finish${processInfo}`);
   await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
   continue;

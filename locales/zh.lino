@@ -183,6 +183,8 @@ zh
   time
     current "当前时间：{{time}}"
   limits
+    stored
+      metadata "已存储的元数据"
     additional
       codex
         limits "其他 Codex 限额"
@@ -289,6 +291,10 @@ zh
     resource
       limit
         exceeded "资源限额已超出"
+    retry
+      reason
+        network "网络错误"
+        timeout "请求超时"
     solve
       queue
         status "Solve 队列状态"
@@ -334,6 +340,9 @@ zh
         steps "如何处理"
         preserved "停止前已自动提交未提交的改动。"
         resume "恢复访问后继续"
+        retried "已重试"
+        status "状态页"
+        rechecked "这不是用量限制。停止前已通过重试再次确认该错误；如果状态页显示有事故，请在其解决后继续，否则请重新登录。"
       detail
         ends
           label "结束于 {{time}}"
@@ -370,6 +379,8 @@ zh
         chat "每个聊天的消息，1 分钟"
         group "每个群组的消息，1 分钟"
         other "其他 API 请求，1 秒"
+    temporarily
+      unavailable "{{provider}} 限额暂时不可用（{{reason}}）。下次调用 /limits 时将重试。"
     trial
       ends
         label "试用结束于 {{time}}"
@@ -418,6 +429,51 @@ zh
       """
       queued "📋 solve 命令已入队（{{tool}} 队列位置 #{{position}}）"
       waiting "⏳ 等待中（{{tool}} 队列 #{{position}}）"
+      after
+        queue
+          title "等待其他任务（{{count}}）"
+        queued "⏳ solve 命令已排在其他任务之后"
+        waiting
+          success "{{tasks}} 成功完成后开始；如果该任务失败，则不会开始。"
+          finish "{{tasks}} 完成后开始，无论结果如何。"
+          blockers "等待其 GitHub 阻塞项 {{tasks}}：{{description}}"
+        released "▶️ 等待的任务已完成（{{tasks}}）；任务已入队。"
+        dependency
+          failed "等待的任务未成功：{{task}}"
+        blockers
+          not
+            queued "它被 {{blockers}} 阻塞，而该任务既未入队也未运行（{{description}}）。请先将阻塞任务入队，或不带 `--respect-blockers` 发送命令。"
+        usage """
+          ❌ 请指明要等待的任务。
+
+          回复该任务的消息：`/after <github-url>`
+          或指明任务：`/after <uuid|github-url> <github-url> [选项]`
+
+          `/after` 仅在等待的任务成功后启动新任务；`/enqueue` 无论结果如何都会启动。未提供新链接时，将再次运行等待任务的链接。
+        """
+        many
+          tasks "❌ /after 和 /enqueue 在一个任务之后启动一个任务。任务过多：{{links}}"
+        invalid
+          link "❌ 不是 issue 或 pull request 链接：{{links}}"
+        unknown
+          target "❌ 未找到 {{task}} 对应的排队中或运行中的任务。请回复该任务的消息，或指明其会话 UUID 或链接。"
+        no
+          task
+            link "❌ 任务 {{task}} 没有可再次启动的链接。请添加要在其后启动的 issue 或 pull request 链接。"
+        target
+          failed "❌ 未启动：{{task}} 已经 {{detail}}，而 /after 只在任务成功后启动。如仍要启动，请使用 /enqueue。"
+          finished "ℹ️ {{task}} 已经 {{detail}}；现在启动。"
+      batch
+        summary """
+          📋 已启动 {{started}}/{{total}} 个链接。未启动（{{notStarted}}）：
+
+          {{items}}
+        """
+        chat
+          stopped "在启动此链接之前聊天已被停止"
+        repository "链接列表中的仓库链接不会启动；如需处理整个仓库，请单独发送 `/solve <repository-url>`"
+        launch
+          failed "启动失败：{{error}}"
       invalid
         url
           help """
@@ -572,7 +628,10 @@ zh
         example "示例：`/solve https://github.com/owner/repo/issues/123 --model sonnet`"
         alias
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
-        reply "也可以回复包含 GitHub 链接的消息：`/solve`"
+        reply "也可以回复包含 GitHub 链接的消息：`/solve`。若包含多个 issue/PR 链接，每个链接都会作为单独的任务启动。"
+        after "*/after* `<任务> <github-url>` - 在另一个任务成功后启动任务；如果该任务失败，则不启动。*/enqueue* 无论结果如何都会启动。等待的任务可以是会话 UUID、链接或被回复的消息；未提供新链接时，将再次运行其链接。"
+        respect
+          blockers "`--respect-blockers`（实验性）- 当 issue 的 GitHub 阻塞项和未关闭的子 issue 已入队时等待它们；若有一项既未入队也未运行，则拒绝启动。多个链接默认如此（`--no-respect-blockers` 可关闭）。"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
         queue "`/queue` - 显示 solve 队列状态"
       locked
@@ -604,6 +663,7 @@ zh
       models "*/models* - 列出可用模型，合并本次安装自带的模型与所有实时来源的模型。用法：`/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - 显示使用限额"
       version "*/version* - 显示机器人和运行时版本"
+      who "*/who* - 识别机器人并显示当前运行的 Hive Mind 版本"
       language "*/language* `[en|ru|zh|hi]` - 设置或显示首选回复语言（内存中，按用户）"
       accept
         invites "`/accept_invites` - 接受所有待处理的 GitHub 邀请"
@@ -623,7 +683,8 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        addressing "群内有多个 Hive Mind 机器人时，请使用 `/command@BotUsername`。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/after、/enqueue、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model
@@ -679,6 +740,10 @@ zh
       waiting_for_ci "⏳ 正在等待 {{branch}} 分支上的 CI/CD 完成..."
       waiting_for_ci_default_branch "⏳ 正在等待默认分支上的 CI/CD 完成..."
       issue_label "Issue"
+    solve_progress
+      watching "⏳ 正在监控"
+      elapsed "⏳ 已监控 {{minutes}} 分 {{seconds}} 秒"
+      uploading_log "📎 正在上传会话日志..."
     work
       session
         starting "🔄 正在启动..."
@@ -696,6 +761,7 @@ zh
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
         not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
+        launch_failure_listed "工作会话未启动。使用 `/queue` 查看最近的启动失败。`--list` 显示由 start-command 记录的执行。"
         recovering "工作会话仍在进行：正在从退出代码 {{exitCode}} 恢复"
         recovering_from_kill "工作会话仍在进行：正在从强制终止中恢复{{causeSuffix}}"
         recovered "工作会话在自动恢复后成功完成"

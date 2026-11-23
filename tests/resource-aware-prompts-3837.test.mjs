@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { loadTranslations } from '../src/i18n.lib.mjs';
+import { promptText } from '../src/prompt-text.lib.mjs';
 import '../experiments/issue-3837-installed-dependencies.mjs';
 
 const backends = ['agent', 'claude', 'codex', 'gemini', 'opencode', 'qwen'];
@@ -40,7 +41,13 @@ for (const backend of backends) {
       assert.equal(new Set(bullets).size, bullets.length, 'no verbatim duplicate conditional instructions');
       const profile = options.workspaceTmpDir ? 'workspace-visual' : 'default';
       const previous = baseline.find(entry => entry.backend === backend && entry.profile === profile);
-      assert.ok(Buffer.byteLength(prompt) < previous.bytes, 'rendered prompt is smaller than the issue baseline');
+      // Issue #4023 appends a location-privacy policy on purpose (issue #4025:
+      // this check broke on main because PRs do not run it). The budget guards
+      // the instructions issue #3837 trimmed, so measure without the suffix,
+      // as experiments/issue-3837-prompt-corpus.mjs does.
+      const policy = `\n\n${promptText('prompt.system.geolocation.private')}`;
+      assert.ok(prompt.endsWith(policy), 'the location policy is appended last');
+      assert.ok(Buffer.byteLength(prompt.slice(0, -policy.length)) < previous.bytes, 'rendered prompt is smaller than the issue baseline');
     }
   });
 }

@@ -150,94 +150,28 @@ sudo docker run hello-world
 
 ### Использование Docker
 
-Запустите Hive Mind с помощью Docker для более безопасной локальной установки — ручная настройка не требуется:
-
-**Примечание:** Docker значительно безопаснее для локальной установки и позволяет запускать несколько изолированных экземпляров на сервере или в кластере Kubernetes. Для развёртывания в Kubernetes см. раздел [Установка через Helm](#установка-через-helm-kubernetes-экспериментально) ниже.
+Запустите [Hive Mind Manager](./docs/deployment/hive-manager.md) на хосте с Docker. Если пакет уже установлен, начните с команды развёртывания.
 
 ```bash
-# Pull the latest image from Docker Hub
-docker pull konard/hive-mind:latest
-
-# Start hive-mind container
-docker run -dit --name hive-mind konard/hive-mind:latest
-
-# Verify container started
-docker ps -a
-
-# Enter additional terminal process to do installation
-docker exec -it hive-mind /bin/bash
-
-# Inside the container, authenticate with GitHub
-gh-setup-git-identity
-
-# Authenticate with Claude (if you have Claude MAX)
-claude
-
-# Optionally set configuration like this:
-# Use /config command and set:
-# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
-# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
-# Если `--think` не указан, Hive Mind трактует это как `--think off`.
-# Model                                     haiku # chepear for connection testing manually
-# Claude in Chrome enabled by default       false # No need for Chrome support on server
-
-# Optionally test Claude connection
-claude -p hi --model haiku
-
-# Authenticate with Codex (if you have ChatGPT Pro)
-codex login --device-auth
-
-# Optionally test Codex connection. codex exec refuses to run unless
-# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
-# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
-codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
-
-# You might need to update hive-mind and agent to latest versions:
-bun install -g @link-assistant/hive-mind
-bun install -g @link-assistant/agent
-
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
-
-# Or you can run telegram bot:
-
-# Exit from additional bash session
-exit
-
-# Attach to main bash process
-docker attach hive-mind
-
-# Run bot here
-
-# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
-
-# --- Persisting auth data across restarts ---
-
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
-docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
-docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
-
-# Fix ownership to match the box user inside the container:
-BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
-chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/box/.claude \
-  -v /root/.hive-mind/codex:/home/box/.codex \
-  -v /root/.hive-mind/agents:/home/box/.agents \
-  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
-  -v /root/.hive-mind/gh:/home/box/.config/gh \
-  konard/hive-mind:latest
+mkdir -p "$HOME/.local/bin" && curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh -o "$HOME/.local/bin/hive-manager" && chmod +x "$HOME/.local/bin/hive-manager" && export PATH="$HOME/.local/bin:$PATH"
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-Перед запуском `codex exec` Hive Mind ищет явные требования к плагинам и Agent Skills в issue и его комментариях. Нужный провайдер устанавливается в `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`, поэтому конфигурация переживает перезапуски, но не влияет на другие репозитории. С [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) Docker-изолированные задачи получают только файл учётных данных и каталоги сессий, а не весь каталог `.codex`/`.claude` или `/home/box/.agents`; глобальная конфигурация при каждом запуске проверяется и по умолчанию очищается до минимального профиля (`--no-agent-config-auto-repair`, чтобы отключить); если capability недоступна, preflight до запуска ИИ-сессии сообщает точный идентификатор и команду исправления.
+Откройте показанные ссылки в браузере на своей машине. Вставьте код авторизации Claude в запущенную команду. Введите код Codex в браузере, а код GitHub — на [странице активации GitHub](https://github.com/login/device). Войдите в нужные сервисы. См. [удалённое развёртывание](./docs/deployment/hive-manager.md#profiles-and-remote-use) и [ручные команды Docker и входа](./docs/deployment/hive-manager-manual.md).
+
+```bash
+# Выполните команду в экземпляре
+hive-manager deploy exec -- solve https://github.com/owner/repo/issues/123
+
+# Запустите бот Telegram с приватным файлом переменных окружения
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
+```
+
+Перед запуском `codex exec` Hive Mind ищет явные требования к плагинам и Agent Skills в issue и его комментариях. Нужный провайдер устанавливается в `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`, поэтому конфигурация переживает перезапуски, но не влияет на другие репозитории. С [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) Docker-изолированные задачи получают только файл учётных данных и каталоги сессий, а не весь каталог `.codex`/`.claude` или `/home/box/.agents`; глобальная конфигурация при каждом запуске проверяется и по умолчанию очищается до минимального профиля (`--no-agent-config-auto-repair` отключает исправление; оставшиеся замечания аудита блокируют запуск); если capability недоступна, preflight до запуска ИИ-сессии сообщает точный идентификатор и команду исправления.
 
 **Преимущества Docker:**
 
@@ -251,40 +185,11 @@ docker run -dit \
 
 #### Остановка и удаление контейнера Docker
 
-```
-# Attach to main docker process to stop the container
-docker attach hive-mind
-
-^C # stop the telegram bot
-
-exit # exit/stop the container
-
-docker ps -a # show list of docker containers
-# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
-# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
-
-
-df -h # check disk space
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   87G  9.8G  90% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
-
-docker rm hive-mind # remove docker container frees space used by the container, does not delete image
-
-df -h # check disk space (to confirm space is freed)
-# Filesystem      Size  Used Avail Use% Mounted on
-# tmpfs           1.2G  1.1M  1.2G   1% /run
-# /dev/sda1        96G   26G   71G  27% /
-# tmpfs           5.9G     0  5.9G   0% /dev/shm
-# tmpfs           5.0M     0  5.0M   0% /run/lock
-# /dev/sda16      881M  117M  703M  15% /boot
-# /dev/sda15      105M  6.2M   99M   6% /boot/efi
-# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```bash
+hive-manager deploy stop
+hive-manager deploy status
+hive-manager deploy disk
+hive-manager deploy remove
 ```
 
 ### Установка через Helm (Kubernetes) (Экспериментально)
@@ -477,6 +382,12 @@ Hive Mind включает интерфейс Telegram-бота (SwarmMindBot) �
 
 ### Команды бота
 
+Если в группе обнаружено несколько ботов Hive Mind, используйте адресные команды Telegram, например `/help@SwarmMindBot` или `/solve@SwarmMindBot <github-url>`. Если обнаружен только один бот Hive Mind, в группе работают оба формата команд.
+
+Команда `/who@SwarmMindBot` показывает, что это бот Hive Mind, и сообщает его текущую версию. Hive Mind обнаруживает другие боты через `/who` и пробует адресную команду `/version` для старых версий. Для ботов с произвольными именами включите режим общения между ботами в @BotFather. Бот с включённым режимом может получать неадресные запросы, если он администратор группы или если у него отключён режим конфиденциальности групп. [Правила доставки Telegram](https://core.telegram.org/api/bots/bot-to-bot)
+
+Hive Mind также распознаёт имена **Hive Mind** и **Swarm Mind** по списку администраторов, изменениям состава группы и авторам доступных сообщений. Для ботов, которых Telegram не показывает, задайте `TELEGRAM_HIVE_MIND_PEER_BOTS` (или `--peer-bots`) на участвующих ботах. Каждая пара в нотации Links содержит ID группы и числовой ID бота, например `((-1001234567890 987654321))`. Обновите всех участвующих ботов, чтобы адресные команды стали обязательными для всей группы.
+
 Большинство операционных команд работают **только в групповых чатах** (не в
 личных сообщениях боту). Команды, которые намеренно доставляют приватные
 обновления, например `/terminal_watch`, также можно использовать в личных
@@ -525,9 +436,44 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
+Ответьте командой `/solve` (или любым псевдонимом, с опциями, например `/codex --think medium`) на сообщение со ссылками на задачи или pull request GitHub, чтобы запустить их. Одна ссылка запускается как обычно. Если ссылок несколько, каждая корректная ссылка запускается отдельной задачей, как если бы команда была отправлена для каждой ссылки: каждый запуск — ответ на ту же команду, по одному, со случайной паузой 10–15 секунд между двумя запусками. Ссылки, которые не удалось запустить (некорректные, не найденные, уже запущенные или в очереди, отклонённые очередью), перечисляются в одной сводке после запуска всех корректных ссылок. Команда может и сама перечислять несколько ссылок, например `/solve <url-1> <url-2> --model opus`.
+
 > **📖 Руководство по бесплатным моделям**: см. [docs/FREE_MODELS.ru.md](./docs/FREE_MODELS.ru.md) для получения полной информации обо всех бесплатных моделях, включая провайдеры OpenCode Zen и Kilo Gateway.
 
-> **📖 Живой список моделей**: запустите `hive-models` (или `/models` в Telegram), чтобы увидеть, какие модели доступны прямо сейчас, включая вышедшие уже после публикации этой установки. См. [docs/MODELS.ru.md](./docs/MODELS.ru.md).
+> **📖 Живой список моделей**: запустите `hive-manager models` (или `/models` в Telegram), чтобы увидеть, какие модели доступны прямо сейчас, включая вышедшие уже после публикации этой установки. См. [docs/MODELS.ru.md](./docs/MODELS.ru.md).
+
+#### `/after` и `/enqueue` — запуск задачи после другой задачи
+
+```
+/after <ссылка-задачи> [опции]                       (ответ на сообщение ожидаемой задачи)
+/after <uuid|ожидаемая-ссылка> <ссылка-задачи> [опции]
+/after [опции]                                       (ответ: запустить ту же ссылку ещё раз после неё)
+/enqueue ...                                         (те же формы)
+```
+
+Обе команды запускают ровно одну задачу после завершения другой. Ожидаемая
+задача находится так же, как в `/stop`, `/log` и `/watch`: UUID сессии или
+ссылка на задачу/pull request в сообщении, на которое дан ответ, или в самой
+команде. Всё остальное работает как в `/solve` (ссылка для запуска и её опции).
+
+- `/after` запускает задачу только при **успешном** завершении ожидаемой задачи
+  (запуск без изменений считается успехом). Если ожидаемая задача завершилась
+  ошибкой, отменена или остановлена, ожидающая задача тоже завершается ошибкой.
+- `/enqueue` запускает задачу после **любого** завершения ожидаемой задачи.
+
+Ожидающая задача показывается в `/queue` в разделе «Ждут другие задачи», и её
+можно остановить командой `/stop` до запуска.
+
+**`--respect-blockers` (экспериментально, по умолчанию выключено).** Добавьте к
+`/solve`, `/claude`, `/codex` или другой команде solve, чтобы учитывать связи
+задачи в GitHub, как это делает `/hive`: открытые блокирующие задачи («blocked
+by»), открытые подзадачи (подзадача блокирует родителя) и блокеры предков. Если
+все открытые блокеры уже в очереди или выполняются, задача ждёт их, как с
+`/after`. Если блокер не в очереди и не выполняется, задача не запускается.
+`TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` включает это для всех команд solve.
+Команда с несколькими ссылками учитывает блокеры по умолчанию и сначала
+запускает незаблокированные ссылки (`TELEGRAM_BATCH_RESPECT_BLOCKERS=false` или
+`--no-respect-blockers` для одной команды отключают это).
 
 #### `/hive` — Запуск оркестрации Hive
 
@@ -574,6 +520,7 @@ Examples:
 /fix https://github.com/owner/repo --update-all-dependencies
 /fix owner/repo --update-all-dependencies --dry-run
 /fix owner/repo --update-all-dependencies --no-merge-dependabot-prs
+/fix owner/repo --update-all-dependencies --dependabot-wait-timeout 60
 ```
 
 `/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
@@ -592,7 +539,7 @@ Examples:
 там мажорные версии. Затем он передаёт issue в
 `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`. Подробнее см.
 [Автоматическое обновление зависимостей](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md#автоматическое-обновление-зависимостей).
-Перед анализом репозитория он сливает все открытые pull request от Dependabot, не дожидаясь CI/CD, а в issue просит исправить все ошибки, внесённые этими слияниями; `--no-merge-dependabot-prs` отключает этот шаг ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
+Перед анализом репозитория он сливает все открытые pull request от Dependabot, не дожидаясь CI/CD, а в issue просит исправить все ошибки, внесённые этими слияниями. Pull request, все обновления которого уже есть в основной ветке, закрывается как устаревший — независимо от того, есть ли в нём конфликт ([issue #3863](https://github.com/link-assistant/hive-mind/issues/3863), [issue #4061](https://github.com/link-assistant/hive-mind/issues/4061)). Остальные конфликтующие пересоздаются через `@dependabot recreate`; отстающий от основной ветки pull request, который не пропускает ruleset, перебазируется через `@dependabot rebase`; оба вливаются, когда проходят обязательные проверки. `--dependabot-wait-timeout <минуты>` (по умолчанию 30, `0` — не ждать) ограничивает это ожидание, а `--no-merge-dependabot-prs` отключает этот шаг ([issue #3413](https://github.com/link-assistant/hive-mind/issues/3413)).
 За один запуск требуется ровно один режим: `/fix` без режима или сразу с двумя отклоняется.
 
 Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` и
@@ -691,7 +638,7 @@ Shows:
 - Приватная `/auth` отключена, если `TELEGRAM_ALLOWED_CHATS` не задан, и
   доступна только владельцам перечисленных чатов
 - Команды выполняются от имени системного пользователя, запустившего бота
-- Убедитесь в наличии надлежащей аутентификации (`gh auth login`, `claude-profiles`)
+- Настройте учётные данные используемых провайдеров для пользователя, от имени которого работает бот. [Вход без интерфейса агента](./docs/deployment/hive-manager.md#headless-sign-in)
 
 ## 🏆 Лучшие практики
 
@@ -861,7 +808,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### Очистка диска
 
-`hive-cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
+`hive-manager cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
 hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-solver-*`, файлы
 конфигурации MCP, каталоги загрузки логов и т. д.), при этом **сохраняя папки,
 относящиеся к выполняющимся в данный момент задачам**, защищённые системные пути и
@@ -872,40 +819,40 @@ hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-s
 
 ```bash
 # Предпросмотр: список сохраняемых и удаляемых папок (ничего не удаляет)
-hive-cleanup --dry-run
+hive-manager cleanup --dry-run
 
 # Реально удалить устаревшие временные файлы (сначала запросит подтверждение)
-hive-cleanup
+hive-manager cleanup
 
 # Удалить без запроса подтверждения
-hive-cleanup --force
+hive-manager cleanup --force
 
 # Учитывать также не-hive-mind временные записи (более агрессивно)
-hive-cleanup --all --dry-run
+hive-manager cleanup --all --dry-run
 
 # Разрешить удаление /tmp/start-command (по умолчанию сохраняется; хранит логи изоляции)
-hive-cleanup --force-start-command
+hive-manager cleanup --force-start-command
 
 # Очистка Ubuntu / системы (кэши apt, логи journald, кэш npm)
-hive-cleanup --system --sudo
+hive-manager cleanup --system --sudo
 
 # Сопоставить живые/зависшие agent PID с задачами hive/start-command
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Отследить конкретный не-agent PID, например дочерний процесс браузера или shell
-hive-cleanup --pid 94445
+hive-manager cleanup --pid 94445
 
 # Предпросмотр orphaned agents, которые можно остановить
-hive-cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --dry-run
 
 # Остановить деревья orphaned agent процессов после просмотра предпросмотра
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --force
 
 # Отключить обнаружение активных задач (сохраняются только защищённые пути)
-hive-cleanup --no-keep-active-tasks-folders --dry-run
+hive-manager cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Запустите `hive-cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
+Запустите `hive-manager cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
 режима dry-run и записывает лог `cleanup-*.log` с меткой времени при каждом запуске.
 Диагностический вывод процессов скрывает распространённые формы token перед печатью
 командных строк.
@@ -922,8 +869,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 **Аутентификация:**
 
-- `gh auth login` — аутентификация через GitHub CLI
-- `claude-profiles` — миграция профиля аутентификации Claude на сервер
+Выполните `hive-manager auth github`, `hive-manager auth claude` или `hive-manager auth codex` от имени пользователя Hive Mind. [Удалённый вход и ручные команды](./docs/deployment/hive-manager.md#headless-sign-in)
 
 **Интеграция с OpenRouter:**
 
@@ -965,14 +911,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 ```bash
 # Показать agent PID, start-command session ID, GitHub task URL, workspace,
 # причины совпадения и возможные orphaned agents.
-hive-cleanup --processes
+hive-manager cleanup --processes
 
 # Включить произвольный PID в тот же отчёт.
-hive-cleanup --pid 62220
+hive-manager cleanup --pid 62220
 
 # Остановить только orphaned agents, чья задача уже завершена.
-hive-cleanup --kill-orphaned-agents --dry-run
-hive-cleanup --kill-orphaned-agents --force
+hive-manager cleanup --kill-orphaned-agents --dry-run
+hive-manager cleanup --kill-orphaned-agents --force
 ```
 
 Ручной fallback: определите screen-сессии, являющиеся родительскими для процессов,
@@ -1065,28 +1011,28 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Скрипт для управления screen-сессиями
 
-`hive-screens` управляет завершёнными solve-сессиями. Команда входит в `@link-assistant/hive-mind`, поэтому после установки пакета (глобально, через `npx` или в проекте) она доступна в `PATH`.
+`hive-manager screens` управляет завершёнными solve-сессиями. Команда входит в `@link-assistant/hive-mind`, поэтому после установки пакета (глобально, через `npx` или в проекте) она доступна в `PATH`.
 
 Она просматривает отсоединённые сессии GNU screen, ищет завершённые solve-запуски, PR которых можно слить (в истории есть и `process completed`, и `PR is mergeable!` или `PR merged!`), и выводит их список, входит в них или закрывает их. `--list`, `--enter` и `--close` используют **одно и то же условие отбора**, поэтому всё, что показывает `--list`, — ровно то, с чем будет работать `--close`: сначала проверьте `--list`, затем повторите с `--close`.
 
 ```bash
 # Безопасный просмотр — все завершённые solve-сессии, PR которых можно слить.
-hive-screens --list
+hive-manager screens --list
 
 # Закрыть самую старую завершённую сессию.
-hive-screens --close
+hive-manager screens --close
 
 # Войти в самую новую завершённую сессию.
-hive-screens --enter --newest
+hive-manager screens --enter --newest
 
 # Закрыть все завершённые сессии.
-hive-screens --close --all
+hive-manager screens --close --all
 
 # Выводить диагностику при просмотре (полезно, если отбор не срабатывает).
-hive-screens --list --verbose
+hive-manager screens --list --verbose
 ```
 
-`--list` по умолчанию использует `--all`, поэтому `hive-screens --list` показывает все совпадения. `--enter` и `--close` по умолчанию используют `--oldest`, так как они меняют состояние. Укажите `--oldest`, `--newest` или `--all`, чтобы переопределить это. Полный список опций — `hive-screens --help`.
+`--list` по умолчанию использует `--all`, поэтому `hive-manager screens --list` показывает все совпадения. `--enter` и `--close` по умолчанию используют `--oldest`, так как они меняют состояние. Укажите `--oldest`, `--newest` или `--all`, чтобы переопределить это. Полный список опций — `hive-manager screens --help`.
 
 ### Перезагрузить сервер.
 

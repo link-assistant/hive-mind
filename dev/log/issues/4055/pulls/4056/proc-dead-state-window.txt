@@ -1,0 +1,19 @@
+$ python3 experiments/issue-4055/proc-dead-state-window.py 2000   # 6.8.0-147-generic, subreaper mode
+state sequences (letter order as observed) -> trials:
+  SRZ: 778
+  RZ: 509
+  SR: 162
+  R: 141
+  (already gone): 127
+  SRZX: 112
+  RZX: 82
+  Z: 34
+  RX: 19
+  SRX: 19
+  RSRZ: 7
+  S: 5
+  RSR: 2
+  X: 1
+  SZ: 1
+  RSRZX: 1
+X observed in 234 of 2000 trials

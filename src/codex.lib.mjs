@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Codex CLI-related utility functions
 
@@ -31,6 +32,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { createToolCallLoopGuard, resolveRepeatedToolCallLimit } from './tool-call-loop-guard.lib.mjs'; // Issue #2316, #2395
+import { createCodexTurnGuard, decideCodexContinuation, resolveCodexTurnLimits } from './codex-turn-guard.lib.mjs'; // Issue #4079
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { resolveRuntimeCodexReasoningEffort } from './codex.reasoning.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
@@ -47,16 +49,19 @@ import { assertFormalAiCodexConfig, classifyFormalAiCodexFailure, pinFormalAiCod
 import { servedModelPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119, #3279
 import { createToolAttribution } from './formal-ai-attribution.lib.mjs'; // Issue #3279
 import { classifyRetryableError, createTransientRetryBudget, retryTransientFailure as retryTransientToolFailure, waitWithCountdown } from './tool-retry.lib.mjs';
+import { buildAuthFailureClaim, createAuthFailureRetry } from './auth-failure-retry.lib.mjs'; // Issue #4053
+import { isEdgeBlockedResponse } from './subscription-error.lib.mjs';
 import { createRetryProgressObserver } from './tool-retry-progress.lib.mjs';
 import { parseSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexPricingTierConfigArgs, describePricingTier, resolvePricingTier } from './pricing-tier.lib.mjs'; // Issue #2771
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { buildCodexAuxiliaryDisableConfigArgs, buildCodexEssentialFeatureConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236, #2406
-import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
+import { CODEX_HOSTED_APPS_DISABLE_ARGS, CODEX_PLUGIN_SYNC_DISABLE_ARGS, CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
-import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { assertRouterTaskAuthentication, isRouterAuthGuardRequired } from './router-auth-guard.lib.mjs'; // Issue #2190
+import { createRouterConnectionRunner, resolveRouterAuthenticationError, streamWithRouterAuthenticationGuard } from './router-command-stream.lib.mjs';
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createCodexResumeRolloutCheck } from './codex-sessions.lib.mjs'; // Issue #2888
 import { resolveCodexExitUsageLimit } from './codex-rollout-usage-limit.lib.mjs'; // Issue #3570
@@ -69,6 +74,7 @@ const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_L
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
+import { logFinalPrompts } from './prompt-log.lib.mjs';
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -288,12 +294,12 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     // published "[object Object]". Render it as text instead.
     const streamErrorText = eventType === 'error' ? firstErrorText([data.message, data.error]) : '';
     if (streamErrorText) {
-      if (streamErrorText.includes('401') || streamErrorText.includes('Unauthorized')) nextState.authError = true;
+      if ((streamErrorText.includes('401') || streamErrorText.includes('Unauthorized')) && !isEdgeBlockedResponse(streamErrorText)) nextState.authError = true;
       nextState.streamErrors.push({ message: streamErrorText });
     }
     const turnFailureText = eventType === 'turn.failed' ? firstErrorText([data.error, data.message]) : '';
     if (turnFailureText) {
-      if (turnFailureText.includes('401') || turnFailureText.includes('Unauthorized')) nextState.authError = true;
+      if ((turnFailureText.includes('401') || turnFailureText.includes('Unauthorized')) && !isEdgeBlockedResponse(turnFailureText)) nextState.authError = true;
       nextState.turnFailures.push({ message: turnFailureText });
     }
     if (eventType === 'turn.completed' && data.usage && typeof data.usage === 'object') {
@@ -449,27 +455,36 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
   }
 };
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
+export const validateCodexConnection = async (model = defaultModels.codex, verbose = false, { useRouter = false } = {}) => {
+  const runConnection = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log });
+  const checkRouter = env => assertRouterTaskAuthentication({ tool: 'codex', env: { ...env, ...(useRouter ? { HIVE_MIND_USE_ROUTER: '1' } : {}) } });
+  checkRouter(process.env);
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex' }, { log });
+  const { reasoningEffort, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ model: mappedModel, codexPath: 'codex', useRouter }, { log });
   const reasoningArgs = reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : [];
   if (rolloutTokenBudget) reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
   try {
     await log('🔍 Validating Codex CLI connection...');
     // Check if Codex CLI is installed and get version
     try {
-      const versionResult = await $`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
+      checkRouter(process.env);
+      const versionResult = await runConnection`timeout ${Math.floor(timeouts.codexCli / 1000)} codex --version`;
       if (versionResult.code === 0) {
         const version = versionResult.stdout?.toString().trim();
         await log(`📦 Codex CLI version: ${version}`);
       }
     } catch (versionError) {
+      if (versionError.routerAuthViolation) throw versionError;
       await log(`⚠️  Codex CLI version check failed (${versionError.code}), proceeding with connection test...`);
     }
     // Test basic Codex functionality with a simple "echo hi" command
     // Using exec mode with JSON output for validation
-    const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} --dangerously-bypass-approvals-and-sandbox`;
+    const connectionEnv = { ...getCodexExecEnv(verbose), ...buildGeolocationEnv() };
+    checkRouter(connectionEnv);
+    const geolocationArgs = buildCodexGeolocationConfigArgs();
+    const runValidation = createRouterConnectionRunner({ $, tool: 'codex', useRouter, log, env: () => connectionEnv });
+    const testResult = await runValidation`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check ${reasoningArgs} ${geolocationArgs} --dangerously-bypass-approvals-and-sandbox`;
     if (testResult.code !== 0) {
       const stderr = testResult.stderr?.toString() || '';
       const stdout = testResult.stdout?.toString() || '';
@@ -492,6 +507,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
     await log('✅ Codex CLI connection validated successfully');
     return true;
   } catch (error) {
+    if (error.routerAuthViolation) throw error;
     await log(`❌ Failed to validate Codex CLI connection: ${error.message}`, { level: 'error' });
     await log('   💡 Make sure Codex CLI is installed and accessible', { level: 'error' });
     return false;
@@ -508,7 +524,7 @@ export const handleCodexRuntimeSwitch = async () => {
 export const checkPlaywrightMcpAvailability = ensureCodexPlaywrightMcpServer;
 // Main function to execute Codex with prompts and settings
 export const executeCodex = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, cloneStatusLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
   if (argv.promptSubagentsViaAgentCommander) {
     try {
       await $`which start-agent`;
@@ -540,6 +556,7 @@ export const executeCodex = async params => {
     mergeStateStatus,
     forkedRepo,
     feedbackLines,
+    cloneStatusLines,
     forkActionsUrl,
     owner,
     repo,
@@ -567,27 +584,21 @@ export const executeCodex = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    if (argv.dryRun) {
-      await log('\n📋 User prompt content:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('\n📋 System prompt content:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-    }
+    // The full prompts are logged where they are sent (logFinalPrompts), dry runs included.
   }
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
   // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
   await deployPlaywrightSkill({ tempDir, argv, log, $ });
-  const codexBaseEnv = getCodexExecEnv(argv.verbose);
+  const codexBaseEnv = { ...getCodexExecEnv(argv.verbose), ...buildGeolocationEnv(argv) };
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
   // is the explicit escape hatch for requirements no document states.
   const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
+  // Retain the execution home until native history metadata/SQLite also have a
+  // verified canonical projection (issue #3785). A later task always allocates
+  // fresh configuration; deleting this home would discard unprojected data.
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -613,7 +624,8 @@ export const executeCodex = async params => {
 
 export const executeCodexCommand = async params => {
   const getCgroupMemory = params.readCgroupMemory || readCgroupMemory;
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const { tempDir, branchName, prompt, systemPrompt: originalSystemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, issueNumber = null, prUrl = null, createAttributionSession, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
+  const systemPrompt = withGeolocationPolicy(originalSystemPrompt, argv);
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   const codexAttribution = await createToolAttribution({ tool: 'codex', argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log, createAttributionSession }); // Issue #3279: `--tool agent`'s attribution, fed from `codex exec --json`
@@ -631,6 +643,7 @@ export const executeCodexCommand = async params => {
     },
     log,
   });
+  const authFailureRetry = createAuthFailureRetry({ tool: 'codex', budget: transientRetryBudget, log }); // Issue #4053: re-check a bare 401 before stopping
   const retryTransientFailure = async (retryableError, sessionId) => {
     const allowed = await retryTransientToolFailure({ tool: 'codex', retryableError, sessionId, argv, log, budget: transientRetryBudget, retryCount, waitForRetryDelay });
     if (allowed) retryCount++;
@@ -638,6 +651,10 @@ export const executeCodexCommand = async params => {
   };
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
+  // Issue #4079: degenerate output, max_output_tokens and over-long turns resume the session.
+  const codexTurnLimits = resolveCodexTurnLimits();
+  const codexTurnGuardCounters = { truncation: 0, splits: 0 };
+  let codexContinuationPrompt = null;
   // Issue #2888: a recovery run may resume a thread whose rollout is not here.
   const resumeRolloutExists = createCodexResumeRolloutCheck();
   const executeWithRetry = async () => {
@@ -666,27 +683,31 @@ export const executeCodexCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let execCommand;
+    let routerStream;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log });
-    let isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    Object.assign(codexEnv, buildGeolocationEnv(argv));
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = await resolveRuntimeCodexReasoningEffort({ ...argv, model: mappedModel, codexPath }, { log, env: codexEnv });
+    let isResumeMode = !!argv.resume;
     // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
+    Object.assign(toolInvocation.env, buildGeolocationEnv(argv));
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
     const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
     // Formal AI writes its provider block into an isolated Codex home; the preflight rewrites the
     // scoped config every iteration, so copy the block in again and pin that verified home (#2254).
     await pinFormalAiCodexHome({ toolInvocation, capabilityPreflight, log });
-    // `sh -lc` sources the operator profile. Re-export the verified scope in
+    // Ordinary `sh -lc` runs source the operator profile. Re-export the verified scope in
     // the command itself as well as the process environment so a stale profile
     // assignment cannot swap CODEX_HOME after the final probe.
     if (capabilityPreflight?.codexHome) {
       Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
     }
     Object.assign(codexEnv, toolInvocation.env);
+    if (argv.useRouter === true) codexEnv.HIVE_MIND_USE_ROUTER = '1';
     await codexAttribution.prepareEnv(codexEnv); // Issue #3279: hooks via GIT_CONFIG_*, kept by Codex's default shell_environment_policy
     if (capabilityPreflight?.codexHome) {
       const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
@@ -702,7 +723,7 @@ export const executeCodexCommand = async params => {
     }
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
-    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const promptForAttempt = [prompt, baseBranchInterventionPrompt, codexContinuationPrompt].filter(Boolean).join('\n\n') + (baseBranchInterventionPrompt || codexContinuationPrompt ? '\n' : '');
     const cgroupBefore = getCgroupMemory();
     await log(`📈 Codex cgroup memory before execution: ${JSON.stringify(cgroupBefore)}`, { verbose: true });
     const combinedPrompt = [systemPrompt, promptForAttempt, buildCodexMemoryBudgetPrompt(cgroupBefore)].filter(Boolean).join('\n\n');
@@ -711,6 +732,7 @@ export const executeCodexCommand = async params => {
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
+    await logFinalPrompts({ log, tool: 'codex', prompts: [{ kind: 'combined', text: combinedPrompt, delivery: `stdin from file ${promptFile}`, keepEmpty: true }] }); // PR #4083 feedback
     await log(`   Resolved model ID: ${mappedModel}`, { verbose: true });
     await log(`   Execution mode: ${isResumeMode ? 'resume' : 'new exec'}`, { verbose: true });
     await log(`   Prompt file: ${promptFile}`, { verbose: true });
@@ -764,7 +786,7 @@ export const executeCodexCommand = async params => {
     await log(`💰 Pricing tier: ${describePricingTier(codexPricingTier)}${subSessionSizeCapped ? ' — --sub-session-size capped to stay below the long-context price' : ''}`, { verbose: !subSessionSizeCapped });
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
-    for (const arg of memoryDisableArgs) {
+    for (const arg of [...memoryDisableArgs, ...buildCodexGeolocationConfigArgs(argv)]) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
@@ -783,13 +805,20 @@ export const executeCodexCommand = async params => {
     for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #3785: with no selected plugins, the plugin loader stays off so a
+    // model start cannot clone the curated marketplace into any CODEX_HOME,
+    // and the hosted ChatGPT connectors MCP server is not attached.
+    if (!(capabilityPreflight?.plugins?.length > 0)) {
+      for (const arg of [...CODEX_PLUGIN_SYNC_DISABLE_ARGS, ...CODEX_HOSTED_APPS_DISABLE_ARGS]) codexArgs += ` ${shellQuote(arg)}`;
+    }
     if (argv.verbose) {
+      await log(`📍 Location sharing: ${buildCodexGeolocationConfigArgs(argv).length ? 'disabled (location fields redacted)' : 'enabled for this run'}`, { verbose: true });
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });
       if (auxiliaryDisableArgs.length) await log(`🔕 Codex non-essential model calls disabled: ${auxiliaryDisableArgs.join(' ')} (issue #2236)`, { verbose: true });
     }
-    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // Issue #2130: re-export the Formal AI environment inside the shell script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.
     // Issue #2324: a pipe inside the quoted script makes command-stream take its
     // unowned Node pipeline path, so kill() cannot stop the actual shell. Redirect
@@ -817,29 +846,16 @@ export const executeCodexCommand = async params => {
         await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
       }
       const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log });
-
-      execCommand = $({
+      const routerGuardEnv = codexEnv;
+      assertRouterTaskAuthentication({ tool: 'codex', cwd: tempDir, env: routerGuardEnv });
+      const launch = $({
         cwd: tempDir,
         mirror: false,
         env: codexEnv,
-      })`sh -lc ${fullCommand}`;
-      // Issue #2190: with --use-router the task may authenticate only with its
-      // router token; see router-auth-guard.lib.mjs. Inert unless
-      // HIVE_MIND_USE_ROUTER and a router token are in the environment.
-      const routerAuthGuard = startRouterAuthGuard({
-        tool: 'codex',
-        cwd: tempDir,
-        env: codexEnv,
-        log,
-        onViolation: async violation => {
-          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
-          try {
-            if (execCommand?.kill) execCommand.kill('SIGKILL');
-          } catch {
-            // already gone
-          }
-        },
       });
+      // A login profile must not replace the Router environment after admission.
+      execCommand = isRouterAuthGuardRequired(routerGuardEnv) ? launch`sh -c ${fullCommand}` : launch`sh -lc ${fullCommand}`;
+      routerStream = streamWithRouterAuthenticationGuard({ command: execCommand, tool: 'codex', env: routerGuardEnv, cwd: tempDir, log });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -870,6 +886,8 @@ export const executeCodexCommand = async params => {
         },
       });
       const toolCallLoopGuard = createToolCallLoopGuard({ log, limit: resolveRepeatedToolCallLimit({ argv }), stopSession: async () => execCommand?.kill?.('SIGTERM') }); // Issue #2316; opt-in since #2395
+      const codexTurnGuard = createCodexTurnGuard({ limits: codexTurnLimits, counters: codexTurnGuardCounters, stopSession: async () => execCommand?.kill?.('SIGTERM'), log }); // Issue #4079
+      codexTurnGuard.start();
       let codexJsonState = {
         sessionId: null,
         authError: false,
@@ -901,7 +919,7 @@ export const executeCodexCommand = async params => {
       const codexStderrLines = createLineBuffer();
       const codexStderrLog = createCodexStderrLog({ tracePath: codexTracePathFor(getLogFile()) }); // Issue #2293
 
-      for await (const chunk of execCommand.stream()) {
+      for await (const chunk of routerStream) {
         if (chunk.type === 'stdout') {
           const raw = chunk.data.toString();
           if (argv.verbose) {
@@ -911,6 +929,7 @@ export const executeCodexCommand = async params => {
           const output = codexStdoutLines.write(raw);
           await codexAttribution.observeText(output); // Issue #3279: before any commit the turn makes
           await toolCallLoopGuard.observeOutput(output);
+          await codexTurnGuard.observeStdout(output);
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout', onEvent: retryProgress.observe });
           await retryProgress.flushLog();
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -940,9 +959,7 @@ export const executeCodexCommand = async params => {
 
           if (codexJsonState.authError && !authError) {
             authError = true;
-            await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
-            await log('   This error cannot be resolved by retrying.', { level: 'error' });
-            for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
+            await log('\n⚠️ Authentication error detected in Codex JSON stream (re-checked before the run stops, issue #4053)', { level: 'warning' });
           }
         }
         if (chunk.type === 'stderr') {
@@ -950,6 +967,7 @@ export const executeCodexCommand = async params => {
           if (argv.verbose) for (const line of codexStderrLog.write(rawError)) await log(line, { stream: 'stderr' });
           const errorOutput = codexStderrLines.write(rawError);
           stderrError = findCodexStderrError(errorOutput, stderrError);
+          await codexTurnGuard.observeStderr(errorOutput);
           // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel, { source: 'stderr' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -958,6 +976,7 @@ export const executeCodexCommand = async params => {
         }
       }
       if (argv.verbose) for (const line of codexStderrLog.end()) await log(line, { stream: 'stderr' });
+      codexTurnGuard.end();
       const cgroupAfter = getCgroupMemory();
       await log(`📈 Codex cgroup memory after execution: ${JSON.stringify(cgroupAfter)}`, { verbose: true });
       // Release any line that was still being assembled when the stream ended.
@@ -976,21 +995,12 @@ export const executeCodexCommand = async params => {
         sessionId = codexJsonState.sessionId;
         await log(`📌 Session ID: ${sessionId}`);
       }
-      // Issue #2190: final read after the stream closed; a violation ends the
-      // run here, with no retry.
-      routerAuthGuard.stop();
-      await routerAuthGuard.check();
-      if (routerAuthGuard.violation) {
-        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, codexJsonDetails: codexJsonState, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) }, result: formatRouterAuthViolation(routerAuthGuard.violation), resultSummary: null };
-      }
       if (codexJsonState.resultSummary) {
         lastTextContent = codexJsonState.resultSummary;
       }
       if (codexJsonState.authError && !authError) {
         authError = true;
-        await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
-        await log('   This error cannot be resolved by retrying.', { level: 'error' });
-        for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
+        await log('\n⚠️ Authentication error detected in Codex JSON stream (re-checked before the run stops, issue #4053)', { level: 'warning' });
       }
 
       if (interactiveHandler) {
@@ -1064,11 +1074,24 @@ export const executeCodexCommand = async params => {
       });
       // Check for authentication errors first - these should never be retried
       if (authError) {
+        // Issue #4053: a 401 can be a short provider incident; retry (session kept) before giving up.
+        const authText = [...codexJsonState.turnFailures, ...codexJsonState.streamErrors].map(entry => entry.message).find(text => /401|unauthorized/i.test(text)) || '401 Unauthorized';
+        const authRetry = await authFailureRetry.retryOrConfirm(buildAuthFailureClaim({ tool: 'codex', message: authText, label: 'Codex authentication failed (401 Unauthorized)', apiErrorStatus: 401 }), { sessionId, argv, waitForRetryDelay });
+        if (authRetry.retry) return await executeWithRetry();
+        await log('\n❌ Codex authentication error persisted. This error cannot be resolved by retrying.', { level: 'error' });
+        for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
         // Throw an error to stop retries and propagate the auth failure
         const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);
         error.isAuthError = true;
         throw error;
+      }
+      const continuation = decideCodexContinuation({ stopReason: codexTurnGuard.getStopReason(), state: codexJsonState, sessionId: sessionId || argv.resume, counters: codexTurnGuardCounters, limits: codexTurnLimits }); // Issue #4079
+      if (continuation) await log(continuation.message, { level: continuation.resume ? 'info' : 'warning' });
+      if (continuation?.resume) {
+        argv.resume = sessionId || argv.resume;
+        codexContinuationPrompt = continuation.prompt;
+        return await executeWithRetry();
       }
       const codexErrorSummary = classifyFormalAiCodexFailure({ model: argv.model, errorSummary: getCodexErrorEventSummary(codexJsonState) });
       if (codexErrorSummary.ignoredEvents.length > 0) {
@@ -1176,6 +1199,8 @@ export const executeCodexCommand = async params => {
       }
       return buildRunResult({ success: true, pluginProvisioning });
     } catch (error) {
+      const routerError = (await routerStream?.close({ cancel: true })) || resolveRouterAuthenticationError(error, { tool: 'codex', env: codexEnv, cwd: tempDir });
+      if (routerError) return { success: false, sessionId, routerAuthViolation: routerError.routerAuthViolation, errorInfo: { hasError: true, message: routerError.message }, result: routerError.message };
       // Don't report auth errors to Sentry as they are user configuration issues
       if (!error.isAuthError) {
         reportError(error, {

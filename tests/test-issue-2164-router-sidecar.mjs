@@ -17,6 +17,7 @@ import { acquireRouterSidecar, attachRouterToNetwork, buildRouterSidecarRunArgs,
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from '../src/router-task-isolation.lib.mjs';
 import { runRouterMaintenanceTick, startRouterMaintenance, stopIdleRouterSidecar } from '../src/router-maintenance.lib.mjs';
 import { FORMAL_AI_SIDECAR_NETWORK_NAME } from '../src/formal-ai-sidecar.lib.mjs';
+import { ROUTER_STORAGE_INSPECT_FORMAT } from '../src/router-storage-contract.lib.mjs';
 import { buildRouterFormalAiProviderArgs, getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_FORMAL_AI_MODEL, ROUTER_FORMAL_AI_PROVIDER_NAME, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 
 let passed = 0;
@@ -169,6 +170,7 @@ const makeDocker = ({ tokenSubject = 'aaaaaaaa-0000-4000-8000-00000000000a', liv
         // fake that answered the running|image|digest triple there would look
         // like a legacy 0.0.0.0 container and be replaced on every acquire.
         if (args.includes('{{.HostConfig.NetworkMode}}')) return { stdout: `${ROUTER_SIDECAR_NETWORK_NAME}\n` };
+        if (args.includes(ROUTER_STORAGE_INSPECT_FORMAT)) return { stdout: JSON.stringify({ env: [`DATA_DIR=${ROUTER_DATA_MOUNT}`, `AUDIT_LOG=${ROUTER_DATA_MOUNT}/audit.jsonl`], mounts: [{ Type: 'volume', Name: ROUTER_DATA_VOLUME_NAME, Destination: ROUTER_DATA_MOUNT, RW: true }] }) };
         return { stdout: `true|ghcr.io/link-assistant/router:latest|sha256:abc\n` };
       }
       // Anything else inspected is a task container; only the ones the test

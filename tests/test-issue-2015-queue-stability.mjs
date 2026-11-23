@@ -162,7 +162,7 @@ await test('concurrent direct start reservations still allow only one immediate 
 await test('telegram direct solve path uses reserved startup slots', async () => {
   const source = readFileSync(resolve('src/telegram-bot.mjs'), 'utf8');
 
-  assertTrue(/reserveStartSlot\(\{\s*tool:\s*solveTool,\s*locale:\s*solveLocale\s*\}\)/.test(source), 'telegram direct solve path should reserve the startup slot before immediate execution');
+  assertTrue(/reserveStartSlot\(\{\s*tool:\s*solveTool,\s*locale:\s*solveLocale,\s*url:\s*normalizedUrl\s*\}\)/.test(source), 'telegram direct solve path should reserve the startup slot before immediate execution');
   assertTrue(/check\.canStart\s*&&\s*check\.startReserved/.test(source), 'telegram direct solve path should launch immediately only after a successful reservation');
   assertTrue(!/check\.canStart\s*&&\s*toolQueuedCount\s*===\s*0/.test(source), 'telegram direct solve path should not bypass pacing based only on an empty tool queue');
 });

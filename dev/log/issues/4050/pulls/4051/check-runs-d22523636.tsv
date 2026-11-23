@@ -1,0 +1,5 @@
+131379794631	report-checks	completed	skipped	2026-11-12T17:56:37Z	2026-11-12T17:56:37Z
+131378431726	health	completed	skipped	2026-11-12T17:54:18Z	2026-11-12T17:54:18Z
+131378429310	Formal AI draft	completed	failure	2026-11-12T17:54:20Z	2026-11-12T17:56:36Z
+131368915288	${{ matrix.tool }} / ${{ matrix.model }}	completed	skipped	2026-11-12T17:38:01Z	2026-11-12T17:37:54Z
+131368848455	prepare	completed	skipped	2026-11-12T17:37:54Z	2026-11-12T17:37:54Z

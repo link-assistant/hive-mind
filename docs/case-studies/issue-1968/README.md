@@ -79,12 +79,12 @@ The `null` token sits on its own line. When echoed into our stream and processed
 ```js
 let data;
 try {
-  data = sanitizeObjectStrings(JSON.parse(line));   // JSON.parse('null') === null
+  data = sanitizeObjectStrings(JSON.parse(line)); // JSON.parse('null') === null
 } catch {
-  continue;                                          // only catches *parse* errors
+  continue; // only catches *parse* errors
 }
 
-const eventType = typeof data.type === 'string' ? data.type : 'unknown';  // 💥 data is null
+const eventType = typeof data.type === 'string' ? data.type : 'unknown'; // 💥 data is null
 ```
 
 - `JSON.parse('null')` is **valid JSON** and returns the value `null` — it does **not** throw, so the `try/catch` does not trigger.

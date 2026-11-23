@@ -1,0 +1,58 @@
+# Selected incident log records. The private source files were downloaded and inspected.
+# Content is limited to monitor lifecycle, aggregate status and rate-limit events.
+
+# Solution Draft Log, original line numbers
+line 175003: [2026-11-20T15:54:24.806Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"uploading-log","since":"2026-11-20T15:54:24.805Z","at":"2026-11-20T15:54:24.805Z"}
+
+# Solution Draft Failed comment, original body line numbers
+line 237: [2026-11-20T15:55:54.156Z] [INFO]    Initial cooldown:       120 seconds
+line 245: [2026-11-20T15:55:54.192Z] [INFO]    Review window:          keep watching 120 minute(s) after "Ready to merge" for late reviews
+line 249: [2026-11-20T15:55:54.196Z] [INFO] ⏳ Initial cooldown:         Waiting 120s before first check...
+line 250: [2026-11-20T15:57:54.201Z] [INFO] ✅ Cooldown complete:        Starting monitoring loop
+line 252: [2026-11-20T15:57:54.206Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":1,"blocker":"checking","blockerLabel":"the next GitHub check","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T15:57:54.205Z"}
+line 254: [2026-11-20T15:58:19.162Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 255: [2026-11-20T15:58:19.181Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 256: [2026-11-20T15:58:24.829Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 262: [2026-11-20T15:58:30.413Z] [VERBOSE] [VERBOSE] /merge: PR #811 mergeable: true, state: CLEAN, isDraft: false
+line 263: [2026-11-20T15:58:30.416Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":1,"blocker":"none","blockerLabel":"nothing (no merge blockers)","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T15:58:30.415Z"}
+line 265: [2026-11-20T15:59:29.382Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 266: [2026-11-20T15:59:29.385Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 267: [2026-11-20T15:59:29.992Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 273: [2026-11-20T15:59:30.594Z] [VERBOSE] [VERBOSE] pr-commits: 90 commits on PR #811
+line 275: [2026-11-20T16:04:55.462Z] [INFO]   ✅ All CI mechanisms agree: CheckRuns=success, WorkflowRuns=complete(5), AllCommits=complete(90), RepoActions=skipped
+line 276: [2026-11-20T16:04:55.463Z] [INFO] ✅ PR IS MERGEABLE!
+line 277: [2026-11-20T16:04:57.063Z] [INFO]    PR is ready to be merged manually
+line 280: [2026-11-20T16:05:04.367Z] [INFO]   👀 Review window:          watching 120 more minute(s) for new reviews, threads and comments
+line 283: [2026-11-20T16:07:04.386Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":2,"blocker":"checking","blockerLabel":"the next GitHub check","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T16:07:04.384Z"}
+line 284: [2026-11-20T16:07:15.067Z] [STDERR] ⏳ $gh (gh api repos/TopHunter-AI/thai): GitHub API rate limit hit (attempt 1/3). Waiting 26 min (reset at 2026-11-20T16:20:02.000Z; buffer 10 min + jitter 208s) until 2026-11-20T16:33:30.230Z.
+line 312: [2026-11-20T16:34:05.479Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 313: [2026-11-20T16:34:05.484Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 314: [2026-11-20T16:34:06.120Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 320: [2026-11-20T16:34:11.798Z] [VERBOSE] [VERBOSE] /merge: PR #811 mergeable: true, state: CLEAN, isDraft: false
+line 321: [2026-11-20T16:34:11.800Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":2,"blocker":"none","blockerLabel":"nothing (no merge blockers)","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T16:34:11.799Z"}
+line 324: [2026-11-20T16:35:15.744Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 325: [2026-11-20T16:35:15.745Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 326: [2026-11-20T16:35:21.488Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 332: [2026-11-20T16:35:27.127Z] [VERBOSE] [VERBOSE] pr-commits: 90 commits on PR #811
+line 334: [2026-11-20T16:41:27.644Z] [INFO]   ✅ All CI mechanisms agree: CheckRuns=success, WorkflowRuns=complete(5), AllCommits=complete(90), RepoActions=skipped
+line 335: [2026-11-20T16:41:27.647Z] [INFO] ✅ PR IS MERGEABLE!
+line 336: [2026-11-20T16:41:38.776Z] [INFO]    PR is ready to be merged manually
+line 337: [2026-11-20T16:41:38.778Z] [INFO]    Skipping duplicate "Ready to merge" comment (already posted this session)
+line 338: [2026-11-20T16:41:38.780Z] [INFO]   👀 Review window:          watching 84 more minute(s) for new reviews, threads and comments
+line 341: [2026-11-20T16:43:38.890Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":3,"blocker":"checking","blockerLabel":"the next GitHub check","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T16:43:38.888Z"}
+line 343: [2026-11-20T16:44:09.132Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 344: [2026-11-20T16:44:09.136Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 345: [2026-11-20T16:44:14.745Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 351: [2026-11-20T16:44:20.442Z] [VERBOSE] [VERBOSE] /merge: PR #811 mergeable: true, state: CLEAN, isDraft: false
+line 352: [2026-11-20T16:44:20.446Z] [STDOUT] [HIVE-MIND SOLVE] {"phase":"watch","check":3,"blocker":"none","blockerLabel":"nothing (no merge blockers)","detail":null,"since":"2026-11-20T15:55:54.140Z","deadline":"2026-11-21T15:55:54.140Z","at":"2026-11-20T16:44:20.445Z"}
+line 354: [2026-11-20T16:45:25.221Z] [VERBOSE] [VERBOSE] /merge: PR #811 detailed CI status: success
+line 355: [2026-11-20T16:45:25.222Z] [VERBOSE] [VERBOSE] /merge:   Total: 38, Passed: 38, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+line 356: [2026-11-20T16:45:30.771Z] [VERBOSE] [VERBOSE] /merge: Found 5 workflow run(s) for https://github.com/TopHunter-AI/thai/commit/a3209e0cc17a1fd4bc89c842cfe286318428410f
+line 362: [2026-11-20T16:45:31.420Z] [VERBOSE] [VERBOSE] pr-commits: 90 commits on PR #811
+line 364: [2026-11-20T16:51:06.414Z] [INFO]   ✅ All CI mechanisms agree: CheckRuns=success, WorkflowRuns=complete(5), AllCommits=complete(90), RepoActions=skipped
+line 365: [2026-11-20T16:51:06.417Z] [INFO] ✅ PR IS MERGEABLE!
+line 366: [2026-11-20T16:51:12.703Z] [INFO]    PR is ready to be merged manually
+line 367: [2026-11-20T16:51:12.709Z] [INFO]    Skipping duplicate "Ready to merge" comment (already posted this session)
+line 368: [2026-11-20T16:51:12.716Z] [INFO]   👀 Review window:          watching 74 more minute(s) for new reviews, threads and comments
+line 372: [2026-11-20T16:52:23.493Z] [INFO]   🛑 Monitoring stopped:     SIGTERM received — waiting for the interrupt handler to finish
+line 375: [2026-11-20T16:52:23.497Z] [INFO] 🛑 Stopped by operator (CTRL+C or /stop) during phase `watch_until_mergeable`, check #3, waiting for none, since 2026-11-20T15:55:54.140Z, deadline 2026-11-21T15:55:54.140Z, last heartbeat 2026-11-20T16:44:20.445Z

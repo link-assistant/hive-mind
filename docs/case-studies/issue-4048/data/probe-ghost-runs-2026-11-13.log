@@ -1,0 +1,43 @@
+link-foundation/link-cli#175: 66 commits
+457 workflow runs, 36 not completed
+  ghost: b12f92b C# CI/CD Pipeline queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519500
+  ghost: b12f92b WebAssembly CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519482
+  ghost: b12f92b JS client CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519570
+  ghost: b12f92b Docs queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519494
+  ghost: b12f92b DeepClient CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519498
+  ghost: b12f92b Crash tests queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519496
+  ghost: b12f92b Rust CI/CD Pipeline queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519508
+  ghost: b12f92b Workflows queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519667
+  ghost: b12f92b Security queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519540
+  ghost: b12f92b IPC queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519629
+  ghost: b12f92b Dependencies queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519674
+  ghost: b12f92b Broken Link Checker queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43096519650
+  ghost: cc6008f C# CI/CD Pipeline queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863069
+  ghost: cc6008f DeepClient CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863232
+  ghost: cc6008f JS client CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863142
+  ghost: cc6008f Broken Link Checker queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863233
+  ghost: cc6008f Security queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863281
+  ghost: cc6008f Docs queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863054
+  ghost: cc6008f Dependencies queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863076
+  ghost: cc6008f IPC queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863277
+  ghost: cc6008f WebAssembly CI queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863144
+  ghost: cc6008f Crash tests queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863088
+  ghost: cc6008f Rust CI/CD Pipeline queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863093
+  ghost: cc6008f Workflows queued 2d 1h https://github.com/link-foundation/link-cli/actions/runs/43097863153
+  ghost: fd1065f Workflows queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585346
+  ghost: fd1065f Broken Link Checker queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585502
+  ghost: fd1065f Rust CI/CD Pipeline queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585464
+  ghost: fd1065f Docs queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585433
+  ghost: fd1065f IPC queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585362
+  ghost: fd1065f Dependencies queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585447
+  ghost: fd1065f C# CI/CD Pipeline queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585392
+  ghost: fd1065f DeepClient CI queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585323
+  ghost: fd1065f JS client CI queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585189
+  ghost: fd1065f Crash tests queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585367
+  ghost: fd1065f WebAssembly CI queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585227
+  ghost: fd1065f Security queued 2d 0h https://github.com/link-foundation/link-cli/actions/runs/43098585254
+36 ghost run(s) (queued, zero jobs, older than 30m)
+GitHub now: www.githubstatus.com: All Systems Operational
+  incident: 2026-11-13T15:47:12.282Z → 2026-11-13T18:29:31.624Z [major] Incident with Pull Requests https://stspg.io/qzj7qjdcr8jc
+  incident: 2026-11-12T18:43:13.810Z → 2026-11-12T19:33:54.248Z [minor] Incident with Webhooks API https://stspg.io/ns57pv7lmynl
+  incident: 2026-11-11T20:48:12.260Z → 2026-11-11T21:21:39.473Z [critical] Impact across multiple GitHub products including Actions, Pages, and Copilot products. https://stspg.io/jdjlq5zjyl48

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SHARE_GEOLOCATION_OPTION } from './geolocation-policy.lib.mjs';
 import { promptText } from './prompt-text.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore, setupStdioLogInterceptor } from './lib.mjs';
@@ -31,6 +32,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   console.log('  --model, -m             Model to use (opus, sonnet, or full model ID) [default: opus]');
   console.log('  --focus, -f             Focus areas for review [default: all]');
   console.log('  --approve               If review passes, approve the PR');
+  console.log(`  --share-geolocation ${SHARE_GEOLOCATION_OPTION.description}`);
   console.log('  --verbose, -v           Enable verbose logging');
   console.log('  --execute-tool-with-bun Execute the AI tool using bunx (experimental) [default: false]');
   process.exit(0);
@@ -68,6 +70,7 @@ const createReviewYargsConfig = yargsInstance =>
         description: 'The GitHub pull request URL to review',
       })
     )
+    .option('share-geolocation', SHARE_GEOLOCATION_OPTION)
     .option('resume', {
       type: 'string',
       description: 'Resume from a previous session ID (when limit was reached)',

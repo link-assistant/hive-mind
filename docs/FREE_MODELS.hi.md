@@ -93,14 +93,14 @@ Hive-mind दो providers के free models का समर्थन कर�
 
 निम्नलिखित models पहले free थे लेकिन अब उपलब्ध नहीं हैं:
 
-| Model              | पूर्व Model ID               | Status                                                                                                                                             |
-| ------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model              | पूर्व Model ID                 | Status                                                                                                                                     |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Free promotion समाप्त (अप्रैल 2026) — अब OpenCode Go subscription आवश्यक है। [agent#242](https://github.com/link-assistant/agent/issues/242) देखें |
-| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | OpenCode Zen से हटाया गया (मार्च 2026) — [agent#208](https://github.com/link-assistant/agent/issues/208) देखें                                     |
-| MiniMax M2.5 Free  | `opencode/minimax-m2.5-free` | models.dev पर deprecated और live OpenCode Zen catalogue में अनुपस्थित (अक्टूबर 2026, Issue #2591)                                                  |
-| Grok Code Fast 1   | `opencode/grok-code`         | जनवरी 2026 में बंद                                                                                                                                 |
-| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | `opencode/minimax-m2.5-free` से replace किया गया                                                                                                   |
-| GLM 4.7 Free       | `opencode/glm-4.7-free`      | OpenCode Zen पर अब free नहीं                                                                                                                       |
+| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | OpenCode Zen से हटाया गया (मार्च 2026) — [agent#208](https://github.com/link-assistant/agent/issues/208) देखें                                  |
+| MiniMax M2.5 Free  | `opencode/minimax-m2.5-free` | models.dev पर deprecated और live OpenCode Zen catalogue में अनुपस्थित (अक्टूबर 2026, Issue #2591)                                                |
+| Grok Code Fast 1   | `opencode/grok-code`         | जनवरी 2026 में बंद                                                                                                                            |
+| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | `opencode/minimax-m2.5-free` से replace किया गया                                                                                            |
+| GLM 4.7 Free       | `opencode/glm-4.7-free`      | OpenCode Zen पर अब free नहीं                                                                                                                |
 
 > **नोट:** Free models की वर्तमान सूची के लिए [OpenCode Zen Documentation](https://opencode.ai/docs/providers/#opencode-zen) और [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) देखें।
 
@@ -187,10 +187,10 @@ Hive-mind दो providers के free models का समर्थन कर�
 
 निम्नलिखित Kilo models पहले अनुशंसित free models थे लेकिन अब updated हैं:
 
-| Model        | पूर्व Model ID           | Status                                       |
-| ------------ | ------------------------ | -------------------------------------------- |
+| Model        | पूर्व Model ID             | Status                                      |
+| ------------ | ------------------------ | ------------------------------------------- |
 | GLM 4.7      | `kilo/glm-4.7-free`      | `kilo/glm-4.5-air-free` से replace किया गया  |
-| Kimi K2.5    | `kilo/kimi-k2.5-free`    | अन्य Kilo free models से replace किया गया    |
+| Kimi K2.5    | `kilo/kimi-k2.5-free`    | अन्य Kilo free models से replace किया गया     |
 | MiniMax M2.1 | `kilo/minimax-m2.1-free` | `kilo/minimax-m2.5-free` से replace किया गया |
 
 > **नोट:** वर्तमान उपलब्धता के लिए [Kilo Free Models Documentation](https://kilo.ai/docs/advanced-usage/free-and-budget-models) देखें।
@@ -299,7 +299,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 | Free API Key  | `public`                              | `public`                 |
 | Total Models  | 50+                                   | 500+                     |
 | Flagship Free | Nemotron 3 Super (~262K context)      | GLM-5 (सीमित समय)        |
-| BYOK Support  | हाँ                                   | हाँ                      |
+| BYOK Support  | हाँ                                    | हाँ                       |
 | New Models    | Nemotron 3 Super (Issue #1543, #1563) | DeepSeek R1, GLM 4.5 Air |
 
 ---

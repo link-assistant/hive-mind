@@ -121,7 +121,7 @@ const snapshot = await queue.getExternalProcessingSnapshot(['claude', 'agent', '
 assert(snapshot.byTool.claude === 5, 'Queue uses pgrep count when it is higher than status count');
 assert(snapshot.byTool.codex === 4, 'Queue uses status count when it is higher than pgrep count');
 assert(snapshot.byTool.agent === 0, 'Queue reports zero when both sources are zero');
-assert(snapshot.total === 7, 'Queue total uses max(total pgrep count, total status count)');
+assert(snapshot.total === 9, 'Queue total adds per-tool work counts without hiding distinct tools');
 
 const formattedStatus = await queue.formatStatus();
 assert(formattedStatus.includes('claude (pending: 0, processing: 5)'), 'Formatted status shows max claude processing count');

@@ -1,5 +1,590 @@
 # @link-assistant/hive-mind
 
+## 2.48.0
+
+### Minor Changes
+
+- 74ed2f4: Add independent Hive Mind Manager actions to preview and apply Bun global updates, audit and quarantine shared agent extensions using deployment policy, and stop verified idle vendor helpers.
+
+## 2.47.0
+
+### Minor Changes
+
+- 90a4ee3: Verify Telegram data-center reachability inside the deployed MTProxy network namespace and compare decoded photo content in the client probe. Review and roll back same-port proxy trials, inspect scoped legacy MSS and Docker resources, and compare packet evidence alongside application results.
+- e912ecd: Expose a typed Hive Mind Manager library for inspecting task records and previewing detached Docker record repair. The task CLI shares these operations and requires explicit apply to adopt a running container.
+- 0981883: Finish pull request monitoring as soon as readiness is reported. Check CI on the current head without scanning superseded commits, and show elapsed monitoring time on one line in Telegram.
+- 1e48af1: Add bounded per-task Docker disk reporting, detached and pressure-guarded cache cleanup, and verified stopped writable-layer preservation to hive-manager.
+
+## 2.46.0
+
+### Minor Changes
+
+- 260fde5: Import verified legacy session revisions into a private archive index after review. Support source-specific literal redactions and configurable session age, and report oversized transcripts skipped by archive exports.
+- 9ab281e: Route shared Telegram group commands to a single Hive Mind bot using Telegram's `/command@BotUsername` syntax. Identify peers with `/who` and fall back to addressed `/version` probes for older bots. Bare commands still work in groups with one detected Hive Mind bot.
+- 8d08370: Review and resume known Telegram alias failures and policy-approved later Docker attempts with a writable-layer space check. Reconcile historical incident reports from GitHub markers or the Control Center ledger and review closed issue routes against the installed release.
+
+## 2.45.1
+
+### Patch Changes
+
+- 1825819: Recommend the Kotlin pipeline template in `fix --ci-cd` and document it in the CI/CD guide and translations.
+- 3a57521: Recommend the Swift pipeline template in `fix --ci-cd` and document standalone and multi-language Swift adoption in the CI/CD guides.
+
+## 2.45.0
+
+### Minor Changes
+
+- 6f19ff0: Document commit and ready-for-review CI tiers, workspace-aware test selection, job sizing, file-size ratchets, and cancellation that preserves full checks.
+- 1996018: Add `hive-manager` for local and SSH deployment, recovery, maintenance and headless Claude, Codex and GitHub sign-in. The same Bash entry point runs standalone, ships in the npm package, and is available in the Hive Mind Docker images.
+
+## 2.44.0
+
+### Minor Changes
+
+- 33df1ac: Wait for automated PR review apps and act on their findings (#4081).
+
+  - New `--review-bots` option. It is an allowlist of review apps and defaults to the Codex connector, CodeRabbit, Copilot review, Gemini Code Assist, Sourcery, Qodo, Cursor and Greptile. Use `default,<login>` to add an app, or `none` to turn this off. Summaries and reviews from these apps that report findings (the Codex `codex-review-state` marker with `has_unresolved_findings: true`, or CodeRabbit's `Actionable comments posted: N`) are feedback for `--auto-restart-until-mergeable`. CI and deploy bots stay ignored.
+  - Before "Ready to merge", the loop waits while a review app is still reviewing the head commit (a 👀 reaction or an in-progress notice). The wait lasts up to `--review-bots-wait-minutes`, default 15.
+  - Findings restart the AI. If the AI leaves them unaddressed, "Ready to merge" becomes "Ready for review — blocked by review bot findings", which names each summary, and `--auto-merge` does not merge.
+  - Every backend's system prompt now tells the AI to wait for review apps after marking the PR ready or pushing, and to address every finding.
+
+## 2.43.5
+
+### Patch Changes
+
+- 5599f27: Fix `solve` sessions that stayed stuck for hours after their final log (#4091).
+
+  - Workflow runs on the HEAD commit that have not started are now bounded instead of blocking until the 24 h watch timeout. This covers runs held in a `concurrency` queue (`pending` with 0 jobs) and runs waiting for an approval (`waiting` / `action_required`). After `HIVE_MIND_STUCK_PENDING_RUN_MINUTES` one notice is posted on the PR. After `HIVE_MIND_STUCK_PENDING_RUN_STOP_MINUTES` monitoring stops with an explicit reason. These runs are never cancelled or re-run.
+  - `/solve` now prints `[HIVE-MIND SOLVE]` phase markers. Telegram shows the log upload and watch phases (blocker, elapsed time, deadline) instead of `⏳ Executing...`.
+  - Waits after the final log have a 30 s heartbeat and a deadline. Log sanitize and upload report their progress. A hung GitHub probe is skipped, and repeated hangs stop monitoring.
+  - While monitoring continues, the log comment no longer says the working session has ended. A `Monitoring Ended` comment reports the final decision.
+  - On `/stop`, the watch loop stops before the log upload and only the log tail since the last upload is attached. The notice now says "stopped by operator" and gives the last phase instead of `SIGKILL; cause unknown`.
+  - Watch-loop lines have ISO-8601 UTC timestamps, and the issue JSON is no longer printed on every check.
+
+## 2.43.4
+
+### Patch Changes
+
+- 1baeac2: `--auto-restart-until-mergeable` no longer reports "✅ Ready to merge" over open review findings, and the task image can run corepack-based git hooks again (issue #4082).
+
+  - Unresolved review threads are listed in the AI's feedback whatever their age or author, review bots included. Before, only comments newer than the last commit counted. The watch loop restarts the AI on each thread it has not handed over yet. Threads the AI was given but left unresolved hold "Ready to merge" back and are named in the comment. The prompt tells the AI to resolve each thread after a verified fix.
+  - Submitted reviews are read too: a bot review that requests changes, a human review, or a same-account comment without tool markers restarts the AI.
+  - Merge-order prerequisites declared in the pull request description or the latest session summary ("merge the companion PR first", "Depends on owner/repo#12") are checked on GitHub. While one is unmet, "Ready to merge" becomes "🟡 Ready for review — blocked by …", and auto-merge does not merge.
+  - After "Ready to merge" the loop keeps watching for late reviews for `--auto-restart-until-mergeable-review-window-minutes` (default 120; `0` exits at once). New options: `--auto-restart-on-unresolved-review-threads` and `--check-merge-prerequisites`, both on by default.
+  - The Docker images install a pinned `corepack`, which Node 26 no longer bundles. Solve also tells the AI when a repository's git hooks cannot run here (a missing corepack, pnpm, yarn, pre-commit, lefthook, …), so their checks are run by hand instead of being skipped silently.
+
+  Every prompt sent to an AI tool is now printed in full in the log, after all formatting, as a clearly marked block (PR #4083 review feedback on issue #4082).
+
+  - Claude, Codex, Agent, OpenCode, Gemini, Qwen, agent-commander, the task command and the /organize classifier log the exact user, system or combined prompt where it is sent. Each block shows its line and character count and how the prompt is delivered (argument, file, stdin or stream-json frame), and sits between `---BEGIN … PROMPT---` and `---END … PROMPT---` markers. This happens on every run, not only with `--dry-run` or `--verbose`.
+  - Live input frames written to the tool stdin mid-session (forwarded comments, status updates, queued frames) are printed as readable text in `LIVE INPUT PROMPT` blocks.
+  - The /organize classifier receives its repository context and issues as indented JSON instead of one long line. Chunk sizes are measured on that formatted text.
+
+  Also, for the CI dependency freshness gate: `links-notation` is updated to 0.31.7.
+
+## 2.43.3
+
+### Patch Changes
+
+- 8321025: `--auto-restart-until-mergeable` no longer posts `🛑 Automation stopped: the AI session failed` after `🚨 Solution Draft Failed` for the same failed session (issue #4087). The failure comment already holds the error, the models and the log, and says the session ended, so one failure now gives one comment.
+
+  - The `tool_failure` and `tool_failure_after_resume` stop comments are skipped when the `Solution Draft Failed` comment reached the pull request. This covers both the comment with the attached log and the `Log Upload Failed` variant, which has the same heading and error.
+  - The stop comment is still posted when no failure comment reached the pull request (`--attach-logs` is off, or nothing could be posted), so every failure is still reported once.
+  - The terminal log lines and the recorded loop failure are unchanged.
+
+## 2.43.2
+
+### Patch Changes
+
+- cbfc3a4: A Codex turn that degenerates, runs out of output tokens or runs too long no longer ends the run with nine hours of work left uncommitted. Account identifiers no longer reach published logs (issue #4079).
+
+  - **Degenerate output.** A run of 200 identical or filler lines (`.`, blank) in text the model writes stops the turn, and the session is resumed with a continuation prompt. This covers stdout items and the `codex.tool_result` arguments on stderr. Set `HIVE_MIND_CODEX_DEGENERATE_LINE_LIMIT` to change the limit, or `0` to disable it.
+  - **`max_output_tokens`.** `Incomplete response returned, reason: max_output_tokens` now resumes the same Codex session from the current working tree instead of failing the run, up to `HIVE_MIND_CODEX_MAX_TRUNCATION_RESUMES` (3) times per run.
+  - **Long turns.** A single turn is split, and the session resumed, after `HIVE_MIND_CODEX_MAX_TURN_MINUTES` (240) or `HIVE_MIND_CODEX_MAX_TURN_INPUT_TOKENS` (100M; needs `--verbose`), up to `HIVE_MIND_CODEX_MAX_TURN_SPLITS` (20) times per run. A turn is never stopped while a command or file change is running.
+  - **Codex stderr.** A multi-line Codex telemetry record (for example, a tool call's arguments) now goes to the trace file with its header instead of into the log. Repeated lines collapse into `… previous line repeated N more times`.
+  - **Account identifiers.** `user.email`, `user.account_id` and similar values are redacted to `<redacted>` in Codex stderr, in the trace file and in every log sanitized for publishing.
+  - **Recovery branch.** On a continue run, work a failed run preserved on `recovery/<branch>` is restored to the working tree if the PR branch has not moved. Otherwise the session is told where the work is. The failure comment now names the recovery branch.
+
+## 2.43.1
+
+### Patch Changes
+
+- a49032b: A Claude failure no longer publishes a line of an SDK debug dump or of printed source as its reason, such as `CLAUDE execution failed with } ReadableStream { locked: false, state: 'readable', supportsBYOB: false }` (issue #4077).
+
+  - With `--verbose`, Claude Code runs with `ANTHROPIC_LOG=debug`. `@anthropic-ai/sdk` logs every streamed response as `response 200 <url> Headers {` … `} ReadableStream {…}`. This is the only SDK debug line without a `[log_<id>]` prefix. These lines and the `[log_<id>, request-id: …] post … succeeded …` summary lines are now recognised as debug output.
+  - A new shared guard, `isSourceFragmentErrorText`, is applied at the publishing boundary for every tool (`isMeaningfulErrorText`). It rejects the tail of an inspected object or code block (`}`, `]`, `)`), quoted header keys, inspected function values, stack frames and SDK debug-logger lines.
+  - When Claude is killed without a readable reason, the message now names the signal, e.g. `Claude command failed with exit code 137 (SIGKILL)`.
+  - `@sentry/node` and `@sentry/profiling-node` are updated to 11.13.0 for the dependency freshness gate.
+
+## 2.43.0
+
+### Minor Changes
+
+- b033632: New Telegram commands `/after` and `/enqueue`, and a `--respect-blockers` option for the solve commands (issue #4069).
+
+  - `/after` and `/enqueue` start exactly one task after another task has finished. They find the task to wait for the way `/stop`, `/log` and `/watch` do: a session UUID or an issue/pull request link, in the replied message or in the command. Everything else works as in `/solve`: `/after <task-link> [options]` as a reply, `/after <uuid|awaited-link> <task-link> [options]`, or `/after [options]` as a reply to run the same link again afterwards.
+  - `/after` starts the task only when the awaited task succeeds (a run without changes counts as a success). When the awaited task fails, is cancelled or is killed, the waiting task fails too, and so does any chain behind it. `/enqueue` starts the task once the awaited task finishes, whatever the outcome.
+  - A waiting task appears in `/queue` under "Waiting for other tasks". It can be stopped with `/stop` before it starts, and joins its tool queue as an ordinary queued task once it is released.
+  - `--respect-blockers` (experimental, off by default; `TELEGRAM_SOLVE_RESPECT_BLOCKERS=true` turns it on for every solve command) reads the issue's GitHub relations the way `/hive` does (#2615). These are open "blocked by" issues, open sub-issues (a sub-issue blocks its parent) and the blockers of its ancestors. If every open blocker is already queued or running, the task waits for them as with `/after`. If a blocker is neither queued nor running, the task is not started. Pull requests, and issues whose relations cannot be read, start as before.
+  - A command with several links (#4067) now respects blockers by default (`TELEGRAM_BATCH_RESPECT_BLOCKERS`, or `--no-respect-blockers` for one command). The relations are read once, unblocked links start first, and each blocked link waits for the batch links that block it.
+
+## 2.42.0
+
+### Minor Changes
+
+- 632281f: `/solve`, `/claude`, `/codex` and the other solve aliases now start every GitHub issue or pull request link when the command replies to a message with several links, instead of refusing with `Found N GitHub links in the message` (issue #4067).
+
+  - Each valid link starts as its own task, as if the command had been sent once per link with the same options. Each "Starting…" or "Queued…" message replies to the same command message.
+  - Links start one at a time, with a random 10–15 second pause between two starts.
+  - Links that cannot be started (not an issue or pull request link, not found, already running or queued, rejected by the queue) get one summary after every valid link has started.
+  - A repository link in a list is not started (it would solve the whole repository); the summary says to send `/solve <repository-url>` alone for that.
+  - An error in the options is answered once, and nothing starts. `/stop` during a batch stops the links not yet started.
+  - Duplicated links start once. Captions and hidden (`text_link`) links of the replied message are read too.
+  - A command can also list several links itself: `/solve <url-1> <url-2> --model opus`.
+  - A reply to a message with a single link works as before.
+
+  Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 (with `string-argv` 0.4.0 in the lockfile), and the `use-m` bootstrap pin to 8.17.2.
+
+## 2.41.0
+
+### Minor Changes
+
+- cfe1f9e: A fresh clone with uncommitted changes no longer stops `solve` with `Repository has uncommitted changes after clone` (issue #4063). The trigger was a repository whose committed bytes do not match its own `.gitattributes`, such as a CRLF `mvnw.cmd` committed under `text eol=crlf`.
+
+  - New `--uncommitted-changes-after-clone` option:
+    - `warn-ai` (default): the run continues, and only the AI is told, in its regular user prompt (never in the system prompt). The AI gets the exact `git status` output and how to fix the cause, for example with `git add --renormalize`. Every tool gets this, in new and continued sessions, and the user sees it only with `--verbose`.
+    - `warn-user`: continue and log a warning for the user.
+    - `warn-ai-and-user`: tell both.
+    - `ignore`: continue silently.
+    - `fail`: stop the run, as before.
+  - New `--neutralize-checkout-conversion-artifacts` option, on by default: files whose bytes equal the commit are kept out of `git status` and the pull request by unsetting their content conversion in the clone-local `.git/info/attributes`. `--no-neutralize-checkout-conversion-artifacts` turns this off.
+  - `--verbose` logs the attribute and line-ending diagnostics.
+  - The changes already present right after the clone are no longer repeated as "uncommitted changes" restart feedback.
+
+  Also, for the CI dependency freshness gate: `secretlint`, `@secretlint/core` and `@secretlint/profiler` are updated to v14, `@link-foundation/sensitive-data-sanitizer` to 0.23.0 and `links-notation` to 0.31.6. Secretlint v14 ships the recommended preset in `@secretlint/core/builtin`, and its `@secretlint/secretlint-rule-preset-recommend` package is no longer published. Secret scanning now loads the preset from there, with the same rule ids.
+
+- 6995621: A red Formal AI draft is now explained from solve's own `solve-*.log` (newest first), not from whichever `*.log` in the log directory is newest (issue #4065). A caller's capture files, such as formal-ai's `attempt.log`, no longer hide the `Finished without changes: …` reason behind `docker run exited N without a session log error`. Any other `*.log` is read only when no `solve-*.log` exists.
+
+  Also, for the CI dependency freshness gate: `lint-staged` is updated to 17.6.1 and its `string-argv` dependency to 0.4.0.
+
+## 2.40.5
+
+### Patch Changes
+
+- f4c7263: `/fix --update-all-dependencies` now handles every open Dependabot pull request before it creates the issue (#4061). Before this fix, links-notation#396 and #407 stayed open and were listed in links-notation#408:
+
+  - **Superseded pull requests are closed whatever their mergeability.** Only conflicting pull requests used to be compared with the base branch, so the mergeable but behind #407 was merged instead of closed. Every non-draft pull request is now compared first. The comparison also reads the .NET SDK `"version"` in `global.json` (Dependabot's `dotnet-sdk` ecosystem), `rust-toolchain(.toml)`, and `image:` lines. Repeated pins in several workflows are named once.
+  - **Pull requests that a ruleset keeps out because they are behind are rebased.** `--admin` cannot bypass a ruleset with no bypass actors, so `gh pr merge` failed with "Repository rule violations found". Dependabot is now asked to `@dependabot rebase` the pull request, which is merged once its required checks pass. A freshly rebased head whose checks are not reported yet keeps waiting. The wait is bounded by the new `--dependabot-wait-timeout <minutes>` option (default 30, `0` to not wait), which `/fix` and `/task` accept.
+  - **Clearer reports.** The issue keeps the whole `gh` error, not only its first line, and names the ruleset, its required checks and whether it can be bypassed. `--verbose` prints each supersession verdict and the merge state after a failed merge. The issue context now names the hive-mind version that collected it, so an issue written by an outdated deployment can be recognised.
+
+  `links-notation` 0.31.5 and `rc-config-loader` 4.2.0 are also taken, to keep the dependency freshness gate green. The unused direct `lino-objects-codec` dependency is dropped instead of moving to 1.0.0, which requires Node.js 26.13.1 while hive-mind supports Node.js 24; `lino-i18n` keeps its own `^0.9.6` copy.
+
+## 2.40.4
+
+### Patch Changes
+
+- 600f1f9: Fix the CI/CD errors, false negatives and warnings found on `main` (#4055):
+
+  - **Native recovery on `linux-arm64`.** Selected native SQLite corruption recovery no longer fails with `requires closed database handles` when SQLx is still closing a dropped connection on its worker thread. The VFS reports the holder through `errno`: `EBUSY` for this process and `EWOULDBLOCK` for a native peer. The backup waits at most 5 s for this process's own handles and still refuses live peers. `HIVE_CODEX_SQLITE_TRACE=1` traces each attempt and is off by default.
+  - **Formal AI draft health.** Repeated draft failures no longer split into separate streaks by release version. Twelve drafts that failed on missing `2.40.0` and `2.40.1` images stayed green because neither streak reached the threshold.
+  - **Dependabot.** The `docker-compose` entry matched no dependency and warned daily, so it is removed. A daily `Dependabot Health` workflow fails when a Dependabot group pull request stays open long enough to block newer updates (dependabot/dependabot-core#16791).
+  - **Native experiment probes.** Compiles that take 7–10 s had a 30 s limit, and one slow runner failed the job with only `exit code 1`. The five probe scripts now share a 120 s compile limit, the configuration lock probe prints the compiler output and elapsed time on failure, and each experiment job prints the newest log on failure.
+  - **Process liveness checks.** A task that its reaper is releasing shows `X (dead)` in `/proc/<pid>/stat`, right after `Z`. Six checks, including the runtime probe cleanup in `verify-agent-runtime`, treated it as alive, which failed a Router native-lifetime test at random.
+  - **Native Codex variants and Docker images.** 2.40.2 published its main package while npm was still processing the linux-arm64 variant, so the arm64 image installed without it and no 2.40.2 image was published. The release now publishes the main package only after npm can install every variant, and the Docker jobs also wait for the variants a release pins. The image build prints why native Codex was refused.
+  - **Native usage reproduction race.** Before the repair, upstream Codex sometimes revokes an in-flight usage request when it reloads the changed authentication, so the probe that expects the retired response failed at random. The probe now prints the response with `CODEX_PROBE_DIAGNOSTICS=1`, reports that outcome as inconclusive, and the workflow repeats it up to five times.
+  - **Credential sanitizer 0.22.5.** The library now keeps an `Authorization:` placeholder that closes a double-backtick code span (link-foundation/sensitive-data-sanitizer#181), so the adapter's code-span exemption is removed and the regression tests guard the library's own behaviour.
+
+- 1144b6e: Codex runs in a repository with its own skills no longer fail with "Codex exposed skill instructions outside the capability allowlist" (#4057). Every skill under the checkout's `.agents/skills` and `.codex/skills` is admitted without an issue requirement. This includes skills linked from `.agents/skills` into `.claude/skills`, the layout used by Hive Mind's handoff and Playwright skills, as long as the file stays inside the checkout. Skills Codex discovers outside the checkout and the task `CODEX_HOME` (`$HOME/.agents/skills`, `/etc/codex/skills`, symlinks leaving the checkout) are now switched off for the task only, with `[[skills.config]] enabled = false` in the per-task `CODEX_HOME`, instead of failing the run. The catalog is then probed again, and the run still fails closed if Codex keeps showing them. Verbose logs list the trusted skill roots and each refused skill with its origin. Hosts still on 2.39.x should upgrade: the repository-skill fix from #3785 was versioned as 2.40.0/2.40.1, but neither version reached npm; 2.40.2 was the first published version with it.
+
+  The publication sanitizer also no longer masks an `Authorization:` header named in prose when the code span closes right after the colon. This text appears in the 2.40.2 release note, and masking it removed the closing backtick and broke the `` `Authorization: token <value>` `` example that followed on the same line. Real tokens stay masked (sensitive-data-sanitizer#177).
+
+  `@link-foundation/sensitive-data-sanitizer` 0.22.4 fixes the `ERR_SANITIZATION` failure on a letter run of about 4 MiB in text with emoji or other non-Latin-1 characters (sensitive-data-sanitizer#172), so Hive Mind's own long-run fallback is removed. `lino-i18n` 0.6.0, `links-notation` 0.31.4 and `start-command` 0.44.0 are also taken.
+
+## 2.40.3
+
+### Patch Changes
+
+- 48f69e7: `--auto-restart-until-mergeable` no longer waits silently for hours on CI signals that will never change (#4048).
+
+  **Out-of-band runs.** A failed or running `workflow_dispatch`, `schedule`, `repository_dispatch` or `workflow_run` run on the HEAD commit no longer holds the multi-mechanism CI consensus or the `/merge` queue (`checkPRCIStatus`). GitHub leaves these runs out of the pull request's merge state, and a `CLEAN`/`MERGEABLE` PR is now trusted by the consensus exactly as by `getMergeBlockers` (#2031).
+
+  **Ghost runs.** Workflow runs stuck in `queued` with zero jobs, for example after a GitHub Actions incident, are handled as follows (`HIVE_MIND_STUCK_QUEUED_RUN_MINUTES`, default 30):
+  - on older PR commits they are ignored and reported;
+  - on HEAD they are cancelled (falling back to force-cancel) and re-run, at most `HIVE_MIND_STUCK_RUN_RERUN_ATTEMPTS` times (default 2), and only when githubstatus.com reports no active Actions/Webhooks incident. Runs that started on their own are never touched.
+
+  **Visibility.** Each disagreement now logs which checks and runs disagree, together with the githubstatus.com incidents that overlap the wait. After `HIVE_MIND_CONSENSUS_DISAGREE_NOTICE_CHECKS` identical checks (default 15), one `CI wait is stuck` comment is posted on the PR.
+
+  **Stopping.** A stop request now parks the auto-merge, watch and auto-continue loops, so they no longer start new checks while the interrupt handler uploads the log.
+
+  The publication sanitizer also keeps an `` `Authorization:` `` header named in prose with no value (the closing backtick was read as the value and masked, which broke the 2.40.2 release note and `tests/issue-3445-release-notes-not-masked.test.mjs` on main; upstream sensitive-data-sanitizer#177).
+
+## 2.40.2
+
+### Patch Changes
+
+- e778b7a: Publish the native Codex executables as per-platform variant versions of this package (`@link-assistant/hive-mind@<version>-native-codex-linux-x64` and `-linux-arm64`, under their own dist-tags) instead of bundling both in the main tarball. npm refused the 2.40.0 and 2.40.1 tarballs (249,847,872 and 249,862,346 bytes) with `E413 Payload Too Large`, so neither version, nor any Docker image, was released (#4050). The main package pins both variants as optional dependency aliases at publication; the runtime admits only the variant whose version matches the main package, and `HIVE_MIND_NATIVE_CODEX_DEBUG=1` (off by default) names the refused phase. Every tarball is now gated below a 157 MiB budget before upload with an annotation naming its largest files, and an E413 fails on the first attempt instead of being retried. Pull request images install the same packed variant at the alias path. See `src/native-codex/PACKAGES.md`.
+
+  The publication sanitizer no longer masks a documentation placeholder that closes a Markdown code span after an `Authorization:` header (for example `` `Authorization: token <value>` `` in the 2.40.1 release notes, which lost its closing backtick). Real tokens stay masked; this works around sensitive-data-sanitizer#177 until it is fixed upstream.
+
+- 6d8ace1: A generic authentication failure no longer stops a run on the first try (#4053). Claude Code reports every 401/403, including a Cloudflare page (`Failed to authenticate. API Error: 403 Attention Required! | Cloudflare`), as `authentication_failed`. These are now treated as unconfirmed and re-checked by retrying, with the session preserved: 3 times by default (`HIVE_MIND_MAX_AUTH_FAILURE_RETRIES`, `HIVE_MIND_INITIAL_AUTH_FAILURE_RETRY_DELAY_MS`, `HIVE_MIND_MAX_AUTH_FAILURE_RETRY_DELAY_MS`). While status.claude.com or status.openai.com reports a relevant incident, retries continue within the transient retry budget (`HIVE_MIND_PROVIDER_STATUS_CHECK=false` disables the lookup). `/hive` is only stopped once the failure is confirmed, and the report and the Telegram message state how often it was re-checked and what the status page said. Explicit reasons (revoked or expired token, billing, disabled organization) still stop at once. The same applies to Codex 401s and Claude CLI validation, and Cloudflare challenge pages are retryable for every tool.
+
+  `/limits` now reports HTTP 5xx, 408, 425, timeouts and network errors as "Claude/Codex limits are temporarily unavailable (…). They will be retried on the next /limits call." These failures are no longer cached, including by the Router. The misleading bare `(active)` subscription status is dropped; only an exact end date is shown, when the provider publishes one.
+
+## 2.40.1
+
+### Patch Changes
+
+- b83e3e0: Fix the credential sanitizer masking the scheme word instead of the credential in `Authorization: token <value>` (and any other scheme), which published the value; shell expressions such as `$(gh auth token)` stay as they are (#3739). All sanitizers (terminal, logs, publication, residual check) now run on @link-foundation/sensitive-data-sanitizer instead of Hive Mind's own rule list, masking credentials only; known local values (credential environment variables, every gh hosts.yml token, `gh auth token`) are collected by the library, which also fixes the `gh auth status` collector that found no token on current gh versions (#3740). Remaining library differences have workarounds linked to their upstream issues.
+
+  Upgrade the engine to 0.22.3 and remove every obsolete adapter rule, including the masked-prose, wrapped-binary, wrapped-text, encoded-mask, escaped-JSON, Authorization-scheme, Markdown-value, constructor and private-key-type workarounds now handled upstream; native private-key types receive native full redaction. Eliminate quadratic stream-boundary scans (#3747), retain Actions permissions and useful account diagnostics (#2837), and repair then verify AI-created development-log evidence before staging with file/line/rule diagnostics (#2841).
+
+  Keep Telegram bot credentials off the running process command line: support a private configuration file, re-exec legacy inline credential options through environment transport, retain configuration precedence, and document Helm Secrets and private files. Replace token-shaped deployment examples with explicit placeholders and check their embedded template sources (#2647, #3951).
+
+  Stop retrying log uploads that `gh-upload-log`'s own sanitizer refuses (`Sanitization failed (ERR_…)`), because the same bytes are refused every time; failures that `gh-upload-log` 0.13.2 marks as retryable are still retried. Cap upload parts at 48 MiB by cutting overlong lines on a UTF-8 boundary, and isolate long ASCII letter/digit runs from non-ASCII text in upload parts (sensitive-data-sanitizer#172), re-sending a refused file as such parts. The failure comment suggests upgrading to `gh-upload-log` 0.13.2 for `ERR_LIMIT` and 2 MiB parts for `ERR_SANITIZATION`, instead of a command that is refused again (#4042). Pin that option placeholders such as `--secrets <path>` stay readable while real values are masked (#4043). Add regressions for closed sanitization issues, and name the disk-space remedy when the sanitized upload copy hits ENOSPC (#1212).
+
+  Scan long base64, hex, percent, escape and entity runs linearly, so a multi-MiB screenshot record no longer overflows V8's regexp stack and blocks a whole log (#4049). Sanitize around long letter runs when the library itself overflows on two-byte text, failing closed when a credential reaches into a run (sensitive-data-sanitizer#172), and document the slow scan of one very long credential value (sensitive-data-sanitizer#173).
+
+## 2.40.0
+
+### Minor Changes
+
+- 8334b4d: Fix false failures, false passes and noisy warnings in CI/CD (issue #4025): install lychee with retries and a checksum check, keep the lychee cache between runs and fail when lychee writes no report, keep the fixture cleanup inside its timeout, run the full unit suite on pull requests, report "finished without changes" for Formal AI drafts instead of a recovered log-upload 403, and refresh stale dependency pins (agent 0.27.2, jscpd 5.4.3, create-pull-request v8.1.2, use-m 8.17.0, @clack/prompts 1.9.0). Fail the Security check on open CodeQL results and fix the open alerts on main. Override minimatch to 11.0.5 with a key that npm 10 and npm 11 resolve the same way. Fail the status gate on cancellations unless a newer commit superseded the run, and add status gates to Links, Security and Workflows. Run ShellCheck on standalone scripts. Drop checkout credentials in jobs that never push. Link the native CLI pin exceptions to the open tracking issue #4027, and fail a pull request whose freshness exception links an issue that the same pull request closes.
+- b438782: Fix false CI signals found in #4029:
+
+  - **Red `Checks and release` on main.** The capability lifecycle gate now accepts the typed refusal of an unpinned npm-latest Codex (0.167.0 ships different stock skills than the pinned 0.164.0). It then restores the pinned stock runtime before the next phases.
+  - **Docker checks.** Image-gate helpers mounted into the container now trigger them.
+  - **Freshness gate.** azure/setup-helm v5.1.0 and lino-objects-codec 0.9.6 keep it green.
+  - **Formal AI Draft.** Dispatched checks are no longer left `pending` forever: the reporter waits up to 200 minutes and then posts a terminal status.
+  - **Cleanup.** The log explains why the stale branch count exceeds the fixture count.
+  - **Status gate.** A job with an unknown result (for example `abandoned`) or no result now fails the pipeline instead of passing it.
+  - **Formal AI Draft conclusions.** Only `success`, `neutral` and `skipped` are mirrored as green; any other conclusion is a failure.
+  - **Release.** If main gained untested source changes while a release run was testing its commit, the release no longer rebases onto them and publishes. The run for the newer commit tests and releases them.
+  - **Native Codex build.** The job timeout is 150 minutes instead of 120. Successful arm64 builds take up to 110 minutes, so a slow runner could fail a healthy release.
+  - **Noise.** Every workflow that checks out sets `init.defaultBranch`, which removes the `git init` hints. ShellCheck runs from a pinned venv instead of `pipx run`, which removes the PATH warning.
+
+- 0e2621e: Keep geolocation private by default across all AI runners, neutralize host timezone hints, and clear Codex's optional search location configuration. Add --share-geolocation to opt in for location-dependent tasks.
+- c9f8a95: Give Claude and Codex authentication errors separate limits sections, prefer authenticated Claude entitlement flags over cached plan labels, and identify stored Codex subscription metadata. Invalidate limits caches when credentials rotate or disappear, respect effective tool homes and explicitly selected Router usage authority, and keep verbose diagnostics free of credentials and account identifiers. Discover Codex plugin catalogs in task-owned storage without writable links to the operator marketplace.
+
+  Reject explicitly selected Router launches with missing task tokens, invalid endpoints or unavailable tool routes, and use the selected image's route dialect consistently.
+
+  Restrict extra Router Docker options to documented resource limits. Before issuing a task token, inspect the actual new or reused sidecar's data/audit environment and writable canonical named volume; refuse redirected, ambiguous or overlapping storage without logging its environment.
+
+  Refresh the CI-required Formal AI, start-command and Secretlint dependency pins and their lockfile entries.
+
+  Reject malformed JSON/TOML, unsafe links and concurrent edits before the existing global configuration audit repairs state. Bound configuration reads even during concurrent growth. Require a clean re-audit of known surfaces before native connection checks in solve, hive and the root Telegram bot, including when auto-repair is disabled. Preserve hidden runtime files and concurrent additions when pruning empty extension directories.
+
+  Audit Codex TOML registrations semantically, including quoted, dotted and inline declarations. Remove each unapproved registration with its nested settings and preserve unrelated typed configuration. TOML repairs normalize formatting and remove comments; clean configuration is left unchanged.
+
+  Reject global instruction files, rules, legacy prompts and hook manifests during admission. Remove inline global hooks/instructions, unapproved Codex profile registrations and custom agent declarations while preserving unrelated settings and concurrency limits. Retain instruction files and hook manifests for explicit removal or quarantine.
+
+  Pin image installations to Claude Code 2.1.319 and Codex 0.164.0. Verify installed Codex stock skills against a content manifest generated by a pristine instance of that CLI version, including hidden files and nested payloads. Reject changed, incomplete, linked or oversized stock content before configuration repair. Disable Claude's automatic updater and exclude both pinned tools from Hive Mind's idle and command-triggered updates in images. Unpinned tools retain their existing update behavior.
+
+  Install the PR branch as a release-shaped npm package in Docker checks. Require the installed configuration command and a network-disabled stock-runtime verification in root, DinD and Coolify images. Check the pinned native CLI versions, known global surfaces and actual Codex-generated stock tree without credentials or repair; reject missing or unapproved stock, bound probe responses and clean up the native process before deleting disposable state.
+
+  Give every stock-gate native subprocess a disposable home and working directory with a minimal environment. Exclude inherited credentials, config overrides and preload hooks from version checks and stock materialization; force disposable file-based Codex credential storage.
+
+  Require native Codex discovery to return exactly the pinned stock skills in the disposable home. Reject additional user, repository or admin skills, missing/duplicate/disabled entries, alternate paths, plugin associations and discovery errors before checking the stock file tree. Keep native paths and error excerpts out of rejection diagnostics.
+
+  Verify Docker mount sources against their actual device/inode backing before fresh task launch. Translate root-container bind/volume sources into the selected local daemon namespace when direct paths fail, reject unverifiable sources before running the task, and release acquired service leases on preparation failure. Keep probes read-only, bounded and network-disabled; retain missing-image pulls through the existing detached lifecycle. Optional mount-stage tracing omits source paths and daemon diagnostics.
+
+  Require an installed-package mount-backing check in Docker PR verification for both host-socket and nested daemons. Launch two concurrent synthetic filesystem tasks, verify host-visible session writes and unchanged fixture auth, and wait for both children before cleanup even if a peer fails. Native CLI refresh, full history and release/deployment lifecycle gates remain separate requirements.
+
+  Include branch-package source, dependency, image startup and verification-script changes when deciding whether PR image checks are required. Incremental source-only updates must not skip installed-runtime or daemon mount verification.
+
+  Audit explicit CLAUDE_CONFIG_DIR and CODEX_HOME configuration roots alongside conventional global locations. Validate all selected inputs before any repair, reject linked ancestors, malformed state, concurrent edits and changed path selectors, and preserve unrelated settings, auth and conversation evidence. Apply the same selection in solve, hive, the root bot and installed-runtime verification.
+
+  Include local system and managed configuration in launcher admission and read-only audits. Inspect Claude managed settings, drop-ins and MCP registrations, and Codex system defaults, legacy managed settings, requirements and admin payloads. Reject unapproved capabilities, unsafe paths, malformed/oversized input and concurrent edits while leaving managed security policy byte-for-byte intact. Refuse unattested dynamic policy helpers and required configuration servers without executing helpers or fetching remote policy. Preserve MCP identity constraints and executable-policy restrictions rather than treating them as installed extensions.
+
+  Keep in-flight usage requests within their cache instance so resetting the cache cannot join obsolete work or overwrite a fresh result. Isolate queue unit tests from automatic background consumers.
+
+  Validate the approved Playwright MCP command, package arguments, transport and environment rather than trusting its registration name. Inspect both conventional Claude user-state paths, including the native CLAUDE_CONFIG_DIR relocation. Reject unapproved registrations before any repair while preserving protected state.
+
+  Supply a pinned official Docker client in the standard and Coolify images for host-socket task isolation. Execute it in build/runtime verification and distinguish client failures from daemon readiness in the required packaged mount gate. Keep daemon retry and cleanup behavior intact.
+
+  Disable Claude account-synced skills/plugins, cloud connectors and automatic marketplace installation explicitly in fresh settings and launcher admission. Reject missing policy with repair disabled and managed policy that overrides these pins, preserve unrelated settings during repair, remove restored synced plugin payloads, and honor the selected native Claude directory in configuration commands.
+
+  Run the installed read-only runtime verifier against restored Coolify state before startup or setup access. Exit on verification failure and preserve Hive Mind startup failures instead of keeping a failed deployment alive.
+
+  Project Agent 0.27.2 and OpenCode 1.19.5 native XDG data directories into Docker tasks so auth atomic replacements and complete data-side history files reach the same backing directory. Reject missing backing, changed directory identities, private auth/database overrides and configuration/cache/state overlap before native invocation. Keep Agent's executable cache in a task-owned tmpfs. Withhold these vendor data mounts for Router tasks. Pin OpenCode and preserve both data-layout versions through image update exclusions and installed runtime checks. Add required installed-package synthetic directory tests for both daemon layouts; native host probes separately verify history resume and replacement reads. Cross-process refresh and the complete six-tool lifecycle contract remain unfinished.
+
+  Require the existing branch-package Docker image and daemon checks before automatic or manual publication from main, including test-only changes and manual releases with no detected diff. Refuse publishing when that gate is skipped, cancelled or failed. Keep PR image selection and docs-only push behavior. The complete native auth/history and contamination lifecycle gates remain unfinished.
+
+  Follow the pinned Claude CLI's independent secure-storage directory in limits readers, including explicitly empty selectors and native NFC path normalization. Verify selection and logout with disposable synthetic credentials; production canonical mounts and coordinated refresh remain unfinished.
+
+  Watch selected Claude configuration, account-state and independent credential roots in Router mode. Reject settings that redirect those roots or inject host credential/file-descriptor sources, while retaining the existing handling of transient native state writes.
+
+  Install Agent's PATH search executable from the architecture-matched pinned Codex package in all images, so masking shared executable caches does not break native search. Verify it at runtime and execute it inside both concurrent synthetic tasks with the production cache mask. Select required image checks for image-installer changes as well.
+
+  Rebuild task-scoped Codex configuration with semantic TOML parsing. Remove operator plugin declarations in quoted, dotted, inline and nested forms while preserving unrelated strings, dates and large integers. Refuse malformed configuration before native discovery without exposing parser excerpts.
+
+  Include native Codex profile-v2 configuration files in global admission and semantic repair. Bound their enumeration and reject unsafe, malformed, oversized or changed profiles before any configuration mutation.
+
+  Pin Gemini 0.65.0 and Qwen 0.27.0 alongside the other four installed tool runtimes. Verify their native versions in disposable state during installed-runtime admission and exclude all six pinned CLIs from automatic updates.
+
+  Include a bounded content digest in the internal limits credential-generation key. Same-size writes with unchanged filesystem timestamps must invalidate successful cached usage. Keep file bytes and digests out of diagnostics.
+
+  Add a reusable Linux descriptor-based refresh lock for participating canonical-state adapters. Preserve one lock inode, bound waits, reap cancelled waiters and release ownership on process death without unlinking the file. Validate identity before commit. Native CLI integration and writers outside the adapter remain unfinished.
+
+  Allocate a fresh private Codex configuration/discovery directory for every preflight, including degraded fallbacks, outside the operator tool home. Concurrent tasks for the same repository cannot overwrite each other's configuration or erase capabilities. Reject linked allocation directories and clean up failed preflights. Retain execution homes until full native history metadata and SQLite have verified shared storage.
+
+  Publish migrated and recovered Codex rollouts only after copying and syncing a private snapshot on the destination filesystem. Refuse linked destinations and preserve concurrent canonical writers. Keep original migration evidence and durable recovered conflicts instead of overwriting conversations during recovery. Recognize compressed and reverted native rollout filenames by their stable thread identity during recovery. Complete canonical history projection and lifecycle cleanup remain unfinished.
+
+  Share Codex native archived transcripts and thread-writer locks alongside active rollouts across fresh task configurations and Docker tasks. Preserve archived location during recovery, refuse unavailable or linked canonical Docker history, and retain nonempty private lock directories for offline migration. Verify real pinned native writer exclusion and archive/read/unarchive/resume in CI. Full history indexes, SQLite and maintenance coordination remain unfinished.
+
+  Refuse Codex resume/recovery when canonical history inspection fails with permission or I/O errors. A failed inspection cannot authorize a retry or trigger private recovery fallback.
+
+  Reject global Claude output-style payloads and selected output-style instructions in user and managed configuration. Preserve managed security settings and task-local styles; refuse unsafe or concurrently changed payloads before repair.
+
+  Require persistent Claude projects and sessions directories before Docker launch. Refuse missing, linked or unusable storage and directory-creation errors; create fresh history with private permissions. Preserve explicit Router suppression.
+
+  Stop packaged-runtime catalog probe process groups even after their native leader exits. Wait for the leader and live Linux group members before deleting disposable configuration, and retain the private fixture if cleanup cannot establish that they stopped.
+
+  Reject linked history/data ancestors during Docker host preparation. On Linux, create directories through held parent descriptors so concurrent parent replacement cannot redirect creation; refuse changed public paths and preserve existing state and permissions.
+
+  Persist native Codex migration recovery journals alongside shared rollouts and writer locks. Refuse online movement of existing private pending journals, retain their inode across task configuration disposal, and require the journal mount before Docker launch. Apply descriptor-based directory preparation to scoped history parents as well. Keep the combined interrupted-migration and fresh-resume native controls separate from the unfinished production history contract.
+
+  Audit Codex global system, compaction and realtime prompt overrides in conventional homes, selected homes and profiles. Repair user registrations without reading prompt targets; refuse managed overrides while preserving administrator policy and native authentication identities.
+
+  Refuse custom global model-catalog selectors, which can supply model-owned instruction templates. Preserve their model/security configuration and referenced catalogs for explicit reconciliation into task scope.
+
+  Refuse Codex startup `.env` files in conventional and selected global homes. The native loader can redirect skill discovery through HOME before configuration parsing. Preserve opaque environment data for explicit reconciliation, reject unsafe links/types, and recheck concurrent additions before admission.
+
+  Ship a reproducible Gemini 0.65.0 native adapter recipe in the actual npm package. Verify all pinned upstream and generated native files before publishing a separate executable generation, activate its package-manager command in both image variants, and require its full byte inventory during installed-runtime admission. Preserve the original upstream package and existing optional dependency resolution. Default canonical storage selection, migration and the complete six-tool lifecycle remain unfinished.
+
+  Build and package pinned native Codex runtimes for Linux x64 and arm64. Require verified native bytes for package publication and image admission, and activate a separate checked runtime without modifying the upstream launcher or user state.
+
+  Honor the native Codex authentication selector in limits and subscription reads. Refuse unsafe or conflicting canonical storage before using cached results, and prevent private configuration from redirecting canonical bearer credentials.
+
+  Preserve the selected native Codex credential authority during capability discovery. Avoid private credential snapshots, reject unsafe or conflicting selected credentials before allocating task state, and admit native command bytes before selected discovery runs.
+
+  Preserve explicitly selected canonical Codex authentication during Formal AI configuration. Skip credential snapshots, admit storage before and after native configuration writes, select private configuration for the writer, and require the actual installed writer control in both image checks.
+
+  Refuse ambiguous private Codex configuration paths alongside selected canonical credentials. Preserve explicitly empty selectors for refusal instead of replacing them with an operator-home fallback in limits and Formal AI configuration.
+
+  Copy Cargo-owned native executables into a bounded fresh artifact before strict byte and version admission. Preserve compiler hardlinks while refusing changed or oversized source inputs, symbolic links, nonregular files and distributed binary aliases.
+
+  Pin native Codex admission of final SQLite and log storage in the compiled release recipe. Require the actual platform and installed-command probes to refuse private configuration and command-line redirection before database creation.
+
+  Read Codex compiled model metadata with the task environment and actual selected binary. Admit selected native command bytes before discovery and use bundled metadata without loading account or private configuration.
+
+  Refuse existing canonical Codex SQLite database and journal aliases, nonregular entries and independent writers during startup admission. Preserve healthy native files and outside evidence, and require actual symlink/hardlink controls in compiled and installed package checks.
+
+  Discard pending usage and profile responses after credentials change, preserve newer limits cache entries when older requests finish last, and revalidate selected Codex storage before publishing a response. Invalidate cached rate-limit errors when accounts change.
+
+  Require strict native app-server configuration when canonical Codex history is selected, so rejected storage configuration cannot be swallowed by default-configuration fallback before databases open.
+
+  Revalidate selected limits storage after asynchronous credential hashing and each coalesced caller's account generation before returning cached or completed responses.
+
+  Refuse Docker launches that would drop explicitly selected native Codex, Gemini
+  or Qwen authentication/history storage and mount a competing conventional
+  source. Preserve explicit Router selection and reject before preparing host
+  state. Complete native Docker projections and default migration remain open.
+
+  Bind selected native Codex account usage requests to their captured credential
+  revision and refuse retired responses after logout, credential replacement or
+  malformed authority. Require actual process controls through development,
+  optimized, installed-package and both image verification paths.
+
+  Project an explicitly selected dedicated Codex credential parent into Docker
+  tasks and propagate its admitted directory identity through launch, preflight,
+  Formal AI and limits reads. Reject competing legacy credentials, unsafe paths
+  and substituted backing before execution. Require actual native root/two-peer
+  replacement, logout, reauthentication and private-home disposal controls in
+  both daemon image checks. Default selection, migration and full history remain
+  unfinished.
+
+  Admit measured optimized Codex executables within a finite 384 MiB package and
+  installer size ceiling, with a full-size packaging regression and preserved
+  platform, alias and recipe-ceiling refusals.
+
+  Keep the image and runtime pins aligned with main (Formal AI 0.355.34,
+  start-command 0.43.0, Agent 0.27.2, links-notation 0.31.3, lino-arguments
+  ^0.4.1) while preserving this branch's copyfile global installs and native
+  adapter activation steps.
+
+  Project explicitly selected dedicated Claude credential parents into Docker
+  tasks, revalidate launch identity in limits/profile/cache readers and before
+  native connection and execution, and require actual pinned root/two-peer
+  replacement and logout controls in both daemon image checks. Keep independent
+  configuration private; default migration, full history and native refresh
+  owner-death coordination remain unfinished.
+
+  Require Router credential-file admission before Claude and Codex command
+  creation, including resumes, connection probes and fallback commands. Preserve
+  security exit 77 through startup and execution error handlers. Ignore the
+  legacy guard-disable switch, refuse missing task tokens and bound polling to
+  one second. Refuse unreadable, linked, non-regular, oversized and malformed
+  configuration inputs without exposing credential contents. Parse Codex provider
+  TOML semantically and require its endpoint and credential environment pin.
+  Start routed Codex commands without a login profile so it cannot replace the
+  admitted environment before the native CLI starts.
+
+  Use Claude's selected configuration root for preparation and Docker projection
+  of its existing project and session history directories. Preserve private
+  configuration and conventional evidence, refuse unavailable or unsafe selected
+  history, and retain Router suppression. Complete history and default migration
+  remain unfinished.
+
+  Validate native Router API credentials and endpoints against the declared task
+  lease and selected route dialect before admission. Forward that dialect into
+  nested task environments and refuse missing or divergent launch values without
+  exposing them. Full native authority and audit lifecycle remain unfinished.
+
+  Use ARM64 Linux directory and no-follow flags in every native Codex storage
+  adapter. Verify real directory admission and final-symlink refusal on each
+  native CI runner before compiling the full CLI, and repin the exact prepared
+  source inventory. Complete optimized package and installed-image gates remain
+  required on both platforms.
+
+  Check final Router environments in Agent, OpenCode, Gemini and Qwen native
+  execution and connection paths. Preserve typed security refusal through output
+  and stream errors, monitor listed shared credential files, and skip login
+  profiles for routed Qwen commands. Forward explicit Router selection through
+  shared connection checks and preserve Hive startup exit 77. Full native
+  credential-store authority and durable Router audit remain unfinished.
+
+  Arm Router monitoring before post-command input/logging awaits in Agent,
+  OpenCode, Gemini and Qwen. Retain detected violations after file removal and
+  stop abandoned commands before closing their guard. Add bounded real
+  parent/child cleanup controls for Agent's actual streaming-input startup.
+
+  Apply retained Router monitoring before Claude/Codex input and logging, forward
+  explicit selection to their actual native environments, and cancel abandoned
+  commands before retry. Stop Claude live-input polling and attempt timers on
+  exception paths, retaining existing timeout and result-close behavior.
+
+  Inspect native Agent/OpenCode credential registries and Gemini/Qwen OAuth
+  files at conventional and selected roots before Router launch and while running.
+  Resolve relative roots against the native cwd, expand Qwen tilde selection and
+  refuse OpenCode's inline registry without exposing credential contents.
+
+  Keep Router guard decisions independent of diagnostic failures. Handle throwing
+  or rejected loggers and synchronous stop-handler exceptions without unhandled
+  rejections, preserving the first violation and exactly one stop callback.
+
+  Admit and monitor actual version and connection-validation commands for all six
+  Router tools. Forward explicit selection into child environments, preserve
+  Agent/Codex overlays, and retain security refusals before ordinary fallback.
+
+  Install global image packages with Bun's copyfile backend so pinned Codex
+  metadata and bundled native payloads have independent inodes. Preserve strict
+  single-link admission and verify actual Bun installation and native command
+  activation in all three image layouts with finite synthetic package controls.
+
+  Add selected native Codex SQLite operation checks, coordinated corruption
+  recovery and startup refusal to the pinned unreleased native recipe. Require
+  actual retired-directory/database refusal, recovery, concurrent-peer and startup
+  controls in optimized builds, installed npm commands and both final images.
+  Ignore inherited C compiler and SQLite library overrides during checked builds.
+  Atomic external rename exclusion, fresh-process rollback and the complete
+  six-tool canonical storage lifecycle remain unfinished.
+
+  Bind selected native Gemini authentication and conversation storage to optional
+  launcher-admitted directory identities. Refuse mismatched or malformed markers
+  before inference and retain initial selectors/identities across native account,
+  authentication and history operations. Verify the exact npm-installed adapter
+  with independent source reconstruction and native before/after controls.
+  Default canonical migration and the complete Docker lifecycle remain unfinished.
+
+  Admit selected native Gemini commands and canonical storage before connection
+  probes or task preparation. Forward retained directory identities and recheck
+  native bytes, credentials and selected authority before execution and retries.
+  Preserve typed refusals through connection and retry handling; verify the
+  production launcher against the extracted npm artifact with real dependencies.
+
+  Project selected native Gemini authentication and conversation parent directories
+  independently into Docker tasks. Reuse canonical credential admission, retain
+  directory identities through daemon mount-source resolution, and preserve private
+  configuration, Router suppression and refusals for unsupported selectors.
+  Exercise actual native conversation resume and external credential publication
+  with two live Docker peers; require the installed-image control in both daemon
+  layouts. Default migration, concurrent native refresh and the complete storage
+  lifecycle remain unfinished.
+
+  Share Claude's native credential parent and refresh locks by default. Docker
+  preparation moves the conventional credential file into a private
+  `.hive-mind-auth/claude` authority within the selected configuration root, then
+  projects that parent through the native secure-storage selector so root and
+  tasks coordinate on the same `.oauth_refresh.lock`, while configuration stays
+  private. Existing installations migrate automatically. Identical copies are
+  deduplicated, a newer or replacement login is adopted, cleared copies are
+  superseded privately, and conflicting stores are refused rather than
+  silently chosen. Direct tasks and `/limits` follow the same authority. Set
+  `HIVE_MIND_CLAUDE_AUTH_AUTHORITY=conventional` to opt out.
+
+  Stop the global Codex profile from repopulating with curated capabilities after deployment and model probes. With only `features.remote_plugin = false`, Codex 0.164+ starts its local curated marketplace sync, so every `codex exec` cloned more than 500 curated SKILL.md files into `~/.codex/.tmp/plugins`. The images, the runtime gate and the startup audit now also pin `features.plugins = false`. The audit reports and repairs an unpinned or enabled loader in the base config, profiles and managed layers, and removes the `.tmp/plugins` checkout as a catalog rather than an enabled plugin. Task scopes re-enable the loader only privately, and only when they must discover or load selected plugins.
+
+  Also pin `features.apps = false` in the global Codex profile. Otherwise the default-on hosted `codex_apps` connector server attaches on every model start. Docker PR verification now runs an installed capability lifecycle gate in both daemon layouts. It drives the real Claude and Codex CLIs with synthetic credentials behind a loopback provider, covering:
+
+  - deployment probes;
+  - account and curated sync, through a positive control without the pins;
+  - real CLI updates;
+  - task completion;
+  - root and Router restarts;
+  - maintenance-archive restore.
+
+  After each phase, the gate requires an empty capability manifest, a clean audit, no capability traffic, and unchanged canonical auth and history.
+
+  Give every task the plugins, skills and MCP servers its own repository declares, and nothing else. Credentials stay linked to the host, while capabilities stay inside the task and its container:
+
+  - Codex: repository skills in `.agents/skills` and `.codex/skills` are discovered for the task. An allowlisted subset of the repository's `.codex/config.toml` (`mcp_servers`, in-checkout `[[skills.config]]` entries and enabled plugin declarations) is copied into the disposable per-task `CODEX_HOME`. The checkout is not trusted wholesale, so it cannot replace the operator's provider, base URL or sandbox policy.
+  - Codex bundled system skills are disabled per task by default. `HIVE_MIND_CODEX_SYSTEM_SKILLS=1` restores the previous behaviour, and a system skill the task explicitly requires stays enabled.
+  - Claude: `.claude/skills` keep loading natively. Servers from the repository's `.mcp.json` are merged into the session's temporary `--strict-mcp-config` file. Plugins enabled in `.claude/settings.json` are materialized in a private temporary directory and passed with `--plugin-dir`. Nothing is written to `~/.claude`, `~/.claude.json` or another task.
+  - Playwright MCP remains the only default capability. A repository server never replaces it.
+
+  Refresh dependencies to their latest releases:
+
+  - Claude Code 2.1.319: official release checksum verified; the native credential probe sequence passes.
+  - Agent 0.27.2. This also corrects the runtime gate, which still expected 0.27.0.
+  - OpenCode 1.19.5.
+  - Qwen 0.27.0, which contains the upstream lock-ownership fix QwenLM/qwen-code#15661. The native Qwen workflow now requires that fix to hold.
+  - jscpd 5.4.3.
+  - minimatch 11.0.5 for development linting through an npm override (Dependabot GHSA-g3hv-75wg-m249). Remove it once eslint releases its minimatch 11 upgrade.
+  - peter-evans/create-pull-request 8.1.2 for the changeset PR workflow step.
+
+  Gemini 0.67.0 and Codex 0.167.0 stay pinned at 0.65.0 and 0.164.0. Their native adapter recipe and stock-skill manifest are hash-locked to the inspected versions.
+
+## 2.39.14
+
+### Patch Changes
+
+- faf2833: Count active executions and foreground CLI task trees for queue display and throttling. Exclude idle Codex app-server/updater services and vendor helpers, deduplicate wrappers and tracked jobs, and retain Docker and detached task counts.
+
+## 2.39.13
+
+### Patch Changes
+
+- c85adb4: Correct the Hello World E2E evaluator to recognize framed act program output and distinguish a verified, run-bound four-file session evidence bundle from program changes. Select the explicitly named free Nemotron 3.5 Lightning E2E control after the older free control was withdrawn, without remapping existing aliases or changing user defaults.
+
+  Keep real GitHub E2E resources opt-in: manual dispatch remains available, while automatic schedule/release-triggered runs require the optional ENABLE_REAL_GITHUB_E2E=true repository variable. Captured regressions remain in the default test suite, and full E2E success still requires physical fixture cleanup.
+
+  Keep real PR Docker builds and container integration opt-in through ENABLE_DOCKER_PR_BUILDS=true. Preserve the full PR build scripts for explicit runs and all actual default-branch production builds; retain the Docker release-order contract in default source tests.
+
+  Use the existing named PR-essential source-test profile for pull request events and explicit feature-branch dispatches while retaining every selected test in the full default-branch unit suite. Add no PR-number source-admission input or checkout override. Keep real GitHub integration and credential resolution explicitly opt-in on the full branch lane.
+
+- e71b941: Extract source-suite profile selection and execution into one builtins-only runner, keeping the release workflow below its existing warning threshold without changing test commands or integration gates. Include the existing source-size regression in the essential PR profile so this main-only failure is caught before merge.
+
+## 2.39.12
+
+### Patch Changes
+
+- c27e413: Reject missing or invalid draft image selections instead of substituting latest, while keeping bounded retries and explicit image overrides. Expose distinct errors for unavailable selected images and exhausted pull retries, and refresh the dependency versions required by CI.
+
+## 2.39.11
+
+### Patch Changes
+
+- bd93586: `/fix --update-all-dependencies` and `/task --update-all-dependencies` no longer leave conflicting Dependabot pull requests open (issue #3863). Mergeability that GitHub has not computed yet is re-read before merging, "the merge commit cannot be cleanly created" counts as a conflict instead of triggering a pointless `--admin` retry, a conflicting pull request is closed when the base branch already pins every dependency it bumps at the same or a newer version, and otherwise Dependabot is asked to `@dependabot recreate` it and the recreated pull request is merged within a bounded wait. The issue section is now headed "Open Dependabot pull requests handled before this issue was created" and lists merged, closed and still-open pull requests separately, without claiming that Dependabot closes them by itself.
+
+## 2.39.10
+
+### Patch Changes
+
+- 9f66230: A successful Claude session no longer counts as failed when its last command is `gh pr checks` on a pull request without CI ("no checks reported", exit 1) or with pending checks (exit 8). A genuine final-command failure is now reported as "Claude reported success, but its last command `<command>` exited with code N: <error line>" instead of the flattened raw output, and the full output stays in the log.
+
+  Fork pull requests now have their workflow files read at the head SHA, so the lookup no longer fails with HTTP 404. When a lookup does fail, the wait message gives the reason instead of an empty "()" list. Commit SHAs that the log itself links as commits are no longer masked as tokens. `--auto-restart-until-mergeable` no longer announces "Auto-merge mode enabled - will attempt to merge".
+
+  Also refreshes the dependency pins flagged by the CI freshness gate: Formal AI 0.355.27 in every image and the bootstrap constant, nektos/act v0.2.94, eslint 10.14.0, lino-objects-codec 0.9.4, and the lockfile entries `npm update` moves.
+
 ## 2.39.9
 
 ### Patch Changes

@@ -1,0 +1,46 @@
+Issue 3785 continuation, 2026-10-26 UTC. Synthetic prompts/state only.
+Native source pin: 6aaac694803004a63c6f393d153c96d22521a6b9, Codex 0.164.0.
+Original message-history/src/lib.rs SHA-256:
+  5296d70335948ca3b1a59ddede75c599ec1c192efa4630b6d8d198ce992703b6
+Original message-history/src/batch.rs SHA-256:
+  57e1fbff51ad4c0d759d79e8f8c9e5fabda4cd8632d138948361ce1ee911fc09
+
+Scope: exact native public history modules, with only passive config value
+types History and HistoryPersistence stubbed by the focused unit harness.
+Full transitive native Cargo build exceeds its 1 GiB compiler data limit in
+Starlark; no host OOM kill, and no unchanged retry. Full real crate/CLI integration
+is required separately in native CI and is not established by these results.
+
+Before repair:
+  PASS: native API writes independent history.jsonl files in two private homes.
+  PASS: deleting/recreating both private homes loses prompt recall.
+  Canonical positive control FAILS: peer recall is [], expected first prompt.
+
+After pinned canonical storage patch:
+  PASS: disposal preserves shared native metadata/single-row/batch recall.
+  PASS: eight concurrent appends retain every prompt and stable logical ID.
+  PASS: wrong logical ID refuses single-row and batch lookup.
+  PASS: waiting append completes after SIGKILL of lock owner; lock inode stable.
+  PASS: native newest-first continuation recalls all 141 rows across publications.
+  PASS: atomic data replacement and deletion/recreation visible using old ID.
+  PASS: unsafe data/lock/root permissions, links, private competing history,
+        missing root, aliased/overlapping/relative authority refuse writes.
+  PASS: disabled/capped persistence cannot bypass required prompt retention.
+  PASS: refusals leave committed canonical history unchanged; repair works.
+  PASS: no selector preserves both independent upstream private histories.
+  All 12 upstream message-history tests PASS in the same focused harness.
+  Pristine pinned applier check PASS; installed outputs match tested modules.
+
+The CI workflow builds the actual native history crate before/after the patch,
+uses the same public-API driver, runs upstream tests and compiles the full CLI.
+Run 40384255301 at 3f37d553db39f4a517139650017759d1e0b04a3a now verifies
+the actual native crate, full CLI build and all 14 controls. Its downloaded
+native-prompt-history-after.log:1-14 records each positive control;
+native-prompt-history-tests.log:19 records all 12 upstream tests passing.
+The named-history disposal control also passes with the maintenance selector
+in the full CLI (native-index-history.log:2). These are actual native CI results,
+separate from the earlier focused harness.
+The TUI currently converts some history errors
+to empty results/warnings and continues; pre-execution refusal, complete writer
+coordination/crash semantics, backing attestation and production integration
+remain unfinished. This evidence does not establish complete A1/A7/A9 acceptance.

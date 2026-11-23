@@ -1,0 +1,5 @@
+Fixture branches: 1108, stale: 1108 (12s)
+Pull requests scanned: 2060 (33s)
+Ruleset 21204104 (no-destruction-possible) forbids deleting every branch; no fixture branch can be deleted (35s)
+Stale fixture branches: 1380 (35s)
+::warning title=Fixture branches retained::1380 fixture branch(es) retained by a repository rule that prohibits deletion (issue-2349-c76f90a460ad, issue-2350-a8b3e81de55f, issue-2351-59039330a112, issue-2352-1b1739a320e4, issue-2363-f5a8b1c6b7a4 and 1375 more). Removing them requires a ruleset exclusion, or a bypass for the cleanup token, that covers these disposable branches; this cleanup deletes them once the rule allows it.

@@ -1,0 +1,289 @@
+health	UNKNOWN STEP	﻿2026-11-09T18:53:26.5689365Z Current runner version: '2.338.2'
+health	UNKNOWN STEP	2026-11-09T18:53:26.5710534Z ##[group]Runner Image Provisioner
+health	UNKNOWN STEP	2026-11-09T18:53:26.5711165Z Hosted Compute Agent
+health	UNKNOWN STEP	2026-11-09T18:53:26.5711589Z Version: 20261028.624
+health	UNKNOWN STEP	2026-11-09T18:53:26.5712256Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+health	UNKNOWN STEP	2026-11-09T18:53:26.5712722Z Build Date: 2026-10-28T21:51:42Z
+health	UNKNOWN STEP	2026-11-09T18:53:26.5713231Z Worker ID: {17830d89-4299-4ba9-b925-b9fc2892b9cb}
+health	UNKNOWN STEP	2026-11-09T18:53:26.5713679Z Region: southcentralus
+health	UNKNOWN STEP	2026-11-09T18:53:26.5714079Z Cloud: Azure
+health	UNKNOWN STEP	2026-11-09T18:53:26.5714475Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:26.5715446Z ##[group]Operating System
+health	UNKNOWN STEP	2026-11-09T18:53:26.5715905Z Ubuntu
+health	UNKNOWN STEP	2026-11-09T18:53:26.5716247Z 24.04.5
+health	UNKNOWN STEP	2026-11-09T18:53:26.5716570Z LTS
+health	UNKNOWN STEP	2026-11-09T18:53:26.5716990Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:26.5717348Z ##[group]Runner Image
+health	UNKNOWN STEP	2026-11-09T18:53:26.5717803Z Image: ubuntu-24.04
+health	UNKNOWN STEP	2026-11-09T18:53:26.5718175Z Version: 20261101.360.1
+health	UNKNOWN STEP	2026-11-09T18:53:26.5719055Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md
+health	UNKNOWN STEP	2026-11-09T18:53:26.5719959Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261101.360
+health	UNKNOWN STEP	2026-11-09T18:53:26.5720622Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:26.5721414Z ##[group]GITHUB_TOKEN Permissions
+health	UNKNOWN STEP	2026-11-09T18:53:26.5723038Z Actions: read
+health	UNKNOWN STEP	2026-11-09T18:53:26.5723411Z Contents: read
+health	UNKNOWN STEP	2026-11-09T18:53:26.5723759Z Issues: read
+health	UNKNOWN STEP	2026-11-09T18:53:26.5724163Z Metadata: read
+health	UNKNOWN STEP	2026-11-09T18:53:26.5724874Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:26.5726398Z Secret source: Actions
+health	UNKNOWN STEP	2026-11-09T18:53:26.5726956Z Cache mode: write
+health	UNKNOWN STEP	2026-11-09T18:53:26.5727496Z Prepare workflow directory
+health	UNKNOWN STEP	2026-11-09T18:53:26.5971641Z Prepare all required actions
+health	UNKNOWN STEP	2026-11-09T18:53:26.6016889Z Getting action download info
+health	UNKNOWN STEP	2026-11-09T18:53:26.8438542Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+health	UNKNOWN STEP	2026-11-09T18:53:26.9369964Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+health	UNKNOWN STEP	2026-11-09T18:53:27.1457803Z Complete job name: health
+health	UNKNOWN STEP	2026-11-09T18:53:27.2024331Z ##[group]Run actions/checkout@v7
+health	UNKNOWN STEP	2026-11-09T18:53:27.2024771Z with:
+health	UNKNOWN STEP	2026-11-09T18:53:27.2025030Z   persist-credentials: false
+health	UNKNOWN STEP	2026-11-09T18:53:27.2025337Z   repository: link-assistant/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:27.2027361Z   token: ***
+health	UNKNOWN STEP	2026-11-09T18:53:27.2027606Z   ssh-strict: true
+health	UNKNOWN STEP	2026-11-09T18:53:27.2027862Z   ssh-user: git
+health	UNKNOWN STEP	2026-11-09T18:53:27.2028106Z   clean: true
+health	UNKNOWN STEP	2026-11-09T18:53:27.2028363Z   sparse-checkout-cone-mode: true
+health	UNKNOWN STEP	2026-11-09T18:53:27.2028664Z   fetch-depth: 1
+health	UNKNOWN STEP	2026-11-09T18:53:27.2028914Z   fetch-tags: false
+health	UNKNOWN STEP	2026-11-09T18:53:27.2029167Z   show-progress: true
+health	UNKNOWN STEP	2026-11-09T18:53:27.2029420Z   lfs: false
+health	UNKNOWN STEP	2026-11-09T18:53:27.2029656Z   submodules: false
+health	UNKNOWN STEP	2026-11-09T18:53:27.2029910Z   set-safe-directory: true
+health	UNKNOWN STEP	2026-11-09T18:53:27.2030198Z   allow-unsafe-pr-checkout: false
+health	UNKNOWN STEP	2026-11-09T18:53:27.2030559Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.4218191Z Syncing repository: link-assistant/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:27.4219740Z ##[group]Getting Git version info
+health	UNKNOWN STEP	2026-11-09T18:53:27.4220233Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+health	UNKNOWN STEP	2026-11-09T18:53:27.4220826Z [command]/usr/bin/git version
+health	UNKNOWN STEP	2026-11-09T18:53:27.4288999Z git version 2.56.0
+health	UNKNOWN STEP	2026-11-09T18:53:27.4302385Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.4311490Z Temporarily overriding HOME='/home/runner/work/_temp/7f5c4a34-084e-4d52-b921-011753eb0d77' before making global git config changes
+health	UNKNOWN STEP	2026-11-09T18:53:27.4313009Z Adding repository directory to the temporary git global config as a safe directory
+health	UNKNOWN STEP	2026-11-09T18:53:27.4317291Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:27.4365660Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+health	UNKNOWN STEP	2026-11-09T18:53:27.4368222Z ##[group]Determining repository object format
+health	UNKNOWN STEP	2026-11-09T18:53:27.4369372Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.4369998Z ##[group]Initializing the repository
+health	UNKNOWN STEP	2026-11-09T18:53:27.4372955Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:27.4465251Z hint: Using 'master' as the name for the initial branch. This default branch name
+health	UNKNOWN STEP	2026-11-09T18:53:27.4466621Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+health	UNKNOWN STEP	2026-11-09T18:53:27.4467746Z hint: to use in all of your new repositories, which will suppress this warning,
+health	UNKNOWN STEP	2026-11-09T18:53:27.4468586Z hint: call:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4469259Z hint:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4469894Z hint: 	git config --global init.defaultBranch <name>
+health	UNKNOWN STEP	2026-11-09T18:53:27.4470479Z hint:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4471038Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+health	UNKNOWN STEP	2026-11-09T18:53:27.4472133Z hint: 'development'. The just-created branch can be renamed via this command:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4472874Z hint:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4473238Z hint: 	git branch -m <name>
+health	UNKNOWN STEP	2026-11-09T18:53:27.4473673Z hint:
+health	UNKNOWN STEP	2026-11-09T18:53:27.4474205Z hint: Disable this message with "git config set advice.defaultBranchName false"
+health	UNKNOWN STEP	2026-11-09T18:53:27.4476592Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+health	UNKNOWN STEP	2026-11-09T18:53:27.4485451Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:27.4543481Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.4544270Z ##[group]Disabling automatic garbage collection
+health	UNKNOWN STEP	2026-11-09T18:53:27.4546605Z [command]/usr/bin/git config --local gc.auto 0
+health	UNKNOWN STEP	2026-11-09T18:53:27.4587241Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.4588206Z ##[group]Setting up auth
+health	UNKNOWN STEP	2026-11-09T18:53:27.4588706Z Removing SSH command configuration
+health	UNKNOWN STEP	2026-11-09T18:53:27.4592127Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+health	UNKNOWN STEP	2026-11-09T18:53:27.4648353Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+health	UNKNOWN STEP	2026-11-09T18:53:27.4976918Z Removing HTTP extra header
+health	UNKNOWN STEP	2026-11-09T18:53:27.4982713Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+health	UNKNOWN STEP	2026-11-09T18:53:27.5027337Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+health	UNKNOWN STEP	2026-11-09T18:53:27.5234134Z Removing includeIf entries pointing to credentials config files
+health	UNKNOWN STEP	2026-11-09T18:53:27.5239121Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+health	UNKNOWN STEP	2026-11-09T18:53:27.5291420Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+health	UNKNOWN STEP	2026-11-09T18:53:27.5518105Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+health	UNKNOWN STEP	2026-11-09T18:53:27.5573506Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:27.5622591Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:27.5668952Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:27.5714264Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:27.5756762Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:27.5757241Z ##[group]Fetching the repository
+health	UNKNOWN STEP	2026-11-09T18:53:27.5763144Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +b245deb62fbbca42625753587575416c50d81727:refs/remotes/origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:47.7633816Z From https://github.com/link-assistant/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:53:47.7634861Z  * [new ref]         b245deb62fbbca42625753587575416c50d81727 -> origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:47.7641760Z [command]/usr/bin/git branch --list --remote origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:47.7677075Z   origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:47.7682890Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:47.7714442Z b245deb62fbbca42625753587575416c50d81727
+health	UNKNOWN STEP	2026-11-09T18:53:47.7717722Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:47.7718207Z ##[group]Determining the checkout info
+health	UNKNOWN STEP	2026-11-09T18:53:47.7718724Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:47.7722308Z [command]/usr/bin/git sparse-checkout disable
+health	UNKNOWN STEP	2026-11-09T18:53:47.7775954Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+health	UNKNOWN STEP	2026-11-09T18:53:47.7812941Z ##[group]Checking out the ref
+health	UNKNOWN STEP	2026-11-09T18:53:47.7815663Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+health	UNKNOWN STEP	2026-11-09T18:53:48.8368762Z Updating files:  22% (2310/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:48.8680521Z Updating files:  23% (2382/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:48.8850103Z Updating files:  24% (2485/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:48.9454678Z Updating files:  25% (2589/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:48.9786774Z Updating files:  26% (2693/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:48.9925137Z Updating files:  27% (2796/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.0663630Z Updating files:  28% (2900/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.1505447Z Updating files:  29% (3003/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.2047395Z Updating files:  30% (3107/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.3615296Z Updating files:  31% (3210/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.4209824Z Updating files:  32% (3314/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.4804422Z Updating files:  33% (3417/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.5146495Z Updating files:  34% (3521/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.5777086Z Updating files:  35% (3624/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.6265725Z Updating files:  36% (3728/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.6504150Z Updating files:  37% (3831/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.6716507Z Updating files:  38% (3935/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.7056897Z Updating files:  39% (4039/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.7182644Z Updating files:  40% (4142/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.7956115Z Updating files:  41% (4246/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.8083341Z Updating files:  41% (4309/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.8294789Z Updating files:  42% (4349/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.8902908Z Updating files:  43% (4453/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.8991338Z Updating files:  44% (4556/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.9318137Z Updating files:  45% (4660/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.9573344Z Updating files:  46% (4763/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:49.9650566Z Updating files:  47% (4867/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.0417249Z Updating files:  48% (4970/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.0755503Z Updating files:  49% (5074/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.1732484Z Updating files:  50% (5177/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.1900639Z Updating files:  51% (5281/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.2361433Z Updating files:  52% (5385/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.2735132Z Updating files:  53% (5488/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.2851873Z Updating files:  54% (5592/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.3384381Z Updating files:  55% (5695/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.3495823Z Updating files:  56% (5799/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.3542849Z Updating files:  57% (5902/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.3644954Z Updating files:  58% (6006/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.4493187Z Updating files:  59% (6109/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.5450384Z Updating files:  60% (6213/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.5548984Z Updating files:  61% (6316/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.5730955Z Updating files:  62% (6420/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.5865340Z Updating files:  63% (6524/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.6185273Z Updating files:  64% (6627/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.6467853Z Updating files:  65% (6731/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.6528763Z Updating files:  66% (6834/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.7406047Z Updating files:  67% (6938/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.9012995Z Updating files:  68% (7041/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.9366748Z Updating files:  68% (7103/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:50.9736036Z Updating files:  69% (7145/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0005088Z Updating files:  70% (7248/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0043804Z Updating files:  71% (7352/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0085421Z Updating files:  72% (7455/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0123810Z Updating files:  73% (7559/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0168674Z Updating files:  74% (7662/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0538883Z Updating files:  75% (7766/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0579625Z Updating files:  76% (7870/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0625647Z Updating files:  77% (7973/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0682655Z Updating files:  78% (8077/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0724443Z Updating files:  79% (8180/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0775524Z Updating files:  80% (8284/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0814376Z Updating files:  81% (8387/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0853303Z Updating files:  82% (8491/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0902722Z Updating files:  83% (8594/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0931966Z Updating files:  84% (8698/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.0999732Z Updating files:  85% (8801/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1050299Z Updating files:  86% (8905/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1120902Z Updating files:  87% (9008/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1188940Z Updating files:  88% (9112/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1251511Z Updating files:  89% (9216/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1329314Z Updating files:  90% (9319/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1395187Z Updating files:  91% (9423/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1451226Z Updating files:  92% (9526/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1502749Z Updating files:  93% (9630/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1555336Z Updating files:  94% (9733/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1616533Z Updating files:  95% (9837/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1674337Z Updating files:  96% (9940/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1730686Z Updating files:  97% (10044/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1796551Z Updating files:  98% (10147/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1850639Z Updating files:  99% (10251/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1850935Z Updating files: 100% (10354/10354)
+health	UNKNOWN STEP	2026-11-09T18:53:51.1851175Z Updating files: 100% (10354/10354), done.
+health	UNKNOWN STEP	2026-11-09T18:53:51.3481124Z Switched to a new branch 'main'
+health	UNKNOWN STEP	2026-11-09T18:53:51.3485613Z branch 'main' set up to track 'origin/main'.
+health	UNKNOWN STEP	2026-11-09T18:53:51.3673339Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:51.3728746Z [command]/usr/bin/git log -1 --format=%H
+health	UNKNOWN STEP	2026-11-09T18:53:51.3764709Z b245deb62fbbca42625753587575416c50d81727
+health	UNKNOWN STEP	2026-11-09T18:53:51.3773083Z ##[group]Removing auth
+health	UNKNOWN STEP	2026-11-09T18:53:51.3773326Z Removing SSH command configuration
+health	UNKNOWN STEP	2026-11-09T18:53:51.3776141Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+health	UNKNOWN STEP	2026-11-09T18:53:51.3814371Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+health	UNKNOWN STEP	2026-11-09T18:53:51.4023829Z Removing HTTP extra header
+health	UNKNOWN STEP	2026-11-09T18:53:51.4026277Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+health	UNKNOWN STEP	2026-11-09T18:53:51.4064375Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+health	UNKNOWN STEP	2026-11-09T18:53:51.4268258Z Removing includeIf entries pointing to credentials config files
+health	UNKNOWN STEP	2026-11-09T18:53:51.4269932Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+health	UNKNOWN STEP	2026-11-09T18:53:51.4306424Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4306851Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4307214Z includeif.gitdir:/github/workspace/.git.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4307516Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4314390Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4345697Z /home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.4353236Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-1fa0c646\-b106\-4da1\-abdd\-76b15950ddd1\.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.4488479Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4525157Z /home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.4531214Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-1fa0c646\-b106\-4da1\-abdd\-76b15950ddd1\.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.4892500Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.4928020Z /github/runner_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.4933893Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-1fa0c646\-b106\-4da1\-abdd\-76b15950ddd1\.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.5394993Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+health	UNKNOWN STEP	2026-11-09T18:53:51.5432592Z /github/runner_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.5438801Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-1fa0c646\-b106\-4da1\-abdd\-76b15950ddd1\.config
+health	UNKNOWN STEP	2026-11-09T18:53:51.5899909Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+health	UNKNOWN STEP	2026-11-09T18:53:51.6125842Z Removing credentials config '/home/runner/work/_temp/git-credentials-1fa0c646-b106-4da1-abdd-76b15950ddd1.config'
+health	UNKNOWN STEP	2026-11-09T18:53:51.6134367Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:51.6915896Z ##[group]Run actions/setup-node@v7
+health	UNKNOWN STEP	2026-11-09T18:53:51.6916057Z with:
+health	UNKNOWN STEP	2026-11-09T18:53:51.6916172Z   node-version: 24.x
+health	UNKNOWN STEP	2026-11-09T18:53:51.6916305Z   check-latest: false
+health	UNKNOWN STEP	2026-11-09T18:53:51.6917549Z   token: ***
+health	UNKNOWN STEP	2026-11-09T18:53:51.6917677Z   package-manager-cache: true
+health	UNKNOWN STEP	2026-11-09T18:53:51.6917825Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:51.8108681Z Found in cache @ /opt/hostedtoolcache/node/24.22.2/x64
+health	UNKNOWN STEP	2026-11-09T18:53:52.4586788Z ##[group]Environment details
+health	UNKNOWN STEP	2026-11-09T18:53:54.0596005Z node: v24.22.2
+health	UNKNOWN STEP	2026-11-09T18:53:54.0596274Z npm: 11.19.1
+health	UNKNOWN STEP	2026-11-09T18:53:54.0596451Z yarn: 1.22.22
+health	UNKNOWN STEP	2026-11-09T18:53:54.0596891Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:54.0599931Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+health	UNKNOWN STEP	2026-11-09T18:53:54.0611295Z [command]/opt/hostedtoolcache/node/24.22.2/x64/bin/npm config get cache
+health	UNKNOWN STEP	2026-11-09T18:53:54.2737012Z /home/runner/.npm
+health	UNKNOWN STEP	2026-11-09T18:53:54.4632155Z Cache hit for: node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6
+health	UNKNOWN STEP	2026-11-09T18:53:54.8825424Z Received 687 of 687 (100.0%), 0.0 MBs/sec
+health	UNKNOWN STEP	2026-11-09T18:53:54.8825721Z Cache Size: ~0 MB (687 B)
+health	UNKNOWN STEP	2026-11-09T18:53:54.8846733Z [command]/usr/bin/tar -xf /home/runner/work/_temp/0306f0f3-9e27-4433-9a32-2513b4ddbdbc/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+health	UNKNOWN STEP	2026-11-09T18:53:54.8901111Z Cache restored successfully
+health	UNKNOWN STEP	2026-11-09T18:53:54.8905055Z Cache restored from key: node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6
+health	UNKNOWN STEP	2026-11-09T18:53:54.9027815Z ##[group]Run npm ci --omit=dev --ignore-scripts
+health	UNKNOWN STEP	2026-11-09T18:53:54.9028077Z ^[[36;1mnpm ci --omit=dev --ignore-scripts^[[0m
+health	UNKNOWN STEP	2026-11-09T18:53:54.9120154Z shell: /usr/bin/bash -e {0}
+health	UNKNOWN STEP	2026-11-09T18:53:54.9120313Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:53:58.9431137Z 
+health	UNKNOWN STEP	2026-11-09T18:53:58.9437221Z added 279 packages, and audited 280 packages in 4s
+health	UNKNOWN STEP	2026-11-09T18:53:58.9437449Z 
+health	UNKNOWN STEP	2026-11-09T18:53:58.9437588Z 74 packages are looking for funding
+health	UNKNOWN STEP	2026-11-09T18:53:58.9437780Z   run `npm fund` for details
+health	UNKNOWN STEP	2026-11-09T18:53:58.9439923Z 
+health	UNKNOWN STEP	2026-11-09T18:53:58.9440114Z found 0 vulnerabilities
+health	UNKNOWN STEP	2026-11-09T18:53:59.0408016Z ##[group]Run node scripts/formal-ai-draft-health.mjs
+health	UNKNOWN STEP	2026-11-09T18:53:59.0408416Z ^[[36;1mnode scripts/formal-ai-draft-health.mjs^[[0m
+health	UNKNOWN STEP	2026-11-09T18:53:59.0430595Z shell: /usr/bin/bash -e {0}
+health	UNKNOWN STEP	2026-11-09T18:53:59.0430828Z env:
+health	UNKNOWN STEP	2026-11-09T18:53:59.0433231Z   GH_TOKEN: ***
+health	UNKNOWN STEP	2026-11-09T18:53:59.0433422Z ##[endgroup]
+health	UNKNOWN STEP	2026-11-09T18:54:08.5166651Z Formal AI draft health (7 days): 4 eligible issues, 5 executed attempts.
+health	UNKNOWN STEP	2026-11-09T18:54:08.5332562Z Post job cleanup.
+health	UNKNOWN STEP	2026-11-09T18:54:08.6129525Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-4f1afbe4f97970fc63f40fce0206064ab05b06fae1ea15196eba3630467334e6, not saving cache.
+health	UNKNOWN STEP	2026-11-09T18:54:08.6258675Z Post job cleanup.
+health	UNKNOWN STEP	2026-11-09T18:54:08.6862335Z [command]/usr/bin/git version
+health	UNKNOWN STEP	2026-11-09T18:54:08.6907373Z git version 2.56.0
+health	UNKNOWN STEP	2026-11-09T18:54:08.6929794Z Temporarily overriding HOME='/home/runner/work/_temp/3d467681-8f71-4512-a105-d759f21bd824' before making global git config changes
+health	UNKNOWN STEP	2026-11-09T18:54:08.6930639Z Adding repository directory to the temporary git global config as a safe directory
+health	UNKNOWN STEP	2026-11-09T18:54:08.6932758Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+health	UNKNOWN STEP	2026-11-09T18:54:08.6964705Z Removing SSH command configuration
+health	UNKNOWN STEP	2026-11-09T18:54:08.6969330Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+health	UNKNOWN STEP	2026-11-09T18:54:08.7000395Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+health	UNKNOWN STEP	2026-11-09T18:54:08.7227243Z Removing HTTP extra header
+health	UNKNOWN STEP	2026-11-09T18:54:08.7233711Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+health	UNKNOWN STEP	2026-11-09T18:54:08.7273593Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+health	UNKNOWN STEP	2026-11-09T18:54:08.7549336Z Removing includeIf entries pointing to credentials config files
+health	UNKNOWN STEP	2026-11-09T18:54:08.7556644Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+health	UNKNOWN STEP	2026-11-09T18:54:08.7607055Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+health	UNKNOWN STEP	2026-11-09T18:54:08.7990266Z Cleaning up orphan processes

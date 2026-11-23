@@ -12,8 +12,18 @@ import { reportError } from './sentry.lib.mjs';
 // Import GitHub error reporter
 import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } from './router-auth-guard.lib.mjs';
+import { emptyRepositoryFailure } from './task-failure-signature.lib.mjs';
 
 export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
+
+/** Security admission failures must bypass ordinary retry, reporting and recovery. */
+export const exitOnRouterAuthViolation = async (error, { log, safeExit: exit = safeExit }) => {
+  if (!error?.routerAuthViolation) return false;
+  await log(`❌ ${formatRouterAuthViolation(error.routerAuthViolation)}`, { level: 'error' });
+  await exit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router authentication admission refused', { skipPreExit: true });
+  return true;
+};
 
 /**
  * Handles log attachment and PR closing on failure
@@ -156,6 +166,7 @@ export const createUncaughtExceptionHandler = options => {
   const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
 
   return async error => {
+    if (await exitOnRouterAuthViolation(error, options)) return;
     await log(`\n❌ Uncaught Exception: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -187,6 +198,7 @@ export const createUnhandledRejectionHandler = options => {
   const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
 
   return async reason => {
+    if (await exitOnRouterAuthViolation(reason, options)) return;
     await log(`\n❌ Unhandled Rejection: ${cleanErrorMessage(reason)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -257,7 +269,8 @@ export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueN
  * Handles execution errors in the main catch block
  */
 export const handleMainExecutionError = async options => {
-  const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
+  const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, phase, $ } = options;
+  if (await exitOnRouterAuthViolation(error, options)) return;
 
   // Special handling for authentication errors
   if (error.isAuthError) {
@@ -275,9 +288,11 @@ export const handleMainExecutionError = async options => {
     return;
   }
 
+  const reason = cleanErrorMessage(error);
   if (!error?.hiveMindUserFacingLogged) {
-    await log('Error executing command:', cleanErrorMessage(error));
+    await log(`Error executing command: ${reason}`, { level: 'error' });
   }
+  if (phase) await log(`Solve failure phase: ${phase}`, { verbose: true });
   await log(`Stack trace: ${error.stack}`, { verbose: true });
   await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -298,5 +313,5 @@ export const handleMainExecutionError = async options => {
     $,
   });
 
-  await safeExit(1, 'Error occurred');
+  await safeExit(1, emptyRepositoryFailure.test(reason) ? reason : 'Error occurred');
 };

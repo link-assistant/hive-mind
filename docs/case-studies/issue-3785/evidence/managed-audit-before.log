@@ -1,0 +1,169 @@
+✖ managed claude managed-settings.json cannot bypass a clean home or lose its policy (143.799258ms)
+✖ managed claude managed-settings.d/10-team.json cannot bypass a clean home or lose its policy (54.629633ms)
+✖ managed claude managed-mcp.json cannot bypass a clean home or lose its policy (81.306946ms)
+✖ managed codex config.toml cannot bypass a clean home or lose its policy (61.708679ms)
+✖ managed codex managed_config.toml cannot bypass a clean home or lose its policy (45.862008ms)
+✖ managed codex requirements.toml cannot bypass a clean home or lose its policy (79.818852ms)
+✔ clean managed security constraints and approved Playwright remain byte-for-byte intact (96.138642ms)
+✖ malformed managed input blocks unrelated home repair without exposing parser input (111.978169ms)
+✖ managed symlink cannot redirect validation into credentials (65.602551ms)
+✖ managed hardlink cannot redirect validation into credentials (77.562021ms)
+✖ managed admin .system payloads are not trusted as native user stock (114.430023ms)
+✖ a managed edit while logging invalidates all pending user repairs (97.020317ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 1
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1250.338046
+
+✖ failing tests:
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed claude managed-settings.json cannot bypass a clean home or lose its policy (143.799258ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed claude managed-settings.d/10-team.json cannot bypass a clean home or lose its policy (54.629633ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed claude managed-mcp.json cannot bypass a clean home or lose its policy (81.306946ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed codex config.toml cannot bypass a clean home or lose its policy (61.708679ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed codex managed_config.toml cannot bypass a clean home or lose its policy (45.862008ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:27:3
+✖ managed codex requirements.toml cannot bypass a clean home or lose its policy (79.818852ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:33:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:56:1
+✖ malformed managed input blocks unrelated home repair without exposing parser input (111.978169ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:62:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:67:3
+✖ managed symlink cannot redirect validation into credentials (65.602551ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:76:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe.*managed|managed.*unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:67:3
+✖ managed hardlink cannot redirect validation into credentials (77.562021ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:76:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe.*managed|managed.*unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:82:1
+✖ managed admin .system payloads are not trusted as native user stock (114.430023ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:85:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /managed.*not clean/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests/issue-3785-managed-config-audit.test.mjs:88:1
+✖ a managed edit while logging invalidates all pending user repairs (97.020317ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///tmp/gh-issue-solver-1792986793513/tests/issue-3785-managed-config-audit.test.mjs:101:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /unsafe/iu,
+    operator: 'rejects',
+    diff: 'simple'
+  }

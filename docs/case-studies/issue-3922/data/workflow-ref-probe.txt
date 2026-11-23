@@ -1,0 +1,8 @@
+# 2026-10-31: contents API for .github/workflows of G-Ivan-A/mango_ba_prompts
+$ gh api "repos/G-Ivan-A/mango_ba_prompts/contents/.github/workflows?ref=issue-413-e424ca2a7c62"
+{"message":"No commit found for the ref issue-413-e424ca2a7c62","documentation_url":"https://docs.github.com/v3/repos/contents/","status":"404"}gh: No commit found for the ref issue-413-e424ca2a7c62 (HTTP 404)
+
+$ gh api "repos/G-Ivan-A/mango_ba_prompts/contents/.github/workflows?ref=f8f242ab489c5432fef07eaf9204ca771c1f6cba" --jq ".[].name"
+github-pages.yml
+kb.yml
+validate.yml

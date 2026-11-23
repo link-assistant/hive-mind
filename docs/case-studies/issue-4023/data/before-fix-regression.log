@@ -1,0 +1,82 @@
+{
+  "mode": "baseline",
+  "tool": {
+    "type": "web_search",
+    "external_web_access": true,
+    "filters": {
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    "user_location": {
+      "type": "approximate",
+      "country": "ZZ",
+      "region": "Synthetic Region",
+      "city": "Synthetic City",
+      "timezone": "Etc/UTC"
+    },
+    "search_context_size": "low"
+  }
+}
+{
+  "mode": "private",
+  "tool": {
+    "type": "web_search",
+    "external_web_access": true,
+    "filters": {
+      "allowed_domains": [
+        "example.com"
+      ]
+    },
+    "user_location": {
+      "type": "approximate",
+      "country": "ZZ",
+      "region": "Synthetic Region",
+      "city": "Synthetic City",
+      "timezone": "Etc/UTC"
+    },
+    "search_context_size": "low"
+  }
+}
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   city: 'Synthetic City',
++   country: 'ZZ',
++   region: 'Synthetic Region',
++   timezone: 'Etc/UTC',
+-   city: '',
+-   country: '',
+-   region: '',
+-   timezone: '',
+    type: 'approximate'
+  }
+
+    at file:///tmp/gh-issue-solver-1794003859879/experiments/issue-4023/codex-location-probe.mjs:53:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: {
+    type: 'approximate',
+    country: 'ZZ',
+    region: 'Synthetic Region',
+    city: 'Synthetic City',
+    timezone: 'Etc/UTC'
+  },
+  expected: {
+    type: 'approximate',
+    country: '',
+    city: '',
+    region: '',
+    timezone: ''
+  },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.13.0

@@ -9,6 +9,52 @@
  */
 
 /**
+ * Issue #4048: process-wide "shutdown in progress" flag.
+ *
+ * A /stop of an auto-merge session showed the watch loop starting a brand-new
+ * CI check (and its 10s consensus sleep) while the interrupt handler was still
+ * uploading the 41 MB log. The signal woke `interruptibleSleep`, the loop
+ * ignored `{ interrupted: true }`, and the extra GitHub traffic competed with
+ * the upload until `docker stop` killed the container after its grace period.
+ *
+ * exit-handler.lib.mjs sets this flag right before it runs the interrupt
+ * handler (it does not when shutdown is deferred or delegated), and every
+ * later sleep resolves at once so monitoring loops can stand down.
+ */
+let shutdownState = null;
+
+export const markShutdownInProgress = (reason = 'signal') => {
+  if (!shutdownState) shutdownState = { reason, at: Date.now() };
+  return shutdownState;
+};
+
+export const isShutdownInProgress = () => shutdownState !== null;
+
+export const getShutdownState = () => shutdownState;
+
+/** Tests only. */
+export const resetShutdownStateForTests = () => {
+  shutdownState = null;
+};
+
+/**
+ * Keep the process alive without doing anything until the exit handler calls
+ * `process.exit()`. Monitoring loops call this once shutdown is in progress
+ * instead of returning (which callers would treat as a finished run).
+ */
+export const parkUntilExit = () => new Promise(() => setInterval(() => {}, 1 << 30));
+
+/**
+ * If shutdown is in progress, log `message` (called with the signal name) and
+ * park until the exit handler ends the process; otherwise return at once.
+ */
+export const parkIfShuttingDown = async (log, message = reason => `🛑 ${reason} received — waiting for the interrupt handler to finish`, { park = parkUntilExit } = {}) => {
+  if (!shutdownState) return;
+  if (typeof log === 'function') await log(message(shutdownState.reason));
+  await park();
+};
+
+/**
  * Sleep for `ms` milliseconds, but resolve early if SIGINT or SIGTERM is received.
  *
  * When the signal fires during the sleep, the timer is cleared and the promise
@@ -25,6 +71,7 @@
  * @returns {Promise<{interrupted: boolean}>}
  */
 export function interruptibleSleep(ms) {
+  if (shutdownState) return Promise.resolve({ interrupted: true });
   return new Promise(resolve => {
     let timer;
 
@@ -82,4 +129,4 @@ export async function cancellableSleep(ms, isCancelled = null, options = {}) {
   return { interrupted: false, cancelled: isCancelled() };
 }
 
-export default { interruptibleSleep, cancellableSleep };
+export default { interruptibleSleep, cancellableSleep, markShutdownInProgress, isShutdownInProgress, getShutdownState, parkUntilExit, parkIfShuttingDown };

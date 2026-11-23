@@ -1,6 +1,8 @@
+import { buildGeolocationEnv, buildCodexGeolocationConfigArgs, withGeolocationPolicy } from './geolocation-policy.lib.mjs';
 import path from 'path';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { createRequire } from 'module';
+import { buildClaudePromptCacheEnv } from './claude-prompt-cache.lib.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -50,12 +52,18 @@ export async function resolveStartAgentCommand(options = {}) {
 
 export function buildStartAgentArgs(options) {
   const { tool, workingDirectory, prompt, systemPrompt, model, isolation, screenName, verbose } = options;
-  const args = ['--tool', tool, '--working-directory', workingDirectory, '--prompt', prompt, '--system-prompt', systemPrompt, '--model', model, '--isolation', isolation, '--read-only'];
+  const args = ['--tool', tool, '--working-directory', workingDirectory, '--prompt', prompt, '--system-prompt', withGeolocationPolicy(systemPrompt, options), '--model', model, '--isolation', isolation, '--read-only'];
 
   if (isolation === 'screen' && screenName) {
     args.push('--screen-name', screenName);
   }
   if (verbose) args.push('--verbose');
+  const toolEnv = buildGeolocationEnv(options);
+  if (tool === 'claude') Object.assign(toolEnv, buildClaudePromptCacheEnv());
+  for (const [key, value] of Object.entries(toolEnv)) args.push('--tool-env', `${key}=${value}`);
+  if (tool === 'codex') {
+    for (const arg of buildCodexGeolocationConfigArgs(options)) args.push('--tool-arg', arg);
+  }
 
   return args;
 }

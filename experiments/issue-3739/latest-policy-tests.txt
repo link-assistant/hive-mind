@@ -1,0 +1,6 @@
+issue-2400-keyword-assignment-not-masked.test.mjs
+issue-3445-release-notes-not-masked.test.mjs
+issue-3739-sensitive-data-sanitizer-migration.test.mjs
+sanitizer-open-issues-3741.test.mjs
+test-credential-sanitization-2111.mjs
+test-encoded-credential-leak-2156.mjs

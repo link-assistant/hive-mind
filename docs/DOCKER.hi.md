@@ -2,30 +2,27 @@
 
 यह दस्तावेज़ बताता है कि Docker containers में Hive Mind कैसे चलाएं।
 
+अलग Docker कार्यों में Claude की `CLAUDE_CONFIG_DIR` सेटिंग होस्ट पर `projects/` और `sessions/` का स्रोत चुनती है; सामान्य स्रोत `~/.claude` है। केवल ये दो डायरेक्टरी कार्य के निजी `/home/box/.claude` में माउंट होती हैं; ऑपरेटर की सेटिंग माउंट नहीं होती। चुनी गई हिस्ट्री अनुपलब्ध होने पर सामान्य हिस्ट्री का उपयोग नहीं होता; तैयारी लिंक और असुरक्षित पथ अस्वीकार करती है। Router मोड को विक्रेता की हिस्ट्री नहीं मिलती। अलग क्रेडेंशियल डायरेक्टरी का चयन स्वतंत्र रहता है। पूरी हिस्ट्री और डिफ़ॉल्ट प्रमाणीकरण माइग्रेशन अभी अधूरे हैं। [अंग्रेज़ी विवरण](DOCKER.md#what-a---isolation-docker-task-receives-issue-2190) देखें।
+
 ## त्वरित शुरुआत
 
 ### विकल्प 1: Docker Hub से पूर्व-निर्मित Image का उपयोग करना (अनुशंसित)
 
+डिप्लॉयमेंट और पैकेज या स्टैंडअलोन इंस्टॉलेशन के लिए [Hive Mind Manager](./deployment/hive-manager.md) देखें। अपने ब्राउज़र में प्रदाता के निर्देश पूरे करें। CLI विकल्पों के लिए [मैन्युअल Docker और लॉगिन कमांड](./deployment/hive-manager-manual.md) देखें।
+
 ```bash
-# नवीनतम image pull करें
-docker pull konard/hive-mind:latest
+hive-manager deploy --setup apply
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 
-# एक interactive session चलाएं
-docker run -it konard/hive-mind:latest
-
-# महत्वपूर्ण: Authentication Docker image install होने के बाद की जाती है
-# Installation script gh auth login नहीं चलाता ताकि build timeouts से बचा जा सके
-# यह Docker build को interactive prompts के बिना सफलतापूर्वक पूर्ण करने की अनुमति देता है
-
-# Container के अंदर, GitHub के साथ authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-
-# Claude के साथ authenticate करें
-claude
-
-# अब आप hive और solve commands का उपयोग कर सकते हैं
-solve https://github.com/owner/repo/issues/123
+hive-manager deploy --env-file ./telegram.env apply
+hive-manager deploy logs --follow --tail 60
 ```
+
+साधारण image में `hive-telegram-bot --isolation docker` चलाने के लिए होस्ट पर Docker शुरू करें और bot container में `-v /var/run/docker.sock:/var/run/docker.sock` जोड़ें। Bot चलाने वाले उपयोगकर्ता को socket तक पहुँच चाहिए। Container के अंदर उसी उपयोगकर्ता के रूप में `docker version` चलाएँ और पुष्टि करें कि आउटपुट में Server अनुभाग है। Nested daemon के लिए `konard/hive-mind-dind` image का डिफ़ॉल्ट entrypoint रखें और container command के रूप में `hive-telegram-bot --isolation docker` दें।
+
+अलग किए गए कार्यों को Git पहचान भी चाहिए। स्थायी Git कॉन्फ़िगरेशन में `user.name` और `user.email` सेट करें और उसे bot के लिए `/home/box/.gitconfig` पर उपलब्ध कराएँ (उदाहरण के लिए `-v /path/to/gitconfig:/home/box/.gitconfig:ro`)। Bot के क्रेडेंशियल और टूल स्टोरेज को होस्ट के bind mounts या Docker volumes पर रखें ताकि daemon वही डेटा कार्य containers में माउंट कर सके।
 
 ### विकल्प 2: स्थानीय रूप से Build करना
 
@@ -161,12 +158,12 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 
 Passthrough इन environment variables से नियंत्रित होता है (`box-dind` द्वारा honor किए जाते हैं):
 
-| Variable                           | Default                     | उद्देश्य                                                                             |
-| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।       |
-| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।     |
+| Variable                           | Default                     | उद्देश्य                                                                              |
+| ---------------------------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।        |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।         |
 | `DIND_HOST_PASSTHROUGH_IMAGES`     | _(खाली = कोई भी)_           | space-separated image-name allowlist, जैसे `konard/hive-mind konard/hive-mind-dind`। |
-| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                    |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                   |
 
 default `public` mode में, केवल वे images copy होती हैं जिनमें public registry का digest होता है,
 इसलिए host copy एक pulled/pushed image होनी चाहिए (केवल local `docker build` से बनी, बिना
@@ -270,38 +267,15 @@ docker run --rm -it \
 
 ## Authentication
 
-Production Docker image (`Dockerfile`) Ubuntu 24.04 और आधिकारिक installation script का उपयोग करता है। **महत्वपूर्ण:** Authentication Docker image पूरी तरह install और चलने के **बाद container के अंदर** की जाती है।
-
-**Authentication Installation के बाद क्यों होती है:**
-
-- ✅ Interactive prompts के कारण Docker build timeouts से बचाता है
-- ✅ CI/CD pipelines में build failures को रोकता है
-- ✅ Installation script को सफलतापूर्वक पूर्ण होने की अनुमति देता है
-- ✅ स्वचालित Docker image builds का समर्थन करता है
-
-### GitHub Authentication
+साइन इन करने से पहले इंस्टेंस शुरू करें। हर कमांड उस इंस्टेंस की स्थायी स्टेट का उपयोग करती है। दिखाया गया URL अपने ब्राउज़र में खोलें। Claude का प्राधिकरण कोड कमांड में पेस्ट करें और अन्य प्रदाताओं के दिखाए गए कोड ब्राउज़र में दर्ज करें।
 
 ```bash
-# Container के अंदर, AFTER चलने के बाद
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
+hive-manager deploy auth github
+hive-manager deploy auth claude
+hive-manager deploy auth codex
 ```
 
-**नोट:** Installation script जानबूझकर build प्रक्रिया के दौरान `gh auth login` नहीं चलाता। यह timeouts के बिना Docker builds का समर्थन करने के लिए डिज़ाइन द्वारा है।
-
-### Claude Authentication
-
-```bash
-# Container के अंदर, AFTER चलने के बाद
-claude
-```
-
-यह दृष्टिकोण अनुमति देता है:
-
-- ✅ विभिन्न GitHub accounts के साथ कई Docker instances
-- ✅ विभिन्न Claude subscriptions के साथ कई Docker instances
-- ✅ Containers के बीच कोई credential leakage नहीं
-- ✅ प्रत्येक container की अपनी अलग-थलग authentication है
-- ✅ Interactive authentication के बिना सफल Docker builds
+SSH, प्रोफ़ाइल या मैनेजर के बिना लॉगिन के लिए [साइन-इन गाइड](deployment/hive-manager.md#headless-sign-in) और [मैनुअल कमांड](deployment/hive-manager-manual.md#sign-in-on-the-host-or-in-the-container) देखें।
 
 ## राउटर आइसोलेशन (प्रयोगात्मक)
 
@@ -383,7 +357,17 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-यदि पूरा home mount नहीं करते हैं, तो `/home/box/.codex` और optional `/home/box/.agents` को अलग-अलग persist करें। `--isolation docker` tasks को ये directories पूरी तरह **नहीं** मिलतीं: [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से task container में केवल credential file (`~/.claude/.credentials.json` या `~/.codex/auth.json`) और session directories (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`) mount होती हैं; plugins, marketplace, skills, MCP और settings image से आते हैं और container के साथ ही समाप्त हो जाते हैं। हर `solve`/`hive` start पर global configuration audit होती है और default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` से बंद करें)। Hive Mind `codex exec` से पहले issue, सभी comments और repository instruction files पढ़ता है, स्पष्ट plugin/Agent Skill requirements resolve करता है और चुने गए provider को `.codex/hive-mind/repositories/<owner>/<repo>` में install करता है। हर task इस scope को खाली plugin/skill state से फिर बनाता है, remote plugin sync बंद करता है और host cache या global skills copy नहीं करता। Target repository में कोई skill file deploy या commit नहीं होती।
+यदि पूरा home mount नहीं करते हैं, तो `/home/box/.codex` और optional `/home/box/.agents` को अलग-अलग persist करें। `--isolation docker` tasks को ये directories पूरी तरह **नहीं** मिलतीं: [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से task container में केवल credential file (`~/.claude/.credentials.json` या `~/.codex/auth.json`) और session directories (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`) mount होती हैं; plugins, marketplace, skills, MCP और settings image से आते हैं और container के साथ ही समाप्त हो जाते हैं। Hive Mind `codex exec` से पहले issue, सभी comments और repository instruction files पढ़ता है, स्पष्ट plugin/Agent Skill requirements resolve करता है और चुने गए provider को `.codex/hive-mind/repositories/<owner>/<repo>` में install करता है। हर task इस scope को खाली plugin/skill state से फिर बनाता है, remote plugin sync बंद करता है और host cache या global skills copy नहीं करता। Target repository में कोई skill file deploy या commit नहीं होती।
+
+Credential sharing में एक सीमा बाकी है: host पर file के atomic replacement के बाद file bind mount पुराने inode को रखता है, और Codex preflight authentication को task scope में भी copy करता है। ये रास्ते अभी एक साझा rotating authority नहीं बनाते। [Case study](./case-studies/issue-3785/README.md) में यह अनसुलझी समस्या और असली CLI के प्रयोग दर्ज हैं।
+
+Root Telegram bot और हर `solve`/`hive` start, tool connection checks से पहले ज्ञात global Claude/Codex configuration surfaces का audit करते हैं। Repair default रूप से चालू है। `--no-agent-config-auto-repair` या `HIVE_MIND_AGENT_CONFIG_AUTO_REPAIR=0` केवल repair बंद करते हैं; बाकी findings या repair failures execution रोकते हैं। Dry-run और command-preparation inspection state repair नहीं करते। इंस्टॉल किए गए Codex stock files को pristine CLI 0.164.0 के content manifest से मिलाया जाता है। दोनों images में Codex 0.164.0 और Claude 2.1.319 pinned हैं; CLI upgrade पर नए manifest की समीक्षा आवश्यक है। बदला, अधूरा या linked stock repair से पहले launch रोकता है। सभी alternate/managed paths, image lifecycle और deployment verification अभी खुले हैं।
+
+Images में `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE=claude,codex` सेट है, ताकि idle और command-triggered updates इन pinned versions को सुरक्षित रखें। अन्य agentic और operational CLIs के updates जारी रहते हैं। Updater settings बदलते समय यह exclusion बनाए रखें; image upgrade में CLI pins और reviewed stock manifest साथ बदलें।
+
+TOML सुधार असंबंधित सेटिंग मान सुरक्षित रखता है, फ़ॉर्मैट सामान्य करता है और टिप्पणियाँ हटाता है। साफ़ कॉन्फ़िगरेशन अपरिवर्तित रहती है।
+
+ऑडिट ज्ञात वैश्विक निर्देश फ़ाइलों, नियमों, पुराने प्रॉम्प्ट और हुक मैनिफ़ेस्ट को भी अस्वीकार करता है। निर्देश फ़ाइलों और हुक मैनिफ़ेस्ट को स्पष्ट रूप से हटाना या क्वारंटीन करना आवश्यक है; इनलाइन वैश्विक हुक/निर्देश और अनधिकृत Codex प्रोफ़ाइल/एजेंट पंजीकरण अपने आप सुधारे जा सकते हैं। साफ़ प्रोफ़ाइल तथा मॉडल, अनुमति और समानांतरता की अन्य सेटिंग सुरक्षित रहती हैं।
 
 Catalog में provider न होने पर preflight AI harness शुरू होने से पहले exact capability बताता है। Marketplace inspect या refresh करने के लिए parent container में `codex plugin list --available --json` चलाएं। Preflight हर task के लिए `codex debug prompt-input` से पूरा model-visible catalog जांचता है, भले कोई optional capability घोषित न हो। केवल scoped core skills, स्पष्ट repository skills और चुने गए scoped plugin skills स्वीकार होते हैं; unexpected skill, untrusted path या supported CLI पर unavailable/unparseable probe execution रोक देता है। Verbose log accepted name, provider, version और normalized path दिखाता है।
 
@@ -434,21 +418,14 @@ docker-compose run --rm hive-mind
 
 ## समस्या निवारण
 
-### GitHub Authentication समस्याएं
+### साइन-इन की समस्याएं
+
+चुने गए इंस्टेंस की साइन-इन स्थिति जाँचें और ज़रूरत होने पर संबंधित साइन-इन कमांड फिर से चलाएँ।
 
 ```bash
-# Container के अंदर, authentication स्थिति जांचें
-gh auth status
-
-# यदि आवश्यक हो तो फिर से authenticate करें
-gh auth login -h github.com -s repo,workflow,user,read:org,gist
-```
-
-### Claude Authentication समस्याएं
-
-```bash
-# Container के अंदर, authenticate करने के लिए Claude फिर से चलाएं
-claude
+hive-manager deploy auth github status
+hive-manager deploy auth claude status
+hive-manager deploy auth codex status
 ```
 
 ### Docker समस्याएं

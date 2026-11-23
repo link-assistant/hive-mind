@@ -55,7 +55,7 @@ const valueAfter = (arr, flag) => arr[arr.indexOf(flag) + 1];
 
 const url = 'https://github.com/link-assistant/hive-mind/issues/1914';
 // Issue #2190: only the credential file and the session directories are shared, never the application directories.
-const existing = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions', '/home/box/.codex/auth.json', '/home/box/.codex/sessions']);
+const existing = new Set(['/home/box/.config/gh', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.codex/archived_sessions', '/home/box/.codex/thread-writer-locks']);
 const existsSync = p => existing.has(p);
 
 console.log('\n--- Complaint 1: --isolation docker uses ACTUAL docker isolation (not screen) ---');

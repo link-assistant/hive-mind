@@ -21,6 +21,7 @@
  */
 
 import { lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { describeLimitsFailure } from './limits-unavailable.lib.mjs';
 
 const SHOW_LIMITS_FLAG = '--show-limits';
 const NO_SHOW_LIMITS_FLAG = '--no-show-limits';
@@ -94,6 +95,7 @@ export async function captureLimitsSnapshot({ tool = 'claude', verbose = false, 
     success: !!result?.success,
     usage: result?.usage || null,
     error: result?.success ? null : result?.error || 'Unknown error',
+    ...(result?.failureKind === 'temporary' ? { failureKind: 'temporary', provider: result.provider || toolKey, httpStatus: result.httpStatus ?? null, cause: result.cause || null } : {}),
     capturedAt: new Date(),
     additionalRateLimits: result?.additionalRateLimits || null,
     credits: result?.credits || null,
@@ -123,7 +125,7 @@ function formatPercentage(value, locale = null) {
 function formatClaudeSnapshotCompact(snapshot, options = {}) {
   const locale = resolveLimitLocale(options);
   if (!snapshot) return `${lt('claude_limits', {}, { locale })}: ${lt('na', {}, { locale })}`;
-  if (!snapshot.success) return `${lt('claude_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
+  if (!snapshot.success) return snapshot.failureKind === 'temporary' ? describeLimitsFailure(snapshot, { locale }) : `${lt('claude_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
   const usage = snapshot.usage || {};
   const lines = [];
   lines.push(`${lt('five_hour_session', {}, { locale })}: ${formatPercentage(usage.currentSession?.percentage, locale)}`);
@@ -137,7 +139,7 @@ function formatClaudeSnapshotCompact(snapshot, options = {}) {
 function formatCodexSnapshotCompact(snapshot, options = {}) {
   const locale = resolveLimitLocale(options);
   if (!snapshot) return `${lt('codex_limits', {}, { locale })}: ${lt('na', {}, { locale })}`;
-  if (!snapshot.success) return `${lt('codex_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
+  if (!snapshot.success) return snapshot.failureKind === 'temporary' ? describeLimitsFailure(snapshot, { locale }) : `${lt('codex_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
   const usage = snapshot.usage || {};
   const lines = [];
   lines.push(`${lt('five_hour_session', {}, { locale })}: ${formatPercentage(usage.currentSession?.percentage, locale)}`);

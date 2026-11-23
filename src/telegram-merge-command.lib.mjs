@@ -47,8 +47,8 @@ function getRepoKey(owner, repo) {
  * @param {string} text - The text to escape
  * @returns {string} The escaped text
  */
-function escapeMarkdownV2(text) {
-  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+export function escapeMarkdownV2(text) {
+  return String(text).replace(/[\\_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 /**

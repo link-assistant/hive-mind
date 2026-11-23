@@ -38,6 +38,8 @@ const parseVersion = value => {
 
 const compareParsedVersions = (left, right) => left.major - right.major || left.minor - right.minor || left.patch - right.patch || (left.prerelease ? (right.prerelease ? left.prerelease.localeCompare(right.prerelease) : -1) : right.prerelease ? 1 : 0);
 
+const minimumNodeVersion = range => /^>=\s*(\d+\.\d+\.\d+)$/.exec(range)?.[1];
+
 /** Compare a declaration at the precision promised by its update mechanism. */
 export const assessVersionPin = ({ current, latest, policy = 'exact' }) => {
   const currentVersion = parseVersion(current);
@@ -163,6 +165,7 @@ const ARG_SOURCES = {
   // on 2026-10-12 and never reached crates.io (issue #2801, cf. #2395).
   FORMAL_AI_VERSION: { kind: 'crate', name: 'formal-ai' },
   HIVE_MIND_BUN_VERSION: { kind: 'github', name: 'oven-sh/bun', tagPrefix: 'bun-v' },
+  HIVE_MIND_COREPACK_VERSION: { kind: 'npm', name: 'corepack' }, // Issue #4082: Node >= 25 ships without corepack
   HIVE_MIND_NODE_VERSION: { kind: 'node', name: 'nodejs/node' },
   HIVE_MIND_VERSION: { kind: 'npm', name: '@link-assistant/hive-mind' },
 };
@@ -239,7 +242,15 @@ export const collectDependencyRecords = async ({ root = process.cwd() } = {}) =>
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
   for (const section of ['dependencies', 'devDependencies']) {
     for (const [name, current] of Object.entries(manifest[section] ?? {})) {
-      if (parseVersion(current)) records.push({ kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}` });
+      if (!parseVersion(current)) continue;
+      const record = { kind: 'npm', name, current, policy: 'exact', location: `package.json#${section}` };
+      // The sanitizer is loaded in the shipped Node application. Its 2.x
+      // release raised the minimum runtime above the one we support.
+      if (name === '@link-foundation/sensitive-data-sanitizer') {
+        record.minimumNode = minimumNodeVersion(manifest.engines?.node);
+        if (!record.minimumNode) throw new Error(`Cannot determine the minimum supported Node version from ${manifest.engines?.node}`);
+      }
+      records.push(record);
     }
   }
 
@@ -336,10 +347,30 @@ const fetchJson = async (url, { fetchImpl = globalThis.fetch, token = process.en
   throw new Error(`${url}: ${lastError?.message ?? lastError}`);
 };
 
-export const resolveNpmLatest = async (name, options = {}) => {
-  const metadata = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(name)}/latest`, options);
+export const resolveNpmLatest = async (name, { minimumNode } = {}, options = {}) => {
+  const url = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
+  const metadata = await fetchJson(`${url}/latest`, options);
   if (!parseVersion(metadata?.version)) throw new Error(`npm returned no semantic latest version for ${name}`);
-  return metadata.version;
+  if (!minimumNode) return metadata.version;
+
+  const target = parseVersion(minimumNode);
+  const supportsNode = release => {
+    const range = release.engines?.node;
+    if (range === undefined) return true;
+    const required = minimumNodeVersion(range);
+    if (!required) throw new Error(`Cannot check ${name}@${release.version} Node range ${range} against ${minimumNode}`);
+    return compareParsedVersions(parseVersion(required), target) <= 0;
+  };
+  if (supportsNode(metadata)) return metadata.version;
+
+  const history = await fetchJson(url, options);
+  const versions = Object.keys(history.versions ?? {})
+    .filter(version => /^\d+\.\d+\.\d+$/.test(version))
+    .map(parseVersion)
+    .sort((left, right) => compareParsedVersions(right, left));
+  const compatible = versions.find(version => supportsNode(history.versions[version.raw]));
+  if (!compatible) throw new Error(`npm returned no stable release of ${name} supporting Node ${minimumNode}`);
+  return compatible.raw;
 };
 
 export const resolveGitHubLatest = async (repository, record = {}, options = {}) => {
@@ -457,8 +488,24 @@ export const resolveOpenIssue = async (url, options = {}) => {
   return issue.state === 'open' && !issue.pull_request;
 };
 
+/**
+ * Issues that a pull request body closes on merge, as canonical issue URLs.
+ * An exception that links one of them stops being valid the moment the pull
+ * request merges: PR #3786 closed #3785, the 12 pins linked to it turned into
+ * errors, and every later pull request failed (issue #4025).
+ */
+export const issuesClosedBy = (body, repository) => {
+  const closed = new Set();
+  if (!body || !repository) return closed;
+  const pattern = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+(?:https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/|([\w.-]+\/[\w.-]+)?#)(\d+)\b/gi;
+  for (const match of body.matchAll(pattern)) closed.add(`https://github.com/${(match[1] ?? match[2] ?? repository).toLowerCase()}/issues/${match[3]}`);
+  return closed;
+};
+
+const canonicalIssueUrl = url => url.replace(/^(https:\/\/github\.com\/[\w.-]+\/[\w.-]+)/, owner => owner.toLowerCase());
+
 /** Registry errors and unrecognized pins fail closed; only verified open issues waive pins. */
-export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveNodeLatest: nodeResolver = resolveNodeLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue } = {}) => {
+export const checkDependencyRecords = async (records, { resolveNpmLatest: npmResolver = resolveNpmLatest, resolveGitHubLatest: githubResolver = resolveGitHubLatest, resolveCrateLatest: crateResolver = resolveCrateLatest, resolveNodeLatest: nodeResolver = resolveNodeLatest, resolveDockerHubLatest: dockerResolver = resolveDockerHubLatest, resolveContainerLatest: containerResolver = resolveContainerLatest, resolveOpenIssue: issueResolver = resolveOpenIssue, closingIssues = new Set() } = {}) => {
   const latestByDependency = new Map(),
     current = [],
     stale = [],
@@ -469,6 +516,7 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
     records.map(async record => {
       try {
         if (record.exception) {
+          if (closingIssues.has(canonicalIssueUrl(record.exception))) throw new Error(`Exception issue closes when this pull request merges: ${record.exception}. Link a separate open tracking issue.`);
           if (!(await issueResolver(record.exception))) throw new Error(`Exception issue is closed or invalid: ${record.exception}`);
         }
         if (!resolvers[record.kind]) {
@@ -478,7 +526,7 @@ export const checkDependencyRecords = async (records, { resolveNpmLatest: npmRes
           }
           throw new Error(record.error ?? `Unknown dependency kind ${record.kind}`);
         }
-        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
+        const key = `${record.kind}:${record.name}:${record.tagPrefix ?? ''}:${record.versionMajor ?? ''}:${record.minimumNode ?? ''}:${record.kind === 'container' ? containerTagSuffix(record.current) : ''}`;
         if (!latestByDependency.has(key)) latestByDependency.set(key, resolvers[record.kind](record.name, record));
         const latest = await latestByDependency.get(key);
         const assessment = assessVersionPin({ current: record.current, latest, policy: record.policy });

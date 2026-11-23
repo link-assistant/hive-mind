@@ -4,9 +4,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
+import { appendFileSync, createReadStream, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -37,7 +38,7 @@ function fixture(t) {
     writeFileSync(file, text, { mode });
     return file;
   };
-  const command = (bin, args, override = {}) => spawnSync(bin, args, { cwd, env: { ...env, ...override }, encoding: 'utf8', timeout: 15000 });
+  const command = (bin, args, override = {}) => spawnSync(bin, args, { cwd, env: { ...env, ...override }, encoding: 'utf8', timeout: 60000 });
   const git = (...args) => {
     const result = command('git', args);
     assert.equal(result.status, 0, result.stderr);
@@ -152,7 +153,7 @@ test('legacy import requires verified Claude attachments and rejects changed or 
   legacyArtifact(write, 'attached', claude('attached'), { jsonl: safe }, { tool: 'claude' });
   const attachment = 'attachment payload\n';
   writeOld('claude/project/attached/tool-results/result.log', attachment);
-  legacyArtifact(write, 'attached/tool-results/result', attachment, { log: attachment }, { tool: 'claude', kind: 'text' });
+  legacyArtifact(write, 'attached/tool-results/result', attachment, { 'part-001.log': 'attachment\n', 'part-002.log': 'payload\n' }, { tool: 'claude', kind: 'text' });
   claude('changed');
   legacyArtifact(write, 'changed', 'other transcript', { jsonl: safe }, { tool: 'claude' });
   const corrupt = legacyArtifact(write, 'corrupt', claude('corrupt'), { jsonl: safe }, { tool: 'claude' });
@@ -217,18 +218,191 @@ test('literal redactions protect staged, converted and reviewed files and requir
   assert.equal(git('-C', remote, 'show', `main:${source}/${review.digest.slice(7)}/${archive}`), sanitized.trim());
 });
 
-test('archive reports oversized attributed sessions beyond the export limit and honors minimum age', { timeout: 30000 }, t => {
-  const { codex, stage, ok, manifest } = fixture(t);
+test('archive reports an oversized individual record beyond the session limit and honors minimum age', { timeout: 30000 }, t => {
+  const { codex, stage, ok, manifest, cwd } = fixture(t);
   codex('current', 'recent', 2);
-  const oversized = codex('oversized', 'reported without sanitizing');
-  truncateSync(oversized.path, 40 * 1024 * 1024 + 1);
+  const oversized = codex('oversized', 'metadata');
+  truncateSync(oversized.path, oversized.text.length + 40 * 1024 * 1024 + 1);
   const old = new Date(Date.now() - 60 * 60_000);
   utimesSync(oversized.path, old, old);
   const defaultAge = ok([...stage, '--output', 'default-age']);
-  assert.match(defaultAge.stderr, /Omitted 1 oversized.*40 MiB/);
+  assert.match(defaultAge.stderr, /Omitted 1 session.*individual JSONL record exceeds 40 MiB/);
   assert.deepEqual(manifest('default-age').sessions, []);
   const smallerAge = ok([...stage, '--output', 'custom-age', '--min-age', '1', '--limit', '1']);
-  assert.match(smallerAge.stderr, /Omitted 1 oversized.*40 MiB/);
+  assert.match(smallerAge.stderr, /Omitted 1 session.*individual JSONL record exceeds 40 MiB/);
   assert.equal(manifest('custom-age').sessions.length, 1);
-  assert.deepEqual(manifest('custom-age').omissions.oversized, { claude: 0, codex: 1, maxSourceBytes: 40 * 1024 * 1024 });
+  assert.deepEqual(manifest('custom-age').omissions, { 'oversized-record': { claude: 0, codex: 1 } });
+  const out = join(cwd, 'default-age', `codex-${sha256('2026/11/21/oversized.jsonl')}.part-001.jsonl`);
+  assert.throws(() => statSync(out), { code: 'ENOENT' });
+});
+
+test('a 41 MiB Codex revision stages every record in order with one reviewed private marker', { timeout: 120000 }, async t => {
+  const { cwd, write, commitSeed, head, stage, run, ok, codex, manifest } = fixture(t);
+  const base = commitSeed();
+  const { path, text } = codex('numbered', 'Starting records');
+  const record = (sequence, message) => JSON.stringify({ type: 'event_msg', sequence, message });
+  const line = (sequence, tail) => record(sequence, `A transcript fixture with short words and Unicode π. ${'plain text '.repeat(512)}${tail}`);
+  const sourceBytes = 41 * 1024 * 1024;
+  const expected = createHash('sha256').update(text);
+  let remaining = sourceBytes - Buffer.byteLength(text);
+  let sequence = 0;
+  let block = '';
+  while (remaining > 2 * Buffer.byteLength(line(sequence, literal))) {
+    const tail = sequence % 101 === 0 ? literal : '';
+    const raw = `${line(sequence++, tail)}\n`;
+    remaining -= Buffer.byteLength(raw);
+    block += raw;
+    expected.update(tail ? raw.replace(JSON.stringify(literal).slice(1, -1), '[REDACTED]') : raw);
+    if (block.length > 256 * 1024) {
+      appendFileSync(path, block);
+      block = '';
+    }
+  }
+  const tailBytes = remaining - record(sequence, '').length;
+  // An unterminated final record is preserved as well.
+  const final = record(sequence++, 'x '.repeat(Math.floor(tailBytes / 2)) + 'x'.repeat(tailBytes % 2));
+  expected.update(final);
+  appendFileSync(path, block + final);
+  assert.equal(statSync(path).size, sourceBytes);
+  const age = new Date(Date.now() - 60 * 60_000);
+  utimesSync(path, age, age);
+  write('literals', `${literal}\n`);
+  const extra = ['--known-secrets-file', 'literals'];
+  const environment = { NODE_OPTIONS: '--max-old-space-size=384' };
+  const automatic = ok([...stage, '--publish-private', destination, ...extra], environment);
+  assert.match(automatic.stderr, /require staging with --output/);
+  assert.equal(head(), base);
+  ok([...stage, '--lino', '--output', 'numbered', ...extra], environment);
+  const { sessions, omissions } = manifest('numbered');
+  assert.equal(omissions, undefined);
+  assert.equal(sessions.length, 1);
+  const [entry] = sessions;
+  assert.equal(entry.sourceBytes, sourceBytes);
+  assert.equal(entry.parts.length, 2);
+  assert.deepEqual(
+    entry.parts.map(part => part.archive),
+    ['001', '002'].map(number => entry.archive.replace('.jsonl', `.part-${number}.jsonl`))
+  );
+  const actual = createHash('sha256');
+  let records = 0;
+  for (const part of entry.parts) {
+    const file = join(cwd, 'numbered', part.archive);
+    assert.ok(statSync(file).size <= 40 * 1024 * 1024);
+    assert.equal(statSync(join(cwd, 'numbered', part.linksNotation)).size, statSync(file).size);
+    for await (const data of createReadStream(file)) actual.update(data);
+    for await (const row of createInterface({ input: createReadStream(file), crlfDelay: Infinity })) {
+      if (records) {
+        const event = JSON.parse(row);
+        assert.equal(event.sequence, records - 1);
+        assert.equal(event.message.includes(literal), false);
+      }
+      records++;
+    }
+  }
+  assert.equal(records, sequence + 1);
+  assert.equal(actual.digest('hex'), expected.digest('hex'));
+  const args = ['archive-publish', 'numbered', '--destination', destination, ...extra];
+  assert.match(run(args, { ...environment, ARCHIVE_VISIBILITY: 'public' }).stderr, /requires a private destination/);
+  const review = JSON.parse(ok(args, environment).stdout);
+  assert.deepEqual(review.indexEntries, [`${source}/.published/${entry.archive}.${entry.revision.slice(7)}`]);
+  assert.deepEqual(review.files, ['manifest.json', ...entry.parts.flatMap(part => [part.archive, part.linksNotation])].sort());
+  assert.equal(head(), base);
+});
+
+test('legacy numbered revisions require a complete set of verified parts and import one marker', { timeout: 30000 }, t => {
+  const { write, git, commitSeed, head, stage, ok, codex, manifest, remote } = fixture(t);
+  const outcomes = { 'part-001.jsonl': '{"payload":"first"}\n', 'part-002.jsonl': '{"payload":"second"}\n' };
+  const { text } = codex('matching', 'unchanged transcript');
+  const matching = legacyArtifact(write, '2026/11/21/matching', text, outcomes);
+  const { text: broken } = codex('corrupt-part', 'corrupt evidence');
+  const corrupt = legacyArtifact(write, '2026/11/21/corrupt-part', broken, outcomes);
+  write(`seed/${corrupt}.part-002.jsonl`, outcomes['part-002.jsonl'].replace('second', 'second'.toUpperCase()));
+  const { text: missing } = codex('missing-part', 'nonconsecutive evidence');
+  legacyArtifact(write, '2026/11/21/missing-part', missing, { 'part-001.jsonl': outcomes['part-001.jsonl'], 'part-003.jsonl': outcomes['part-002.jsonl'] });
+  const { text: unsafe } = codex('unsafe-part', 'literal in archived second part');
+  legacyArtifact(write, '2026/11/21/unsafe-part', unsafe, { ...outcomes, 'part-002.jsonl': `${JSON.stringify({ message: literal })}\n` });
+  write('literals', `${literal}\n`);
+  const base = commitSeed();
+  const args = [...stage, '--import-legacy', destination, '--known-secrets-file', 'literals'];
+  const review = JSON.parse(ok(args).stdout);
+  assert.deepEqual(review.skipped, { 'unverified-artifact': 2, 'literal-residual': 1 });
+  assert.deepEqual(review.unverifiedArtifacts, [`${corrupt}.part-002.jsonl`, 'Example/Project/codex/2026/11/21/missing-part.part-002.jsonl']);
+  assert.equal(review.matches.length, 1);
+  assert.equal(review.matches[0].metadata, `${matching}.meta.json`);
+  assert.equal(head(), base);
+  ok([...args, '--apply', review.digest]);
+  assert.equal(git('-C', remote, 'rev-parse', `${head()}^`), base);
+  assert.equal(git('-C', remote, 'diff-tree', '--no-commit-id', '--name-only', '-r', head()), review.indexEntries[0]);
+  const exportArgs = [...stage, '--published-in', destination, '--known-secrets-file', 'literals', '--output'];
+  ok([...exportArgs, 'same']);
+  const saved = review.indexEntries[0].split('/').pop();
+  const matchingArchive = `codex-${sha256('2026/11/21/matching.jsonl')}.jsonl`;
+  assert.ok(saved.startsWith(`${matchingArchive}.`));
+  assert.equal(
+    manifest('same').sessions.some(session => session.archive === matchingArchive),
+    false
+  );
+  ok([...exportArgs, 'another-policy', '--lino']);
+  assert.equal(
+    manifest('another-policy').sessions.some(session => session.archive === matchingArchive),
+    true
+  );
+});
+
+test('numbered manifests enforce structure, size, private visibility and revision deduplication', { timeout: 30000 }, t => {
+  const { write, commitSeed, head, run, ok } = fixture(t);
+  const base = commitSeed();
+  const stem = `codex-${sha256('fixture-session')}`;
+  const revision = `sha256:${sha256('fixture-revision')}`;
+  const part = number => ({ archive: `${stem}.part-${String(number).padStart(3, '0')}.jsonl` });
+  const session = { archive: `${stem}.jsonl`, tool: 'codex', revision, sourceBytes: 41 * 1024 * 1024, parts: [part(1), part(2)] };
+  const save = entry => write('parts/manifest.json', JSON.stringify({ repository: source, sessions: [entry] }));
+  const args = ['archive-publish', 'parts', '--destination', destination];
+  save({ ...session, parts: [part(1), part(3)] });
+  assert.match(run(args).stderr, /invalid transcript parts/);
+  save({ ...session, parts: Array.from({ length: 301 }, (_, index) => part(index + 1)) });
+  assert.match(run(args).stderr, /invalid transcript parts/);
+  save(session);
+  assert.match(run(args, { ARCHIVE_VISIBILITY: 'public' }).stderr, /requires a private destination/);
+  write(`parts/${part(1).archive}`, '{"first":true}');
+  assert.match(run(args).stderr, /record boundary/);
+  write(`parts/${part(1).archive}`, '{"first":true}\n');
+  assert.match(run(args).stderr, /archive artifact/);
+  const second = write(`parts/${part(2).archive}`, '{"second":true}\n');
+  truncateSync(second, 40 * 1024 * 1024 + 1);
+  assert.match(run(args).stderr, /at most 41943040 bytes/);
+  writeFileSync(second, '{"second":true}\n');
+  const review = JSON.parse(ok(args).stdout);
+  assert.equal(review.indexEntries.length, 1);
+  writeFileSync(second, '{"second":false}\n');
+  assert.match(run([...args, '--apply', review.digest]).stderr, /changed since review/);
+  assert.equal(head(), base);
+  writeFileSync(second, '{"second":true}\n');
+  ok([...args, '--apply', review.digest]);
+  const published = head();
+  assert.match(ok([...args, '--apply', review.digest]).stdout, /already published/);
+  assert.equal(head(), published);
+  save({ ...session, modifiedAt: '2026-11-21T00:00:00Z' });
+  const duplicate = JSON.parse(ok(args).stdout);
+  assert.match(run([...args, '--apply', duplicate.digest]).stderr, /revision has already been published/);
+  assert.equal(head(), published);
+});
+
+test('archive overview folds new manifests into an immutable legacy README baseline', { timeout: 30000 }, t => {
+  const { ok, run, write, cwd } = fixture(t);
+  const readme = '# Archive\n\n| Repository | Claude Code sessions | Codex sessions | Source size |\n| --- | ---: | ---: | ---: |\n| [Example/Project](https://github.com/Example/Project) | [2](./Example/Project/claude) | [3](./Example/Project/codex) | 2.0 MiB |\n| [Other/Legacy](https://github.com/Other/Legacy) | [0](./Other/Legacy/claude) | [1](./Other/Legacy/codex) | 20 B |\n';
+  write('legacy.md', readme);
+  const entry = { tool: 'codex', archive: `codex-${'a'.repeat(64)}.jsonl`, revision: `sha256:${'b'.repeat(64)}`, sourceBytes: 41 * 1024 * 1024, parts: [{}, {}] };
+  for (const tag of ['a', 'b']) write(`archive/${source}/${tag.repeat(64)}/manifest.json`, JSON.stringify({ repository: source, sessions: [entry] }));
+  const other = { tool: 'claude', archive: `claude-${'b'.repeat(64)}.jsonl`, sourceBytes: 500, toolResults: [{ sourceBytes: 150 }] };
+  write(`archive/another/project/${'c'.repeat(64)}/manifest.json`, JSON.stringify({ repository: 'another/project', sessions: [other] }));
+  const args = ['archive-overview', 'archive', '--legacy-readme', 'legacy.md'];
+  const result = ok(args).stdout;
+  assert.ok(result.includes('| [Example/Project](https://github.com/Example/Project) | [2](./Example/Project/claude) | [4](./Example/Project/codex) ([batches](./example/project)) | 43.0 MiB |'));
+  assert.ok(result.includes('| [Other/Legacy](https://github.com/Other/Legacy) | [0](./Other/Legacy/claude) | [1](./Other/Legacy/codex) | 20 B |'));
+  assert.ok(result.includes('| [another/project](https://github.com/another/project) | [1](./another/project) | [0](./another/project) | 650 B |'));
+  assert.equal(readFileSync(join(cwd, 'legacy.md'), 'utf8'), readme);
+  assert.equal(ok(args).stdout, result);
+  write(`archive/${source}/${'c'.repeat(64)}/manifest.json`, JSON.stringify({ repository: 'different/project', sessions: [entry] }));
+  assert.match(run(args).stderr, /does not match its source directory/);
 });

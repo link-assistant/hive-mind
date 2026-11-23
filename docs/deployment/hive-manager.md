@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/h
 curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh | bash -s -- deploy --help
 ```
 
-For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and local backup. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Install Node.js and Hive Mind to run package maintenance commands on the host, or use `deploy` to run them inside the image. When a standalone maintenance command is missing locally and npm is available, the manager uses `npm exec` with the published package. Set `HIVE_MANAGER_PACKAGE_VERSION` to pin that fallback.
+For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and basic `deploy backup`. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Packaged maintenance on the host requires Node.js and a Hive Mind installation or npm. See [Pinning the CLI, host package, and image](#pinning-the-cli-host-package-and-image).
 
 ## JavaScript library
 
@@ -78,7 +78,7 @@ state-dir=./state
 env-file=./telegram.env
 ```
 
-Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. There is no manager installation required on a deployment host reached through SSH. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
+Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. Bash operations such as basic `deploy backup` can run on a target without a Hive Mind installation. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
 
 ```bash
 hive-manager --host hive-production deploy --profile ./hive/production.conf update
@@ -87,6 +87,22 @@ hive-manager --host hive-production --tty deploy --tty exec -- bash
 ```
 
 Set `ProxyJump` on the destination alias, configure `ProxyCommand` for an SSH transport proxy, or use an already connected VPN. Use `--ssh-config`, `--ssh-port`, and repeated `--ssh-option` for OpenSSH options supplied on the command line. Pass `--tty` on both sides of `deploy` for interactive remote Docker exec. Omit both for pipes and file transfers. See [OpenSSH client configuration](https://man.openbsd.org/ssh_config).
+
+### Pinning the CLI, host package, and image
+
+Install the operator CLI from an exact npm release or save the script from that release's Git tag. The operator's CLI supplies the Bash program for every SSH invocation. For packaged maintenance on the host, set `HIVE_MANAGER_PACKAGE_VERSION` to an exact version such as `2.48.0`. The manager carries that value in the SSH command, so OpenSSH environment forwarding requires no configuration. The executing host uses an installed `@link-assistant/hive-mind` only if its package manifest matches the pin and the command's module is present. Otherwise, Node-based maintenance requests that version through npm and verifies it before executing the module. The host's Python actions require a matching installed package. These include `deploy global-tools`, `deploy tool-services`, reviewed backups and bundle restores. With no pin configured, the manager prefers the installed implementation and uses the npm `latest` tag for fallback. Values such as npm dist-tags resolve through npm and can change over time.
+
+After installing the desired release on the operator machine and the target, verify both installations and the effective host dispatch. `HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1` reports the selected package name and version and whether it came from an installation or npm. It travels across SSH with the pin and writes to stderr, keeping command output on stdout available to scripts.
+
+```bash
+release=2.48.0 # Example host package version
+hive-manager --version
+ssh hive-production hive-manager --version
+HIVE_MANAGER_PACKAGE_VERSION="$release" HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1 \
+  hive-manager --host hive-production deploy disk --help
+```
+
+Select the deployment image independently with `image=` in the profile or `--image`. Use a release tag or digest. Published release images ship the manager wrapper and install the corresponding Hive Mind package. Commands that run inside the container, such as `deploy tasks report`, use its installed tools. The host pin applies to maintenance on the host. Inspect the deployed package separately with `hive-manager --host hive-production deploy exec -- hive-manager --version`.
 
 ## Headless sign-in
 
@@ -339,7 +355,7 @@ Run `tasks check-browser PID` as the browser's user in the same Linux process na
 
 Packaged maintenance commands use Hive Mind's terminal credential filter. Operations such as `deploy logs`, `deploy exec`, and backup streams carry the underlying service output, so review that output before sharing it.
 
-`archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. A Claude subagent without its own working directory inherits its parent’s repository. Use `--only claude` or `--only codex` to export one format. The default export limit is 20. Use `--min-age MINUTES` to carry over the scheduler's idle threshold for transcripts and attachments. The default is 10 minutes since modification. Set a shorter threshold only when the operator can ensure the session has ended. The manager reports attributed inactive transcripts above 40 MiB by tool on stderr and in `manifest.json` under `omissions.oversized`, including when the export is empty. Those transcripts need a separate reviewed export. Add `--lino` with the [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) installed to add Links Notation copies. Session files can include personal or proprietary material. Review the staged files before publishing.
+`archive-session FILE` writes a sanitized local copy to stdout. `archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY` discovers inactive Claude and Codex sessions, verifies the repository is public, and stages sanitized files and a manifest. It uses Codex session metadata and Claude checkout origins to attribute sessions. A Claude subagent without its own working directory inherits its parent’s repository. Use `--only claude` or `--only codex` to export one format. The default export limit is 20. Use `--min-age MINUTES` to carry over the scheduler's idle threshold for transcripts and attachments. The default is 10 minutes since modification. Set a shorter threshold only when the operator can ensure the session has ended. Transcripts over 40 MiB are sanitized in a stream and staged as numbered JSONL parts of up to 40 MiB each, cut at record boundaries. A numbered transcript has one manifest entry and one revision marker for the complete set. A single record that exceeds the limit is reported by tool on stderr and in the manifest as `omissions.oversized-record`. Other limiting conditions, including exhausted batch capacity, also appear under `omissions`. Add `--lino` with the Conversation CLI installed to add a Links Notation copy for each transcript or part. [Conversation CLI](https://github.com/link-assistant/conversation/tree/e548823507862f237ce58cb2915bf336f29a725c) Session files can include personal or proprietary material. Review the staged files before publishing.
 
 Use `--tool-results` to include sanitized Claude attachments associated with the staged transcripts. This selects inactive, regular `.txt`, `.log`, `.json`, and `.jsonl` files up to 4 MiB each, with a shared limit of 100 attachments or 40 MiB of input per export.
 
@@ -348,7 +364,7 @@ Use `--tool-results` to include sanitized Claude attachments associated with the
 hive-manager archive-sessions --repo link-assistant/hive-mind --output ./session-review --tool-results
 ```
 
-`archive-publish` lists the exact files to be committed and returns a review digest tied to the destination's visibility and default branch. After reviewing every file, pass the digest with `--apply` to publish one normal Git commit. The destination must already contain a default branch and allow your configured Git identity and credentials to push to it. The manager rechecks source visibility and scans the reviewed files before pushing. It redacts recognizable identity-document details while staging and excludes the repository identified in the Control Center's known data exposure. Each publication accepts up to 256 MiB total and 64 MiB per file.
+`archive-publish` lists the exact files to be committed and returns a review digest tied to the destination's visibility and default branch. After reviewing every file, pass the digest with `--apply` to publish one normal Git commit. The destination must already contain a default branch and allow your configured Git identity and credentials to push to it. The manager rechecks source visibility and scans the reviewed files before pushing. It redacts recognizable identity-document details while staging and excludes the repository identified in the Control Center's known data exposure. Each publication accepts a manifest and up to 300 artifacts, with a 256 MiB total limit and a 64 MiB limit per file. Numbered JSONL parts have a 40 MiB limit and always require reviewed publication to a private destination.
 
 ```bash
 hive-manager archive-publish ./session-review --destination example/session-archive
@@ -360,6 +376,15 @@ To create a destination with an initial branch and README, run `hive-manager arc
 Use `archive-sessions --published-in example/session-archive` when working through a backlog or staging batches on a schedule. The manager reads the destination's Git index for this source without downloading existing session logs. It skips an already published transcript revision with the same export options and selected attachments, so the next batch can advance through the backlog. A changed transcript or attachment is eligible again. The Git commit publishes the revision index and its reviewed archive together.
 
 For a scheduler such as cron or a systemd timer, use `archive-sessions --repo example/project --publish-private example/session-archive`. It stages a batch of up to three new revisions by default, scans them for residual credentials and identity data, verifies that the destination remains private before pushing, then removes the temporary files. Run it as the account that owns the session directories and has Git and GitHub access to the destination. Use a separate scheduled invocation for each source repository you intend to archive. Existing archive files stay in place when using an existing destination. The manager counts revisions published through its own index.
+
+When the scheduler reports `review-required`, stage a batch using the same export options as the scheduled command. Pass `--published-in` to skip revisions already indexed in the private archive.
+
+```bash
+hive-manager archive-sessions --repo example/project --published-in example/session-archive --output ./numbered-review
+hive-manager archive-publish ./numbered-review --destination example/session-archive --private
+```
+
+Review the listed files and pass the returned digest with `--apply` to publish the batch. The scheduler can then skip the numbered revision using its marker.
 
 Pass `--known-secrets-file /path/to/private-literals.txt` to `archive-sessions` for source-specific redactions. Carry over the literals configured for that source in the scheduler and keep the file outside the archive, readable only by the scheduler account. Use one UTF-8 literal per line. Surrounding whitespace and blank lines are ignored, and regex characters match literally. The same literal set is required for `archive-publish` preview and apply of a staged batch that uses it. Both reviewed and scheduled publication require a private destination when extra literals are supplied. A match anywhere in the final artifacts, including a converted file, blocks publication.
 
@@ -374,9 +399,15 @@ hive-manager archive-sessions --repo example/project --published-in example/sess
 hive-manager archive-publish ./first-increment --destination example/session-archive --private --known-secrets-file /path/to/private-literals.txt
 ```
 
-The import preview lists the matched legacy metadata and corresponding revision markers, skipped candidates by reason, and the destination commit bound to the review digest. Inspect the listed legacy output before approving it as the baseline. The import verifies the transcript SHA-256 against the inactive source, checks the declared archived files and their checksums, and verifies that the requested Links Notation and attachment choices match the available evidence. Each selected Claude attachment needs its own matching source hash and archived file. Split artifacts, missing or changed evidence, ambiguous attachment policies, and archived artifacts containing configured literals remain eligible for a fresh export under the selected options and size limit. Changing the Links Notation option, attachment selection, or extra literals produces a distinct revision. Use `--limit` to bound each import, and repeat preview and apply until the eligible index batch is empty.
+The import preview lists the matched legacy metadata and corresponding revision markers, skipped candidates by reason, and the destination commit bound to the review digest. Inspect the listed legacy output before approving it as the baseline. The import verifies the transcript SHA-256 against the inactive source, checks the declared archived files and their checksums, and verifies that the requested Links Notation and attachment choices match the available evidence. For a split transcript, the import checks the contiguous numbered sequence, every declared part's byte count and checksum, and the Links Notation counterpart for each part when requested. Each selected Claude attachment needs its own matching source hash and verified artifact or parts. The preview counts missing or changed evidence, unverified artifacts, ambiguous attachment policies, and residual configured literals. It also lists up to `--limit` unverified archive paths. These revisions remain eligible for fresh export under the selected options and size limits. Changing the Links Notation option, attachment selection, or extra literals produces a distinct revision. Use `--limit` to bound each import, and repeat preview and apply until the eligible index batch is empty.
 
-Apply adds only revision markers in a normal Git commit on the existing private branch. If the destination or plan changed, generate a fresh preview. Review and apply the first incremental batch with `archive-publish --private` before resuming the scheduler. Keep the archive private because its history remains intact. To roll back an import, pause the scheduler and revert the import commit on the existing branch. The manager preserves the legacy README as a historical inventory. New batches record their inventory in their own `manifest.json`, and deployments that need a regenerated overview can build it from those manifests alongside the historical README.
+Apply adds only revision markers in a normal Git commit on the existing private branch. If the destination or plan changed, generate a fresh preview. Review and apply the first incremental batch with `archive-publish --private` before resuming the scheduler. Keep the archive private because its history remains intact. To roll back an import, pause the scheduler and revert the import commit on the existing branch. Keep a copy of the legacy README as the source inventory baseline. To regenerate a source overview, use a local checkout of the archive and redirect the command's Markdown output to a separate file.
+
+```bash
+hive-manager archive-overview ./session-archive --legacy-readme ./legacy-archive-readme.md > ./source-overview.md
+```
+
+The overview keeps the legacy table's columns and source links and adds counts and source sizes from the published batch manifests. It counts each manager revision once, including revisions with multiple parts. Size totals that include rounded legacy sizes are approximate. Use the same historical README as the baseline for subsequent runs.
 
 ## Backup and restore
 

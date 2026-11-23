@@ -84,7 +84,7 @@ The first configured, working layer wins. `AUTOMATION_TOKEN` needs repository co
 
 Default-token pull requests can create workflow runs waiting for approval. The draft immediately dispatches `release.yml`, `security.yml`, `links.yml` and `workflows.yml` on its head with `mode=checks`; these workflow files exist on the default branch. Manual dispatch defaults to checks, and publishing requires an explicit release mode on `main`. The job summary names the selected layer. Missing optional credentials never deny an eligible draft.
 
-The shared actions requested in [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1) have not been published. Local compatibility actions under `.github/actions/` implement that input/output contract; replace their `uses:` paths when the shared actions ship. A daily health job reports actual attempts over seven days and fails if eligible issues received none. It also fails when the last five draft runs ended with the same `decision_code` or the same first error, names it, and links the open issue that tracks it (or asks for one). Each draft job records both as annotations, so the run summary says why a draft is red.
+The shared actions requested in [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1) have not been published. Local compatibility actions under `.github/actions/` implement that input/output contract; replace their `uses:` paths when the shared actions ship. A daily health job reports actual attempts over seven days and fails if eligible issues received none. It also fails when the last five draft runs ended with the same decision code or primary outcome. The report links the exact runs and jobs. Older runs use a labeled annotation fallback.
 
 ## Running a draft from another repository
 
@@ -118,9 +118,28 @@ The binary must run on the image's Ubuntu base (glibc). When called, the workflo
 
 ## Reading a failed draft
 
-1. The session log is attached to the pull request by `--attach-logs`.
-2. If no pull request was opened, the same log is the `formal-ai-draft-session-<issue>` artifact on the workflow run, retained for 30 days. The run's annotations name the first error the session logged. They are read from solve's own `solve-*.log`, so another `*.log` a caller writes into the same directory does not hide them ([#4065](https://github.com/link-assistant/hive-mind/issues/4065)).
-3. `dev/log/self-authored/issue-<n>/evidence` on the branch holds `agent-stream.jsonl` and `session-id.txt` — the model's own record of what it did, not Hive Mind's summary of it.
+The `formal-ai-draft-session-<issue>` Actions artifact retains sanitized solve logs and `formal-ai-draft-outcome.json` for 30 days. The Actions artifact remains available when optional pull-request log publication through `--attach-logs` fails. The attempt annotation identifies the primary cause. The final outcome annotation records whether the artifact was uploaded and how many solve logs it contains.
+
+### Shared outcome contract
+
+The JSON schema identifier is `hive-mind/formal-ai-draft-outcome/v1`. The direct launcher writes `formal-ai-draft-outcome.json` beside its logs and exposes a compact `draft_outcome` step output before exiting. The reusable workflow returns `draft_outcome` with the actual Actions upload receipt. The JSON inside the artifact predates that upload, so its Actions status is `unconfirmed`. After upload, the final annotation and workflow output carry the artifact URL.
+
+| Field                  | Meaning                                                                                                                                                                                                                     |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `primary`              | Stable code, the stage reached, and a readable message.                                                                                                                                                                     |
+| `task`                 | Target and requested repository change, attempt kind, observed diff, and obligation acceptance. An implementation diff after a successful process is useful for review. Acceptance still requires independent verification. |
+| `solver` and `process` | Terminal state and its source, process launch, numeric exit code, and signal when available. The launcher labels observations from older solve images `legacy-log`.                                                         |
+| `runtime`              | Workflow source and image, solver and client versions, observed serving backend, and SHA-256 of any mounted Formal AI binary. Unobserved values are null.                                                                   |
+| `infrastructure`       | Workflow readiness or the failed stage. For a pre-effect deferral it records pending prerequisites and the absence of an effect claim.                                                                                      |
+| `evidence` and `links` | Optional external publication failures and recovery, Actions artifact custody, and run and job URLs.                                                                                                                        |
+
+Health uses the primary code and stable cause from the structured annotation. A run with only old annotations uses a labeled legacy fallback. It can only report the historical text it has. An unreadable diff remains unverified. A diff of logs, solver markers, and session metadata receives no useful-change credit.
+
+The Formal AI workflow already invokes the shared launcher. Its result consumer can decode the `draft_outcome` step output with `parseDraftOutcome` in `scripts/formal-ai-draft-outcome.lib.mjs` or read the JSON file. The caller can publish the final receipt with `scripts/formal-ai-draft-evidence.mjs --finalize` after its own artifact upload. Pass the upload step's outcome and artifact URL through `FORMAL_AI_DRAFT_ARTIFACT_STATUS` and `FORMAL_AI_DRAFT_ARTIFACT_URL`, and the sanitized solve log count through `FORMAL_AI_DRAFT_SESSION_LOGS` when available. Set `RUNNER_NAME` from the job's runner context for the numeric job link. The caller owns result verification and reporting. [Formal AI #1488](https://github.com/link-assistant/formal-ai/issues/1488)
+
+For admission decisions that precede the launcher, `makeDraftOutcome` accepts the Formal AI `formal-ai-hive-client-outcome/v1` deferral receipt and a process with `started: false`. Deferral carries zero execution and authorship credit and requires proof that effects were unclaimed. For a verified no-op, pass `attemptKind: 'continuation'`, an observed empty or diagnostics-only diff, and trusted verification of the same immutable source and the required passing checks. A first attempt without changes has no implementation or acceptance credit. [Formal AI #1485](https://github.com/link-assistant/formal-ai/issues/1485)
+
+The October 30 replay used solve 2.39.9 with Formal AI 0.355.15. The requested investigation produced no implementation and returned `planned_not_executed` with exit 5. Gist and shared-repository uploads returned HTTP 403, a PR-branch fallback succeeded, and the Actions session artifact was retained. The screenshots in the original issue show the open Dependabot PRs and the originating Hive execution. The underlying Dependabot failure was outside this replay's findings. [Original issue](https://github.com/link-assistant/hive-mind/issues/3863) · [Exact job](https://github.com/link-assistant/hive-mind/actions/runs/41081977243/job/124153176671) · [Session artifact](https://github.com/link-assistant/hive-mind/actions/runs/41081977243/artifacts/12990367865)
 
 ## When formal-ai publishes its composite action
 

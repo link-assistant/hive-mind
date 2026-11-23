@@ -279,7 +279,16 @@ To create a destination with an initial branch and README, run `hive-manager arc
 
 Use `archive-sessions --published-in example/session-archive` when working through a backlog or staging batches on a schedule. The manager reads the destination's Git index for this source without downloading existing session logs. It skips an already published transcript revision with the same export options and selected attachments, so the next batch can advance through the backlog. A changed transcript or attachment is eligible again. The Git commit publishes the revision index and its reviewed archive together.
 
-For a scheduler such as cron or a systemd timer, use `archive-sessions --repo example/project --publish-private example/session-archive`. It stages a batch of up to three new revisions by default, scans them for residual credentials and identity data, verifies that the destination remains private before pushing, then removes the temporary files. Run it as the account that owns the session directories and has Git and GitHub access to the destination. Use a separate scheduled invocation for each source repository you intend to archive. Existing archive files stay in place when using an existing destination. The manager counts revisions published through its own index. When a numbered revision still needs publication, the scheduler reports it as `review-required`. Stage it with `--output` and use `archive-publish` to review and apply the batch.
+For a scheduler such as cron or a systemd timer, use `archive-sessions --repo example/project --publish-private example/session-archive`. It stages a batch of up to three new revisions by default, scans them for residual credentials and identity data, verifies that the destination remains private before pushing, then removes the temporary files. Run it as the account that owns the session directories and has Git and GitHub access to the destination. Use a separate scheduled invocation for each source repository you intend to archive. Existing archive files stay in place when using an existing destination. The manager counts revisions published through its own index.
+
+When the scheduler reports `review-required`, stage a batch using the same export options as the scheduled command. Pass `--published-in` to skip revisions already indexed in the private archive.
+
+```bash
+hive-manager archive-sessions --repo example/project --published-in example/session-archive --output ./numbered-review
+hive-manager archive-publish ./numbered-review --destination example/session-archive --private
+```
+
+Review the listed files and pass the returned digest with `--apply` to publish the batch. The scheduler can then skip the numbered revision using its marker.
 
 Pass `--known-secrets-file /path/to/private-literals.txt` to `archive-sessions` for source-specific redactions. Carry over the literals configured for that source in the scheduler and keep the file outside the archive, readable only by the scheduler account. Use one UTF-8 literal per line. Surrounding whitespace and blank lines are ignored, and regex characters match literally. The same literal set is required for `archive-publish` preview and apply of a staged batch that uses it. Both reviewed and scheduled publication require a private destination when extra literals are supplied. A match anywhere in the final artifacts, including a converted file, blocks publication.
 

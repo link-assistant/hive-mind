@@ -74,7 +74,7 @@ Formal-AI-Pull-Request: https://github.com/link-assistant/hive-mind/pull/<n>
 
 无需配置凭据。所有写入工作流使用同一个解析器：GitHub App（变量 `AUTOMATION_APP_ID` 和 secret `AUTOMATION_APP_PRIVATE_KEY`）→ 一个 secret `AUTOMATION_TOKEN` → 内置 `github.token`。采用首个可用层。个人令牌需要 contents、issues、pull requests 和 Actions 写入权限。`FORMAL_AI_DRAFT_IMAGE` 仍为可选变量（默认 `konard/hive-mind:<version>`）。
 
-默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。当最近五次草稿运行以相同的 `decision_code` 或相同的首个错误结束时，它也会失败，并说出该错误、链接跟踪它的开放 issue（或要求新开一个）。每个草稿作业都把这两者记录为注解，因此运行摘要会说明草稿为何是红色。
+默认令牌创建的 pull request 可以产生等待批准的检查。草稿工作流立即通过 `dispatch-checks`，在草稿分支以 `mode=checks` 启动 `release.yml`、`security.yml`、`links.yml` 和 `workflows.yml`。发布必须显式选择发布模式且位于 `main`。缺少可选凭据不会跳过尝试；摘要注明使用的层。每日健康检查统计过去七天实际执行的尝试。如果最近五次草稿运行的决定代码或主要结果相同，检查也会失败。报告链接到确切的运行和作业。较早的运行使用标明来源的旧式注解。
 
 共享 actions 尚未发布，见 [link-foundation/.github#1](https://github.com/link-foundation/.github/issues/1)。目前 `.github/actions/` 提供兼容实现。
 
@@ -110,9 +110,28 @@ jobs:
 
 ## 如何读一个失败的草稿
 
-1. 会话日志由 `--attach-logs` 附加到 pull request 上。
-2. 如果没有开出 pull request，同一份日志是该工作流运行上的 `formal-ai-draft-session-<issue>` 产物，保留 30 天。运行的注解会说出会话记录的首个错误。它们读取自 solve 自己的 `solve-*.log`，因此调用方写入同一目录的其他 `*.log` 不会遮盖它们（[#4065](https://github.com/link-assistant/hive-mind/issues/4065)）。
-3. 分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
+Actions 产物 `formal-ai-draft-session-<issue>` 保存经过敏感信息清理的 solve 日志和 `formal-ai-draft-outcome.json`，保留 30 天。即使 `--attach-logs` 的可选外部发布失败，Actions 仍可保留会话日志。尝试注解记录主要原因，最终注解记录产物上传情况和所含的 solve 日志数量。
+
+### 共享结果契约
+
+JSON 架构标识为 `hive-mind/formal-ai-draft-outcome/v1`。启动器在退出前将 `formal-ai-draft-outcome.json` 写入日志目录，并设置 `draft_outcome` 步骤输出。可复用工作流在该输出中加入 Actions 上传凭据。产物内的 JSON 在上传前生成，其 Actions 状态为 `unconfirmed`。最终注解和工作流输出记录产物 URL。
+
+- `primary` 记录稳定代码、失败阶段和易读的消息。
+- `task` 记录目标、要求的仓库改动、尝试类型、文件差异和验收状态。成功退出且含实现改动的差异可供评审。验收仍需独立验证。
+- `solver` 和 `process` 记录求解器终态及其来源、进程是否启动、退出码和信号。旧镜像的观察结果标为 `legacy-log`。
+- `runtime` 记录工作流源版本、镜像、求解器和客户端版本、实际服务的后端及所挂载 Formal AI 二进制文件的 SHA-256。
+- `infrastructure` 记录基础设施状态，以及开始产生效果前推迟执行时未完成的前置条件。
+- `evidence` 和 `links` 记录可选外部发布结果、Actions 产物状态及运行和作业 URL。
+
+健康检查按结构化主要原因归组。只有旧式注解的运行使用标明来源的兼容路径。无法读取的差异仍待验证。仅含日志、求解器占位文件或会话元数据的差异不会获得实现计分。
+
+Formal AI 调用方可使用 `scripts/formal-ai-draft-outcome.lib.mjs` 的 `parseDraftOutcome` 读取 `draft_outcome` 或 JSON 文件。上传后运行 `scripts/formal-ai-draft-evidence.mjs --finalize` 发布最终凭据。通过 `FORMAL_AI_DRAFT_ARTIFACT_STATUS`、`FORMAL_AI_DRAFT_ARTIFACT_URL` 和 `FORMAL_AI_DRAFT_SESSION_LOGS` 传入上传状态、URL 和已清理日志的数量。通过作业上下文设置 `RUNNER_NAME` 以取得数字作业链接。调用方负责验证和报告结果。 [Formal AI #1488](https://github.com/link-assistant/formal-ai/issues/1488)
+
+`makeDraftOutcome` 接受 `formal-ai-hive-client-outcome/v1` 推迟凭据及 `started: false` 的进程状态。凭据必须证明效果未被申领，执行和作者计分均为零。验证无需改动的续跑时，传入 `attemptKind: 'continuation'`、已确认的空差异或纯诊断差异，以及同一不可变修订上必要检查均通过的可信凭据。首次尝试无改动时不会获得实现或验收计分。 [Formal AI #1485](https://github.com/link-assistant/formal-ai/issues/1485)
+
+10 月 30 日回放使用 solve 2.39.9 和 Formal AI 0.355.15。该次尝试没有产出实现，以 `planned_not_executed` 和退出码 5 结束。可选的 gist 和共享仓库上传返回 HTTP 403，PR 分支回退方案成功，Actions 保留了会话产物 `12990367865`。原始 issue 的截图显示 Dependabot PR 列表及发起的 Hive 运行。回放未确定 Dependabot 故障的原因。 [原始 issue](https://github.com/link-assistant/hive-mind/issues/3863) · [确切的作业](https://github.com/link-assistant/hive-mind/actions/runs/41081977243/job/124153176671)
+
+分支上的 `dev/log/self-authored/issue-<n>/evidence` 保存着 `agent-stream.jsonl` 和 `session-id.txt`——那是模型自己对所做之事的记录，而不是 Hive Mind 对它的概述。
 
 ## 当 formal-ai 发布其 composite action 之后
 

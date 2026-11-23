@@ -141,6 +141,8 @@ For admission decisions that precede the launcher, `makeDraftOutcome` accepts th
 
 The October 30 replay used solve 2.39.9 with Formal AI 0.355.15. The requested investigation produced no implementation and returned `planned_not_executed` with exit 5. Gist and shared-repository uploads returned HTTP 403, a PR-branch fallback succeeded, and the run retained Actions session artifact `12990367865`. The screenshots in the original issue show the open Dependabot PRs and the originating Hive execution. The underlying Dependabot failure was outside this replay's findings. [Original issue](https://github.com/link-assistant/hive-mind/issues/3863) · [Exact job](https://github.com/link-assistant/hive-mind/actions/runs/41081977243/job/124153176671)
 
+The branch can also retain the model’s own `agent-stream.jsonl` and `session-id.txt` under `dev/log/self-authored/issue-<n>/evidence`.
+
 ## When formal-ai publishes its composite action
 
 [Issue #2233](https://github.com/link-assistant/hive-mind/issues/2233) asks for the reusable action `link-assistant/formal-ai` is repackaging out of its `self-authored-pull-request.yml`. That action is not published yet — see [`docs/case-studies/issue-2233/`](case-studies/issue-2233/README.md) for the evidence as of this writing. `uses:` does not accept expressions, so there is no way to write a workflow that picks up the action automatically the day it appears.

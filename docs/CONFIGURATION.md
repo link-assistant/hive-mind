@@ -55,6 +55,8 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | `HIVE_MIND_RETRY_BACKOFF_DELAY_MS`   | 1000    | Backoff delay for retries (ms)                                                |
 | `HIVE_MIND_RESULT_STREAM_CLOSE_MS`   | 30000   | Timeout (ms) to wait for stream close after result event before force-killing |
 
+Set `HIVE_MIND_DEADLINE_AT_MS` to an absolute Unix timestamp in milliseconds when a supervisor sets a hard deadline for `solve`. A transient retry is skipped if its backoff would reach or pass that deadline. The supervisor still enforces the overall runtime limit.
+
 ### 2. Auto-Continue Settings
 
 | Environment Variable                | Default | Description                                     |

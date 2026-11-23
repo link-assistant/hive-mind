@@ -34,7 +34,7 @@ test('a draft that fails before solve writes its failure into the uploaded log d
     });
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, /::error title=[^:]+::FORMAL_AI_DRAFT_BINARY is /);
-    assert.deepEqual(readdirSync(logDir), ['formal-ai-draft-failure.log']);
+    assert.deepEqual(readdirSync(logDir).sort(), ['formal-ai-draft-failure.log', 'formal-ai-draft-outcome.json']);
     const recorded = readFileSync(join(logDir, 'formal-ai-draft-failure.log'), 'utf8');
     assert.match(recorded, /^\d{4}-\d{2}-\d{2}T\S+ FORMAL_AI_DRAFT_BINARY is .*missing\/formal-ai, which does not exist/u);
   } finally {

@@ -8,6 +8,7 @@ import { taskUuidPattern } from './inspection.mjs';
 
 const run = promisify(execFile);
 const containerIdPattern = /^[a-f\d]{64}$/;
+export const RECORD_REPAIR_START_COMMAND_VERSIONS = ['0.44.0', '0.45.0'];
 
 export async function startLibraries() {
   try {
@@ -15,7 +16,7 @@ export async function startLibraries() {
     const executable = await realpath(stdout.trim());
     const root = dirname(dirname(dirname(executable)));
     const { name, version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-    if (name !== 'start-command' || version !== '0.44.0') throw new Error();
+    if (name !== 'start-command' || !RECORD_REPAIR_START_COMMAND_VERSIONS.includes(version)) throw new Error();
     const require = createRequire(executable);
     return {
       require,
@@ -27,7 +28,7 @@ export async function startLibraries() {
       ...require('../lib/launch-owner.js'),
     };
   } catch {
-    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', 'Recorded-resume repair needs the start-command 0.44.0 executable installed on PATH.');
+    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', `Recorded-resume repair needs the start-command ${RECORD_REPAIR_START_COMMAND_VERSIONS.join(' or ')} executable installed on PATH.`);
   }
 }
 

@@ -1,11 +1,11 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { withStateLock } from '../../state-lock.lib.mjs';
-import { findRepairCandidates, inspectRepairContainer, previewTaskRecordRepair, repairPlan, repairSelection, startLibraries } from './lib/record-repair.mjs';
+import { findRepairCandidates, inspectRepairContainer, previewTaskRecordRepair, RECORD_REPAIR_START_COMMAND_VERSIONS, repairPlan, repairSelection, startLibraries } from './lib/record-repair.mjs';
 
 const usage = `Usage: hive-manager tasks repair-records [--apply] [UUID...]
 Preview adoption of running, attributed Docker resumes missing their task record update.
-Requires start-command 0.44.0. For records already marked executing, use tasks resume-all.
+Requires start-command ${RECORD_REPAIR_START_COMMAND_VERSIONS.join(' or ')}. For records already marked executing, use tasks resume-all.
 `;
 
 export async function applyTaskRecordRepair(uuids, { expected, hasWatcher } = {}) {

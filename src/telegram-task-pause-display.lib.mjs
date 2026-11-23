@@ -2,6 +2,7 @@ import { t } from './i18n.lib.mjs';
 import { safeEditMessageText, safeSendMessage } from './telegram-safe-reply.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { formatLivePullRequestMessage } from './session-live-pr-link.lib.mjs';
 
 export async function reportDockerPause({ bot, sessionName, sessionInfo: info, running, verbose, now = Date.now, alertAfterMs = 60 * 60 * 1000, persist }) {
   if (!running || !info.chatId || !bot?.telegram) return;
@@ -9,7 +10,8 @@ export async function reportDockerPause({ bot, sessionName, sessionInfo: info, r
   const state = info.paused ? 'paused' : 'running';
   try {
     if (info.messageId && info.pauseCardState !== state) {
-      const message = formatExecutingWorkSessionMessage({ sessionName: info.sessionId || sessionName, executionUuid: info.executionUuid, isolationBackend: 'docker', infoBlock: info.infoBlock, locale, header: info.paused ? t('telegram.task_state_paused', {}, { locale }) : null });
+      const taskSession = info.sessionId || sessionName;
+      const message = info.paused ? formatExecutingWorkSessionMessage({ sessionName: taskSession, executionUuid: info.executionUuid, isolationBackend: 'docker', infoBlock: info.infoBlock, locale, header: t('telegram.task_state_paused', {}, { locale }) }) : formatLivePullRequestMessage({ sessionName: taskSession, sessionInfo: info });
       const edited = await safeEditMessageText(bot.telegram, info.chatId, info.messageId, undefined, message, { parse_mode: 'Markdown', fallbackLocale: locale, verbose }).then(
         () => true,
         error => {

@@ -149,6 +149,23 @@ test('removed after a manual pause clears durable state without recovery or a du
   assert.equal((await store.load()).length, 0);
 });
 
+test('external termination of a paused task retains its files without starting recovery', async t => {
+  const { state } = setup({}, { docker: 'paused' });
+  const store = createSessionStore({ dir: await temporary(t) });
+  monitor.setSessionStore(store);
+  monitor.trackSession(SESSION, info());
+  await monitor.monitorSessions({});
+  state.docker = 'exited';
+  const notices = [];
+  await monitor.monitorSessions({ telegram: { sendMessage: async (_chat, message) => notices.push(message) } }, false, { lookupLinkedPullRequest: async () => null });
+  const [saved] = await store.load();
+  assert.equal(saved.sessionInfo.paused, undefined);
+  assert.equal(saved.sessionInfo.retainedForResume, true);
+  assert.equal(saved.sessionInfo.stopRequestedByUser, true);
+  assert.match(notices[0], /stopped by user/i);
+  assert.deepEqual(state.calls, []);
+});
+
 test('restart keeps a frozen task and /stop records intent before signalling it', async t => {
   const { state } = setup({}, { docker: 'paused' });
   const dir = await temporary(t);
@@ -371,10 +388,10 @@ test('Docker cleanup protects both a manually frozen task and a stopped retained
   assert.equal(plan.remove.length, 0);
 });
 
-test('one alert after the pause threshold and a live card after unpause', async () => {
+test('one alert after the pause threshold and the previous progress on unpause', async () => {
   const calls = [];
   const bot = { telegram: { editMessageText: async (...args) => calls.push(['edit', args[3]]), sendMessage: async (...args) => calls.push(['send', args[1]]) } };
-  const sessionInfo = info({ paused: true, pausedAt: WHEN, messageId: 7, locale: 'en' });
+  const sessionInfo = info({ paused: true, pausedAt: WHEN, messageId: 7, locale: 'en', solveProgress: { header: '⏳ Monitoring for 17m 0s' } });
   const report = now => reportDockerPause({ bot, sessionName: SESSION, sessionInfo, running: true, now: () => now, persist: () => {} });
   await report(Date.parse(WHEN));
   await report(Date.parse(WHEN) + 3600000);
@@ -387,7 +404,7 @@ test('one alert after the pause threshold and a live card after unpause', async 
   assert.match(calls[1][1], /\/unpause/);
   sessionInfo.paused = false;
   await report(Date.parse(WHEN) + 7200000);
-  assert.doesNotMatch(calls[2][1], /Paused/);
+  assert.match(calls[2][1], /Monitoring for 17m 0s/);
 });
 
 test('Telegram resolves the configured names, URLs and replies and protects the requester', async () => {

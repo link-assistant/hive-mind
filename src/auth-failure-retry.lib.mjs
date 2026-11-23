@@ -88,7 +88,9 @@ export const createAuthFailureRetry = ({ tool, budget, log, fetchStatus = fetchP
         return { retry: true, delayMs: decision.delayMs, status, extended };
       }
       const elapsed = startedAt === null ? null : formatRetryDuration(Math.max(0, now() - startedAt));
-      if (attempts > 0) {
+      if (decision.reason === 'deadline') {
+        await log(`\n❌ ${toolName} authentication retry stopped: ${budget.describeExhaustion(decision)}.`, { level: 'error' });
+      } else if (attempts > 0) {
         const why = budget && decision.reason === 'budget' ? budget.describeExhaustion(decision) : `${attempts} retr${attempts === 1 ? 'y' : 'ies'} did not clear it`;
         await log(`\n❌ ${toolName} authentication failure persisted: ${why}${elapsed ? ` over ${elapsed}` : ''}. Treating it as confirmed.`, { level: 'error' });
       }

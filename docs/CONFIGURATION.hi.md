@@ -55,6 +55,8 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 | `HIVE_MIND_RETRY_BACKOFF_DELAY_MS`   | 1000   | retries के लिए backoff देरी (ms)                                                  |
 | `HIVE_MIND_RESULT_STREAM_CLOSE_MS`   | 30000  | result event के बाद stream बंद होने की प्रतीक्षा के लिए Timeout (ms) force-kill से पहले |
 
+जब कोई बाहरी प्रक्रिया `solve` के लिए सख्त समय सीमा तय करती है, तो `HIVE_MIND_DEADLINE_AT_MS` में मिलीसेकंड में उसका निरपेक्ष Unix टाइमस्टैम्प दें। अगर प्रतीक्षा समय सीमा तक पहुँच जाएगी या उसे पार कर जाएगी, तो अस्थायी त्रुटि के बाद फिर से प्रयास छोड़ दिया जाता है। कुल रनटाइम की सीमा बाहरी प्रक्रिया ही लागू करती है।
+
 ### 2. Auto-Continue सेटिंग्स
 
 | Environment Variable                | डिफ़ॉल्ट | विवरण                                       |

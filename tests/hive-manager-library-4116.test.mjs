@@ -68,13 +68,13 @@ test('task inspection shares report summaries, attempt windows and bounded evide
   assert.throws(() => inspectTasks(tasks, { limit: 0 }), HiveManagerError);
 });
 
-function mockStartCommand(cwd, appFolder) {
+function mockStartCommand(cwd, appFolder, version = '0.44.0') {
   const start = join(cwd, 'start-command');
   const lib = join(start, 'src', 'lib');
   mkdirSync(lib, { recursive: true });
   mkdirSync(join(start, 'src', 'bin'));
   mkdirSync(join(start, 'node_modules', 'lino-objects-codec'), { recursive: true });
-  writeFileSync(join(start, 'package.json'), JSON.stringify({ name: 'start-command', version: '0.44.0' }));
+  writeFileSync(join(start, 'package.json'), JSON.stringify({ name: 'start-command', version }));
   const executable = join(start, 'src', 'bin', 'cli.js');
   writeFileSync(executable, '#!/bin/bash\nexit 92\n', { mode: 0o700 });
   symlinkSync(executable, join(cwd, '$'));
@@ -196,4 +196,11 @@ else process.exitCode = 93;
     assert.equal(result.stderr, `hive-manager: ${failure.message}\n`);
   }
   await assert.rejects(previewTaskRecordRepair({ uuids: ['wrong'] }), { name: 'HiveManagerError', code: 'INVALID_INPUT' });
+});
+
+test('record repair accepts the start-command release pinned in the image', { timeout: 10000 }, t => {
+  const { cwd, env, cli } = fixture(t);
+  mockStartCommand(cwd, env.START_APP_FOLDER, '0.45.0');
+  writeFileSync(join(cwd, 'docker'), '#!/bin/bash\n[[ "$1" == ps ]]\n', { mode: 0o700 });
+  assert.deepEqual(jsonOutput(cli(['repair-records'])), { mode: 'preview', outcomes: [] });
 });

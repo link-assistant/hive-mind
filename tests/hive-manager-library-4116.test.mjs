@@ -74,8 +74,7 @@ function mockStartCommand(cwd, appFolder) {
   mkdirSync(lib, { recursive: true });
   mkdirSync(join(start, 'src', 'bin'));
   mkdirSync(join(start, 'node_modules', 'lino-objects-codec'), { recursive: true });
-  const setStartVersion = version => writeFileSync(join(start, 'package.json'), JSON.stringify({ name: 'start-command', version }));
-  setStartVersion('0.45.0');
+  const packageJson = join(start, 'package.json');
   const executable = join(start, 'src', 'bin', 'cli.js');
   writeFileSync(executable, '#!/bin/bash\nexit 92\n', { mode: 0o700 });
   symlinkSync(executable, join(cwd, '$'));
@@ -117,12 +116,13 @@ exports.applyResumeToRecord = (record, plan, id, attempt) => ({ ...record, statu
   writeFileSync(join(lib, 'docker-cleanup.js'), 'exports.startDetachedDockerCompletionWatcher = () => true; exports.getDockerContainerCleanupPolicy = () => "keep";');
   writeFileSync(join(lib, 'docker-command-handoff.js'), 'exports.buildCommandHandoffArgs = (args, path) => [path, ...args]; exports.commandHandoffPath = name => "/" + name;');
   writeFileSync(join(lib, 'launch-owner.js'), 'exports.hasActiveLaunch = record => Boolean(record.options.launchPending);');
-  return setStartVersion;
+  return version => writeFileSync(packageJson, JSON.stringify({ name: 'start-command', version }));
 }
 
 test('repair uses the same eligible and ambiguous outcomes in JavaScript and Bash without writing the task store', { timeout: 15000 }, async t => {
   const { cwd, env, run, cli } = fixture(t);
   const setStartVersion = mockStartCommand(cwd, env.START_APP_FOLDER);
+  setStartVersion('0.44.0');
   mkdirSync(env.START_APP_FOLDER);
   const store = join(env.START_APP_FOLDER, 'executions.lino');
   const command = 'fixture command';
@@ -178,10 +178,16 @@ else process.exitCode = 93;
   writeFileSync(inventory, JSON.stringify({ [id]: { ...container, State: { ...container.State, Paused: true } } }));
   assert.deepEqual(preview(uuid), { mode: 'preview', outcomes: [] });
   writeFileSync(inventory, JSON.stringify({ [id]: container }));
-  for (const version of ['0.44.0', '0.45.0']) {
-    setStartVersion(version);
-    assert.deepEqual(preview(uuid.toUpperCase()), { mode: 'preview', outcomes: [{ uuid, container: 'task-resume-1', state: 'eligible' }] });
-  }
+  const eligible = { mode: 'preview', outcomes: [{ uuid, container: 'task-resume-1', state: 'eligible' }] };
+  assert.deepEqual(preview(uuid.toUpperCase()), eligible);
+  setStartVersion('0.46.0');
+  const unsupported = jsonOutput(library([uuid]));
+  assert.equal(unsupported.code, 'START_COMMAND_UNAVAILABLE');
+  const unsupportedCli = cli(['repair-records', uuid]);
+  assert.equal(unsupportedCli.status, 1);
+  assert.equal(unsupportedCli.stderr, `hive-manager: ${unsupported.message}\n`);
+  setStartVersion('0.45.0');
+  assert.deepEqual(preview(uuid), eligible);
   const applied = jsonOutput(cli(['repair-records', '--apply', uuid]));
   assert.deepEqual(applied, { mode: 'apply', outcomes: [{ uuid, container: 'task-resume-1', state: 'repaired' }] });
   assert.equal(JSON.parse(readFileSync(store, 'utf8'))[0].status, 'executing');

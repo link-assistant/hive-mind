@@ -8,7 +8,6 @@ import { taskUuidPattern } from './inspection.mjs';
 
 const run = promisify(execFile);
 const containerIdPattern = /^[a-f\d]{64}$/;
-// This command reads private APIs from the start-command installation.
 export const repairStartVersions = ['0.44.0', '0.45.0'];
 
 export async function startLibraries() {
@@ -29,7 +28,7 @@ export async function startLibraries() {
       ...require('../lib/launch-owner.js'),
     };
   } catch {
-    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', `Recorded-resume repair needs start-command ${repairStartVersions.join(' or ')} installed on PATH.`);
+    throw new HiveManagerError('START_COMMAND_UNAVAILABLE', `Recorded-resume repair needs the start-command ${repairStartVersions.join(' or ')} executable installed on PATH.`);
   }
 }
 

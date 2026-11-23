@@ -48,6 +48,7 @@ Four flags are chosen rather than inherited:
 - The script pulls `konard/hive-mind:<version>` explicitly, retrying a registry timeout after 15 s, 30 s, 1 min and 2 min, so the container runs the same hive-mind as the scripts beside it. A tag that is not published yet (a version bumped on `main` before its release finished) falls back to `konard/hive-mind:latest` with a warning. An `image` input or the `FORMAL_AI_DRAFT_IMAGE` variable is used as given.
 - The Formal AI server the session starts gets `FORMAL_AI_CACHE_DIR` under its own home. Formal AI still writes `data/cache/derivations/` in the clone, so that directory, like `.formal-ai/`, is excluded from the uncommitted-changes check and from the work preserved on `recovery/<branch>` branches: it is the tool's state, not the user's work.
 - The container is started with `--rm`, so a failure comment never points at a path inside it. It links the workflow run, whose artifact holds the session log.
+- The workflow passes the draft job's retry deadline with 30 seconds reserved for failure handling. When invoking `scripts/formal-ai-draft.mjs` directly, set `HIVE_MIND_DEADLINE_AT_MS` to the caller's absolute Unix deadline in milliseconds. The script defaults to 19 minutes and 30 seconds from process start, including image pulls, for a 20-minute attempt. It forwards the deadline and any `HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS`, `HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS`, and `HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS` overrides to `solve`.
 
 ### Checks on the pull request
 

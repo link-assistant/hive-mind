@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/h
 curl -fsSL https://raw.githubusercontent.com/link-assistant/hive-mind/main/src/hive-manager/cli.sh | bash -s -- deploy --help
 ```
 
-For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and local backup. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Packaged maintenance on the host requires Node.js and a Hive Mind installation or npm. See [Pinning the CLI, host package, and image](#pinning-the-cli-host-package-and-image).
+For interactive commands, redirects, or repeated use, save the file and invoke it with Bash. Replace `main` with a release reference or commit SHA to pin the download. Bash and standard Linux utilities are enough for deployment preparation and basic `deploy backup`. Docker operations also require a local Docker Engine on the deployment host and permission to access it. Packaged maintenance on the host requires Node.js and a Hive Mind installation or npm. See [Pinning the CLI, host package, and image](#pinning-the-cli-host-package-and-image).
 
 ## JavaScript library
 
@@ -78,7 +78,7 @@ state-dir=./state
 env-file=./telegram.env
 ```
 
-Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. Bash-only operations such as backups can run on a target without a Hive Mind installation. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
+Use ordinary OpenSSH configuration for keys, host verification, DNS, and routing. The manager sends its own Bash script and flags to the host. Bash operations such as basic `deploy backup` can run on a target without a Hive Mind installation. The profile, state files, credentials and Docker service are all on the target. SSH options go before the command.
 
 ```bash
 hive-manager --host hive-production deploy --profile ./hive/production.conf update
@@ -90,7 +90,7 @@ Set `ProxyJump` on the destination alias, configure `ProxyCommand` for an SSH tr
 
 ### Pinning the CLI, host package, and image
 
-Install the operator CLI from an exact npm release or save the script from that release's Git tag. The operator's CLI supplies the Bash program for every SSH invocation. For packaged maintenance on the host, set `HIVE_MANAGER_PACKAGE_VERSION` to an exact version such as `2.48.0`. The manager carries that value in the SSH command, so OpenSSH environment forwarding requires no configuration. The executing host uses an installed `@link-assistant/hive-mind` only if its package manifest matches the pin and the command's module is present. Otherwise, Node-based maintenance requests that version through npm and verifies it before executing the module. `deploy global-tools` and `deploy tool-services` require a matching package installed on the host. With no pin configured, the manager prefers the installed implementation and uses the npm `latest` tag for fallback. Values such as npm dist-tags resolve through npm and can change over time.
+Install the operator CLI from an exact npm release or save the script from that release's Git tag. The operator's CLI supplies the Bash program for every SSH invocation. For packaged maintenance on the host, set `HIVE_MANAGER_PACKAGE_VERSION` to an exact version such as `2.48.0`. The manager carries that value in the SSH command, so OpenSSH environment forwarding requires no configuration. The executing host uses an installed `@link-assistant/hive-mind` only if its package manifest matches the pin and the command's module is present. Otherwise, Node-based maintenance requests that version through npm and verifies it before executing the module. The host's Python actions require a matching installed package. These include `deploy global-tools`, `deploy tool-services`, reviewed backups and bundle restores. With no pin configured, the manager prefers the installed implementation and uses the npm `latest` tag for fallback. Values such as npm dist-tags resolve through npm and can change over time.
 
 After installing the desired release on the operator machine and the target, verify both installations and the effective host dispatch. `HIVE_MANAGER_PACKAGE_DIAGNOSTICS=1` reports the selected package name and version and whether it came from an installation or npm. It travels across SSH with the pin and writes to stderr, keeping command output on stdout available to scripts.
 
@@ -379,6 +379,37 @@ hive-manager --host replacement deploy --state-dir ./restored-state restore < hi
 ```
 
 The backup is a private archive of the state directory. Keep configuration inside that directory if it should be included, and preserve separate files and Docker volumes independently. The state directory includes Claude, Codex, Agent skills, Git, GitHub CLI, Hive Mind session state, and start-command records and logs. Archives can contain credentials. Restore a trusted archive into a new directory and ensure its files are accessible by the `box` user before applying the profile.
+
+### Reviewed private bundles
+
+Use a reviewed bundle to select provider data and extra sources. Install Hive Mind Manager with bundle support and Python 3.10 or later on the Linux host running each command. Stop the deployment and any other writers to shared sources. The backup uses the target's Docker CLI to inspect the deployment and copy selected Docker paths. The restore can run offline with Python and GNU coreutils.
+
+- `--provider claude` selects `claude/` and `claude.json` when present. `--provider codex` selects `codex/`. Repeat the option to select both.
+- `--state` selects managed non-provider state from `agents`, `gh`, `git`, `hive`, `start-command`, and `start-logs`. Other top-level entries are excluded.
+- `--path NAME=/absolute/path` selects an additional host file or directory outside the state directory. Use it for separate configuration or another explicitly reviewed path.
+- `--mount NAME=/container/path` selects a Docker bind or volume by its exact destination on the deployment container. Use `NAME=CONTAINER:/container/path` to select a mount on another stopped container. Select nested mounts individually. A bind overlapping the configured state directory belongs to the state or provider scope.
+- `--legacy NAME=CONTAINER:/absolute/path` selects a file or directory recorded as added or changed in a stopped container's writable layer. Paths overlapping Docker mounts are excluded from this selection.
+
+The plan records the selected paths, source ownership and modes, container identities, mount bindings and scope exclusions. The capture re-resolves the plan before reading payloads. The receipt also records skipped symbolic links, special files, nested host mounts and Docker archive link entries. Keep the plan private along with the bundle and receipt.
+
+```bash
+umask 077
+set -o noclobber
+hive-manager --host hive-production deploy --profile ./hive/production.conf backup --plan \
+  --provider claude --mount settings=/run/operator-settings \
+  --legacy old-codex=legacy-bot:/home/box/.codex > backup-plan.json
+# Review backup-plan.json, then stream the bundle to operator-owned storage.
+hive-manager --host hive-production deploy --profile ./hive/production.conf backup \
+  --plan-file - --output - < backup-plan.json > hive-private.bundle
+hive-manager --host replacement deploy --state-dir ./restored-backup restore \
+  --bundle --input - < hive-private.bundle
+```
+
+Pass local paths in place of `--plan-file -`, `--output -`, or `--input -` to read or write files on the command's target host. With SSH, use stdin and stdout without a TTY to stream between the target and your machine. A named bundle output is created with mode `0600` and refuses to overwrite a file. For stdout, use restrictive permissions on the receiving side and check the SSH command's exit status before retaining the bundle.
+
+The restore verifies each file's SHA-256 and the archive metadata against its manifest before publishing the new directory. It installs provider and common state under `state/`, named extra sources under `additional/`, and the private receipt at `MANIFEST.json`. Directories are `0700`. Files are `0600`, with owner execute permission retained where present. The default payload owner is the restoring user. A privileged operator can use `--owner UID:GID` to assign the payloads to the replacement deployment user. Review the receipt and use the restored `state/` as the replacement profile's state path. Rebind extra sources explicitly after review.
+
+The bundle can contain provider credentials, transcripts and configuration. The deployment chooses the destination, encryption and keys, retention, and schedule. Keep the bundle in access-controlled storage or stream it through deployment-owned authenticated encryption. For a public transcript export, use the session archive commands and review their redactions.
 
 ## Telegram MTProto proxy
 

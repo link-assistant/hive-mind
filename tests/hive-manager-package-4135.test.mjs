@@ -46,6 +46,7 @@ exec "$@"`
     mkdirSync(join(manager, 'storage'), { recursive: true });
     mkdirSync(join(manager, 'lib'));
     mkdirSync(join(manager, 'maintenance'));
+    mkdirSync(join(manager, 'backup'));
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name, version }));
     copyFileSync(cli, join(manager, 'cli.sh'));
     executable(join(source, 'hive.mjs'), 'printf "unexpected hive invocation\\n"; exit 98');
@@ -57,6 +58,7 @@ process.exitCode = 17;`;
     if (storage) writeFileSync(join(manager, 'storage', 'main.mjs'), module);
     writeFileSync(join(source, 'hive-models.mjs'), module, { mode: 0o700 });
     writeFileSync(join(manager, 'maintenance', 'global-tools.py'), `print('${version}')\n`);
+    writeFileSync(join(manager, 'backup', 'main.py'), `import json, sys\nprint(json.dumps(sys.argv[1:]))\n`);
     for (const bin of bins) {
       symlinkSync(join(source, bin === 'hive-manager' ? 'hive-manager/cli.sh' : `${bin}.mjs`), join(binDir, bin));
     }
@@ -156,6 +158,15 @@ test('installed-only host maintenance checks the pin and Docker exec uses the co
   assert.equal(mismatched.status, 1, mismatched.stderr);
   assert.match(mismatched.stderr, /Install @link-assistant\/hive-mind@2\.49\.0/);
   assert.doesNotMatch(mismatched.stderr, /npm requested/);
+
+  const backupArgs = ['deploy', '--name', 'stage', '--state-dir', '/stage data', 'backup', '--help'];
+  const backup = run(backupArgs);
+  assert.equal(backup.status, 0, backup.stderr);
+  assert.deepEqual(JSON.parse(backup.stdout), ['backup', 'stage', '/stage data', '--help']);
+  const mismatchedBackup = run(backupArgs, { version: '2.49.0' });
+  assert.equal(mismatchedBackup.status, 1, mismatchedBackup.stderr);
+  assert.match(mismatchedBackup.stderr, /Install @link-assistant\/hive-mind@2\.49\.0 with backup\/main\.py/);
+  assert.doesNotMatch(mismatchedBackup.stderr, /npm requested/);
 
   writeFileSync(join(target, 'docker'), '#!/bin/sh\nprintf "<%s>\\n" "$@"\n', { mode: 0o700 });
   const docker = run(['deploy', 'tasks', 'report', '--help'], { version: '2.49.0' });

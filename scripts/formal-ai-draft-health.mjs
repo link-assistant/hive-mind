@@ -13,19 +13,22 @@ const eligible = eligibleIssues(issues, since);
 const pages = await ghApi(`repos/${repository}/actions/workflows/formal-ai-draft.yml/runs?created=%3E%3D${since}&per_page=100`, { paginate: true });
 let attempts = 0;
 let occupied = 0;
+let deferred = 0;
 const outcomes = [];
 for (const run of pages.flatMap(page => page.workflow_runs)) {
   if (!['issues', 'workflow_dispatch'].includes(run.event)) continue;
-  const pagesOfJobs = await ghApi(`repos/${repository}/actions/runs/${run.id}/jobs?per_page=100`, { paginate: true });
+  const pagesOfJobs = await ghApi(`repos/${repository}/actions/runs/${run.id}/attempts/${run.run_attempt || 1}/jobs?per_page=100`, { paginate: true });
   const jobs = pagesOfJobs.flatMap(page => page.jobs);
   const draftJob = jobs.find(job => job.steps?.some(step => step.name === DRAFT_STEP));
   const annotations = draftJob ? await ghList(`repos/${repository}/check-runs/${draftJob.id}/annotations?per_page=100`) : [];
-  const outcome = runOutcomeFromAnnotations(run, annotations);
-  if (isExecutedAttempt(run, jobs, outcome.decisionCode)) attempts++;
+  const outcome = runOutcomeFromAnnotations(run, annotations, draftJob);
+  if (outcome.outcome?.primary.code === 'deferred_before_effects') {
+    if (run.event === 'issues') deferred++;
+  } else if (isExecutedAttempt(run, jobs, outcome.decisionCode)) attempts++;
   if (run.event === 'issues' && outcome.decisionCode === DRAFT_DECISION_CODES.occupied) occupied++;
   outcomes.push(outcome);
 }
-const { healthy, report } = evaluateDraftHealth({ eligible: eligible.length, attempts, occupied });
+const { healthy, report } = evaluateDraftHealth({ eligible: eligible.length, attempts, occupied, deferred });
 console.log(report);
 if (!healthy) {
   console.error('Eligible issues received no draft attempt; inspect credentials and workflow decisions.');

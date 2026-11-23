@@ -75,8 +75,12 @@ Usage: hive-manager deploy [OPTIONS] ACTION [ARGS]
   cleanup --scoped      Preview or apply detached host and task cache cleanup
   backup [--output FILE|-]
                         Save a private archive of deployment state
+  backup --plan [SOURCES] | backup --plan-file FILE [--output FILE|-]
+                        Review and stream a selected private backup bundle
   restore [--input FILE|-]
                         Extract an archive into a new state directory
+  restore --bundle [--input FILE|-]
+                        Verify and restore a private bundle to a new directory
   reboot --confirm      Reboot the deployment host
   docker-service        Check or start Docker, or enable daemon live restore
   proxy                 Manage an optional Telegram MTProto proxy
@@ -212,11 +216,11 @@ run_maintenance() {
   exec npm exec --yes --package "@link-assistant/hive-mind@$version" -- "$bin" "$@"
 }
 
-run_host_maintenance() {
-  local action=$1 source_path entry
+run_host_python() {
+  local module=$1 source_path entry
   shift
   if source_path=$(package_source) || source_path=$(package_source "$(command -v hive)"); then
-    entry=$source_path/hive-manager/maintenance/$action.py
+    entry=$source_path/hive-manager/$module
     if [[ -f $entry ]]; then
       require python3
       exec python3 -I -B -c '
@@ -224,10 +228,16 @@ import os, runpy, sys
 sys.argv.pop(0)
 sys.path.insert(0, os.path.dirname(sys.argv[0]))
 runpy.run_path(sys.argv[0], run_name="__main__")
-' "$entry" "$@" --container "$name"
+' "$entry" "$@"
     fi
   fi
-  fail "Install a Hive Mind package with $action on the Linux Docker host"
+  fail "Install a Hive Mind package with $module on the target Linux host"
+}
+
+run_host_maintenance() {
+  local action=$1
+  shift
+  run_host_python "maintenance/$action.py" "$@" --container "$name"
 }
 
 auth_args() {
@@ -759,6 +769,13 @@ restore_state() {
     [[ ! -e $stage ]] || fail "State directory already exists: $state_dir"
   )
   printf 'Restored %s\n' "$state_dir"
+}
+
+private_backup() {
+  local action=$1
+  shift
+  if [[ ${1-} != --help && ${1-} != -h ]]; then lock_deployment; fi
+  (run_host_python backup/main.py "$action" "$name" "$state_dir" "$@")
 }
 
 deploy_status() {
@@ -1686,8 +1703,18 @@ deploy() {
   case "$action" in
     compose) require docker; exec docker compose "$@" ;;
     helm) require helm; exec helm "$@" ;;
-    backup) backup_state "$@"; return ;;
-    restore) restore_state "$@"; return ;;
+    backup)
+      case "${1-}" in
+        --plan|--plan-file|--help|-h) private_backup backup "$@" ;;
+        *) backup_state "$@" ;;
+      esac
+      return ;;
+    restore)
+      case "${1-}" in
+        --bundle) shift; private_backup restore "$@" ;;
+        *) restore_state "$@" ;;
+      esac
+      return ;;
     diagnose) require docker; diagnose "$@"; return ;;
     reboot)
       [[ $# == 1 && $1 == --confirm ]] || fail "Usage: deploy reboot --confirm"

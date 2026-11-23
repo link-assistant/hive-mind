@@ -392,6 +392,37 @@ hive-manager --host replacement deploy --state-dir ./restored-state restore < hi
 
 The backup is a private archive of the state directory. Keep configuration inside that directory if it should be included, and preserve separate files and Docker volumes independently. The state directory includes Claude, Codex, Agent skills, Git, GitHub CLI, Hive Mind session state, and start-command records and logs. Archives can contain credentials. Restore a trusted archive into a new directory and ensure its files are accessible by the `box` user before applying the profile.
 
+### Reviewed private bundles
+
+Use a reviewed bundle to select provider data and extra sources. Install Hive Mind Manager with bundle support and Python 3.10 or later on the Linux host running each command. Stop the deployment and any other writers to shared sources. The backup uses the target's Docker CLI to inspect the deployment and copy selected Docker paths. The restore can run offline with Python and GNU coreutils.
+
+- `--provider claude` selects `claude/` and `claude.json` when present. `--provider codex` selects `codex/`. Repeat the option to select both.
+- `--state` selects managed non-provider state from `agents`, `gh`, `git`, `hive`, `start-command`, and `start-logs`. Other top-level entries are excluded.
+- `--path NAME=/absolute/path` selects an additional host file or directory outside the state directory. Use it for separate configuration or another explicitly reviewed path.
+- `--mount NAME=/container/path` selects a Docker bind or volume by its exact destination on the deployment container. Use `NAME=CONTAINER:/container/path` to select a mount on another stopped container. Select nested mounts individually. A bind overlapping the configured state directory belongs to the state or provider scope.
+- `--legacy NAME=CONTAINER:/absolute/path` selects a file or directory recorded as added or changed in a stopped container's writable layer. Paths overlapping Docker mounts are excluded from this selection.
+
+The plan records the selected paths, source ownership and modes, container identities, mount bindings and scope exclusions. The capture re-resolves the plan before reading payloads. The receipt also records skipped symbolic links, special files, nested host mounts and Docker archive link entries. Keep the plan private along with the bundle and receipt.
+
+```bash
+umask 077
+set -o noclobber
+hive-manager --host hive-production deploy --profile ./hive/production.conf backup --plan \
+  --provider claude --mount settings=/run/operator-settings \
+  --legacy old-codex=legacy-bot:/home/box/.codex > backup-plan.json
+# Review backup-plan.json, then stream the bundle to operator-owned storage.
+hive-manager --host hive-production deploy --profile ./hive/production.conf backup \
+  --plan-file - --output - < backup-plan.json > hive-private.bundle
+hive-manager --host replacement deploy --state-dir ./restored-backup restore \
+  --bundle --input - < hive-private.bundle
+```
+
+Pass local paths in place of `--plan-file -`, `--output -`, or `--input -` to read or write files on the command's target host. With SSH, use stdin and stdout without a TTY to stream between the target and your machine. A named bundle output is created with mode `0600` and refuses to overwrite a file. For stdout, use restrictive permissions on the receiving side and check the SSH command's exit status before retaining the bundle.
+
+The restore verifies each file's SHA-256 and the archive metadata against its manifest before publishing the new directory. It installs provider and common state under `state/`, named extra sources under `additional/`, and the private receipt at `MANIFEST.json`. Directories are `0700`. Files are `0600`, with owner execute permission retained where present. The default payload owner is the restoring user. A privileged operator can use `--owner UID:GID` to assign the payloads to the replacement deployment user. Review the receipt and use the restored `state/` as the replacement profile's state path. Rebind extra sources explicitly after review.
+
+The bundle can contain provider credentials, transcripts and configuration. The deployment chooses the destination, encryption and keys, retention, and schedule. Keep the bundle in access-controlled storage or stream it through deployment-owned authenticated encryption. For a public transcript export, use the session archive commands and review their redactions.
+
 ## Telegram MTProto proxy
 
 The proxy can run independently of the bot. Use `apply` to create or start a managed classic proxy. Use `deploy --adopt proxy --proxy-name NAME apply` to recreate a legacy classic proxy with the manager ownership label. When the legacy container has a classic `/data` bind mount, the manager reads its key. You can also supply a private `--secret-file`. A supplied key must agree with the mounted key and any saved manager key. The legacy container and its configuration stay available for rollback.

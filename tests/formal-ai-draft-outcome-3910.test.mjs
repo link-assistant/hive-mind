@@ -82,6 +82,17 @@ test('task and verification outcomes stay distinct from process and publication'
   assert.equal(withActionsEvidence(implementation, { status: 'failure' }).primary.code, 'implementation_present');
 });
 
+test('a successful candidate can recover from intermediate compile and runtime errors', () => {
+  const outcome = makeDraftOutcome({
+    process: processResult(0),
+    change: 'implementation_diff',
+    log: 'error[E0308]: mismatched types\n❌ Agent reported error: server disconnected\nX Failed to create gist: HTTP 403',
+  });
+  assert.equal(outcome.primary.code, 'implementation_present');
+  assert.equal(outcome.task.acceptance, 'unverified');
+  assert.equal(outcome.evidence.optional.httpStatus, 403);
+});
+
 test('Formal AI #1485 deferral stays before effects and does not count as execution', () => {
   const process = { started: false, exitCode: null };
   const deferral = {
@@ -114,6 +125,7 @@ test('only a same-source continuation with passing independent checks gets no-op
   const change = draftChangeEvidence(diagnostics);
   assert.equal(change, 'diagnostics_only');
   assert.equal(draftChangeEvidence([...diagnostics, 'src/fix.mjs']), 'implementation_diff');
+  assert.equal(draftChangeEvidence(['src/fix.mjs', 'src/fix.mjs']), null);
 
   const input = { process: processResult(5), change, verification };
   assert.equal(makeDraftOutcome(input).primary.code, 'no_requested_implementation');

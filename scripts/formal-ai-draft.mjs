@@ -248,14 +248,14 @@ const status = processResult.exitCode ?? 1;
 let change = null;
 try {
   const number = createdDraftPullRequestNumber(Buffer.concat(startupOutput).toString('utf8'), repository);
-  const view = ['pr', 'view', String(number), '--repo', repository, '--json', 'number,headRefName,isDraft,state,createdAt,headRefOid,changedFiles'];
+  const view = ['pr', 'view', String(number), '--repo', repository, '--json', 'number,headRefName,isDraft,state,createdAt,headRefOid,baseRefOid,changedFiles'];
   const pullRequest = number ? await ghJson(view) : null;
   if (!isAttemptPullRequest(pullRequest, { number, issueNumber: issue.number, startedAt, previousNumbers })) {
     console.log(`Could not verify a new draft pull request from this attempt on issue #${issue.number}. See the session log.`);
   } else {
     console.log(`Draft pull request: ${serverUrl}/${repository}/pull/${pullRequest.number}`);
     setOutput(`head_branch=${pullRequest.headRefName}\npull_request_number=${pullRequest.number}\n`);
-    if (pullRequest.headRefOid && Number.isSafeInteger(pullRequest.changedFiles)) {
+    if (pullRequest.headRefOid && pullRequest.baseRefOid && Number.isSafeInteger(pullRequest.changedFiles)) {
       try {
         const files = await gh(['api', `repos/${repository}/pulls/${number}/files?per_page=100`, '--paginate', '--jq', '.[] | .filename | @json']);
         const paths = files.trim()
@@ -265,7 +265,7 @@ try {
               .map(line => JSON.parse(line))
           : [];
         const current = await ghJson(view);
-        if (current.headRefOid === pullRequest.headRefOid && paths.length === pullRequest.changedFiles) change = draftChangeEvidence(paths);
+        if (current.headRefOid === pullRequest.headRefOid && current.baseRefOid === pullRequest.baseRefOid && paths.length === current.changedFiles && paths.length === pullRequest.changedFiles) change = draftChangeEvidence(paths);
       } catch {
         console.log('Could not verify the pull request diff for the attempt outcome.');
       }

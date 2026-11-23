@@ -15,7 +15,7 @@ const script = fileURLToPath(new URL('../scripts/formal-ai-draft.mjs', import.me
 const repository = 'link-assistant/hive-mind';
 const pullRequest = (number, headRefName = 'issue-4072-example', fields = {}) => ({ number, headRefName, isDraft: false, state: 'OPEN', ...fields });
 
-function runDraft({ before = [], after = [], files = [], created, status = 0, censusError = false, flags = [] } = {}) {
+function runDraft({ before = [], after = [], files = [], baseAfterFiles, created, status = 0, censusError = false, flags = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'formal-ai-draft-4072-'));
   try {
     const bin = join(root, 'bin');
@@ -27,11 +27,11 @@ function runDraft({ before = [], after = [], files = [], created, status = 0, ce
     writeFileSync(output, '');
     writeFileSync(calls, '');
     writeFileSync(event, JSON.stringify({ action: 'opened', issue: { number: 4072, html_url: `https://github.com/${repository}/issues/4072`, user: { type: 'User', login: 'test' } } }));
-    writeFileSync(config, JSON.stringify({ before, after, files, created, status, censusError, calls, repository }));
+    writeFileSync(config, JSON.stringify({ before, after, files, baseAfterFiles, created, status, censusError, calls, repository }));
     const mock = String.raw`#!/usr/bin/env node
 const { appendFileSync, readFileSync } = require('node:fs');
 const { basename } = require('node:path');
-const { before, after, files, created, status, censusError, calls, repository } = JSON.parse(readFileSync(process.env.DRAFT_TEST_CONFIG));
+const { before, after, files, baseAfterFiles, created, status, censusError, calls, repository } = JSON.parse(readFileSync(process.env.DRAFT_TEST_CONFIG));
 const tool = basename(process.argv[1]);
 const args = process.argv.slice(2);
 appendFileSync(calls, JSON.stringify([tool, ...args]) + '\n');
@@ -47,6 +47,7 @@ if (tool === 'docker' && args[0] === 'run') {
   else console.log(JSON.stringify([before.map(pr => ({ number: pr.number, head: { ref: pr.headRefName } }))]));
 } else if (tool === 'gh' && args[0] === 'pr' && args[1] === 'view') {
   const pr = after.find(pr => pr.number === Number(args[2]));
+  if (pr && baseAfterFiles && readFileSync(calls, 'utf8').includes('/files?')) pr.baseRefOid = baseAfterFiles;
   console.log(JSON.stringify(pr && { createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), ...pr }));
 } else if (tool === 'gh' && args[0] === 'pr' && args[1] === 'list') {
   console.log(JSON.stringify([...before, ...after]));
@@ -135,7 +136,7 @@ test('only the PR created by solve is drafted and labelled, even on failure with
 
 test('a successful process with a diagnostics-only PR receives no implementation credit', { timeout: 30_000 }, () => {
   const files = ['.gitkeep', 'dev/log/solve.log', '.formal-ai/general-change-plan.lino', 'session-metadata.json'];
-  const pr = pullRequest(81, 'issue-4072-draft', { headRefOid: 'a'.repeat(40), changedFiles: files.length });
+  const pr = pullRequest(81, 'issue-4072-draft', { baseRefOid: 'b'.repeat(40), headRefOid: 'a'.repeat(40), changedFiles: files.length });
   const result = runDraft({ after: [pr], files, created: 81 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const outcome = parseDraftOutcome(/^draft_outcome=(.*)$/m.exec(result.output)?.[1]);
@@ -143,6 +144,15 @@ test('a successful process with a diagnostics-only PR receives no implementation
   assert.equal(outcome.task.usefulChange, false);
   assert.equal(outcome.primary.code, 'no_requested_implementation');
   assert.match(result.stdout, /::warning title=Formal AI draft failed::No requested implementation was produced/u);
+});
+
+test('a draft diff on a moving base remains unverified', { timeout: 30_000 }, () => {
+  const pr = pullRequest(81, 'issue-4072-draft', { baseRefOid: 'b'.repeat(40), headRefOid: 'a'.repeat(40), changedFiles: 1 });
+  const result = runDraft({ after: [pr], files: ['src/fix.mjs'], baseAfterFiles: 'c'.repeat(40), created: 81 });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const outcome = parseDraftOutcome(/^draft_outcome=(.*)$/m.exec(result.output)?.[1]);
+  assert.equal(outcome.primary.code, 'unverified_effect');
+  assert.equal(outcome.task.usefulChange, false);
 });
 
 test('a PR reported by solve that predates the attempt is left alone', { timeout: 30_000 }, () => {

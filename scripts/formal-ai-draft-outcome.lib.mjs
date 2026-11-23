@@ -40,7 +40,7 @@ export function deferredPrerequisites(receipt) {
 
 /** File inventory for a draft PR. Null means that the diff was not observed. */
 export function draftChangeEvidence(files) {
-  if (!Array.isArray(files) || files.some(file => typeof file !== 'string' || !file)) return null;
+  if (!Array.isArray(files) || files.some(file => typeof file !== 'string' || !file) || new Set(files).size !== files.length) return null;
   const relevant = files.filter(file => !isSolverBookkeepingFile(file) && !/(?:^|\/)(?:\.gitkeep|\.keep|\.hive-mind|ci-logs|session-logs|formal-ai-draft-logs)(?:\/|$)/i.test(file) && !/(?:\.log(?:\.(?:gz|zip|xz|zst))?|(?:^|\/)(?:formal-ai-draft-outcome|session-metadata|metadata)\.json)$/i.test(file));
   return relevant.length ? 'implementation_diff' : files.length ? 'diagnostics_only' : 'empty_diff';
 }
@@ -105,6 +105,8 @@ const verified = verification => commit(verification?.source) && verification.so
 /** Derive the primary classification before applying any publication receipt. */
 export function makeDraftOutcome({ target, attemptKind = 'first_attempt', process: processResult, runtime = {}, links = {}, infrastructure = {}, change = null, verification, taskFailure, deferral, session, log } = {}) {
   const legacy = observeLegacyDraftLog(log);
+  // Earlier compiler or runtime errors may have been resolved before solve exited.
+  const legacyFailure = processResult?.started && processResult.exitCode !== 0 ? legacy.failure : null;
   const prerequisites = deferredPrerequisites(deferral);
   const beforeEffects = prerequisites && processResult?.started === false && processResult.exitCode == null && processResult.signal == null && change === null && !session && !log;
   const terminalState = session?.terminalState ?? legacy.terminalState;
@@ -116,9 +118,9 @@ export function makeDraftOutcome({ target, attemptKind = 'first_attempt', proces
   else if (infrastructure.status === 'failed') code = 'infrastructure_failure';
   else if (taskFailure === 'missing_evidence' || terminalState === 'missing_evidence' || terminalState === 'blocked_missing_evidence') code = 'missing_evidence';
   else if (taskFailure === 'unsupported_task' || terminalState === 'unsupported' || terminalState === 'unsupported_task') code = 'unsupported_task';
-  else if (taskFailure === 'compiler_failure' || legacy.failure === 'compiler_failure') code = 'compiler_failure';
+  else if (taskFailure === 'compiler_failure' || legacyFailure === 'compiler_failure') code = 'compiler_failure';
   else if (verification?.failed === true || taskFailure === 'incorrect_implementation') code = 'incorrect_implementation';
-  else if (taskFailure === 'tool_runtime_failure' || legacy.failure === 'tool_runtime_failure') code = 'tool_runtime_failure';
+  else if (taskFailure === 'tool_runtime_failure' || legacyFailure === 'tool_runtime_failure') code = 'tool_runtime_failure';
   else if (attemptKind === 'continuation' && noDiff && verified(verification) && [0, EXIT_CODE_SOLVE_NO_CHANGES].includes(processResult?.exitCode)) code = 'verified_noop';
   else if (noChange || terminalState === 'planned_not_executed') code = 'no_requested_implementation';
   else if (reliableDiff && processResult?.exitCode === 0) code = 'implementation_present';

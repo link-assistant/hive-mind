@@ -25,6 +25,7 @@
 import { commitUncommittedChangesOnCriticalError, describePreservedWork } from './critical-error-commit.lib.mjs';
 import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed } from './auto-restart-budget.lib.mjs';
 import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
+import { buildCiEvidence, MAX_COMMENT_EVIDENCE_LINES } from './restart-evidence.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
@@ -94,9 +95,11 @@ No more sessions will start automatically. Resolve the blocker, or rerun with a 
  * @param {Function} params.formatAligned aligned log formatter
  * @param {string} params.blocker the remaining reason that kept triggering restarts
  * @param {string} [params.subsystem] which loop hit the limit, for the log line
+ * @param {object|null} [params.ciBlocker] failing check snapshot on the final poll
+ * @param {string} [params.ciHeadSha] commit evaluated by the CI snapshot
  * @returns {Promise<{reason: string, iterationsUsed: number, committed: boolean, pushed: boolean}>}
  */
-export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, tempDir, branchName, $, log, formatAligned, blocker = 'uncommitted changes', subsystem = 'auto-restart' }) => {
+export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, tempDir, branchName, $, log, formatAligned, blocker = 'uncommitted changes', subsystem = 'auto-restart', ciBlocker = null, ciHeadSha }) => {
   const iterationsUsed = getAutoRestartIterationsUsed();
   const label = formatAutoRestartLabel(iterationsUsed);
 
@@ -104,6 +107,14 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   await log(formatAligned('❌', 'AUTO-RESTART LIMIT REACHED', `Stopping ${subsystem} after ${label} iterations`), { level: 'error' });
   await log(formatAligned('', 'Configured limit:', formatAutoRestartLimit(), 2), { level: 'error' });
   await log(formatAligned('', 'Remaining blocker:', blocker, 2), { level: 'error' });
+  if (ciBlocker) {
+    const evidence = buildCiEvidence(ciBlocker);
+    const shown = evidence.slice(0, MAX_COMMENT_EVIDENCE_LINES);
+    await log(`[VERBOSE] Restart limit CI snapshot for ${ciHeadSha || 'unknown commit'} (${shown.length}/${evidence.length} evidence lines)`, { verbose: true });
+    for (const line of shown) {
+      await log(`[VERBOSE] ${line.replace(/\s+/g, ' ').slice(0, 500)}`, { verbose: true });
+    }
+  }
   await log('');
 
   // Issue #2263: exhaustion is terminal failure, not successful completion.

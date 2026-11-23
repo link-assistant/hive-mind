@@ -1,12 +1,14 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, mkdtemp, open, opendir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, open, opendir, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { ghWithRateLimitRetry } from '../../github-rate-limit.lib.mjs';
 import { archiveRepo, archiveRepoPattern, publishedArchiveRevisions, publishedRevisionName } from './lib/git.mjs';
+import { ArchiveLimitError, archiveArtifactBytes, archiveBatchBytes, archiveManifestBytes, archiveMaxArtifacts, transcriptPartBytes } from './lib/limits.mjs';
+import { stageTranscriptParts } from './lib/parts.mjs';
 import { excludedArchiveRepository, redactArchiveIdentity } from './lib/privacy.mjs';
 import { archiveRedactionReceipt, loadArchiveRedactions } from './lib/redactions.mjs';
 import { importLegacy } from './import.mjs';
@@ -15,7 +17,6 @@ import { sanitizeLogFileToFileBounded } from '../../log-sanitize-worker.lib.mjs'
 import { sanitizeForPublication } from '../../token-sanitization.lib.mjs';
 
 const execFileAsync = promisify(execFile);
-const maxSourceBytes = 40 * 1024 * 1024;
 const metadataBytes = 256 * 1024;
 const minute = 60 * 1000;
 const usage = `Usage: hive-manager archive-sessions --repo OWNER/REPO --output NEW_DIRECTORY [options]
@@ -36,7 +37,7 @@ Options:
   --published-in OWNER/REPO
                            Skip revisions already published by hive-manager to this destination
   --publish-private OWNER/REPO
-                           Publish new sanitized sessions to a verified private destination
+                           Publish new unsplit sessions to a verified private destination
   --tool-results           Include sanitized text attachments from eligible Claude sessions
   --lino                   Also convert each sanitized file with the conversation CLI
 `;
@@ -136,12 +137,33 @@ async function sanitizeStableFile(file, sourceInfo, destPath, redactions) {
   await redactions?.assertCleanFile(destPath);
 }
 
-async function sourceDigest(file, info) {
+async function openStableSource(file, info) {
   const source = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     checkSnapshot(await source.stat(), info);
+    return source;
+  } catch (error) {
+    await source.close();
+    throw error;
+  }
+}
+
+async function sourceDigest(file, info, transcript = false) {
+  const source = await openStableSource(file, info);
+  try {
     const hash = createHash('sha256');
-    for await (const data of source.createReadStream({ autoClose: false, end: Math.max(info.size - 1, 0) })) hash.update(data);
+    let recordBytes = 0;
+    for await (const data of source.createReadStream({ autoClose: false, end: Math.max(info.size - 1, 0) })) {
+      hash.update(data);
+      if (!transcript || info.size <= transcriptPartBytes) continue;
+      for (let offset = 0; offset < data.length;) {
+        const end = data.indexOf(10, offset) + 1;
+        recordBytes += (end || data.length) - offset;
+        if (recordBytes > transcriptPartBytes) throw new ArchiveLimitError('oversized-record');
+        if (end) recordBytes = 0;
+        offset = end || data.length;
+      }
+    }
     checkSnapshot(await source.stat(), info);
     return hash.digest('hex');
   } finally {
@@ -161,9 +183,9 @@ async function planToolResults(session, id, cutoff) {
   }
   let bytes = 0;
   for await (const file of archiveFiles(root, /\.(?:txt|log|jsonl?)$/i)) {
-    if (attachments.length >= 100 || bytes >= maxSourceBytes) break;
+    if (attachments.length >= 100 || bytes >= transcriptPartBytes) break;
     const info = await lstat(file);
-    if (!info.isFile() || info.size > Math.min(4 * 1024 * 1024, maxSourceBytes - bytes) || info.mtimeMs > cutoff) continue;
+    if (!info.isFile() || info.size > Math.min(4 * 1024 * 1024, transcriptPartBytes - bytes) || info.mtimeMs > cutoff) continue;
     const hash = createHash('sha256').update(relative(root, file)).digest('hex');
     const archive = `claude-${id}-tool-results/${hash}${extname(file).toLowerCase()}`;
     attachments.push({ archive, file, info });
@@ -172,21 +194,16 @@ async function planToolResults(session, id, cutoff) {
   return attachments.sort((a, b) => a.archive.localeCompare(b.archive));
 }
 
-async function* discover({ root, tool, repository, checkoutCache, cutoff, omissions }, hasRoom) {
+async function* discover({ root, tool, repository, checkoutCache, cutoff }, hasRoom) {
   for await (const file of archiveFiles(root, /\.jsonl$/)) {
+    if (!hasRoom(tool)) return;
     const path = relative(root, file);
     const parts = path.split(sep);
     if (parts.includes('tool-results')) continue;
     const info = await lstat(file);
     if (!info.isFile() || info.mtimeMs > cutoff) continue;
-    const oversized = info.size > maxSourceBytes;
-    if (!oversized && !hasRoom(tool)) continue;
     const parent = tool === 'claude' && parts.length >= 4 && parts[2] === 'subagents' ? join(root, parts[0], `${parts[1]}.jsonl`) : undefined;
     if ((await attributedRepository(file, tool, checkoutCache, parent)) !== repository) continue;
-    if (oversized) {
-      omissions.oversized[tool]++;
-      continue;
-    }
     yield { file, info, tool, path, parts };
   }
 }
@@ -197,8 +214,10 @@ async function describeRevision(candidate, { lino, toolResults, cutoff, redactio
   const archive = `${tool}-${id}.jsonl`;
   const includeResults = tool === 'claude' && toolResults;
   const attachments = includeResults ? await planToolResults(file, id, cutoff) : [];
-  const digest = await sourceDigest(file, info);
+  const digest = await sourceDigest(file, info, true);
+  const chunked = info.size > transcriptPartBytes;
   const revisionHash = createHash('sha256').update(`hive-manager export v1\0${lino}\0${includeResults}\0${digest}`);
+  if (chunked) revisionHash.update(`\0numbered records v1\0${transcriptPartBytes}`);
   let attachmentBytes = 0;
   for (const attachment of attachments) {
     attachment.digest = await sourceDigest(attachment.file, attachment.info);
@@ -207,39 +226,71 @@ async function describeRevision(candidate, { lino, toolResults, cutoff, redactio
   }
   if (redactions) revisionHash.update(`\0known literals\0${redactions.digest}`);
   const revision = `sha256:${revisionHash.digest('hex')}`;
-  return { id, archive, revision, includeResults, attachments, attachmentBytes, digest, info };
+  return { id, archive, revision, chunked, includeResults, attachments, attachmentBytes, digest, info };
 }
 
-async function stageCandidate(candidate, descriptor, { output, lino, redactions }) {
+async function convertPart(part, tool, output, redactions) {
+  part.linksNotation = part.archive.replace(/\.jsonl$/, '.lino');
+  const linksPath = join(output, part.linksNotation);
+  try {
+    await execFileAsync('conversation', ['import', tool, join(output, part.archive), linksPath], { timeout: 120_000, maxBuffer: 4096 });
+  } catch {
+    throw new Error('Could not convert a session to Links Notation. Check that the conversation CLI is installed and supports JSONL import.');
+  }
+  await redactions?.assertCleanFile(linksPath);
+}
+
+async function stageCandidate(candidate, descriptor, { output, lino, redactions, budget }) {
   const { file, info, tool } = candidate;
-  const { id, archive, revision, includeResults, attachments } = descriptor;
-  const destPath = join(output, archive);
-  await sanitizeStableFile(file, info, destPath, redactions);
+  const { id, archive, revision, chunked, includeResults, attachments } = descriptor;
   const entry = { tool, archive, revision, sourceBytes: info.size, modifiedAt: info.mtime.toISOString() };
+  const partBudget = { bytes: budget.bytes, files: Math.floor((budget.files - attachments.length) / (lino ? 2 : 1)) };
+  if (partBudget.files < 1) throw new ArchiveLimitError('batch-budget');
+  if (chunked) {
+    entry.parts = await stageTranscriptParts({ sourcePath: file, output, archive, budget: partBudget, redactions, openSource: () => openStableSource(file, info) });
+    checkSnapshot(await lstat(file), info);
+  } else {
+    await sanitizeStableFile(file, info, join(output, archive), redactions);
+  }
+  let bytes = 0;
+  let files = 0;
+  async function account(path) {
+    const artifact = await lstat(join(output, path));
+    if (!artifact.isFile() || artifact.size > archiveArtifactBytes) throw new ArchiveLimitError('artifact-size');
+    bytes += artifact.size;
+    files++;
+    if (bytes > budget.bytes || files > budget.files) throw new ArchiveLimitError('batch-budget');
+  }
+  const parts = entry.parts ?? [entry];
+  for (const part of parts) await account(part.archive);
   if (lino) {
-    entry.linksNotation = `${tool}-${id}.lino`;
-    const linksPath = join(output, entry.linksNotation);
-    try {
-      await execFileAsync('conversation', ['import', tool, destPath, linksPath], { timeout: 120_000, maxBuffer: 4096 });
-    } catch {
-      throw new Error('Could not convert a session to Links Notation. Check that the conversation CLI is installed and supports JSONL import.');
+    for (const part of parts) {
+      await convertPart(part, tool, output, redactions);
+      await account(part.linksNotation);
     }
-    await redactions?.assertCleanFile(linksPath);
   }
   if (includeResults) {
     entry.toolResults = [];
     if (attachments.length) await mkdir(join(output, `claude-${id}-tool-results`), { mode: 0o700 });
     for (const attachment of attachments) {
       await sanitizeStableFile(attachment.file, attachment.info, join(output, attachment.archive), redactions);
+      await account(attachment.archive);
       entry.toolResults.push({ archive: attachment.archive, sourceBytes: attachment.info.size });
     }
   }
-  return entry;
+  return { entry, files, bytes };
 }
 
-function reportOversized({ oversized }) {
-  const total = oversized.claude + oversized.codex;
-  if (total) process.stderr.write(`Omitted ${total} oversized session(s) above 40 MiB (${oversized.claude} Claude, ${oversized.codex} Codex).\n`);
+function reportOmissions(omissions) {
+  const details = {
+    'oversized-record': 'an individual JSONL record exceeds 40 MiB or could not be sanitized within that bound',
+    'review-required': 'numbered transcripts require staging with --output and reviewed private publication with archive-publish',
+    'artifact-size': 'an artifact exceeds 64 MiB or is not a regular file',
+    'batch-budget': 'the revision exceeds the remaining batch file or size limit',
+  };
+  for (const [reason, counts] of Object.entries(omissions)) {
+    process.stderr.write(`Omitted ${counts.claude + counts.codex} session(s) (${counts.claude} Claude, ${counts.codex} Codex) because ${details[reason]}.\n`);
+  }
 }
 
 async function archive() {
@@ -286,16 +337,20 @@ async function archive() {
   if (expectedDigest !== undefined && (!importing || !/^sha256:[a-f\d]{64}$/.test(expectedDigest))) throw new Error('--apply requires --import-legacy and its review digest.');
   const redactions = await loadArchiveRedactions(values['known-secrets-file']);
   const cutoff = Date.now() - minAgeMs;
-  const omissions = { oversized: { claude: 0, codex: 0, maxSourceBytes } };
-  const shared = { repository, checkoutCache: new Map(), cutoff, omissions };
+  const omissions = {};
+  const omit = (reason, tool) => {
+    omissions[reason] ??= { claude: 0, codex: 0 };
+    omissions[reason][tool]++;
+  };
+  const shared = { repository, checkoutCache: new Map(), cutoff };
   const options = { lino: values.lino, toolResults: values['tool-results'], cutoff, redactions };
   const candidates = async function* (hasRoom) {
     if (values.only !== 'codex') yield* discover({ ...shared, root: resolve(values['claude-dir']), tool: 'claude' }, hasRoom);
     if (values.only !== 'claude') yield* discover({ ...shared, root: resolve(values['codex-dir']), tool: 'codex' }, hasRoom);
   };
   if (importing) {
-    await importLegacy({ repository, destination, expectedDigest, policy: { only: values.only, lino: options.lino, toolResults: options.toolResults, minAgeMs, limit }, redactions, candidates, describeRevision: candidate => describeRevision(candidate, options), omissions });
-    reportOversized(omissions);
+    await importLegacy({ repository, destination, expectedDigest, policy: { only: values.only, lino: options.lino, toolResults: options.toolResults, minAgeMs, limit }, redactions, candidates, describeRevision: candidate => describeRevision(candidate, options), omissions, omit });
+    reportOmissions(omissions);
     return;
   }
 
@@ -308,29 +363,45 @@ async function archive() {
   let completed = false;
   try {
     const reports = [];
-    const toolResultBudget = { files: 100, bytes: maxSourceBytes };
+    const toolResultBudget = { files: 100, bytes: transcriptPartBytes };
+    const budget = { files: archiveMaxArtifacts, bytes: archiveBatchBytes - archiveManifestBytes };
     let claudeBudgetExhausted = false;
     for await (const candidate of candidates(tool => reports.length < limit && (tool !== 'claude' || !claudeBudgetExhausted))) {
-      const descriptor = await describeRevision(candidate, options);
-      const { archive, revision, attachments, attachmentBytes } = descriptor;
-      if (published.has(publishedRevisionName(archive, revision))) continue;
-      if (attachments.length > toolResultBudget.files || attachmentBytes > toolResultBudget.bytes) {
-        claudeBudgetExhausted = true;
-        continue;
+      let staging;
+      try {
+        const descriptor = await describeRevision(candidate, options);
+        const { archive, revision, chunked, attachments, attachmentBytes } = descriptor;
+        if (published.has(publishedRevisionName(archive, revision))) continue;
+        if (autoPublish && chunked) throw new ArchiveLimitError('review-required');
+        if (attachments.length > toolResultBudget.files || attachmentBytes > toolResultBudget.bytes) {
+          claudeBudgetExhausted = true;
+          throw new ArchiveLimitError('batch-budget');
+        }
+        staging = await mkdtemp(join(output, '.revision-'));
+        const { entry, files, bytes } = await stageCandidate(candidate, descriptor, { ...options, output: staging, budget });
+        for (const path of await readdir(staging)) await rename(join(staging, path), join(output, path));
+        reports.push(entry);
+        budget.files -= files;
+        budget.bytes -= bytes;
+        toolResultBudget.files -= attachments.length;
+        toolResultBudget.bytes -= attachmentBytes;
+      } catch (error) {
+        if (!(error instanceof ArchiveLimitError)) throw error;
+        omit(error.reason, candidate.tool);
+      } finally {
+        if (staging) await rm(staging, { recursive: true, force: true });
       }
-      reports.push(await stageCandidate(candidate, descriptor, { output, ...options }));
-      toolResultBudget.files -= attachments.length;
-      toolResultBudget.bytes -= attachmentBytes;
     }
     await requirePublic(repository);
-    reportOversized(omissions);
+    reportOmissions(omissions);
     const manifest = { repository, sessions: reports };
-    if (omissions.oversized.claude || omissions.oversized.codex) manifest.omissions = omissions;
+    if (Object.keys(omissions).length) manifest.omissions = omissions;
     if (redactions) {
       manifest.literalRedactions = true;
       await writeFile(join(output, archiveRedactionReceipt), redactions.digest, { mode: 0o600, flag: 'wx' });
     }
     const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+    if (Buffer.byteLength(manifestText) > archiveManifestBytes) throw new Error('The archive manifest exceeds 1 MiB.');
     redactions?.assertClean(manifestText);
     await writeFile(join(output, 'manifest.json'), manifestText, { mode: 0o600, flag: 'wx' });
     if (autoPublish && reports.length) await publishArchive(output, destination, { privateOnly: true, redactions });

@@ -180,6 +180,7 @@ node --import "$source_path/hive-manager/lib/terminal.mjs" "$source_path/hive-ma
 | `tasks check-browser`, `check-uploads`                        | `task/check-browser.mjs`, `task/check-uploads.mjs`                             |
 | `tasks recover-failed`, `recover-queue`, `repair-records`     | `task/recover-failed.mjs`, `task/recover-queue.mjs`, `task/repair-records.mjs` |
 | `archive-session`, `archive-sessions`, `archive-publish`      | `archive/session.mjs`, `archive/sessions.mjs`, `archive/publish.mjs`           |
+| `archive-overview`                                            | `archive/overview.mjs`                                                         |
 | `proxy-test`, `proxy-pcap`                                    | `proxy/test.mjs`, `proxy/pcap.mjs`                                             |
 
 ## Telegram MTProto proxy

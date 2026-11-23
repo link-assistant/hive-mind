@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import * as monitor from '../src/session-monitor.lib.mjs';
 import { createSessionStore, getProtectedTaskContainerNames } from '../src/session-store.lib.mjs';
+import { buildPausedTaskCommand } from '../src/session-pause.lib.mjs';
 import { parseSessionStatusOutput } from '../src/isolation-runner.parsers.lib.mjs';
 import { planDockerIsolationCleanup } from '../src/cleanup.lib.mjs';
 import { mergeToolWork } from '../src/queue-work.lib.mjs';
@@ -173,26 +174,76 @@ test('restart keeps a frozen task and /stop records intent before signalling it'
   assert.equal(monitor.getActiveSessionCount(), 0);
 });
 
-test('a failed durable write prevents a stop or retained resume', async () => {
+test('a failed durable write leaves stop available and blocks a retained resume', async () => {
   const { state } = setup();
   monitor.trackSession(SESSION, info());
   monitor.setSessionStore({ persist: async () => false });
-  assert.match((await monitor.stopTrackedDockerSession(SESSION)).error, /persist task state/);
-  assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, undefined);
-  state.docker = 'exited';
+  const stopped = await monitor.stopTrackedDockerSession(SESSION);
+  assert.equal(stopped.success, true);
+  assert.match(stopped.warning, /persist task state/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, true);
   assert.match((await monitor.resumeStoppedSession(SESSION)).error, /persist task state/);
   assert.equal(monitor.getTrackedSessionInfo(SESSION).explicitResumePending, undefined);
-  assert.deepEqual(state.calls, []);
+  assert.deepEqual(state.calls, [
+    ['retain', SESSION],
+    ['stop', EXECUTION],
+  ]);
+});
+
+test('stop remains available when the Docker probe or workspace marker fails', async () => {
+  const { state } = setup({
+    inspectDockerContainerState: async () => null,
+    markDockerTaskForStop: async () => {
+      throw new Error('docker cp failed');
+    },
+  });
+  monitor.trackSession(SESSION, info());
+  const stopped = await monitor.stopTrackedDockerSession(SESSION);
+  assert.equal(stopped.success, true);
+  assert.match(stopped.warning, /workspace retention.*docker cp failed/);
+  assert.deepEqual(state.calls, [['stop', EXECUTION]]);
 });
 
 test('a live task remains paused when Docker refuses to stop it', async () => {
-  const { state } = setup({ stopIsolatedSession: async () => ({ success: false, error: 'Docker refused the stop' }) }, { docker: 'paused' });
+  const { state } = setup(
+    {
+      stopIsolatedSession: async () => ({ success: false, error: 'Docker refused the stop' }),
+      cancelDockerTaskStop: async name => state.calls.push(['cancel-retention', name]),
+    },
+    { docker: 'paused' }
+  );
   monitor.trackSession(SESSION, info({ paused: true, pausedAt: WHEN }));
   assert.match((await monitor.stopTrackedDockerSession(SESSION)).error, /Docker refused the stop/);
   assert.equal(monitor.getTrackedSessionInfo(SESSION).paused, true);
   assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, undefined);
   assert.equal(state.docker, 'paused');
   assert.equal(monitor.getActiveSessionCount(), 0);
+  assert.deepEqual(state.calls, [
+    ['retain', SESSION],
+    ['cancel-retention', SESSION],
+  ]);
+});
+
+test('an in-progress monitor check does not block an operator stop', async () => {
+  const { state } = setup();
+  monitor.trackSession(SESSION, info());
+  const checking = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const monitored = monitor.monitorSessions({}, false, {
+    statusProvider: async () => {
+      checking.resolve();
+      return release.promise;
+    },
+  });
+  await checking.promise;
+  try {
+    assert.equal((await monitor.stopTrackedDockerSession(SESSION)).success, true);
+    assert.equal(state.docker, 'exited');
+    assert.equal(monitor.getTrackedSessionInfo(SESSION).stopRequestedByUser, true);
+  } finally {
+    release.resolve({ exists: true, status: 'executing' });
+    await monitored;
+  }
 });
 
 test('resume after stopping retains the clone, latest AI session and cumulative disk usage', async t => {
@@ -214,6 +265,59 @@ test('resume after stopping retains the clone, latest AI session and cumulative 
   assert.equal(saved.sessionInfo.completionNotifiedAt, undefined);
   assert.equal((await store.load()).length, 1);
   assert.match((await monitor.resumeStoppedSession(SESSION)).error, /already running/);
+});
+
+test('resume refuses to recreate the original clone if it has disappeared', async t => {
+  const dir = await temporary(t);
+  const workspace = join(dir, 'original clone');
+  const marker = join(dir, 'stop-marker');
+  await writeFile(marker, '');
+  const { launch } = buildPausedTaskCommand(info({ pauseWorkingDirectory: workspace }), 'last-session-456');
+  const [option, script, name] = launch.args;
+  const run = promisify(execFile);
+  await assert.rejects(run(launch.binary, [option, script, name, marker, workspace, 'true']), { code: 127, stderr: `Original workspace is missing: ${workspace}\n` });
+  assert.equal(await readFile(marker, 'utf8'), '');
+  await mkdir(join(workspace, '.git'), { recursive: true });
+  await run(launch.binary, [option, script, name, marker, workspace, 'true']);
+  await assert.rejects(readFile(marker, 'utf8'), { code: 'ENOENT' });
+});
+
+test('a retained resume ignores the previous stop footer in the shared log', async t => {
+  const previousLog = 'Creating temporary directory: /tmp/original-clone\n\n===================\nExit Code: 143\n';
+  const logPath = join(await temporary(t), 'task.log');
+  await writeFile(logPath, previousLog);
+  const keptOffset = Buffer.byteLength(previousLog);
+  setup(
+    {
+      readSessionExitFromLog: async (_path, { minByteOffset }) => ({ finished: minByteOffset < keptOffset, exitCode: 143 }),
+    },
+    { docker: 'exited' }
+  );
+  const store = createSessionStore({ dir: await temporary(t) });
+  monitor.setSessionStore(store);
+  monitor.trackSession(SESSION, info({ logPath, retainedForResume: true }));
+  assert.equal((await monitor.resumeStoppedSession(EXECUTION)).success, true);
+  assert.equal((await store.load())[0].sessionInfo.explicitResumeLogStartBytes, keptOffset);
+  assert.equal((await monitor.getRunningTrackedIsolationSessions()).count, 1);
+  assert.equal((await monitor.hasActiveSessionForUrlAsync(TASK_URL)).isActive, true);
+});
+
+test('a confirmed startup failure preserves the retained task for a retry', async () => {
+  const { state } = setup(
+    {
+      checkResumedDockerStartup: async () => {
+        state.docker = 'exited';
+        return { failed: true, exitCode: 127, error: 'resume command could not start' };
+      },
+    },
+    { docker: 'exited' }
+  );
+  monitor.trackSession(SESSION, info({ retainedForResume: true }));
+  const result = await monitor.resumeStoppedSession(EXECUTION);
+  assert.equal(result.success, false);
+  assert.match(result.error, /resume command could not start/);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).explicitResumePending, undefined);
+  assert.equal(monitor.getTrackedSessionInfo(SESSION).retainedForResume, true);
 });
 
 test('interrupted resume adopts a replacement that has already exited', async t => {

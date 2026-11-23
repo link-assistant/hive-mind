@@ -477,6 +477,7 @@ export function registerStartStopCommands(bot, options) {
 
     const trimmedOutput = (result.output || '').toString().trim();
     const trimmedError = (result.error || '').toString().trim();
+    const warning = (result.warning || '').toString().trim();
     const lines = [];
     if (result.success) {
       lines.push(`✅ Stop request sent to session \`${sessionId}\`.`);
@@ -497,6 +498,7 @@ export function registerStartStopCommands(bot, options) {
         lines.push('```');
       }
     }
+    if (warning) lines.push('', '⚠️', '```', warning.slice(0, 1000), '```');
 
     try {
       await safeEditMessageText(ctx.telegram, ack.chat.id, ack.message_id, undefined, lines.join('\n'), { verbose: VERBOSE });

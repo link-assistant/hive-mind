@@ -193,6 +193,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         startTime: new Date(recoveryStartedAt),
         killRecoveryStartedAt: recoveryStartedAt,
         killRecoveryLogStartBytes: inPlace.resumed ? previousLogBytes : 0,
+        explicitResumeLogStartBytes: undefined,
         logPath,
         // Completion and tool-id caches describe the previous attempt.
         completionNotifiedAt: undefined,

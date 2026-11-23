@@ -48,7 +48,7 @@ export { getStartCommandVersion } from './start-command-cli.lib.mjs';
 export { applyDockerContainerResourceLimits };
 import { inspectDockerContainerState, killDockerContainer } from './docker-container-control.lib.mjs';
 export { killDockerContainer };
-export { inspectDockerContainerState, markDockerTaskForStop, pauseDockerSession, unpauseDockerSession } from './docker-container-control.lib.mjs';
+export { cancelDockerTaskStop, inspectDockerContainerState, markDockerTaskForStop, pauseDockerSession, unpauseDockerSession } from './docker-container-control.lib.mjs';
 export { copyFromDockerContainer } from './isolation-runner.docker-cp.lib.mjs'; // Issue #2888
 import { checkDockerDiskSpace } from './docker-disk-space.lib.mjs';
 import { checkDockerDaemonReachability } from './docker-daemon-preflight.lib.mjs';

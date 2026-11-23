@@ -3,7 +3,7 @@ import { scopeRecoveryFooter } from './session-recovery-footer.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isDockerIsolation, resolveOomKilledState, resolveStaleExecutingState } from './session-monitor.stale-executing.lib.mjs';
 import { clearUnverifiedDockerTerminalMarker, shouldDeferUnverifiedDockerTerminal } from './session-monitor.docker-terminal.lib.mjs';
-import { isSessionPaused, isStoppedDockerState, reconcileDockerPause } from './session-pause.lib.mjs';
+import { isIndeterminateDockerState, isSessionPaused, isStoppedDockerState, reconcileDockerPause } from './session-pause.lib.mjs';
 import { clearStatusQueryErrors, getStatusQueryError, resolveStatusQueryFailure } from './session-monitor.status-query.lib.mjs';
 
 export async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
@@ -14,7 +14,8 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
   try {
     runner = options.runnerProvider ? await options.runnerProvider() : await import('./isolation-runner.lib.mjs');
     const exitFromLog = scopeRecoveryFooter(providedExitFromLog || runner.readSessionExitFromLog, sessionInfo);
-    let statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionInfo.executionUuid || sessionId, verbose);
+    const statusId = sessionInfo.isolationBackend === 'docker' ? sessionInfo.executionUuid || sessionId : sessionId;
+    let statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(statusId, verbose);
     if (isDockerIsolation(sessionInfo, statusResult)) {
       const reported = statusResult?.dockerState;
       const containerName = statusResult?.sessionName || sessionInfo.dockerContainerName || sessionId;
@@ -29,7 +30,7 @@ export async function getIsolationSessionState(sessionName, sessionInfo, options
           persistSnapshot();
         }
       }
-      if (dockerState === 'paused' || ((!dockerState || dockerState === 'unknown') && isSessionPaused(sessionInfo))) return { running: true, exitCode: null, status: 'paused', statusResult };
+      if (dockerState === 'paused' || (isIndeterminateDockerState(dockerState) && isSessionPaused(sessionInfo))) return { running: true, exitCode: null, status: 'paused', statusResult };
       if ((wasPaused || sessionInfo.stopRequestedByUser) && ['exited', 'dead', 'removed'].includes(dockerState)) {
         const exitCode = normalizeExitCode(statusResult?.exitCode);
         return { running: false, exitCode, status: 'stopped', statusResult: { ...statusResult, status: 'stopped', containerRemoved: dockerState === 'removed' } };

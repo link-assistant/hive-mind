@@ -103,8 +103,8 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached, { pauseM
   // docker stop sends SIGTERM, which runs this cleanup even on private tasks
   // with --auto-cleanup. The bot marks the container before sending the stop.
   if (
-    await fs.access(pauseMarkerPath).then(
-      () => true,
+    await fs.stat(pauseMarkerPath).then(
+      marker => marker.isFile() && marker.size === 0,
       () => false
     )
   ) {

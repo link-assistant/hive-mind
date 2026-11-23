@@ -71,6 +71,7 @@ async function getIsolationRunner() {
 const activeSessions = new Map();
 // Issue #2408: sessions whose monitor pass is running right now (see monitorSessions).
 const sessionsInFlight = new Set();
+const dockerControlsInFlight = new Set();
 // Issue #2801: the CPU penalty pass of the previous tick, while it still runs.
 let cpuPenaltyPassInFlight = null;
 // Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
@@ -100,6 +101,7 @@ function logEvent(type, data) {
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
   sessionsInFlight.clear();
+  dockerControlsInFlight.clear();
   cpuPenaltyPassInFlight = null;
   sessionStore = null;
   sessionLogger = null;
@@ -646,7 +648,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     // run the same completion three and six times over: every copy uploaded the
     // log and posted a notice, and the later copies — finding the recovery
     // budget already spent — overwrote "recovering" with "❌ failed".
-    if (sessionsInFlight.has(entry.sessionName)) {
+    if (sessionsInFlight.has(entry.sessionName) || dockerControlsInFlight.has(entry.sessionName)) {
       if (verbose) console.log(`[VERBOSE] Session ${entry.sessionName} is still being handled by an earlier monitor tick; skipping it this tick (issue #2408)`);
       continue;
     }
@@ -1331,6 +1333,7 @@ export { hasActiveSessionForUrl, findStoppableSessionByUrl, hasActiveSessionForU
 const { pauseTrackedSession, unpauseTrackedSession, resumeStoppedSession, getDockerTaskControlState, stopTrackedDockerSession, reconcileInterruptedResume } = createSessionPauseControls({
   activeSessions,
   sessionsInFlight,
+  controlsInFlight: dockerControlsInFlight,
   findSession: findTrackedSessionByIdentifier,
   getRunner: getIsolationRunner,
   logEvent,

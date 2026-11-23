@@ -58,6 +58,7 @@ import path from 'node:path';
 const PERSISTABLE_FIELDS = [
   'chatId',
   'messageId',
+  'messageThreadId',
   'startTime',
   'url',
   'command',
@@ -109,6 +110,7 @@ const PERSISTABLE_FIELDS = [
   'retainedForResume',
   'dockerContainerName',
   'explicitResumePending',
+  'explicitResumeLogStartBytes',
   'pauseState',
   'pauseWorkingDirectory',
   'pauseRequestedBy',

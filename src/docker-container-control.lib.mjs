@@ -52,16 +52,19 @@ export const pauseDockerSession = (identifier, options) => controlDockerPause('-
 export const unpauseDockerSession = (identifier, options) => controlDockerPause('--unpause', identifier, options);
 
 /** Copy the marker without executing inside a frozen container. */
-export async function markDockerTaskForStop(containerName) {
+async function writeDockerTaskStopMarker(containerName, contents) {
   const dir = await mkdtemp(join(tmpdir(), 'hive-mind-stop-'));
   try {
     const marker = join(dir, 'retain');
-    await writeFile(marker, '');
+    await writeFile(marker, contents);
     await run('docker', ['cp', marker, `${containerName}:${TASK_PAUSE_MARKER}`], { timeout: CONTROL_TIMEOUT_MS });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+export const markDockerTaskForStop = containerName => writeDockerTaskStopMarker(containerName, '');
+export const cancelDockerTaskStop = containerName => writeDockerTaskStopMarker(containerName, 'cancelled');
 
 // Issue #3278: a hung daemon fails the kill instead of blocking the caller forever.
 const DOCKER_KILL_TIMEOUT_MS = 120_000;

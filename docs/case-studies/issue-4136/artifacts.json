@@ -1,0 +1,504 @@
+{
+  "case": "https://github.com/link-assistant/hive-mind/issues/4136",
+  "retention": "The case study includes reviewed evidence. Digests describe retrieved source bytes, with source links for the complete artifacts.",
+  "retrieved": [
+    {
+      "name": "incident issue body",
+      "source": "https://github.com/link-assistant/hive-mind/issues/4136",
+      "bytes": 42764,
+      "newlines": 545,
+      "sha256": "5313bf61c56895c651142423f386189e51e1733bebd5683f1c5ed7cd57c202c8"
+    },
+    {
+      "name": "Java task issue",
+      "source": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+      "bytes": 5637,
+      "newlines": 0,
+      "sha256": "224dbf8e8014cce2c69fd5615f3aaf32108fbfc89c3f342ddc19359f1cc58d9a"
+    },
+    {
+      "name": "Java task comments (includes both checkout logs)",
+      "source": "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33",
+      "bytes": 83250,
+      "newlines": 0,
+      "sha256": "8d817288f9ba0ff87c700528b0c7b3370500730d2999e483cc69925fe18253fd"
+    },
+    {
+      "name": "Voice task issue",
+      "source": "https://github.com/konard/voice-simulator/issues/75",
+      "bytes": 15421,
+      "newlines": 1,
+      "sha256": "be5bf44af07592e61a36cdccfeed86868d449c260c8f51b9f6dffd4df54cafde"
+    },
+    {
+      "name": "Voice pull request metadata and description",
+      "source": "https://github.com/konard/voice-simulator/pull/162",
+      "bytes": 28536,
+      "newlines": 1,
+      "sha256": "43684981c56450b75c540fb1b2024bff47e783a8606b1dea979017223cacc744"
+    },
+    {
+      "name": "Voice pull request conversation",
+      "source": "https://github.com/konard/voice-simulator/pull/162",
+      "bytes": 146026,
+      "newlines": 0,
+      "sha256": "374020c73d5034417105f828b670e30ec11edc80c3ae6aa61e60a36537c6dd8f"
+    },
+    {
+      "name": "Voice pull request inline comments",
+      "source": "https://github.com/konard/voice-simulator/pull/162/files",
+      "bytes": 4,
+      "newlines": 0,
+      "sha256": "cf1cbb66a638b4860a516671fb74850e6ccf787fe6c4c8d29e9c04efe880bd05"
+    },
+    {
+      "name": "Voice pull request reviews",
+      "source": "https://github.com/konard/voice-simulator/pull/162",
+      "bytes": 4,
+      "newlines": 0,
+      "sha256": "cf1cbb66a638b4860a516671fb74850e6ccf787fe6c4c8d29e9c04efe880bd05"
+    },
+    {
+      "name": "Voice mode contract issue body",
+      "source": "https://github.com/konard/voice-simulator/issues/71",
+      "bytes": 14928,
+      "newlines": 135,
+      "sha256": "467a2e8df10d8d155ecb7d72526a54e51326d63c96d7acbf88f93416543e48da"
+    },
+    {
+      "name": "Hive Mind PR discussion at intake",
+      "source": "https://github.com/link-assistant/hive-mind/pull/4139",
+      "bytes": 60161,
+      "newlines": 0,
+      "sha256": "cb8e9d6edb5c822db799c7a940f26e3882ac7d54174e2e0fa1d62ff9f1d133d5"
+    },
+    {
+      "name": "Control Center incident reporter source",
+      "source": "https://github.com/link-assistant/hive-mind-control-center/blob/9eab30b6f4c01868c0f068dc97628d4977159087/src/hive-control-center/auto-fix/report.mjs",
+      "bytes": 46075,
+      "newlines": 771,
+      "sha256": "c14acdf973349ed3c8622abd78944564157dd7ad85c2ebfaccaa22f998bd9de9"
+    },
+    {
+      "name": "Voice initial solver session",
+      "source": "https://gist.githubusercontent.com/konard/2ad63e39d0ebeae9feec1d9f2f061bdd/raw/ac2bc83fbb665dc3d281415c49881ad7ab150027/tmp-hive-mind-log-upload-toyL9X-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T16:22:01Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7065592772",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 2675505,
+      "newlines": 11801,
+      "sha256": "6c4e66401578f5b9c5544aece963f56320801ecee576ea7a959407df9f00c1b9"
+    },
+    {
+      "name": "Voice restart 1",
+      "source": "https://gist.githubusercontent.com/konard/439e1099aa9dc8efd8277f45817eee83/raw/63a636f58dd321818a2dbc18845212988713c5ea/tmp-hive-mind-log-upload-fWueI2-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T17:09:41Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7066257485",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 5785455,
+      "newlines": 21979,
+      "sha256": "4d83c25a623dc37b2f75ad1d743e67874c9c95b68c57d25fec947f745a08000a"
+    },
+    {
+      "name": "Voice restart 2",
+      "source": "https://gist.githubusercontent.com/konard/7bf30dff5c32389bcca73c0129de2ec9/raw/55e6548a5e814024ed26b2e261dd06983441ce7b/tmp-hive-mind-log-upload-avRBuO-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T17:58:22Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7066904960",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 10207464,
+      "newlines": 36633,
+      "sha256": "5c584519cd8c5d48d30e8314438f30cfd834f26b756337cc8e2268f1a990bb35"
+    },
+    {
+      "name": "Voice restart 3",
+      "source": "https://gist.githubusercontent.com/konard/866abf201637f6938fed20dd4889324f/raw/155fb9a2d454684653adb6d5659172c62923b838/tmp-hive-mind-log-upload-aOpWr3-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T19:27:14Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7068031263",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 13822699,
+      "newlines": 49943,
+      "sha256": "b89516e4c096cda4b308cea7fda0b7dab0a74d9f6d3ffad9920dcb90e479eb82"
+    },
+    {
+      "name": "Voice restart 4",
+      "source": "https://gist.githubusercontent.com/konard/617da6c770267b6fa6547983ab2ea273/raw/82ae7c32f524dfbbbffa7dd46e87103942c43d54/tmp-hive-mind-log-upload-f7PAVy-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T21:51:34Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7069769889",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 18095327,
+      "newlines": 67454,
+      "sha256": "22c112e838101c72317d2adafdff7ce87603eaa7c3f2c2af775c0958d37beb8f"
+    },
+    {
+      "name": "Voice restart 5",
+      "source": "https://gist.githubusercontent.com/konard/f2dbfc5bd43973a28b0d345dd670d7e5/raw/1dfa38929823429e5d840977d0b6bf7a40aaf7d7/tmp-hive-mind-log-upload-GCbpyR-sanitized.log.txt",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "publishedAt": "2026-11-21T22:33:05Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7070259925",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 21024898,
+      "newlines": 78815,
+      "sha256": "d25dc14fd032e0a0442063a9a955f155d92a5df491de11f57642683e5ddb506d"
+    },
+    {
+      "name": "Voice initial solver session",
+      "source": "https://gist.githubusercontent.com/konard/75640cca1c64e61d4b65c9448b9af4d4/raw/e66cf79ac4535f82f930dee3d4cfadb470edaa38/tmp-hive-mind-log-upload-z8xS7a-sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T08:33:16Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7076589146",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 2835907,
+      "newlines": 11892,
+      "sha256": "3305018e16a28174e918db8cf7f6641b6519d4cb8a2b76291d41a3d6456eeeb5"
+    },
+    {
+      "name": "Voice restart 1",
+      "source": "https://gist.githubusercontent.com/konard/865bc36541b7137f3c19860e5b4ee3f9/raw/0dba6c08fe6e938a846a4e10fa004c376161af9e/tmp-hive-mind-log-upload-VTht2T-sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T09:05:01Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7076920331",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 7214518,
+      "newlines": 23732,
+      "sha256": "3b3515724f66a10caee92c43ccce503b4e4c19aa7313bd891ac770dca33b2c96"
+    },
+    {
+      "name": "Voice restart 2",
+      "source": "https://gist.githubusercontent.com/konard/e7a7e7f1a193f62f5d0df50ebb0278c9/raw/d08ddfc8f386498d2c8ef2380110dd736cb67703/tmp-hive-mind-log-upload-h5wKPA-sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T10:22:23Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7077749643",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 12167586,
+      "newlines": 41761,
+      "sha256": "e49b451985de507cffb7e4eac46fad656004cf0179f93f149862bf1ea64a9ce6"
+    },
+    {
+      "name": "Voice restart 3",
+      "source": "https://gist.githubusercontent.com/konard/0b9aece63efb32be71c5106e7ed89a24/raw/286e60cce6d4448abca9ae916e3dd7f4dbaac47e/tmp-hive-mind-log-upload-kArWmn-sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T11:27:54Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7078459296",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 17211392,
+      "newlines": 62702,
+      "sha256": "9ebdf118375adf541d20a32980979fa001400dbd6910cb02fda57475051af285"
+    },
+    {
+      "name": "Voice restart 4",
+      "source": "https://gist.githubusercontent.com/konard/6cd8c62b0a58c537bef4a616b74126e0/raw/669dc4799c4170ebb7aa81488ae06b02d21cb429/tmp-hive-mind-log-upload-DBrBIr-sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T12:59:41Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7079492445",
+      "retrieval": "pinned Gist Git blob",
+      "bytes": 22059319,
+      "newlines": 81141,
+      "sha256": "645545788bdd5cacb419a524b1687880e51ad0093703b6c11fc54a7e53612c15"
+    },
+    {
+      "name": "Voice restart 5",
+      "source": "https://raw.githubusercontent.com/konard/public-logs/365b0f26a86957893fc472a27254a48c4805f00e/tmp-hive-mind-log-upload-0K4Y4j/0f6a3f571f0237e0/sanitized.log.txt",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "publishedAt": "2026-11-22T13:58:18Z",
+      "linkedFrom": "https://github.com/konard/voice-simulator/pull/162#issuecomment-7080195023",
+      "retrieval": "repository blob",
+      "bytes": 26577826,
+      "newlines": 97828,
+      "sha256": "0f6a3f571f0237e0a2e8145fd6560f11cfd391e147db7a0e56f2510c1e9b5257"
+    },
+    {
+      "name": "Final Voice runtime workflow metadata",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027613093",
+      "bytes": 34481,
+      "newlines": 1,
+      "sha256": "18191dcce1831b12e6d837751a5fbd0c2817dfe9a8b87d0804d0b74580d7d9ca"
+    },
+    {
+      "name": "Final Voice runtime job log",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027613093/job/137224324569",
+      "bytes": 785394,
+      "newlines": 5892,
+      "sha256": "69a015a848e892bbe57a52d89112a6489118f7238de10a3fcb7d2701f5bdfb68"
+    },
+    {
+      "name": "Final Voice heavy workflow metadata",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556",
+      "bytes": 5572,
+      "newlines": 1,
+      "sha256": "a34a2c51a30f4ae29a5baaec8f7e53cb7b56f201bdf3890e9002d876c061f1d5"
+    },
+    {
+      "name": "Final Voice heavy job log",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/job/137223992823",
+      "bytes": 216787,
+      "newlines": 2173,
+      "sha256": "284cb3da82d0fdfef234b8c2e12ce7725ec08f7fec76fa02bec426f8adc2a506"
+    },
+    {
+      "name": "Heavy artifact recognition-decode.md",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/artifacts/14757455855",
+      "bytes": 3045,
+      "newlines": 45,
+      "sha256": "764abb743cabfc40be02b1602d8b6c3e56b40de6d707d7fb0108013e199bc483"
+    },
+    {
+      "name": "Heavy artifact recognition-rescoring.md",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/artifacts/14757455855",
+      "bytes": 2742,
+      "newlines": 33,
+      "sha256": "c4eda68c44c5fb2655b03939ac507628aba7c2c89a18d08305b008ef96453ca2"
+    },
+    {
+      "name": "Heavy artifact roundtrip.json",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/artifacts/14757455855",
+      "bytes": 2524326,
+      "newlines": 90248,
+      "sha256": "b015fbec37c61d2cdfe32139cf85f0a6ac9d5482de53f8b17790c66299b76c33"
+    },
+    {
+      "name": "Heavy artifact roundtrip.md",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/artifacts/14757455855",
+      "bytes": 37164,
+      "newlines": 240,
+      "sha256": "ac94bd25a3089251d83ddb9d0f0056d7244c48dc160f39d1ae4ff482871affc2"
+    },
+    {
+      "name": "Heavy artifact summary.md",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556/artifacts/14757455855",
+      "bytes": 37333,
+      "newlines": 248,
+      "sha256": "fad8acd181ff50c321f2095be806f1391ac0d4b6b4a4f1a551c92f9b9d191036"
+    },
+    {
+      "name": "Formal AI draft session metadata.json",
+      "source": "https://github.com/link-assistant/hive-mind/pull/4139",
+      "repositoryPath": "dev/log/issues/4136/pulls/4139/sessions/ses_df88f80dbffeRHNBOhlrVgqrwk/metadata.json",
+      "bytes": 936,
+      "newlines": 20,
+      "sha256": "8443d6e5bcf2483971d768d932a4aa466066d5c3cc5494e0991bd8bbfb8bf1d5"
+    },
+    {
+      "name": "Formal AI draft session solve.log",
+      "source": "https://github.com/link-assistant/hive-mind/pull/4139",
+      "repositoryPath": "dev/log/issues/4136/pulls/4139/sessions/ses_df88f80dbffeRHNBOhlrVgqrwk/solve.log",
+      "bytes": 1735702,
+      "newlines": 5023,
+      "sha256": "21b6ab2f59df4a4e13f70809433c5b23d1aacba4282763b6c593a694c242436c"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44853374457",
+      "bytes": 53149,
+      "newlines": 1,
+      "sha256": "d3b79888ce297d96f47250d82a714d2716954c8152c0232a60af570b79bfa8c3"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44923245409",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "bbd602360d44124d42f3c43cb38c414ae5e85fdaa9df8bae1780df7cf8befcde"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44924102130",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "f16d0294872896587c8c98c3ce6fd4e0b1e040b08be84af34d3285de3cbb17af"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44927342003",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "a88c22928128fbc94f188a7721b6de2a5821d9aa4a541c2117dd7f8200951d69"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44928361934",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "7aa314d22c5a4c1ff895010509f862a9ebd77920efc5c7e83d01ed2a4c2c5cc3"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44930130571",
+      "bytes": 53149,
+      "newlines": 1,
+      "sha256": "89c30cfdfb51ebb69cd1f9677f7644ac91cafb09749f75cd1f314f16080d6b00"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44931599178",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "6e73212d6ad911fa9f445d3f4afe23f5f6ee2727d42ac66e928348846d43a338"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44937055910",
+      "bytes": 53149,
+      "newlines": 1,
+      "sha256": "66a2942da91501732dbf31cd311d142397047359a6af0398c29f8cbfdc692cc4"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44937055981",
+      "bytes": 11481,
+      "newlines": 1,
+      "sha256": "6f63a4c7e5b024d382433b846fa4f828d700bb4c0f46f5988c8cf06974ca0ff7"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44937313040",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "83d593af9116750d9f708dd51219f771942f0891768a884fd2101fdab2cc21a1"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44937340473",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "75bcad77d364e55c77b2bb64084d8dc139e36b0b6bf88e42fac49330381997d4"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44942169457",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "9259f6a0f50c00e975cf94fa256c13cebcef74ac8b7b6a423208a4aa3030b6bf"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44945156924",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "2a10bd916da41a1e8cfb128e601028bc24f035907e353c92da7998e9737dd073"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/44955618441",
+      "bytes": 56701,
+      "newlines": 1,
+      "sha256": "fef80fe3c631c04efa9d5840c343b3454dfe9cfbd058a650af28961fb41f3428"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45001521812",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "2a415cbad26e646a275479cfecb353ced27de6da390b88a7de01a2435940ff44"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45004792763",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "3bd72fccec769dcbfcc6664e65bdab84c7c287acd5af298e58f740c137d347e0"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45008494201",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "82b7a6bfcf7d6582efaf4fbccedeba5cf62907b60a81020cbdc22ef252a0d390"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45008515555",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "1ebc79f3b588f6fa6e7f2da698630ef5a77f437dbd1335a13ea38021a384b57a"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45014774592",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "e36fa35ed3cd82a90726e34e933d05174ca730b68398977ed518efb5a42822f9"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45014801771",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "e118d790a4964fd3aa84fc4c5ad2181a4665b004b296cc9616cd23a1775cb264"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45022112630",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "5ce54a667943475a783283939109f4bb297653e1ac74977b03e5fb6ff5f129e1"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45022130047",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "713a04038cdb6b5dd5154a5755ea72d3d186b4df98e8784a804edd6d3125b9e1"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027613026",
+      "bytes": 12273,
+      "newlines": 1,
+      "sha256": "2a37a0e32569ab3680581174b89fbd566b024ede5ab0670c2a5188072533c7e6"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027613093",
+      "bytes": 34509,
+      "newlines": 1,
+      "sha256": "a46ceb4fc41641aa59bfde0d3f641e13116d88a921636cc525229c04cf79d4e6"
+    },
+    {
+      "name": "Voice workflow and job evidence",
+      "source": "https://github.com/konard/voice-simulator/actions/runs/45027621556",
+      "bytes": 5594,
+      "newlines": 1,
+      "sha256": "550bc1037afccd0f3575b902206d90e8a47cb08d0e82a4719a7baaf9dd8adc2f"
+    }
+  ],
+  "unavailable": [
+    {
+      "artifact": "original start-command wrapper log and unfiltered solve log",
+      "execution": "8a60f429-365b-4b2f-8c8a-5c4cde14115a",
+      "recordedPaths": ["/tmp/start-command/logs/isolation/docker/8a60f429-365b-4b2f-8c8a-5c4cde14115a.log", "/home/box/solve-2026-11-21T15-40-15-770Z.log"],
+      "reason": "Paths were on the incident host; this workspace has no corresponding local execution or log.",
+      "substitutes": ["https://github.com/link-assistant/hive-mind/issues/4136", "https://github.com/konard/voice-simulator/pull/162#issuecomment-7070288560"]
+    },
+    {
+      "artifact": "original start-command wrapper log and unfiltered solve log",
+      "execution": "c7444479-c56c-4528-893b-37162b50277f",
+      "recordedPaths": ["/tmp/start-command/logs/isolation/docker/c7444479-c56c-4528-893b-37162b50277f.log", "/home/box/solve-2026-11-22T00-44-10-929Z.log"],
+      "reason": "Paths were on the incident host; this workspace has no corresponding local execution or log.",
+      "substitutes": ["https://github.com/link-assistant/hive-mind/issues/4136", "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7071750912"]
+    },
+    {
+      "artifact": "original start-command wrapper log and unfiltered solve log",
+      "execution": "65d2823c-1532-42ed-91ee-ebb4b418d54e",
+      "recordedPaths": ["/tmp/start-command/logs/isolation/docker/65d2823c-1532-42ed-91ee-ebb4b418d54e.log", "/home/box/solve-2026-11-22T07-48-31-021Z.log"],
+      "reason": "Paths were on the incident host; this workspace has no corresponding local execution or log.",
+      "substitutes": ["https://github.com/link-assistant/hive-mind/issues/4136", "https://github.com/konard/voice-simulator/pull/162#issuecomment-7080225394"]
+    },
+    {
+      "artifact": "original start-command wrapper log and unfiltered solve log",
+      "execution": "e272e5e3-5915-433a-86ad-035fd99149e1",
+      "recordedPaths": ["/tmp/start-command/logs/isolation/docker/e272e5e3-5915-433a-86ad-035fd99149e1.log", "/home/box/solve-2026-11-23T03-04-35-180Z.log"],
+      "reason": "Paths were on the incident host; this workspace has no corresponding local execution or log.",
+      "substitutes": ["https://github.com/link-assistant/hive-mind/issues/4136", "https://github.com/link-foundation/java-ai-driven-development-pipeline-template/issues/33#issuecomment-7090448712"]
+    },
+    {
+      "artifact": "original Docker inspection, complete tails and host journal",
+      "reason": "The incident host is unavailable from this workspace. The report preserves the recorded excerpts and records no attributed exit-time event.",
+      "substitutes": ["https://github.com/link-assistant/hive-mind/issues/4136"]
+    }
+  ]
+}

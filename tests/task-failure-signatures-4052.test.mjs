@@ -13,6 +13,7 @@ import { summarizeTaskEvidence } from '../src/hive-manager/task/lib/evidence.mjs
 import { buildPrePullRequestFailureActionSection } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 
 const attempts = JSON.parse(await readFile(new URL('../docs/case-studies/issue-4052/attempts.json', import.meta.url), 'utf8'));
+const followUpAttempts = JSON.parse(await readFile(new URL('../docs/case-studies/issue-4136/attempts.json', import.meta.url), 'utf8'));
 const evidence = (text, attempt = {}) => summarizeTaskEvidence({ available: true, text }, { exitCode: 1, ...attempt });
 const timestamp = '2026-11-20T06:03:29.547Z';
 
@@ -20,6 +21,14 @@ test('classifies all 15 incident attempts from reviewed terminal evidence', () =
   assert.equal(attempts.length, 15);
   assert.equal(new Set(attempts.map(entry => entry.uuid)).size, 15);
   for (const entry of attempts) {
+    assert.equal(evidence(entry.lines.join('\n'), entry).signature, entry.signature, entry.uuid);
+  }
+});
+
+test('separates the four issue #4136 attempts by their terminal cause', () => {
+  assert.equal(followUpAttempts.length, 4);
+  assert.equal(new Set(followUpAttempts.map(entry => entry.uuid)).size, 4);
+  for (const entry of followUpAttempts) {
     assert.equal(evidence(entry.lines.join('\n'), entry).signature, entry.signature, entry.uuid);
   }
 });

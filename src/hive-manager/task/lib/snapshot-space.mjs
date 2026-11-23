@@ -40,7 +40,7 @@ async function freeBytes(root) {
   return available;
 }
 
-export async function snapshotSpace({ id, family, container, containerId, exitCode }) {
+export async function snapshotSpace({ id, family, container, containerId, exitCode, requireIdentity = false }) {
   let layer;
   try {
     layer = JSON.parse(await docker(['container', 'inspect', '--size', '--format', inspectFormat, '--', container]));
@@ -53,9 +53,10 @@ export async function snapshotSpace({ id, family, container, containerId, exitCo
   if (layer.name !== `/${container}` || layer.state !== 'exited' || layer.exitCode !== exitCode || !/^[a-f\d]{64}$/.test(layer.id) || (containerId && !layer.id.startsWith(containerId)) || (labeledId && labeledId !== id) || (labeledFamily && labeledFamily !== family)) {
     return { state: 'container-changed' };
   }
+  if (requireIdentity && labeledId !== id && containerId !== layer.id) return { state: 'container-unattributed' };
   const requiredBytes = 2 * size + reserveBytes;
   if (!Number.isSafeInteger(size) || size < 0 || !Number.isSafeInteger(requiredBytes)) return { state: 'writable-layer-unknown' };
-  const estimate = { writableLayerBytes: size, requiredBytes };
+  const estimate = { ...(requireIdentity ? { containerId: `sha256:${layer.id}` } : {}), writableLayerBytes: size, requiredBytes };
   try {
     const roots = await storageRoots();
     const availableBytes = Math.min(...(await Promise.all(roots.map(freeBytes))));

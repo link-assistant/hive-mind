@@ -244,10 +244,17 @@ export function createSessionStore(options = {}) {
     return {};
   }
 
-  async function readSnapshotMap() {
+  async function readSnapshotMap(strict = false) {
     try {
-      return parseSnapshot(await fsp.readFile(snapshotPath, 'utf8'));
-    } catch {
+      const raw = await fsp.readFile(snapshotPath, 'utf8');
+      if (strict) {
+        const { sessions } = JSON.parse(raw);
+        if (!sessions || typeof sessions !== 'object' || Array.isArray(sessions) || Object.values(sessions).some(session => !session || typeof session !== 'object' || Array.isArray(session))) throw new Error('Invalid session snapshot.');
+        return sessions;
+      }
+      return parseSnapshot(raw);
+    } catch (error) {
+      if (strict && error.code !== 'ENOENT') throw new Error('Could not read the bot session snapshot.', { cause: error });
       // Missing or corrupt snapshot is non-fatal — start from empty.
       return {};
     }
@@ -451,9 +458,9 @@ export function createSessionStore(options = {}) {
      * Waits for the snapshot updates recorded so far, so it sees them.
      * @returns {Promise<Array<{sessionName: string, sessionInfo: object}>>}
      */
-    async load() {
+    async load({ strict = false } = {}) {
       while (updating) await updating;
-      const sessions = await readSnapshotMap();
+      const sessions = await readSnapshotMap(strict);
       const out = [];
       for (const [sessionName, record] of Object.entries(sessions)) {
         out.push({ sessionName, sessionInfo: deserializeSessionInfo(record) });

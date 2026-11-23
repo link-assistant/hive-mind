@@ -23,11 +23,16 @@ export function mountTable(pid = 'self') {
     });
 }
 
-export function localDocker(socket) {
+export function localDockerEndpoint(socket) {
   const endpoint = socket ? `unix://${socket}` : process.env.DOCKER_HOST || 'unix:///var/run/docker.sock';
   if ((!socket && process.env.DOCKER_CONTEXT && process.env.DOCKER_CONTEXT !== 'default') || !endpoint.startsWith('unix://') || !absolute(endpoint.slice(7))) {
     throw new Error('Use a local Docker Unix socket on the daemon host. Select it with --docker-socket.');
   }
+  return endpoint;
+}
+
+export function localDocker(socket) {
+  const endpoint = localDockerEndpoint(socket);
   return (args, options) => output('docker', ['--host', endpoint, ...args], options);
 }
 

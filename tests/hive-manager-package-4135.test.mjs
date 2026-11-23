@@ -44,6 +44,7 @@ exec "$@"`
     const source = join(root, 'src');
     const manager = join(source, 'hive-manager');
     mkdirSync(join(manager, 'storage'), { recursive: true });
+    mkdirSync(join(manager, 'auto-fix'));
     mkdirSync(join(manager, 'lib'));
     mkdirSync(join(manager, 'maintenance'));
     mkdirSync(join(manager, 'backup'));
@@ -56,6 +57,7 @@ if (!globalThis.fixtureTerminalPreloaded) throw new Error('Missing terminal prel
 console.log(JSON.stringify({ version: ${JSON.stringify(version)}, args: process.argv.slice(2), input: readFileSync(0, 'utf8') }));
 process.exitCode = 17;`;
     if (storage) writeFileSync(join(manager, 'storage', 'main.mjs'), module);
+    writeFileSync(join(manager, 'auto-fix', 'main.mjs'), module);
     writeFileSync(join(source, 'hive-models.mjs'), module, { mode: 0o700 });
     writeFileSync(join(manager, 'maintenance', 'global-tools.py'), `print('${version}')\n`);
     writeFileSync(join(manager, 'backup', 'main.py'), `import json, sys\nprint(json.dumps(sys.argv[1:]))\n`);
@@ -92,6 +94,25 @@ test('SSH carries the explicit pin to npm and preserves storage arguments, stdin
   assert.match(result.stderr, /npm package @link-assistant\/hive-mind@2\.48\.0/);
   assert.equal(result.status, 17, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { version: pin, args: ['disk', '/docker socket', 'stage', '/stage data', '--help', arg, ''], input: 'forwarded stdin\n' });
+});
+
+test('auto-fix uses the requested package and the profile read on the SSH target', t => {
+  const { install, run, target, npm } = fixture(t);
+  install(target, '2.49.0');
+  install(npm, pin);
+  const profile = join(target, 'stage profile');
+  writeFileSync(profile, 'name=stage\nstate-dir=/stage data\ndocker-socket=/docker socket\nvariant=dind\n');
+  const args = ['deploy', '--profile', profile, 'auto-fix', '--recover-limit', '2'];
+  const result = run(args);
+  assert.equal(result.status, 17, result.stderr);
+  assert.match(result.stderr, /skipping installed package .*@2\.49\.0/);
+  assert.match(result.stderr, /npm package .*@2\.48\.0/);
+  assert.deepEqual(JSON.parse(result.stdout), { version: pin, args: ['stage', '/stage data', '/docker socket', 'dind', '--recover-limit', '2'], input: '' });
+
+  const mismatch = run(args, { version: '2.47.0' });
+  assert.equal(mismatch.status, 1, mismatch.stderr);
+  assert.match(mismatch.stderr, /npm did not provide .*@2\.47\.0 with hive-manager\/auto-fix\/main\.mjs/);
+  assert.equal(mismatch.stdout, '');
 });
 
 test('SSH reuses the matching installed package and skips a mismatch even when its module exists', t => {

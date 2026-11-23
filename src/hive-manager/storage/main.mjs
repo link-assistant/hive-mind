@@ -10,7 +10,7 @@ const usage = {
 Show bounded, read-only host and Docker storage measurements in JSON.
 Use --docker-summary to request Docker's verbose storage walk separately.
 `,
-  scoped: `Usage: hive-manager deploy cleanup --scoped [--dry-run | --status | --apply PREVIEW_ID]
+  scoped: `Usage: hive-manager deploy cleanup --scoped [--dry-run | --status | --apply PREVIEW_ID] [--instance-only]
 Start a detached disk-space-saviour preview on the Linux Docker host.
 Poll --status after reconnecting. Review a completed preview before applying it.
 `,
@@ -36,7 +36,7 @@ async function main([action, socket, instance, stateDir, ...args]) {
   const options = {
     help: { type: 'boolean', short: 'h' },
     ...(action === 'disk' ? { budget: { type: 'string', default: '60' } } : {}),
-    ...(action === 'scoped' ? { 'dry-run': { type: 'boolean' }, status: { type: 'boolean' }, apply: { type: 'string' } } : {}),
+    ...(action === 'scoped' ? { 'dry-run': { type: 'boolean' }, status: { type: 'boolean' }, apply: { type: 'string' }, 'instance-only': { type: 'boolean' } } : {}),
     ...(action === 'preserve' ? { output: { type: 'string' }, execution: { type: 'string' } } : {}),
     ...(action === 'cleanup-preserved' ? { apply: { type: 'string' } } : {}),
   };
@@ -69,7 +69,7 @@ async function main([action, socket, instance, stateDir, ...args]) {
       }
       const root = realpathSync(await dockerRoot(docker));
       if ([root, ...runtimeRoots].some(path => overlaps(path, jobDirectory))) throw new Error('Scoped cleanup state overlaps runtime storage.');
-      result = await launchCleanup(jobDirectory, socket, instance, stateDir, values.apply);
+      result = await launchCleanup(jobDirectory, socket, instance, stateDir, values.apply, values['instance-only']);
       if (['failed', 'interrupted', 'pressure-stopped'].includes(result.status)) process.exitCode = 1;
       break;
     }

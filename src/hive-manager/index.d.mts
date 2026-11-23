@@ -103,6 +103,89 @@ export function inspectTaskWindow(tasks: readonly TaskRecord[], selection: TaskS
 export function collectTaskEvidence(tasks: readonly TaskRecord[], selection: TaskSelection): Promise<TaskEvidence>;
 export function previewTaskRecordRepair(options?: TaskRecordRepairOptions): Promise<TaskRecordRepairPreview>;
 
+export interface AutoFixOptions {
+  name: string;
+  /** Absolute path on the deployment host. */
+  stateDir: string;
+  socket?: string;
+  variant?: 'plain' | 'dind';
+  startDocker?: boolean;
+  startInstance?: boolean;
+  cleanupPreview?: string;
+  repairRecords?: readonly string[];
+  recovery?: { limit: number } | { execution: string; attempt: number; maxResumes?: number };
+  minFreeGiB?: number;
+  minMemoryMiB?: number;
+}
+
+export interface AutoFixTarget {
+  name: string;
+  stateDir: string;
+  endpoint: string;
+  variant: 'plain' | 'dind';
+}
+
+export interface AutoFixPhase {
+  name: 'host-diagnostics' | 'docker' | 'preflight' | 'instance' | 'task-inventory' | 'scoped-cleanup' | 'record-repair' | 'recovery';
+  state: 'completed' | 'blocked' | 'deferred' | 'skipped' | 'proposed' | 'reviewed';
+  details?: unknown;
+}
+
+export interface AutoFixBlocker {
+  phase: AutoFixPhase['name'];
+  id?: string;
+  reason: string;
+}
+
+export interface AutoFixRecoveryCandidate {
+  id: string;
+  attempt: number;
+  nextAttempt: number;
+  exitCode: number;
+  finishedAt: string | null;
+  recovery: 'telegram-alias' | 'memory-exhaustion';
+  snapshot: { state: string; containerId?: string; writableLayerBytes?: number; requiredBytes?: number; availableBytes?: number };
+  approval?: string;
+  blocked?: string;
+}
+
+export type AutoFixAction = { type: 'start-docker' } | { type: 'start-instance'; id: string } | { type: 'scoped-cleanup'; approval: string } | { type: 'record-repair'; candidate: { uuid: string; state: 'eligible'; target: { id: string; name: string; startedAt: string } } } | { type: 'recovery'; candidate: AutoFixRecoveryCandidate };
+
+export interface AutoFixPreview {
+  mode: 'preview';
+  target: AutoFixTarget;
+  /** Null when the preview proposes no mutations. */
+  approval: string | null;
+  phases: AutoFixPhase[];
+  blockers: AutoFixBlocker[];
+  actions: AutoFixAction[];
+}
+
+export interface AutoFixReceipt {
+  id: string;
+  mode: 'apply';
+  status: 'running' | 'completed' | 'blocked' | 'uncertain' | 'interrupted';
+  target: AutoFixTarget;
+  approval: string;
+  afterInterruption: string | null;
+  startedAt: string;
+  finishedAt?: string;
+  phases: AutoFixPhase[];
+  blockers?: AutoFixBlocker[];
+  actions: (AutoFixAction & {
+    state: 'pending' | 'running' | 'completed' | 'blocked' | 'uncertain';
+    startedAt?: string;
+    finishedAt?: string;
+    cleanupRunId?: string;
+    result?: unknown;
+  })[];
+  error?: string;
+}
+
+export function previewAutoFix(options: AutoFixOptions): Promise<AutoFixPreview>;
+export function applyAutoFix(options: AutoFixOptions, approval: string, control?: { afterInterruption?: string }): Promise<AutoFixReceipt>;
+export function getAutoFixStatus(profile: Pick<AutoFixOptions, 'name'>, selection?: { runId?: string }): Promise<AutoFixReceipt | { status: 'idle' }>;
+
 export type IncidentHostSignature = 'host-reboot' | 'host-reset' | 'daemon-restart';
 
 export interface IncidentAttemptSelection {
